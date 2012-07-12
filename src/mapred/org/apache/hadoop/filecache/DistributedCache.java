@@ -51,6 +51,8 @@ import java.net.URI;
  * Jars may be optionally added to the classpath of the tasks, a rudimentary 
  * software distribution mechanism.  Files have execution permissions.
  * Optionally users can also direct it to symlink the distributed cache file(s)
+ * into the working directory of the task. On Windows, if the user does have
+ * sufficient privilege to create symlink(s), the cache file(s) will be copied
  * into the working directory of the task.</p>
  * 
  * <p><code>DistributedCache</code> tracks modification timestamps of the cache 

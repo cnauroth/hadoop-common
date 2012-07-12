@@ -438,6 +438,8 @@ public class TrackerDistributedCacheManager {
         FileUtil.unZip(srcFile, destDir);
       } else if (isTarFile(tmpArchive)) {
         FileUtil.unTar(srcFile, destDir);
+      } else if (isCabFile(tmpArchive)) {
+        FileUtil.unCab(srcFile, destDir);
       } else {
         LOG.warn(String.format(
             "Cache file %s specified as archive, but not valid extension.",
@@ -489,6 +491,10 @@ public class TrackerDistributedCacheManager {
   private static boolean isTarFile(String filename) {
     return (filename.endsWith(".tgz") || filename.endsWith(".tar.gz") ||
            filename.endsWith(".tar"));
+  }
+
+  private static boolean isCabFile(String filename) {
+    return (filename.endsWith(".cab"));
   }
 
   // Checks if the cache has already been localized and is fresh
@@ -545,7 +551,7 @@ public class TrackerDistributedCacheManager {
         String target = list[i].getAbsolutePath();
         String link = new File(workDir, list[i].getName()).toString();
         LOG.info(String.format("Creating symlink: %s <- %s", target, link));
-        int ret = FileUtil.symLink(target, link);
+        int ret = FileUtil.symLinkOrCopy(target, link);
         if (ret != 0) {
           LOG.warn(String.format("Failed to create symlink: %s <- %s", target,
               link));

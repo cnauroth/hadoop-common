@@ -78,15 +78,25 @@ abstract public class Shell {
   }
 
   /** Return a command to set permission */
-  public static String[] getSetPermissionCommand(String perm) {
-    return (WINDOWS) ? new String[] { WINUTILS, "chmod", perm }
-                     : new String[] { "chmod", perm };
+  public static String[] getSetPermissionCommand(String perm, boolean recursive) {
+    if (recursive) {
+      return (WINDOWS) ? new String[] { WINUTILS, "chmod", "-R", perm }
+                         : new String[] { "chmod", "-R", perm };
+    } else {
+      return (WINDOWS) ? new String[] { WINUTILS, "chmod", perm }
+                       : new String[] { "chmod", perm };
+    }
   }
 
   /** Return a command to set owner */
   public static String[] getSetOwnerCommand(String owner) {
     return (WINDOWS) ? new String[] { WINUTILS, "chown", owner }
                      : new String[] { "chown", owner };
+  }
+  
+  public static String[] getSymlinkCommand(String target, String link) {
+    return WINDOWS ? new String[] { WINUTILS, "symlink", link, target }
+                   : new String[] { "ln", "-s", target, link };
   }
 
   /**Time after which the executing script would be timedout*/

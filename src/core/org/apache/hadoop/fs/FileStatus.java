@@ -24,6 +24,7 @@ import java.io.IOException;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.security.UserGroupInformation;
 
 /** Interface that represents the client side information for a file.
  */
@@ -146,6 +147,18 @@ public class FileStatus implements Writable, Comparable {
   
   public Path getPath() {
     return path;
+  }
+
+  /**
+   * Checks if the given ugi is an owner of this file.
+   * @return true if yes, false otherwise
+   */
+  public boolean isOwnedByUser(UserGroupInformation ugi) {
+    if (ugi == null) {
+      throw new IllegalArgumentException(
+          "UserGroupInformation argument is null");
+    }
+    return owner.equals(ugi.getShortUserName());
   }
 
   /* These are provided so that these values could be loaded lazily 

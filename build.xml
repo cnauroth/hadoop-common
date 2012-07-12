@@ -137,6 +137,8 @@
   <property name="test.libhdfs.conf.dir" value="${c++.libhdfs.src}/tests/conf"/>
   <property name="test.libhdfs.dir" value="${test.build.dir}/libhdfs"/>
 
+  <property name="test.winutils.dir" value="${test.build.dir}/winutils/"/>
+
   <property name="librecordio.test.dir" value="${test.build.dir}/librecordio"/>
   <property name="web.src.dir" value="${basedir}/src/web"/>
   <property name="src.webapps" value="${basedir}/src/webapps"/>
@@ -394,12 +396,14 @@
     <mkdir dir="${test.build.testjar}"/>
     <mkdir dir="${test.build.testshell}"/>
     <mkdir dir="${test.build.extraconf}"/>
+    <!-- Unnecessary edit of checked-in files
     <tempfile property="touch.temp.file" destDir="${java.io.tmpdir}"/>
     <touch millis="0" file="${touch.temp.file}">
       <fileset dir="${conf.dir}" includes="**/*.template"/>
       <fileset dir="${contrib.dir}" includes="**/*.template"/>
     </touch>
     <delete file="${touch.temp.file}"/>
+    -->
     <!-- copy all of the jsp and static files -->
     <copy todir="${build.webapps}">
       <fileset dir="${src.webapps}">
@@ -412,7 +416,7 @@
       <mapper type="glob" from="*.template" to="*"/>
     </copy>
 
-    <copy todir="${contrib.dir}" verbose="true">
+    <copy todir="${contrib.dir}" verbose="true" filtering="true">
       <fileset dir="${contrib.dir}" includes="**/*.template"/>
       <mapper type="glob" from="*.template" to="*"/>
     </copy>
@@ -1484,7 +1488,7 @@
   <!-- ================================================================== -->
   <!--                                                                    -->
   <!-- ================================================================== -->
-  <target name="package" depends="compile, jar, javadoc, docs, cn-docs, api-report, examples, tools-jar, jar-test, ant-tasks, package-librecordio"
+  <target name="package" depends="compile, jar, api-report, examples, tools-jar, jar-test, ant-tasks, package-librecordio"
 	  description="assembles multi-platform artifacts for distribution">
     <delete dir="${dist.dir}"/>
     <mkdir dir="${dist.dir}"/>
@@ -1587,9 +1591,11 @@
       <fileset dir="${basedir}/.eclipse.templates"/>
     </copy>
 
+    <!--Removing this as it does not build on Windows
     <subant target="task-controller">
       <fileset dir="." includes="build.xml"/>
     </subant>
+    -->
 
     <subant target="jsvc">
       <fileset dir="." includes="build.xml"/>
@@ -1622,6 +1628,7 @@
     <mkdir dir="${dist.dir}/libexec"/>
     <mkdir dir="${dist.dir}/sbin"/>
     <mkdir dir="${dist.dir}/share/${name}/templates/conf"/>
+
 
     <copy todir="${dist.dir}/share/${name}/templates/conf" includeEmptyDirs="false">
       <fileset dir="${basedir}/src/packages/templates/conf">
@@ -1878,9 +1885,11 @@
       </fileset>
     </copy>
 
+    <!-- Removing this as it does not build on Windows
     <subant target="task-controller">
       <fileset dir="." includes="build.xml"/>
     </subant>
+    -->
 
     <subant target="jsvc">
       <fileset dir="." includes="build.xml"/>
@@ -2096,15 +2105,16 @@
     <delete failonerror="false">
       <fileset dir="${winutils.src.dir}" includes="**/*">
         <exclude name="**/*.c"/>
-        <exclude name="**/*.cpp"/>
         <exclude name="**/*.h"/>
         <exclude name="**/*.sln"/>
         <exclude name="**/*.vcxproj"/>
         <exclude name="**/*.vcxproj.user"/>
+        <exclude name="**/*.bat"/>
       </fileset>
     </delete>
     <delete failonerror="false">
       <dirset dir="${winutils.src.dir}" includes="**/*"/>
+        <exclude name="tests"/>
     </delete>
   </target>
 
@@ -2137,6 +2147,32 @@
         <env key="LIBHDFS_INSTALL_DIR" value="${install.c++}/lib"/>  
         <env key="LIB_DIR" value="${common.ivy.lib.dir}"/>
 		<arg value="test"/>
+    </exec>
+  </target>
+
+  <target name="test-ms-winutils" depends="compile-ms-winutils" if="windows">
+    <delete dir="${test.winutils.dir}"/>
+    <mkdir dir="${test.winutils.dir}"/>
+    <copy todir="${test.winutils.dir}">
+      <fileset dir="${winutils.src.dir}\tests" includes="*.bat"/>
+    </copy>
+
+    <exec dir="${test.winutils.dir}"
+      executable="${test.winutils.dir}\test-winutils-basics.bat"
+      failonerror="true">
+      <env key="HADOOP_HOME" value="${basedir}"/>
+    </exec>
+
+    <exec dir="${test.winutils.dir}"
+      executable="${test.winutils.dir}\test-winutils-chown.bat"
+      failonerror="true">
+      <env key="HADOOP_HOME" value="${basedir}"/>
+    </exec>
+
+    <exec dir="${test.winutils.dir}"
+      executable="${test.winutils.dir}\test-winutils-chmod.bat"
+      failonerror="true">
+      <env key="HADOOP_HOME" value="${basedir}"/>
     </exec>
   </target>
 

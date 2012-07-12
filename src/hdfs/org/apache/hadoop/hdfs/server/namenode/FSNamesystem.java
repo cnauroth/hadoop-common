@@ -111,6 +111,7 @@ import org.apache.hadoop.net.CachedDNSToSwitchMapping;
 import org.apache.hadoop.net.DNSToSwitchMapping;
 import org.apache.hadoop.net.NetworkTopology;
 import org.apache.hadoop.net.Node;
+import org.apache.hadoop.net.NodeBase;
 import org.apache.hadoop.net.ScriptBasedMapping;
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -138,7 +139,7 @@ import org.mortbay.util.ajax.JSON;
  * 4)  machine --> blocklist (inverted #2)
  * 5)  LRU cache of updated-heartbeat machines
  ***************************************************/
-public class FSNamesystem implements FSConstants, FSNamesystemMBean,
+public class FSNamesystem implements FSConstants, FSNamesystemMBean, FSClusterStats, 
     NameNodeMXBean, MetricsSource {
   public static final Log LOG = LogFactory.getLog(FSNamesystem.class);
   public static final String AUDIT_FORMAT =
@@ -333,7 +334,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
   private DNSToSwitchMapping dnsToSwitchMapping;
   
   // for block replicas placement
-  ReplicationTargetChooser replicator;
+  BlockPlacementPolicy replicator;
 
   private HostsFileReader hostsReader; 
   private Daemon dnthread = null;
@@ -481,11 +482,8 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
     this.defaultPermission = PermissionStatus.createImmutable(
         fsOwner.getShortUserName(), supergroup, new FsPermission(filePermission));
 
-
-    this.replicator = new ReplicationTargetChooser(
-                         conf.getBoolean("dfs.replication.considerLoad", true),
-                         this,
-                         clusterMap);
+		this.replicator = BlockPlacementPolicy.getInstance(conf, this,	clusterMap);
+		
     this.defaultReplication = conf.getInt("dfs.replication", 3);
     this.maxReplication = conf.getInt("dfs.replication.max", 512);
     this.minReplication = conf.getInt("dfs.replication.min", 1);
@@ -1519,7 +1517,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
    */
   public LocatedBlock getAdditionalBlock(String src, 
                                          String clientName,
-                                         List<Node> excludedNodes
+                                         HashMap<Node, Node> excludedNodes
                                          ) throws IOException {
     long fileLength, blockSize;
     int replication;
@@ -1548,7 +1546,8 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
     }
 
     // choose targets for the new block tobe allocated.
-    DatanodeDescriptor targets[] = replicator.chooseTarget(replication,
+    DatanodeDescriptor targets[] = replicator.chooseTarget(src, 
+    		                                                   replication,
                                                            clientNode,
                                                            excludedNodes,
                                                            blockSize);
@@ -2968,10 +2967,11 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
     List<DatanodeDescriptor> containingNodes;
     DatanodeDescriptor srcNode;
     
+    INodeFile fileINode = null;
     synchronized (this) {
       synchronized (neededReplications) {
         // block should belong to a file
-        INodeFile fileINode = blocksMap.getINode(block);
+        fileINode = blocksMap.getINode(block);
         // abandoned block or block reopened for append
         if(fileINode == null || fileINode.isUnderConstruction()) { 
           neededReplications.remove(block, priority); // remove from neededReplications
@@ -3006,9 +3006,9 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
     }
 
     // choose replication targets: NOT HOLDING THE GLOBAL LOCK
-    DatanodeDescriptor targets[] = replicator.chooseTarget(
+    DatanodeDescriptor targets[] = replicator.chooseTarget(fileINode,
         requiredReplication - numEffectiveReplicas,
-        srcNode, containingNodes, null, block.getNumBytes());
+        srcNode, containingNodes, block.getNumBytes());
     if(targets.length == 0)
       return false;
 
@@ -3016,7 +3016,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
       synchronized (neededReplications) {
         // Recheck since global lock was released
         // block should belong to a file
-        INodeFile fileINode = blocksMap.getINode(block);
+        fileINode = blocksMap.getINode(block);
         // abandoned block or block reopened for append
         if(fileINode == null || fileINode.isUnderConstruction()) { 
           neededReplications.remove(block, priority); // remove from neededReplications
@@ -3855,6 +3855,8 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
                               Block b, short replication,
                               DatanodeDescriptor addedNode,
                               DatanodeDescriptor delNodeHint) {
+  	INodeFile inode = blocksMap.getINode(b);
+  	
     // first form a rack to datanodes map and
     HashMap<String, ArrayList<DatanodeDescriptor>> rackMap =
       new HashMap<String, ArrayList<DatanodeDescriptor>>();
@@ -3892,24 +3894,13 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
     boolean firstOne = true;
     while (nonExcess.size() - replication > 0) {
       DatanodeInfo cur = null;
-      long minSpace = Long.MAX_VALUE;
 
       // check if we can del delNodeHint
       if (firstOne && delNodeHint !=null && nonExcess.contains(delNodeHint) &&
             (priSet.contains(delNodeHint) || (addedNode != null && !priSet.contains(addedNode))) ) {
           cur = delNodeHint;
       } else { // regular excessive replica removal
-        Iterator<DatanodeDescriptor> iter = 
-          priSet.isEmpty() ? remains.iterator() : priSet.iterator();
-          while( iter.hasNext() ) {
-            DatanodeDescriptor node = iter.next();
-            long free = node.getRemaining();
-
-            if (minSpace > free) {
-              minSpace = free;
-              cur = node;
-            }
-          }
+      	  cur = replicator.chooseReplicaToDelete(inode, b, replication, priSet, remains);          
       }
 
       firstOne = false;
@@ -4642,7 +4633,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean,
   }
 
   public DatanodeDescriptor getRandomDatanode() {
-    return replicator.chooseTarget(1, null, null, 0)[0];
+  	return (DatanodeDescriptor)clusterMap.chooseRandom(NodeBase.ROOT);
   }
 
   /**

@@ -39,6 +39,13 @@ import org.apache.hadoop.util.Shell.ShellCommandExecutor;
 public class FileUtil {
   private static final Log LOG = LogFactory.getLog(FileUtil.class);
 
+  /* The error code is defined in winutils to indicate insufficient
+   * privilege to create symbolic links. This value need to keep in
+   * sync with the constant of the same name in:
+   * "src\winutils\common.h"
+   * */
+  public static final int SYMLINK_NO_PRIVILEGE = 2; 
+
   /**
    * convert an array of FileStatus to an array of Path
    * 
@@ -501,6 +508,51 @@ public class FileUtil {
   }
 
   /**
+   * Given a Cab File as input it will uncab the file in the untar directory
+   * passed as the second parameter
+   *
+   * This utility will uncab ".cab" files
+   *
+   * This utility is targeted for Windows environment as a replacement of tar
+   *
+   * @param inFile The cab file as input. 
+   * @param uncabDir The directory where to uncab the cab file.
+   * @throws IOException
+   */
+   public static void unCab(File inFile, File uncabDir) throws IOException {
+    if (!Shell.WINDOWS) {
+      throw new IOException("Cannot use FileUtil.unCab on non-Windows environment");
+    }
+
+    if (!uncabDir.mkdirs()) {
+      if (!uncabDir.isDirectory()) {
+        throw new IOException("Mkdirs failed to create " + uncabDir);
+      }
+    }
+
+    String hadoopHome = System.getenv("HADOOP_HOME");
+    if (hadoopHome == null || hadoopHome == "") {
+      throw new IOException("Cannot find HADOOP_HOME environment variable in the System. Please add HADOOP_HOME to the environment and point to the installation folder (e.g. c:\\apps\\dist)");
+    }
+    StringBuffer uncabCommand = new StringBuffer();
+    uncabCommand.append("cd ");
+    uncabCommand.append(FileUtil.makeShellPath(uncabDir));
+    uncabCommand.append(" & ");
+    uncabCommand.append(hadoopHome + "\\bin\\");
+    uncabCommand.append("cabarc -p x ");
+    uncabCommand.append(FileUtil.makeShellPath(inFile));
+
+    String[] shellCmd = {"cmd", "/c", uncabCommand.toString() };
+    ShellCommandExecutor shexec = new ShellCommandExecutor(shellCmd);
+    shexec.execute();
+    int exitcode = shexec.getExitCode();
+    if (exitcode != 0) {
+      throw new IOException("Error uncabbing file " + inFile +
+                  ". Tar process exited with exit code " + exitcode);
+    }
+  }
+
+  /**
    * Given a Tar File as input it will untar the file in a the untar directory
    * passed as the second parameter
    * 
@@ -547,37 +599,7 @@ public class FileUtil {
     }
   }
 
-  //review minwei: temp hack to copy file
-  private static void copyDirectory(String fromFileName, String toFileName)
-      throws IOException {
-
-    File fromFolder = new File(fromFileName);
-    File toFolder = new File(toFileName);
-    if (fromFolder.isFile()) {
-      copyFile(fromFileName, toFileName);
-      return;
-    }
-
-    File[] filelist = fromFolder.listFiles();
-    if (filelist == null) {
-      return;
-    }
-
-    String fromPath = fromFileName;
-    String toPath = toFileName;
-    if (!toFolder.exists())
-      toFolder.mkdirs();
-    for (int i = 0; i < filelist.length; i++) {
-      String subPath = filelist[i].getName();
-      if (filelist[i].isDirectory()) {
-        copyDirectory(fromPath + "/" + subPath, toPath + "/" + subPath);
-      } else {
-        copyFile(fromPath + "/" + subPath, toPath + "/" + subPath);
-      }
-    }
-  }
-
-  private static void copyFile(String fromFileName, String toFileName)
+  public static void copyFile(String fromFileName, String toFileName)
       throws IOException {
     File fromFile = new File(fromFileName);
     File toFile = new File(toFileName);
@@ -587,8 +609,8 @@ public class FileUtil {
                             + fromFileName);
 
     if (fromFile.isDirectory()) {
-      copyDirectory(fromFileName, toFileName);
-      return;
+      throw new IOException("FileCopy: " + "source file is a directory: "
+          + fromFileName);
     }
 
     if (!fromFile.canRead())
@@ -632,19 +654,38 @@ public class FileUtil {
   
   /**
    * Create a soft link between a src and destination
-   * only on a local disk. HDFS does not support this
+   * only on a local disk. HDFS does not support this.
+   * On Windows, when symlink creation fails due to security
+   * setting, copy the file instead. A warning is also logged
+   * in this case.
+   * @param target the target for symlink
+   * @param linkname the symlink
+   * @return value returned by the command
+   */
+  public static int symLinkOrCopy(String target, String linkname) throws IOException{
+    int returnVal = symLink(target, linkname);
+    if (Shell.WINDOWS && returnVal == SYMLINK_NO_PRIVILEGE)
+    {
+      LOG.warn("Fail to create symbolic link on Windows. Copy the file instead.");
+      copyFile(target, linkname);
+      return 0;
+    }
+    return returnVal;
+  }
+  
+  /**
+   * Create a soft link between a src and destination
+   * only on a local disk. HDFS does not support this.
+   * On Windows, when symlink creation fails due to security
+   * setting, we will log a warning. The return code in this
+   * case is 2.
    * @param target the target for symlink 
    * @param linkname the symlink
    * @return value returned by the command
    */
   public static int symLink(String target, String linkname) throws IOException{
-    if (Shell.DISABLEWINDOWS_TEMPORARILY) {
-      copyFile(target, linkname);
-      return 0;
-    }
-
-    String cmd = "ln -s " + target + " " + linkname;
-    Process p = Runtime.getRuntime().exec(cmd, null);
+    String[] cmds = Shell.getSymlinkCommand(target, linkname);
+    Process p = Runtime.getRuntime().exec(cmds, null);
     int returnVal = -1;
     try{
       returnVal = p.waitFor();
@@ -652,8 +693,22 @@ public class FileUtil {
       //do nothing as of yet
     }
     if (returnVal != 0) {
-      LOG.warn("Command '" + cmd + "' failed " + returnVal + 
+      StringBuffer sb = new StringBuffer(cmds[0]);
+      for (int i = 1; i < cmds.length; i++)
+      {
+        sb.append(' ');
+        sb.append(cmds[i]);
+      }
+      LOG.warn("Command '" + sb.toString() + "' failed " + returnVal + 
                " with: " + copyStderr(p));
+
+      if (Shell.WINDOWS && returnVal == SYMLINK_NO_PRIVILEGE)
+      {
+        LOG.warn("Fail to create symbolic links on Windows. " +
+        		"The default security settings in Windows disallow non-elevated " +
+        		"administrators and all non-administrators from creating symbolic links. " +
+        		"This behavior can be changed in the Local Security Policy management console");
+      }
     }
     return returnVal;
   }
@@ -691,23 +746,14 @@ public class FileUtil {
    * @param recursive true, if permissions should be changed recursively
    * @return the exit code from the command.
    * @throws IOException
-   * @throws InterruptedException
    */
   public static int chmod(String filename, String perm, boolean recursive)
                             throws IOException {
-    if (Shell.DISABLEWINDOWS_TEMPORARILY) {
-      return 0;
-    }
-
-    StringBuffer cmdBuf = new StringBuffer();
-    cmdBuf.append("chmod ");
-    if (recursive) {
-      cmdBuf.append("-R ");
-    }
-    cmdBuf.append(perm).append(" ");
-    cmdBuf.append(filename);
-    String[] shellCmd = {"bash", "-c" ,cmdBuf.toString()};
-    ShellCommandExecutor shExec = new ShellCommandExecutor(shellCmd);
+    String [] cmd = Shell.getSetPermissionCommand(perm, recursive);
+    String[] args = new String[cmd.length + 1];
+    System.arraycopy(cmd, 0, args, 0, cmd.length);
+    args[cmd.length] = filename;
+    ShellCommandExecutor shExec = new ShellCommandExecutor(args);
     try {
       shExec.execute();
     }catch(IOException e) {
@@ -783,7 +829,7 @@ public class FileUtil {
       NativeIO.chmod(f.getCanonicalPath(), permission.toShort());
     } else {
       execCommand(f, Shell.getSetPermissionCommand(
-                  String.format("%04o", permission.toShort())));
+                  String.format("%04o", permission.toShort()), false));
     }
   }
   

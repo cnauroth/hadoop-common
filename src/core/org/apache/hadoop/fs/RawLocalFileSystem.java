@@ -26,6 +26,7 @@ import java.util.*;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.permission.*;
 import org.apache.hadoop.io.nativeio.NativeIO;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.Progressable;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.Shell;
@@ -462,6 +463,38 @@ public class RawLocalFileSystem extends FileSystem {
         loadPermissionInfo();
       }
       return super.getGroup();
+    }
+
+    @Override
+    public boolean isOwnedByUser(UserGroupInformation ugi) {
+      if (ugi == null) {
+        throw new IllegalArgumentException(
+            "UserGroupInformation argument is null");
+      }
+      if (!isPermissionLoaded()) {
+        loadPermissionInfo();
+      }
+
+      String owner = super.getOwner();
+      boolean success = owner.equals(ugi.getShortUserName());
+
+      if (!success && Shell.WINDOWS) {
+        final String AdminsGroupString = "Administrators";
+
+        // On Windows Server 2003 and later, if a file or a directory is
+        // created by users in the Administrators group, the file owner will be
+        // the Administrators group instead of to the actual user. Since it
+        // would be technically challenging to go against the OS behavior
+        // and update all such cases by explicitly setting the ownership on
+        // Windows (and would have some performance implications), we are
+        // following the OS model. Specifically, if a given ugi is a member of
+        // the Administrators group and a file is owned by Administrators
+        // group, isOwnedByUser will return true.
+        success = owner.equals(AdminsGroupString)
+            && Arrays.asList(ugi.getGroupNames()).contains(AdminsGroupString);
+      }
+
+      return success;
     }
 
     /// loads permissions, owner, and group from `ls -ld`

@@ -198,8 +198,7 @@ public class TestFileConcurrentReader extends junit.framework.TestCase {
     runTestUnfinishedBlockCRCError(true, SyncType.SYNC, SMALL_WRITE_SIZE);
   }
 
-  // fails due to issue w/append, disable 
-  public void _testUnfinishedBlockCRCErrorTransferToAppend() throws IOException {
+  public void testUnfinishedBlockCRCErrorTransferToAppend() throws IOException {
     runTestUnfinishedBlockCRCError(true, SyncType.APPEND, DEFAULT_WRITE_SIZE);
   }
   
@@ -211,9 +210,8 @@ public class TestFileConcurrentReader extends junit.framework.TestCase {
     throws IOException {
     runTestUnfinishedBlockCRCError(false, SyncType.SYNC, SMALL_WRITE_SIZE);
   }
-  
-  // fails due to issue w/append, disable 
-  public void _testUnfinishedBlockCRCErrorNormalTransferAppend() 
+   
+  public void testUnfinishedBlockCRCErrorNormalTransferAppend() 
     throws IOException {
     runTestUnfinishedBlockCRCError(false, SyncType.APPEND, DEFAULT_WRITE_SIZE);
   }
@@ -242,34 +240,41 @@ public class TestFileConcurrentReader extends junit.framework.TestCase {
       final AtomicBoolean writerDone = new AtomicBoolean(false);
       final AtomicBoolean writerStarted = new AtomicBoolean(false);
       final AtomicBoolean error = new AtomicBoolean(false);
-      final FSDataOutputStream initialOutputStream = fileSystem.create(file);
-      Thread writer = new Thread(new Runnable() {
-        private FSDataOutputStream outputStream = initialOutputStream;
+      final AtomicBoolean otherError = new AtomicBoolean(false);
 
+      Thread writer = new Thread(new Runnable() {
         @Override
         public void run() {
           try {
-            for (int i = 0; !error.get() && i < numWrites; i++) {
-              try {
-                final byte[] writeBuf = 
-                  generateSequentialBytes(i * writeSize, writeSize);              
+            FSDataOutputStream outputStream = fileSystem.create(file);
+            if (syncType == SyncType.APPEND) {
+              outputStream.close();
+              outputStream = fileSystem.append(file);
+            }
+            try {
+              for (int i = 0; !error.get() && i < numWrites; i++) {
+                final byte[] writeBuf = generateSequentialBytes(i * writeSize,
+                    writeSize);
                 outputStream.write(writeBuf);
                 if (syncType == SyncType.SYNC) {
                   outputStream.sync();
-                } else { // append
-                  outputStream.close();
-                  outputStream = fileSystem.append(file);
                 }
                 writerStarted.set(true);
-              } catch (IOException e) {
-                error.set(true);
-                LOG.error(String.format("error writing to file"));
-              } 
+              }
+            } catch (IOException e) {
+              error.set(true);
+              LOG.error(String.format("error writing to file"));
+            } finally {
+              outputStream.close();
             }
-            
-            outputStream.close();
             writerDone.set(true);
           } catch (Exception e) {
+            // FIXME: we use a new variable instead of 'error' because of
+            // Windows concurrent reading/writing issue, i.e. HADOOP-8564.
+            // Once the problem is fixed, we can switch back to error.
+            // Because this error condition is not captured before, ignoring
+            // the error here is not a regression in test coverage.
+            otherError.set(true);
             LOG.error("error in writer", e);
             
             throw new RuntimeException(e);
@@ -281,7 +286,7 @@ public class TestFileConcurrentReader extends junit.framework.TestCase {
         public void run() {
           try {
             long startPos = 0;
-            while (!writerDone.get() && !error.get()) {
+            while (!writerDone.get() && !error.get() && !otherError.get()) {
               if (writerStarted.get()) {
                 try {
                   startPos = tailFile(file, startPos);
@@ -318,7 +323,6 @@ public class TestFileConcurrentReader extends junit.framework.TestCase {
         
         Thread.currentThread().interrupt();
       }
-      initialOutputStream.close();
     } finally {
       cluster.shutdown();
     }

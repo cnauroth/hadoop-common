@@ -73,11 +73,11 @@ public class TestFileUtil {
 
     // create a symlink to file
     File link = new File(del, LINK);
-    FileUtil.symLink(tmpFile.toString(), link.toString());
+    FileUtil.symLinkOrCopy(tmpFile.toString(), link.toString());
 
     // create a symlink to dir
     File linkDir = new File(del, "tmpDir");
-    FileUtil.symLink(tmp.toString(), linkDir.toString());
+    FileUtil.symLinkOrCopy(tmp.toString(), linkDir.toString());
     Assert.assertEquals(5, del.listFiles().length);
   }
 
@@ -154,7 +154,7 @@ public class TestFileUtil {
     tmp.mkdirs();
     File tmpFile = new File(tmp, FILE);
     tmpFile.createNewFile();
-    FileUtil.symLink(tmpFile.toString(), zlink.toString());
+    FileUtil.symLinkOrCopy(tmpFile.toString(), zlink.toString());
   }
   
   // Validates the return value.

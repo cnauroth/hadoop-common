@@ -45,8 +45,8 @@ public class TestSetupWorkDir extends TestCase {
     createSubDirAndFile(fs, dir1);
     createSubDirAndFile(fs, dir2);
     // now create symlinks under dir1 that point to file/dir under dir2
-    FileUtil.symLink(dir2+"/subDir", dir1+"/symlinkSubDir");
-    FileUtil.symLink(dir2+"/file", dir1+"/symlinkFile");
+    FileUtil.symLinkOrCopy(dir2+"/subDir", dir1+"/symlinkSubDir");
+    FileUtil.symLinkOrCopy(dir2+"/file", dir1+"/symlinkFile");
   }
 
   static void createSubDirAndFile(FileSystem fs, Path dir) throws IOException {

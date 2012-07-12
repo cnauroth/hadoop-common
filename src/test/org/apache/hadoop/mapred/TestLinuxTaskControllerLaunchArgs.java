@@ -36,6 +36,7 @@ import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.LocalDirAllocator;
 import org.apache.hadoop.mapred.TaskTracker.LocalStorage;
 import org.apache.hadoop.mapred.Task;
+import org.apache.hadoop.util.Shell;
 
 import junit.framework.TestCase;
 
@@ -120,6 +121,11 @@ public class TestLinuxTaskControllerLaunchArgs extends TestCase {
    * necessary java properties to launch JobLocalizer successfully.
    */
   public void testLTCCallInitializeJob() throws Exception {
+    if (Shell.WINDOWS) {
+      // LinuxTaskContoller is not used on Windows, disabling the test
+      return;
+    }
+
     if (!initialized) {
       initMyTest();
     }
@@ -139,6 +145,11 @@ public class TestLinuxTaskControllerLaunchArgs extends TestCase {
    * necessary java properties to launch JobLocalizer successfully.
    */
   public void testLTCCallTruncateLogsAsUser() throws Exception {
+    if (Shell.WINDOWS) {
+      // LinuxTaskContoller is not used on Windows, disabling the test
+      return;
+    }
+
     if (!initialized) {
       initMyTest();
     }
