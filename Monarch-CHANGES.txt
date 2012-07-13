@@ -1,0 +1,6 @@
+Monarch-
+HADOOP-8457 Support for symbolic links on Windows
+MAPREDUCE-4374  Address test failures caused by missing sh scripts
+HADOOP-8544 TestFileConcurentReader test fix
+HADOOP-8453 Azure FileSystem implementation  
+HDFS-385 Backport of BlockPlacementPolicy abstraction 
