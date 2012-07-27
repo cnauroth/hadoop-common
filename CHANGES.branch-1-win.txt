@@ -253,3 +253,8 @@ BUG FIXES
 
     HADOOP-7096. Allow setting of end-of-record delimiter for TextInputFormat
     (Ahmed Radwan, backported by suresh)
+
+    HDFS-496. Backport: Use PureJavaCrc32 in HDFS.  (Brandon Li via szetszwo)
+
+    MAPREDUCE-782. Use PureJavaCrc32 in mapreduce spills.
+    (Todd Lipcon, backport by Brandon Li via sseth)
