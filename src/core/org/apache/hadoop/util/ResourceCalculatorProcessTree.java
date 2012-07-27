@@ -110,9 +110,10 @@ public abstract class ResourceCalculatorProcessTree {
    *         otherwise.
    */
   public static boolean isAvailable() {
-    if(ProcfsBasedProcessTree.isAvailable())
+
+    if(Shell.WINDOWS && WindowsBasedProcessTree.isAvailable())
       return true;
-    if(WindowsBasedProcessTree.isAvailable())
+    if(ProcfsBasedProcessTree.isAvailable())
       return true;
     
     return false;
