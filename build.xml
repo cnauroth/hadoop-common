@@ -2008,8 +2008,8 @@
     </copy>
     <delete dir="${package.buildroot}" quiet="true" verbose="false"/>
   </target>
-    
-  <target name="winpkg" depends="compile-winutils,zip" description="Make a package for Windows">
+  
+  <target name="winpkg" depends="compile-winutils,zip"  description="Make a package for Windows">
     <copy file="${build.dir}/${final.name}.zip" todir="${package.buildroot}/resources"/>
     <copy todir="${package.buildroot}/scripts">
       <fileset dir="${src.dir}/packages/win/scripts">
@@ -2951,3 +2951,4 @@
  </target>
 
 </project>
+
