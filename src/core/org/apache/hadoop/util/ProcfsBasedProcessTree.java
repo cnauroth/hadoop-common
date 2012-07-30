@@ -53,34 +53,30 @@ public class ProcfsBasedProcessTree extends ResourceCalculatorProcessTree {
   static final String PROCFS_STAT_FILE = "stat";
   static final String PROCFS_CMDLINE_FILE = "cmdline";
   public static final long PAGE_SIZE;
-  static {
-    ShellCommandExecutor shellExecutor =
-            new ShellCommandExecutor(new String[]{"getconf",  "PAGESIZE"});
-    long pageSize = -1;
-    try {
-      shellExecutor.execute();
-      pageSize = Long.parseLong(shellExecutor.getOutput().replace("\n", ""));
-    } catch (IOException e) {
-      LOG.error(StringUtils.stringifyException(e));
-    } finally {
-      PAGE_SIZE = pageSize;
-    }
-  }
   public static final long JIFFY_LENGTH_IN_MILLIS; // in millisecond
+  
   static {
     long jiffiesPerSecond = -1;
+    long pageSize = -1;
     try {
       if(Shell.LINUX) {
-        ShellCommandExecutor shellExecutor = new ShellCommandExecutor(
+        ShellCommandExecutor shellExecutorClk = new ShellCommandExecutor(
             new String[] { "getconf", "CLK_TCK" });
-        shellExecutor.execute();
-        jiffiesPerSecond = Long.parseLong(shellExecutor.getOutput().replace("\n", ""));
+        shellExecutorClk.execute();
+        jiffiesPerSecond = Long.parseLong(shellExecutorClk.getOutput().replace("\n", ""));
+
+        ShellCommandExecutor shellExecutorPage = new ShellCommandExecutor(
+            new String[] { "getconf", "PAGESIZE" });
+        shellExecutorPage.execute();
+        pageSize = Long.parseLong(shellExecutorPage.getOutput().replace("\n", ""));
+
       }
     } catch (IOException e) {
       LOG.error(StringUtils.stringifyException(e));
     } finally {
       JIFFY_LENGTH_IN_MILLIS = jiffiesPerSecond != -1 ?
                      Math.round(1000D / jiffiesPerSecond) : -1;
+                     PAGE_SIZE = pageSize;
     }
   }
 
