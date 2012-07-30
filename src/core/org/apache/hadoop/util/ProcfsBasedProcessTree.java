@@ -68,12 +68,14 @@ public class ProcfsBasedProcessTree extends ResourceCalculatorProcessTree {
   }
   public static final long JIFFY_LENGTH_IN_MILLIS; // in millisecond
   static {
-    ShellCommandExecutor shellExecutor =
-            new ShellCommandExecutor(new String[]{"getconf",  "CLK_TCK"});
     long jiffiesPerSecond = -1;
     try {
-      shellExecutor.execute();
-      jiffiesPerSecond = Long.parseLong(shellExecutor.getOutput().replace("\n", ""));
+      if(Shell.LINUX) {
+        ShellCommandExecutor shellExecutor = new ShellCommandExecutor(
+            new String[] { "getconf", "CLK_TCK" });
+        shellExecutor.execute();
+        jiffiesPerSecond = Long.parseLong(shellExecutor.getOutput().replace("\n", ""));
+      }
     } catch (IOException e) {
       LOG.error(StringUtils.stringifyException(e));
     } finally {
@@ -110,8 +112,7 @@ public class ProcfsBasedProcessTree extends ResourceCalculatorProcessTree {
    */
   public static boolean isAvailable() {
     try {
-      String osName = System.getProperty("os.name");
-      if (!osName.startsWith("Linux")) {
+      if (!Shell.LINUX) {
         LOG.info("ProcfsBasedProcessTree currently is supported only on "
             + "Linux.");
         return false;
