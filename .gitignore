@@ -20,6 +20,7 @@
 .project
 .settings
 .svn
+.*.crc
 autom4te.cache
 build/
 build.properties
@@ -85,3 +86,5 @@ src/native/config/depcomp
 src/native/config/install-sh
 src/native/config/ltmain.sh
 src/native/config/missing
+src/winutils/Release/*
+
