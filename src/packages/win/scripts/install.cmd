@@ -27,6 +27,7 @@ if not defined CORE_INSTALL_PATH (
 if not defined WINPKG_LOG ( 
   set WINPKG_LOG=%CORE_INSTALL_PATH%\@final.name@-winpkg.log
 )
+
 set HADOOP_INSTALL_DIR=%HADOOP_INSTALL_ROOT%\@final.name@
 set HADOOP_INSTALL_BIN=%HADOOP_INSTALL_DIR%\bin
 
@@ -53,23 +54,50 @@ echo Installing Apache Hadoop @final.name@ to %HADOOP_INSTALL_ROOT%
 echo Installing Apache Hadoop @final.name@ to %HADOOP_INSTALL_ROOT% >> %WINPKG_LOG%
 
 @rem
-@rem  Choose what services to install
-@rem    CORE_MASTER -> namenode secondarynamenode jobtracker tasktracker
-@rem    CORE_SLAVE -> datanode tasktracker
-@rem    CORE_ONEBOX || nothing -> namenode jobtracker tasktracker datanode
+@rem  Setup default lists of services to install
 @rem
-set HDFS_ROLE_SERVICES=namenode datanode secondarynamenode 
-set MAPRED_ROLE_SERVICES=jobtracker tasktracker 
 
-if "%1" == "CORE_MASTER" (
-  set HDFS_ROLE_SERVICES=namenode datanode secondarynamenode 
-  set MAPRED_ROLE_SERVICES=jobtracker tasktracker
+if not defined MASTER_HDFS (
+  set MASTER_HDFS=namenode datanode secondarynamenode
 )
 
-if "%1" == "CORE_SLAVE" ( 
-  set HDFS_ROLE_SERVICES=datanode 
-  set MAPRED_ROLE_SERVICES=tasktracker 
+if not defined MASTER_MR (
+  set MASTER_MR=jobtracker tasktracker
 )
+
+if not defined SLAVE_HDFS (
+  set SLAVE_HDFS=datanode
+)
+
+if not defined SLAVE_MR (
+  set SLAVE_MR=tasktracker
+)
+
+if not defined ONEBOX_HDFS (
+  set ONEBOX_HDFS=namenode datanode
+)
+
+if not defined ONEBOX_MR (
+  set ONEBOX_MR=jobtracker tasktracker
+)
+
+if "%1"=="" (
+  set HDFS_ROLE=ONEBOX_HDFS
+)
+else (
+  set HDFS_ROLE=%1
+)
+
+if "%2"=="" (
+  set MR_ROLE=ONEBOX_MR
+)
+else (
+  set MR_ROLE=%2
+)
+
+set HDFS_ROLE_SERVICES=!%HDFS_ROLE%!
+set MAPRED_ROLE_SERVICES=!%MR_ROLE%!
+
 
 @rem
 @rem  Lay down the bits 
@@ -105,5 +133,10 @@ for %%k in (%MAPRED_ROLE_SERVICES%) do (
   cmd /c "%HADOOP_INSTALL_BIN%\mapred.cmd" --service %%k > "%HADOOP_INSTALL_BIN%\%%k.xml"
 )
 @rem TODO create event log for services
+
+set HDFS_ROLE=
+set MR_ROLE=
+set HDFS_ROLE_SERVICES=
+set MAPRED_ROLE_SERVICES= 
 
 endlocal
