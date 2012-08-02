@@ -109,7 +109,7 @@ public class ProcfsBasedProcessTree extends ResourceCalculatorProcessTree {
   public static boolean isAvailable() {
     try {
       if (!Shell.LINUX) {
-        LOG.info("ProcfsBasedProcessTree currently is supported only on "
+        LOG.debug("ProcfsBasedProcessTree currently is supported only on "
             + "Linux.");
         return false;
       }
