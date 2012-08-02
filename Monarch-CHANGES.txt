@@ -1,6 +1,10 @@
 Monarch - unreleased
   IMPROVEMENTS
 
+    HADOOP-4 Public distributed cache support for Windows (contributed by Ivan Mitic)
+
+    HADOOP-8 Error message "chgrp: invalid group `WIN-BUILD-1\\None'" (contributed by Chuan Liu)
+
     HADOOP-6 TestMRWithDistributedCache fails on Windows (contributed by Ivan Mitic)
 
     HDFS-3163 TestHDFSCLI.testAll fails if user name is not all lowercase (Brandon Li via suresh)
