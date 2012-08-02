@@ -375,6 +375,12 @@ BOOL GetSidFromAcctNameW(LPCWSTR acctName, PSID *ppSid)
   //
   assert (acctName != NULL && ppSid != NULL);
 
+  // Empty name is invalid. However, LookupAccountName() function will return a
+  // false Sid for an empty name instead failing.
+  //
+  if (wcslen(acctName) == 0)
+    return FALSE;
+
   // First pass to retrieve the buffer size.
   //
   LookupAccountName(

@@ -48,9 +48,6 @@ abstract public class Shell {
   /** a Unix command to get the current user's name */
   public final static String USER_NAME_COMMAND = "whoami";
 
-  /** a Unix command to set the change user's groups list */
-  public static final String SET_GROUP_COMMAND = "chgrp";
-
   /** Windows CreateProcess synchronization object */
   public static final Object WindowsProcessLaunchLock = new Object();
 

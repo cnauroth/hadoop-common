@@ -773,6 +773,24 @@ public class FileUtil {
   }
 
   /**
+   * Set the ownership on a file / directory
+   * @param file the file to change
+   * @param username the new user owner name
+   * @param groupname the new group owner name
+   * @throws IOException
+   */
+  public static void setOwner(File file, String username,
+      String groupname) throws IOException {
+    if (username == null && groupname == null) {
+      throw new IOException("username == null && groupname == null");
+    }
+    String arg = (username == null ? "" : username)
+        + (groupname == null ? "" : ":" + groupname);
+    String [] cmd = Shell.getSetOwnerCommand(arg);
+    execCommand(file, cmd);
+  }
+
+  /**
    * Set permissions to the required value. Uses the java primitives instead
    * of forking if group == other.
    * @param f the file to change
