@@ -45,6 +45,7 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
+import org.apache.hadoop.util.Shell;
 
 /**
  * Tests the use of the
@@ -118,7 +119,9 @@ public class TestMRWithDistributedCache extends TestCase {
           context.getConfiguration().get("mapred.job.tracker"))) {
         File symlinkFile = new File("distributed.first.symlink");
         TestCase.assertTrue(symlinkFile.exists());
-        TestCase.assertEquals(1, symlinkFile.length());
+        // Java File#length returns zero for symbolic links on Windows
+        int expectedValue = Shell.WINDOWS ? 0 : 1;
+        TestCase.assertEquals(expectedValue, symlinkFile.length());
       }
     }
   }
