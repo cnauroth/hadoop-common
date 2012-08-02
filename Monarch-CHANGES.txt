@@ -1,5 +1,6 @@
 Monarch - unreleased
   IMPROVEMENTS
+    HADOOP-21 Avoid logging "Cannot run program getconf" on Windows (contributed by Bikas Saha)
 
     HADOOP-4 Public distributed cache support for Windows (contributed by Ivan Mitic)
 
