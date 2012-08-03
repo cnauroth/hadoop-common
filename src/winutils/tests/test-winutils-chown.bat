@@ -14,6 +14,7 @@
 :: the License.
 ::
 @echo off
+echo Test chown operations
 setlocal
 set WINUTILS="%HADOOP_HOME%\bin\winutils.exe"
 set TESTDIR=winutils-test
@@ -46,6 +47,19 @@ type NUL>a
 %WINUTILS% chown %USER% a
 if not %ERRORLEVEL% == 0 goto Failure
 %WINUTILS% chown :Administrators a
+if not %ERRORLEVEL% == 0 goto Failure
+call:CmpOwn "a" "%USER%" "BUILTIN\Administrators"
+if not %ERRORLEVEL% == 0 goto Failure
+del a
+if not %ERRORLEVEL% == 0 goto Failure
+echo passed.
+
+echo Test case 3:
+if exist a goto Failure
+type NUL>a
+%WINUTILS% chown :Administrators a
+if not %ERRORLEVEL% == 0 goto Failure
+%WINUTILS% chown %USER%: a
 if not %ERRORLEVEL% == 0 goto Failure
 call:CmpOwn "a" "%USER%" "BUILTIN\Administrators"
 if not %ERRORLEVEL% == 0 goto Failure

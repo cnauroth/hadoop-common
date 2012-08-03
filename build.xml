@@ -136,7 +136,6 @@
 
   <property name="test.libhdfs.conf.dir" value="${c++.libhdfs.src}/tests/conf"/>
   <property name="test.libhdfs.dir" value="${test.build.dir}/libhdfs"/>
-
   <property name="test.winutils.dir" value="${test.build.dir}/winutils/"/>
 
   <property name="librecordio.test.dir" value="${test.build.dir}/librecordio"/>
@@ -635,6 +634,16 @@
 
     <exec dir="${build.winutils}" executable="${msbuild.cmd}" failonerror="true">
       <arg line="${winutils.src.dir}/winutils.vcxproj /p:Configuration=Release;OutDir=${build.winutils}/"/>
+    </exec>
+
+    <copy file="${build.winutils}/winutils.exe" todir="${basedir}/bin"/>
+  </target>
+
+  <target name="compile-ms-winutils-debug" if="windows">
+    <mkdir dir="${build.winutils}"/>
+
+    <exec dir="${build.winutils}" executable="${msbuild.cmd}" failonerror="true">
+      <arg line="${winutils.src.dir}/winutils.vcxproj /p:Configuration=Debug;OutDir=${build.winutils}/"/>
     </exec>
 
     <copy file="${build.winutils}/winutils.exe" todir="${basedir}/bin"/>
@@ -2169,7 +2178,7 @@
     </exec>
   </target>
 
-  <target name="test-ms-winutils" depends="compile-ms-winutils" if="windows">
+  <target name="test-ms-winutils" depends="compile-ms-winutils-debug" if="windows">
     <delete dir="${test.winutils.dir}"/>
     <mkdir dir="${test.winutils.dir}"/>
     <copy todir="${test.winutils.dir}">
@@ -2177,19 +2186,7 @@
     </copy>
 
     <exec dir="${test.winutils.dir}"
-      executable="${test.winutils.dir}\test-winutils-basics.bat"
-      failonerror="true">
-      <env key="HADOOP_HOME" value="${basedir}"/>
-    </exec>
-
-    <exec dir="${test.winutils.dir}"
-      executable="${test.winutils.dir}\test-winutils-chown.bat"
-      failonerror="true">
-      <env key="HADOOP_HOME" value="${basedir}"/>
-    </exec>
-
-    <exec dir="${test.winutils.dir}"
-      executable="${test.winutils.dir}\test-winutils-chmod.bat"
+      executable="${test.winutils.dir}\test-all.bat"
       failonerror="true">
       <env key="HADOOP_HOME" value="${basedir}"/>
     </exec>
