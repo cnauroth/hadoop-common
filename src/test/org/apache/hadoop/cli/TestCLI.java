@@ -85,11 +85,17 @@ public class TestCLI extends TestCase {
   private static String jobtracker = null;
   private static String clitestDataDir = null;
   private static String username = null;
-  
+  private static String data15FileSize = null;
+  private static String data30FileSize = null;
+  private static String data60FileSize = null;
+  private static String data120FileSize = null;
+  private static String dataTotalSize = null;
+  private static String dataTotal2xSize = null;
+
   /**
    * Read the test config file - testConfig.xml
    */
-  private void readTestConfigFile(String namenode) {
+  private void readTestConfigFile() {
     
     if (testsFromConfigFile == null) {
       boolean success = false;
@@ -103,6 +109,18 @@ public class TestCLI extends TestCase {
           for (ComparatorData cd: testData.getComparatorData()) {
             cd.setExpectedOutput(cd.getExpectedOutput()
                 .replaceAll("NAMENODE", namenode));
+            cd.setExpectedOutput(cd.getExpectedOutput()
+                    .replaceAll("DATAFILE15_SIZE", data15FileSize));
+            cd.setExpectedOutput(cd.getExpectedOutput()
+                    .replaceAll("DATAFILE30_SIZE", data30FileSize));
+            cd.setExpectedOutput(cd.getExpectedOutput()
+                    .replaceAll("DATAFILE60_SIZE", data60FileSize));
+            cd.setExpectedOutput(cd.getExpectedOutput()
+                    .replaceAll("DATAFILE120_SIZE", data120FileSize));
+            cd.setExpectedOutput(cd.getExpectedOutput()
+                .replaceAll("DATAFILE_TOTAL_SIZE", dataTotalSize));          
+            cd.setExpectedOutput(cd.getExpectedOutput()
+                .replaceAll("DATAFILE_TOTAL_2xSIZE", dataTotal2xSize));
           }
         }
       } catch (Exception e) {
@@ -124,6 +142,23 @@ public class TestCLI extends TestCase {
                   HadoopPolicyProvider.class, PolicyProvider.class);
     conf.setBoolean(ServiceAuthorizationManager.SERVICE_AUTHORIZATION_CONFIG, 
                     true);
+    long totalSize = 0;
+    long fileSize = 0;
+    
+    fileSize = new File(TEST_CACHE_DATA_DIR + File.separator + "data15bytes").length();
+    totalSize += fileSize;
+    data15FileSize = Long.toString(fileSize);
+    fileSize = new File(TEST_CACHE_DATA_DIR + File.separator + "data30bytes").length();
+    totalSize += fileSize;
+    data30FileSize = Long.toString(fileSize);
+    fileSize = new File(TEST_CACHE_DATA_DIR + File.separator + "data60bytes").length();
+    totalSize += fileSize;
+    data60FileSize = Long.toString(fileSize);
+    fileSize = new File(TEST_CACHE_DATA_DIR + File.separator + "data120bytes").length();
+    totalSize += fileSize;
+    data120FileSize = Long.toString(fileSize);
+    dataTotalSize = Long.toString(totalSize);
+    dataTotal2xSize = Long.toString(totalSize*2);
 
     dfsCluster = new MiniDFSCluster(conf, 1, true, null);
     namenode = conf.get("fs.default.name", "file:///");
@@ -143,7 +178,7 @@ public class TestCLI extends TestCase {
     jobtracker = mrCluster.createJobConf().get("mapred.job.tracker", "local");
 
     // Read the testConfig.xml file
-    readTestConfigFile(namenode);
+    readTestConfigFile();
 
     success = true;
 
@@ -178,6 +213,12 @@ public class TestCLI extends TestCase {
     expCmd = expCmd.replaceAll("JOBTRACKER", jobtracker);
     expCmd = expCmd.replaceAll("CLITEST_DATA", clitestDataDir);
     expCmd = expCmd.replaceAll("USERNAME", username);
+    expCmd = expCmd.replaceAll("DATAFILE15_SIZE", data15FileSize);
+    expCmd = expCmd.replaceAll("DATAFILE30_SIZE", data30FileSize);
+    expCmd = expCmd.replaceAll("DATAFILE60_SIZE", data60FileSize);
+    expCmd = expCmd.replaceAll("DATAFILE120_SIZE", data120FileSize);
+    expCmd = expCmd.replaceAll("DATAFILE_TOTAL_SIZE", dataTotalSize);
+    expCmd = expCmd.replaceAll("DATAFILE_TOTAL_2xSIZE", dataTotal2xSize);
     
     return expCmd;
   }
