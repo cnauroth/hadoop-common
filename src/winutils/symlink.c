@@ -282,10 +282,10 @@ int Symlink(int argc, wchar_t *argv[])
   PWSTR longLinkName = NULL;
   PWSTR longFileName = NULL;
   DWORD dwErrorCode = ERROR_SUCCESS;
-  
-  BY_HANDLE_FILE_INFORMATION fileInfo;
 
-  DWORD dwRtnCode;
+  BOOL isDir = FALSE;
+
+  DWORD dwRtnCode = ERROR_SUCCESS;
   DWORD dwFlag = 0;
 
   int ret = SUCCESS;
@@ -309,19 +309,6 @@ int Symlink(int argc, wchar_t *argv[])
     goto SymlinkEnd;
   }
 
-  if ((dwRtnCode = GetFileInformationByName(longFileName, FALSE, &fileInfo))
-    != ERROR_SUCCESS)
-  {
-    ReportErrorCode(L"GetFileInformationByName", dwRtnCode);
-    ret = FAILURE;
-    goto SymlinkEnd;
-  }
-
-  if (IsDirFileInfo(&fileInfo))
-  {
-    dwFlag = SYMBOLIC_LINK_FLAG_DIRECTORY;
-  }
-
   // Check if the the process's access token has the privilege to create
   // symbolic links. Without this step, the call to CreateSymbolicLink() from
   // users have the privilege to create symbolic links will still succeed.
@@ -330,37 +317,21 @@ int Symlink(int argc, wchar_t *argv[])
   //
   if (!EnablePrivilege(L"SeCreateSymbolicLinkPrivilege"))
   {
-    if (IsDirFileInfo(&fileInfo))
-    {
-      // If the user does not have the privilege to create symbolic links, and
-      // the target fie is a directory, create a junction point instead.
-      // Junction points provide a close emulation of symbolic links on local
-      // file system for directores. Other than cannot link to files, junction
-      // points cannot point to remote shares.
-      //
-      if (!CreateJunctionPointW(longLinkName, longFileName))
-      {
-        fwprintf(stderr,
-          L"Fail to create a junction point.\n");
-        ret = FAILURE;
-        goto SymlinkEnd;
-      }
-      else
-      {
-        fwprintf(stdout,
-        L"A junction point is created instead of the symbolic link.\n");
-        ret = SUCCESS;
-        goto SymlinkEnd;
-      }
-    }
-    else
-    {
-      fwprintf(stderr,
-        L"You do not have sufficient privilege to create symbolic links.\n");
-      ret = SYMLINK_NO_PRIVILEGE;
-      goto SymlinkEnd;
-    }
+    fwprintf(stderr,
+      L"No privilege to create symbolic links.\n");
+    ret = SYMLINK_NO_PRIVILEGE;
+    goto SymlinkEnd;
   }
+
+  if ((dwRtnCode = DirectoryCheck(longFileName, &isDir)) != ERROR_SUCCESS)
+  {
+    ReportErrorCode(L"DirectoryCheck", dwRtnCode);
+    ret = FAILURE;
+    goto SymlinkEnd;
+  }
+
+  if (isDir)
+    dwFlag = SYMBOLIC_LINK_FLAG_DIRECTORY;
 
   if (!CreateSymbolicLinkW(longLinkName, longFileName, dwFlag))
   {
@@ -379,19 +350,15 @@ void SymlinkUsage()
 {
     fwprintf(stdout, L"\
 Usage: symlink [LINKNAME] [FILENAME]\n\
-Creates a symbolic link, or a junction point if the user does not have\n\
-sufficent permission to create symbolic links and the file is a directory.\n\
+Creates a symbolic link\n\
 \n\
-On success, 0 is returned.\n\
+0 is returned on success.\n\
+2 is returned if the user does no have privilege to create symbolic links.\n\
+1 is returned for all other errors.\n\
+\n\
 The default security settings in Windows disallow non-elevated administrators\n\
-and all non-administrators from creating symbolic links. If the user does not\n\
-have sufficient privilege and the target file is a directory, create a junction\n\
-point instead. The error code 2 is returned if the user does no have privilege\n\
-to create symbolic links and the target is a file. For all other errors, the\n\
-error code 1 is returned.\n\
-\n\
-The security settings for symbolic links can be changed in\n\
-the Local Security Policy management console (under: Security Settings\\Local\n\
-Policies\\User Rights Assignment\\Create symbolic links).\n");
+and all non-administrators from creating symbolic links. The security settings\n\
+for symbolic links can be changed in the Local Security Policy management\n\
+console.\n");
 }
 
