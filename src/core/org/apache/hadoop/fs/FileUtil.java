@@ -691,33 +691,27 @@ public class FileUtil {
    * @return value returned by the command
    */
   public static int symLink(String target, String linkname) throws IOException{
-    String[] cmds = Shell.getSymlinkCommand(target, linkname);
-    Process p = Runtime.getRuntime().exec(cmds, null);
-    int returnVal = -1;
-    try{
-      returnVal = p.waitFor();
-    } catch(InterruptedException e){
-      //do nothing as of yet
-    }
-    if (returnVal != 0) {
-      StringBuffer sb = new StringBuffer(cmds[0]);
-      for (int i = 1; i < cmds.length; i++)
-      {
-        sb.append(' ');
-        sb.append(cmds[i]);
+    String[] cmd = Shell.getSymlinkCommand(target, linkname);
+    ShellCommandExecutor shExec = new ShellCommandExecutor(cmd);
+    try {
+      shExec.execute();
+    } catch (Shell.ExitCodeException ec) {
+      int returnVal = ec.getExitCode();
+      if (Shell.WINDOWS && returnVal == SYMLINK_NO_PRIVILEGE) {
+        LOG.warn("Fail to create symbolic links on Windows. "
+            + "The default security settings in Windows disallow non-elevated "
+            + "administrators and all non-administrators from creating symbolic links. "
+            + "This behavior can be changed in the Local Security Policy management console");
       }
-      LOG.warn("Command '" + sb.toString() + "' failed " + returnVal + 
-               " with: " + copyStderr(p));
-
-      if (Shell.WINDOWS && returnVal == SYMLINK_NO_PRIVILEGE)
-      {
-        LOG.warn("Fail to create symbolic links on Windows. " +
-        		"The default security settings in Windows disallow non-elevated " +
-        		"administrators and all non-administrators from creating symbolic links. " +
-        		"This behavior can be changed in the Local Security Policy management console");
+      return returnVal;
+    } catch (IOException e) {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Error while create symlink " + linkname + " to " + target
+            + "." + " Exception: " + StringUtils.stringifyException(e));
       }
+      throw e;
     }
-    return returnVal;
+    return shExec.getExitCode();
   }
   
   private static String copyStderr(Process p) throws IOException {
