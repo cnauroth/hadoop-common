@@ -85,6 +85,9 @@ public class TestCLI extends TestCase {
   private static String jobtracker = null;
   private static String clitestDataDir = null;
   private static String username = null;
+  
+  
+  // These members represent actual disk file size for files with the same name  
   private static String data15FileSize = null;
   private static String data30FileSize = null;
   private static String data60FileSize = null;
@@ -145,6 +148,14 @@ public class TestCLI extends TestCase {
     long totalSize = 0;
     long fileSize = 0;
     
+    /*
+     * Different OS/character encodings can change the real length of a file on
+     * disk. A better alternative would be to write the files during test setup
+     * and use their lengths instead of committing the files and using their
+     * length. For now, we are using the real length of the checked in files
+     * because these changes are being made in branch-1-win and we dont want to
+     * re-organize code in a branch.
+     */
     fileSize = new File(TEST_CACHE_DATA_DIR + File.separator + "data15bytes").length();
     totalSize += fileSize;
     data15FileSize = Long.toString(fileSize);
