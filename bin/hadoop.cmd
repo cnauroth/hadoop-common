@@ -167,9 +167,9 @@ call :updatepath %HADOOP_BIN_PATH%
 
   if not defined _arguments (
     set _arguments=%1
-    ) else (
+  ) else (
     set _arguments=!_arguments! %1
-    )
+  )
   shift
   goto :MakeCmdArgsLoop 
   :EndLoop 

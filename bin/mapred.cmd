@@ -129,9 +129,9 @@ goto :eof
 
   if not defined _mapredarguments (
     set _mapredarguments=%1
-    ) else (
+  ) else (
     set _mapredarguments=!_mapredarguments! %1
-    )
+  )
   shift
   goto :MakeCmdArgsLoop 
 

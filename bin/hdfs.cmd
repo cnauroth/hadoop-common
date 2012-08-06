@@ -140,9 +140,9 @@ goto :eof
 
   if not defined _hdfsarguments (
     set _hdfsarguments=%1
-    ) else (
+  ) else (
     set _hdfsarguments=!_hdfsarguments! %1
-    )
+  )
   shift
   goto :MakeCmdArgsLoop 
   :EndLoop 
