@@ -112,6 +112,7 @@ goto :eof
   @echo ^</service^>
   goto :eof
 
+@rem This changes %1, %2 etc. Hence those cannot be used after calling this.
 :make_command_arguments
   if "%2" == "" goto :eof
   set _count=0

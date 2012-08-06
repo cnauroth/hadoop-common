@@ -158,6 +158,7 @@ call :updatepath %HADOOP_BIN_PATH%
   set path_to_add=
   goto :eof
 
+@rem This changes %1, %2 etc. Hence those cannot be used after calling this.
 :make_command_arguments
   if "%2" == "" goto :eof
   shift
