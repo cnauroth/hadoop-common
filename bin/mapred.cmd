@@ -119,7 +119,7 @@ goto :eof
   set _mapredarguments=
   if defined service_entry (set _shift=2) else (set _shift=1)
   if defined config_override (set /a _shift=!_shift! + 2)
-  : SHIFTLOOP
+  :SHIFTLOOP
   set /a _count=!_count!+1
   if !_count! GTR %_shift% goto :MakeCmdArgsLoop
   shift
