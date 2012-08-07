@@ -160,7 +160,7 @@ call :updatepath %HADOOP_BIN_PATH%
 
 @rem This changes %1, %2 etc. Hence those cannot be used after calling this.
 :make_command_arguments
-  if "%2" == "" goto :eof
+  if [%2] == [] goto :eof
   shift
   set _arguments=
   :MakeCmdArgsLoop 
