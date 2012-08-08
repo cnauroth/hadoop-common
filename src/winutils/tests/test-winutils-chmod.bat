@@ -14,6 +14,7 @@
 :: the License.
 ::
 @echo off
+echo Test various chmod operations
 setlocal
 set WINUTILS="%HADOOP_HOME%\bin\winutils.exe"
 set TESTDIR=winutils-test
