@@ -6,8 +6,12 @@ see http://hadoop.apache.org/common/docs/r0.20.205.0/mapred-default.html
  -->
 
 <configuration>
-    <property>
-        <name>mapred.job.tracker</name>
-        <value>localhost:9010</value>
-    </property>
+  <property>
+    <name>mapred.job.tracker</name>
+    <value>localhost:9010</value>
+  </property>
+  <property>
+    <name>mapred.local.dir</name>
+    <value>c:\hdfs\mapred\local</value>
+  </property>
 </configuration>

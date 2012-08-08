@@ -16,47 +16,76 @@
 setlocal enabledelayedexpansion
 
 @rem
-@rem  Setup envrionment variables
+@rem  Setup environment variables
 @rem
 if not defined HADOOP_INSTALL_ROOT ( 
   set HADOOP_INSTALL_ROOT=c:\hadoop
 )
-if not defined CORE_INSTALL_PATH ( 
-  set CORE_INSTALL_PATH=%~dp0
-)
-if not defined WINPKG_LOG ( 
-  set WINPKG_LOG=%CORE_INSTALL_PATH%\@final.name@-winpkg.log
+if not defined INSTALL_SCRIPT_ROOT ( 
+  set INSTALL_SCRIPT_ROOT=%~dp0
 )
 
-set HADOOP_INSTALL_DIR=%HADOOP_INSTALL_ROOT%\@final.name@
+set HADOOP_INSTALL_DIR=%HADOOP_INSTALL_ROOT%\core
 set HADOOP_INSTALL_BIN=%HADOOP_INSTALL_DIR%\bin
-
 
 @rem ensure running as admin.
 reg query "HKEY_USERS\S-1-5-19\Environment" /v TEMP 2>&1 | findstr /I /C:"REG_EXPAND_SZ" 2>&1 > NUL
-If %ERRORLEVEL% EQU 1 (
-  echo FATAL ERROR: install script must be run elevated 
-  endlocal
+if %ERRORLEVEL% NEQ 0 (
+  echo FATAL ERROR: install script must be run elevated
   goto :eof
 )
 
-@rem java needs to be installed 
 if not exist %JAVA_HOME%\bin\java.exe (
-  echo FATAL ERROR: %JAVA_HOME%\bin\java.exe does not exist JAVA_HOME not set properly  
-  endlocal
+  echo FATAL ERROR: JAVA_HOME not set properly, %JAVA_HOME%\bin\java.exe does not exist
   goto :eof
 )
+
+@rem Root directory used for HDFS dn and nn files, and for mapred local dir
+@rem TODO: Configs should be configurable from the outside and properly
+@rem embedded into hdfs-site.xml/mapred-site.xml (same as on Unix)
+set HDFS_DATA_DIR=c:\hdfs
 
 @rem
 @rem  Begin install
 @rem
-echo Installing Apache Hadoop @final.name@ to %HADOOP_INSTALL_ROOT%
-echo Installing Apache Hadoop @final.name@ to %HADOOP_INSTALL_ROOT% >> %WINPKG_LOG%
+echo Installing Apache Hadoop to %HADOOP_INSTALL_ROOT%
+
+@rem skip first two arguments
+shift
+shift
+
+@rem
+@rem  Parse command line
+@rem
+if not "%1"=="-username" (
+  echo FATAL ERROR: Invalid command line '%*'
+  call :usage
+  goto :eof
+)
+
+set HADOOP_USERNAME=%2
+if [%HADOOP_USERNAME%]==[] (
+  echo FATAL ERROR: Username empty
+  call :usage
+  goto :eof
+)
+
+if not "%3"=="-password" (
+  echo FATAL ERROR: Invalid command line '%*'
+  call :usage
+  goto :eof
+)
+
+set HADOOP_PASSWORD=%4
+if [%HADOOP_PASSWORD%]==[] (
+  echo FATAL ERROR: Password empty
+  call :usage
+  goto :eof
+)
 
 @rem
 @rem  Setup default lists of services to install
 @rem
-
 if not defined MASTER_HDFS (
   set MASTER_HDFS=namenode datanode secondarynamenode
 )
@@ -81,48 +110,78 @@ if not defined ONEBOX_MR (
   set ONEBOX_MR=jobtracker tasktracker
 )
 
-if "%1"=="" (
-  set HDFS_ROLE=ONEBOX_HDFS
-)
-else (
-  set HDFS_ROLE=%1
+if not "%5"=="-hdfsrole" (
+  echo FATAL ERROR: Invalid command line
+  call :usage
+  goto :eof
 )
 
-if "%2"=="" (
-  set MR_ROLE=ONEBOX_MR
+set HDFS_ROLE=%6
+if [%HDFS_ROLE%]==[] (
+  echo FATAL ERROR: hdfs role empty
+  call :usage
+  goto :eof
 )
-else (
-  set MR_ROLE=%2
+
+if not "%7"=="-mapredrole" (
+  echo FATAL ERROR: Invalid command line
+  call :usage
+  goto :eof
+)
+
+set MR_ROLE=%8
+if [%MR_ROLE%]==[] (
+  echo FATAL ERROR: mapred list empty
+  call :usage
+  goto :eof
 )
 
 set HDFS_ROLE_SERVICES=!%HDFS_ROLE%!
 set MAPRED_ROLE_SERVICES=!%MR_ROLE%!
 
+echo Node HDFS services: %HDFS_ROLE_SERVICES%
+echo Node MapReduce services: %MAPRED_ROLE_SERVICES%
+
+@rem Set HADOOP_HOME as a global environment variable
+@rem TODO: This should not be needed after HADOOP-60
+setx /m HADOOP_HOME %HADOOP_INSTALL_DIR%
 
 @rem
-@rem  Lay down the bits 
+@rem  Extract Hadoop distribution from compressed tarballs
 @rem
-echo Extracting @package.zip@ to %HADOOP_INSTALL_ROOT% >> %WINPKG_LOG%
-"%CORE_INSTALL_PATH%\..\resources\unzip.exe" "%CORE_INSTALL_PATH%\..\resources\@package.zip@" "%HADOOP_INSTALL_ROOT%" >> "%WINPKG_LOG%"
-xcopy /EIYF "%CORE_INSTALL_PATH%\..\template" "%HADOOP_INSTALL_DIR%" >> "%WINPKG_LOG%"
+echo Extracting Hadoop to %HADOOP_INSTALL_ROOT%
+"%INSTALL_SCRIPT_ROOT%\..\resources\unzip.exe" "%INSTALL_SCRIPT_ROOT%\..\resources\hadoop-1.1.0-SNAPSHOT.zip" "%HADOOP_INSTALL_ROOT%" 
+rename "%HADOOP_INSTALL_ROOT%\hadoop-1.1.0-SNAPSHOT" "core"
+xcopy /EIYF "%INSTALL_SCRIPT_ROOT%\..\template" "%HADOOP_INSTALL_DIR%"
 
 @rem
-@rem  Create services 
+@rem  Grant Hadoop user access to HADOOP_INSTALL_DIR and HDFS root
 @rem
-@rem TODO: make service run with obj= "NT Authority\Network Service"
+icacls "%HADOOP_INSTALL_DIR%" /grant %HADOOP_USERNAME%:(OI)(CI)F
+if not exist "%HDFS_DATA_DIR%" mkdir "%HDFS_DATA_DIR%"
+icacls "%HDFS_DATA_DIR%" /grant %HADOOP_USERNAME%:(OI)(CI)F
+
+@rem
+@rem  Create Hadoop Windows services and grant users ACLS to start/stop
+@rem
+set LogonString=obj= .\%HADOOP_USERNAME% password= %HADOOP_PASSWORD%
 
 for %%i in (%HDFS_ROLE_SERVICES% %MAPRED_ROLE_SERVICES%) do (
-  echo Creating %%i service >> %WINPKG_LOG%
-  copy "%CORE_INSTALL_PATH%\..\resources\servicehost.exe" "%HADOOP_INSTALL_DIR%\bin\%%i.exe" /y /d  >> "%WINPKG_LOG%"
-  
-  "%windir%\system32\sc.exe" create %%i binPath= "%HADOOP_INSTALL_BIN%\%%i.exe" DisplayName= "Hadoop %%i Service"  >> "%WINPKG_LOG%"
+  echo Creating %%i service
+  copy "%INSTALL_SCRIPT_ROOT%\..\resources\servicehost.exe" "%HADOOP_INSTALL_DIR%\bin\%%i.exe" /y /d
+
+  "%windir%\system32\sc.exe" create %%i binPath= "%HADOOP_INSTALL_BIN%\%%i.exe" DisplayName= "Hadoop %%i Service" %LogonString%
+  "%windir%\system32\sc.exe" failure %%i reset= 30 actions= restart/5000
+  "%INSTALL_SCRIPT_ROOT%\..\resources\InstallHelper3.exe" let-users-control-services %%i
+  "%INSTALL_SCRIPT_ROOT%\..\resources\InstallHelper3.exe"  create-eventlog-source %%i
+  "%windir%\system32\sc.exe" config %%i start= auto
 )
 
 @rem
 @rem  Setup HDFS service config
 @rem
-
 for %%j in (%HDFS_ROLE_SERVICES%) do (
+  echo Creating service config "%HADOOP_INSTALL_BIN%\%%j.xml"
   cmd /c "%HADOOP_INSTALL_BIN%\hdfs.cmd" --service %%j > "%HADOOP_INSTALL_BIN%\%%j.xml" 
 )
 
@@ -130,13 +189,22 @@ for %%j in (%HDFS_ROLE_SERVICES%) do (
 @rem  Setup MapRed service config
 @rem
 for %%k in (%MAPRED_ROLE_SERVICES%) do (
+  echo Creating service config "%HADOOP_INSTALL_BIN%\%%k.xml"
   cmd /c "%HADOOP_INSTALL_BIN%\mapred.cmd" --service %%k > "%HADOOP_INSTALL_BIN%\%%k.xml"
 )
-@rem TODO create event log for services
 
-set HDFS_ROLE=
-set MR_ROLE=
-set HDFS_ROLE_SERVICES=
-set MAPRED_ROLE_SERVICES= 
+@rem
+@rem  Format the namenode
+@rem
+@call %HADOOP_INSTALL_BIN%\hadoop.cmd namenode -format
 
-endlocal
+goto :eof
+
+@rem
+@rem ------------------------------ Usage -------------------------------------
+@rem
+:usage
+  echo Usage: install.cmd -username [USERNAME] -password [PASSWORD] -hdfsrole HdfsOption -mapredrole MapRedOption
+  echo HdfsOption could be: MASTER_HDFS or SLAVE_HDFS or ONEBOX_HDFS
+  echo MapRedOption could be: MASTER_MR or SLAVE_MR or ONEBOX_MR
+  goto :eof

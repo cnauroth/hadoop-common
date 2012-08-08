@@ -21,16 +21,13 @@ setlocal enabledelayedexpansion
 if not defined HADOOP_INSTALL_ROOT ( 
   set HADOOP_INSTALL_ROOT=c:\hadoop
 )
-if not defined CORE_UNINSTALL_PATH ( 
-  set CORE_INSTALL_PATH=%~dp0
+if not defined INSTALL_SCRIPT_ROOT ( 
+  set INSTALL_SCRIPT_ROOT=%~dp0
 )
-if not defined WINPKG_LOG ( 
-  set WINPKG_LOG=%CORE_UNINSTALL_PATH%\@final.name@-winpkg.log
-)
-set HADOOP_INSTALL_DIR=%HADOOP_INSTALL_ROOT%\@final.name@
-set HADOOP_INSTALL_BIN=%HADOOP_INSTALL_DIR%\bin
 
-echo Uninstalling Apache Hadoop @version@
+set HADOOP_INSTALL_DIR=%HADOOP_INSTALL_ROOT%\core
+
+echo Uninstalling Apache Hadoop 1.1.0
 
 @rem ensure running as admin.
 reg query "HKEY_USERS\S-1-5-19\Environment" /v TEMP 2>&1 | findstr /I /C:"REG_EXPAND_SZ" 2>&1 > NUL
@@ -39,20 +36,55 @@ If %ERRORLEVEL% EQU 1 (
   goto :eof
 )
 
+@rem Root directory used for HDFS dn and nn files, and for mapred local dir
+@rem TODO: Configs should be configurable from the outside and properly
+@rem embedded into hdfs-site.xml/mapred-site.xml (same as on Unix)
+set HDFS_DATA_DIR=c:\hdfs
+
 @rem
 @rem  Stop and delete services 
 @rem
-for %%i in (namenode datanode secondarynamenode jobtracker tasktracker ) do (
-  net stop %%i >> "%WINPKG_LOG%" 
-  "%windir%\system32\sc.exe" delete %%i  >> "%WINPKG_LOG%" 
+for %%i in (namenode datanode secondarynamenode jobtracker tasktracker) do (
+  "%windir%\system32\net.exe" stop %%i
+  "%windir%\system32\sc.exe" delete %%i
+)
+
+@rem Make sure we recursively delete only if the corresponding env variables are
+@rem set, otherwise we could end up deleting some unwanted files.
+if not defined HADOOP_INSTALL_DIR (
+  echo FATAL ERROR: HADOOP_INSTALL_DIR is not set
+  goto :eof
+)
+if not defined HDFS_DATA_DIR (
+  echo FATAL ERROR: HDFS_DATA_DIR is not set
+  goto :eof
+)
+if not defined HADOOP_INSTALL_ROOT (
+  echo FATAL ERROR: HADOOP_INSTALL_ROOT is not set
+  goto :eof
 )
 
 @rem
-@rem  Delete install dir for @final.name@
+@rem  Delete Hadoop install dir
 @rem
-echo deleting %HADOOP_INSTALL_DIR% >> "%WINPKG_LOG%"
-rd /s /q "%HADOOP_INSTALL_DIR%" >> "%WINPKG_LOG%"
+echo deleting %HADOOP_INSTALL_DIR%
+rd /s /q "%HADOOP_INSTALL_DIR%"
+rd /s /q "%HADOOP_INSTALL_ROOT%"
 
-@rem TODO create event log for services
+@rem
+@rem  Delete Hadoop HDFS data dir
+@rem
+echo deleting %HDFS_DATA_DIR%
+rd /s /q "%HDFS_DATA_DIR%"
+
+@rem TODO: Workaround for HADOOP-64, explicitely taking the ownership and adding full permissions
+@rem so that we can delete the below folders
+takeown.exe /f "%HDFS_DATA_DIR%\*" /A /R /D Y
+icacls "%HDFS_DATA_DIR%" /grant BUILTIN\Administrators:F /T /L
+takeown.exe /f "%HADOOP_INSTALL_DIR%\*" /A /R /D Y
+icacls "%HADOOP_INSTALL_DIR%" /grant BUILTIN\Administrators:F /T /L
+rd /s /q "%HADOOP_INSTALL_DIR%"
+rd /s /q "%HDFS_DATA_DIR%"
+rd /s /q "%HADOOP_INSTALL_ROOT%"
 
 endlocal
