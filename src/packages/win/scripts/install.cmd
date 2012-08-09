@@ -172,8 +172,7 @@ for %%i in (%HDFS_ROLE_SERVICES% %MAPRED_ROLE_SERVICES%) do (
 
   "%windir%\system32\sc.exe" create %%i binPath= "%HADOOP_INSTALL_BIN%\%%i.exe" DisplayName= "Hadoop %%i Service" %LogonString%
   "%windir%\system32\sc.exe" failure %%i reset= 30 actions= restart/5000
-  "%INSTALL_SCRIPT_ROOT%\..\resources\InstallHelper3.exe" let-users-control-services %%i
-  "%INSTALL_SCRIPT_ROOT%\..\resources\InstallHelper3.exe"  create-eventlog-source %%i
+  call :let_auth_users_control_services %%i
   "%windir%\system32\sc.exe" config %%i start= auto
 )
 
@@ -207,4 +206,18 @@ goto :eof
   echo Usage: install.cmd -username [USERNAME] -password [PASSWORD] -hdfsrole HdfsOption -mapredrole MapRedOption
   echo HdfsOption could be: MASTER_HDFS or SLAVE_HDFS or ONEBOX_HDFS
   echo MapRedOption could be: MASTER_MR or SLAVE_MR or ONEBOX_MR
+  goto :eof
+
+:let_auth_users_control_services
+  @rem Add service control permissions to authenticated users.
+  @rem Reference:
+  @rem   http://stackoverflow.com/questions/4436558/start-stop-a-windows-service-from-a-non-administrator-user-account 
+  @rem   http://msmvps.com/blogs/erikr/archive/2007/09/26/set-permissions-on-a-specific-service-windows.aspx
+  for /f "delims=" %%a in ('sc sdshow %1 ^| findstr /v "linux"') do @set _CurrentSD=%%a
+  set _SearchStr=S:(
+  set _ReplaceStr=(A;;RPWPCR;;;AU)S:(
+  echo Original %1 service Security Descriptor: %_CurrentSD%
+  set _NewSD=!_CurrentSD:%_SearchStr%=%_ReplaceStr%!
+  echo New %1 service Security Descriptor: %_NewSD%
+  sc sdset %1 %_NewSD%
   goto :eof

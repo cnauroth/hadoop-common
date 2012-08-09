@@ -16,7 +16,7 @@
 setlocal enabledelayedexpansion
 
 @rem
-@rem  Setup envrionment variables
+@rem  Setup environment variables
 @rem
 if not defined HADOOP_INSTALL_ROOT ( 
   set HADOOP_INSTALL_ROOT=c:\hadoop
