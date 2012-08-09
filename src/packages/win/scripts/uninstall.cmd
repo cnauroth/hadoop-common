@@ -25,9 +25,9 @@ if not defined INSTALL_SCRIPT_ROOT (
   set INSTALL_SCRIPT_ROOT=%~dp0
 )
 
-set HADOOP_INSTALL_DIR=%HADOOP_INSTALL_ROOT%\core
+set HADOOP_INSTALL_DIR=%HADOOP_INSTALL_ROOT%\@final.name@
 
-echo Uninstalling Apache Hadoop 1.1.0
+echo Uninstalling Apache Hadoop @final.name@
 
 @rem ensure running as admin.
 reg query "HKEY_USERS\S-1-5-19\Environment" /v TEMP 2>&1 | findstr /I /C:"REG_EXPAND_SZ" 2>&1 > NUL

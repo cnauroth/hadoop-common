@@ -15,6 +15,8 @@
 @rem limitations under the License.
 setlocal enabledelayedexpansion
 
+echo Starting Hadoop services
+
 @rem
 @rem  Start services 
 @rem

@@ -25,7 +25,7 @@ if not defined INSTALL_SCRIPT_ROOT (
   set INSTALL_SCRIPT_ROOT=%~dp0
 )
 
-set HADOOP_INSTALL_DIR=%HADOOP_INSTALL_ROOT%\core
+set HADOOP_INSTALL_DIR=%HADOOP_INSTALL_ROOT%\@final.name@
 set HADOOP_INSTALL_BIN=%HADOOP_INSTALL_DIR%\bin
 
 @rem ensure running as admin.
@@ -48,7 +48,7 @@ set HDFS_DATA_DIR=c:\hdfs
 @rem
 @rem  Begin install
 @rem
-echo Installing Apache Hadoop to %HADOOP_INSTALL_ROOT%
+echo Installing Apache Hadoop @final.name@ to %HADOOP_INSTALL_DIR%
 
 @rem skip first two arguments
 shift
@@ -150,8 +150,7 @@ setx /m HADOOP_HOME %HADOOP_INSTALL_DIR%
 @rem  Extract Hadoop distribution from compressed tarballs
 @rem
 echo Extracting Hadoop to %HADOOP_INSTALL_ROOT%
-"%INSTALL_SCRIPT_ROOT%\..\resources\unzip.exe" "%INSTALL_SCRIPT_ROOT%\..\resources\hadoop-1.1.0-SNAPSHOT.zip" "%HADOOP_INSTALL_ROOT%" 
-rename "%HADOOP_INSTALL_ROOT%\hadoop-1.1.0-SNAPSHOT" "core"
+"%INSTALL_SCRIPT_ROOT%\..\resources\unzip.exe" "%INSTALL_SCRIPT_ROOT%\..\resources\@final.name@.zip" "%HADOOP_INSTALL_ROOT%"
 xcopy /EIYF "%INSTALL_SCRIPT_ROOT%\..\template" "%HADOOP_INSTALL_DIR%"
 
 @rem
