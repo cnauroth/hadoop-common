@@ -1,5 +1,7 @@
 Monarch - unreleased
   IMPROVEMENTS
+    HADOOP-103 Minor regression in mapred.cmd (contributed by Ivan Mitic)
+
     HADOOP-21 Avoid logging "Cannot run program getconf" on Windows (contributed by Bikas Saha)
 
     HADOOP-4 Public distributed cache support for Windows (contributed by Ivan Mitic)
