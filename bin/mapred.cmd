@@ -121,12 +121,12 @@ goto :eof
 
 @rem This changes %1, %2 etc. Hence those cannot be used after calling this.
 :make_command_arguments
-  if "%2" == "" goto :eof
+  if [%2] == [] goto :eof
   set _count=0
   set _mapredarguments=
   if defined service_entry (set _shift=2) else (set _shift=1)
   if defined config_override (set /a _shift=!_shift! + 2)
-  : SHIFTLOOP
+  :SHIFTLOOP
   set /a _count=!_count!+1
   if !_count! GTR %_shift% goto :MakeCmdArgsLoop
   shift
@@ -142,6 +142,7 @@ goto :eof
   )
   shift
   goto :MakeCmdArgsLoop 
+  :EndLoop
 
   set mapred-command-arguments=%_mapredarguments%
   goto :eof

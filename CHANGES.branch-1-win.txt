@@ -65,6 +65,9 @@ branch-hadoop-1-win - unreleased
     HADOOP-16. hadoop.cmd does not support HADOOP_USER_CLASSPATH_FIRST
     (Thejas Nair via suresh)
 
+    HADOOP-63. Close stream and unlock storage directory to fix 
+    TestStorageRestore on Windows. (Brandon Li via suresh)
+
 BUG FIXES
 
     HDFS-6527. Backport HADOOP-7389: Use of TestingGroups by tests causes

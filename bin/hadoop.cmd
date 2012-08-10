@@ -110,7 +110,6 @@ call :updatepath %HADOOP_BIN_PATH%
     set CLASS=%hadoop-command%
   )
   
-  set path=%HADOOP_BIN_PATH%;%windir%\system32;%windir%
   call %JAVA% %JAVA_HEAP_MAX% %HADOOP_OPTS% -classpath %CLASSPATH% %CLASS% %hadoop-command-arguments%
 
   goto :eof
@@ -160,7 +159,7 @@ call :updatepath %HADOOP_BIN_PATH%
 
 @rem This changes %1, %2 etc. Hence those cannot be used after calling this.
 :make_command_arguments
-  if "%2" == "" goto :eof
+  if [%2] == [] goto :eof
   shift
   set _arguments=
   :MakeCmdArgsLoop 
