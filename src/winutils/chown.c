@@ -353,7 +353,7 @@ int Chown(int argc, wchar_t *argv[])
         goto ChownEnd;
     }
 
-    if (colonPos + 1 != NULL)
+    if (*(colonPos + 1) != 0)
     {
       // Length includes NULL terminator
       groupNameLen = wcslen(ownerInfo) - (colonPos - ownerInfo) + 1;
@@ -382,8 +382,12 @@ int Chown(int argc, wchar_t *argv[])
       goto ChownEnd;
   }
 
-  if ((userName == NULL || wcslen(userName) == 0) &&
-    (groupName == NULL || wcslen(groupName) == 0))
+  // Not allow zero length user name or group name in the parsing results.
+  //
+  assert(userName == NULL || wcslen(userName) > 0);
+  assert(groupName == NULL || wcslen(groupName) > 0);
+
+  if ((userName == NULL) && (groupName == NULL))
   {
     fwprintf(stderr, L"User name and group name cannot both be empty.");
     goto ChownEnd;

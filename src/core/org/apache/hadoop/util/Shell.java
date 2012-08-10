@@ -115,13 +115,15 @@ abstract public class Shell {
   }
 
   /** Set to true on Windows platforms */
-  public static final boolean WINDOWS /* borrowed from Path.WINDOWS */
+  public static final boolean WINDOWS
                 = System.getProperty("os.name").startsWith("Windows");
+  
+  public static final boolean LINUX
+                = System.getProperty("os.name").startsWith("Linux");
 
   /* Set flag for aiding Windows porting temporarily for branch-1-win*/
   // TODO - this needs to be fixed
   public static final boolean DISABLEWINDOWS_TEMPORARILY = WINDOWS; 
-  
 
   /** a Windows utility to emulate Unix commands */
   public static final String WINUTILS = getWinUtilsPath();
@@ -142,9 +144,6 @@ abstract public class Shell {
 
   /** a Unix command to get the current user's name */
   public final static String USER_NAME_COMMAND = "whoami";
-
-  /** a Unix command to set the change user's groups list */
-  public static final String SET_GROUP_COMMAND = "chgrp";
 
   /** Windows CreateProcess synchronization object */
   public static final Object WindowsProcessLaunchLock = new Object();

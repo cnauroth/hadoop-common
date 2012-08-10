@@ -1,5 +1,16 @@
 Monarch - unreleased
   IMPROVEMENTS
+    HADOOP-21 Avoid logging "Cannot run program getconf" on Windows (contributed by Bikas Saha)
+
+    HADOOP-4 Public distributed cache support for Windows (contributed by Ivan Mitic)
+
+    HADOOP-8 Error message "chgrp: invalid group `WIN-BUILD-1\\None'" (contributed by Chuan Liu)
+
+    HADOOP-6 TestMRWithDistributedCache fails on Windows (contributed by Ivan Mitic)
+
+    HDFS-3163 TestHDFSCLI.testAll fails if user name is not all lowercase (Brandon Li via suresh)
+
+    HADOOP-23 Hadoop does not close output file / does not call Mapper.cleanup if exception in map (contributed by Jianyong Dai)
 
     HADOOP-7 Address intermitted timeout test failures on Windows (contributed by Ivan Mitic)
 

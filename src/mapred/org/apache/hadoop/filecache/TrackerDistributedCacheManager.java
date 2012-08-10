@@ -56,6 +56,7 @@ import org.apache.hadoop.mapreduce.JobID;
 import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.RunJar;
+import org.apache.hadoop.util.Shell;
 import org.apache.hadoop.mapreduce.security.TokenCache;
 
 /**
@@ -326,7 +327,15 @@ public class TrackerDistributedCacheManager {
     if (!checkPermissionOfOther(fs, current, FsAction.READ)) {
       return false;
     }
-    return ancestorsHaveExecutePermissions(fs, current.getParent());
+    if (Shell.WINDOWS && fs instanceof LocalFileSystem) {
+      // Relax the requirement for public cache on Windows since default
+      // permissions are "700" all the way up to the drive letter. In this
+      // model, the only requirement for a user is to give EVERYONE group
+      // permission on the file and the file will be considered public.
+      return true;
+    } else {
+      return ancestorsHaveExecutePermissions(fs, current.getParent());
+    }
   }
 
   /**
@@ -447,7 +456,6 @@ public class TrackerDistributedCacheManager {
         // else will not do anyhting
         // and copy the file into the dir as it is
       }
-      FileUtil.chmod(destDir.toString(), "ugo+rx", true);
     }
     // promote the output to the final location
     if (!localFs.rename(workDir, finalDir)) {
@@ -459,6 +467,9 @@ public class TrackerDistributedCacheManager {
       // someone else promoted first
       return 0;
     }
+
+    FileUtil.chmod(finalDir.toString(),
+      String.format("%04o", permission.toShort()), true);
 
     LOG.info(String.format("Cached %s as %s",
              source.toString(), destination.toString()));
@@ -755,7 +766,9 @@ public class TrackerDistributedCacheManager {
    * Determines the visibilities of the distributed cache files and 
    * archives. The visibility of a cache path is "public" if the leaf component
    * has READ permissions for others, and the parent subdirs have 
-   * EXECUTE permissions for others
+   * EXECUTE permissions for others. On Windows, the visibility criteria
+   * is relaxed, and the cache path is "public" if the leaf component
+   * has EVERYONE permissions.
    * @param job
    * @throws IOException
    */
