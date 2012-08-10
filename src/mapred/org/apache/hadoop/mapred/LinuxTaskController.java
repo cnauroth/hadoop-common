@@ -38,6 +38,7 @@ import org.apache.hadoop.util.ProcessTree.Signal;
 import org.apache.hadoop.util.Shell.ExitCodeException;
 import org.apache.hadoop.util.Shell.ShellCommandExecutor;
 import org.apache.hadoop.util.StringUtils;
+import org.apache.hadoop.util.Shell;
 
 /**
  * A {@link TaskController} that runs the task JVMs as the user 
@@ -73,11 +74,18 @@ class LinuxTaskController extends TaskController {
   @Override
   public void setConf(Configuration conf) {
     super.setConf(conf);
-    File hadoopBin = new File(System.getenv("HADOOP_HOME"), "bin");
-    String defaultTaskController = 
-        new File(hadoopBin, "task-controller").getAbsolutePath();
+
+    String defaultTaskController = null;
+    try {
+      defaultTaskController = 
+              Shell.getQualifiedBinPath("task-controller");
+    } catch (IOException ioe)
+    {
+       LOG.warn("Could not locate the default native taskcontroller binary in the hadoop binary path "+ioe);
+    }
+
     taskControllerExe = conf.get(TASK_CONTROLLER_EXEC_KEY, 
-                                 defaultTaskController);       
+                                 defaultTaskController);
   }
 
   public LinuxTaskController() {

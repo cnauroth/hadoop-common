@@ -537,16 +537,12 @@ public class FileUtil {
       }
     }
 
-    String hadoopHome = System.getenv("HADOOP_HOME");
-    if (hadoopHome == null || hadoopHome == "") {
-      throw new IOException("Cannot find HADOOP_HOME environment variable in the System. Please add HADOOP_HOME to the environment and point to the installation folder (e.g. c:\\apps\\dist)");
-    }
     StringBuffer uncabCommand = new StringBuffer();
     uncabCommand.append("cd ");
     uncabCommand.append(FileUtil.makeShellPath(uncabDir));
     uncabCommand.append(" & ");
-    uncabCommand.append(hadoopHome + "\\bin\\");
-    uncabCommand.append("cabarc -p x ");
+    uncabCommand.append(Shell.getQualifiedBinPath("cabarc"));
+    uncabCommand.append("-p x ");
     uncabCommand.append(FileUtil.makeShellPath(inFile));
 
     String[] shellCmd = {"cmd", "/c", uncabCommand.toString() };

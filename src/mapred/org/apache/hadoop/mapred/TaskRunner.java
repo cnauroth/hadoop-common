@@ -77,6 +77,7 @@ abstract class TaskRunner extends Thread {
       System.getenv(Shell.WINDOWS ? "USERPROFILE" : "HOME");
   
   static final String HADOOP_WORK_DIR = "HADOOP_WORK_DIR";
+  static final String HADOOP_HOME_DIR = "HADOOP_HOME";
   
   static final String JAVA_CLASSPATH = "CLASSPATH";
   
@@ -585,6 +586,14 @@ abstract class TaskRunner extends Thread {
     env.put("LD_LIBRARY_PATH", ldLibraryPath.toString());
     env.put(HADOOP_WORK_DIR, workDir.toString());
     env.put(JAVA_CLASSPATH, classPaths.toString());
+
+    try {
+      env.put(HADOOP_HOME_DIR, Shell.getHadoopHome());
+    } catch (IOException ioe)
+    {
+      LOG.warn("Failed to propagate HADOOP_HOME_DIR to child ENV " + ioe);
+    }
+
     //update user configured login-shell properties
     updateUserLoginEnv(errorInfo, user, conf, env);
     // put jobTokenFile name into env
