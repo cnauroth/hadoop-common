@@ -2073,15 +2073,6 @@
       <fileset dir="${src.dir}/packages/win/resources">
         <include name="**" />
       </fileset>
-      <filterchain>
-        <replacetokens>
-          <token key="final.name" value="${final.name}" />
-          <token key="build.arch" value="${os.arch}" />
-          <token key="version" value="${version}" />
-          <token key="package.release" value="${package.release}" />
-          <token key="package.zip" value="${final.name}.zip" />
-        </replacetokens>
-      </filterchain>
     </copy>
     <copy todir="${package.buildroot}/template">
       <fileset dir="${src.dir}/packages/win/template">
