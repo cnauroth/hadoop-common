@@ -33,7 +33,7 @@ try
 	}
 
 	$HDP_INSTALL_PATH = Split-Path $MyInvocation.MyCommand.Path
-	$HDP_RESOURCES_DIR = "$HDP_INSTALL_PATH\..\resources"
+	$HDP_RESOURCES_DIR = Resolve-Path "$HDP_INSTALL_PATH\..\resources"
 	
 
 	if( -not (Test-Path ENV:WINPKG_LOG ))
@@ -42,8 +42,9 @@ try
 		Write-Log "Logging to $ENV:WINPKG_LOG"
 	}
 
-	$hadoopInstallDir = "$ENV:HADOOP_NODE_INSTALL_ROOT\hadoop-@version@"
-	$hadoopInstallBin = "$hadoopInstallDir\bin"
+	### $hadoopInstallDir: the directory that contains the appliation, after unzipping
+	$hadoopInstallDir = Join-Path "$ENV:HADOOP_NODE_INSTALL_ROOT" "hadoop-@version@"
+	$hadoopInstallBin = Join-Path "$hadoopInstallDir" "bin"
 
 	Write-Log "Ensuring elevated user"
 

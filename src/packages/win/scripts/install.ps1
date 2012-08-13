@@ -33,6 +33,25 @@ function Execute-Cmd ($command)
 	cmd.exe /C "$command"
 }
 
+### Add service control permissions to authenticated users.
+### Reference:
+### http://stackoverflow.com/questions/4436558/start-stop-a-windows-service-from-a-non-administrator-user-account 
+### http://msmvps.com/blogs/erikr/archive/2007/09/26/set-permissions-on-a-specific-service-windows.aspx
+
+function Set-ServiceAcl ($service)
+{
+	$cmd = "sc sdshow $service"
+	$sd = Execute-Cmd $cmd
+
+	Write-Log "Current SD: $sd"
+	$sd = $sd.Replace( "S:(", "(A;;RPWPCR;;;AU)S:(" )
+	Write-Log "Modified SD: $sd"
+
+	$cmd = "sc sdset $service $sd"
+	Execute-Cmd $cmd
+}
+
+
 try
 {
 	if( -not (Test-Path ENV:HADOOP_NODE_INSTALL_ROOT))
@@ -82,8 +101,7 @@ try
 
 	if( -not (Test-Path ENV:HDFS_DATA_DIR))
 	{
-		$cmd = "setx HDFS_DATA_DIR $ENV:HADOOP_NODE_INSTALL_ROOT\HDFS"
-		Execute-Cmd $cmd
+		$ENV:HDFS_DATA_DIR = Join-Path "$ENV:HADOOP_NODE_INSTALL_ROOT" "HDFS"
 	}
 
 	###
@@ -195,7 +213,10 @@ try
 
 			$cmd="$ENV:WINDIR\system32\sc.exe config $service start= auto"
 			Execute-Cmd $cmd
-			}
+
+			Set-ServiceAcl $service
+
+		}
 		finally
 		{
 		}

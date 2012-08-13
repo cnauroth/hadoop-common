@@ -10,14 +10,14 @@
   </property>
   <property>
     <name>dfs.name.dir</name>
-    <value>c:\hdfs\nn</value>
+    <value>c:\hadoop\hdfs\nn</value>
   </property>
   <property>
     <name>dfs.data.dir</name>
-    <value>c:\hdfs\dn</value>
+    <value>c:\hadoop\hdfs\dn</value>
   </property>
   <property>
     <name>fs.checkpoint.dir</name>
-    <value>c:\hdfs\2nn</value>
+    <value>c:\hadoop\hdfs\2nn</value>
   </property>
 </configuration>
