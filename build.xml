@@ -2063,7 +2063,7 @@
         <replacetokens>
           <token key="final.name" value="${final.name}" />
           <token key="build.arch" value="${os.arch}" />
-          <token key="version" value="${hadoop.version}" />
+          <token key="version" value="${version}" />
           <token key="package.release" value="${package.release}" />
           <token key="package.zip" value="${final.name}.zip" />
         </replacetokens>
@@ -2077,7 +2077,7 @@
         <replacetokens>
           <token key="final.name" value="${final.name}" />
           <token key="build.arch" value="${os.arch}" />
-          <token key="version" value="${hadoop.version}" />
+          <token key="version" value="${version}" />
           <token key="package.release" value="${package.release}" />
           <token key="package.zip" value="${final.name}.zip" />
         </replacetokens>
@@ -2091,7 +2091,7 @@
         <replacetokens>
           <token key="final.name" value="${final.name}" />
           <token key="build.arch" value="${os.arch}" />
-          <token key="version" value="${hadoop.version}" />
+          <token key="version" value="${version}" />
           <token key="package.release" value="${package.release}" />
           <token key="package.zip" value="${final.name}.zip" />
         </replacetokens>

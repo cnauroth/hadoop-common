@@ -42,7 +42,7 @@ try
 		Write-Log "Logging to $ENV:WINPKG_LOG"
 	}
 
-	$hadoopInstallDir = "$ENV:HADOOP_NODE_INSTALL_ROOT\hadoop-1.1.0-SNAPSHOT"
+	$hadoopInstallDir = "$ENV:HADOOP_NODE_INSTALL_ROOT\hadoop-@version@"
 	$hadoopInstallBin = "$hadoopInstallDir\bin"
 
 	Write-Log "Ensuring elevated user"

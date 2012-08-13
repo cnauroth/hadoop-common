@@ -41,7 +41,7 @@ try
 	}
 
 	$HDP_INSTALL_PATH = Split-Path $MyInvocation.MyCommand.Path
-	$HDP_RESOURCES_DIR = "$HDP_INSTALL_PATH\..\resources"
+	$HDP_RESOURCES_DIR = Resolve-Path "$HDP_INSTALL_PATH\..\resources"
 	
 
 	if( -not (Test-Path ENV:WINPKG_LOG ))
@@ -50,8 +50,12 @@ try
 		Write-Log "Logging to $ENV:WINPKG_LOG"
 	}
 
-	$hadoopInstallDir = "$ENV:HADOOP_NODE_INSTALL_ROOT\hadoop-@version@"
-	$hadoopInstallBin = "$hadoopInstallDir\bin"
+	### $hadoopInstallDir: the directory that contains the appliation, after unzipping
+	$hadoopInstallDir = Join-Path "$ENV:HADOOP_NODE_INSTALL_ROOT" "hadoop-@version@"
+	$hadoopInstallBin = Join-Path "$hadoopInstallDir" "bin"
+
+	Write-Log "HadoopInstallDir: $hadoopInstallDir"
+	Write-Log "HadoopInstallBin: $hadoopInstallBin" 
 
 	Write-Log "Username: $username"
 	Write-Log "Password: $password"
@@ -85,7 +89,7 @@ try
 	###
 	### Begin install
 	###
-	Write-Log "Installing Apache Hadoop hadoop-1.1.0-SNAPSHOT to $hadoopInstallDir"
+	Write-Log "Installing Apache Hadoop hadoop-@version@ to $ENV:HADOOP_NODE_INSTALL_ROOT"
 
 	if( $username -eq $null )
 	{
@@ -139,7 +143,7 @@ try
 	###
 
 	Write-Log "Extracting Hadoop Core archive into $hadoopInstallDir"
-	$unzip_cmd = "$HDP_RESOURCES_DIR\unzip.exe `"$HDP_RESOURCES_DIR\hadoop-1.1.0-SNAPSHOT.zip`" `"$hadoopInstallDir`""
+	$unzip_cmd = "$HDP_RESOURCES_DIR\unzip.exe `"$HDP_RESOURCES_DIR\hadoop-@version@.zip`" `"$ENV:HADOOP_NODE_INSTALL_ROOT`""
 	Execute-Cmd	$unzip_cmd	
 
 	$xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template`" `"$hadoopInstallDir`""
@@ -180,10 +184,10 @@ try
 	{
 		try
 		{
-			Write-Log "Creating service $service"
-			Copy-Item "$HDP_RESOURCES_DIR\serviceHost.exe" "$hadoopInstallDir\bin\$service.exe" -Force
+			Write-Log "Creating service $service in as $hadoopInstallBin\$service.exe"
+			Copy-Item "$HDP_RESOURCES_DIR\serviceHost.exe" "$hadoopInstallBin\$service.exe" -Force
 
-			$cmd="$ENV:WINDIR\system32\sc.exe create $service binPath= `"$hadoopInstallDir\bin\$service.exe`" DisplayName= `"Hadoop $service`" $logonString"
+			$cmd="$ENV:WINDIR\system32\sc.exe create $service binPath= `"$hadoopInstallBin\$service.exe`" DisplayName= `"Hadoop $service`" $logonString"
 			Execute-Cmd $cmd
 
 			$cmd="$ENV:WINDIR\system32\sc.exe failure $service reset= 30 actions= restart/5000"
@@ -205,7 +209,7 @@ try
 
 	foreach( $service in $hdfsRoleServices.Split( ' ' ))
 	{
-		Write-Log "Creating service config ${hadoopInstallDir}\${service}.xml"
+		Write-Log "Creating service config ${hadoopInstallBin}\${service}.xml"
 		$cmd = "$hadoopInstallBin\hdfs.cmd --service $service > `"$hadoopInstallBin\$service.xml`""
 		Execute-Cmd $cmd		
 	}
@@ -216,7 +220,7 @@ try
 
 	foreach( $service in $mapRedRoleServices.Split( ' ' ))
 	{
-		Write-Log "Creating service config $hadoopInstallDir\$service.xml"
+		Write-Log "Creating service config $hadoopInstallBin\$service.xml"
 		$cmd = "$hadoopInstallBin\mapred.cmd --service $service > `"$hadoopInstallBin\$service.xml`""
 		Execute-Cmd $cmd		
 	}
