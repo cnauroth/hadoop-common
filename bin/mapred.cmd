@@ -135,6 +135,7 @@ goto :eof
   )
   shift
   goto :MakeCmdArgsLoop 
+  :EndLoop
 
   set mapred-command-arguments=%_mapredarguments%
   goto :eof
