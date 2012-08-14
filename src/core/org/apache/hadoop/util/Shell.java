@@ -64,6 +64,10 @@ abstract public class Shell {
          throw new IOException("Neither HADOOP_HOME, nor hadoop.home.dir are set.");
        }
 
+       if (home.startsWith("\"") && home.endsWith("\"")) {
+	  home = home.substring(1, home.length()-1);
+       }
+
        // check that the home setting is actually a directory that exists
        File homedir = new File(home);
        if (!homedir.isAbsolute() || !homedir.exists() || !homedir.isDirectory()) {
