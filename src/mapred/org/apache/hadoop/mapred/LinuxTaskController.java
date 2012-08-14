@@ -79,8 +79,7 @@ class LinuxTaskController extends TaskController {
     try {
       defaultTaskController = 
               Shell.getQualifiedBinPath("task-controller");
-    } catch (IOException ioe)
-    {
+    } catch (IOException ioe) {
        LOG.warn("Could not locate the default native taskcontroller binary in the hadoop binary path "+ioe);
     }
 

@@ -65,7 +65,7 @@ abstract public class Shell {
        }
 
        if (home.startsWith("\"") && home.endsWith("\"")) {
-	  home = home.substring(1, home.length()-1);
+         home = home.substring(1, home.length()-1);
        }
 
        // check that the home setting is actually a directory that exists
@@ -76,8 +76,7 @@ abstract public class Shell {
 
        home = homedir.getCanonicalPath();
 
-    } catch (IOException ioe)
-    {
+    } catch (IOException ioe) {
        LOG.error("Failed to detect a valid hadoop home directory", ioe);
        home = null;
     }
@@ -89,8 +88,7 @@ abstract public class Shell {
   // Public getter, throws an exception if HADOOP_HOME failed validation
   // checks and is being referenced downstream.
   public static final String getHadoopHome() throws IOException {
-    if (HADOOP_HOME_DIR == null)
-    {
+    if (HADOOP_HOME_DIR == null) {
       throw new IOException("Misconfigured HADOOP_HOME cannot be referenced.");
     }
 

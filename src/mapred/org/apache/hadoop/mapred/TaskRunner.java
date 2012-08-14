@@ -589,8 +589,7 @@ abstract class TaskRunner extends Thread {
 
     try {
       env.put(HADOOP_HOME_DIR, Shell.getHadoopHome());
-    } catch (IOException ioe)
-    {
+    } catch (IOException ioe) {
       LOG.warn("Failed to propagate HADOOP_HOME_DIR to child ENV " + ioe);
     }
 
