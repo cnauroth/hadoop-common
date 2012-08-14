@@ -23,8 +23,8 @@ param(
 
 function Write-Log ($message )
 {
-	Out-File -FilePath $ENV:WINPKG_LOG -InputObject $message -Append -Encoding "UTF8"
 	Write-Host $message
+	Out-File -FilePath $ENV:WINPKG_LOG -InputObject $message -Append -Encoding "UTF8"
 }
 
 function Execute-Cmd ($command)
@@ -44,6 +44,13 @@ function Set-ServiceAcl ($service)
 	$sd = Execute-Cmd $cmd
 
 	Write-Log "Current SD: $sd"
+
+	## A;; --- allow
+	## RP ---- SERVICE_START
+	## WP ---- SERVICE_STOP
+	## CR ---- SERVICE_USER_DEFINED_CONTROL	
+	## ;;;AU - AUTHENTICATED_USERS
+
 	$sd = $sd.Replace( "S:(", "(A;;RPWPCR;;;AU)S:(" )
 	Write-Log "Modified SD: $sd"
 
@@ -186,11 +193,13 @@ try
 	### Create Hadoop Windows Services and grant user ACLS to start/stop
 	###
 
-	$logonString = "obj=.\$username password=$password"
+	$logonString = "obj= .\$username password=$password"
 
 	$hdfsRoleServices = $executionContext.InvokeCommand.ExpandString( "`$ENV:$hdfsRole" )
 	$mapRedRoleServices = $executionContext.InvokeCommand.ExpandString( "`$ENV:$mapredRole" )
 
+	Write-Log "HdfsRole: $hdfsRole"
+	Write-Log "MapRedRole: $mapRedRole"
 	Write-Log "Node HDFS Role Services: $hdfsRoleServices"
 	Write-Log "Node MAPRED Role Services: $mapRedRoleServices"
 
@@ -202,7 +211,7 @@ try
 	{
 		try
 		{
-			Write-Log "Creating service $service in as $hadoopInstallBin\$service.exe"
+			Write-Log "Creating service $service as $hadoopInstallBin\$service.exe"
 			Copy-Item "$HDP_RESOURCES_DIR\serviceHost.exe" "$hadoopInstallBin\$service.exe" -Force
 
 			$cmd="$ENV:WINDIR\system32\sc.exe create $service binPath= `"$hadoopInstallBin\$service.exe`" DisplayName= `"Hadoop $service`" $logonString"
@@ -215,7 +224,6 @@ try
 			Execute-Cmd $cmd
 
 			Set-ServiceAcl $service
-
 		}
 		finally
 		{

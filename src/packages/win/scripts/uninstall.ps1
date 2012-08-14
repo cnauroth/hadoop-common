@@ -75,7 +75,7 @@ try
 
 		if( $s -ne $null )
 		{
-			Stop-Service $
+			Stop-Service $s
 			$cmd = "sc.exe delete $service"
 			Execute-Cmd $cmd
 		}
