@@ -483,9 +483,9 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean, FSClusterSt
     short filePermission = (short)conf.getInt("dfs.upgrade.permission", 0777);
     this.defaultPermission = PermissionStatus.createImmutable(
         fsOwner.getShortUserName(), supergroup, new FsPermission(filePermission));
-
-		this.replicator = BlockPlacementPolicy.getInstance(conf, this,	clusterMap);
-		
+    
+    this.replicator = BlockPlacementPolicy.getInstance(conf, this, clusterMap);
+    
     this.defaultReplication = conf.getInt("dfs.replication", 3);
     this.maxReplication = conf.getInt("dfs.replication.max", 512);
     this.minReplication = conf.getInt("dfs.replication.min", 1);
@@ -1548,8 +1548,8 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean, FSClusterSt
     }
 
     // choose targets for the new block tobe allocated.
-    DatanodeDescriptor targets[] = replicator.chooseTarget(src, 
-    		                                                   replication,
+    DatanodeDescriptor targets[] = replicator.chooseTarget(src,
+                                                           replication,
                                                            clientNode,
                                                            excludedNodes,
                                                            blockSize);
@@ -3008,6 +3008,8 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean, FSClusterSt
     }
 
     // choose replication targets: NOT HOLDING THE GLOBAL LOCK
+    // It is costly to extract the filename for which chooseTargets is called,
+    // so for now we pass in the Inode itself.    
     DatanodeDescriptor targets[] = replicator.chooseTarget(fileINode,
         requiredReplication - numEffectiveReplicas,
         srcNode, containingNodes, block.getNumBytes());
@@ -3857,8 +3859,8 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean, FSClusterSt
                               Block b, short replication,
                               DatanodeDescriptor addedNode,
                               DatanodeDescriptor delNodeHint) {
-  	INodeFile inode = blocksMap.getINode(b);
-  	
+    INodeFile inode = blocksMap.getINode(b);
+    
     // first form a rack to datanodes map and
     HashMap<String, ArrayList<DatanodeDescriptor>> rackMap =
       new HashMap<String, ArrayList<DatanodeDescriptor>>();
@@ -3902,7 +3904,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean, FSClusterSt
             (priSet.contains(delNodeHint) || (addedNode != null && !priSet.contains(addedNode))) ) {
           cur = delNodeHint;
       } else { // regular excessive replica removal
-      	  cur = replicator.chooseReplicaToDelete(inode, b, replication, priSet, remains);          
+        cur = replicator.chooseReplicaToDelete(inode, b, replication, priSet, remains);          
       }
 
       firstOne = false;
@@ -4635,7 +4637,7 @@ public class FSNamesystem implements FSConstants, FSNamesystemMBean, FSClusterSt
   }
 
   public DatanodeDescriptor getRandomDatanode() {
-  	return (DatanodeDescriptor)clusterMap.chooseRandom(NodeBase.ROOT);
+    return (DatanodeDescriptor)clusterMap.chooseRandom(NodeBase.ROOT);
   }
 
   /**

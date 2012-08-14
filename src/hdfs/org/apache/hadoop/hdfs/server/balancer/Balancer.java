@@ -791,16 +791,18 @@ public class Balancer implements Tool {
     }
   }
 
-  /* Check that this Balancer is compatible with the Block Placement Policy
-   * used by the Namenode.
+  /*
+   * Check that this Balancer is compatible with the Block Placement Policy used
+   * by the Namenode.
    */
-  private void checkReplicationPolicyCompatibility(Configuration conf) throws UnsupportedActionException {
-    if (BlockPlacementPolicy.getInstance(conf, null, null).getClass() != 
-        BlockPlacementPolicyDefault.class) {
-      throw new UnsupportedActionException("Balancer without BlockPlacementPolicyDefault");
+  private void checkReplicationPolicyCompatibility(Configuration conf)
+      throws UnsupportedActionException {
+    if (BlockPlacementPolicy.getInstance(conf, null, null).getClass() != BlockPlacementPolicyDefault.class) {
+      throw new UnsupportedActionException(
+          "Balancer without BlockPlacementPolicyDefault");
     }
   }
-   
+
    /** Default constructor */
   Balancer() throws UnsupportedActionException {
     checkReplicationPolicyCompatibility(getConf());
