@@ -28,6 +28,14 @@ Monarch - unreleased
 
     HADOOP-7 Address intermitted timeout test failures on Windows (contributed by Ivan Mitic)
 
+    HADOOP-16. hadoop.cmd does not support HADOOP_USER_CLASSPATH_FIRST
+    (Thejas Nair via suresh)
+
+    HADOOP-63. Close stream and unlock storage directory to fix 
+    TestStorageRestore on Windows. (Brandon Li via suresh)
+
+    HADOOP-62. Fix TestNamenodeMXBean test failure. (Brandon Li via suresh)
+
   INITIAL MS-PATCH
     HADOOP-8457 Address file ownership issue for users in Administrators group on Windows (contributed by Ivan Mitic)
 
