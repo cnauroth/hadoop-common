@@ -109,6 +109,8 @@ call :updatepath %HADOOP_BIN_PATH%
     set CLASSPATH=%CLASSPATH%;%CD%
     set CLASS=%hadoop-command%
   )
+
+  set path=%PATH%;%HADOOP_BIN_PATH%
   
   call %JAVA% %JAVA_HEAP_MAX% %HADOOP_OPTS% -classpath %CLASSPATH% %CLASS% %hadoop-command-arguments%
 
