@@ -12,6 +12,6 @@ see http://hadoop.apache.org/common/docs/r0.20.205.0/mapred-default.html
   </property>
   <property>
     <name>mapred.local.dir</name>
-    <value>c:\hdfs\mapred\local</value>
+    <value>c:\hadoop\hdfs\mapred\local</value>
   </property>
 </configuration>

@@ -14,6 +14,6 @@
 @rem See the License for the specific language governing permissions and
 @rem limitations under the License.
 
-powershell.exe -NoProfile -ExecutionPolicy unrestricted -File %~dp0install.ps1 %*
+powershell.exe -NoProfile -InputFormat none -ExecutionPolicy unrestricted -File %~dp0install.ps1 %*
 goto :eof
 

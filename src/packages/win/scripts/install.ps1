@@ -51,6 +51,7 @@ function Set-ServiceAcl ($service)
 	## CR ---- SERVICE_USER_DEFINED_CONTROL	
 	## ;;;AU - AUTHENTICATED_USERS
 
+	$sd = [String]$sd
 	$sd = $sd.Replace( "S:(", "(A;;RPWPCR;;;AU)S:(" )
 	Write-Log "Modified SD: $sd"
 
@@ -193,7 +194,9 @@ try
 	### Create Hadoop Windows Services and grant user ACLS to start/stop
 	###
 
-	$logonString = "obj= .\$username password=$password"
+	#Note that SC.exe requires a space between the = and the
+	#start of the parameter value.
+	$logonString = "obj= .\$username password= $password"
 
 	$hdfsRoleServices = $executionContext.InvokeCommand.ExpandString( "`$ENV:$hdfsRole" )
 	$mapRedRoleServices = $executionContext.InvokeCommand.ExpandString( "`$ENV:$mapredRole" )
