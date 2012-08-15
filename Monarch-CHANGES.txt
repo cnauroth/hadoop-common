@@ -1,5 +1,9 @@
 Monarch - unreleased
   IMPROVEMENTS
+    HADOOP-110 TestKillSubProcesses intermittently fails (contributed by Bikas Saha)
+
+    HADOOP-60 Provide API to retrieve valid HADOOP_HOME and bin path (Contributed by John Gordon)
+
     HADOOP-103 Minor regression in mapred.cmd (contributed by Ivan Mitic)
 
     HADOOP-88 hadoop streaming job need the full path to commands even when they are in the path (Contributed by Bikas Saha)
