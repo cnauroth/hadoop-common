@@ -190,6 +190,12 @@
       <os arch="x86" />
     </or>
   </condition>
+
+  <condition property="windows">
+    <os family="windows" />
+  </condition>
+
+
   <property name="jsvc.location" value="http://archive.apache.org/dist/commons/daemon/binaries/1.0.2/linux/commons-daemon-1.0.2-bin-linux-${os-arch}.tar.gz" />
   <property name="jsvc.dest.name" value="jsvc.${os.arch}.tar.gz" />
 
@@ -624,9 +630,7 @@
   </target>
 
   <target name="compile-winutils">
-    <antcall target="compile-ms-winutils">
-      <param name="windows" value="true"/>
-    </antcall>
+    <antcall target="compile-ms-winutils" />
   </target>
 
   <target name="compile-ms-winutils" if="windows">
@@ -2053,6 +2057,10 @@
     <delete dir="${package.buildroot}" quiet="true" verbose="false"/>
   </target>
   
+  <!-- Keep the old ms-package target in place until we can gracefull deprecate it.
+       This target should be removed prior to submission to Apache -->
+  <target name="ms-package" depends="winpkg"/>
+
   <target name="winpkg" depends="compile-winutils,zip"  description="Make a package for Windows">
     <copy file="${build.dir}/${final.name}.zip" todir="${package.buildroot}/resources"/>
     <copy todir="${package.buildroot}/scripts">
