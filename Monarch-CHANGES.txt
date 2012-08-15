@@ -1,5 +1,7 @@
 Monarch - unreleased
   IMPROVEMENTS
+    HADOOP-5 Support for node health scripts on Windows (Contributed by Ivan Mitic)
+
     HADOOP-110 TestKillSubProcesses intermittently fails (contributed by Bikas Saha)
 
     HADOOP-60 Provide API to retrieve valid HADOOP_HOME and bin path (Contributed by John Gordon)

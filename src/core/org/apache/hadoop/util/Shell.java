@@ -198,6 +198,34 @@ abstract public class Shell {
                    : new String[] { "ln", "-s", target, link };
   }
 
+  /** Return a command to execute the given command in OS shell.
+   *  On Windows, the passed in groupId can be used to launch
+   *  and associate the given groupId in a process group. On
+   *  non-Windows, groupId is ignored. */
+  public static String[] getRunCommand(String command,
+                                       String groupId) {
+    if (WINDOWS) {
+      if(ProcessTree.isSetsidAvailable) {
+        return new String[] { Shell.WINUTILS, "task", "create",
+                              groupId, "cmd /c " + command };
+      } else {
+        return new String[] { "cmd", "/c", command };
+      }
+    } else {
+      return new String[] { "bash", "-c", command };
+    }
+  }
+
+  /** Return a command to send a kill signal to a given groupId */
+  public static String[] getSignalKillProcessGroupCommand(int code,
+                                                          String groupId) {
+    if (WINDOWS) {
+      return new String[] { Shell.WINUTILS, "task", "kill", groupId };
+    } else {
+      return new String[] { "kill", "-" + code , "-" + groupId };
+    }
+  }
+
   /**Time after which the executing script would be timedout*/
   protected long timeOutInterval = 0L;
   /** If or not script timed out*/
@@ -419,7 +447,7 @@ abstract public class Shell {
 
   /** return an array containing the command name & its parameters */ 
   protected abstract String[] getExecString();
-  
+
   /** Parse the execution result */
   protected abstract void parseExecResult(BufferedReader lines)
   throws IOException;
@@ -493,7 +521,7 @@ abstract public class Shell {
      *            environment is not modified.
      * @param timeout Specifies the time in milliseconds, after which the
      *                command will be killed and the status marked as timedout.
-     *                If 0, the command will not be timed out. 
+     *                If 0, the command will not be timed out.
      */
     public ShellCommandExecutor(String[] execString, File dir, 
         Map<String, String> env, long timeout) {
@@ -506,7 +534,6 @@ abstract public class Shell {
       }
       timeOutInterval = timeout;
     }
-        
 
     /** Execute the shell command. */
     public void execute() throws IOException {
