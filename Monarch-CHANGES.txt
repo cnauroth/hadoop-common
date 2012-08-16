@@ -1,5 +1,9 @@
 Monarch - unreleased
   IMPROVEMENTS
+    HADOOP-111 Shell timeout mechanism does not work for processes spawned using winutils (Contributed by Bikas Saha)
+
+    HADOOP-86 winutils "ls" and "chmod -r" does not work for paths longer than MAX_PATH
+
     HADOOP-5 Support for node health scripts on Windows (Contributed by Ivan Mitic)
 
     HADOOP-110 TestKillSubProcesses intermittently fails (contributed by Bikas Saha)
