@@ -190,19 +190,20 @@ try
 	$cmd = "icacls `"$ENV:HDFS_DATA_DIR`" /grant ${username}:(OI)(CI)F"
 	Execute-Cmd $cmd
 
+
+
+
 	###
 	### Create Hadoop Windows Services and grant user ACLS to start/stop
 	###
 
-	#Note that SC.exe requires a space between the = and the
-	#start of the parameter value.
-	$logonString = "obj= .\$username password= $password"
+	$securePassword = ConvertTo-SecureString $password -AsPlainText -Force
+	$serviceCredentials = New-Object System.Management.Automation.PSCredential ("$ENV:COMPUTERNAME\$username", $securePassword)
 
 	$hdfsRoleServices = $executionContext.InvokeCommand.ExpandString( "`$ENV:$hdfsRole" )
 	$mapRedRoleServices = $executionContext.InvokeCommand.ExpandString( "`$ENV:$mapredRole" )
 
-	Write-Log "HdfsRole: $hdfsRole"
-	Write-Log "MapRedRole: $mapRedRole"
+	Write-Log "HdfsRole: $hdfsRole"	Write-Log "MapRedRole: $mapRedRole"
 	Write-Log "Node HDFS Role Services: $hdfsRoleServices"
 	Write-Log "Node MAPRED Role Services: $mapRedRoleServices"
 
@@ -217,8 +218,8 @@ try
 			Write-Log "Creating service $service as $hadoopInstallBin\$service.exe"
 			Copy-Item "$HDP_RESOURCES_DIR\serviceHost.exe" "$hadoopInstallBin\$service.exe" -Force
 
-			$cmd="$ENV:WINDIR\system32\sc.exe create $service binPath= `"$hadoopInstallBin\$service.exe`" DisplayName= `"Hadoop $service`" $logonString"
-			Execute-Cmd $cmd
+			Write-Log( "Adding service $service" )
+			$s = New-Service -Name "$service" -BinaryPathName "$hadoopInstallBin\$service.exe" -Credential $serviceCredentials -DisplayName "Hadoop $service"
 
 			$cmd="$ENV:WINDIR\system32\sc.exe failure $service reset= 30 actions= restart/5000"
 			Execute-Cmd $cmd
@@ -227,6 +228,10 @@ try
 			Execute-Cmd $cmd
 
 			Set-ServiceAcl $service
+		}
+		catch [Exception]
+		{
+			Write-Log $_.Exception.Message
 		}
 		finally
 		{
