@@ -218,6 +218,13 @@ try
 			Write-Log "Creating service $service as $hadoopInstallBin\$service.exe"
 			Copy-Item "$HDP_RESOURCES_DIR\serviceHost.exe" "$hadoopInstallBin\$service.exe" -Force
 
+			#serviceHost.exe will write to this log but does not create it
+			#Creating the event log needs to be done from an elevated process, so we do it here
+			if( -not ([Diagnostics.EventLog]::SourceExists( "$service" )))
+			{
+				[Diagnostics.EventLog]::CreateEventSource( "$service", "" )
+			}
+
 			Write-Log( "Adding service $service" )
 			$s = New-Service -Name "$service" -BinaryPathName "$hadoopInstallBin\$service.exe" -Credential $serviceCredentials -DisplayName "Hadoop $service"
 
@@ -232,9 +239,6 @@ try
 		catch [Exception]
 		{
 			Write-Log $_.Exception.Message
-		}
-		finally
-		{
 		}
 	}
 
