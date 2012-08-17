@@ -687,7 +687,12 @@ public class FileUtil {
    * @return value returned by the command
    */
   public static int symLink(String target, String linkname) throws IOException{
-    String[] cmd = Shell.getSymlinkCommand(target, linkname);
+    // Run the input paths through Java's File so that they are converted to the
+    // native OS form. FIXME: Long term fix is to expose symLink API that
+    // accepts File instead of String, as symlinks can only be created on the
+    // local FS.
+    String[] cmd = Shell.getSymlinkCommand(new File(target).getPath(),
+        new File(linkname).getPath());
     ShellCommandExecutor shExec = new ShellCommandExecutor(cmd);
     try {
       shExec.execute();
