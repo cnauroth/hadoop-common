@@ -45,6 +45,8 @@ Monarch - unreleased
     TestStorageRestore on Windows. (Brandon Li via suresh)
 
     HADOOP-62. Fix TestNamenodeMXBean test failure. (Brandon Li via suresh)
+    
+    HADOOP-113. Missing jersey jars as dependency causes hive tests to fail
 
   INITIAL MS-PATCH
     HADOOP-8457 Address file ownership issue for users in Administrators group on Windows (contributed by Ivan Mitic)
