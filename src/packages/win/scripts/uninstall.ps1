@@ -13,10 +13,29 @@
 ### See the License for the specific language governing permissions and
 ### limitations under the License.
 
-function Write-Log ($message )
+function Write-Log ($message, $level, $exception)
 {
-	Out-File -FilePath $ENV:WINPKG_LOG -InputObject $message -Append -Encoding "UTF8"
-	Write-Host $message
+	switch($level)
+	{
+		"Failure" {
+			$message = "HADOOP FAILURE: $message"
+			Write-Host $message
+			break;
+		}
+
+		"Info" {
+			$message = "HADOOP: $message"
+			Write-Host $message
+			break;
+		}
+
+		default	{
+			$message = "HADOOP: $message"
+			Write-Verbose "$message"
+		}
+	}
+
+	Out-File -FilePath $ENV:WINPKG_LOG -InputObject "$message" -Append -Encoding "UTF8"
 }
 
 function Execute-Cmd ($command)
@@ -25,6 +44,11 @@ function Execute-Cmd ($command)
 	cmd.exe /C "$command"
 }
 
+function Execute-Ps ($command)
+{
+	Write-Log $command
+	Invoke-Expression "$command"
+}
 try
 {
 	if( -not (Test-Path ENV:HADOOP_NODE_INSTALL_ROOT))
@@ -40,6 +64,12 @@ try
 	{
 		$ENV:WINPKG_LOG="$ENV:HADOOP_NODE_INSTALL_ROOT\@hadoop.core.winpkg@.log"
 		Write-Log "Logging to $ENV:WINPKG_LOG"
+	}
+
+	if( -not (Test-Path "$ENV:WINPKG_BIN\winpkg.ps1" ))
+	{
+		Write-Log "Could not find $ENV:WINPKG_BIN\winpkg.ps1" "Failure"
+		exit 1
 	}
 
 	### $hadoopInstallDir: the directory that contains the appliation, after unzipping
@@ -88,6 +118,10 @@ try
 	Write-Log "Removing Hadoop ($hadoopInstallDir)"
 	$cmd = "rd /s /q $hadoopInstallDir"
 	Execute-Cmd $cmd
+}
+catch [Exception]
+{
+	Write-Log $_.Exception.Message "Failure"
 }
 finally
 {

@@ -628,11 +628,6 @@
       />
     </copy>
   </target>
-
-  <target name="compile-winutils">
-    <antcall target="compile-ms-winutils" />
-  </target>
-
   <target name="compile-ms-winutils" if="windows">
     <mkdir dir="${build.winutils}"/>
 
@@ -2061,7 +2056,7 @@
        This target should be removed prior to submission to Apache -->
   <target name="ms-package" depends="winpkg"/>
 
-  <target name="winpkg" depends="compile-winutils,zip,just-winpkg" />
+  <target name="winpkg" depends="zip,just-winpkg" />
   <target name="just-winpkg" description="Make a package for Windows">
     <copy file="${build.dir}/${final.name}.zip" todir="${package.buildroot}/resources"/>
     <copy todir="${package.buildroot}/scripts">
