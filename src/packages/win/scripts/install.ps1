@@ -21,7 +21,7 @@ param(
 	)
 
 
-function Write-Log ($message, $level, $exception)
+function Write-Log ($message, $level, $pipelineObj)
 {
 	switch($level)
 	{
@@ -47,6 +47,11 @@ function Write-Log ($message, $level, $exception)
 	}
 
 	Out-File -FilePath $ENV:WINPKG_LOG -InputObject "$message" -Append -Encoding "UTF8"
+
+    if( $pipelineObj -ne $null )
+    {
+        Out-File -FilePath $ENV:WINPKG_LOG -InputObject $pipelineObj.InvocationInfo.PositionMessage -Append -Encoding "UTF8"
+    }
 }
 
 function Execute-Cmd ($command)
@@ -90,14 +95,13 @@ function Set-ServiceAcl ($service)
 
 try
 {
+	$HDP_INSTALL_PATH = Split-Path $MyInvocation.MyCommand.Path
+	$HDP_RESOURCES_DIR = Resolve-Path "$HDP_INSTALL_PATH\..\resources"
+
 	if( -not (Test-Path ENV:HADOOP_NODE_INSTALL_ROOT))
 	{
 		$ENV:HADOOP_NODE_INSTALL_ROOT = "c:\hadoop"
 	}
-
-	$HDP_INSTALL_PATH = Split-Path $MyInvocation.MyCommand.Path
-	$HDP_RESOURCES_DIR = Resolve-Path "$HDP_INSTALL_PATH\..\resources"
-	
 
 	if( -not (Test-Path ENV:WINPKG_LOG ))
 	{
@@ -105,6 +109,15 @@ try
 	}
 
 	Write-Log "Logging to $ENV:WINPKG_LOG" "Info"
+	Write-Log "HDP_INSTALL_PATH: $HDP_INSTALL_PATH"
+	Write-Log "HDP_RESOURCES_DIR: $HDP_RESOURCES_DIR"
+
+	if( -not (Test-Path "$HDP_RESOURCES_DIR\winpkg.ps1" ))
+	{
+		Write-Log "Could not find $HDP_RESOURCES_DIR\winpkg.ps1" "Failure"
+		exit 1
+	}
+
 
 	### $hadoopInstallDir: the directory that contains the appliation, after unzipping
 	$hadoopInstallDir = Join-Path "$ENV:HADOOP_NODE_INSTALL_ROOT" "hadoop-@version@"
@@ -196,14 +209,8 @@ try
 	###  Unzip Hadoop distribution from compressed archive
 	###
 
-	if( -not (Test-Path $ENV:WINPKG_BIN))
-	{
-		Write-Log "Could not find winpkg tools in $ENV:WINPKG_BIN" "Failure"
-		exit 1
-	}
-
 	Write-Log "Extracting Hadoop Core archive into $hadoopInstallDir"
-	$unzipExpr = "$ENV:WINPKG_BIN\winpkg.ps1 `"$HDP_RESOURCES_DIR\hadoop-@version@.zip`" utils unzip `"$ENV:HADOOP_NODE_INSTALL_ROOT`""
+	$unzipExpr = "$HDP_RESOURCES_DIR\winpkg.ps1 `"$HDP_RESOURCES_DIR\hadoop-@version@.zip`" utils unzip `"$ENV:HADOOP_NODE_INSTALL_ROOT`""
 	Execute-Ps $unzipExpr
 	
 	$xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template`" `"$hadoopInstallDir`""
@@ -270,7 +277,7 @@ try
 		}
 		catch [Exception]
 		{
-			Write-Log $_.Exception.Message
+			Write-Log $_.Exception.Message $_
 		}
 	}
 

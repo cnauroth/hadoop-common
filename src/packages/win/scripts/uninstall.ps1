@@ -13,7 +13,7 @@
 ### See the License for the specific language governing permissions and
 ### limitations under the License.
 
-function Write-Log ($message, $level, $exception)
+function Write-Log ($message, $level, $pipelineObj)
 {
 	switch($level)
 	{
@@ -36,6 +36,11 @@ function Write-Log ($message, $level, $exception)
 	}
 
 	Out-File -FilePath $ENV:WINPKG_LOG -InputObject "$message" -Append -Encoding "UTF8"
+
+    if( $pipelineObj -ne $null )
+    {
+        Out-File -FilePath $ENV:WINPKG_LOG -InputObject $pipelineObj.InvocationInfo.PositionMessage -Append -Encoding "UTF8"
+    }
 }
 
 function Execute-Cmd ($command)
@@ -64,12 +69,6 @@ try
 	{
 		$ENV:WINPKG_LOG="$ENV:HADOOP_NODE_INSTALL_ROOT\@hadoop.core.winpkg@.log"
 		Write-Log "Logging to $ENV:WINPKG_LOG"
-	}
-
-	if( -not (Test-Path "$ENV:WINPKG_BIN\winpkg.ps1" ))
-	{
-		Write-Log "Could not find $ENV:WINPKG_BIN\winpkg.ps1" "Failure"
-		exit 1
 	}
 
 	### $hadoopInstallDir: the directory that contains the appliation, after unzipping
@@ -105,7 +104,7 @@ try
 
 		if( $s -ne $null )
 		{
-			Stop-Service $s
+			Stop-Service $service
 			$cmd = "sc.exe delete $service"
 			Execute-Cmd $cmd
 		}
@@ -121,7 +120,7 @@ try
 }
 catch [Exception]
 {
-	Write-Log $_.Exception.Message "Failure"
+	Write-Log $_.Exception.Message "Failure" $_
 }
 finally
 {
