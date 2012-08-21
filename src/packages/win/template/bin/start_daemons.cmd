@@ -20,7 +20,8 @@ echo Starting Hadoop services
 @rem
 @rem  Start services 
 @rem
-for %%i in (namenode datanode secondarynamenode jobtracker tasktracker) do (
+for %%i in (namenode datanode secondarynamenode jobtracker tasktracker historyserver) do (
+  echo Starting %%i
   "%windir%\system32\net.exe" start %%i
 )
 

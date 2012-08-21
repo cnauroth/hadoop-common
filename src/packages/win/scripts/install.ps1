@@ -21,16 +21,49 @@ param(
 	)
 
 
-function Write-Log ($message )
+function Write-Log ($message, $level, $pipelineObj)
 {
-	Write-Host $message
-	Out-File -FilePath $ENV:WINPKG_LOG -InputObject $message -Append -Encoding "UTF8"
+	switch($level)
+	{
+		"Failure" 
+		{
+			$message = "HADOOP FAILURE: $message"
+			Write-Host $message
+			break;
+		}
+
+		"Info"
+		{
+			$message = "HADOOP: $message"
+			Write-Host $message
+			break;
+		}
+
+		default
+		{
+			$message = "HADOOP: $message"
+			Write-Verbose "$message"
+		}
+	}
+
+	Out-File -FilePath $ENV:WINPKG_LOG -InputObject "$message" -Append -Encoding "UTF8"
+
+    if( $pipelineObj -ne $null )
+    {
+        Out-File -FilePath $ENV:WINPKG_LOG -InputObject $pipelineObj.InvocationInfo.PositionMessage -Append -Encoding "UTF8"
+    }
 }
 
 function Execute-Cmd ($command)
 {
 	Write-Log $command
 	cmd.exe /C "$command"
+}
+
+function Execute-Ps ($command)
+{
+	Write-Log $command
+	Invoke-Expression "$command"
 }
 
 ### Add service control permissions to authenticated users.
@@ -62,20 +95,29 @@ function Set-ServiceAcl ($service)
 
 try
 {
+	$HDP_INSTALL_PATH = Split-Path $MyInvocation.MyCommand.Path
+	$HDP_RESOURCES_DIR = Resolve-Path "$HDP_INSTALL_PATH\..\resources"
+
 	if( -not (Test-Path ENV:HADOOP_NODE_INSTALL_ROOT))
 	{
 		$ENV:HADOOP_NODE_INSTALL_ROOT = "c:\hadoop"
 	}
 
-	$HDP_INSTALL_PATH = Split-Path $MyInvocation.MyCommand.Path
-	$HDP_RESOURCES_DIR = Resolve-Path "$HDP_INSTALL_PATH\..\resources"
-	
-
 	if( -not (Test-Path ENV:WINPKG_LOG ))
 	{
 		$ENV:WINPKG_LOG="$ENV:HADOOP_NODE_INSTALL_ROOT\hadoop-@version@.winpkg.log"
-		Write-Log "Logging to $ENV:WINPKG_LOG"
 	}
+
+	Write-Log "Logging to $ENV:WINPKG_LOG" "Info"
+	Write-Log "HDP_INSTALL_PATH: $HDP_INSTALL_PATH"
+	Write-Log "HDP_RESOURCES_DIR: $HDP_RESOURCES_DIR"
+
+	if( -not (Test-Path "$HDP_RESOURCES_DIR\winpkg.ps1" ))
+	{
+		Write-Log "Could not find $HDP_RESOURCES_DIR\winpkg.ps1" "Failure"
+		exit 1
+	}
+
 
 	### $hadoopInstallDir: the directory that contains the appliation, after unzipping
 	$hadoopInstallDir = Join-Path "$ENV:HADOOP_NODE_INSTALL_ROOT" "hadoop-@version@"
@@ -85,7 +127,6 @@ try
 	Write-Log "HadoopInstallBin: $hadoopInstallBin" 
 
 	Write-Log "Username: $username"
-	Write-Log "Password: $password"
 	Write-Log "HdfsRole: $hdfsRole"
 	Write-Log "MapRedRole: $mapRedRole"
 	Write-Log "Ensuring elevated user"
@@ -93,13 +134,13 @@ try
 	$currentPrincipal = New-Object Security.Principal.WindowsPrincipal( [Security.Principal.WindowsIdentity]::GetCurrent( ) )
 	if ( -not ($currentPrincipal.IsInRole( [Security.Principal.WindowsBuiltInRole]::Administrator ) ) )
 	{
-		Write-Log "$ENV:WINPKG_LOG FATAL ERROR: install script must be run elevated"
+		Write-Log "install script must be run elevated" "Failure"
 		exit 1
 	} 
 
 	if( -not (Test-Path $ENV:JAVA_HOME\bin\java.exe))
 	{
-		Write-Log "FATAL ERROR: JAVA_HOME not set properly; $ENV:JAVA_HOME\bin\java.exe does not exist"
+		Write-Log "JAVA_HOME not set properly; $ENV:JAVA_HOME\bin\java.exe does not exist" "Failure"
 		exit 1
 	}
 
@@ -119,13 +160,13 @@ try
 
 	if( $username -eq $null )
 	{
-		Write-Log "Invalid command line: -UserName argument is required"
+		Write-Log "Invalid command line: -UserName argument is required" "Failure"
 		exit 1
 	}
 
 	if( $password -eq $null )
 	{
-		Write-Log "Invalid command line: -Password is required"
+		Write-Log "Invalid command line: -Password is required" "Failure"
 		exit 1
 	}
 
@@ -146,12 +187,12 @@ try
 
 	if( -not (Test-Path ENV:ONEBOX_HDFS))
 	{
-		$ENV:ONEBOX_HDFS = "namenode datanode"
+		$ENV:ONEBOX_HDFS = "namenode datanode secondarynamenode"
 	}
 
 	if( -not (Test-Path ENV:ONEBOX_MR))
 	{
-		$ENV:ONEBOX_MR = "jobtracker tasktracker"
+		$ENV:ONEBOX_MR = "jobtracker tasktracker historyserver"
 	}
 
 	if( $hdfsRole -eq $null )
@@ -169,9 +210,9 @@ try
 	###
 
 	Write-Log "Extracting Hadoop Core archive into $hadoopInstallDir"
-	$unzip_cmd = "$HDP_RESOURCES_DIR\unzip.exe `"$HDP_RESOURCES_DIR\hadoop-@version@.zip`" `"$ENV:HADOOP_NODE_INSTALL_ROOT`""
-	Execute-Cmd	$unzip_cmd	
-
+	$unzipExpr = "$HDP_RESOURCES_DIR\winpkg.ps1 `"$HDP_RESOURCES_DIR\hadoop-@version@.zip`" utils unzip `"$ENV:HADOOP_NODE_INSTALL_ROOT`""
+	Execute-Ps $unzipExpr
+	
 	$xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template`" `"$hadoopInstallDir`""
 	Execute-Cmd $xcopy_cmd
 
@@ -189,8 +230,6 @@ try
 
 	$cmd = "icacls `"$ENV:HDFS_DATA_DIR`" /grant ${username}:(OI)(CI)F"
 	Execute-Cmd $cmd
-
-
 
 
 	###
@@ -226,7 +265,7 @@ try
 			}
 
 			Write-Log( "Adding service $service" )
-			$s = New-Service -Name "$service" -BinaryPathName "$hadoopInstallBin\$service.exe" -Credential $serviceCredentials -DisplayName "Hadoop $service"
+			$s = New-Service -Name "$service" -BinaryPathName "$hadoopInstallBin\$service.exe" -Credential $serviceCredentials -DisplayName "Apache Hadoop $service"
 
 			$cmd="$ENV:WINDIR\system32\sc.exe failure $service reset= 30 actions= restart/5000"
 			Execute-Cmd $cmd
@@ -238,7 +277,7 @@ try
 		}
 		catch [Exception]
 		{
-			Write-Log $_.Exception.Message
+			Write-Log $_.Exception.Message $_
 		}
 	}
 

@@ -13,10 +13,34 @@
 ### See the License for the specific language governing permissions and
 ### limitations under the License.
 
-function Write-Log ($message )
+function Write-Log ($message, $level, $pipelineObj)
 {
-	Out-File -FilePath $ENV:WINPKG_LOG -InputObject $message -Append -Encoding "UTF8"
-	Write-Host $message
+	switch($level)
+	{
+		"Failure" {
+			$message = "HADOOP FAILURE: $message"
+			Write-Host $message
+			break;
+		}
+
+		"Info" {
+			$message = "HADOOP: $message"
+			Write-Host $message
+			break;
+		}
+
+		default	{
+			$message = "HADOOP: $message"
+			Write-Verbose "$message"
+		}
+	}
+
+	Out-File -FilePath $ENV:WINPKG_LOG -InputObject "$message" -Append -Encoding "UTF8"
+
+    if( $pipelineObj -ne $null )
+    {
+        Out-File -FilePath $ENV:WINPKG_LOG -InputObject $pipelineObj.InvocationInfo.PositionMessage -Append -Encoding "UTF8"
+    }
 }
 
 function Execute-Cmd ($command)
@@ -25,6 +49,11 @@ function Execute-Cmd ($command)
 	cmd.exe /C "$command"
 }
 
+function Execute-Ps ($command)
+{
+	Write-Log $command
+	Invoke-Expression "$command"
+}
 try
 {
 	if( -not (Test-Path ENV:HADOOP_NODE_INSTALL_ROOT))
@@ -75,7 +104,7 @@ try
 
 		if( $s -ne $null )
 		{
-			Stop-Service $s
+			Stop-Service $service
 			$cmd = "sc.exe delete $service"
 			Execute-Cmd $cmd
 		}
@@ -88,6 +117,10 @@ try
 	Write-Log "Removing Hadoop ($hadoopInstallDir)"
 	$cmd = "rd /s /q $hadoopInstallDir"
 	Execute-Cmd $cmd
+}
+catch [Exception]
+{
+	Write-Log $_.Exception.Message "Failure" $_
 }
 finally
 {

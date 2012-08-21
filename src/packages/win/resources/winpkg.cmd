@@ -13,16 +13,6 @@
 @rem WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 @rem See the License for the specific language governing permissions and
 @rem limitations under the License.
-setlocal enabledelayedexpansion
 
-echo Stopping Hadoop services
-
-@rem
-@rem  Stop services 
-@rem
-for %%i in (namenode datanode secondarynamenode jobtracker tasktracker historyserver) do (
-  echo Stopping %%i
-  "%windir%\system32\net.exe" stop %%i
-)
-
-endlocal
+powershell.exe -NoProfile -InputFormat none -ExecutionPolicy unrestricted -File %~dp0winpkg.ps1 %*
+goto :eof
