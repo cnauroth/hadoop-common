@@ -682,8 +682,7 @@ public class NameNode implements ClientProtocol, DatanodeProtocol,
                                String clientName,
                                DatanodeInfo[] excludedNodes)
     throws IOException {
-
-  	HashMap<Node, Node> excludedNodesSet = null;
+    HashMap<Node, Node> excludedNodesSet = null;
     if (excludedNodes != null) {
       excludedNodesSet = new HashMap<Node, Node>(excludedNodes.length);
       for (Node node:excludedNodes) {

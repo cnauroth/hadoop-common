@@ -69,6 +69,7 @@ import org.apache.hadoop.util.GenericOptionsParser;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.Tool;
+import org.apache.hadoop.util.Shell;
 
 /** All the client-side work happens here.
  * (Jar packaging, MapRed job submission and monitoring)
@@ -552,11 +553,16 @@ public class StreamJob implements Tool {
   // --------------------------------------------
 
   protected String getHadoopClientHome() {
-    String h = env_.getProperty("HADOOP_HOME"); // standard Hadoop
-    if (h == null) {
-      //fail("Missing required environment variable: HADOOP_HOME");
-      h = "UNDEF";
+    String h = "UNDEF";
+
+    try {
+       h = Shell.getHadoopHome();
     }
+    catch (IOException e)
+    {
+      //fail("Missing required environment setting: HADOOP_HOME or hadoop.home.dir:"+e);
+    }
+
     return h;
   }
 
