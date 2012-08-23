@@ -1,5 +1,13 @@
 Hadoop Change Log
 
+Release 1.2.0 - unreleased
+
+  NEW FEATURES
+
+    HDFS-385. Backport: Add support for an experimental API that allows a
+    module external to HDFS to specify how HDFS blocks should be placed.
+    (Sumadhur Reddy Bolli via szetszwo)
+ 
 Release 1.1.0 - unreleased
 
   NEW FEATURES
@@ -152,6 +160,11 @@ Release 1.1.0 - unreleased
     MAPREDUCE-2919. The JT web UI should show job start times. (harsh)
 
     HDFS-2741. Document the max transfer threads property for branch-1. Backport of HDFS-1866. (Markus Jelsma via harsh)
+
+    HDFS-3163. TestHDFSCLI.testAll fails if user name is not all lowercase.
+    (Brandon Li via suresh)
+
+    HDFS-8417. HADOOP-6963 didn't update hadoop-core-pom-template.xml (Zhihong Ted Yu via cos)
 
 Release 1.0.3 - 2012.05.07
 

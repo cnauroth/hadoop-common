@@ -130,6 +130,37 @@ static BOOL IsLongWindowsPath(__in PCWSTR path)
 }
 
 //----------------------------------------------------------------------------
+// Function: IsPrefixedAlready
+//
+// Description:
+//  Checks if the given path is already prepended with \\?\.
+//
+// Returns:
+//  TRUE if yes
+//  FALSE otherwise
+static BOOL IsPrefixedAlready(__in PCWSTR path)
+{
+  static const PCWSTR LongPathPrefix = L"\\\\?\\";
+  int Prefixlen = (int)wcslen(LongPathPrefix);
+  int i = 0;
+
+  if (path == NULL || wcslen(path) < Prefixlen)
+  {
+    return FALSE;
+  }
+
+  for (i = 0; i < Prefixlen; ++i)
+  {
+    if (path[i] != LongPathPrefix[i])
+    {
+      return FALSE;
+    }
+  }
+
+  return TRUE;
+}
+
+//----------------------------------------------------------------------------
 // Function: ConvertToLongPath
 //
 // Description:
@@ -145,7 +176,7 @@ DWORD ConvertToLongPath(__in PCWSTR path, __deref_out PWSTR *newPath)
 {
   DWORD dwErrorCode = ERROR_SUCCESS;
   static const PCWSTR LongPathPrefix = L"\\\\?\\";
-  BOOL bAppendPrefix = IsLongWindowsPath(path);
+  BOOL bAppendPrefix = IsLongWindowsPath(path) && !IsPrefixedAlready(path);
 
   size_t newPathLen = wcslen(path) + (bAppendPrefix ? wcslen(LongPathPrefix) : 0);
 

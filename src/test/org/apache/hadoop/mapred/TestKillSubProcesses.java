@@ -203,15 +203,22 @@ public class TestKillSubProcesses extends TestCase {
     if(ProcessTree.isSetsidAvailable) {
       if(Shell.WINDOWS) {
         try {
-          Thread.sleep(1000);
-          String result = Shell.execCommand("cmd", "/c", Shell.WINUTILS
-              + " task isAlive " + pid);
-          assertTrue("Map process tree not alive", result.contains("IsAlive"));
-          String[] parts = result.split("[,\r\n]");
-          assertTrue(parts.length >= 2);
-          // > numLevelsOfSubProcesses because of winutils etc are also part of 
-          // the task job object along with the spawned scripts
-          assertTrue(Integer.parseInt(parts[1]) > numLevelsOfSubProcesses);
+          int sleepCount = 5;
+          int numChildren = 0;
+          while(sleepCount-- > 0) {
+            Thread.sleep(1000);
+            String result = runAliveCommand(pid);
+            assertTrue("Map process tree not alive", result.contains("IsAlive"));
+            String[] parts = result.split("[,\r\n]");
+            assertTrue(parts.length >= 2);
+            // > numLevelsOfSubProcesses because of winutils etc are also part of 
+            // the task job object along with the spawned scripts
+            numChildren = Integer.parseInt(parts[1]);
+            if(numChildren > numLevelsOfSubProcesses){
+              break;
+            }
+          }
+          assertTrue(numChildren > numLevelsOfSubProcesses);
         } catch (InterruptedException ie) {
           // ignore
         }
@@ -277,8 +284,7 @@ public class TestKillSubProcesses extends TestCase {
     // Checking if the descendant processes of map task are killed properly
     if(ProcessTree.isSetsidAvailable) {
       if(Shell.WINDOWS) {
-        String result = Shell.execCommand("cmd", "/c", Shell.WINUTILS
-            + " task isAlive " + pid);
+        String result = runAliveCommand(pid);
         assertTrue("Map process tree not alive", !result.contains("IsAlive"));
       } else {
         for(int i=0; i <= numLevelsOfSubProcesses; i++) {
@@ -297,6 +303,14 @@ public class TestKillSubProcesses extends TestCase {
     if(fs.exists(scriptDir)) {
       fs.delete(scriptDir, true);
     }
+  }
+  
+  private static String runAliveCommand(String pid) throws IOException {
+    ShellCommandExecutor shexec = 
+        new ShellCommandExecutor(
+            new String[] {Shell.WINUTILS, "task", "isAlive", pid});
+    shexec.execute();
+    return shexec.getOutput();
   }
   
   private static RunningJob runJob(JobConf conf) throws IOException {
