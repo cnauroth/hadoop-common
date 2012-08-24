@@ -42,12 +42,12 @@
 
   <property>
     <name>dfs.datanode.address</name>
-    <value>localhost:50010</value>
+    <value>0.0.0.0:50010</value>
   </property>
 
   <property>
     <name>dfs.datanode.http.address</name>
-    <value>localhost:50075</value>
+    <value>0.0.0.0:50075</value>
   </property>
 
   <property>
