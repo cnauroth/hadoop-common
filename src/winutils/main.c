@@ -15,7 +15,7 @@
  * the License.
  */
 
-#include "common.h"
+#include "winutils.h"
 
 static void Usage(LPCWSTR program);
 
@@ -110,10 +110,9 @@ The available commands and their usages are:\n\n", program);
 
   fwprintf(stdout, L"%-15s%s\n\n", L"systeminfo", L"System information.");
   SystemInfoUsage();
+  fwprintf(stdout, L"\n\n");
 
   fwprintf(stdout, L"%-15s%s\n\n", L"task", L"Task operations.");
   TaskUsage();
-  fwprintf(stdout, L"\n\n");
-
   fwprintf(stdout, L"\n\n");
 }

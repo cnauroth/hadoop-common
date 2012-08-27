@@ -28,6 +28,8 @@
 #include <accctrl.h>
 #include <tchar.h>
 #include <strsafe.h>
+#include <lm.h>
+
 enum EXIT_CODE
 {
   /* Common success exit code shared among all utilities */
@@ -46,20 +48,24 @@ extern const LPCWSTR MONTHS[];
 
 /*
  * The Unix masks
+ * The Windows version of <sys/stat.h> does not contain all the POSIX flag/mask
+ * definitions. The following masks are used in 'winutils' to represent POSIX
+ * permission mode.
+ * 
  */
 enum UnixAclMask
 {
-  UX_O_EXECUTE = 0x0001,
-  UX_O_WRITE   = 0x0002,
-  UX_O_READ    = 0x0004,
-  UX_G_EXECUTE = 0x0008,
-  UX_G_WRITE   = 0x0010,
-  UX_G_READ    = 0x0020,
-  UX_U_EXECUTE = 0x0040,
-  UX_U_WRITE   = 0x0080,
-  UX_U_READ    = 0x0100,
-  UX_DIRECTORY = 0x0200,
-  UX_SYMLINK   = 0x0400,
+  UX_O_EXECUTE = 00001, // S_IXOTH
+  UX_O_WRITE   = 00002, // S_IWOTH
+  UX_O_READ    = 00004, // S_IROTH
+  UX_G_EXECUTE = 00010, // S_IXGRP
+  UX_G_WRITE   = 00020, // S_IWGRP
+  UX_G_READ    = 00040, // S_IRGRP
+  UX_U_EXECUTE = 00100, // S_IXUSR
+  UX_U_WRITE   = 00200, // S_IWUSR
+  UX_U_READ    = 00400, // S_IRUSR
+  UX_DIRECTORY = 0040000, // S_IFDIR
+  UX_SYMLINK   = 0120000, // S_IFLNK
 };
 
 
@@ -108,20 +114,27 @@ DWORD GetFileInformationByName(__in LPCWSTR pathName,  __in BOOL followLink,
 
 DWORD ConvertToLongPath(__in PCWSTR path, __deref_out PWSTR *newPath);
 
-BOOL GetSidFromAcctNameW(LPCWSTR acctName, PSID* ppSid);
+DWORD GetSidFromAcctNameW(LPCWSTR acctName, PSID* ppSid);
+
+DWORD GetAccntNameFromSid(PSID pSid, LPWSTR *ppAcctName);
 
 void ReportErrorCode(LPCWSTR func, DWORD err);
 
 BOOL IsDirFileInfo(const BY_HANDLE_FILE_INFORMATION *fileInformation);
 
-BOOL FindFileOwnerAndPermission(
+DWORD FindFileOwnerAndPermission(
   __in LPCWSTR pathName,
   __out_opt LPWSTR *pOwnerName,
   __out_opt LPWSTR *pGroupName,
-  __out_opt PUSHORT pMask);
+  __out_opt PINT pMask);
 
 DWORD DirectoryCheck(__in LPCWSTR pathName, __out LPBOOL result);
 
 DWORD SymbolicLinkCheck(__in LPCWSTR pathName, __out LPBOOL result);
 
 DWORD JunctionPointCheck(__in LPCWSTR pathName, __out LPBOOL result);
+
+DWORD ChangeFileModeByMask(__in LPCWSTR path, INT mode);
+
+DWORD GetLocalGroupsForUser(__in LPCWSTR user,
+  __out LPLOCALGROUP_USERS_INFO_0 *groups, __out LPDWORD entries);
