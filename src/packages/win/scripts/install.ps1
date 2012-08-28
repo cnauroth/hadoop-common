@@ -14,110 +14,22 @@
 ### limitations under the License.
 
 param(
+	[String]
+	[Parameter( Position=0, Mandatory=$true )]
 	$username,
+	[String]
+	[Parameter( Position=1, Mandatory=$true )]
 	$password,
+	[String]
 	$hdfsRole,
+	[String]
 	$mapredRole
 	)
 
-
-function Write-Log ($message, $level, $pipelineObj)
+function Main( $scriptDir )
 {
-	switch($level)
-	{
-		"Failure" 
-		{
-			$message = "HADOOP FAILURE: $message"
-			Write-Host $message
-			break;
-		}
-
-		"Info"
-		{
-			$message = "HADOOP: $message"
-			Write-Host $message
-			break;
-		}
-
-		default
-		{
-			$message = "HADOOP: $message"
-			Write-Verbose "$message"
-		}
-	}
-
-	Out-File -FilePath $ENV:WINPKG_LOG -InputObject "$message" -Append -Encoding "UTF8"
-
-    if( $pipelineObj -ne $null )
-    {
-        Out-File -FilePath $ENV:WINPKG_LOG -InputObject $pipelineObj.InvocationInfo.PositionMessage -Append -Encoding "UTF8"
-    }
-}
-
-function Execute-Cmd ($command)
-{
-	Write-Log $command
-	cmd.exe /C "$command"
-}
-
-function Execute-Ps ($command)
-{
-	Write-Log $command
-	Invoke-Expression "$command"
-}
-
-### Add service control permissions to authenticated users.
-### Reference:
-### http://stackoverflow.com/questions/4436558/start-stop-a-windows-service-from-a-non-administrator-user-account 
-### http://msmvps.com/blogs/erikr/archive/2007/09/26/set-permissions-on-a-specific-service-windows.aspx
-
-function Set-ServiceAcl ($service)
-{
-	$cmd = "sc sdshow $service"
-	$sd = Execute-Cmd $cmd
-
-	Write-Log "Current SD: $sd"
-
-	## A;; --- allow
-	## RP ---- SERVICE_START
-	## WP ---- SERVICE_STOP
-	## CR ---- SERVICE_USER_DEFINED_CONTROL	
-	## ;;;AU - AUTHENTICATED_USERS
-
-	$sd = [String]$sd
-	$sd = $sd.Replace( "S:(", "(A;;RPWPCR;;;AU)S:(" )
-	Write-Log "Modified SD: $sd"
-
-	$cmd = "sc sdset $service $sd"
-	Execute-Cmd $cmd
-}
-
-
-try
-{
-	$HDP_INSTALL_PATH = Split-Path $MyInvocation.MyCommand.Path
-	$HDP_RESOURCES_DIR = Resolve-Path "$HDP_INSTALL_PATH\..\resources"
-
-	if( -not (Test-Path ENV:HADOOP_NODE_INSTALL_ROOT))
-	{
-		$ENV:HADOOP_NODE_INSTALL_ROOT = "c:\hadoop"
-	}
-
-	if( -not (Test-Path ENV:WINPKG_LOG ))
-	{
-		$ENV:WINPKG_LOG="$ENV:HADOOP_NODE_INSTALL_ROOT\hadoop-@version@.winpkg.log"
-	}
-
-	Write-Log "Logging to $ENV:WINPKG_LOG" "Info"
-	Write-Log "HDP_INSTALL_PATH: $HDP_INSTALL_PATH"
-	Write-Log "HDP_RESOURCES_DIR: $HDP_RESOURCES_DIR"
-
-	if( -not (Test-Path "$HDP_RESOURCES_DIR\winpkg.ps1" ))
-	{
-		Write-Log "Could not find $HDP_RESOURCES_DIR\winpkg.ps1" "Failure"
-		exit 1
-	}
-
+	$HDP_INSTALL_PATH, $HDP_RESOURCES_DIR = Initialize-InstallationEnv $scriptDir "hadoop-@version@.winpkg.log"
+	Test-JavaHome
 
 	### $hadoopInstallDir: the directory that contains the appliation, after unzipping
 	$hadoopInstallDir = Join-Path "$ENV:HADOOP_NODE_INSTALL_ROOT" "hadoop-@version@"
@@ -130,19 +42,6 @@ try
 	Write-Log "HdfsRole: $hdfsRole"
 	Write-Log "MapRedRole: $mapRedRole"
 	Write-Log "Ensuring elevated user"
-
-	$currentPrincipal = New-Object Security.Principal.WindowsPrincipal( [Security.Principal.WindowsIdentity]::GetCurrent( ) )
-	if ( -not ($currentPrincipal.IsInRole( [Security.Principal.WindowsBuiltInRole]::Administrator ) ) )
-	{
-		Write-Log "install script must be run elevated" "Failure"
-		exit 1
-	} 
-
-	if( -not (Test-Path $ENV:JAVA_HOME\bin\java.exe))
-	{
-		Write-Log "JAVA_HOME not set properly; $ENV:JAVA_HOME\bin\java.exe does not exist" "Failure"
-		exit 1
-	}
 
 	###
 	### Root directory used for HDFS dn and nn files, and for mapdred local dir
@@ -157,18 +56,6 @@ try
 	### Begin install
 	###
 	Write-Log "Installing Apache Hadoop hadoop-@version@ to $ENV:HADOOP_NODE_INSTALL_ROOT"
-
-	if( $username -eq $null )
-	{
-		Write-Log "Invalid command line: -UserName argument is required" "Failure"
-		exit 1
-	}
-
-	if( $password -eq $null )
-	{
-		Write-Log "Invalid command line: -Password is required" "Failure"
-		exit 1
-	}
 
 	if( -not (Test-Path ENV:MASTER_HDFS))
 	{
@@ -210,17 +97,17 @@ try
 	###
 
 	Write-Log "Extracting Hadoop Core archive into $hadoopInstallDir"
-	$unzipExpr = "$HDP_RESOURCES_DIR\winpkg.ps1 `"$HDP_RESOURCES_DIR\hadoop-@version@.zip`" utils unzip `"$ENV:HADOOP_NODE_INSTALL_ROOT`""
-	Execute-Ps $unzipExpr
+	$unzipExpr = "$ENV:WINPKG_BIN\winpkg.ps1 `"$HDP_RESOURCES_DIR\hadoop-@version@.zip`" utils unzip `"$ENV:HADOOP_NODE_INSTALL_ROOT`""
+	Invoke-Ps $unzipExpr
 	
 	$xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template`" `"$hadoopInstallDir`""
-	Execute-Cmd $xcopy_cmd
+	Invoke-Cmd $xcopy_cmd
 
 	###
 	### Grant Hadoop user access to HADOOP_INSTALL_DIR and HDFS Root
 	###
 	$cmd = "icacls `"$hadoopInstallDir`" /grant ${username}:(OI)(CI)F"
-	Execute-Cmd $cmd
+	Invoke-Cmd $cmd
 
 	if( -not (Test-Path $ENV:HDFS_DATA_DIR))
 	{
@@ -229,7 +116,7 @@ try
 	}
 
 	$cmd = "icacls `"$ENV:HDFS_DATA_DIR`" /grant ${username}:(OI)(CI)F"
-	Execute-Cmd $cmd
+	Invoke-Cmd $cmd
 
 
 	###
@@ -268,10 +155,10 @@ try
 			$s = New-Service -Name "$service" -BinaryPathName "$hadoopInstallBin\$service.exe" -Credential $serviceCredentials -DisplayName "Apache Hadoop $service"
 
 			$cmd="$ENV:WINDIR\system32\sc.exe failure $service reset= 30 actions= restart/5000"
-			Execute-Cmd $cmd
+			Invoke-Cmd $cmd
 
 			$cmd="$ENV:WINDIR\system32\sc.exe config $service start= auto"
-			Execute-Cmd $cmd
+			Invoke-Cmd $cmd
 
 			Set-ServiceAcl $service
 		}
@@ -291,7 +178,7 @@ try
 	{
 		Write-Log "Creating service config ${hadoopInstallBin}\${service}.xml"
 		$cmd = "$hadoopInstallBin\hdfs.cmd --service $service > `"$hadoopInstallBin\$service.xml`""
-		Execute-Cmd $cmd		
+		Invoke-Cmd $cmd		
 	}
 
 	###
@@ -302,7 +189,7 @@ try
 	{
 		Write-Log "Creating service config $hadoopInstallBin\$service.xml"
 		$cmd = "$hadoopInstallBin\mapred.cmd --service $service > `"$hadoopInstallBin\$service.xml`""
-		Execute-Cmd $cmd		
+		Invoke-Cmd $cmd		
 	}
 
 	###
@@ -310,9 +197,21 @@ try
 	###
 
 	$cmd="$hadoopInstallBin\hadoop.cmd namenode -format"
-	Execute-Cmd $cmd
+	Invoke-Cmd $cmd
+
+	Write-Log "Installation of Hadoop Core complete"
+}
+
+try
+{
+	$scriptDir = Resolve-Path (Split-Path $MyInvocation.MyCommand.Path)
+	$utilsModule = Import-Module -Name "$scriptDir\..\resources\Winpkg.Utils.psm1" -ArgumentList ("HADOOP") -PassThru
+	Main $scriptDir
 }
 finally
 {
-
+	if( $utilsModule -ne $null )
+	{
+		Remove-Module $utilsModule
+	}
 }
