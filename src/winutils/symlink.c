@@ -15,7 +15,7 @@
  * the License.
  */
 
-#include "common.h"
+#include "winutils.h"
 
 /* Adopted from MSDN at:
  * http://msdn.microsoft.com/en-us/library/windows/hardware/ff552012.aspx
