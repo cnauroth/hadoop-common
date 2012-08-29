@@ -436,7 +436,7 @@
     </copy>
 
     <exec executable="sh">
-       <arg line="src/saveVersion.sh ${version} ${build.dir}"/>
+       <arg line="src/saveVersion.py ${version} ${build.dir}"/>
     </exec>
 	
    <exec executable="sh">
