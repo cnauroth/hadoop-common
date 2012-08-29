@@ -62,6 +62,8 @@ branch-hadoop-1-win - unreleased
 
     HADOOP-8544 Move an assertion location in 'winutils chmod' (Chuan Liu via sanjay)
 
+    HADOOP-97 (internal) convert src/saveVersion.sh into cross-platform script (Matt Foley)
+
 BUG FIXES
 
     HDFS-6527. Backport HADOOP-7389: Use of TestingGroups by tests causes
