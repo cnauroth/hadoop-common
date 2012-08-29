@@ -48,6 +48,8 @@ Monarch - unreleased
     
     HADOOP-113. Missing jersey jars as dependency causes hive tests to fail
 
+    HADOOP-124. Improve BlockPlacementPolicy interface and change BlockPlacementPolicyDefault to make it more extendible.  (Sumadhur Reddy Bolli via szetszwo)
+
   INITIAL MS-PATCH
     HADOOP-8457 Address file ownership issue for users in Administrators group on Windows (contributed by Ivan Mitic)
 
