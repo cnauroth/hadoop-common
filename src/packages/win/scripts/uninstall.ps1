@@ -49,11 +49,15 @@ function Main
 		}
 	}
 
-	Write-Log "Removing HDFS_DATA_DIR ($HDFS_DATA_DIR)"
+	Write-Log "Removing HDFS_DATA_DIR ($ENV:HDFS_DATA_DIR)"
+	$cmd = "takeown /F $ENV:HDFS_DATA_DIR /A /R /D Y"
+	Invoke-Cmd $cmd
 	$cmd = "rd /s /q $ENV:HDFS_DATA_DIR"
 	Invoke-Cmd $cmd
 
 	Write-Log "Removing Hadoop ($hadoopInstallDir)"
+	$cmd = "takeown /F $hadoopInstallDir /A /R /D Y"
+	Invoke-Cmd $cmd
 	$cmd = "rd /s /q $hadoopInstallDir"
 	Invoke-Cmd $cmd
 }
