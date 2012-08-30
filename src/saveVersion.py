@@ -78,7 +78,8 @@ def subprocessOutput(args):
 
 # Strip surrounding quotes from a string object that carried its quotes with it.
 def stripquotes(s):
-  if (s[0] == '"' and s[-1] == '"') or (s[0] == "'" and s[-1] == "'") :
+  if (s[0] == '"' and s[-1] == '"') or (s[0] == "'" and s[-1] == "'") \
+      or (s[0] == '\\' and s[-1] == '"'):
     return s[1:-1]
   else:
     return s
