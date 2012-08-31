@@ -23,7 +23,14 @@ if "%HADOOP_BIN_PATH:~-1%" == "\" (
   set HADOOP_BIN_PATH=%HADOOP_BIN_PATH:~0,-1%
 )
 
-set HADOOP_LOGFILE=hadoop-%1-%computername%.log
+@rem if we're being called by --service we need to use %2 otherwise use %1 
+@rem for the command line so we log to the right file 
+if "%2" == "" (
+  set HADOOP_LOGFILE=hadoop-%1-%computername%.log
+) else (
+  set HADOOP_LOGFILE=hadoop-%2-%computername%.log
+)
+
 set mapred-config-script=%HADOOP_BIN_PATH%\hadoop-config.cmd
 call %mapred-config-script%
 
