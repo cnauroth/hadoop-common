@@ -57,7 +57,7 @@ public class DefaultTaskController extends TaskController {
   private static final Log LOG = 
       LogFactory.getLog(DefaultTaskController.class);
   // Prefix of the Jar file containing the classpath
-  static final String JAR_CLASSPATH_PREFIX = "classpath-";
+  protected static final String JAR_CLASSPATH_PREFIX = "classpath-";
   private FileSystem fs;
   @Override
   public void setConf(Configuration conf) {
@@ -99,6 +99,8 @@ public class DefaultTaskController extends TaskController {
   /**
    * Create all of the directories for the task and launches the child jvm.
    * Uses all items in the classpaths list as the classpath for the task to start
+   * If classPaths is not provided, then it is assumed it is already set as one
+   * of the setup steps, or in jvmArguments
    * @param user the user name
    * @param jobId the jobId in question
    * @param attemptId the attempt id (cleanup attempts have .cleanup suffix)

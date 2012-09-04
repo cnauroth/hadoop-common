@@ -63,8 +63,6 @@ public abstract class TaskController implements Configurable {
 
   final public static FsPermission TASK_LAUNCH_SCRIPT_PERMISSION =
   FsPermission.createImmutable((short) 0700); // rwx--------
-  
-  protected static final String JAVA_CLASSPATH = "CLASSPATH";
 
   public Configuration getConf() {
     return conf;
@@ -131,6 +129,8 @@ public abstract class TaskController implements Configurable {
   /**
    * Create all of the directories for the task and launches the child jvm.
    * Uses all items in the classpaths list as the classpath for the task to start
+   * If classPaths is not provided, then it is assumed it is already set as one
+   * of the setup steps, or in jvmArguments
    * @param user the user name
    * @param jobId the jobId in question
    * @param attemptId the attempt id (cleanup attempts have .cleanup suffix)

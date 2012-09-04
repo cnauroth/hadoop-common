@@ -231,15 +231,9 @@ class LinuxTaskController extends TaskController {
         // Get the classpath string
         String clsPaths = StringUtils.join(File.pathSeparator, classPaths);
 
-        // Add a setup item for the classpath
-        StringBuffer sb = new StringBuffer();
-        sb.append("export ");
-        sb.append(JAVA_CLASSPATH);
-        sb.append("=\"");
-        sb.append(clsPaths);
-        sb.append("\"");
-            
-        setup.add(sb.toString());
+        // Add the classpath as the first Java argument
+        jvmArguments.add(1, "-classpath");
+        jvmArguments.add(2, clsPaths);
       }
 
       FileSystem rawFs = FileSystem.getLocal(getConf()).getRaw();

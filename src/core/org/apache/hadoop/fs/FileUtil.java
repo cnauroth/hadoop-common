@@ -956,6 +956,9 @@ public class FileUtil {
   
   /**
    * Create a JAR file under at the given path, referencing all entries in the classpath list.
+   * @param jarFile file to create with classpath entries in its manifest
+   * @param classPaths entries to be added in the manifest of the created Jar 
+   * @return jarFile created with classpath entries
    */
   public static File createJarWithClassPath(File jarFile, List<String> classPaths) 
       throws IOException {
