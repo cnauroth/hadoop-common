@@ -127,3 +127,6 @@ BUG FIXES
     HADOOP-4093. Fix a bug that AzureBlockPlacementPolicy#chooseTarget only
     returns one DN when replication factor is greater than 3.  (Jing Zhao via
     szetszwo)
+
+    HADOOP-8664. hadoop streaming job need the full path to commands even 
+    when they are in the path. (Bikas Saha via suresh)
