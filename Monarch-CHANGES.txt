@@ -14,17 +14,18 @@ Monarch - unreleased
 
     HADOOP-103 Minor regression in mapred.cmd (contributed by Ivan Mitic)
 
-    HADOOP-88 hadoop streaming job need the full path to commands even when they are in the path (Contributed by Bikas Saha)
+    HADOOP-8664 (HADOOP-88). hadoop streaming job need the full path to 
+    commands even when they are in the path (Contributed by Bikas Saha)
 
     HADOOP-10 and other fixes for cmd scripts (Contributed by Lauren Yang, Bikas Saha)
 
     HADOOP-13 TestMiniMRDFSCaching leaves system unresponsive (Contributed by Chuan Liu)
 
-    HADOOP-62. Fix TestNamenodeMXBean test failure. (Contributed by Brandon Li)
+    MAPREDUCE-4510 (HADOOP-21). Avoid logging "Cannot run program getconf" on 
+    Windows (contributed by Bikas Saha)
 
-    HADOOP-21 Avoid logging "Cannot run program getconf" on Windows (contributed by Bikas Saha)
-
-    HADOOP-4 Public distributed cache support for Windows (contributed by Ivan Mitic)
+    HADOOP-4 Public distributed cache support for Windows.
+    (contributed by Ivan Mitic)
 
     HADOOP-8 Error message "chgrp: invalid group `WIN-BUILD-1\\None'" (contributed by Chuan Liu)
 
@@ -42,7 +43,7 @@ Monarch - unreleased
     HADOOP-63. Close stream and unlock storage directory to fix 
     TestStorageRestore on Windows. (Brandon Li via suresh)
 
-    HADOOP-62. Fix TestNamenodeMXBean test failure. (Brandon Li via suresh)
+    HDFS-3763 (HADOOP-62). Fix TestNamenodeMXBean test failure. (Brandon Li via suresh)
     
     HADOOP-113. Missing jersey jars as dependency causes hive tests to fail
 
