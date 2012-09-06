@@ -62,6 +62,8 @@ Monarch - unreleased
 
     HDFS-385 Backport of BlockPlacementPolicy abstraction (contributed by Sumadhur Reddy Bolli)
 
+    HADOOP-90. Classpath exceeds maximum OS limit. (Ahmed El Baz)
+
     MISSING JIRA: Address test failures related to missing .sh scripts (TestStreamingTaskLog, TestJvmManager, TestLinuxTaskControllerLaunchArgs) (contributed by Ivan Mitic)
 
     MISSING JIRA: Azure FileSystem implementation (contributed by Min Wei)
