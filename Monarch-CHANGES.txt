@@ -52,7 +52,8 @@ Monarch - unreleased
     HDFS-3763 (HADOOP-62). Fix TestNamenodeMXBean test failure.
     (Brandon Li via suresh)
     
-    HADOOP-113. Missing jersey jars as dependency causes hive tests to fail
+    HADOOP-113. Missing jersey jars as dependency causes hive tests to fail.
+    (Giri)
 
     HADOOP-124. Improve BlockPlacementPolicy interface and change 
     BlockPlacementPolicyDefault to make it more extendible.
