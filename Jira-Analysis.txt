@@ -1,19 +1,21 @@
 No equivalent jiras in apache:
 ==============================
 HADOOP-60 Provide API to retrieve valid HADOOP_HOME and bin path (John Gordon)
-HADOOP-13 TestMiniMRDFSCaching leaves system unresponsive (Chuan Liu)
 HADOOP-16. hadoop.cmd does not support HADOOP_USER_CLASSPATH_FIRST. (Thejas Nair)
-HADOOP-6 TestMRWithDistributedCache fails on Windows (Ivan Mitic)
 HADOOP-23 Hadoop does not close output file / does not call Mapper.cleanup if exception in map (Jianyong Dai)
 HADOOP-66. Add AzureBlockPlacementPolicy to handle fault and upgrade domains in Azure.  (Sumadhur Reddy Bolli via szetszwo)
 HADOOP-124. Improve BlockPlacementPolicy interface and change BlockPlacementPolicyDefault to make it more extendible.  (Sumadhur Reddy Bolli via szetszwo)
 HADOOP-97 (internal) convert src/saveVersion.sh into cross-platform script (Matt Foley)
+HADOOP-105 Refactory 'winutils' for Hadoop native libraries use (Chuan Liu)
 HADOOP-90 (partial patch) Classpath exceeds maximum OS limit (Ahmed El Baz)
 
 
 Has equivalent apache jira, patch not available/committed:
 ==========================================================
 HADOOP-86 winutils "ls" and "chmod -r" does not work for paths longer than MAX_PATH - HADOOP-8694
+HADOOP-13 TestMiniMRDFSCaching leaves system unresponsive (Chuan Liu) - HADOOP-8694
+HADOOP-6 TestMRWithDistributedCache fails on Windows (Ivan Mitic) - HADOOP-8694
+HADOOP-89 FileUtil#symlink creates an invalid symlink for paths with both forward and backward slashes - HADOOP-8694
 HADOOP-111 Shell timeout mechanism does not work for processes spawned using winutils (Bikas Saha) - MAPREDUCE-4564
 HADOOP-5 Support for node health scripts on Windows (Ivan Mitic) - MAPREDUCE-4598
 HADOOP-103 Minor regression in mapred.cmd (Ivan Mitic) - merged with HADOOP-8739
