@@ -447,8 +447,6 @@ public class TrackerDistributedCacheManager {
         FileUtil.unZip(srcFile, destDir);
       } else if (isTarFile(tmpArchive)) {
         FileUtil.unTar(srcFile, destDir);
-      } else if (isCabFile(tmpArchive)) {
-        FileUtil.unCab(srcFile, destDir);
       } else {
         LOG.warn(String.format(
             "Cache file %s specified as archive, but not valid extension.",
@@ -502,10 +500,6 @@ public class TrackerDistributedCacheManager {
   private static boolean isTarFile(String filename) {
     return (filename.endsWith(".tgz") || filename.endsWith(".tar.gz") ||
            filename.endsWith(".tar"));
-  }
-
-  private static boolean isCabFile(String filename) {
-    return (filename.endsWith(".cab"));
   }
 
   // Checks if the cache has already been localized and is fresh

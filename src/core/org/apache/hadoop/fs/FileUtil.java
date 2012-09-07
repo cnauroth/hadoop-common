@@ -520,47 +520,6 @@ public class FileUtil {
   }
 
   /**
-   * Given a Cab File as input it will uncab the file in the untar directory
-   * passed as the second parameter
-   *
-   * This utility will uncab ".cab" files
-   *
-   * This utility is targeted for Windows environment as a replacement of tar
-   *
-   * @param inFile The cab file as input. 
-   * @param uncabDir The directory where to uncab the cab file.
-   * @throws IOException
-   */
-   public static void unCab(File inFile, File uncabDir) throws IOException {
-    if (!Shell.WINDOWS) {
-      throw new IOException("Cannot use FileUtil.unCab on non-Windows environment");
-    }
-
-    if (!uncabDir.mkdirs()) {
-      if (!uncabDir.isDirectory()) {
-        throw new IOException("Mkdirs failed to create " + uncabDir);
-      }
-    }
-
-    StringBuffer uncabCommand = new StringBuffer();
-    uncabCommand.append("cd ");
-    uncabCommand.append(FileUtil.makeShellPath(uncabDir));
-    uncabCommand.append(" & ");
-    uncabCommand.append(Shell.getQualifiedBinPath("cabarc"));
-    uncabCommand.append("-p x ");
-    uncabCommand.append(FileUtil.makeShellPath(inFile));
-
-    String[] shellCmd = {"cmd", "/c", uncabCommand.toString() };
-    ShellCommandExecutor shexec = new ShellCommandExecutor(shellCmd);
-    shexec.execute();
-    int exitcode = shexec.getExitCode();
-    if (exitcode != 0) {
-      throw new IOException("Error uncabbing file " + inFile +
-                  ". Tar process exited with exit code " + exitcode);
-    }
-  }
-
-  /**
    * Given a Tar File as input it will untar the file in a the untar directory
    * passed as the second parameter
    * 

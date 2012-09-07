@@ -30,7 +30,6 @@ HADOOP-8694 Create true symbolic links on Windows (Chuan Liu)
 Missing jiras:
 ==============
 MISSING JIRA: Azure FileSystem implementation (Min Wei)
-MISSING JIRA: FileUtil unCab support (Min Wei) - Will be undone in GitHub
 MISSING JIRA: Metrics sink for SqlServer and WindowsAzureTable (Bonnie Feinberg)
 MISSING JIRA: TestFileConcurrentReader test fix (Chuan Liu)
 
