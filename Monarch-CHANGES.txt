@@ -2,43 +2,46 @@ Monarch - unreleased
 
   IMPROVEMENTS
 
-    HADOOP-111 Shell timeout mechanism does not work for processes spawned using winutils (Contributed by Bikas Saha)
+    HADOOP-111 Shell timeout mechanism does not work for processes 
+    spawned using winutils. (Bikas Saha)
 
-    HADOOP-86 winutils "ls" and "chmod -r" does not work for paths longer than MAX_PATH
+    HADOOP-86 winutils "ls" and "chmod -r" does not work for paths 
+    longer than MAX_PATH. (Ivan Mitic, Chuan Liu)
 
-    HADOOP-5 Support for node health scripts on Windows (Contributed by Ivan Mitic)
+    HADOOP-5 Support for node health scripts on Windows. (Ivan Mitic)
 
-    HADOOP-110 TestKillSubProcesses intermittently fails (contributed by Bikas Saha)
+    HADOOP-110 TestKillSubProcesses intermittently fails. (Bikas Saha)
 
-    HADOOP-60 Provide API to retrieve valid HADOOP_HOME and bin path (Contributed by John Gordon)
+    HADOOP-60 Provide API to retrieve valid HADOOP_HOME and bin path.
+    (John Gordon)
 
-    HADOOP-103 Minor regression in mapred.cmd (contributed by Ivan Mitic)
+    HADOOP-103 Minor regression in mapred.cmd. (Ivan Mitic)
 
-    HADOOP-88 hadoop streaming job need the full path to commands even when they are in the path (Contributed by Bikas Saha)
+    HADOOP-8664 (HADOOP-88). hadoop streaming job need the full path to 
+    commands even when they are in the path (Bikas Saha)
 
-    HADOOP-63. Close stream and unlock storage directory to fix TestStorageRestore on Windows. (Contributed by Brandon Li)
+    HADOOP-10 and other fixes for cmd scripts. (Lauren Yang, Bikas Saha)
 
-    HADOOP-10 and other fixes for cmd scripts (Contributed by Lauren Yang, Bikas Saha)
+    HADOOP-13 TestMiniMRDFSCaching leaves system unresponsive. (Chuan Liu)
 
-    HADOOP-13 TestMiniMRDFSCaching leaves system unresponsive (Contributed by Chuan Liu)
+    MAPREDUCE-4510 (HADOOP-21). Avoid logging "Cannot run program getconf" on 
+    Windows (Bikas Saha)
 
-    HADOOP-62. Fix TestNamenodeMXBean test failure. (Contributed by Brandon Li)
+    HADOOP-4 Public distributed cache support for Windows. (Ivan Mitic)
 
-    HADOOP-16. hadoop.cmd does not support HADOOP_USER_CLASSPATH_FIRST. Contributed by Thejas Nair
+    HADOOP-8 Error message "chgrp: invalid group `WIN-BUILD-1\\None'".
+    (Chuan Liu)
 
-    HADOOP-21 Avoid logging "Cannot run program getconf" on Windows (contributed by Bikas Saha)
+    HADOOP-6 TestMRWithDistributedCache fails on Windows. (Ivan Mitic)
 
-    HADOOP-4 Public distributed cache support for Windows (contributed by Ivan Mitic)
+    HDFS-3163 TestHDFSCLI.testAll fails if user name is not all lowercase.
+    (Brandon Li via suresh)
 
-    HADOOP-8 Error message "chgrp: invalid group `WIN-BUILD-1\\None'" (contributed by Chuan Liu)
+    HADOOP-23 Hadoop does not close output file / does not call 
+    Mapper.cleanup if exception in map (Jianyong Dai)
 
-    HADOOP-6 TestMRWithDistributedCache fails on Windows (contributed by Ivan Mitic)
-
-    HDFS-3163 TestHDFSCLI.testAll fails if user name is not all lowercase (Brandon Li via suresh)
-
-    HADOOP-23 Hadoop does not close output file / does not call Mapper.cleanup if exception in map (contributed by Jianyong Dai)
-
-    HADOOP-7 Address intermitted timeout test failures on Windows (contributed by Ivan Mitic)
+    HADOOP-7 Address intermitted timeout test failures on Windows.
+    (Ivan Mitic)
 
     HADOOP-16. hadoop.cmd does not support HADOOP_USER_CLASSPATH_FIRST
     (Thejas Nair via suresh)
@@ -46,33 +49,49 @@ Monarch - unreleased
     HADOOP-63. Close stream and unlock storage directory to fix 
     TestStorageRestore on Windows. (Brandon Li via suresh)
 
-    HADOOP-62. Fix TestNamenodeMXBean test failure. (Brandon Li via suresh)
+    HDFS-3763 (HADOOP-62). Fix TestNamenodeMXBean test failure.
+    (Brandon Li via suresh)
     
-    HADOOP-113. Missing jersey jars as dependency causes hive tests to fail
+    HADOOP-113. Missing jersey jars as dependency causes hive tests to fail.
+    (Giri)
 
-    HADOOP-124. Improve BlockPlacementPolicy interface and change BlockPlacementPolicyDefault to make it more extendible.  (Sumadhur Reddy Bolli via szetszwo)
+    HADOOP-124. Improve BlockPlacementPolicy interface and change 
+    BlockPlacementPolicyDefault to make it more extendible.
+    (Sumadhur Reddy Bolli via szetszwo)
 
-    HADOOP-66. Add AzureBlockPlacementPolicy to handle fault and upgrade domains in Azure.  (Sumadhur Reddy Bolli via szetszwo)
+    HADOOP-66. Add AzureBlockPlacementPolicy to handle fault and upgrade 
+    domains in Azure. (Sumadhur Reddy Bolli via szetszwo)
 
-    HADOOP-97 (internal) convert src/saveVersion.sh into cross-platform script (Matt Foley)
+    HADOOP-97 (internal) convert src/saveVersion.sh into cross-platform
+    script (Matt Foley)
 
   INITIAL MS-PATCH
-    HADOOP-8457 Address file ownership issue for users in Administrators group on Windows (contributed by Ivan Mitic)
+    HADOOP-8457 Address file ownership issue for users in Administrators 
+    group on Windows. (Ivan Mitic)
 
-    MAPREDUCE-4374 Fix child task environment variable config and add support for Windows (contributed by Chuan Liu)
+    MAPREDUCE-4374 Fix child task environment variable config and add support
+    for Windows. (Chuan Liu)
 
-    HADOOP-8453 Add unit tests for winutils (contributed by Chuan Liu)
+    HADOOP-8453 Add unit tests for winutils (Chuan Liu)
 
-    HDFS-385 Backport of BlockPlacementPolicy abstraction (contributed by Sumadhur Reddy Bolli)
+    HDFS-385 Backport of BlockPlacementPolicy abstraction 
+    (Sumadhur Reddy Bolli)
 
-    MISSING JIRA: Address test failures related to missing .sh scripts (TestStreamingTaskLog, TestJvmManager, TestLinuxTaskControllerLaunchArgs) (contributed by Ivan Mitic)
+    HADOOP-90. Classpath exceeds maximum OS limit. (Ahmed El Baz)
 
-    MISSING JIRA: Azure FileSystem implementation (contributed by Min Wei)
+    MISSING JIRA: Address test failures related to missing .sh scripts
+    (TestStreamingTaskLog, TestJvmManager, TestLinuxTaskControllerLaunchArgs)
+    (Ivan Mitic)
 
-    MISSING JIRA: FileUtil unCab support (contributed by Min Wei)
+    MISSING JIRA: Azure FileSystem implementation
+    (Min Wei)
 
-    MISSING JIRA: Metrics sink for SqlServer and WindowsAzureTable (contributed by Bonnie Feinberg)
+    MISSING JIRA: FileUtil unCab support (Min Wei)
 
-    MISSING JIRA: TestFileConcurrentReader test fix (contributed by Chuan Liu)
+    MISSING JIRA: Metrics sink for SqlServer and WindowsAzureTable.
+    (Bonnie Feinberg)
 
-    MISSING JIRA: LocalJobRunner does not support private distributed cache (contributed by Ivan Mitic)
+    MISSING JIRA: TestFileConcurrentReader test fix. (Chuan Liu)
+
+    MISSING JIRA: LocalJobRunner does not support private distributed cache.
+    (Ivan Mitic)
