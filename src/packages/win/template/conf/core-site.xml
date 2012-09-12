@@ -15,6 +15,12 @@
   </property>
 
   <property>
+    <name>hadoop.tmp.dir</name>
+    <value>/hadoop/hdfs/tmp</value>
+    <description>A base for other temporary directories.</description>
+  </property>
+
+  <property>
     <name>fs.trash.interval</name>
     <value>360</value>
     <description>Number of minutes between trash checkpoints.
@@ -56,12 +62,6 @@
     <description>The size of the current edit log (in bytes) that triggers
        a periodic checkpoint even if the fs.checkpoint.period hasn't expired.
   </description>
-  </property>
-
-  <property>
-    <name>hadoop.tmp.dir</name>
-    <value>/hdfs/tmp</value>
-    <description></description>
   </property>
 
 </configuration>
