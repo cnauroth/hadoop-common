@@ -1,6 +1,7 @@
 Monarch - unreleased
 
   IMPROVEMENTS
+    HADOOP-129 WindowsResourceCalculatorPlugin NPE (Bikas Saha)
 
     HADOOP-111 Shell timeout mechanism does not work for processes 
     spawned using winutils. (Bikas Saha)
