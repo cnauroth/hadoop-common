@@ -122,6 +122,13 @@ function Main( $scriptDir )
 
 
 	###
+	### Create symlink for streaming jar
+	###
+	Write-Log "Creating Symlink for Streaming to $hadoopInstallDir\contrib\streaming\hadoop-streaming-@version@.jar"
+	$symlinkStreaming_cmd = "mklink `"$hadoopInstallDir\lib\hadoop-streaming.jar`" `"$hadoopInstallDir\contrib\streaming\hadoop-streaming-@version@.jar`""
+	Invoke-Cmd $symlinkStreaming_cmd
+
+	###
 	### Create Hadoop Windows Services and grant user ACLS to start/stop
 	###
 
