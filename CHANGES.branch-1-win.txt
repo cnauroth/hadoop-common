@@ -75,6 +75,10 @@ branch-hadoop-1-win - unreleased
     MAPREDUCE-4598. Add support for NodeHealthCheck script for Windows. (Bikas
     Saha via acmurthy)
 
+    HDFS-3564. Improve BlockPlacementPolicy interface and change
+    BlockPlacementPolicyDefault to make it more extendible.  (Sumadhur Reddy
+    Bolli via szetszwo)
+
 BUG FIXES
 
     HDFS-6527. Backport HADOOP-7389: Use of TestingGroups by tests causes
