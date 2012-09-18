@@ -102,7 +102,23 @@ function Main( $scriptDir )
 	$unzipExpr = "$ENV:WINPKG_BIN\winpkg.ps1 `"$HDP_RESOURCES_DIR\hadoop-@version@.zip`" utils unzip `"$ENV:HADOOP_NODE_INSTALL_ROOT`""
 	Invoke-Ps $unzipExpr
 	
-	$xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template`" `"$hadoopInstallDir`""
+	foreach( $template in (Get-ChildItem "$HDP_INSTALL_PATH\..\template\conf\*.xml"))
+	{
+		try
+		{
+			Write-Log "Copying XML template from $($template.FullName)"
+			Copy-XmlTemplate $template.FullName "$hadoopInstallDir\conf"
+		}
+		catch [Exception] 
+		{
+			Write-Log $_.Exception.Message $_
+		}
+	}
+
+	$xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template\conf\*.properties`" `"$hadoopInstallDir\bin`""
+	Invoke-Cmd $xcopy_cmd
+
+	$xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template\bin`" `"$hadoopInstallDir\bin`""
 	Invoke-Cmd $xcopy_cmd
 
 	###

@@ -193,6 +193,58 @@ function Set-ServiceAcl ($service)
 	Invoke-Cmd $cmd
 }
 
+function Copy-XmlTemplate( [string][parameter( Position=1, Mandatory=$true)] $Source, 
+	   [string][parameter( Position=2, Mandatory=$true)] $Destination, 
+	   [hashtable][parameter( Position=3 )] $TemplateBindings = @{} )
+{
+
+	### Import template bindings
+	Push-Location Variable:
+
+	foreach( $key in $TemplateBindings.Keys )
+	{
+		$value = $TemplateBindings[$key]
+		New-Item -Path $key -Value $ExecutionContext.InvokeCommand.ExpandString( $value ) | Out-Null
+	}
+
+	Pop-Location
+
+	### Copy and expand
+	$Source = Resolve-Path $Source
+
+	if( Test-Path $Destination -PathType Container )
+	{
+		$Destination = Join-Path $Destination ([IO.Path]::GetFilename( $Source ))
+	}
+
+	$DestinationDir = Resolve-Path (Split-Path $Destination -Parent)
+	$DestinationFilename = [IO.Path]::GetFilename( $Destination )
+	$Destination = Join-Path $DestinationDir $DestinationFilename
+
+	if( $Destination -eq $Source )
+	{
+		throw "Destination $Destination and Source $Source cannot be the same"
+	}
+
+
+	try
+	{
+		$template = [IO.File]::ReadAllText( $Source )
+		$expanded = [xml]$ExecutionContext.InvokeCommand.ExpandString( $template )
+		$writer = New-Object System.Xml.XmlTextWriter( $Destination, [Text.Encoding]::UTF8 )
+		$writer.Formatting = [Xml.Formatting]::Indented
+		$expanded.WriteTo( $writer )
+	}
+	finally
+	{
+		if( $writer -ne $null )
+		{
+			$writer.Dispose()
+		}
+	}
+}
+
+Export-ModuleMember -Function Copy-XmlTemplate
 Export-ModuleMember -Function Initialize-WinpkgEnv
 Export-ModuleMember -Function Initialize-InstallationEnv
 Export-ModuleMember -Function Invoke-Cmd

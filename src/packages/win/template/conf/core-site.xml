@@ -30,7 +30,7 @@
 
   <property>
     <name>fs.checkpoint.dir</name>
-    <value>C:\hadoop\hdfs\2nn</value>
+    <value>$ENV:HDFS_DATA_DIR\2nn</value>
     <description>Determines where on the local filesystem the DFS secondary
         name node should store the temporary images to merge.
         If this is a comma-delimited list of directories then the image is
