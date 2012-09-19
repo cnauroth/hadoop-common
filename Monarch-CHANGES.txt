@@ -80,6 +80,9 @@ Monarch - unreleased
 
     HADOOP-90. Classpath exceeds maximum OS limit. (Ahmed El Baz)
 
+    HADOOP-136 CombineFileInputFormat only works with default file system
+    (Ahmed El Baz)
+
     MISSING JIRA: Address test failures related to missing .sh scripts
     (TestStreamingTaskLog, TestJvmManager, TestLinuxTaskControllerLaunchArgs)
     (Ivan Mitic)
