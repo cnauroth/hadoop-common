@@ -394,9 +394,11 @@ public class MiniDFSCluster {
         // Set default permissions on data dirs as not all platforms have the
         // same defaults
         FileUtil.setPermission(dir1, new FsPermission(
-            conf.get("dfs.datanode.data.dir.perm", "755")));
+            conf.get("dfs.datanode.data.dir.perm",
+                     DataNode.DEFAULT_DATA_DIR_PERMISSION)));
         FileUtil.setPermission(dir2, new FsPermission(
-            conf.get("dfs.datanode.data.dir.perm", "755")));
+            conf.get("dfs.datanode.data.dir.perm",
+                     DataNode.DEFAULT_DATA_DIR_PERMISSION)));
 
         dnConf.set(DataNode.DATA_DIR_KEY, dir1.getPath() + "," + dir2.getPath());
       }

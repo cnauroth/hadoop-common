@@ -930,7 +930,7 @@ public class NativeAzureFileSystem extends FileSystem {
     }
 
     @Override
-    public boolean isOwnedByUser(UserGroupInformation ugi) {
+    public boolean isOwnedByUser(String user, String [] userGroups) {
       return true;
     }
 

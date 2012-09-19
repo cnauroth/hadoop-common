@@ -468,19 +468,19 @@ public class RawLocalFileSystem extends FileSystem {
     }
 
     @Override
-    public boolean isOwnedByUser(UserGroupInformation ugi) {
-      if (ugi == null) {
+    public boolean isOwnedByUser(String user, String [] userGroups) {
+      if (user == null) {
         throw new IllegalArgumentException(
-            "UserGroupInformation argument is null");
+            "user argument is null");
       }
       if (!isPermissionLoaded()) {
         loadPermissionInfo();
       }
 
       String owner = super.getOwner();
-      boolean success = owner.equals(ugi.getShortUserName());
+      boolean success = owner.equals(user);
 
-      if (!success && Shell.WINDOWS) {
+      if (!success && Shell.WINDOWS && userGroups != null) {
         final String AdminsGroupString = "Administrators";
 
         // On Windows Server 2003 and later, if a file or a directory is
@@ -489,11 +489,11 @@ public class RawLocalFileSystem extends FileSystem {
         // would be technically challenging to go against the OS behavior
         // and update all such cases by explicitly setting the ownership on
         // Windows (and would have some performance implications), we are
-        // following the OS model. Specifically, if a given ugi is a member of
+        // following the OS model. Specifically, if a given user is a member of
         // the Administrators group and a file is owned by Administrators
         // group, isOwnedByUser will return true.
         success = owner.equals(AdminsGroupString)
-            && Arrays.asList(ugi.getGroupNames()).contains(AdminsGroupString);
+            && Arrays.asList(userGroups).contains(AdminsGroupString);
       }
 
       return success;
