@@ -83,6 +83,10 @@ Monarch - unreleased
     HADOOP-136 CombineFileInputFormat only works with default file system
     (Ahmed El Baz)
 
+    HADOOP-143. Measure perf impact of generating a Jar file for the classpath
+    when launching a task
+    (Ahmed El Baz)
+
     MISSING JIRA: Address test failures related to missing .sh scripts
     (TestStreamingTaskLog, TestJvmManager, TestLinuxTaskControllerLaunchArgs)
     (Ivan Mitic)
