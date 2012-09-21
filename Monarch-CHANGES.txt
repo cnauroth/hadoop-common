@@ -1,6 +1,7 @@
 Monarch - unreleased
 
   IMPROVEMENTS
+    HADOOP-129 WindowsResourceCalculatorPlugin NPE (Bikas Saha)
 
     HADOOP-111 Shell timeout mechanism does not work for processes 
     spawned using winutils. (Bikas Saha)
@@ -78,6 +79,9 @@ Monarch - unreleased
     (Sumadhur Reddy Bolli)
 
     HADOOP-90. Classpath exceeds maximum OS limit. (Ahmed El Baz)
+
+    HADOOP-136 CombineFileInputFormat only works with default file system
+    (Ahmed El Baz)
 
     MISSING JIRA: Address test failures related to missing .sh scripts
     (TestStreamingTaskLog, TestJvmManager, TestLinuxTaskControllerLaunchArgs)

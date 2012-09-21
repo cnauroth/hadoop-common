@@ -23,7 +23,9 @@ param(
 	[String]
 	$hdfsRole,
 	[String]
-	$mapredRole
+	$mapredRole,
+	[Switch]
+	$skipNamenodeFormat
 	)
 
 function Main( $scriptDir )
@@ -87,7 +89,7 @@ function Main( $scriptDir )
 		$hdfsRole = "ONEBOX_HDFS"
 	}
 
-	if( $mapdredRole -eq $null )
+	if( $mapredRole -eq $null )
 	{
 		$mapredRole = "ONEBOX_MR"
 	}
@@ -199,13 +201,21 @@ function Main( $scriptDir )
 		Invoke-Cmd $cmd		
 	}
 
-	###
-	### Format the namenode
-	###
-
-	$cmd="$hadoopInstallBin\hadoop.cmd namenode -format"
-	Invoke-Cmd $cmd
-
+	if ($skipNamenodeFormat -ne $true) 
+	{
+		###
+		### Format the namenode
+		###
+		Write-Log "Formatting HDFS"
+		
+		$cmd="$hadoopInstallBin\hadoop.cmd namenode -format"
+		Invoke-Cmd $cmd
+	}
+	else 
+	{
+		Write-Log "Skipping HDFS format"
+	}
+	
 	Write-Log "Installation of Hadoop Core complete"
 }
 

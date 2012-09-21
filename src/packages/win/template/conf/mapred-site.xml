@@ -38,17 +38,16 @@
     <final>true</final>
   </property>
 
-<property>
-  <name>mapred.job.tracker.history.completed.location</name>
-  <value>/mapred/history/done</value>
-  <description>No description</description>
-</property>
+  <property>
+    <name>mapred.job.tracker.history.completed.location</name>
+    <value>/mapred/history/done</value>
+    <description>No description</description>
+  </property>
 
   <property>
     <name>mapreduce.history.server.embedded</name>
     <value>false</value>
-    <description>Should job history server be embedded within Job tracker
-process</description>
+    <description>Should job history server be embedded within Job tracker process</description>
     <final>true</final>
   </property>
 
@@ -59,10 +58,10 @@ process</description>
     <final>false</final>
   </property>
 
-<property>
-  <name>mapred.queue.names</name>
-  <value>default</value>
-  <description> Comma separated list of queues configured for this jobtracker.</description>
-</property>
+  <property>
+    <name>mapred.queue.names</name>
+    <value>default</value>
+    <description> Comma separated list of queues configured for this jobtracker.</description>
+  </property>
 
 </configuration>
