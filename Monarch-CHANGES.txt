@@ -1,6 +1,14 @@
 Monarch - unreleased
 
   IMPROVEMENTS
+    HADOOP-108 Make SecureIOUtils work with Windows NativeIO. (Chuan Liu)
+
+    HADOOP-107 Fix datanode concurrency issue using Windows NativeIO.
+    (Chuan Liu)
+
+    HADOOP-106 Port and extend Hadoop native libraries for Windows.
+    (Chuan Liu)
+
     HADOOP-129 WindowsResourceCalculatorPlugin NPE (Bikas Saha)
 
     HADOOP-111 Shell timeout mechanism does not work for processes 
