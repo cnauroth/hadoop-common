@@ -240,7 +240,6 @@ public class TestFileConcurrentReader extends junit.framework.TestCase {
       final AtomicBoolean writerDone = new AtomicBoolean(false);
       final AtomicBoolean writerStarted = new AtomicBoolean(false);
       final AtomicBoolean error = new AtomicBoolean(false);
-      final AtomicBoolean otherError = new AtomicBoolean(false);
 
       Thread writer = new Thread(new Runnable() {
         @Override
@@ -269,12 +268,7 @@ public class TestFileConcurrentReader extends junit.framework.TestCase {
             }
             writerDone.set(true);
           } catch (Exception e) {
-            // FIXME: we use a new variable instead of 'error' because of
-            // Windows concurrent reading/writing issue, i.e. HADOOP-8564.
-            // Once the problem is fixed, we can switch back to error.
-            // Because this error condition is not captured before, ignoring
-            // the error here is not a regression in test coverage.
-            otherError.set(true);
+            error.set(true);
             LOG.error("error in writer", e);
             
             throw new RuntimeException(e);
@@ -286,7 +280,7 @@ public class TestFileConcurrentReader extends junit.framework.TestCase {
         public void run() {
           try {
             long startPos = 0;
-            while (!writerDone.get() && !error.get() && !otherError.get()) {
+            while (!writerDone.get() && !error.get()) {
               if (writerStarted.get()) {
                 try {
                   startPos = tailFile(file, startPos);

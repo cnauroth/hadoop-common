@@ -143,8 +143,8 @@ static BOOL IsLongWindowsPath(__in PCWSTR path)
 static BOOL IsPrefixedAlready(__in PCWSTR path)
 {
   static const PCWSTR LongPathPrefix = L"\\\\?\\";
-  int Prefixlen = (int)wcslen(LongPathPrefix);
-  int i = 0;
+  size_t Prefixlen = wcslen(LongPathPrefix);
+  size_t i = 0;
 
   if (path == NULL || wcslen(path) < Prefixlen)
   {
