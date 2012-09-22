@@ -7,7 +7,7 @@
 
   <property>
     <name>dfs.name.dir</name>
-    <value>c:\hadoop\hdfs\nn</value>
+    <value>$ENV:HDFS_DATA_DIR\nn</value>
     <description>Determines where on the local filesystem the DFS name node
       should store the name table.  If this is a comma-delimited list
       of directories then the name table is replicated in all of the
@@ -31,7 +31,7 @@
 
   <property>
     <name>dfs.data.dir</name>
-    <value>c:\hadoop\hdfs\dn</value>
+    <value>$ENV:HDFS_DATA_DIR\dn</value>
   </property>
   
   <property>

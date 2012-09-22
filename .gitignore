@@ -37,6 +37,7 @@ conf/hadoop-policy.xml
 conf/capacity-scheduler.xml
 conf/fair-scheduler.xml
 docs/api/
+ivy/*.xml
 ivy/ivy-*.jar
 ivy/maven-ant-tasks-*.jar
 junitvmwatch*.properties

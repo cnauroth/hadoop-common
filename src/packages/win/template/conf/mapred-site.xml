@@ -33,7 +33,7 @@
 
   <property>
     <name>mapred.local.dir</name>
-    <value>c:\hadoop\hdfs\mapred\local</value>
+    <value>$ENV:HDFS_DATA_DIR\mapred\local</value>
     <description>No description</description>
     <final>true</final>
   </property>
