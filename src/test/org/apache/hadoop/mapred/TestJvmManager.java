@@ -103,10 +103,9 @@ public class TestJvmManager {
     FileOutputStream out = new FileOutputStream(script);
     // write pid into a file and ignore SIGTERM
     String command = Shell.WINDOWS
-        // On Windows we just create a dummy file so that the test can verify
-        // that the child task started. Attempt id is used to locate and kill
-        // the task. 
-      ? "echo TEST > " + pidFile.toString() + "\r\n"
+        // On Windows we pass back the attempt id that was passed to the task
+        // through the environment.
+      ? "echo %ATTEMPT_ID% > " + pidFile.toString() + "\r\n"
       : "echo $$ >" + pidFile.toString() + ";\n trap '' 15\n";
     out.write((command).getBytes());
     // write the actual command it self.
@@ -155,6 +154,9 @@ public class TestJvmManager {
       newTaskDistributedCacheManager(attemptID.getJobID(), taskConf);
     final TaskRunner taskRunner = task.createRunner(tt, tip, rjob);
     // launch a jvm which sleeps for 60 seconds
+    final Vector<String> setup = new Vector<String>(1);
+    setup.add((Shell.WINDOWS ? "set " : "export ")
+      + "ATTEMPT_ID=" + attemptID.toString());
     final Vector<String> vargs = new Vector<String>(2);
     vargs.add(writeScript(sleepScriptName, sleepCommand, pidFile).getAbsolutePath());
     final File workDir = new File(TEST_DIR, "work");
@@ -165,7 +167,7 @@ public class TestJvmManager {
     Thread launcher = new Thread() {
       public void run() {
         try {
-          taskRunner.launchJvmAndWait(null, vargs, stdout, stderr, 100,
+          taskRunner.launchJvmAndWait(setup, vargs, stdout, stderr, 100,
               workDir);
         } catch (InterruptedException e) {
           e.printStackTrace();
