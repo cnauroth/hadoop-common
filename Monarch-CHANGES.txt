@@ -115,3 +115,6 @@ Monarch - unreleased
 
     HADOOP-109. Backporting HADOOP-6496 change - HttpServer sends wrong 
     content-type for CSS files (and others) (Ivan Mitic via suresh)
+
+    HADOOP-109. Backporting HADOOP-7827 change - jsp pages missing DOCTYPE.
+    (suresh)
