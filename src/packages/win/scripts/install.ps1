@@ -136,13 +136,12 @@ function Main( $scriptDir )
 	$cmd = "icacls `"$ENV:HDFS_DATA_DIR`" /grant ${username}:(OI)(CI)F"
 	Invoke-Cmd $cmd
 
-
 	###
-	### Create symlink for streaming jar
+	### Copy the streaming jar to the Hadoop lib directory
 	###
-	Write-Log "Creating Symlink for Streaming to $hadoopInstallDir\contrib\streaming\hadoop-streaming-@version@.jar"
-	$symlinkStreaming_cmd = "mklink `"$hadoopInstallDir\lib\hadoop-streaming.jar`" `"$hadoopInstallDir\contrib\streaming\hadoop-streaming-@version@.jar`""
-	Invoke-Cmd $symlinkStreaming_cmd
+	Write-Log "Copying the streaming jar to the Hadoop lib directory"
+	$xcopyStreaming_cmd = "xcopy /YF `"$hadoopInstallDir\contrib\streaming\hadoop-streaming-@version@.jar`" `"$hadoopInstallDir\lib\`""
+	Invoke-Cmd $xcopyStreaming_cmd
 
 	###
 	### Create Hadoop Windows Services and grant user ACLS to start/stop
