@@ -112,3 +112,6 @@ Monarch - unreleased
     MISSING JIRA: LocalJobRunner does not support private distributed cache (contributed by Ivan Mitic)
 
     HADOOP-149. ASV public blob support. (Dexter Bradshaw via suresh)
+
+    HADOOP-109. Backporting HADOOP-6496 change - HttpServer sends wrong 
+    content-type for CSS files (and others) (Ivan Mitic via suresh)
