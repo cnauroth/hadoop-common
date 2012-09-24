@@ -24,16 +24,12 @@ import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Iterator;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.azure.AzureException;
 
@@ -47,20 +43,23 @@ import com.microsoft.windowsazure.services.blob.client.CloudBlobDirectory;
 import com.microsoft.windowsazure.services.blob.client.CloudBlockBlob;
 import com.microsoft.windowsazure.services.blob.client.ListBlobItem;
 import com.microsoft.windowsazure.services.core.storage.CloudStorageAccount;
+import com.microsoft.windowsazure.services.core.storage.StorageException;
 
 
 class AzureNativeFileSystemStore implements NativeFileSystemStore
 {
 	// Constants local to this class.
 	//
-	private final String keyConnString = "fs.azure.storageConnectionString";
-	@Deprecated
-	private final String keyConcurrentConnectionValue   = "fs.azure.concurrentConnection";
+	private final String keyConnString 					= "fs.azure.storageConnectionString";
 	private final String keyConcurrentConnectionValueIn = "fs.azure.concurrentConnection.in";
 	private final String keyConcurrentConnectionValueOut= "fs.azure.concurrentConnection.out";
 	private final String keyStreamMinReadSize 			= "fs.azure.stream.min.read.size";
 	private final String keyWriteBlockSize 				= "fs.azure.write.block.size";
 	private final String keyStorageConnectionTimeout	= "fs.azure.storage.timeout";
+			
+	private final String HTTP_SCHEME					= "http";
+	private final String ASV_URL_AUTHORITY				= ".blob.core.windows.net";
+    
 	
 	// Default minimum read size for streams is 64MB.
 	//
@@ -78,23 +77,83 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore
 	
 	
 	private CloudStorageAccount account;
-	private CloudBlobContainer container;
-	private int concurrentValue = 2;
-	private int concurrentReads = DEFAULT_CONCURRENT_READS;
-	private int concurrentWrites= DEFAULT_CONCURRENT_WRITES;
+	private CloudBlobContainer 	container;
+	private CloudBlobDirectory 	rootDirectory;
+	private CloudBlobClient		serviceClient;
+	private int 				concurrentReads = DEFAULT_CONCURRENT_READS;
+	private int 				concurrentWrites= DEFAULT_CONCURRENT_WRITES;
 
 	public void initialize(URI uri, Configuration conf)
 		throws IOException 
 	{
 		try
 		{
-			// Retrieve storage account from the connection string in order to create a blob
-			// client.  The blob client will be used to retrieve the container if it exists, otherwise
-			// a new container is created.
+			// Allocate service client and container name and initialize to null.
 			//
-			account = CloudStorageAccount.parse (conf.get(keyConnString));
-			CloudBlobClient serviceClient = account.createCloudBlobClient ();
+			String 			containerName = null;
 			
+			// Based on the URI authority determine if the service client is public
+			// (requires no credentials) or private (requires credentials). For
+			// now we assume all relative ASV://*.blob.core.windows.net/* are public
+			// while absolute ASV://<container>/* schemes are private.
+			//
+			if (uri.getAuthority().toLowerCase().endsWith(ASV_URL_AUTHORITY))
+			{
+				// HTTP scheme, so the URI specifies a public container.
+				// Explicitly create a storage URI corresponding to the URI parameter
+				// for use when creating the service client.
+				//
+				URI storageURI = new URI(HTTP_SCHEME + "://" + uri.getAuthority());
+				
+				// Create an service client with anonymous credentials.
+				//
+				serviceClient = new CloudBlobClient(storageURI);
+				
+				// Extract the container name from the URI.
+				//
+				containerName = uri.getPath().split(PATH_DELIMITER, 3)[1].toLowerCase();
+			    rootDirectory = serviceClient.getDirectoryReference(
+			    								PATH_DELIMITER + containerName + PATH_DELIMITER);
+
+			    // It is good to have a reference to the container for debugging purposes.
+			    //
+				container = serviceClient.getContainerReference (containerName);
+			}
+			else
+			{
+				// Anything else is treated as an absolute path based on the ASV scheme.
+				//
+				// Retrieve storage account from the connection string in order to create a blob
+				// client.  The blob client will be used to retrieve the container if it exists,
+				// otherwise a new container is created.
+				//
+				account = CloudStorageAccount.parse (conf.get(keyConnString));
+				serviceClient = account.createCloudBlobClient ();
+				
+				// Query the container.
+				//
+				containerName = uri.getAuthority ();
+				container = serviceClient.getContainerReference (containerName);
+				
+				// Assertion: At this point the container should be non-null otherwise one
+				//            of the get containerReference calls would raise an exception
+				//            and we will never get to this point.
+				//
+				assert null != container : "Expecting a non-null container.";
+
+				// Check for the existence of the azure storage container.  If it exists use it, otherwise,
+				// create a new container.
+				//
+				if (!container.exists ()) {
+					container.create ();
+				}
+				
+				// Assertion: The container should exist.
+				//
+				assert container.exists() : "Container " + containerName +
+										    " expected but does not exist.";
+			}
+					
 			// Set up the minimum stream read block size and the write block size.
 			//
 			serviceClient.setStreamMinimumReadSizeInBytes(
@@ -116,23 +175,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore
 			{
 				serviceClient.setTimeoutInMs(storageConnectionTimeout * 1000);
 			}
-
-			// Query the container.
-			//
-			String containerName = uri.getAuthority ();
-			container = serviceClient.getContainerReference (containerName);
-
-			// Check for the existence of the azure storage container.  If it exists use it, otherwise,
-			// create a new container.
-			//
-			if (!container.exists ()) {
-				container.create ();
-			}
-
-			// Assertion: The container should exist.
-			//
-			assert container.exists() : "Container " + containerName +
-									    " expected but does not exist.";
+			
 
 			// Set the concurrency values equal to the that specified in the configuration
 			// file. If it does not exist, set it to the default value calculated as
@@ -140,9 +183,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore
 			// value is minimum of double the cores and the read/write property.
 			//
 			int cpuCores = 2 * Runtime.getRuntime().availableProcessors();
-			concurrentValue = conf.getInt (
-								keyConcurrentConnectionValue, 
-								Math.min (cpuCores, concurrentValue));
 									
 			concurrentReads	= conf.getInt(
 								keyConcurrentConnectionValueIn,
@@ -161,58 +201,29 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore
 		}
 	}
 	
-	@Deprecated /* Replaced by the pushout method. */
-	
-	public void storeFile (String key, File file, byte [] md5Hash)
-		throws IOException
-	{
-		FileInputStream in = null;
-		
-		try
-		{
-			in = new FileInputStream (file);
-			CloudBlockBlob blob = container.getBlockBlobReference(key);
-			BlobRequestOptions options = new BlobRequestOptions();
-			if (null != md5Hash)
-			{
-				options.setStoreBlobContentMD5 (true);
-				blob.getProperties().setContentMD5(new String(md5Hash));
-			}
-			options.setConcurrentRequestCount(concurrentValue);
-			blob.upload(in, file.length(), null, options, null);
-			blob.uploadProperties();
-		}
-		catch (Exception e)
-		{
-			// Re-throw I/O exception as an Azure storage exception.
-			//
-			throw new AzureException (e);
-		}
-		finally
-		{
-			if (null != in)
-			{
-				try
-				{
-					in.close ();
-				}
-				catch (IOException e)
-				{
-					// TODO: See if we can do more than eat up the exception
-					// TODO: here. Ignoring exceptions is bad style.
-				}
-			}
-		}
-	}
 
 	public DataOutputStream pushout (String key)
-		throws IOException
+		throws AzureException
 	{
 		try
 		{
+			// Check if there is an authenticated account associated with the file this
+			// instance of the ASV file system. If not the file system has not been
+			// authenticated and all access is anonymous.
+			//
+			if (!isAuthenticatedAccess())
+			{				
+				// Preemptively raise an exception indicating no uploads are allowed to
+				// anonymous accounts.
+				//
+				throw new AzureException(
+						    new IOException("Uploads to public accounts using anonymous "+
+								            "access is prohibited."));
+			}
+			
 			// Get the block blob reference from the store's container and return it.
 			//
-			CloudBlockBlob blob = container.getBlockBlobReference (key);
+			CloudBlockBlob blob = getBlobReference (key);
 
 			// Set up request options.
 			//
@@ -238,15 +249,29 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore
 		}
 	}
 	
-
 	public void storeEmptyFile(String key)
 		throws IOException
 	{
+		String normKey = normalizeKey(key);
+		
 		// Upload null byte stream directly to the Azure blob store.
 		//
 		try
 		{
-			CloudBlockBlob blob = container.getBlockBlobReference(key);
+			// Check if there is an authenticated account associated with the file this
+			// instance of the ASV file system. If not the file system has not been
+			// authenticated and all access is anonymous.
+			//
+			if (!isAuthenticatedAccess())
+			{	
+				// Preemptively raise an exception indicating no uploads are allowed to
+				// anonymous accounts.
+				//
+				throw new Exception (
+						"Uploads to to public accounts using anonymous access is prohibited.");
+			}
+			
+			CloudBlockBlob blob = getBlobReference(normKey);
 			blob.upload(new ByteArrayInputStream(new byte[0]), 0);
 		}
 		catch (Exception e)
@@ -263,20 +288,20 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore
 	{
 		// Query the container for the list of blobs stored in the container.
 		//
-		CloudBlobDirectory dir = container.getDirectoryReference(key);
-		Iterable<ListBlobItem> objects = dir.listBlobs ();
+		CloudBlobDirectory dir = getDirectoryReference(key);
+		Iterable<ListBlobItem> blobItems = dir.listBlobs ();
 
-		// Check to see if the container contains blob items.
+		// Check to see if this is a directory/container of blob items.
 		//
-		if (null != objects)
+		if (null != blobItems)
 		{
-			if (objects.iterator().hasNext())
+			if (blobItems.iterator().hasNext())
 			{
 				return true;
 			}
 		}
 
-		CloudBlockBlob blob = container.getBlockBlobReference(key);
+		CloudBlockBlob blob = getBlobReference(key);
 		if (null != blob)
 		{
 			// Check if the blob exists under the current container
@@ -289,24 +314,280 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore
 		return false;
 	}
 
+	
+	/** Private method to check for authenticated access.
+	 *
+	 * @ returns boolean -- true if access is credentialed and authenticated and false otherwise.
+	 */
+	private boolean isAuthenticatedAccess ()
+		throws AzureException
+	{
+		if (null == account)
+		{
+			// Assertion: All anonymous access uses a root directory when following
+			//            a path.
+			//
+			assert useRootDirectory() : "Expected root directory for anonymous access.";
+			
+			// Access is not authenticated.
+			//
+			return false;
+		}
+		
+		// Access was authenticated.
+		return true;
+	}
+	
+	/**
+	 * This private method determines whether or not to use the root directory or the container
+	 * reference depending on whether the original FileSystem object was constructed using the
+	 * short- or long-form URI.
+	 * 
+	 * @returns boolean : true if it the root directory to access the file system tree and false
+	 *                    otherwise.
+	 */
+	private boolean useRootDirectory()
+	{
+		return null != rootDirectory;
+	}
+
+	/**
+	 * This private method uses the root directory or the original container to
+	 * get a directory reference depending on whether the original file system
+	 * object was constructed with a short- or long-form URI. If the root directory
+	 * is non-null the URI in the file constructor was in the long form.
+	 * 
+	 * @param aKey   : a key used to query Azure for the directory.
+	 * @returns directory : a reference to the Azure block blob corresponding to the key.
+	 * @throws URISyntaxException 
+	 * 
+	 */
+	private CloudBlobDirectory getDirectoryReference(String aKey) 
+			throws StorageException, URISyntaxException
+	{
+		// Assertion: The incoming key should be non-null.
+		//
+		assert null != aKey : "Expected non-null incoming key.";
+		
+		CloudBlobDirectory directory = null;
+		if (useRootDirectory())
+		{
+			directory = rootDirectory.getSubDirectoryReference(aKey);
+		}
+		else
+		{
+			assert null != container : "Expecting a non-null container for Azure store object.";
+			directory = container.getDirectoryReference(aKey);
+		}
+		
+		// Return with block blob.
+		return directory;
+	}
+	
+	
+	/**
+	 * This private method uses the root directory or the original container to
+	 * list blobs under the directory or container depending on whether the original
+	 * file system object was constructed with a short- or long-form URI. If the
+	 * root directory is non-null the URI in the file constructor was in the long form.
+	 * 
+	 * @returns blobItems : iterable collection of blob items.
+	 * @throws URISyntaxException 
+	 * 
+	 */
+	private Iterable<ListBlobItem> listRootBlobs() 
+			throws StorageException, URISyntaxException
+	{
+		if (useRootDirectory())
+		{
+			return rootDirectory.listBlobs();
+		}
+		else
+		{
+			assert null != container : "Expecting a non-null container for Azure store object.";
+			return container.listBlobs();
+		}
+	}
+	
+
+	/**
+	 * This private method uses the root directory or the original container to
+	 * list blobs under the directory or container given a specified prefix for the
+	 * directory depending on whether the original file system object was constructed
+	 * with a short- or long-form URI. If the root directory is non-null the URI in
+	 * the file constructor was in the long form.
+	 * 
+	 * @param aPrefix     : string name representing the prefix of containing blobs.
+	 * @returns blobItems : iterable collection of blob items.
+	 * @throws URISyntaxException 
+	 * 
+	 */
+	private Iterable<ListBlobItem> listRootBlobs(String aPrefix) 
+			throws StorageException, URISyntaxException
+	{
+		if (useRootDirectory())
+		{
+			// Normalize the prefix for long form of the URI.
+			//
+			String normPrefix = normalizeKey(aPrefix);
+			return rootDirectory.listBlobs(normPrefix);
+		}
+		else
+		{
+			assert null != container : "Expecting a non-null container for Azure store object.";
+			return container.listBlobs(aPrefix);
+		}
+	}
+	
+	
+	/**
+	 * This private method uses the root directory or the original container to
+	 * get the block blob reference depending on whether the original file system
+	 * object was constructed with a short- or long-form URI. If the root directory
+	 * is non-null the URI in the file constructor was in the long form.
+	 * 
+	 * @param aKey   : a key used to query Azure for the block blob.
+	 * @returns blob : a reference to the Azure block blob corresponding to the key.
+	 * @throws URISyntaxException 
+	 * 
+	 */
+	private CloudBlockBlob getBlobReference(String aKey) 
+			throws StorageException, URISyntaxException
+	{
+		// Assertion: The incoming key should be non-null.
+		//
+		assert null != aKey : "Expected non-null incoming key.";
+		
+		CloudBlockBlob blob = null;
+		if (useRootDirectory())
+		{
+			blob = rootDirectory.getBlockBlobReference(aKey);
+		}
+		else
+		{
+			assert null != container : "Expecting a non-null container for Azure store object.";
+			blob = container.getBlockBlobReference(aKey);
+		}
+		
+		// Return with block blob.
+		return blob;
+	}
+	
+	/**
+	 * This private method normalizes the key based on the format of the originating URI.
+	 * If the originating URI is in the short form, eg. asv://container/<key>, the
+	 * method is no-op and returns the original key. If the originating URI is in the
+	 * long form, eg. asv://<AccountName>.blob.core.windows.net/<container>/*., then
+	 * the key is prefixed with the container name and the container component has
+	 * to be removed from the key to return a normalized key.
+	 * 
+	 * Note: The format of the originating URI is determined by whether the rootDirectory
+	 *       non-null. A non-null root directory indicates that the originating URI was
+	 *       in the long form.
+	 * 
+	 * @param aKey            : a key to be  normalized
+	 * 
+	 * @returns normalizedKey : a normalized key
+	 */
+	private String normalizeKey(String aKey)
+	{
+		// Assertion: The incoming key should be non-null.
+		//
+		assert null != aKey : "Expected non-null incoming key.";
+		
+		String normKey = aKey;
+		if (useRootDirectory())
+		{
+			// The root directory is non-null so the original URI must have been in the long
+			// form. Remove the path prefix.  This prefix should correspond to the container
+			// name.
+			//
+			String[] keySplits = aKey.split(PATH_DELIMITER, 2);
+			
+			// Assertion: The first component of the split should correspond to the container
+			//            name.
+			//
+			assert null != container :
+								"Expected a non-null container for on Azure store";
+			assert keySplits[0].equals(container.getName()) : 
+								"Expected container: " + container.getName();
+			
+			// The tail end of the split corresponds to the file path. Note the tail end is not
+			// prefixed with the PATH_DELIMITER.
+			//
+			normKey = keySplits[1];
+		}
+		
+		// Return the normalized key.
+		//
+		return normKey;
+	}
+	
+	
+	/**
+	 * This private method fixes the scheme on a key based on the format of the originating URI.
+	 * If the originating URI is in the short form, eg. asv://container/<key>, the
+	 * method is no-op and returns the original key. If the originating URI is in the
+	 * long form, eg. asv://<AccountName>.blob.core.windows.net/<container>/*., then
+	 * the asv:// scheme replaces whatever scheme the current key has.
+	 * 
+	 * Note: The format of the originating URI is determined by whether the rootDirectory
+	 *       non-null. A non-null root directory indicates that the originating URI was
+	 *       in the long form.
+	 * 
+	 * @param aKey              : a key to be denormalized
+	 * @throws URISyntaxException
+	 * 
+	 * @returns denormalizedKey : a denormalized key prefixed with the container name
+	 */
+	private String fixScheme(String aKey) throws Exception
+	{
+		// Assertion: The incoming key should be non-null.
+		//
+		assert null != aKey : "Expected non-null incoming key.";
+		
+		String keyAsv = aKey;
+		if (useRootDirectory())
+		{
+			URI keyUri = new URI(aKey);
+			String keyScheme = keyUri.getScheme();
+			
+			if ("".equals(keyScheme))
+			{
+				throw new URISyntaxException(keyUri.toString(), "Expecting scheme on URI");
+			}
+			
+			// Strip the container name from the path and return the path relative to the
+			// root directory of the container.
+			//
+			keyAsv = keyUri.getPath().split(PATH_DELIMITER,2)[1];
+		}
+		
+		// Return the normalized key.
+		//
+		return keyAsv;
+	}
+	
 	public FileMetadata retrieveMetadata(String key)
 		throws IOException
 	{
+		String normalizedKey = normalizeKey (key);
+		
 		try
 		{
 			// Handle the degenerate cases where the key does not exist or the key is a 
 			// container.
 			//
-			if (key.equals("/"))
+			if (normalizedKey.equals("/"))
 			{
 				// The key refers to a container.
 				//
-				return new FileMetadata(key);
+				return new FileMetadata(normalizedKey);
 			}
 
 			// Check for the existence of the key.
 			//
-			if (!exists (key))
+			if (!exists (normalizedKey))
 			{
 				// Key does not exist as a root blob or as part of a container.
 				//
@@ -316,21 +597,23 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore
 			// Download attributes and return file metadata only if the blob exists.
 			//
 			FileMetadata metadata = null;
-			CloudBlockBlob blob = container.getBlockBlobReference(key);
+			CloudBlockBlob blob = getBlobReference(normalizedKey);
+			
 			if (blob.exists ())
-			{
+			{			
 				// The blob exists, so capture the metadata from the blob properties.
 				//
 				blob.downloadAttributes ();
 				BlobProperties properties = blob.getProperties ();
+				
 				metadata = new FileMetadata(
-								key,
+								key,   // Always return denormalized key with metadata.
 								properties.getLength(),
 								properties.getLastModified ().getTime());
 			}
 			else
 			{
-				metadata = new FileMetadata(key);
+				metadata = new FileMetadata(normalizedKey);
 			}
 
 			// Return to caller with the metadata.
@@ -345,63 +628,19 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore
 		}
 	}
 
-	@Deprecated
-	public DataInputStream retrieve(Configuration conf, String key)
-		throws IOException
-	{
-		try
-		{
-			// Query Azure storage for blob reference and set concurrency
-			// options.
-			//
-			CloudBlob blob = container.getBlockBlobReference (key);
-			BlobRequestOptions options = new BlobRequestOptions ();
-			options.setConcurrentRequestCount(concurrentReads);
-			options.setDisableContentMD5Validation(false);
-			
-			
-			// Create a temporary file backing the output and input file
-			// streams. This file will be deleted when the JVM terminates
-			// normally.
-			//
-			File dir = new File(conf.get("fs.azure.buffer.dir"));
-		    if (!dir.mkdirs() && !dir.exists())
-		    {
-		        throw new IOException("Cannot create Azure buffer directory: " + dir);
-		    }
-		    File f = File.createTempFile("download-", ".tmp", dir);
-		    f.deleteOnExit();			
-			
-			// Create the file output stream and start download of the file.
-            // TODO: Determine if the download blocks until the full blob is
-		    // TODO: is streamed to the file or will it do the download on a
-		    // TODO: background thread.
-		    //
-			OutputStream outStream = new FileOutputStream(f);
-			blob.download(outStream);
-			
-			// Create the input stream which will be returned to the caller.
-			//
-			FileInputStream inStream = new FileInputStream (f);
-			BufferedInputStream inBufStream = new BufferedInputStream (inStream);
-			DataInputStream inDataStream = new DataInputStream(inBufStream);
-			
-			return inDataStream;
-		}
-		catch (Exception e)
-		{
-			// Re-throw as an Azure storage exception.
-			//
-			throw new AzureException (e);
-		}
-	}
 
 	public DataInputStream retrieve(String key)
 		throws IOException
 	{
 		try
 		{
-			CloudBlockBlob blob = container.getBlockBlobReference (key);
+			// Normalize the key before attempting to get a reference to it.
+			//
+			String normKey = normalizeKey (key);
+			
+			// Get blob reference and open the input buffer stream.
+			//
+			CloudBlockBlob blob = getBlobReference (normKey);
 			BlobRequestOptions options = new BlobRequestOptions ();
 			options.setConcurrentRequestCount(concurrentReads);
 			BufferedInputStream inBufStream = new BufferedInputStream (
@@ -426,7 +665,13 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore
 	{
 		try
 		{
-			CloudBlockBlob blob = container.getBlockBlobReference (key);
+			// Normalize the key before attempting to get a reference to it.
+			//
+			String normKey = normalizeKey (key);
+			
+			// Get blob reference and open the input buffer stream.
+			//			
+			CloudBlockBlob blob = getBlobReference (normKey);
 			BlobRequestOptions options = new BlobRequestOptions ();
 			options.setConcurrentRequestCount(concurrentReads);
 
@@ -489,11 +734,11 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore
 			Iterable<ListBlobItem> objects;
 			if (prefix.equals("/"))
 			{
-				objects = container.listBlobs ();
+				objects = listRootBlobs ();
 			}
 			else
 			{
-				objects = container.listBlobs (prefix);
+				objects = listRootBlobs (prefix);
 			}
 
 			ArrayList<FileMetadata> fileMetadata = new ArrayList<FileMetadata>();
@@ -508,18 +753,36 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore
 
 				if (blobItem instanceof CloudBlob)
 				{
-					CloudBlob blob = (CloudBlob) blobItem;
-					BlobProperties properties = blob.getProperties ();
-
 					// TODO: Validate that the following code block actually  makes
 					// TODO: sense. Min Wei tagged it as a hack
-					priorLastKey = blob.getName();
-					FileMetadata metadata = 
-								new FileMetadata (
-										blob.getName (),
-										properties.getLength (),
-										properties.getLastModified().getTime ()
-										);
+					// Fix the scheme on the key.
+  					String blobKey = null;
+					CloudBlob blob = (CloudBlob) blobItem;
+					BlobProperties properties = blob.getProperties ();
+  					
+  					// Determine if this instance of the file system was opened with a long-
+  					// or short-form URI. If there is a root directory, the URI was in the
+  					// long form.
+  					//
+  					if (useRootDirectory())
+  					{
+  	 					// Keys with long form URI's need special treatment. The asv:// scheme
+  	  					// needs to be added to the key.
+  	  					//
+  						blobKey = fixScheme (blob.getUri().toString());
+  					}
+  					else
+  					{
+  						blobKey = blob.getName();
+  					}
+  					
+  					FileMetadata metadata = new FileMetadata (
+  													blobKey,
+  													properties.getLength(),
+  													properties.getLastModified().getTime());
+  					
+  					// Add the metadata to the list.
+  					//
 					fileMetadata.add (metadata);
 				}
 				else
@@ -599,10 +862,28 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore
   				//
   				if (blobItem instanceof CloudBlob)
   				{
+  					String blobKey = null;
   					CloudBlob blob = (CloudBlob) blobItem;
   					BlobProperties properties = blob.getProperties();
+  					
+  					// Determine if this instance of the file system was opened with a long-
+  					// or short-form URI. If there is a root directory, the URI was in the
+  					// long form.
+  					//
+  					if (useRootDirectory())
+  					{
+  	 					// Keys with long form URI's need special treatment. The asv:// scheme
+  	  					// needs to be added to the key.
+  	  					//
+  						blobKey = fixScheme (blob.getUri().toString());
+  					}
+  					else
+  					{
+  						blobKey = blob.getName();
+  					}
+  					
   					FileMetadata metadata = new FileMetadata (
-  													blob.getName (),
+  													blobKey,
   													properties.getLength(),
   													properties.getLastModified().getTime());
   					
@@ -647,7 +928,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore
 		{
 			// Get the blob reference an delete it.
 			//
-			CloudBlockBlob blob = container.getBlockBlobReference(key);
+			CloudBlockBlob blob = getBlobReference(key);
 			if (blob.exists ())
 			{
 				blob.delete();
@@ -668,14 +949,14 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore
 		{
 			// Get the source blob and assert its existence.
 			//
-			CloudBlockBlob srcBlob = container.getBlockBlobReference(srcKey);
+			CloudBlockBlob srcBlob = getBlobReference(srcKey);
 			assert srcBlob.exists () : "Source blob " +
 				                       srcKey +
 				                       " does not exist.";
 
 			// Get the destination blob and assert its existence.
 			//
-			CloudBlockBlob dstBlob = container.getBlockBlobReference(dstKey);
+			CloudBlockBlob dstBlob = getBlobReference(dstKey);
 			assert dstBlob.exists () : "Destination blob " +
 									   dstKey +
 									   " does not exist.";
@@ -702,7 +983,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore
 		{
 			// Get all blob items with the given prefix from the container and delete them.
 			//
-			Iterable<ListBlobItem> objects = container.listBlobs(prefix);
+			Iterable<ListBlobItem> objects = listRootBlobs(prefix);
 			for (ListBlobItem blobItem : objects)
 			{
 				((CloudBlob) blobItem).delete();

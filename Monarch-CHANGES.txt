@@ -1,6 +1,17 @@
 Monarch - unreleased
 
   IMPROVEMENTS
+    HADOOP-58 Should throw exception in case winutils.exe cannot be loaded (Bikas Saha)
+
+    HADOOP-108 Make SecureIOUtils work with Windows NativeIO. (Chuan Liu)
+
+    HADOOP-107 Fix datanode concurrency issue using Windows NativeIO.
+    (Chuan Liu)
+
+    HADOOP-106 Port and extend Hadoop native libraries for Windows.
+    (Chuan Liu)
+
+    HADOOP-129 WindowsResourceCalculatorPlugin NPE (Bikas Saha)
 
     HADOOP-111 Shell timeout mechanism does not work for processes 
     spawned using winutils. (Bikas Saha)
@@ -79,6 +90,13 @@ Monarch - unreleased
 
     HADOOP-90. Classpath exceeds maximum OS limit. (Ahmed El Baz)
 
+    HADOOP-136 CombineFileInputFormat only works with default file system
+    (Ahmed El Baz)
+
+    HADOOP-143. Measure perf impact of generating a Jar file for the classpath
+    when launching a task
+    (Ahmed El Baz)
+
     MISSING JIRA: Address test failures related to missing .sh scripts
     (TestStreamingTaskLog, TestJvmManager, TestLinuxTaskControllerLaunchArgs)
     (Ivan Mitic)
@@ -93,5 +111,12 @@ Monarch - unreleased
 
     MISSING JIRA: TestFileConcurrentReader test fix. (Chuan Liu)
 
-    MISSING JIRA: LocalJobRunner does not support private distributed cache.
-    (Ivan Mitic)
+    MISSING JIRA: LocalJobRunner does not support private distributed cache (contributed by Ivan Mitic)
+
+    HADOOP-149. ASV public blob support. (Dexter Bradshaw via suresh)
+
+    HADOOP-109. Backporting HADOOP-6496 change - HttpServer sends wrong 
+    content-type for CSS files (and others) (Ivan Mitic via suresh)
+
+    HADOOP-109. Backporting HADOOP-7827 change - jsp pages missing DOCTYPE.
+    (suresh)
