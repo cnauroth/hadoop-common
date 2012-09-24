@@ -22,11 +22,10 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URI;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.azure.AzureException;
 
 /**
  * <p>
@@ -38,15 +37,14 @@ interface NativeFileSystemStore
 
   void initialize(URI uri, Configuration conf) throws IOException;
 
-  void storeFile(String key, File file, byte[] md5Hash) throws IOException;
   void storeEmptyFile(String key) throws IOException;
 
   FileMetadata retrieveMetadata(String key) throws IOException;
-  @Deprecated
-  DataInputStream retrieve(Configuration conf, String key) throws IOException;
+  
   DataInputStream retrieve(String key) throws IOException;
   DataInputStream retrieve(String key, long byteRangeStart) throws IOException;
-  DataOutputStream pushout (String key) throws IOException;
+  
+  DataOutputStream pushout (String key) throws AzureException;
   
   PartialListing list(String prefix, final int maxListingCount) throws IOException;
   PartialListing list(String prefix, final int maxListingCount, String priorLastKey) throws IOException;

@@ -54,11 +54,9 @@ import org.apache.hadoop.util.Progressable;
  * <p>
  * A {@link FileSystem} for reading and writing files stored on
  * <a href="http://store.azure.com/">Windows Azure</a>.
- * Unlike {@link org.apache.hadoop.fs.azure.AzureFileSystem} this implementation
- * stores files on Azure in their
- * native form so they can be read by other Azure tools.
+ * This implementation is blob-based and stores files on Azure in
+ * their native form so they can be read by other Azure tools.
  * </p>
- * @see org.apache.hadoop.fs.azure.AzureFileSystem
  */
 public class NativeAzureFileSystem extends FileSystem
 {
@@ -489,15 +487,18 @@ public class NativeAzureFileSystem extends FileSystem
 		 *		32-bit integer of block of 4 bytes
 		 */
 		@Override
-		public void write(int b)
-			throws IOException 
-		{
-			// Ignore the high-order 24 bits and write low-order byte to the
-			// current offset.
-			//
-			// m_buffer.write(intToByteArray(b), 0, 1);
-			m_buffer.write(b);
-		}
+    public void write(int b) throws IOException {
+
+      // if full, add the current stream to ring buffer
+      // and create a new stream
+      processCurrentStreamIfFull();
+
+      // Ignore the high-order 24 bits and write low-order byte to the
+      // current offset.
+      //
+      // m_buffer.write(intToByteArray(b), 0, 1);
+      m_buffer.write(b);
+    }
 
 		/**
 		 * Writes b.length bytes from the specified byte array to this output
@@ -516,6 +517,58 @@ public class NativeAzureFileSystem extends FileSystem
 	    	m_buffer.write(b, 0, b.length);
 	    }
 
+	  //Adds the current stream buffer to ring buffer
+	  //if it is full. Also creates a new stream buffer 
+	  //for streaming new writes.
+	  //TODO: need a better name for this
+    private void processCurrentStreamIfFull() throws IOException {
+      if (m_buffer.size() >= S_STREAM_BUFFERSIZE) {
+        addCurrentStreamToRingBuffer();
+
+        // Create a new byte array output stream.
+        //
+        m_buffer = new ByteArrayOutputStream(S_STREAM_BUFFERSIZE);
+      }
+    }
+
+    // adds the current stream to ring buffer
+    private void addCurrentStreamToRingBuffer() throws IOException {
+      // Add the current byte array output stream to the ring buffer.
+      //
+      if (!m_outRingBuffer.offer(m_buffer)) {
+        // The ring buffer is full. Flush contents of the ring buffer to the
+        // output stream.
+        //
+        // Block flushing any remaining buffer in the output stream out to Azure
+        // storage. Typically this should be a no-op since most of the buffer
+        // would
+        // have been written out while filling the ring buffer.
+        //
+        // TODO Rather than wait for flush completion it may be better
+        // TODO to get notification that the first write is completed.
+        //
+        m_out.flush();
+
+        // Iterate through the ring buffer from head to tail writing
+        // the byte array output stream buffers to the stream and
+        // removing them.
+        //
+        while (!m_outRingBuffer.isEmpty()) {
+          ByteArrayOutputStream outByteStream = m_outRingBuffer.remove();
+          outByteStream.writeTo(m_out);
+        }
+
+        // Assertion: At this point the ring buffer should be empty since all
+        // the outstanding buffers have been flushed to the output stream
+        //
+        assert m_outRingBuffer.isEmpty() : "Ring buffer containing residual byte array streams unexpected.";
+
+        // Add the current byte array output stream to the ring buffer.
+        //
+        m_outRingBuffer.add(m_buffer);
+      }
+    }
+	  
 		/**
 		 * Writes <code>len</code> from the specified byte array starting at 
 		 * offset<code>off</code> to the output stream. The general contract
@@ -559,6 +612,10 @@ public class NativeAzureFileSystem extends FileSystem
 			//
 			assert(null != m_buffer) : 
 					"Unexpected null byte array output stream (1).";
+			
+			//if the buffer is full, add it to ring buffer
+			//and create a new buffer
+      processCurrentStreamIfFull();
 
 			if (m_buffer.size() + len <= S_STREAM_BUFFERSIZE)
 			{
@@ -567,75 +624,53 @@ public class NativeAzureFileSystem extends FileSystem
 				m_buffer.write(b, off, len);
 			}
 			else
-			{
+			{	
+			   //buffer size should always be less than S_STREAM_BUFFERSIZE
+			   //as we are calling processCurrentStreamIfFull
+			   //before we reach here
+		     assert(m_buffer.size() < S_STREAM_BUFFERSIZE) : 
+		       "Unexpected buffer size:"+m_buffer.size(); 
+
 				// The byte sub-array writes past the end of the buffer stream.
 				// Write what fits and add the current byte array out put buffer
 				// stream to the ring buffer.
 				//
 				int lenPartial = 0;
-				try
-				{
-					lenPartial = m_buffer.size() + len - S_STREAM_BUFFERSIZE;
-					m_buffer.write (b, off, len - lenPartial);
+				lenPartial = m_buffer.size() + len - S_STREAM_BUFFERSIZE;
+  
+				m_buffer.write (b, off, len - lenPartial);
 
-					// Add the current byte array output stream to the ring buffer.
-					//
-					m_outRingBuffer.add(m_buffer);
-					
-					// Create a new byte array output stream.
-					//
-					m_buffer = new ByteArrayOutputStream(S_STREAM_BUFFERSIZE);
-				}
-				catch (IllegalStateException e)
+				//the remaining length in b that needs to be written 
+			  int remainingLength = lenPartial;
+			  
+			  //the offset in b from which bytes should be written
+				int newOffset = off+len-lenPartial;	
+
+        //each time the loop runs, a full buffer is added to m_outRingBuffer
+        //and a new buffer is created. So, if a buffer is not full, the loop should not run
+        //as there is no need to add m_buffer to ring buffer yet
+				while(m_buffer.size()>=S_STREAM_BUFFERSIZE)
 				{
-					// The ring buffer is full. Flush contents of the ring buffer to the
-					// output stream.
-					//
-					// Block flushing any remaining buffer in the output stream out to Azure
-					// storage. Typically this should be a no-op since most of the buffer would
-					// have been written out while filling the ring buffer.
-					//
-					// TODO Rather than wait for flush completion it may be better
-					// TODO to get notification that the first write is completed.
-					//
-					m_out.flush();
-													
-					// Iterate through the ring buffer from head to tail writing 
-					// the byte array output stream buffers to the stream and
-					// removing them.
-					//
-					while (!m_outRingBuffer.isEmpty())
-					{
-						ByteArrayOutputStream outByteStream = m_outRingBuffer.remove();
-						outByteStream.writeTo(m_out);
+          //current stream would be full because of the previous write			    
+		      processCurrentStreamIfFull();
+
+					if(remainingLength > 0)
+					{					  					  
+					  int streamBufferLength = Math.min(remainingLength, S_STREAM_BUFFERSIZE);
+					  m_buffer.write (b, newOffset, streamBufferLength);
+					  
+					  //update the remaining length and newOffset
+					  remainingLength = remainingLength - streamBufferLength;
+					  newOffset = newOffset + streamBufferLength;
 					}
-
-					// Assertion: At this point the ring buffer should be empty since all the
-					//
-					assert m_outRingBuffer.isEmpty():
-						"Ring buffer containing residual byte array streams unexpected.";
-
-					// Add the current byte array output stream to the ring buffer.
-					//
-					m_outRingBuffer.add(m_buffer);
-
-					// Create a new byte array output stream.
-					//
-					m_buffer = new ByteArrayOutputStream(S_STREAM_BUFFERSIZE);
+					else
+					{
+					  break;
+					}
 				}
-				finally
-				{
-					// Assertion: Current byte  array output stream should exist.
-					//
-					assert null != m_buffer : 
-							"Unexpected null byte array output stream (2).";
+			  
+			}//end of else
 
-
-					// Write the remainder of the byte block to the byte array output stream.
-					//
-					m_buffer.write (b, off+len-lenPartial, lenPartial);
-				}
-			}
 		}
 
 		/**
@@ -775,11 +810,31 @@ public class NativeAzureFileSystem extends FileSystem
 				
 	private static String pathToKey(Path path) 
 	{
-		if (!path.isAbsolute())
+		// Convert the path to a URI to parse the scheme, the authority, and the 
+		// path from the path object.
+		//
+		URI tmpUri = path.toUri();
+		String schemeUri  = tmpUri.getScheme();
+		String authorityUri = tmpUri.getAuthority();
+		String pathUri = tmpUri.getPath();
+		
+		// The scheme and authority is valid. If the path does not exist add a "/"
+		// separator to list the root of the container.
+		//
+		Path newPath = path;
+		if ("".equals(pathUri))
+		{
+			newPath = new Path(tmpUri.toString() + Path.SEPARATOR);
+		}
+		
+		// Verify path is absolute if the path refers to a windows drive scheme.
+		//
+		if (!newPath.isAbsolute())
 		{
 		  throw new IllegalArgumentException("Path must be absolute: " + path);
 		}
-		String key = path.toUri().getPath();
+		
+		String key = newPath.toUri().getPath();
 		if (key.length() == 1)
 		{
 		  return key;
