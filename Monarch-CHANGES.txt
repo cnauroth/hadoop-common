@@ -1,6 +1,8 @@
 Monarch - unreleased
 
   IMPROVEMENTS
+    HADOOP-79 Change untar to use Java API instead of spawning tar process (Bikas Saha)
+
     HADOOP-128 Make 'winutils ls' show the SID if the owner does not
     exist on the system. (Chuan Liu)
 

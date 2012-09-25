@@ -25,8 +25,11 @@ import java.util.List;
 import java.util.jar.Attributes;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
+import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -529,41 +532,66 @@ public class FileUtil {
    * @param untarDir The untar directory where to untar the tar file.
    * @throws IOException
    */
-  public static void unTar(File inFile, File untarDir) throws IOException {
-    if (!untarDir.mkdirs()) {           
+  public static void unTar(File archive, File untarDir) throws IOException {
+    if (!untarDir.mkdirs()) {
       if (!untarDir.isDirectory()) {
         throw new IOException("Mkdirs failed to create " + untarDir);
       }
     }
 
-    StringBuffer untarCommand = new StringBuffer();
-    boolean gzipped = inFile.toString().endsWith("gz");
-    if (gzipped) {
-      untarCommand.append((Shell.WINDOWS) ? " gzip -dc \"" : " gzip -dc '");
-      untarCommand.append(FileUtil.makeShellPath(inFile));
-      untarCommand.append((Shell.WINDOWS) ? "\" | (" : "' | (");
-    } 
-    untarCommand.append((Shell.WINDOWS) ? "cd \"" : "cd '");
-    untarCommand.append(FileUtil.makeShellPath(untarDir)); 
-    untarCommand.append((Shell.WINDOWS) ? "\" & " : "' ; ");
+    boolean gzipped = archive.toString().endsWith("gz");
 
-    // Force the archive path as local on Windows as it can have a colon
-    untarCommand.append((Shell.WINDOWS) ? "tar --force-local -xf " : "tar -xf ");
-
+    InputStream inputStream = null;
     if (gzipped) {
-      untarCommand.append(" -)");
+      inputStream = new BufferedInputStream(new GZIPInputStream(
+          new FileInputStream(archive)));
     } else {
-      untarCommand.append(FileUtil.makeShellPath(inFile));
+      inputStream = new BufferedInputStream(new FileInputStream(archive));
     }
-    String[] shellCmd = {(Shell.WINDOWS)?"cmd":"bash", (Shell.WINDOWS)?"/c":"-c",
-      untarCommand.toString() };
-    ShellCommandExecutor shexec = new ShellCommandExecutor(shellCmd);
-    shexec.execute();
-    int exitcode = shexec.getExitCode();
-    if (exitcode != 0) {
-      throw new IOException("Error untarring file " + inFile + 
-                  ". Tar process exited with exit code " + exitcode);
+
+    TarArchiveInputStream tis = new TarArchiveInputStream(inputStream);
+
+    for (TarArchiveEntry entry = tis.getNextTarEntry(); entry != null;) {
+      unpackEntries(tis, entry, untarDir);
+      entry = tis.getNextTarEntry();
     }
+  }
+
+  private static void unpackEntries(TarArchiveInputStream tis,
+      TarArchiveEntry entry, File outputDir) throws IOException {
+    if (entry.isDirectory()) {
+      File subDir = new File(outputDir, entry.getName());
+      if (!subDir.mkdir() && !subDir.isDirectory()) {
+        throw new IOException("Mkdirs failed to create tar internal dir "
+            + outputDir);
+      }
+
+      for (TarArchiveEntry e : entry.getDirectoryEntries()) {
+        unpackEntries(tis, e, subDir);
+      }
+
+      return;
+    }
+
+    File outputFile = new File(outputDir, entry.getName());
+    if (!outputDir.exists()) {
+      if (!outputDir.mkdirs()) {
+        throw new IOException("Mkdirs failed to create tar internal dir "
+            + outputDir);
+      }
+    }
+
+    int count;
+    byte data[] = new byte[2048];
+    BufferedOutputStream outputStream = new BufferedOutputStream(
+        new FileOutputStream(outputFile));
+
+    while ((count = tis.read(data)) != -1) {
+      outputStream.write(data, 0, count);
+    }
+
+    outputStream.flush();
+    outputStream.close();
   }
 
   public static void copyFile(String fromFileName, String toFileName)
