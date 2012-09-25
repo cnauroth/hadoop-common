@@ -123,3 +123,6 @@ Monarch - unreleased
 
     HADOOP-109. Backporting HADOOP-7827 change - jsp pages missing DOCTYPE.
     (suresh)
+
+    HADOOP-109. Reverting test changes from HADOOP-7827 backport as they
+    introduced a regression. (contributed by Ivan Mitic)
