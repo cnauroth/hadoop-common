@@ -1,6 +1,9 @@
 Monarch - unreleased
 
   IMPROVEMENTS
+    HADOOP-128 Make 'winutils ls' show the SID if the owner does not
+    exist on the system. (Chuan Liu)
+
     HADOOP-58 Should throw exception in case winutils.exe cannot be loaded (Bikas Saha)
 
     HADOOP-108 Make SecureIOUtils work with Windows NativeIO. (Chuan Liu)
