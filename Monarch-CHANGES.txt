@@ -1,6 +1,8 @@
 Monarch - unreleased
 
   IMPROVEMENTS
+    HADOOP-156 Local users should be able to query a domain user's groups (Chuan Liu)
+
     HADOOP-79 Change untar to use Java API instead of spawning tar process (Bikas Saha)
 
     HADOOP-128 Make 'winutils ls' show the SID if the owner does not
