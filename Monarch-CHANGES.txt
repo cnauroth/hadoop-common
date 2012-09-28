@@ -1,14 +1,26 @@
 Monarch - unreleased
 
   IMPROVEMENTS
-    HADOOP-156 Local users should be able to query a domain user's groups (Chuan Liu)
+    HADOOP-156 Local users should be able to query a domain user's groups
+    (Chuan Liu)
 
-    HADOOP-79 Change untar to use Java API instead of spawning tar process (Bikas Saha)
+    HADOOP-8847 (HADOOP-79) Change untar to use Java API instead of spawning
+    tar process (Bikas Saha)
+
+    HADOOP-109 Reverting test changes from HADOOP-7827 backport as they
+    introduced a regression. (contributed by Ivan Mitic)
+
+    HADOOP-109 Backporting HADOOP-7827 change - jsp pages missing DOCTYPE.
+    (suresh)
+
+    HADOOP-109 Backporting HADOOP-6496 change - HttpServer sends wrong 
+    content-type for CSS files (and others) (Ivan Mitic via suresh)
 
     HADOOP-128 Make 'winutils ls' show the SID if the owner does not
     exist on the system. (Chuan Liu)
 
-    HADOOP-58 Should throw exception in case winutils.exe cannot be loaded (Bikas Saha)
+    HADOOP-8836 (HADOOP-58) Should throw exception in case winutils.exe cannot
+    be loaded (Bikas Saha)
 
     HADOOP-108 Make SecureIOUtils work with Windows NativeIO. (Chuan Liu)
 
@@ -18,39 +30,52 @@ Monarch - unreleased
     HADOOP-106 Port and extend Hadoop native libraries for Windows.
     (Chuan Liu)
 
-    HADOOP-129 WindowsResourceCalculatorPlugin NPE (Bikas Saha)
+    HADOOP-136 CombineFileInputFormat only works with default file system
+    (Ahmed El Baz)
 
-    HADOOP-111 Shell timeout mechanism does not work for processes 
+    HADOOP-143 Measure perf impact of generating a Jar file for the classpath
+    when launching a task (Ahmed El Baz)
+
+    HADOOP-90 Classpath exceeds maximum OS limit. (Ahmed El Baz)
+
+    MAPREDUCE-4657 (HADOOP-129) WindowsResourceCalculatorPlugin NPE (Bikas Saha)
+
+    MAPREDUCE-4564 (HADOOP-111) Shell timeout mechanism does not work for processes 
     spawned using winutils. (Bikas Saha)
+
+    HADOOP-105 Refactory 'winutils' for Hadoop native libraries use (Chuan Liu)
+
+    HADOOP-119 BuiltInGzipDecompressor : java.io.IOException: stored gzip size
+    doesn't match decompressed size (viatk)
 
     HADOOP-86 winutils "ls" and "chmod -r" does not work for paths 
     longer than MAX_PATH. (Ivan Mitic, Chuan Liu)
 
-    HADOOP-5 Support for node health scripts on Windows. (Ivan Mitic)
+    MAPREDUCE-4561 (HADOOP-5) Support for node health scripts on Windows. (Ivan Mitic)
 
-    HADOOP-110 TestKillSubProcesses intermittently fails. (Bikas Saha)
+    MAPREDUCE-4597 (HADOOP-110) TestKillSubProcesses intermittently fails. (Bikas Saha)
 
     HADOOP-60 Provide API to retrieve valid HADOOP_HOME and bin path.
     (John Gordon)
 
-    HADOOP-103 Minor regression in mapred.cmd. (Ivan Mitic)
+    HADOOP-8739 (HADOOP-103) Minor regression in mapred.cmd. (Ivan Mitic)
 
     HADOOP-8664 (HADOOP-88). hadoop streaming job need the full path to 
     commands even when they are in the path (Bikas Saha)
 
-    HADOOP-10 and other fixes for cmd scripts. (Lauren Yang, Bikas Saha)
+    HADOOP-8739 (HADOOP-10) and other fixes for cmd scripts. (Lauren Yang, Bikas Saha)
 
-    HADOOP-13 TestMiniMRDFSCaching leaves system unresponsive. (Chuan Liu)
+    HADOOP-8694 (HADOOP-13) TestMiniMRDFSCaching leaves system unresponsive. (Chuan Liu)
 
     MAPREDUCE-4510 (HADOOP-21). Avoid logging "Cannot run program getconf" on 
     Windows (Bikas Saha)
 
-    HADOOP-4 Public distributed cache support for Windows. (Ivan Mitic)
+    HADOOP-8731 (HADOOP-4) Public distributed cache support for Windows. (Ivan Mitic)
 
-    HADOOP-8 Error message "chgrp: invalid group `WIN-BUILD-1\\None'".
+    HADOOP-8763 (HADOOP-8) Error message "chgrp: invalid group `WIN-BUILD-1\\None'".
     (Chuan Liu)
 
-    HADOOP-6 TestMRWithDistributedCache fails on Windows. (Ivan Mitic)
+    HADOOP-8694 (HADOOP-6) TestMRWithDistributedCache fails on Windows. (Ivan Mitic)
 
     HDFS-3163 TestHDFSCLI.testAll fails if user name is not all lowercase.
     (Brandon Li via suresh)
@@ -58,13 +83,13 @@ Monarch - unreleased
     HADOOP-23 Hadoop does not close output file / does not call 
     Mapper.cleanup if exception in map (Jianyong Dai)
 
-    HADOOP-7 Address intermitted timeout test failures on Windows.
+    HADOOP-8732 (HADOOP-7) Address intermitted timeout test failures on Windows.
     (Ivan Mitic)
 
     HADOOP-16. hadoop.cmd does not support HADOOP_USER_CLASSPATH_FIRST
     (Thejas Nair via suresh)
 
-    HADOOP-63. Close stream and unlock storage directory to fix 
+    HDFS-3766 (HADOOP-63). Close stream and unlock storage directory to fix 
     TestStorageRestore on Windows. (Brandon Li via suresh)
 
     HDFS-3763 (HADOOP-62). Fix TestNamenodeMXBean test failure.
@@ -73,15 +98,12 @@ Monarch - unreleased
     HADOOP-113. Missing jersey jars as dependency causes hive tests to fail.
     (Giri)
 
-    HADOOP-124. Improve BlockPlacementPolicy interface and change 
+    HDFS-3564 (HADOOP-124). Improve BlockPlacementPolicy interface and change 
     BlockPlacementPolicyDefault to make it more extendible.
     (Sumadhur Reddy Bolli via szetszwo)
 
-    HADOOP-66. Add AzureBlockPlacementPolicy to handle fault and upgrade 
+    HDFS-3566 (HADOOP-66). Add AzureBlockPlacementPolicy to handle fault and upgrade 
     domains in Azure. (Sumadhur Reddy Bolli via szetszwo)
-
-    HADOOP-97 (internal) convert src/saveVersion.sh into cross-platform
-    script (Matt Foley)
 
   INITIAL MS-PATCH
     HADOOP-8457 Address file ownership issue for users in Administrators 
@@ -95,38 +117,19 @@ Monarch - unreleased
     HDFS-385 Backport of BlockPlacementPolicy abstraction 
     (Sumadhur Reddy Bolli)
 
-    HADOOP-90. Classpath exceeds maximum OS limit. (Ahmed El Baz)
-
-    HADOOP-136 CombineFileInputFormat only works with default file system
-    (Ahmed El Baz)
-
-    HADOOP-143. Measure perf impact of generating a Jar file for the classpath
-    when launching a task
-    (Ahmed El Baz)
-
-    MISSING JIRA: Address test failures related to missing .sh scripts
+    HADOOP-8733 Address test failures related to missing .sh scripts
     (TestStreamingTaskLog, TestJvmManager, TestLinuxTaskControllerLaunchArgs)
     (Ivan Mitic)
 
-    MISSING JIRA: Azure FileSystem implementation
-    (Min Wei)
+    HADOOP-148 Azure FileSystem implementation
+    (Dexter Bradshaw)
 
-    MISSING JIRA: FileUtil unCab support (Min Wei)
+    HADOOP-149 ASV public blob support. (Dexter Bradshaw via suresh)
 
     MISSING JIRA: Metrics sink for SqlServer and WindowsAzureTable.
     (Bonnie Feinberg)
 
-    MISSING JIRA: TestFileConcurrentReader test fix. (Chuan Liu)
+    HADOOP-8564 (HADOOP-12) TestFileConcurrentReader test fix. (Chuan Liu)
 
-    MISSING JIRA: LocalJobRunner does not support private distributed cache (contributed by Ivan Mitic)
-
-    HADOOP-149. ASV public blob support. (Dexter Bradshaw via suresh)
-
-    HADOOP-109. Backporting HADOOP-6496 change - HttpServer sends wrong 
-    content-type for CSS files (and others) (Ivan Mitic via suresh)
-
-    HADOOP-109. Backporting HADOOP-7827 change - jsp pages missing DOCTYPE.
-    (suresh)
-
-    HADOOP-109. Reverting test changes from HADOOP-7827 backport as they
-    introduced a regression. (contributed by Ivan Mitic)
+    HADOOP-8734 LocalJobRunner does not support private distributed cache
+    (contributed by Ivan Mitic)
