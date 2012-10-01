@@ -85,3 +85,6 @@ BUG FIXES
 
     HDFS-3833. TestDFSShell fails on windows due to concurrent file 
     read/write. (Brandon Li via suresh)
+    
+    HADOOP-8836. UGI should throw exception in case winutils.exe cannot be
+    loaded. (Bikas Saha via suresh)
