@@ -40,11 +40,13 @@
 
 param(
     [String]
-    [Parameter( Position=0, Mandatory=$true )]
+    [Parameter( ParameterSetName='Username', Position=0, Mandatory=$true )]
     $username,
     [String]
-    [Parameter( Position=1, Mandatory=$true )]
+    [Parameter( ParameterSetName='Username', Position=1, Mandatory=$true )]
     $password,
+    [Parameter( ParameterSetName='CredentialFilePath', Mandatory=$true )]
+    $credentialFilePath,
     [String]
     $hdfsRoles = "namenode datanode secondarynamenode",
     [String]
@@ -71,8 +73,14 @@ function Main( $scriptDir )
     Write-Log "nodeInstallRoot: $nodeInstallRoot"
     Write-Log "hadoopInstallToBin: $hadoopInstallToBin"
 
+    ###
+    ### Create the Credential object from the given username and password or the provided credentials file
+    ###
+    $serviceCredential = Get-HadoopUserCredentials -credentialsHash @{"username" = $username; "password" = $password; "credentialFilePath" = $credentialFilePath}
+    $username = $serviceCredential.UserName
     Write-Log "Username: $username"
-
+    Write-Log "CredentialFilePath: $credentialFilePath"
+    
     ###
     ### Initialize root directory used for Core, HDFS and MapRed local folders
     ###
@@ -80,12 +88,6 @@ function Main( $scriptDir )
     {
         $ENV:HDFS_DATA_DIR = Join-Path "$ENV:HADOOP_NODE_INSTALL_ROOT" "HDFS"
     }
-    
-    ###
-    ### Create the Credential object from the given username and password
-    ###
-    $securePassword = ConvertTo-SecureString $password -AsPlainText -Force
-    $serviceCredential = New-Object System.Management.Automation.PSCredential ("$ENV:COMPUTERNAME\$username", $securePassword)
 
     ###
     ### Stop all services before proceeding with the install step, otherwise
