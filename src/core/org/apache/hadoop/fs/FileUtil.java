@@ -695,6 +695,9 @@ public class FileUtil {
             + "The default security settings in Windows disallow non-elevated "
             + "administrators and all non-administrators from creating symbolic links. "
             + "This behavior can be changed in the Local Security Policy management console");
+      } else if (returnVal != 0) {
+        LOG.warn("Command '" + StringUtils.join(" ", cmd) + "' failed "
+            + returnVal + " with: " + ec.getMessage());
       }
       return returnVal;
     } catch (IOException e) {
