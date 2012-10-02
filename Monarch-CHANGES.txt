@@ -1,6 +1,9 @@
 Monarch - unreleased
 
   IMPROVEMENTS
+    HADOOP-8869 (HADOOP-169) Links at the bottom of the jobdetails page do
+    not render correctly in IE9 (Ivan Mitic)
+
     HADOOP-8868 (HADOOP-164) FileUtil#chmod should normalize the input file
     path before calling winutils chmod (Ivan Mitic)
 
