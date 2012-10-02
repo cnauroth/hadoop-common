@@ -1,6 +1,9 @@
 Monarch - unreleased
 
   IMPROVEMENTS
+    HADOOP-8868 (HADOOP-164) FileUtil#chmod should normalize the input file
+    path before calling winutils chmod (Ivan Mitic)
+
     HADOOP-156 Local users should be able to query a domain user's groups
     (Chuan Liu)
 
