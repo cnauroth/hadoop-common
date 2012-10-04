@@ -140,7 +140,7 @@ function Main( $scriptDir )
 	### Copy the streaming jar to the Hadoop lib directory
 	###
 	Write-Log "Copying the streaming jar to the Hadoop lib directory"
-	$xcopyStreaming_cmd = "xcopy /YF `"$hadoopInstallDir\contrib\streaming\hadoop-streaming-@version@.jar`" `"$hadoopInstallDir\lib\`""
+	$xcopyStreaming_cmd = "copy /Y `"$hadoopInstallDir\contrib\streaming\hadoop-streaming-@version@.jar`" `"$hadoopInstallDir\lib\hadoop-streaming.jar`""
 	Invoke-Cmd $xcopyStreaming_cmd
 
 	###
