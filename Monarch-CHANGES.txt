@@ -1,6 +1,10 @@
 Monarch - unreleased
 
   IMPROVEMENTS
+    HADOOP-179 UnitTest: 
+    org.apache.hadoop.security.TestUserGroupInformation.testGetServerSideGroups
+    (Bikas Saha)
+
     HADOOP-8869 (HADOOP-169) Links at the bottom of the jobdetails page do
     not render correctly in IE9 (Ivan Mitic)
 
