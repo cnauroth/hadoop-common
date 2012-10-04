@@ -1,6 +1,9 @@
 Monarch - unreleased
 
   IMPROVEMENTS
+    HADOOP-8872 (HADOOP-153) FileSystem.length() returns 0 for symlinks
+    under win+jdk6 (Ivan Mitic)
+
     HADOOP-179 UnitTest: 
     org.apache.hadoop.security.TestUserGroupInformation.testGetServerSideGroups
     (Bikas Saha)
