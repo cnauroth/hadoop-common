@@ -24,9 +24,9 @@ import java.io.IOException;
  * Thrown if there is a problem communicating with Azure XStore.
  */
 public class AzureException extends IOException {
+  private static final long serialVersionUID = 1L;
 
   public AzureException(Throwable t) {
     super(t);
   }
-
 }

@@ -115,6 +115,9 @@ Monarch - unreleased
     HDFS-3566 (HADOOP-66). Add AzureBlockPlacementPolicy to handle fault and upgrade 
     domains in Azure. (Sumadhur Reddy Bolli via szetszwo)
 
+    HADOOP-185. Azure file system code formatting, fix warnings and some cleanup.
+    (suresh)
+
   INITIAL MS-PATCH
     HADOOP-8457 Address file ownership issue for users in Administrators 
     group on Windows. (Ivan Mitic)
@@ -143,3 +146,4 @@ Monarch - unreleased
 
     HADOOP-8734 LocalJobRunner does not support private distributed cache
     (contributed by Ivan Mitic)
+

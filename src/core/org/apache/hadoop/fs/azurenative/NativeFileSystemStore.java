@@ -32,23 +32,28 @@ import org.apache.hadoop.fs.azure.AzureException;
  * An abstraction for a key-based {@link File} store.
  * </p>
  */
-interface NativeFileSystemStore
-{
+interface NativeFileSystemStore {
 
   void initialize(URI uri, Configuration conf) throws IOException;
 
   void storeEmptyFile(String key) throws IOException;
 
   FileMetadata retrieveMetadata(String key) throws IOException;
-  
+
   DataInputStream retrieve(String key) throws IOException;
+
   DataInputStream retrieve(String key, long byteRangeStart) throws IOException;
-  
-  DataOutputStream pushout (String key) throws AzureException;
-  
-  PartialListing list(String prefix, final int maxListingCount) throws IOException;
-  PartialListing list(String prefix, final int maxListingCount, String priorLastKey) throws IOException;
-  PartialListing listAll(String prefix, final int maxListingCount, String priorLastKey) throws IOException;
+
+  DataOutputStream pushout(String key) throws AzureException;
+
+  PartialListing list(String prefix, final int maxListingCount)
+      throws IOException;
+
+  PartialListing list(String prefix, final int maxListingCount,
+      String priorLastKey) throws IOException;
+
+  PartialListing listAll(String prefix, final int maxListingCount,
+      String priorLastKey) throws IOException;
 
   void delete(String key) throws IOException;
 
@@ -56,12 +61,14 @@ interface NativeFileSystemStore
 
   /**
    * Delete all keys with the given prefix. Used for testing.
+   * 
    * @throws IOException
    */
   void purge(String prefix) throws IOException;
 
   /**
    * Diagnostic method to dump state to the console.
+   * 
    * @throws IOException
    */
   void dump() throws IOException;
