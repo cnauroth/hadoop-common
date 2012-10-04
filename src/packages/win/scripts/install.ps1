@@ -230,7 +230,20 @@ function Main( $scriptDir )
 	{
 		Write-Log "Skipping HDFS format"
 	}
-	
+
+	###
+	### ACL Hadoop logs directory such that machine users can write to it
+	###
+	if( -not (Test-Path "$hadoopInstallDir\logs"))
+	{
+		Write-Log "Creating Hadoop logs folder"
+		$cmd = "mkdir `"$hadoopInstallDir\logs`""
+		Invoke-Cmd $cmd
+	}
+	Write-Log "Giving Users group full permissions on the Hadoop logs folder"
+	$cmd = "icacls `"$hadoopInstallDir\logs`" /grant Users:(OI)(CI)F"
+	Invoke-Cmd $cmd
+
 	Write-Log "Installation of Hadoop Core complete"
 }
 
