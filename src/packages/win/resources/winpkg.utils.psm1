@@ -193,6 +193,11 @@ function Set-ServiceAcl ($service)
 	Invoke-Cmd $cmd
 }
 
+function Expand-String([string] $source)
+{
+    return $ExecutionContext.InvokeCommand.ExpandString((($source -replace '"', '`"') -replace '''', '`'''))
+}
+
 function Copy-XmlTemplate( [string][parameter( Position=1, Mandatory=$true)] $Source, 
 	   [string][parameter( Position=2, Mandatory=$true)] $Destination, 
 	   [hashtable][parameter( Position=3 )] $TemplateBindings = @{} )
@@ -226,22 +231,10 @@ function Copy-XmlTemplate( [string][parameter( Position=1, Mandatory=$true)] $So
 		throw "Destination $Destination and Source $Source cannot be the same"
 	}
 
-
-	try
-	{
-		$template = [IO.File]::ReadAllText( $Source )
-		$expanded = [xml]$ExecutionContext.InvokeCommand.ExpandString( $template )
-		$writer = New-Object System.Xml.XmlTextWriter( $Destination, [Text.Encoding]::UTF8 )
-		$writer.Formatting = [Xml.Formatting]::Indented
-		$expanded.WriteTo( $writer )
-	}
-	finally
-	{
-		if( $writer -ne $null )
-		{
-			$writer.Dispose()
-		}
-	}
+	$template = [IO.File]::ReadAllText( $Source )
+	$expanded = Expand-String( $template )
+	### Output xml files as ANSI files (same as original)
+	write-output $expanded | out-file -encoding ascii $Destination
 }
 
 Export-ModuleMember -Function Copy-XmlTemplate
