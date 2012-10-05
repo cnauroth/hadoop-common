@@ -8,6 +8,6 @@ For /F "skip=1" %%A in ('tasklist /nh /fi "IMAGENAME eq java.exe"') Do Set /a Ja
 echo JavaProcCount=%JavaProcCount%
 
 IF /I "!JavaProcCount!" GTR "70" (
- sleep 1 
+ %CYGWIN_HOME%\bin\sleep.exe 1
  GOTO loop
 )

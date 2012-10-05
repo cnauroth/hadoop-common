@@ -1,0 +1,15 @@
+@echo off
+SETLOCAL ENABLEDELAYEDEXPANSION 
+
+:loop
+SET GRIDMIX_COUNT=0
+For /F %%A in ('getProcList.cmd') Do (
+    SET /a GRIDMIX_COUNT=!GRIDMIX_COUNT!+1
+)
+
+ECHO GRIDMIX_COUNT=!GRIDMIX_COUNT!
+
+IF /I "!GRIDMIX_COUNT!" GTR "0" (
+ %CYGWIN_HOME%\bin\sleep.exe 5
+ GOTO loop
+)

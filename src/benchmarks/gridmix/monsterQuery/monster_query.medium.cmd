@@ -6,7 +6,7 @@ set NUM_OF_REDUCERS=%NUM_OF_REDUCERS_FOR_MEDIUM_JOB%
 set INDIR="%FIXCOMPSEQ%/{part-000*0,part-000*1,part-000*2}"
 
 
-FOR /F "delims=" %%a in ('%GRID_DIR%\..\WinDateTime.exe') DO (
+FOR /F "delims=" %%a in ('%CYGWIN_HOME%\bin\date +%%F-%%H-%%M-%%S-%%N') DO (
  SET DATE=%%a
 )
 

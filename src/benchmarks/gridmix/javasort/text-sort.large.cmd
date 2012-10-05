@@ -4,7 +4,7 @@ CALL %GRID_DIR%\..\gridmix-env.cmd
 
 set INDIR=%VARINFLTEXT%
 
-FOR /F "delims=" %%a in ('%GRID_DIR%\..\WinDateTime.exe') DO (
+FOR /F "delims=" %%a in ('%CYGWIN_HOME%\bin\date +%%F-%%H-%%M-%%S-%%N') DO (
  SET DATE=%%a
 )
 

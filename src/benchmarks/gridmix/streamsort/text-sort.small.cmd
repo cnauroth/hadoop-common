@@ -5,7 +5,7 @@ CALL %GRID_DIR%\..\gridmix-env.cmd
 
 set NUM_OF_REDUCERS=%NUM_OF_REDUCERS_FOR_SMALL_JOB%
 set INDIR="%VARINFLTEXT%/{part-00000,part-00001,part-00002}"
-FOR /F "delims=" %%a in ('%GRID_DIR%\..\WinDateTime.exe') DO (
+FOR /F "delims=" %%a in ('%CYGWIN_HOME%\bin\date +%%F-%%H-%%M-%%S-%%N') DO (
  SET DATE=%%a
 )
 

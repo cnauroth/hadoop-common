@@ -5,7 +5,7 @@ SET GRID_MIX=%~dp0
 CD %GRID_MIX%
 CALL "%GRID_MIX%gridmix-env-2.cmd"
 
-FOR /F "delims=" %%a in ('%GRID_MIX%\WinDateTime.exe') DO (
+FOR /F "delims=" %%a in ('%CYGWIN_HOME%\bin\date +%%F-%%H-%%M-%%S-%%N') DO (
  SET DATE=%%a
 )
 
