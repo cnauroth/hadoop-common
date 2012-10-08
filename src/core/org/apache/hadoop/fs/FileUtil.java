@@ -695,6 +695,9 @@ public class FileUtil {
             + "The default security settings in Windows disallow non-elevated "
             + "administrators and all non-administrators from creating symbolic links. "
             + "This behavior can be changed in the Local Security Policy management console");
+      } else if (returnVal != 0) {
+        LOG.warn("Command '" + StringUtils.join(" ", cmd) + "' failed "
+            + returnVal + " with: " + ec.getMessage());
       }
       return returnVal;
     } catch (IOException e) {
@@ -746,7 +749,7 @@ public class FileUtil {
     String [] cmd = Shell.getSetPermissionCommand(perm, recursive);
     String[] args = new String[cmd.length + 1];
     System.arraycopy(cmd, 0, args, 0, cmd.length);
-    args[cmd.length] = filename;
+    args[cmd.length] = new File(filename).getPath();
     ShellCommandExecutor shExec = new ShellCommandExecutor(args);
     try {
       shExec.execute();
@@ -972,5 +975,49 @@ public class FileUtil {
     
     jarStream.close();
     return jarFile;
+  }
+
+  /** Returns the file length. In case of a symbolic link, follows the link
+   *  and returns the target file length. API is used to provide
+   *  transparent behavior between Unix and Windows since on Windows
+   *  {@link File#length()} does not follow symbolic links.
+   * @param file file to extract the length for
+   *
+   * @throws IOException if an error occurred.
+   */
+  public static long getLengthFollowSymlink(File file) {
+    return getLengthFollowSymlink(file, false);
+  }
+
+  /** Package level API used for unit-testing only. */
+  static long getLengthFollowSymlink(File file, boolean disableNativeIO) {
+    if (!Shell.WINDOWS) {
+      return file.length();
+    } else {
+      try {
+        // FIXME: Below logic is not needed On Java 7 under Windows since
+        // File#length returns the correct value.
+        if (!disableNativeIO && NativeIO.isAvailable()) {
+          // Use Windows native API for extracting the file length if NativeIO
+          // is available.
+          return NativeIO.Windows.getLengthFollowSymlink(
+            file.getCanonicalPath());
+        } else {
+          // If NativeIO is not available, we have to provide the fallback
+          // mechanism since downstream Hadoop projects do not want
+          // to worry about adding hadoop.dll to the java library path.
+
+          // Extract the target link size via winutils
+          String output = FileUtil.execCommand(
+            file, new String[] { Shell.WINUTILS, "ls", "-L", "-F" });
+          // Output tokens are separated with a pipe character
+          String[] args = output.split("\\|");
+          return Long.parseLong(args[4]);
+        }
+      } catch (IOException ex) {
+        // In case of an error return zero to be consistent with File#length
+        return 0;
+      }
+    }
   }
 }

@@ -98,10 +98,10 @@ public class WindowsResourceCalculatorPlugin extends ResourceCalculatorPlugin {
             }
 
           } catch (NumberFormatException nfe) {
-            LOG.info("Error parsing sysInfo." + nfe);
+            LOG.warn("Error parsing sysInfo." + nfe);
           }
         } else {
-          LOG.info("Expected split length of sysInfo to be "
+          LOG.warn("Expected split length of sysInfo to be "
               + sysInfoSplitCount + ". Got " + sysInfo.length);
         }
       }
