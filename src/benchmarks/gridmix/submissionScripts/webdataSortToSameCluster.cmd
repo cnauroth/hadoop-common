@@ -19,11 +19,6 @@ SET GRID_DIR=%~dp0
 CD %GRID_DIR%
 CALL %GRID_DIR%\..\gridmix-env.cmd
 
-REM @@TODO: main query scripts should get called in background then wait-all
-REM         batch-script doesn't support this.. will need to rewrite in another scripting language.
-
-
-
 set I=1
 :loop1
   echo Iteration: !I!
