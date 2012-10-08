@@ -85,7 +85,7 @@ spills.
 
 1.0 Build
 
-Windows does not support C++ buile or pipes.
+Windows does not support C++ build or pipes.
 
 Non-windows:
 1) Compile the examples, including the C++ sources:

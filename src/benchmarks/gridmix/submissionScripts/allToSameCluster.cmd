@@ -24,10 +24,11 @@ REM This windows-version currently submits stage-by-stage.
 REM This is due to WaitAllGridmix.cmd not being parameterized.
 REM It can be remedied by using different window-titles per script and parameterizing the wait 
 
-CALL %GRID_MIX_HOME%\submissionScripts\maxentToSameCluster 2>&1 > maxentToSameCluster.out 
-CALL %GRID_MIX_HOME%\submissionScripts\textSortToSameCluster 2>&1 > textSortToSameCluster.out
-CALL %GRID_MIX_HOME%\submissionScripts\monsterQueriesToSameCluster 2>&1 > monsterQueriesToSameCluster.out
-CALL %GRID_MIX_HOME%\submissionScripts\webdataScanToSameCluster 2>&1 > webdataScanToSameCluster.out
-CALL %GRID_MIX_HOME%\submissionScripts\webdataSortToSameCluster  2>&1 > webdataSortToSameCluster.out
+
+START "__GRIDMIX_RUNALL" cmd /c "%GRID_MIX_HOME%\submissionScripts\maxentToSameCluster.cmd" 2>&1 > maxentToSameCluster.out 
+START "__GRIDMIX_RUNALL" cmd /c "%GRID_MIX_HOME%\submissionScripts\textSortToSameCluster.cmd" 2>&1 > textSortToSameCluster.out
+START "__GRIDMIX_RUNALL" cmd /c "%GRID_MIX_HOME%\submissionScripts\monsterQueriesToSameCluster.cmd" 2>&1 > monsterQueriesToSameCluster.out
+START "__GRIDMIX_RUNALL" cmd /c "%GRID_MIX_HOME%\submissionScripts\webdataScanToSameCluster.cmd" 2>&1 > webdataScanToSameCluster.out
+START "__GRIDMIX_RUNALL" cmd /c "%GRID_MIX_HOME%\submissionScripts\webdataSortToSameCluster.cmd"  2>&1 > webdataSortToSameCluster.out
 
 CALL "%GRID_MIX_HOME%\submissionScripts\WaitAllGridmix.cmd"

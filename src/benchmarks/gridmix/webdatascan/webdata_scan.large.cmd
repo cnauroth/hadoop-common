@@ -27,4 +27,6 @@ FOR /F "delims=" %%a in ('%CYGWIN_HOME%\bin\date +%%F-%%H-%%M-%%S-%%N') DO (
 set OUTDIR=perf-out/webdata-scan-out-dir-large_%Date%
 CALL %HADOOP_HOME%\bin\hadoop dfs -rmr %OUTDIR%
 
-CALL %HADOOP_HOME%\bin\hadoop jar %APP_JAR% loadgen -keepmap 0.2 -keepred 5 -inFormat org.apache.hadoop.mapred.SequenceFileInputFormat -outFormat org.apache.hadoop.mapred.SequenceFileOutputFormat -outKey org.apache.hadoop.io.Text -outValue org.apache.hadoop.io.Text -indir %INDIR% -outdir %OUTDIR% -r %NUM_OF_REDUCERS%
+CALL %HADOOP_HOME%\bin\hadoop jar %APP_JAR% loadgen -keepmap 0.2 -keepred 5 ^
+    -inFormat org.apache.hadoop.mapred.SequenceFileInputFormat -outFormat org.apache.hadoop.mapred.SequenceFileOutputFormat ^
+    -outKey org.apache.hadoop.io.Text -outValue org.apache.hadoop.io.Text -indir %INDIR% -outdir %OUTDIR% -r %NUM_OF_REDUCERS%
