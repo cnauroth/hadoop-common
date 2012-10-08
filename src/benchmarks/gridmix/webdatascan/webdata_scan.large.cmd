@@ -14,20 +14,17 @@
 @rem See the License for the specific language governing permissions and
 @rem limitations under the License.
 
-
 SET GRID_DIR=%~dp0
 CD %GRID_DIR%
 CALL %GRID_DIR%\..\gridmix-env.cmd
 
-REM The original submits all the scripts concurrently then waits for them all
-REM This windows-version currently submits stage-by-stage.  
-REM This is due to WaitAllGridmix.cmd not being parameterized.
-REM It can be remedied by using different window-titles per script and parameterizing the wait 
+set NUM_OF_REDUCERS=1
+set INDIR=%VARCOMPSEQ%
+FOR /F "delims=" %%a in ('%CYGWIN_HOME%\bin\date +%%F-%%H-%%M-%%S-%%N') DO (
+ SET DATE=%%a
+)
 
-CALL %GRID_MIX_HOME%\submissionScripts\maxentToSameCluster 2>&1 > maxentToSameCluster.out 
-CALL %GRID_MIX_HOME%\submissionScripts\textSortToSameCluster 2>&1 > textSortToSameCluster.out
-CALL %GRID_MIX_HOME%\submissionScripts\monsterQueriesToSameCluster 2>&1 > monsterQueriesToSameCluster.out
-CALL %GRID_MIX_HOME%\submissionScripts\webdataScanToSameCluster 2>&1 > webdataScanToSameCluster.out
-CALL %GRID_MIX_HOME%\submissionScripts\webdataSortToSameCluster  2>&1 > webdataSortToSameCluster.out
+set OUTDIR=perf-out/webdata-scan-out-dir-large_%Date%
+CALL %HADOOP_HOME%\bin\hadoop dfs -rmr %OUTDIR%
 
-CALL "%GRID_MIX_HOME%\submissionScripts\WaitAllGridmix.cmd"
+CALL %HADOOP_HOME%\bin\hadoop jar %APP_JAR% loadgen -keepmap 0.2 -keepred 5 -inFormat org.apache.hadoop.mapred.SequenceFileInputFormat -outFormat org.apache.hadoop.mapred.SequenceFileOutputFormat -outKey org.apache.hadoop.io.Text -outValue org.apache.hadoop.io.Text -indir %INDIR% -outdir %OUTDIR% -r %NUM_OF_REDUCERS%
