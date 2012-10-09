@@ -1,6 +1,9 @@
 Monarch - unreleased
 
   IMPROVEMENTS
+    HADOOP-6496 (HADOOP-109/HADOOP-182) Add a test case for backport of
+    HADOOP-6496 (Ivan Mitic)
+
     HADOOP-8907 (HADOOP-80) Compression with non-default codec's fail on Windows
     (Ivan Mitic)
 
@@ -29,14 +32,14 @@ Monarch - unreleased
     HADOOP-8847 (HADOOP-79) Change untar to use Java API instead of spawning
     tar process (Bikas Saha)
 
-    HADOOP-109 Reverting test changes from HADOOP-7827 backport as they
-    introduced a regression. (contributed by Ivan Mitic)
+    HADOOP-6496 (HADOOP-109) Reverting test changes from HADOOP-6496 backport
+    as they introduced a regression. (contributed by Ivan Mitic)
 
     HADOOP-109 Backporting HADOOP-7827 change - jsp pages missing DOCTYPE.
     (suresh)
 
-    HADOOP-109 Backporting HADOOP-6496 change - HttpServer sends wrong 
-    content-type for CSS files (and others) (Ivan Mitic via suresh)
+    HADOOP-6496 (HADOOP-109) Backporting HADOOP-6496 change - HttpServer sends 
+    wrong content-type for CSS files (and others) (Ivan Mitic via suresh)
 
     HADOOP-128 Make 'winutils ls' show the SID if the owner does not
     exist on the system. (Chuan Liu)
