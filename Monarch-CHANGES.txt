@@ -4,6 +4,9 @@ Monarch - unreleased
     HADOOP-8907 (HADOOP-80) Compression with non-default codec's fail on Windows
     (Ivan Mitic)
 
+    HADOOP-8902 (HADOOP-144) - GridmixV1 and GridmixV2 scripts needs to be
+    ported to Windows (Mike Liddell)
+
     HADOOP-97 convert src/saveVersion.sh into cross-platform or Windows platform 
     script. (Matt Foley)
     
