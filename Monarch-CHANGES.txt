@@ -1,6 +1,9 @@
 Monarch - unreleased
 
   IMPROVEMENTS
+    HADOOP-8907 (HADOOP-80) Compression with non-default codec's fail on Windows
+    (Ivan Mitic)
+
     HADOOP-97 convert src/saveVersion.sh into cross-platform or Windows platform 
     script. (Matt Foley)
     
