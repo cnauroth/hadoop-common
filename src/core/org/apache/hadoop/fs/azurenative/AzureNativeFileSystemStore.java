@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.security.InvalidKeyException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import org.apache.hadoop.conf.Configuration;
@@ -43,7 +44,10 @@ import com.microsoft.windowsazure.services.blob.client.CloudBlobDirectory;
 import com.microsoft.windowsazure.services.blob.client.CloudBlockBlob;
 import com.microsoft.windowsazure.services.blob.client.ListBlobItem;
 import com.microsoft.windowsazure.services.core.storage.CloudStorageAccount;
+import com.microsoft.windowsazure.services.core.storage.StorageCredentialsSharedAccessSignature;
 import com.microsoft.windowsazure.services.core.storage.StorageException;
+import com.microsoft.windowsazure.services.core.storage.utils.Utility;
+import com.sun.servicetag.UnauthorizedAccessException;
 
 class AzureNativeFileSystemStore implements NativeFileSystemStore {
   // Constants local to this class.
@@ -56,6 +60,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final String KEY_WRITE_BLOCK_SIZE = "fs.azure.write.block.size";
 
   private static final String HTTP_SCHEME = "http";
+  private static final String HTTPS_SCHEME = "https";
   private static final String ASV_URL_AUTHORITY = ".blob.core.windows.net";
 
   // Default minimum read size for streams is 64MB.
@@ -78,75 +83,110 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private int concurrentReads = DEFAULT_CONCURRENT_READS;
   private int concurrentWrites = DEFAULT_CONCURRENT_WRITES;
 
+  /**
+   * Establish a session with Azure blob storage based on the target URI. The method determines
+   * whether or not the URI target contains an explicit account or an implicit default cluster-wide
+   * account.
+   * 
+   * @param uri  - URI for target storage blob.
+   * @param conf - reference to configuration object.
+   * 
+   * @throws IOException errors establishing a session with Azure storage.
+   */
   public void initialize(URI uri, Configuration conf) throws IOException {
     try {
-      // Allocate service client and container name and initialize to null.
+      // Inspect the URI authority to determine the account is explicit or implicit. An account
+      // is explicit if it takes the absolute log form of the URI 
+      // ASV://<account>.blob.core.windows.net/*.
+      // Implicit accounts will take the short form ASV://<container>/*. Explicit URI's do the
+      // the following checks in order:
+      //	1. Validate that <account> can be used with the current Hadoop cluster by checking
+      //       it exists in the list of configured accounts for the cluster.
+      //	2. If URI contains a valid access signature, use the access signature storage
+      //       storage credentials to create an ASV blob client to access the URI path.
+      //    3. If the URI does not contain a valid access signature, look up the AccountKey in
+      //       the list of configured accounts for the cluster.
+      //    4. If there is no AccountKey, assume anonymous public blob access when accessing the
+      //       blob.
       //
-      String containerName = null;
-
-      // Based on the URI authority determine if the service client is public
-      // (requires no credentials) or private (requires credentials). For
-      // now we assume all relative ASV://*.blob.core.windows.net/* are public
-      // while absolute ASV://<container>/* schemes are private.
+      // If the account is implicit the retrieve and authenticate the from the cluster default
+      // connection string.
       //
-      if (uri.getAuthority().toLowerCase().endsWith(ASV_URL_AUTHORITY)) {
-        // HTTP scheme, so the URI specifies a public container.
-        // Explicitly create a storage URI corresponding to the URI parameter
-        // for use when creating the service client.
-        //
-        URI storageURI = new URI(HTTP_SCHEME + "://" + uri.getAuthority());
+      String authUri = uri.getAuthority().toLowerCase();
+      if (!authUri.endsWith(ASV_URL_AUTHORITY))
+      {
+          // This is an implicit path based on the ASV scheme. Connect using
+      	  // the connection string from the configuration object. Notice that the default
+      	  // connection string already has the AccountName and AccountKey parts of the credentials
+      	  // and there is no need to append the AccountName.
+          //
+          account = CloudStorageAccount.parse(conf.get(KEY_CONNECTION_STRING));
+          serviceClient = account.createCloudBlobClient();
 
-        // Create an service client with anonymous credentials.
-        //
-        serviceClient = new CloudBlobClient(storageURI);
-
-        // Extract the container name from the URI.
-        //
-        containerName = uri.getPath().split(PATH_DELIMITER, 3)[1].toLowerCase();
-        rootDirectory = serviceClient.getDirectoryReference(PATH_DELIMITER
-            + containerName + PATH_DELIMITER);
-
-        // It is good to have a reference to the container for debugging
-        // purposes.
-        //
-        container = serviceClient.getContainerReference(containerName);
-      } else {
-        // Anything else is treated as an absolute path based on the ASV scheme.
-        //
-        // Retrieve storage account from the connection string in order to
-        // create a blob
-        // client. The blob client will be used to retrieve the container if it
-        // exists,
-        // otherwise a new container is created.
-        //
-        account = CloudStorageAccount.parse(conf.get(KEY_CONNECTION_STRING));
-        serviceClient = account.createCloudBlobClient();
-
-        // Query the container.
-        //
-        containerName = uri.getAuthority();
-        container = serviceClient.getContainerReference(containerName);
-
-        // Assertion: At this point the container should be non-null otherwise
-        // one
-        // of the get containerReference calls would raise an exception
-        // and we will never get to this point.
-        //
-        assert null != container : "Expecting a non-null container.";
-
-        // Check for the existence of the azure storage container. If it exists
-        // use it, otherwise,
-        // create a new container.
-        //
-        if (!container.exists()) {
-          container.create();
-        }
-
-        // Assertion: The container should exist.
-        //
-        assert container.exists() : "Container " + containerName
-            + " expected but does not exist.";
+          connectUsingConnectionStringCredentials(uri, conf.get(KEY_CONNECTION_STRING), true);
       }
+      else
+      {
+    	  // The account use the account list from the configuration file to determine
+    	  // if access to the account is allowed.
+    	  //
+    	  String connectionString = getAccountConnectionString (authUri, conf);
+    	  if (null == connectionString)
+    	  {
+    		  // The account does not have cluster access, throw authorization exception.
+    		  //
+    		  final String errMsg = String.format(
+			  					"Access to account '%s' not authorized from this cluster.",
+			  					authUri); 
+    		  throw new UnauthorizedAccessException (errMsg);
+    	  }
+    	  
+    	  // Capture the account name from the uri.
+    	  //
+    	  String accountName = uri.getAuthority().toLowerCase().split(".", 2)[0];
+    	  
+    	  // Check if the URI has a valid access signature.
+    	  //
+    	  StorageCredentialsSharedAccessSignature sasCreds = parseAndValidateSAS(uri, true);
+    	  if (null != sasCreds )
+    	  {
+    		  // Shared access signature exists, so access target using shared access signature
+    		  // credentials.
+    		  //
+    		  connectUsingSASCredentials(uri, sasCreds);
+    	  }
+    	  else if ("".equals(connectionString))
+    	  {
+    		  // The connection string is empty implying anonymous public blob access.
+    		  //
+    		  connectUsingAnonymousCredentials (uri);
+    	  }
+    	  else
+    	  {
+    		  // Check if the connection string is a shared access signature.
+    		  //
+    		  sasCreds = new StorageCredentialsSharedAccessSignature (connectionString);
+    		  if (sasCreds.getAccountName().equals(accountName))
+    		  {
+	    		  // If the SAS credentials were populated then the string is a shared access
+    			  // signature and we should connect using the shared access signature
+    			  // credentials.
+	    		  //
+	    		  connectUsingSASCredentials (uri, sasCreds);
+    		  }
+    		  else
+    		  {
+	    		  // A non-empty connection string implies that the account key is stored in the
+	    		  // configuration file. Use the account key to access blob storage. The 
+	    		  // configuration object only contains the key.  Make sure to append the account
+	    		  // name to the configuration string.
+	    		  //
+	    		  String fullConnectionString = connectionString + ";AccountName=" + accountName;
+	    		  connectUsingConnectionStringCredentials (uri, fullConnectionString, true);
+    		  }
+    	  }
+      }
+
 
       // Set up the minimum stream read block size and the write block size.
       //
@@ -162,8 +202,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // jobs. If the timeout specified is greater than zero seconds use it,
       // otherwise use the default service client timeout.
       //
-      int storageConnectionTimeout = conf.getInt(
-          KEY_STORAGE_CONNECTION_TIMEOUT, 0);
+      int storageConnectionTimeout = conf.getInt(KEY_STORAGE_CONNECTION_TIMEOUT, 0);
       if (0 < storageConnectionTimeout) {
         serviceClient.setTimeoutInMs(storageConnectionTimeout * 1000);
       }
@@ -189,6 +228,140 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       throw new AzureException(e);
     }
   }
+  
+  /**
+   * Get the connection string for the account specified by the URI.
+   *
+   * @param auth - URI authority containing the account name.
+   * @param conf - configuration object.
+   * 
+   * @return boolean - true if account is accessible from the cluster. False otherwise.
+   */
+  private String getAccountConnectionString (final String authUri, final Configuration conf)
+  {
+	  // Capture the account name from the authority.
+	  //
+	  String accountName = authUri.split(".",2)[0];
+	  
+	  // Get the connection string and test for its existence.
+	  //
+	  String connectionString = conf.get(KEY_CONNECTION_STRING + "." + accountName);
+	  
+	  // Return to caller with the connection string.
+	  //
+	  return connectionString;
+  }
+  
+  /**
+   * Connect to Azure storage using shared access signature credentials.
+   * 
+   * @param uri			- URI to target blob
+   * @param sasCreds	- shared access signature credentials
+   * 
+   * @throws StorageException raised on errors communicating with Azure storage.
+   * @throws IOException raised on errors performing I/O or setting up the session.
+   * @throws URISyntaxExceptions raised on creating malformed URI's.
+   */
+  private void connectUsingSASCredentials (
+  						final URI uri, 
+  						final StorageCredentialsSharedAccessSignature sasCreds) 
+  								throws StorageException, IOException, URISyntaxException
+  {
+	  // Create blob service client using the shared access signature credentials.
+	  //
+	  URI accountUri = new URI(HTTPS_SCHEME + "://" + uri.getAuthority() + "/");
+	  serviceClient = new CloudBlobClient (accountUri, sasCreds);
+	  
+	  // Extract the container name from the URI.
+	  //
+	  String containerName = uri.getPath().split(PATH_DELIMITER,3)[1].toLowerCase();
+	  rootDirectory = serviceClient.getDirectoryReference(
+			  					PATH_DELIMITER + containerName + PATH_DELIMITER);
+	  
+	  // Capture the container reference for debugging purposes.
+	  //
+	  container = serviceClient.getContainerReference(containerName);
+  }
+  
+  /**
+   * Connect to Azure storage using anonymous credentials.
+   * 
+   * @param uri			- URI to target blob (R/O access to public blob)
+   * 
+   * @throws StorageException raised on errors communicating with Azure storage.
+   * @throws IOException raised on errors performing I/O or setting up the session.
+   * @throws URISyntaxExceptions raised on creating malformed URI's.
+   */
+  private void connectUsingAnonymousCredentials (final URI uri) 
+		  throws StorageException, IOException, URISyntaxException
+  {
+	  // Use an HTTP scheme since the URI specifies a publicly accessible container.
+	  // Explicitly create a storage URI corresponding to the URI parameter for use
+	  // in creating the service client.
+	  //
+	  URI storageUri = new URI(HTTP_SCHEME + "://" + uri.getAuthority());
+	  
+	  // Create the service client with anonymous credentials.
+	  //
+	  serviceClient = new CloudBlobClient(storageUri);
+	  
+	  // Extract the container name from the URI.
+	  //
+	  String containerName = uri.getPath().split(PATH_DELIMITER,3)[1].toLowerCase();
+	  rootDirectory = serviceClient.getDirectoryReference(
+			  					PATH_DELIMITER + containerName + PATH_DELIMITER);
+	  
+	  // Capture the container reference for debugging purposes.
+	  //
+	  container = serviceClient.getContainerReference(containerName);
+  }
+  
+  /**
+   * Connect to Azure storage using anonymous credentials.
+   * 
+   * @param uri				- URI to target blob
+   * @param connectionString- connection string with Azure storage credentials.
+   * @param isFullUri		- URI is a full-length absolute URI.
+   * 
+   * @throws InvalidKeyException on errors parsing the connection string credentials.
+   * @throws StorageException on errors communicating with Azure storage.
+   * @throws IOException on errors performing I/O or setting up the session.
+   * @throws URISyntaxExceptions on creating malformed URI's.
+   */
+  private void connectUsingConnectionStringCredentials (
+		  				final URI uri,
+		  				final String connectionString,
+		  				boolean isFullUri) 
+		  	throws InvalidKeyException, StorageException, IOException, URISyntaxException
+  {  
+	  // Capture storage account from the connection string in order to create the blob client.
+	  // The blob client will be used to retrieve the container if it exists, otherwise a new
+	  // container is created.
+	  //
+	  account = CloudStorageAccount.parse(connectionString);
+	  serviceClient = account.createCloudBlobClient();
+	  
+	  // Capture the container name and query for the container.
+	  //
+	  String containerName = uri.getPath().split(PATH_DELIMITER,3)[1].toLowerCase();
+	  container = serviceClient.getContainerReference(containerName);
+	  
+	  // Assertion: The container reference should be non-null.
+	  //
+	  assert null != container : "Expecting a non-null container.";
+	  
+	  // Check for the existence of the Azure container. If it does not exist, create one.
+	  //
+	  if(!container.exists())
+	  {
+		  container.create();
+	  }
+	  
+	  // Assertion: The container should exist.
+	  //
+	  assert container.exists() : "Container " + container + " expected but does not exist.";
+  }
+  
 
   public DataOutputStream pushout(String key) throws AzureException {
     try {
@@ -232,6 +405,208 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //
       throw new AzureException(e);
     }
+  }
+  
+  /**
+   * Parse the query parameter.  If credentials are present, populate a storage credentials
+   * shared access signature object.
+   * 
+   * @param fullURI - check the query string on the URI
+   * @returns StorageCredentialsSharedAccess signature if one is populated, or null otherwise.
+   * 
+   * @throws IllegalArgumentException if any SAS parameter is not found.
+   * @throws StorageException errors occurring during any operation with the Azure runtime
+   */
+  private StorageCredentialsSharedAccessSignature parseAndValidateQuery (
+		  				final URI fullUri) throws StorageException
+  {
+	  // Assertion: The full URI is expected to be non-null.
+	  //
+	  Utility.assertNotNull("fullUri", fullUri);
+	  
+	  // Capture URI query part.
+	  String uriQueryToken = fullUri.getRawQuery();
+	  
+	  // Populate storage credentials from query token.
+	  //
+	  StorageCredentialsSharedAccessSignature sasCreds = 
+			  new StorageCredentialsSharedAccessSignature (uriQueryToken);
+	  
+	  // TODO: Temporary workaround to validate the share access signature.
+	  // TODO: Compare the account name on the shared access signature credentials
+	  // TODO: with the account name on the URI.
+	  //
+	  String accountName = fullUri.getAuthority().toLowerCase().split(".", 2)[0];
+	  if (!sasCreds.getAccountName().equals(accountName))
+	  {
+		  // Account names do not correspond and we can assume invalid SAS credential.
+		  //
+		  sasCreds = null;
+	  }
+	  
+	  
+	  // Return shared access signature credentials.
+	  //
+	  return sasCreds;
+	  
+/**
+ * TODO: Explicit parsing of the query token is preferable. However the Constants.QueryConstants
+ * TODO: enumeration is not available in microsoft.windowsazure-api.0.2.2.jar. The code below can
+ * TODO: be lit up when the code base migrates to microsoft.windowsazure-api-0.3.1.jar.
+ */
+//	  // Reset SAS component parameters to null.
+//	  //
+//	  String signature 			= null;
+//	  String signedStart 		= null;
+//	  String signedExpiry 		= null;
+//	  String signedResource 	= null;
+//	  String signedPermissions 	= null;
+//	  String signedIdentifier 	= null;
+//	  String signedVersion 		= null;
+//	  
+//	  boolean sasParameterFound = false;
+//	  
+//	  // Initialize HashMap with query parameters.
+//	  //
+//	  final HashMap<String, String[]> queryParameters = 
+//			  						PathUtility.parseQueryString(fullUri.getRawQuery());
+//	  
+//	  for (final Entry<String,String[]> mapEntry : queryParameters.entrySet())
+//	  {
+//		  final String lowKey = mapEntry.getKey().toLowerCase(Utility.LOCALE_US);
+//		  
+//		  if (lowKey.equals(Constants.QueryConstants.SIGNED_START))
+//		  {
+//			  signedStart = mapEntry.getValue()[0];
+//			  sasParameterFound = true;
+//		  }
+//		  else if (lowKey.equals(Constants.QueryConstants.SIGNED_EXPIRY))
+//		  {
+//			  signedExpiry = mapEntry.getValue()[0];
+//			  sasParameterFound = true;
+//		  }
+//		  else if (lowKey.equals(Constants.QueryConstants.SIGNED_PERMISSIONS))
+//		  {
+//			  signedPermissions = mapEntry.getValue()[0];
+//			  sasParameterFound = true;
+//		  }
+//		  else if (lowKey.equals(Constants.QueryConstants.SIGNED_RESOURCE))
+//		  {
+//			  signedResource = mapEntry.getValue()[0];
+//			  sasParameterFound = true;
+//		  }
+//		  else if (lowKey.equals(Constants.QueryConstants.SIGNED_IDENTIFIER))
+//		  {
+//			  signedIdentifier = mapEntry.getValue()[0];
+//			  sasParameterFound = true;
+//		  }
+//		  else if (lowKey.equals(Constants.QueryConstants.SIGNED_VERSION))
+//		  {
+//			  signedVersion = mapEntry.getValue()[0];
+//			  sasParameterFound = true;
+//		  }
+//		  else if (lowKey.equals(Constants.QueryConstants.SIGNATURE))
+//		  {
+//			  signature = mapEntry.getValue()[0];
+//			  sasParameterFound = true;
+//		  }
+//	  }
+//	  
+//	  if (sasParameterFound)
+//	  {
+//		  if (null == signature)
+//		  {
+//			  final String errMsg = "Missing mandatory parameter for valid Shared Access Signature";
+//			  throw new IllegalArgumentException(errMsg);
+//		  }
+//	  
+//		  UriQueryBuilder builder = new UriQueryBuilder();
+//		  
+//		  if (!Utility.isNullOrEmpty(signedStart))
+//		  {
+//			  builder.add(Constants.QueryConstants.SIGNED_START, signedStart);
+//		  }
+//		  
+//		  if (!Utility.isNullOrEmpty(signedExpiry))
+//		  {
+//			  builder.add(Constants.QueryConstants.SIGNED_EXPIRY, signedExpiry);
+//		  }
+//		  
+//		  if (!Utility.isNullOrEmpty(signedPermissions))
+//		  {
+//			  builder.add(Constants.QueryConstants.SIGNED_PERMISSIONS, signedPermissions);
+//		  }
+//		  
+//		  if (!Utility.isNullOrEmpty(signedResource))
+//		  {
+//			  builder.add(Constants.QueryConstants.SIGNED_RESOURCE, signedResource);
+//		  }
+//		  
+//		  if (!Utility.isNullOrEmpty(signedIdentifier))
+//		  {
+//			  builder.add(Constants.QueryConstants.SIGNED_IDENTIFIER, signedIdentifier);
+//		  }
+//		  
+//		  if (!Utility.isNullOrEmpty(signedVersion))
+//		  {
+//			  builder.add(Constants.QueryConstants.SIGNED_VERSION, signedVersion);
+//		  }
+//		  
+//		  if (!Utility.isNullOrEmpty(signature))
+//		  {
+//			  builder.add(Constants.QueryConstants.SIGNATURE, signature);
+//		  }
+//	  
+//		  final String token = builder.toString();
+//		  sasCreds = new StorageCredentialsSharedAccessSignature(token);
+//	  }
+//	  
+//	  // Return shared access signature credentials.
+//	  //
+//	  return sasCreds;
+  }
+  
+  /**
+   * Parse the URI for shared access signature (SAS) and validate that no other query parameters
+   * are passed in with the URI. The SAS will be validated by capturing its corresponding
+   * credentials.
+   * 
+   * @param fullUri    - the complete URI of the blob reference
+   * @param usePathUris- true if path style URIs are used.
+   * 
+   * @returns StorageCredentialsSharedAccessSignature shared access credentials.
+   * 
+   * @throws URISyntaxException if the full URI is invalid.
+   * @throws StorageException if an error occures in the AzureSDK runtime.
+   */
+  private StorageCredentialsSharedAccessSignature parseAndValidateSAS (
+		  	final URI fullUri,
+		  	final boolean usePathUris) throws URISyntaxException, StorageException
+  {
+	  // Assertion: The full URI is expected to be non-null.
+	  //
+	  Utility.assertNotNull("fullURI", fullUri);
+	  
+	  // This method expects an absolute URI. If the URI is not absolute, throw an illegal
+	  // argument exception.
+	  //
+	  if(!fullUri.isAbsolute())
+	  {
+		  final String errMsg = String.format(
+				  					"URI '%s' is not an absolute URI. This method only accepts" +
+				                    " absolute URIs.", fullUri.toString());
+		  throw new IllegalArgumentException(errMsg);
+	  }
+	  
+	  // Parse and validate the query part of the URI. Notice that the URI was
+	  // validated as an absolute URI already.
+	  //
+	  StorageCredentialsSharedAccessSignature sasCreds = parseAndValidateQuery(fullUri);
+	  
+	  
+	  // Return to caller with the SAS credentials.
+	  //
+	  return sasCreds;
   }
 
   public void storeEmptyFile(String key) throws IOException {
