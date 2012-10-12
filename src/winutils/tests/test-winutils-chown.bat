@@ -67,7 +67,6 @@ del a
 if not %ERRORLEVEL% == 0 goto Failure
 echo passed.
 
-
 :: Cleanup
 ::
 popd

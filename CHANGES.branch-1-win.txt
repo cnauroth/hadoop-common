@@ -104,3 +104,6 @@ BUG FIXES
 
     HADOOP-8879. TestUserGroupInformation fails on Windows when run as
     Administrator. (Bikas Saha via suresh)
+
+    HADOOP-8911. CRLF characters in source and text files.
+    (Raja Aluri via suresh)
