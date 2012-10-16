@@ -1,6 +1,9 @@
 Monarch - unreleased
 
   IMPROVEMENTS
+    HADOOP-178 correct race condition causing TestDFSShell.testGet to fail on
+    Windows (Chris Nauroth)
+
     HADOOP-6496 (HADOOP-109/HADOOP-182) Add a test case for backport of
     HADOOP-6496 (Ivan Mitic)
 
