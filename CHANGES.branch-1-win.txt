@@ -146,3 +146,6 @@ BUG FIXES
 
     HADOOP-8903. support HADOOP_USER_CLASSPATH_FIRST in windows hadoop cmd.
     (Thejas Nair via suresh)
+
+    HADOOP-8868. FileUtil#chmod should normalize the path before calling 
+    into shell APIs. (Ivan Mitic via suresh)
