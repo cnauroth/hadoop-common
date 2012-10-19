@@ -18,6 +18,8 @@
 
 package org.apache.hadoop.fs.azurenative;
 
+import org.apache.hadoop.fs.permission.FsPermission;
+
 /**
  * <p>
  * Holds basic metadata for a file stored in a {@link NativeFileSystemStore}.
@@ -27,20 +29,23 @@ class FileMetadata {
   private final String key;
   private final long length;
   private final long lastModified;
-  private boolean isDir;
+  private final boolean isDir;
+  private final FsPermission permission;
 
-  public FileMetadata(String key, long length, long lastModified) {
+  public FileMetadata(String key, long length, long lastModified, FsPermission permission) {
     this.key = key;
     this.length = length;
     this.lastModified = lastModified;
     this.isDir = false;
+    this.permission = permission;
   }
 
-  public FileMetadata(String key) {
+  public FileMetadata(String key, FsPermission permission) {
     this.key = key;
     this.isDir = true;
     this.length = 0;
     this.lastModified = 0;
+    this.permission = permission;
   }
 
   public boolean isDir() {
@@ -58,9 +63,13 @@ class FileMetadata {
   public long getLastModified() {
     return lastModified;
   }
+  
+  public FsPermission getPermission() {
+    return permission;
+  }
 
   @Override
   public String toString() {
-    return "FileMetadata[" + key + ", " + length + ", " + lastModified + "]";
+    return "FileMetadata[" + key + ", " + length + ", " + lastModified + ", " + permission + "]";
   }
 }

@@ -151,6 +151,11 @@ public class WindowsAzureTableSink implements MetricsSink {
 					storageException.getMessage(), storageException.getStackTrace()));
 			
 			return;
+		} catch (URISyntaxException syntaxException) {
+			logger.error(String.format("createTableIfNotExists failed. Details: %s, %s", 
+					syntaxException.getMessage(), syntaxException.getStackTrace()));
+			
+			return;
 		}
 		
 		TableOperation insertMetricOperation = TableOperation.insert(metrics2Entity);
@@ -173,7 +178,8 @@ public class WindowsAzureTableSink implements MetricsSink {
 	/*
 	 * Create a windows azure table if one does not already exist.
 	 */
-	private CloudTableClient createTableIfNotExists(String tableName) throws StorageException {
+	private CloudTableClient createTableIfNotExists(String tableName)
+			throws StorageException, URISyntaxException {
 		if (existingTables.containsKey(tableName)) {
 			return existingTables.get(tableName);
 		}
@@ -182,7 +188,7 @@ public class WindowsAzureTableSink implements MetricsSink {
 		CloudTableClient tableClient = storageAccount.createCloudTableClient();
 		 
 		// Create the table if it doesn't exist.
-		tableClient.createTableIfNotExists(tableName);
+		tableClient.getTableReference(tableName).createIfNotExist();
 		
 		logger.info(String.format("Created table '%s'", tableName));
 		

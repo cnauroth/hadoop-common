@@ -20,7 +20,6 @@ package org.apache.hadoop.fs.azurenative;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,6 +32,8 @@ import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BufferedFSInputStream;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -46,6 +47,7 @@ import org.apache.hadoop.fs.azure.AzureException;
 import org.apache.hadoop.io.retry.RetryPolicies;
 import org.apache.hadoop.io.retry.RetryPolicy;
 import org.apache.hadoop.io.retry.RetryProxy;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.Progressable;
 
 /**
@@ -57,6 +59,9 @@ import org.apache.hadoop.util.Progressable;
  * </p>
  */
 public class NativeAzureFileSystem extends FileSystem {
+
+  public static final Log LOG = LogFactory.getLog(NativeAzureFileSystem.class);
+
   static final String PATH_DELIMITER = Path.SEPARATOR;
   static final String AZURE_TEMP_FOLDER = "_$azuretmpfolder$";
 
@@ -231,20 +236,18 @@ public class NativeAzureFileSystem extends FileSystem {
   }
 
   private class NativeAzureFsOutputStream extends OutputStream {
-    @Deprecated
-    private Configuration m_conf;
-    private String m_key;
-    private String m_keyEncoded;
-    private OutputStream m_out;
-    private ByteArrayOutputStream m_buffer;
-    private AzureRingBuffer<ByteArrayOutputStream> m_outRingBuffer;
+    private String key;
+    private String keyEncoded;
+    private OutputStream out;
+    private ByteArrayOutputStream buffer;
+    private AzureRingBuffer<ByteArrayOutputStream> outRingBuffer;
 
     private static final int S_DEFAULT_RINGBUFFER_CAPACITY = 4;
     private static final int S_STREAM_BUFFERSIZE = 4 * 1024 * 1024; // 4MB
                                                                     // buffers.
 
     public NativeAzureFsOutputStream(OutputStream out, String aKey,
-        String anEncodedKey) {
+        String anEncodedKey) throws IOException {
       // Check input arguments. The output stream should be non-null and the
       // keys
       // should be valid strings.
@@ -266,8 +269,8 @@ public class NativeAzureFileSystem extends FileSystem {
 
       // Initialize the member variables with the incoming parameters.
       //
-      m_out = out;
-      m_buffer = new ByteArrayOutputStream(S_STREAM_BUFFERSIZE);
+      this.out = out;
+      buffer = new ByteArrayOutputStream(S_STREAM_BUFFERSIZE);
 
       setKey(aKey);
       setEncodedKey(anEncodedKey);
@@ -275,21 +278,8 @@ public class NativeAzureFileSystem extends FileSystem {
       // Create and initialize the ring buffer collection of output byte
       // streams.
       //
-      m_outRingBuffer = new AzureRingBuffer<ByteArrayOutputStream>(
+      outRingBuffer = new AzureRingBuffer<ByteArrayOutputStream>(
           S_DEFAULT_RINGBUFFER_CAPACITY);
-    }
-
-    @Deprecated
-    // TODO: Remove all deprecated functions and variables.
-    //
-    private File newBackupFile() throws IOException {
-      File dir = new File(m_conf.get("fs.azure.buffer.dir"));
-      if (!dir.mkdirs() && !dir.exists()) {
-        throw new IOException("Cannot create Azure buffer directory: " + dir);
-      }
-      File result = File.createTempFile("output-", ".tmp", dir);
-      result.deleteOnExit();
-      return result;
     }
 
     @Override
@@ -307,26 +297,26 @@ public class NativeAzureFileSystem extends FileSystem {
         try {
           // Flush any remaining buffers in the output stream.
           //
-          m_out.flush();
+          out.flush();
 
           // Iterate through the ring buffer from head to tail writing
           // the byte array output stream buffers to the stream and
           // removing them.
           //
-          while (!m_outRingBuffer.isEmpty()) {
-            ByteArrayOutputStream outByteStream = m_outRingBuffer.remove();
-            outByteStream.writeTo(m_out);
+          while (!outRingBuffer.isEmpty()) {
+            ByteArrayOutputStream outByteStream = outRingBuffer.remove();
+            outByteStream.writeTo(out);
           }
 
           // Assertion: At this point the ring buffer should be exhausted.
           //
-          assert m_outRingBuffer.isEmpty() : "Empty ring buffer expected after writing all "
+          assert outRingBuffer.isEmpty() : "Empty ring buffer expected after writing all "
               + "contents to output stream.";
 
           // Flush the output stream to ensure all the newly added
           // buffers are written to the Azure blob.
           //
-          m_out.flush();
+          out.flush();
 
           // The current buffers were successfully flushed to the remote Azure
           // store.
@@ -359,8 +349,8 @@ public class NativeAzureFileSystem extends FileSystem {
 
       // Create a new byte array output buffer stream for subsequent writes.
       //
-      if (null == m_buffer) {
-        m_buffer = new ByteArrayOutputStream(S_STREAM_BUFFERSIZE);
+      if (null == buffer) {
+        buffer = new ByteArrayOutputStream(S_STREAM_BUFFERSIZE);
       }
     }
 
@@ -368,8 +358,8 @@ public class NativeAzureFileSystem extends FileSystem {
     public synchronized void close() throws IOException {
       // Check if the stream is already closed.
       //
-      if (null == m_buffer) {
-        assert null == m_outRingBuffer : "Expected no ring buffer for a stream that's "
+      if (null == buffer) {
+        assert null == outRingBuffer : "Expected no ring buffer for a stream that's "
             + "already closed.";
 
         // Return to caller because the stream appears to have been
@@ -384,34 +374,34 @@ public class NativeAzureFileSystem extends FileSystem {
 
       // Assertion: The ring buffer should be empty as a result of the flush.
       //
-      assert (m_outRingBuffer.isEmpty()) : "Unexpected non-empty ring buffer after flush.";
+      assert (outRingBuffer.isEmpty()) : "Unexpected non-empty ring buffer after flush.";
 
       // Write out the current contents of the current buffer to the stream and
       // flush again.
       //
-      if (null != m_buffer && 0 < m_buffer.size()) {
+      if (null != buffer && 0 < buffer.size()) {
         // Write the current byte array output buffer stream to the output
         // stream.
         //
-        m_buffer.writeTo(m_out);
+        buffer.writeTo(out);
 
         // Flush the output stream again. This will be a no-op if the current
         // buffer
         // was zero length.
         //
-        m_out.flush();
+        out.flush();
       }
 
       // Close the output stream and decode the key for the output stream
       // before returning to the caller.
       //
-      m_out.close();
+      out.close();
       restoreKey();
 
       // GC the ring buffer and the current buffer.
       //
-      m_outRingBuffer = null;
-      m_buffer = null;
+      outRingBuffer = null;
+      buffer = null;
     }
 
     /**
@@ -433,7 +423,7 @@ public class NativeAzureFileSystem extends FileSystem {
       // current offset.
       //
       // m_buffer.write(intToByteArray(b), 0, 1);
-      m_buffer.write(b);
+      buffer.write(b);
     }
 
     /**
@@ -447,7 +437,7 @@ public class NativeAzureFileSystem extends FileSystem {
     public void write(byte[] b) throws IOException {
       // Write the byte array to the output byte array stream.
       //
-      m_buffer.write(b, 0, b.length);
+      buffer.write(b, 0, b.length);
     }
 
     // Adds the current stream buffer to ring buffer
@@ -455,12 +445,12 @@ public class NativeAzureFileSystem extends FileSystem {
     // for streaming new writes.
     // TODO: need a better name for this
     private void processCurrentStreamIfFull() throws IOException {
-      if (m_buffer.size() >= S_STREAM_BUFFERSIZE) {
+      if (buffer.size() >= S_STREAM_BUFFERSIZE) {
         addCurrentStreamToRingBuffer();
 
         // Create a new byte array output stream.
         //
-        m_buffer = new ByteArrayOutputStream(S_STREAM_BUFFERSIZE);
+        buffer = new ByteArrayOutputStream(S_STREAM_BUFFERSIZE);
       }
     }
 
@@ -468,7 +458,7 @@ public class NativeAzureFileSystem extends FileSystem {
     private void addCurrentStreamToRingBuffer() throws IOException {
       // Add the current byte array output stream to the ring buffer.
       //
-      if (!m_outRingBuffer.offer(m_buffer)) {
+      if (!outRingBuffer.offer(buffer)) {
         // The ring buffer is full. Flush contents of the ring buffer to the
         // output stream.
         //
@@ -480,25 +470,25 @@ public class NativeAzureFileSystem extends FileSystem {
         // TODO Rather than wait for flush completion it may be better
         // TODO to get notification that the first write is completed.
         //
-        m_out.flush();
+        out.flush();
 
         // Iterate through the ring buffer from head to tail writing
         // the byte array output stream buffers to the stream and
         // removing them.
         //
-        while (!m_outRingBuffer.isEmpty()) {
-          ByteArrayOutputStream outByteStream = m_outRingBuffer.remove();
-          outByteStream.writeTo(m_out);
+        while (!outRingBuffer.isEmpty()) {
+          ByteArrayOutputStream outByteStream = outRingBuffer.remove();
+          outByteStream.writeTo(out);
         }
 
         // Assertion: At this point the ring buffer should be empty since all
         // the outstanding buffers have been flushed to the output stream
         //
-        assert m_outRingBuffer.isEmpty() : "Ring buffer containing residual byte array streams unexpected.";
+        assert outRingBuffer.isEmpty() : "Ring buffer containing residual byte array streams unexpected.";
 
         // Add the current byte array output stream to the ring buffer.
         //
-        m_outRingBuffer.add(m_buffer);
+        outRingBuffer.add(buffer);
       }
     }
 
@@ -536,31 +526,31 @@ public class NativeAzureFileSystem extends FileSystem {
 
       // Assertion: The byte array output stream should exist.
       //
-      assert (null != m_buffer) : "Unexpected null byte array output stream (1).";
+      assert (null != buffer) : "Unexpected null byte array output stream (1).";
 
       // if the buffer is full, add it to ring buffer
       // and create a new buffer
       processCurrentStreamIfFull();
 
-      if (m_buffer.size() + len <= S_STREAM_BUFFERSIZE) {
+      if (buffer.size() + len <= S_STREAM_BUFFERSIZE) {
         // The whole byte sub-array can fit into the current stream buffer.
         //
-        m_buffer.write(b, off, len);
+        buffer.write(b, off, len);
       } else {
         // buffer size should always be less than S_STREAM_BUFFERSIZE
         // as we are calling processCurrentStreamIfFull
         // before we reach here
-        assert (m_buffer.size() < S_STREAM_BUFFERSIZE) : "Unexpected buffer size:"
-            + m_buffer.size();
+        assert (buffer.size() < S_STREAM_BUFFERSIZE) : "Unexpected buffer size:"
+            + buffer.size();
 
         // The byte sub-array writes past the end of the buffer stream.
         // Write what fits and add the current byte array out put buffer
         // stream to the ring buffer.
         //
         int lenPartial = 0;
-        lenPartial = m_buffer.size() + len - S_STREAM_BUFFERSIZE;
+        lenPartial = buffer.size() + len - S_STREAM_BUFFERSIZE;
 
-        m_buffer.write(b, off, len - lenPartial);
+        buffer.write(b, off, len - lenPartial);
 
         // the remaining length in b that needs to be written
         int remainingLength = lenPartial;
@@ -572,14 +562,14 @@ public class NativeAzureFileSystem extends FileSystem {
         // and a new buffer is created. So, if a buffer is not full, the loop
         // should not run
         // as there is no need to add m_buffer to ring buffer yet
-        while (m_buffer.size() >= S_STREAM_BUFFERSIZE) {
+        while (buffer.size() >= S_STREAM_BUFFERSIZE) {
           // current stream would be full because of the previous write
           processCurrentStreamIfFull();
 
           if (remainingLength > 0) {
             int streamBufferLength = Math.min(remainingLength,
                 S_STREAM_BUFFERSIZE);
-            m_buffer.write(b, newOffset, streamBufferLength);
+            buffer.write(b, newOffset, streamBufferLength);
 
             // update the remaining length and newOffset
             remainingLength = remainingLength - streamBufferLength;
@@ -599,7 +589,7 @@ public class NativeAzureFileSystem extends FileSystem {
      * @return String Blob name.
      */
     public String getKey() {
-      return m_key;
+      return key;
     }
 
     /**
@@ -608,7 +598,7 @@ public class NativeAzureFileSystem extends FileSystem {
      * @param key Blob name.
      */
     public void setKey(String key) {
-      this.m_key = key;
+      this.key = key;
     }
 
     /**
@@ -617,7 +607,7 @@ public class NativeAzureFileSystem extends FileSystem {
      * @return String Blob name.
      */
     public String getEncodedKey() {
-      return m_keyEncoded;
+      return keyEncoded;
     }
 
     /**
@@ -626,7 +616,7 @@ public class NativeAzureFileSystem extends FileSystem {
      * @param anEncodedKey Blob name.
      */
     public void setEncodedKey(String anEncodedKey) {
-      this.m_keyEncoded = anEncodedKey;
+      this.keyEncoded = anEncodedKey;
     }
 
     /**
@@ -757,6 +747,9 @@ public class NativeAzureFileSystem extends FileSystem {
   public FSDataOutputStream create(Path f, FsPermission permission,
       boolean overwrite, int bufferSize, short replication, long blockSize,
       Progressable progress) throws IOException {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Creating file " + f.toString());
+    }
     if (exists(f) && !overwrite) {
       throw new IOException("File already exists:" + f);
     }
@@ -778,8 +771,8 @@ public class NativeAzureFileSystem extends FileSystem {
     // these
     // blocks.
     //
-    OutputStream bufOutStream = new NativeAzureFsOutputStream(
-        store.pushout(keyEncoded), key, keyEncoded);
+    OutputStream bufOutStream = new NativeAzureFsOutputStream(store.pushout(
+        keyEncoded, permission), key, keyEncoded);
 
     // Construct the data output stream from the buffered output stream.
     //
@@ -798,6 +791,9 @@ public class NativeAzureFileSystem extends FileSystem {
 
   @Override
   public boolean delete(Path f, boolean recursive) throws IOException {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Deleting file " + f.toString());
+    }
     FileStatus status;
     try {
       status = getFileStatus(f);
@@ -816,6 +812,7 @@ public class NativeAzureFileSystem extends FileSystem {
           return false;
         }
       }
+      store.delete(key + FOLDER_SUFFIX);
     } else {
       store.delete(key);
     }
@@ -824,23 +821,38 @@ public class NativeAzureFileSystem extends FileSystem {
 
   @Override
   public FileStatus getFileStatus(Path f) throws IOException {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Getting file status for " + f.toString());
+    }
+    
     Path absolutePath = makeAbsolute(f);
     String key = pathToKey(absolutePath);
     if (key.length() == 1) { // root always exists
-      return newDirectory(absolutePath);
+      return newDirectory(null, absolutePath);
     }
 
-    FileMetadata meta = store.retrieveMetadata(key);
+    // We first need to check if the passed path is actually a (potentially empty)
+    // folder by checking for the place-holder x_$folder$ blob. If we find that we return it. 
+    FileMetadata meta = store.retrieveMetadata(key + FOLDER_SUFFIX);
     if (meta != null) {
-      if (!meta.isDir()) {
-        return newFile(meta, absolutePath);
-      } else {
-        return newDirectory(absolutePath);
-      }
+      LOG.debug("Found it as an empty folder.");
+      return newDirectory(meta, absolutePath);
     } else {
-      meta = store.retrieveMetadata(key + FOLDER_SUFFIX);
+      // It's not an empty folder, try to retrieve it as just that key.
+      // If the store finds it, then it's either a file blob, or a folder that was
+      // implicitly created; e.g. someone created a/b/c without creating a/b, and then
+      // asked for a/b.
+      meta = store.retrieveMetadata(key);
       if (meta != null) {
-        return newDirectory(absolutePath);
+        if (!meta.isDir()) {
+          if (LOG.isDebugEnabled())
+            LOG.debug("Found it as a file.");
+          return newFile(meta, absolutePath);
+        } else {
+          if (LOG.isDebugEnabled())
+            LOG.debug("Found it as a folder (with files in it).");
+          return newDirectory(meta, absolutePath);
+        }
       }
     }
 
@@ -863,6 +875,10 @@ public class NativeAzureFileSystem extends FileSystem {
    */
   @Override
   public FileStatus[] listStatus(Path f) throws IOException {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Listing status for " + f.toString());
+    }
+    
     Path absolutePath = makeAbsolute(f);
     String key = pathToKey(absolutePath);
     Set<FileStatus> status = new TreeSet<FileStatus>();
@@ -870,6 +886,8 @@ public class NativeAzureFileSystem extends FileSystem {
 
     if (meta != null) {
       if (!meta.isDir()) {
+        if (LOG.isDebugEnabled())
+          LOG.debug("Found it as a file.");
         return new FileStatus[] { newFile(meta, absolutePath) };
       }
       PartialListing listing = store.list(key, AZURE_LIST_ALL);
@@ -877,26 +895,50 @@ public class NativeAzureFileSystem extends FileSystem {
         Path subpath = keyToPath(fileMetadata.getKey());
         status.add(newFile(fileMetadata, subpath));
       }
+      if (LOG.isDebugEnabled())
+        LOG.debug("Found it as a directory with " + status.size()
+            + " files in it.");
+    } else {
+      if (LOG.isDebugEnabled())
+        LOG.debug("Didn't find any metadata for it.");
     }
 
     return status.toArray(new FileStatus[0]);
   }
 
-  private FileStatus newFile(FileMetadata meta, Path path) {
-    return new FileStatus(meta.getLength(), false, 1, MAX_AZURE_BLOCK_SIZE,
-        meta.getLastModified(), path.makeQualified(this));
+  static class PermissiveFileStatus extends FileStatus {
+
+    public PermissiveFileStatus(long length, boolean isdir,
+        long modification_time, Path path, FsPermission permission) {
+      super(length, isdir, 1, MAX_AZURE_BLOCK_SIZE, modification_time, 0,
+          permission, null, null, path);
+    }
+
+    @Override
+    public boolean isOwnedByUser(UserGroupInformation ugi) {
+      return true;
+    }
+
   }
 
-  private FileStatus newDirectory(Path path) {
-    return new FileStatus(0, true, 1, MAX_AZURE_BLOCK_SIZE, 0,
-        path.makeQualified(this));
+  private FileStatus newFile(FileMetadata meta, Path path) {
+    return new PermissiveFileStatus(meta.getLength(), false,
+        meta.getLastModified(), path.makeQualified(this), meta.getPermission());
+  }
+
+  private FileStatus newDirectory(FileMetadata meta, Path path) {
+    return new PermissiveFileStatus(0, true, 0, path.makeQualified(this),
+        meta == null ? FsPermission.getDefault() : meta.getPermission());
   }
 
   @Override
   public boolean mkdirs(Path f, FsPermission permission) throws IOException {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Creating directory " + f.toString());
+    }
     Path absolutePath = makeAbsolute(f);
     String key = pathToKey(absolutePath);
-    store.storeEmptyFile(key + FOLDER_SUFFIX);
+    store.storeEmptyFile(key + FOLDER_SUFFIX, permission);
 
     // otherwise throws exception
     return true;
@@ -904,6 +946,9 @@ public class NativeAzureFileSystem extends FileSystem {
 
   @Override
   public FSDataInputStream open(Path f, int bufferSize) throws IOException {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Opening file " + f.toString());
+    }
     if (!exists(f)) {
       throw new FileNotFoundException(f.toString());
     }
@@ -946,6 +991,10 @@ public class NativeAzureFileSystem extends FileSystem {
 
   @Override
   public boolean rename(Path src, Path dst) throws IOException {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Moving " + src.toString() + " to " + dst.toString());
+    }
+
     String srcKey = pathToKey(makeAbsolute(src));
 
     if (srcKey.length() == 0) {
@@ -998,6 +1047,9 @@ public class NativeAzureFileSystem extends FileSystem {
           }
           priorLastKey = listing.getPriorLastKey();
         } while (priorLastKey != null);
+        if (store.retrieveMetadata(srcKey + FOLDER_SUFFIX) != null) {
+          store.rename(srcKey + FOLDER_SUFFIX, dstKey + FOLDER_SUFFIX);
+        }
       }
       return true;
     } catch (FileNotFoundException e) {

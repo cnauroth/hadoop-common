@@ -30,10 +30,16 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.Iterator;
+
+import org.apache.commons.logging.*;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.azure.AzureException;
+import org.apache.hadoop.fs.permission.FsPermission;
 
+import com.microsoft.windowsazure.services.blob.client.BlobListingDetails;
 import com.microsoft.windowsazure.services.blob.client.BlobOutputStream;
 import com.microsoft.windowsazure.services.blob.client.BlobProperties;
 import com.microsoft.windowsazure.services.blob.client.BlobRequestOptions;
@@ -49,15 +55,24 @@ import com.microsoft.windowsazure.services.core.storage.StorageException;
 import com.microsoft.windowsazure.services.core.storage.utils.Utility;
 import com.sun.servicetag.UnauthorizedAccessException;
 
+/**
+ * An implementation class for storing blobs in Azure Storage to support the
+ * NativeAzureFileSystem class.
+ */
 class AzureNativeFileSystemStore implements NativeFileSystemStore {
+  public static final Log LOG = LogFactory
+      .getLog(AzureNativeFileSystemStore.class);
+
   // Constants local to this class.
   //
   private static final String KEY_CONNECTION_STRING = "fs.azure.storageConnectionString";
   private static final String KEY_CONCURRENT_CONNECTION_VALUE_IN = "fs.azure.concurrentConnection.in";
   private static final String KEY_CONCURRENT_CONNECTION_VALUE_OUT = "fs.azure.concurrentConnection.out";
   private static final String KEY_STREAM_MIN_READ_SIZE = "fs.azure.stream.min.read.size";
-  private static final String KEY_STORAGE_CONNECTION_TIMEOUT = "fs.azure.write.block.size";
+  private static final String KEY_STORAGE_CONNECTION_TIMEOUT = "fs.azure.storage.timeout";
   private static final String KEY_WRITE_BLOCK_SIZE = "fs.azure.write.block.size";
+
+  private static final String PERMISSION_METADATA_KEY = "permission";
 
   private static final String HTTP_SCHEME = "http";
   private static final String HTTPS_SCHEME = "https";
@@ -69,7 +84,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
   // Default write block size is 4MB.
   //
-  private final static int DEFAULT_WRITE_BLOCK_SIZE = 4194304;
+  private static final int DEFAULT_WRITE_BLOCK_SIZE = 4194304;
 
   // DEFAULT concurrency for writes and reads.
   //
@@ -194,7 +209,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           KEY_STREAM_MIN_READ_SIZE, DEFAULT_STREAM_MIN_READ_SIZE));
 
       serviceClient.setWriteBlockSizeInBytes(conf.getInt(
-          KEY_STORAGE_CONNECTION_TIMEOUT, DEFAULT_WRITE_BLOCK_SIZE));
+          KEY_WRITE_BLOCK_SIZE, DEFAULT_WRITE_BLOCK_SIZE));
 
       // The job may want to specify a timeout to use when engaging the
       // storage service. The default is currently 90 seconds. It may
@@ -363,7 +378,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
   
 
-  public DataOutputStream pushout(String key) throws AzureException {
+  public DataOutputStream pushout(String key, FsPermission permission)
+      throws AzureException {
     try {
       // Check if there is an authenticated account associated with the file
       // this
@@ -382,6 +398,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Get the block blob reference from the store's container and return it.
       //
       CloudBlockBlob blob = getBlobReference(key);
+      storePermission(blob, permission);
 
       // Set up request options.
       //
@@ -609,7 +626,27 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 	  return sasCreds;
   }
 
-  public void storeEmptyFile(String key) throws IOException {
+  private static void storePermission(CloudBlob blob, FsPermission permission) {
+    HashMap<String, String> metadata = blob.getMetadata();
+    if (metadata == null) {
+      metadata = new HashMap<String, String>();
+    }
+    metadata.put(PERMISSION_METADATA_KEY, Short.toString(permission.toShort()));
+    blob.setMetadata(metadata);
+  }
+
+  private static FsPermission getPermission(CloudBlob blob) {
+    HashMap<String, String> metadata = blob.getMetadata();
+    if (metadata != null && metadata.containsKey(PERMISSION_METADATA_KEY)) {
+      return new FsPermission(Short.parseShort(metadata
+          .get(PERMISSION_METADATA_KEY)));
+    } else {
+      return FsPermission.getDefault();
+    }
+  }
+
+  public void storeEmptyFile(String key, FsPermission permission)
+      throws IOException {
     String normKey = normalizeKey(key);
 
     // Upload null byte stream directly to the Azure blob store.
@@ -629,6 +666,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       }
 
       CloudBlockBlob blob = getBlobReference(normKey);
+      storePermission(blob, permission);
       blob.upload(new ByteArrayInputStream(new byte[0]), 0);
     } catch (Exception e) {
       // Caught exception while attempting upload. Re-throw as an Azure storage
@@ -636,32 +674,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //
       throw new AzureException(e);
     }
-  }
-
-  private boolean exists(String key) throws Exception {
-    // Query the container for the list of blobs stored in the container.
-    //
-    CloudBlobDirectory dir = getDirectoryReference(key);
-    Iterable<ListBlobItem> blobItems = dir.listBlobs();
-
-    // Check to see if this is a directory/container of blob items.
-    //
-    if (null != blobItems) {
-      if (blobItems.iterator().hasNext()) {
-        return true;
-      }
-    }
-
-    CloudBlockBlob blob = getBlobReference(key);
-    if (null != blob) {
-      // Check if the blob exists under the current container
-      //
-      return blob.exists();
-    }
-
-    // Blob does not exist.
-    //
-    return false;
   }
 
   /**
@@ -696,36 +708,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    */
   private boolean useRootDirectory() {
     return null != rootDirectory;
-  }
-
-  /**
-   * This private method uses the root directory or the original container to
-   * get a directory reference depending on whether the original file system
-   * object was constructed with a short- or long-form URI. If the root
-   * directory is non-null the URI in the file constructor was in the long form.
-   * 
-   * @param aKey : a key used to query Azure for the directory.
-   * @returns directory : a reference to the Azure block blob corresponding to
-   *          the key.
-   * @throws URISyntaxException
-   * 
-   */
-  private CloudBlobDirectory getDirectoryReference(String aKey)
-      throws StorageException, URISyntaxException {
-    // Assertion: The incoming key should be non-null.
-    //
-    assert null != aKey : "Expected non-null incoming key.";
-
-    CloudBlobDirectory directory = null;
-    if (useRootDirectory()) {
-      directory = rootDirectory.getSubDirectoryReference(aKey);
-    } else {
-      assert null != container : "Expecting a non-null container for Azure store object.";
-      directory = container.getDirectoryReference(aKey);
-    }
-
-    // Return with block blob.
-    return directory;
   }
 
   /**
@@ -902,6 +884,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   public FileMetadata retrieveMetadata(String key) throws IOException {
+    if (LOG.isDebugEnabled())
+      LOG.debug("Retreiving metadata for " + key);
+    
     String normalizedKey = normalizeKey(key);
 
     try {
@@ -912,38 +897,57 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       if (normalizedKey.equals("/")) {
         // The key refers to a container.
         //
-        return new FileMetadata(normalizedKey);
+        return new FileMetadata(normalizedKey, FsPermission.getDefault());
       }
 
-      // Check for the existence of the key.
-      //
-      if (!exists(normalizedKey)) {
-        // Key does not exist as a root blob or as part of a container.
-        //
-        return null;
-      }
+      CloudBlockBlob blob = getBlobReference(normalizedKey);
 
       // Download attributes and return file metadata only if the blob exists.
       //
-      FileMetadata metadata = null;
-      CloudBlockBlob blob = getBlobReference(normalizedKey);
-
-      if (blob.exists()) {
+      if (blob != null && blob.exists()) {
+        LOG.debug("Found it as a file.");
         // The blob exists, so capture the metadata from the blob properties.
         //
         blob.downloadAttributes();
         BlobProperties properties = blob.getProperties();
-
-        metadata = new FileMetadata(key, // Always return denormalized key with
-                                         // metadata.
-            properties.getLength(), properties.getLastModified().getTime());
-      } else {
-        metadata = new FileMetadata(normalizedKey);
+        return new FileMetadata(
+            key, // Always return denormalized key with metadata.
+            properties.getLength(), properties.getLastModified().getTime(),
+            getPermission(blob));
       }
 
-      // Return to caller with the metadata.
+      // There is no file with that key name, but maybe it's a folder.
+      // Query the container for the list of blobs stored in the container under
+      // that key.
       //
-      return metadata;
+      Iterable<ListBlobItem> objects = container
+          .listBlobs(normalizedKey, true, EnumSet.of(
+              BlobListingDetails.METADATA, BlobListingDetails.SNAPSHOTS), null,
+              null);
+
+      // Check to see if the container contains blob items.
+      //
+      if (null != objects) {
+        for (ListBlobItem item : objects) {
+          if (item.getUri() != null) {
+            blob = getBlobReference(item.getUri().toString());
+            if (blob.exists()) {
+              LOG.debug("Found it as a directory - using this file under it to infer its properties: "
+                  + item.getUri());
+              // Found a file with under the key, use its properties to infer
+              // permission and last modified time.
+              //
+              blob.downloadAttributes();
+              return new FileMetadata(key, getPermission(blob));
+            } else {
+              LOG.debug("URI obtained but doesn't exist: "
+                  + item.getUri().toString());
+            }
+          }
+        }
+      }
+
+      return null;
     } catch (Exception e) {
       // Re-throw the exception as an Azure storage exception.
       //
@@ -1066,7 +1070,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           }
 
           FileMetadata metadata = new FileMetadata(blobKey,
-              properties.getLength(), properties.getLastModified().getTime());
+              properties.getLength(), properties.getLastModified().getTime(),
+              getPermission(blob));
 
           // Add the metadata to the list.
           //
@@ -1154,7 +1159,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           }
 
           FileMetadata metadata = new FileMetadata(blobKey,
-              properties.getLength(), properties.getLastModified().getTime());
+              properties.getLength(), properties.getLastModified().getTime(),
+              getPermission(blob));
 
           // Add the metadata to the list.
           //
@@ -1204,24 +1210,28 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   public void rename(String srcKey, String dstKey) throws IOException {
+    if (LOG.isDebugEnabled())
+      LOG.debug("Moving " + srcKey + " to " + dstKey);
+    
     try {
       // Get the source blob and assert its existence.
       //
       CloudBlockBlob srcBlob = getBlobReference(srcKey);
-      assert srcBlob.exists() : "Source blob " + srcKey + " does not exist.";
+      if (!srcBlob.exists()) {
+        throw new AzureException("Source blob " + srcKey + " does not exist.");
+      }
 
-      // Get the destination blob and assert its existence.
+      // Get the destination blob
       //
       CloudBlockBlob dstBlob = getBlobReference(dstKey);
-      assert dstBlob.exists() : "Destination blob " + dstKey
-          + " does not exist.";
 
       // Rename the source blob to the destination blob by copying it to the
       // destination blob then deleting it.
       //
+
       dstBlob.copyFromBlob(srcBlob);
+
       srcBlob.delete();
-      srcBlob = null;
     } catch (Exception e) {
       // Re-throw exception as an Azure storage exception.
       //

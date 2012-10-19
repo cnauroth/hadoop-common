@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.net.URI;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.azure.AzureException;
 
 /**
@@ -36,7 +37,7 @@ interface NativeFileSystemStore {
 
   void initialize(URI uri, Configuration conf) throws IOException;
 
-  void storeEmptyFile(String key) throws IOException;
+  void storeEmptyFile(String key, FsPermission permission) throws IOException;
 
   FileMetadata retrieveMetadata(String key) throws IOException;
 
@@ -44,7 +45,8 @@ interface NativeFileSystemStore {
 
   DataInputStream retrieve(String key, long byteRangeStart) throws IOException;
 
-  DataOutputStream pushout(String key) throws AzureException;
+  DataOutputStream pushout(String key, FsPermission permission)
+      throws AzureException;
 
   PartialListing list(String prefix, final int maxListingCount)
       throws IOException;

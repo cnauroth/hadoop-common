@@ -83,7 +83,7 @@
 
   <dependency org="com.microsoft.windowsazure"
     name="microsoft-windowsazure-api"
-    rev="0.2.2"
+    rev="0.3.0"
     conf="microsoft-windowsazure-api->default" />
   
  <!--used client side-->
