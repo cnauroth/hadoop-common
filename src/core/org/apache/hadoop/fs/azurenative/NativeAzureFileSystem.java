@@ -74,12 +74,7 @@ public class NativeAzureFileSystem extends FileSystem {
   private static final int AZURE_BACKOUT_TIME = 100;
   private static final int AZURE_LIST_ALL = -1;
 
-  // TODO: Is 5GB an optimal value for the maximum azure block size? The value
-  // TODO: affects the default number of splits if not overridden by the
-  // mapred.map.tasks.
-  // TODO: What is the best way to determine the block size default.
-  //
-  private static final long MAX_AZURE_BLOCK_SIZE = 5 * 1024 * 1024 * 1024L;
+  private static final long MAX_AZURE_BLOCK_SIZE_DEFAULT = 64 * 1024 * 1024L;
 
   private static int DEFAULT_MAX_RETRIES = 4;
   private static int DEFAULT_SLEEP_TIME_SECONDS = 10;
@@ -637,6 +632,7 @@ public class NativeAzureFileSystem extends FileSystem {
   private URI uri;
   private NativeFileSystemStore store;
   private Path workingDir;
+  private long blockSize;
 
   public NativeAzureFileSystem() {
     // set store in initialize()
@@ -657,6 +653,7 @@ public class NativeAzureFileSystem extends FileSystem {
     this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
     this.workingDir = new Path("/user", System.getProperty("user.name"))
         .makeQualified(this);
+    this.blockSize = conf.getLong("fs.azure.block.size", MAX_AZURE_BLOCK_SIZE_DEFAULT);
   }
 
   private static NativeFileSystemStore createDefaultStore(Configuration conf) {
@@ -926,9 +923,9 @@ public class NativeAzureFileSystem extends FileSystem {
 
   static class PermissiveFileStatus extends FileStatus {
 
-    public PermissiveFileStatus(long length, boolean isdir,
+    public PermissiveFileStatus(long length, long blockSize, boolean isdir,
         long modification_time, Path path, FsPermission permission) {
-      super(length, isdir, 1, MAX_AZURE_BLOCK_SIZE, modification_time, 0,
+      super(length, isdir, 1, blockSize, modification_time, 0,
           permission, null, null, path);
     }
 
@@ -940,12 +937,12 @@ public class NativeAzureFileSystem extends FileSystem {
   }
 
   private FileStatus newFile(FileMetadata meta, Path path) {
-    return new PermissiveFileStatus(meta.getLength(), false,
+    return new PermissiveFileStatus(meta.getLength(), blockSize, false,
         meta.getLastModified(), path.makeQualified(this), meta.getPermission());
   }
 
   private FileStatus newDirectory(FileMetadata meta, Path path) {
-    return new PermissiveFileStatus(0, true, 0, path.makeQualified(this),
+    return new PermissiveFileStatus(0, 0, true, 0, path.makeQualified(this),
         meta == null ? FsPermission.getDefault() : meta.getPermission());
   }
 
