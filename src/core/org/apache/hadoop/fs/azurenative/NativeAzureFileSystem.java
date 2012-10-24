@@ -906,7 +906,8 @@ public class NativeAzureFileSystem extends FileSystem {
           continue;
         }
         if (currentKey.endsWith(FOLDER_SUFFIX)) {
-          String rawKey = currentKey.substring(0, currentKey.length() - FOLDER_SUFFIX.length() - 1);
+          String rawKey = currentKey.substring(0, currentKey.length() -
+              FOLDER_SUFFIX.length() - 1);
           status.add(newDirectory(fileMetadata, keyToPath(rawKey)));
         } else {
           status.add(newFile(fileMetadata, keyToPath(currentKey)));
