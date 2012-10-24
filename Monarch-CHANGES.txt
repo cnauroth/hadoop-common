@@ -1,6 +1,9 @@
 Monarch - unreleased
 
   IMPROVEMENTS
+    HADOOP-8456 (HADOOP-18) Support spaces in user names and group names in
+    results returned via winutils (Ivan Mitic)
+
     HADOOP-178 correct race condition causing TestDFSShell.testGet to fail on
     Windows (Chris Nauroth)
 
