@@ -803,7 +803,7 @@ public class NativeAzureFileSystem extends FileSystem {
     Path absolutePath = makeAbsolute(f);
     String key = pathToKey(absolutePath);
     if (status.isDir()) {
-      FileStatus[] contents = listStatus(f);
+      FileStatus[] contents = listStatus(f, true);
       if (!recursive && contents.length > 0) {
         throw new IOException("Directory " + f.toString() + " is not empty.");
       }
@@ -866,6 +866,15 @@ public class NativeAzureFileSystem extends FileSystem {
   }
 
   /**
+   * Retrieves the status of the given path if it's a file, or of all the files/directories
+   * within it if it's a directory.
+   */
+  @Override
+  public FileStatus[] listStatus(Path f) throws IOException {
+    return listStatus(f, false);
+  }
+
+  /**
    * <p>
    * If <code>f</code> is a file, this method will make a single call to Azure.
    * If <code>f</code> is a directory, this method will make a maximum of
@@ -873,8 +882,7 @@ public class NativeAzureFileSystem extends FileSystem {
    * files and directories contained directly in <code>f</code>.
    * </p>
    */
-  @Override
-  public FileStatus[] listStatus(Path f) throws IOException {
+  private FileStatus[] listStatus(Path f, boolean recursive) throws IOException {
     if (LOG.isDebugEnabled()) {
       LOG.debug("Listing status for " + f.toString());
     }
@@ -892,8 +900,17 @@ public class NativeAzureFileSystem extends FileSystem {
       }
       PartialListing listing = store.list(key, AZURE_LIST_ALL);
       for (FileMetadata fileMetadata : listing.getFiles()) {
-        Path subpath = keyToPath(fileMetadata.getKey());
-        status.add(newFile(fileMetadata, subpath));
+        String currentKey = fileMetadata.getKey();
+        if (!recursive && currentKey.indexOf('/', key.length() + 1) > 0) {
+          // It's within an inner directory, skip.
+          continue;
+        }
+        if (currentKey.endsWith(FOLDER_SUFFIX)) {
+          String rawKey = currentKey.substring(0, currentKey.length() - FOLDER_SUFFIX.length() - 1);
+          status.add(newDirectory(fileMetadata, keyToPath(rawKey)));
+        } else {
+          status.add(newFile(fileMetadata, keyToPath(currentKey)));
+        }
       }
       if (LOG.isDebugEnabled())
         LOG.debug("Found it as a directory with " + status.size()
