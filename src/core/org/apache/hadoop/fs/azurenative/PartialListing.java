@@ -20,15 +20,15 @@ package org.apache.hadoop.fs.azurenative;
 
 /**
  * <p>
- * Holds information on a directory listing for a
- * {@link NativeFileSystemStore}.
- * This includes the {@link FileMetadata files} and directories
- * (their names) contained in a directory.
+ * Holds information on a directory listing for a {@link NativeFileSystemStore}.
+ * This includes the {@link FileMetadata files} and directories (their names)
+ * contained in a directory.
  * </p>
  * <p>
- * This listing may be returned in chunks, so a <code>priorLastKey</code>
- * is provided so that the next chunk may be requested.
+ * This listing may be returned in chunks, so a <code>priorLastKey</code> is
+ * provided so that the next chunk may be requested.
  * </p>
+ * 
  * @see NativeFileSystemStore#list(String, int, String)
  */
 class PartialListing {
@@ -38,7 +38,7 @@ class PartialListing {
   private final String[] commonPrefixes;
 
   public PartialListing(String priorLastKey, FileMetadata[] files,
-                        String[] commonPrefixes) {
+      String[] commonPrefixes) {
     this.priorLastKey = priorLastKey;
     this.files = files;
     this.commonPrefixes = commonPrefixes;

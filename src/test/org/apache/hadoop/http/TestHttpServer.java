@@ -23,7 +23,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
-import java.net.URLConnection;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Arrays;
@@ -160,7 +159,7 @@ public class TestHttpServer {
 
   @Test public void testContentTypes() throws Exception {
     // Static CSS files should have text/css
-    URL cssUrl = new URL(baseUrl, "/static/test.css");
+    URL cssUrl = new URL(baseUrl, "/static/hadoop.css");
     HttpURLConnection conn = (HttpURLConnection)cssUrl.openConnection();
     conn.connect();
     assertEquals(200, conn.getResponseCode());

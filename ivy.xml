@@ -83,7 +83,7 @@
 
   <dependency org="com.microsoft.windowsazure"
     name="microsoft-windowsazure-api"
-    rev="0.2.2"
+    rev="0.3.0"
     conf="microsoft-windowsazure-api->default" />
   
  <!--used client side-->
@@ -146,6 +146,11 @@
     <dependency org="org.apache.commons"
       name="commons-math"
       rev="${commons-math.version}"
+      conf="common->default"/>
+
+    <dependency org="org.apache.commons"
+      name="commons-compress"
+      rev="${commons-compress.version}"
       conf="common->default"/>
 
     <!--Configuration: Jetty -->

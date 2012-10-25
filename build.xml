@@ -128,7 +128,6 @@
   <property name="test.build.extraconf" value="${test.build.dir}/extraconf"/>
   <property name="test.build.javadoc" value="${test.build.dir}/docs/api"/>
   <property name="test.build.javadoc.dev" value="${test.build.dir}/docs/dev-api"/>
-  <property name="test.build.webapps" value="${build.dir}/test/webapps"/>
   <property name="test.include" value="Test*"/>
   <property name="test.classpath.id" value="test.classpath"/>
   <property name="test.output" value="no"/>
@@ -372,7 +371,6 @@
     <pathelement location="${test.build.extraconf}"/>
     <pathelement location="${test.build.classes}" />
     <pathelement location="${test.src.dir}"/>
-    <pathelement location="${test.build.dir}"/>
     <pathelement location="${build.dir}"/>
     <pathelement location="${build.examples}"/>
     <pathelement location="${build.tools}"/>
@@ -462,8 +460,8 @@
       <mapper type="glob" from="*.template" to="*"/>
     </copy>
 
-    <exec executable="sh">
-       <arg line="src/saveVersion.sh ${version} ${build.dir}"/>
+    <exec executable="python">
+       <arg line="src/saveVersion.py ${version} ${build.dir}"/>
     </exec>
 	
    <exec executable="sh">
@@ -1010,6 +1008,8 @@
     <copy file="${test.src.dir}/org/apache/hadoop/mapred/test.tar" todir="${test.cache.data}"/>
     <copy file="${test.src.dir}/org/apache/hadoop/mapred/test.tgz" todir="${test.cache.data}"/>
     <copy file="${test.src.dir}/org/apache/hadoop/mapred/test.tar.gz" todir="${test.cache.data}"/>
+    <copy file="${test.src.dir}/org/apache/hadoop/fs/test-untar.tgz" todir="${test.cache.data}"/>
+    <copy file="${test.src.dir}/org/apache/hadoop/fs/test-untar.tar" todir="${test.cache.data}"/>
     <copy file="${test.src.dir}/org/apache/hadoop/hdfs/hadoop-14-dfs-dir.tgz" todir="${test.cache.data}"/>
     <copy file="${test.src.dir}/org/apache/hadoop/hdfs/hadoop-dfs-dir.txt" todir="${test.cache.data}"/>
     <copy file="${test.src.dir}/org/apache/hadoop/cli/testConf.xml" todir="${test.cache.data}"/>
@@ -1135,10 +1135,6 @@
       <delete file="${test.build.dir}/testsfailed"/>
       <delete dir="@{test.dir}/data" />
       <mkdir dir="@{test.dir}/data" />
-      <delete dir="${test.build.webapps}"/>
-      <copy todir="${test.build.webapps}">
-        <fileset dir="${test.src.dir}/test-webapps" includes="**/*" />
-      </copy>
       <delete dir="@{test.dir}/logs" />
       <mkdir dir="@{test.dir}/logs" />
       <copy file="${test.src.dir}/hadoop-policy.xml"
@@ -2241,20 +2237,6 @@
         <env key="LIBHDFS_INSTALL_DIR" value="${install.c++}/lib"/>  
         <env key="LIB_DIR" value="${common.ivy.lib.dir}"/>
 		<arg value="test"/>
-    </exec>
-  </target>
-
-  <target name="test-ms-winutils" depends="compile-ms-winutils-debug" if="windows">
-    <delete dir="${test.winutils.dir}"/>
-    <mkdir dir="${test.winutils.dir}"/>
-    <copy todir="${test.winutils.dir}">
-      <fileset dir="${winutils.src.dir}\tests" includes="*.bat"/>
-    </copy>
-
-    <exec dir="${test.winutils.dir}"
-      executable="${test.winutils.dir}\test-all.bat"
-      failonerror="true">
-      <env key="HADOOP_HOME" value="${basedir}"/>
     </exec>
   </target>
 

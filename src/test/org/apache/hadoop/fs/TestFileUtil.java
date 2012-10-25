@@ -18,6 +18,8 @@
 package org.apache.hadoop.fs;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -327,5 +329,94 @@ public class TestFileUtil {
 
     long du = FileUtil.getDU(TEST_DIR);
     Assert.assertEquals(du, 0);
+  }
+
+  private void doUntarAndVerify(File tarFile, File untarDir) 
+                                 throws IOException {
+    if (untarDir.exists() && !FileUtil.fullyDelete(untarDir)) {
+      throw new IOException("Could not delete directory '" + untarDir + "'");
+    }
+    FileUtil.unTar(tarFile, untarDir);
+
+    String parentDir = untarDir.getCanonicalPath() + Path.SEPARATOR + "name";
+    File testFile = new File(parentDir + Path.SEPARATOR + "version");
+    Assert.assertTrue(testFile.exists());
+    Assert.assertTrue(testFile.length() == 0);
+    String imageDir = parentDir + Path.SEPARATOR + "image";
+    testFile = new File(imageDir + Path.SEPARATOR + "fsimage");
+    Assert.assertTrue(testFile.exists());
+    Assert.assertTrue(testFile.length() == 157);
+    String currentDir = parentDir + Path.SEPARATOR + "current";
+    testFile = new File(currentDir + Path.SEPARATOR + "fsimage");
+    Assert.assertTrue(testFile.exists());
+    Assert.assertTrue(testFile.length() == 4331);
+    testFile = new File(currentDir + Path.SEPARATOR + "edits");
+    Assert.assertTrue(testFile.exists());
+    Assert.assertTrue(testFile.length() == 1033);
+    testFile = new File(currentDir + Path.SEPARATOR + "fstime");
+    Assert.assertTrue(testFile.exists());
+    Assert.assertTrue(testFile.length() == 8);
+  }
+
+  @Test
+  public void testUntar() throws IOException {
+    String tarGzFileName = System.getProperty("test.cache.data",
+        "build/test/cache") + "/test-untar.tgz";
+    String tarFileName = System.getProperty("test.cache.data",
+        "build/test/cache") + "/test-untar.tar";
+    String dataDir = System.getProperty("test.build.data", "build/test/data");
+    File untarDir = new File(dataDir, "untarDir");
+
+    doUntarAndVerify(new File(tarGzFileName), untarDir);
+    doUntarAndVerify(new File(tarFileName), untarDir);
+  }
+
+  /**
+   * Test the value of File's length extracted using FileUtil.
+   */
+  @Test
+  public void testGetLengthFollowSymlink() throws Exception {
+    Assert.assertFalse(del.exists());
+    del.mkdirs();
+
+    byte[] data = "testSymLinkData".getBytes();
+
+    File file = new File(del, FILE);
+    File link = new File(del, "_link");
+
+    // write some data to the file
+    FileOutputStream os = new FileOutputStream(file);
+    os.write(data);
+    os.close();
+
+    // ensure that getLengthFollowSymlink returns zero if a file
+    // does not exist
+    Assert.assertEquals(0, FileUtil.getLengthFollowSymlink(link));
+
+    // create the symlink
+    FileUtil.symLink(file.getAbsolutePath(), link.getAbsolutePath());
+
+    // ensure that getLengthFollowSymlink returns the target file and link size
+    Assert.assertEquals(data.length, FileUtil.getLengthFollowSymlink(file));
+    Assert.assertEquals(data.length, FileUtil.getLengthFollowSymlink(link));
+
+    // ensure that getLengthFollowSymlink returns the target file and link
+    // size when NativeIO is not used (tests the fallback functionality
+    // on Windows)
+    Assert.assertEquals(
+      data.length, FileUtil.getLengthFollowSymlink(file, true));
+    Assert.assertEquals(
+      data.length, FileUtil.getLengthFollowSymlink(link, true));
+
+    // Make sure that files can be deleted (no remaining open handles)
+    file.delete();
+    Assert.assertFalse(file.exists());
+
+    // Link size should be zero when it's pointing to nothing
+    Assert.assertEquals(0, FileUtil.getLengthFollowSymlink(link));
+
+    link.delete();
+    Assert.assertFalse(link.exists());
+
   }
 }

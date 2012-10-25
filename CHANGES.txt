@@ -8,7 +8,35 @@ Release 1.2.0 - unreleased
     module external to HDFS to specify how HDFS blocks should be placed.
     (Sumadhur Reddy Bolli via szetszwo)
  
-Release 1.1.0 - unreleased
+    HADOOP-7868. Hadoop native fails to compile when default linker
+    option is -Wl,--as-needed. (Trevor Robinson via eli)
+
+    HADOOP-6496. HttpServer sends wrong content-type for CSS files.
+    (Todd Lipcon, Backport by Ivan Mitic via suresh).
+
+    HADOOP-7827. jsp pages missing DOCTYPE tags. (Dave Vronay, Backport by
+    Ivan Mitic via suresh)
+
+    HADOOP-8900. BuiltInGzipDecompressor throws IOException - stored gzip size
+    doesn't match decompressed size. (Andy Isaacson via suresh)
+
+Release 1.1.1 - Unreleased
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+    HADOOP-8823. ant package target should not depend on cn-docs. (szetszwo)
+
+    HADOOP-7154. Should set MALLOC_ARENA_MAX in hadoop-env.sh
+    (todd via mattf)
+ 
+    MAPREDUCE-4399. Change the Jetty response buffer size to improve 
+    shuffle performance. (Luke Lu via suresh)
+
+  BUG FIXES
 
   NEW FEATURES
 
@@ -167,7 +195,12 @@ Release 1.1.0 - unreleased
     HDFS-3163. TestHDFSCLI.testAll fails if user name is not all lowercase.
     (Brandon Li via suresh)
 
+<<<<<<< HEAD
     HDFS-8417. HADOOP-6963 didn't update hadoop-core-pom-template.xml (Zhihong Ted Yu via cos)
+=======
+    HDFS-3652. FSEditLog failure removes the wrong edit stream when storage
+    dirs have same name. (todd)
+>>>>>>> c63a9ab... Merging changes r1361046:r1389199 that correspond to changes introduced in release 1.0.4
 
 Release 1.0.3 - 2012.05.07
 

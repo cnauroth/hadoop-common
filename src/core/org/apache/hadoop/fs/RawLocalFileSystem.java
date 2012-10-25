@@ -437,7 +437,9 @@ public class RawLocalFileSystem extends FileSystem {
     }
     
     RawLocalFileStatus(File f, long defaultBlockSize, FileSystem fs) {
-      super(f.length(), f.isDirectory(), 1, defaultBlockSize,
+      // Extract File#length thru FileUtil#getLengthFollowSymlink to provide
+      // the same behavior for symbolic links on different platforms. 
+      super(FileUtil.getLengthFollowSymlink(f), f.isDirectory(), 1, defaultBlockSize,
             f.lastModified(), new Path(f.getPath()).makeQualified(fs));
     }
     
@@ -501,9 +503,11 @@ public class RawLocalFileSystem extends FileSystem {
     private void loadPermissionInfo() {
       IOException e = null;
       try {
-        StringTokenizer t = new StringTokenizer(
-            FileUtil.execCommand(new File(getPath().toUri()), 
-                                          Shell.getGetPermissionCommand()));
+        String output = FileUtil.execCommand(new File(getPath().toUri()), 
+            Shell.getGetPermissionCommand());
+        StringTokenizer t = Shell.WINDOWS
+            ? new StringTokenizer(output, "|")
+            : new StringTokenizer(output);
         //expected format
         //-rw-------    1 username groupname ...
         String permission = t.nextToken();
@@ -523,7 +527,6 @@ public class RawLocalFileSystem extends FileSystem {
         }
         setOwner(owner);
 
-        // FIXME: Group names could have spaces on Windows
         setGroup(t.nextToken());
       } catch (Shell.ExitCodeException ioe) {
         if (ioe.getExitCode() != 1) {

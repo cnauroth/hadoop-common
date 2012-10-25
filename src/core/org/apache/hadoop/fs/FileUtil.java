@@ -25,8 +25,11 @@ import java.util.List;
 import java.util.jar.Attributes;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
+import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -529,41 +532,66 @@ public class FileUtil {
    * @param untarDir The untar directory where to untar the tar file.
    * @throws IOException
    */
-  public static void unTar(File inFile, File untarDir) throws IOException {
-    if (!untarDir.mkdirs()) {           
+  public static void unTar(File archive, File untarDir) throws IOException {
+    if (!untarDir.mkdirs()) {
       if (!untarDir.isDirectory()) {
         throw new IOException("Mkdirs failed to create " + untarDir);
       }
     }
 
-    StringBuffer untarCommand = new StringBuffer();
-    boolean gzipped = inFile.toString().endsWith("gz");
-    if (gzipped) {
-      untarCommand.append((Shell.WINDOWS) ? " gzip -dc \"" : " gzip -dc '");
-      untarCommand.append(FileUtil.makeShellPath(inFile));
-      untarCommand.append((Shell.WINDOWS) ? "\" | (" : "' | (");
-    } 
-    untarCommand.append((Shell.WINDOWS) ? "cd \"" : "cd '");
-    untarCommand.append(FileUtil.makeShellPath(untarDir)); 
-    untarCommand.append((Shell.WINDOWS) ? "\" & " : "' ; ");
+    boolean gzipped = archive.toString().endsWith("gz");
 
-    // Force the archive path as local on Windows as it can have a colon
-    untarCommand.append((Shell.WINDOWS) ? "tar --force-local -xf " : "tar -xf ");
-
+    InputStream inputStream = null;
     if (gzipped) {
-      untarCommand.append(" -)");
+      inputStream = new BufferedInputStream(new GZIPInputStream(
+          new FileInputStream(archive)));
     } else {
-      untarCommand.append(FileUtil.makeShellPath(inFile));
+      inputStream = new BufferedInputStream(new FileInputStream(archive));
     }
-    String[] shellCmd = {(Shell.WINDOWS)?"cmd":"bash", (Shell.WINDOWS)?"/c":"-c",
-      untarCommand.toString() };
-    ShellCommandExecutor shexec = new ShellCommandExecutor(shellCmd);
-    shexec.execute();
-    int exitcode = shexec.getExitCode();
-    if (exitcode != 0) {
-      throw new IOException("Error untarring file " + inFile + 
-                  ". Tar process exited with exit code " + exitcode);
+
+    TarArchiveInputStream tis = new TarArchiveInputStream(inputStream);
+
+    for (TarArchiveEntry entry = tis.getNextTarEntry(); entry != null;) {
+      unpackEntries(tis, entry, untarDir);
+      entry = tis.getNextTarEntry();
     }
+  }
+
+  private static void unpackEntries(TarArchiveInputStream tis,
+      TarArchiveEntry entry, File outputDir) throws IOException {
+    if (entry.isDirectory()) {
+      File subDir = new File(outputDir, entry.getName());
+      if (!subDir.mkdir() && !subDir.isDirectory()) {
+        throw new IOException("Mkdirs failed to create tar internal dir "
+            + outputDir);
+      }
+
+      for (TarArchiveEntry e : entry.getDirectoryEntries()) {
+        unpackEntries(tis, e, subDir);
+      }
+
+      return;
+    }
+
+    File outputFile = new File(outputDir, entry.getName());
+    if (!outputDir.exists()) {
+      if (!outputDir.mkdirs()) {
+        throw new IOException("Mkdirs failed to create tar internal dir "
+            + outputDir);
+      }
+    }
+
+    int count;
+    byte data[] = new byte[2048];
+    BufferedOutputStream outputStream = new BufferedOutputStream(
+        new FileOutputStream(outputFile));
+
+    while ((count = tis.read(data)) != -1) {
+      outputStream.write(data, 0, count);
+    }
+
+    outputStream.flush();
+    outputStream.close();
   }
 
   public static void copyFile(String fromFileName, String toFileName)
@@ -667,6 +695,9 @@ public class FileUtil {
             + "The default security settings in Windows disallow non-elevated "
             + "administrators and all non-administrators from creating symbolic links. "
             + "This behavior can be changed in the Local Security Policy management console");
+      } else if (returnVal != 0) {
+        LOG.warn("Command '" + StringUtils.join(" ", cmd) + "' failed "
+            + returnVal + " with: " + ec.getMessage());
       }
       return returnVal;
     } catch (IOException e) {
@@ -718,7 +749,7 @@ public class FileUtil {
     String [] cmd = Shell.getSetPermissionCommand(perm, recursive);
     String[] args = new String[cmd.length + 1];
     System.arraycopy(cmd, 0, args, 0, cmd.length);
-    args[cmd.length] = filename;
+    args[cmd.length] = new File(filename).getPath();
     ShellCommandExecutor shExec = new ShellCommandExecutor(args);
     try {
       shExec.execute();
@@ -944,5 +975,49 @@ public class FileUtil {
     
     jarStream.close();
     return jarFile;
+  }
+
+  /** Returns the file length. In case of a symbolic link, follows the link
+   *  and returns the target file length. API is used to provide
+   *  transparent behavior between Unix and Windows since on Windows
+   *  {@link File#length()} does not follow symbolic links.
+   * @param file file to extract the length for
+   *
+   * @throws IOException if an error occurred.
+   */
+  public static long getLengthFollowSymlink(File file) {
+    return getLengthFollowSymlink(file, false);
+  }
+
+  /** Package level API used for unit-testing only. */
+  static long getLengthFollowSymlink(File file, boolean disableNativeIO) {
+    if (!Shell.WINDOWS) {
+      return file.length();
+    } else {
+      try {
+        // FIXME: Below logic is not needed On Java 7 under Windows since
+        // File#length returns the correct value.
+        if (!disableNativeIO && NativeIO.isAvailable()) {
+          // Use Windows native API for extracting the file length if NativeIO
+          // is available.
+          return NativeIO.Windows.getLengthFollowSymlink(
+            file.getCanonicalPath());
+        } else {
+          // If NativeIO is not available, we have to provide the fallback
+          // mechanism since downstream Hadoop projects do not want
+          // to worry about adding hadoop.dll to the java library path.
+
+          // Extract the target link size via winutils
+          String output = FileUtil.execCommand(
+            file, new String[] { Shell.WINUTILS, "ls", "-L", "-F" });
+          // Output tokens are separated with a pipe character
+          String[] args = output.split("\\|");
+          return Long.parseLong(args[4]);
+        }
+      } catch (IOException ex) {
+        // In case of an error return zero to be consistent with File#length
+        return 0;
+      }
+    }
   }
 }

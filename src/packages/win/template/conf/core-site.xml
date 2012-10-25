@@ -40,7 +40,7 @@
 
   <property>
     <name>fs.checkpoint.edits.dir</name>
-    <value>${fs.checkpoint.dir}</value>
+    <value>$ENV:HDFS_DATA_DIR\2nn</value>
     <description>Determines where on the local filesystem the DFS secondary
         name node should store the temporary edits to merge.
         If this is a comma-delimited list of directoires then teh edits is

@@ -119,22 +119,30 @@ public class TestUserGroupInformation {
       if (sp != -1) {
         userName = userName.substring(sp + 1);
       }
+      // user names are case insensitive on Windows. Make consistent
+      userName = userName.toLowerCase();
     }
     // get the groups
     pp = Runtime.getRuntime().exec(Shell.WINDOWS ?
-      Shell.WINUTILS + " groups" : "id -Gn");
+      Shell.WINUTILS + " groups -F" : "id -Gn");
     br = new BufferedReader(new InputStreamReader(pp.getInputStream()));
     String line = br.readLine();
 
     System.out.println(userName + ":" + line);
+    String spitChar = Shell.WINDOWS ? "[\\|]" : "[\\s]";
    
     List<String> groups = new ArrayList<String> ();    
-    for(String s: line.split("[\\s]")) {
+    for(String s: line.split(spitChar)) {
       groups.add(s);
     }
     
     final UserGroupInformation login = UserGroupInformation.getCurrentUser();
-    assertEquals(userName, login.getShortUserName());
+    String loginUserName = login.getShortUserName();
+    if(Shell.WINDOWS) {
+      // user names are case insensitive on Windows. Make consistent
+      loginUserName = loginUserName.toLowerCase();
+    }
+    assertEquals(userName, loginUserName);
 
     String[] gi = login.getGroupNames();
     assertEquals(groups.size(), gi.length);

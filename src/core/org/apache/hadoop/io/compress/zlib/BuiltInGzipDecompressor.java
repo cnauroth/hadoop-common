@@ -385,8 +385,7 @@ public class BuiltInGzipDecompressor implements Decompressor {
       copyBytesToLocal(n);       // modifies userBufLen, etc.
       if (localBufOff >= 4) {    // should be strictly ==
         long inputSize = readUIntLE(localBuf, 0);
-	long bytesWritten = inflater.getBytesWritten();
-        if (inputSize != (bytesWritten & 0xffffffffL)) {
+        if (inputSize != (inflater.getBytesWritten() & 0xffffffffL)) {
           throw new IOException(
             "stored gzip size doesn't match decompressed size");
         }
