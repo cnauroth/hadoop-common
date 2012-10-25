@@ -33,7 +33,7 @@ if "%2" == "" (
 )
 
 set hdfs-config-script=%HADOOP_BIN_PATH%\hadoop-config.cmd
-call %hdfs-config-script%
+call %hdfs-config-script% %*
 
 :main
 

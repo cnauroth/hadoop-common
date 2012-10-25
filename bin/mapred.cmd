@@ -32,7 +32,7 @@ if "%2" == "" (
 )
 
 set mapred-config-script=%HADOOP_BIN_PATH%\hadoop-config.cmd
-call %mapred-config-script%
+call %mapred-config-script% %*
 
 :main
 
