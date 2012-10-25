@@ -248,7 +248,8 @@ public class TestWinUtils {
 
     File winutilsFile = new File(Shell.WINUTILS);
     File aExe = new File(TEST_DIR, "a.exe");
-    FileUtil.copyFile(winutilsFile.getCanonicalPath(), aExe.getCanonicalPath());
+    Shell.execCommand("cmd", "/c", "copy", winutilsFile.getCanonicalPath(),
+      aExe.getCanonicalPath());
     chmod("677", aExe);
 
     try {
