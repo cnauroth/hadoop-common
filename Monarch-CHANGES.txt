@@ -1,6 +1,8 @@
 Monarch - unreleased
 
   IMPROVEMENTS
+    HADOOP-64 Winutils should keep Administrators privileges intact (Chuan Liu)
+
     HADOOP-8972 (HADOOP-205) Move winutils tests from bat to Java (Ivan Mitic)
 
     HADOOP-8456 (HADOOP-18) Support spaces in user names and group names in
