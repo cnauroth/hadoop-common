@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.StringTokenizer;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -434,5 +435,23 @@ public class Hdfs extends AbstractFileSystem {
       Token<? extends AbstractDelegationTokenIdentifier> token)
       throws InvalidToken, IOException {
     dfs.cancelDelegationToken((Token<DelegationTokenIdentifier>) token);
+  }
+
+  /**
+   * @see AbstractFileSystem#isValidName(String)
+   */
+  @Override
+  public boolean isValidName(String src) {
+    // Check for ".." "." ":"
+    StringTokenizer tokens = new StringTokenizer(src, Path.SEPARATOR);
+    while(tokens.hasMoreTokens()) {
+      String element = tokens.nextToken();
+      if (element.equals("..") ||
+          element.equals(".")  ||
+          (element.indexOf(":") >= 0)) {
+        return false;
+      }
+    }
+    return true;
   }
 }

@@ -33,6 +33,7 @@ import org.apache.hadoop.fs.AbstractFileSystem;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileContext;
 import org.apache.hadoop.fs.FileContextTestHelper;
+import org.apache.hadoop.fs.InvalidPathException;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.FileContextTestHelper.fileType;
 import org.apache.hadoop.fs.FileStatus;
@@ -438,6 +439,7 @@ public class ViewFsBaseTest {
   public void testGetFileChecksum() throws AccessControlException
     , UnresolvedLinkException, IOException {
     AbstractFileSystem mockAFS = Mockito.mock(AbstractFileSystem.class);
+    Mockito.when(mockAFS.isValidName(Mockito.anyString())).thenReturn(true);
     InodeTree.ResolveResult<AbstractFileSystem> res =
       new InodeTree.ResolveResult<AbstractFileSystem>(null, mockAFS , null,
         new Path("someFile"));
@@ -689,5 +691,54 @@ public class ViewFsBaseTest {
   @Test(expected=AccessControlException.class) 
   public void testInternalSetOwner() throws IOException {
     fcView.setOwner(new Path("/internalDir"), "foo", "bar");
+  }
+ 
+  @Test
+  public void testIsValidNameValidInBaseFs() throws Exception {
+    AbstractFileSystem baseFs = Mockito.mock(AbstractFileSystem.class);
+    Mockito.when(baseFs.isValidName(Mockito.anyString())).thenReturn(true);
+    InodeTree.ResolveResult<AbstractFileSystem> res =
+      new InodeTree.ResolveResult<AbstractFileSystem>(null, baseFs , null,
+        new Path("foo"));
+
+    @SuppressWarnings("unchecked")
+    InodeTree<AbstractFileSystem> fsState = Mockito.mock(InodeTree.class);
+    Mockito.when(fsState.resolve(Mockito.anyString(), Mockito.anyBoolean()))
+      .thenReturn(res);
+    ViewFs viewFs = Mockito.mock(ViewFs.class);
+    viewFs.fsState = fsState;
+    Mockito.when(viewFs.getFileStatus(new Path("/user/foo")))
+      .thenCallRealMethod();
+
+    viewFs.getFileStatus(new Path("/user/foo"));
+    Mockito.verify(baseFs).isValidName(new Path("foo").toUri().getPath());
+ }
+
+  @Test
+  public void testIsValidNameInvalidInBaseFs() throws Exception {
+    AbstractFileSystem baseFs = Mockito.mock(AbstractFileSystem.class);
+    Mockito.when(baseFs.isValidName(Mockito.anyString())).thenReturn(false);
+    InodeTree.ResolveResult<AbstractFileSystem> res =
+      new InodeTree.ResolveResult<AbstractFileSystem>(null, baseFs , null,
+        new Path("foo"));
+
+    @SuppressWarnings("unchecked")
+    InodeTree<AbstractFileSystem> fsState = Mockito.mock(InodeTree.class);
+    Mockito.when(fsState.resolve(Mockito.anyString(), Mockito.anyBoolean()))
+      .thenReturn(res);
+    ViewFs viewFs = Mockito.mock(ViewFs.class);
+    viewFs.fsState = fsState;
+    Mockito.when(viewFs.getFileStatus(new Path("/user/foo")))
+      .thenCallRealMethod();
+
+    try {
+      viewFs.getFileStatus(new Path("/user/foo"));
+      Assert.fail("expected InvalidPathException");
+    }
+    catch (InvalidPathException e) {
+      // expected
+    }
+
+    Mockito.verify(baseFs).isValidName(new Path("foo").toUri().getPath());
   }
 }
