@@ -17,33 +17,31 @@
  */
 package org.apache.hadoop.fs.viewfs;
 
-
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileContext;
-import org.apache.hadoop.fs.FileContextMainOperationsBaseTest;
 import org.apache.hadoop.fs.FileContextTestHelper;
-import org.apache.hadoop.fs.FsConstants;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.viewfs.ConfigUtil;
 
-import org.junit.After;
-import org.junit.Before;
+abstract class ViewTestSetupBase {
 
-
-public class TestFcMainOperationsLocalFs  extends 
-  FileContextMainOperationsBaseTest {
-
-  @Override
-  @Before
-  public void setUp() throws Exception {
-    fc = ViewFsTestSetup.setupForViewFsLocalFs();
-    super.setUp();
-  }
-  
-  @Override
-  @After
-  public void tearDown() throws Exception {
-    super.tearDown();
-    ViewFsTestSetup.tearDownForViewFsLocalFs();
+  /**
+   * Returns a string suitable for use as a mount point in tests.
+   * 
+   * @return String mount point
+   */
+  protected static String getTestMountPoint() {
+    // Determine mount point by finding the shortest absolute non-root path that
+    // is an ancestor of the test root directory.  Default to /user if test root
+    // is root or relative.
+    final String mountPoint;
+    Path curPath = new Path(FileContextTestHelper.TEST_ROOT_DIR);
+    if (curPath.isAbsolute() && !curPath.isRoot()) {
+      while (!curPath.getParent().isRoot()) {
+        curPath = curPath.getParent();
+      }
+      mountPoint = curPath.toUri().toString();
+    }
+    else {
+      mountPoint = "/user";
+    }
+    return mountPoint;
   }
 }

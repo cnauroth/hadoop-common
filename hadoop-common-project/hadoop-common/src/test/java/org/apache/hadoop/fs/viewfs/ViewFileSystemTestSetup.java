@@ -39,7 +39,7 @@ import org.mortbay.log.Log;
  * We set a viewFileSystems with mount point for 
  * /<firstComponent>" pointing to the target fs's  testdir 
  */
-public class ViewFileSystemTestSetup {
+public class ViewFileSystemTestSetup extends ViewTestSetupBase {
 
   /**
    * 
@@ -58,12 +58,9 @@ public class ViewFileSystemTestSetup {
 
     // Setup a link from viewfs to targetfs for the first component of
     // path of testdir.
-    String testDir = FileSystemTestHelper.getTestRootPath(fsTarget).toUri()
-        .getPath();
-    int indexOf2ndSlash = testDir.indexOf('/', 1);
-    String testDirFirstComponent = testDir.substring(0, indexOf2ndSlash);
-    ConfigUtil.addLink(conf, testDirFirstComponent, fsTarget.makeQualified(
-        new Path(testDirFirstComponent)).toUri());
+    String mountPoint = getTestMountPoint();
+    ConfigUtil.addLink(conf, mountPoint, fsTarget.makeQualified(
+        new Path(mountPoint)).toUri());
 
     // viewFs://home => fsTarget://home
     String homeDirRoot = fsTarget.getHomeDirectory()
