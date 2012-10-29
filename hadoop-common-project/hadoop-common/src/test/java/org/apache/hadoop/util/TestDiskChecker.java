@@ -159,8 +159,10 @@ public class TestDiskChecker {
   private void _checkDirs(boolean isDir, String perm, boolean success)
       throws Throwable {
     File localDir = File.createTempFile("test", "tmp");
-    localDir.delete();
-    localDir.mkdir();
+    if (isDir) {
+      localDir.delete();
+      localDir.mkdir();
+    }
     Shell.execCommand(Shell.getSetPermissionCommand(perm, false,
                                                     localDir.getAbsolutePath()));
     try {

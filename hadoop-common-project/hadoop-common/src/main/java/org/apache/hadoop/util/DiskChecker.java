@@ -28,6 +28,7 @@ import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.util.Shell;
 
 /**
  * Class that provides utility functions for checking disk problem
@@ -36,9 +37,15 @@ import org.apache.hadoop.fs.permission.FsPermission;
 @InterfaceStability.Unstable
 public class DiskChecker {
 
+  private static final long SHELL_TIMEOUT = 10 * 1000;
+
   public static class DiskErrorException extends IOException {
     public DiskErrorException(String msg) {
       super(msg);
+    }
+
+    public DiskErrorException(String msg, Throwable cause) {
+      super(msg, cause);
     }
   }
     
@@ -97,13 +104,55 @@ public class DiskChecker {
       throw new DiskErrorException("Directory is not readable: "
                                    + dir.toString());
 
+    // This method contains several workarounds to known JVM bugs that cause
+    // File.canRead, File.canWrite, and File.canExecute to return incorrect
+    // results on Windows with NTFS ACLs.  See:
+    // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6203387
+    // On Windows, make sure we can read the directory by listing it.
+    if (Shell.WINDOWS && dir.list() == null)
+      throw new DiskErrorException("Directory is not readable: "
+                                   + dir.toString());
+
     if (!dir.canWrite())
       throw new DiskErrorException("Directory is not writable: "
                                    + dir.toString());
 
+    // On Windows, make sure we can write to the directory by creating a temp
+    // file in it.
+    if (Shell.WINDOWS) {
+      try {
+        File tempFile = File.createTempFile("checkDir", null, dir);
+        if (!tempFile.delete())
+          throw new DiskErrorException("Directory is not writable: "
+                                       + dir.toString());
+
+      }
+      catch (IOException e) {
+        throw new DiskErrorException("Directory is not writable: "
+                                     + dir.toString(), e);
+      }
+    }
+
     if (!dir.canExecute())
       throw new DiskErrorException("Directory is not executable: "
 	  + dir.toString());
+
+    // On Windows, make sure the directory is executable by trying to cd into it.
+    if (Shell.WINDOWS) {
+      try {
+        String[] cdCmd = new String[] { "cmd", "/C", "cd",
+            dir.getAbsolutePath() };
+        Shell.execCommand(null, cdCmd, SHELL_TIMEOUT);
+      }
+      catch (Shell.ExitCodeException e) {
+        throw new DiskErrorException("Directory is not executable: "
+                                     + dir.toString(), e);
+      }
+      catch (IOException e) {
+        throw new DiskErrorException("Directory is not executable: "
+                                     + dir.toString(), e);
+      }
+    }
   }
 
   /**
