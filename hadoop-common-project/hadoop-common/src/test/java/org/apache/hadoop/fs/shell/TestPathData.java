@@ -118,8 +118,17 @@ public class TestPathData {
   @Test
   public void testAbsoluteGlob() throws Exception {
     PathData[] items = PathData.expandAsGlob(testDir+"/d1/f1*", conf);
+
+    String schemePrefix = "";
+    if (Path.WINDOWS) {
+      // "file" scheme is silently introduced on Windows to avoid confusing
+      // the drive specifier with a scheme.
+      schemePrefix = "file:/";
+    }
+
     assertEquals(
-        sortedString(testDir+"/d1/f1", testDir+"/d1/f1.1"),
+        sortedString(schemePrefix + testDir + "/d1/f1",
+                     schemePrefix + testDir + "/d1/f1.1"),
         sortedString(items)
     );
   }

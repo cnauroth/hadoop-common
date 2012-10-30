@@ -294,6 +294,12 @@ public abstract class FileSystem extends Configured implements Closeable {
    * The entire URI is passed to the FileSystem instance's initialize method.
    */
   public static FileSystem get(URI uri, Configuration conf) throws IOException {
+
+    if (Path.isWindowsAbsolutePath(uri.toString(), false)) {
+      // Don't attempt to parse the URI.
+      return get(LocalFileSystem.NAME, conf);
+    }
+
     String scheme = uri.getScheme();
     String authority = uri.getAuthority();
 

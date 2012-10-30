@@ -236,7 +236,7 @@ public class PathData implements Comparable<PathData> {
    * Given a child of this directory, use the directory's path and the child's
    * basename to construct the string to the child.  This preserves relative
    * paths since Path will fully qualify.
-   * @param child a path contained within this directory
+   * @param childPath a path contained within this directory
    * @return String of the path relative to this directory
    */
   private String getStringForChildPath(Path childPath) {
@@ -387,6 +387,11 @@ public class PathData implements Comparable<PathData> {
     String decodedRemainder = uri.getSchemeSpecificPart();
 
     if (scheme == null) {
+      if (Path.isWindowsAbsolutePath(decodedRemainder, true)) {
+        // Strip the leading '/' added in stringToUri so users see a valid
+        // Windows path.
+        decodedRemainder = decodedRemainder.substring(1);
+      }
       return decodedRemainder;
     } else {
       StringBuilder buffer = new StringBuilder();
@@ -427,6 +432,16 @@ public class PathData implements Comparable<PathData> {
 
     int start = 0;
 
+    if (Path.isWindowsAbsolutePath(pathString, false)) {
+      // So we don't attempt to parse the drive specifier as a scheme.
+      // Prefix a '/' to the scheme-specific part per RFC2936.
+      scheme = "file";
+      pathString = "/" + pathString;
+    } else if (Path.isWindowsAbsolutePath(pathString, true)){
+      // So we don't attempt to parse the drive specifier as a scheme.
+      // The scheme-specific part already begins with a '/'.
+      scheme = "file";
+    } else {
     // parse uri scheme, if any
     int colon = pathString.indexOf(':');
     int slash = pathString.indexOf('/');
@@ -445,8 +460,9 @@ public class PathData implements Comparable<PathData> {
       authority = pathString.substring(start, authEnd);
       start = authEnd;
     }
+    }
 
-    // uri path is the rest of the string. ? or # are not interpreated,
+    // uri path is the rest of the string. ? or # are not interpreted,
     // but any occurrence of them will be quoted by the URI ctor.
     String path = pathString.substring(start, pathString.length());
 
