@@ -503,9 +503,11 @@ public class RawLocalFileSystem extends FileSystem {
     private void loadPermissionInfo() {
       IOException e = null;
       try {
-        StringTokenizer t = new StringTokenizer(
-            FileUtil.execCommand(new File(getPath().toUri()), 
-                                          Shell.getGetPermissionCommand()));
+        String output = FileUtil.execCommand(new File(getPath().toUri()), 
+            Shell.getGetPermissionCommand());
+        StringTokenizer t = Shell.WINDOWS
+            ? new StringTokenizer(output, "|")
+            : new StringTokenizer(output);
         //expected format
         //-rw-------    1 username groupname ...
         String permission = t.nextToken();
@@ -525,7 +527,6 @@ public class RawLocalFileSystem extends FileSystem {
         }
         setOwner(owner);
 
-        // FIXME: Group names could have spaces on Windows
         setGroup(t.nextToken());
       } catch (Shell.ExitCodeException ioe) {
         if (ioe.getExitCode() != 1) {

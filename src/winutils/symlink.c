@@ -33,52 +33,6 @@ typedef struct _MOUNT_POINT_REPARSE_DATA_BUFFER {
   WCHAR PathBuffer[1];
 } MOUNT_POINT_REPARSE_DATA_BUFFER, *PMOUNT_POINT_REPARSE_DATA_BUFFER;
 
-
-//----------------------------------------------------------------------------
-// Function: EnablePrivilege
-//
-// Description:
-//	Check if the process has the given privilege. If yes, enable the privilege
-//  to the process's access token.
-//
-// Returns:
-//	TRUE: on success
-//
-// Notes:
-//
-static BOOL EnablePrivilege(__in LPCWSTR privilegeName)
-{
-  HANDLE hToken;
-  TOKEN_PRIVILEGES tp;
-  DWORD dwErrCode;
-
-  if (!OpenProcessToken(GetCurrentProcess(),
-    TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
-  {
-    ReportErrorCode(L"OpenProcessToken", GetLastError());
-    return FALSE;
-  }
-
-  tp.PrivilegeCount = 1;
-  if (!LookupPrivilegeValueW(NULL,
-    privilegeName, &(tp.Privileges[0].Luid)))
-  {
-    ReportErrorCode(L"LookupPrivilegeValue", GetLastError());
-    CloseHandle(hToken);
-    return FALSE;
-  }
-  tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-
-  // As stated on MSDN, we need to use GetLastError() to check if
-  // AdjustTokenPrivileges() adjusted all of the specified privileges.
-  //
-  AdjustTokenPrivileges(hToken, FALSE, &tp, 0, NULL, NULL);
-  dwErrCode = GetLastError();
-  CloseHandle(hToken);
-
-  return dwErrCode == ERROR_SUCCESS;
-}
-
 //----------------------------------------------------------------------------
 // Function: CreateJunctionPoint
 //

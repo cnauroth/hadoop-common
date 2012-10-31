@@ -1,6 +1,16 @@
 Monarch - unreleased
 
   IMPROVEMENTS
+   HADOOP-175 UnitTest: org.apache.hadoop.mapred.TestJobStatusPersistency.
+   testJobStoreDisablingWithInvalidPath (Chuan Liu)
+    
+    HADOOP-64 Winutils should keep Administrators privileges intact (Chuan Liu)
+
+    HADOOP-8972 (HADOOP-205) Move winutils tests from bat to Java (Ivan Mitic)
+
+    HADOOP-8456 (HADOOP-18) Support spaces in user names and group names in
+    results returned via winutils (Ivan Mitic)
+
     HADOOP-178 correct race condition causing TestDFSShell.testGet to fail on
     Windows (Chris Nauroth)
 

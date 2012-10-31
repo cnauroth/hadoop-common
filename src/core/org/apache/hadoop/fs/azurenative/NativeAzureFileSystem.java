@@ -74,12 +74,7 @@ public class NativeAzureFileSystem extends FileSystem {
   private static final int AZURE_BACKOUT_TIME = 100;
   private static final int AZURE_LIST_ALL = -1;
 
-  // TODO: Is 5GB an optimal value for the maximum azure block size? The value
-  // TODO: affects the default number of splits if not overridden by the
-  // mapred.map.tasks.
-  // TODO: What is the best way to determine the block size default.
-  //
-  private static final long MAX_AZURE_BLOCK_SIZE = 5 * 1024 * 1024 * 1024L;
+  private static final long MAX_AZURE_BLOCK_SIZE_DEFAULT = 64 * 1024 * 1024L;
 
   private static int DEFAULT_MAX_RETRIES = 4;
   private static int DEFAULT_SLEEP_TIME_SECONDS = 10;
@@ -637,6 +632,7 @@ public class NativeAzureFileSystem extends FileSystem {
   private URI uri;
   private NativeFileSystemStore store;
   private Path workingDir;
+  private long blockSize;
 
   public NativeAzureFileSystem() {
     // set store in initialize()
@@ -657,6 +653,7 @@ public class NativeAzureFileSystem extends FileSystem {
     this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
     this.workingDir = new Path("/user", System.getProperty("user.name"))
         .makeQualified(this);
+    this.blockSize = conf.getLong("fs.azure.block.size", MAX_AZURE_BLOCK_SIZE_DEFAULT);
   }
 
   private static NativeFileSystemStore createDefaultStore(Configuration conf) {
@@ -803,7 +800,7 @@ public class NativeAzureFileSystem extends FileSystem {
     Path absolutePath = makeAbsolute(f);
     String key = pathToKey(absolutePath);
     if (status.isDir()) {
-      FileStatus[] contents = listStatus(f);
+      FileStatus[] contents = listStatus(f, true);
       if (!recursive && contents.length > 0) {
         throw new IOException("Directory " + f.toString() + " is not empty.");
       }
@@ -866,6 +863,15 @@ public class NativeAzureFileSystem extends FileSystem {
   }
 
   /**
+   * Retrieves the status of the given path if it's a file, or of all the files/directories
+   * within it if it's a directory.
+   */
+  @Override
+  public FileStatus[] listStatus(Path f) throws IOException {
+    return listStatus(f, false);
+  }
+
+  /**
    * <p>
    * If <code>f</code> is a file, this method will make a single call to Azure.
    * If <code>f</code> is a directory, this method will make a maximum of
@@ -873,8 +879,7 @@ public class NativeAzureFileSystem extends FileSystem {
    * files and directories contained directly in <code>f</code>.
    * </p>
    */
-  @Override
-  public FileStatus[] listStatus(Path f) throws IOException {
+  private FileStatus[] listStatus(Path f, boolean recursive) throws IOException {
     if (LOG.isDebugEnabled()) {
       LOG.debug("Listing status for " + f.toString());
     }
@@ -892,8 +897,18 @@ public class NativeAzureFileSystem extends FileSystem {
       }
       PartialListing listing = store.list(key, AZURE_LIST_ALL);
       for (FileMetadata fileMetadata : listing.getFiles()) {
-        Path subpath = keyToPath(fileMetadata.getKey());
-        status.add(newFile(fileMetadata, subpath));
+        String currentKey = fileMetadata.getKey();
+        if (!recursive && currentKey.indexOf('/', key.length() + 1) > 0) {
+          // It's within an inner directory, skip.
+          continue;
+        }
+        if (currentKey.endsWith(FOLDER_SUFFIX)) {
+          String rawKey = currentKey.substring(0, currentKey.length() -
+              FOLDER_SUFFIX.length() - 1);
+          status.add(newDirectory(fileMetadata, keyToPath(rawKey)));
+        } else {
+          status.add(newFile(fileMetadata, keyToPath(currentKey)));
+        }
       }
       if (LOG.isDebugEnabled())
         LOG.debug("Found it as a directory with " + status.size()
@@ -908,9 +923,9 @@ public class NativeAzureFileSystem extends FileSystem {
 
   static class PermissiveFileStatus extends FileStatus {
 
-    public PermissiveFileStatus(long length, boolean isdir,
+    public PermissiveFileStatus(long length, long blockSize, boolean isdir,
         long modification_time, Path path, FsPermission permission) {
-      super(length, isdir, 1, MAX_AZURE_BLOCK_SIZE, modification_time, 0,
+      super(length, isdir, 1, blockSize, modification_time, 0,
           permission, null, null, path);
     }
 
@@ -922,12 +937,12 @@ public class NativeAzureFileSystem extends FileSystem {
   }
 
   private FileStatus newFile(FileMetadata meta, Path path) {
-    return new PermissiveFileStatus(meta.getLength(), false,
+    return new PermissiveFileStatus(meta.getLength(), blockSize, false,
         meta.getLastModified(), path.makeQualified(this), meta.getPermission());
   }
 
   private FileStatus newDirectory(FileMetadata meta, Path path) {
-    return new PermissiveFileStatus(0, true, 0, path.makeQualified(this),
+    return new PermissiveFileStatus(0, 0, true, 0, path.makeQualified(this),
         meta == null ? FsPermission.getDefault() : meta.getPermission());
   }
 

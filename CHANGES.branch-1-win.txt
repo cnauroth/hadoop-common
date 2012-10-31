@@ -104,3 +104,13 @@ BUG FIXES
 
     HADOOP-8879. TestUserGroupInformation fails on Windows when run as
     Administrator. (Bikas Saha via suresh)
+
+    HADOOP-8911. CRLF characters in source and text files.
+    (Raja Aluri via suresh)
+
+    HADOOP-8912. Add .gitattributes file to prevent CRLF and LF mismatches 
+    for source and text files. (Raja Aluri via suresh)
+
+    HADOOP-4093. Fix a bug that AzureBlockPlacementPolicy#chooseTarget only
+    returns one DN when replication factor is greater than 3.  (Jing Zhao via
+    szetszwo)
