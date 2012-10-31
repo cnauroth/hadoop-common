@@ -54,8 +54,12 @@ public abstract class FileContextURIBase {
   private static final String basePath = System.getProperty("test.build.data",
   "build/test/data") + "/testContextURI";
   private static final Path BASE = new Path(basePath);
+
+  // Matches anything containing <, >, :, ", |, ?, *, or anything that ends with
+  // space or dot.
   private static final Pattern WIN_INVALID_FILE_NAME_PATTERN = Pattern.compile(
     "^(.*?[<>\\:\"\\|\\?\\*].*?)|(.*?[ \\.])$");
+
   protected FileContext fc1;
   protected FileContext fc2;
 
@@ -85,7 +89,7 @@ public abstract class FileContextURIBase {
         "  ", "^ " };
 
     for (String f : fileNames) {
-      if (!isValidFileNameOnPlatform(f)) {
+      if (!isTestableFileNameOnPlatform(f)) {
         continue;
       }
 
@@ -213,7 +217,7 @@ public abstract class FileContextURIBase {
         "deleteTest/()&^%$#@!~_+}{><?", "  ", "^ " };
 
     for (String f : dirNames) {
-      if (!isValidFileNameOnPlatform(f)) {
+      if (!isTestableFileNameOnPlatform(f)) {
         continue;
       }
 
@@ -386,7 +390,7 @@ public abstract class FileContextURIBase {
         "deleteTest/()&^%$#@!~_+}{><?", "  ", "^ " };
 
     for (String f : dirNames) {
-      if (!isValidFileNameOnPlatform(f)) {
+      if (!isTestableFileNameOnPlatform(f)) {
         continue;
       }
 
@@ -508,7 +512,7 @@ public abstract class FileContextURIBase {
     ArrayList<Path> testDirs = new ArrayList<Path>();
 
     for (String d : dirs) {
-      if (!isValidFileNameOnPlatform(d)) {
+      if (!isTestableFileNameOnPlatform(d)) {
         continue;
       }
 
@@ -568,15 +572,16 @@ public abstract class FileContextURIBase {
   }
 
   /**
-   * Returns true if the argument is valid as a file name on the platform
+   * Returns true if the argument is a file name that is testable on the platform
    * currently running the test.  This is intended for use by tests so that they
    * can skip checking file names that aren't supported by the underlying
-   * platform.
+   * platform.  The current implementation specifically checks for patterns that
+   * are not valid file names on Windows when the tests are running on Windows.
    * 
    * @param fileName String file name to check
    * @return boolean true if the argument is valid as a file name
    */
-  private static boolean isValidFileNameOnPlatform(String fileName) {
+  private static boolean isTestableFileNameOnPlatform(String fileName) {
     boolean valid = true;
 
     if (Shell.WINDOWS) {
