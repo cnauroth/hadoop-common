@@ -556,7 +556,7 @@ public class TrackerDistributedCacheManager {
         String target = list[i].getAbsolutePath();
         String link = new File(workDir, list[i].getName()).toString();
         LOG.info(String.format("Creating symlink: %s <- %s", target, link));
-        int ret = FileUtil.symLinkOrCopy(target, link);
+        int ret = FileUtil.symLink(target, link);
         if (ret != 0) {
           LOG.warn(String.format("Failed to create symlink: %s <- %s", target,
               link));

@@ -594,80 +594,6 @@ public class FileUtil {
     outputStream.close();
   }
 
-  public static void copyFile(String fromFileName, String toFileName)
-      throws IOException {
-    File fromFile = new File(fromFileName);
-    File toFile = new File(toFileName);
-
-    if (!fromFile.exists())
-      throw new IOException("FileCopy: " + "no such source file: "
-                            + fromFileName);
-
-    if (fromFile.isDirectory()) {
-      throw new IOException("FileCopy: " + "source file is a directory: "
-          + fromFileName);
-    }
-
-    if (!fromFile.canRead())
-      throw new IOException("FileCopy: " + "source file is unreadable: "
-                            + fromFileName);
-
-    // Make sure the parent directory exist for the toFileName
-    if (toFile.getParent() != null) {
-      File toFileParentDir = new File(toFile.getParent());
-      if (!toFileParentDir.exists() && !toFileParentDir.mkdirs()) {
-        throw new IOException("FileCopy: failed to create target directory: "
-                              + toFileParentDir.getPath());
-      }
-    }
-
-    InputStream from = null;
-    OutputStream to = null;
-    try {
-      from = new BufferedInputStream(new FileInputStream(fromFile));
-      to = new BufferedOutputStream(new FileOutputStream(toFile));
-      byte[] buffer = new byte[4*1024*1024];
-      int bytesRead;
-
-      while ((bytesRead = from.read(buffer)) != -1)
-        to.write(buffer, 0, bytesRead); // write
-    } finally {
-      if (from != null)
-        try {
-          from.close();
-        } catch (IOException e) {
-          ;
-        }
-      if (to != null)
-        try {
-          to.close();
-        } catch (IOException e) {
-          ;
-        }
-    }
-  }
-  
-  /**
-   * Create a soft link between a src and destination
-   * only on a local disk. HDFS does not support this.
-   * On Windows, when symlink creation fails due to security
-   * setting, copy the file instead. A warning is also logged
-   * in this case.
-   * @param target the target for symlink
-   * @param linkname the symlink
-   * @return value returned by the command
-   */
-  public static int symLinkOrCopy(String target, String linkname) throws IOException{
-    int returnVal = symLink(target, linkname);
-    if (Shell.WINDOWS && returnVal == SYMLINK_NO_PRIVILEGE)
-    {
-      LOG.warn("Fail to create symbolic link on Windows. Copy the file instead.");
-      copyFile(target, linkname);
-      return 0;
-    }
-    return returnVal;
-  }
-  
   /**
    * Create a soft link between a src and destination
    * only on a local disk. HDFS does not support this.
@@ -763,7 +689,8 @@ public class FileUtil {
   }
 
   /**
-   * Set the ownership on a file / directory
+   * Set the ownership on a file / directory. User name and group name
+   * cannot both be null.
    * @param file the file to change
    * @param username the new user owner name
    * @param groupname the new group owner name
