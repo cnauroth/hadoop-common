@@ -4,6 +4,9 @@ Monarch - unreleased
     HADOOP-8694 (HADOOP-135) Remove file copying logic in symlink code
     (Ivan Mitic)
 
+   HADOOP-175 UnitTest: org.apache.hadoop.mapred.TestJobStatusPersistency.
+   testJobStoreDisablingWithInvalidPath (Chuan Liu)
+    
     HADOOP-221 hadoop-env.cmd overwrites the value of *_OPTS set before install
     (Ganeshan Iyer)
 
