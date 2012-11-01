@@ -1,6 +1,18 @@
 Monarch - unreleased
 
   IMPROVEMENTS
+    HADOOP-8694 (HADOOP-135) Remove file copying logic in symlink code
+    (Ivan Mitic)
+
+    HADOOP-221 hadoop-env.cmd overwrites the value of *_OPTS set before install
+    (Ganeshan Iyer)
+
+    HADOOP-8983 Minor fixes to windows batch scripts to accept alternate
+    config directory location (Ramya Nimmagadda)
+
+    HADOOP-175 UnitTest: org.apache.hadoop.mapred.TestJobStatusPersistency
+    .testJobStoreDisablingWithInvalidPath (Chuan Liu)
+
     HADOOP-64 Winutils should keep Administrators privileges intact (Chuan Liu)
 
     HADOOP-8972 (HADOOP-205) Move winutils tests from bat to Java (Ivan Mitic)
@@ -8,8 +20,8 @@ Monarch - unreleased
     HADOOP-8456 (HADOOP-18) Support spaces in user names and group names in
     results returned via winutils (Ivan Mitic)
 
-    HADOOP-178 correct race condition causing TestDFSShell.testGet to fail on
-    Windows (Chris Nauroth)
+    HDFS-4065 (HADOOP-178) correct race condition causing TestDFSShell.testGet
+    to fail on Windows (Chris Nauroth)
 
     HADOOP-6496 (HADOOP-109/HADOOP-182) Add a test case for backport of
     HADOOP-6496 (Ivan Mitic)
@@ -20,13 +32,13 @@ Monarch - unreleased
     HADOOP-8902 (HADOOP-144) - GridmixV1 and GridmixV2 scripts needs to be
     ported to Windows (Mike Liddell)
 
-    HADOOP-97 convert src/saveVersion.sh into cross-platform or Windows platform 
-    script. (Matt Foley)
+    HADOOP-8420 (HADOOP-97) convert src/saveVersion.sh into cross-platform or
+    Windows platform script. (Matt Foley)
     
     HADOOP-8872 (HADOOP-153) FileSystem.length() returns 0 for symlinks
     under win+jdk6 (Ivan Mitic)
 
-    HADOOP-179 UnitTest: 
+    HADOOP-8879 (HADOOP-179) UnitTest: 
     org.apache.hadoop.security.TestUserGroupInformation.testGetServerSideGroups
     (Bikas Saha)
 
@@ -36,8 +48,8 @@ Monarch - unreleased
     HADOOP-8868 (HADOOP-164) FileUtil#chmod should normalize the input file
     path before calling winutils chmod (Ivan Mitic)
 
-    HADOOP-156 Local users should be able to query a domain user's groups
-    (Chuan Liu)
+    HADOOP-8936 (HADOOP-156) Local users should be able to query a domain
+    user's groups (Chuan Liu)
 
     HADOOP-8847 (HADOOP-79) Change untar to use Java API instead of spawning
     tar process (Bikas Saha)
@@ -45,52 +57,52 @@ Monarch - unreleased
     HADOOP-6496 (HADOOP-109) Reverting test changes from HADOOP-6496 backport
     as they introduced a regression. (contributed by Ivan Mitic)
 
-    HADOOP-109 Backporting HADOOP-7827 change - jsp pages missing DOCTYPE.
-    (suresh)
+    HADOOP-7827 (HADOOP-109) Backporting HADOOP-7827 change - jsp pages missing
+    DOCTYPE. (suresh)
 
     HADOOP-6496 (HADOOP-109) Backporting HADOOP-6496 change - HttpServer sends 
     wrong content-type for CSS files (and others) (Ivan Mitic via suresh)
 
-    HADOOP-128 Make 'winutils ls' show the SID if the owner does not
-    exist on the system. (Chuan Liu)
+    HADOOP-8935 (HADOOP-128) Make 'winutils ls' show the SID if the owner does
+    not exist on the system. (Chuan Liu)
 
     HADOOP-8836 (HADOOP-58) Should throw exception in case winutils.exe cannot
     be loaded (Bikas Saha)
 
-    HADOOP-108 Make SecureIOUtils work with Windows NativeIO. (Chuan Liu)
+    HADOOP-8564 (HADOOP-108) Make SecureIOUtils work with Windows NativeIO. (Chuan Liu)
 
-    HADOOP-107 Fix datanode concurrency issue using Windows NativeIO.
+    HADOOP-8564 (HADOOP-107) Fix datanode concurrency issue using Windows NativeIO.
     (Chuan Liu)
 
-    HADOOP-106 Port and extend Hadoop native libraries for Windows.
+    HADOOP-8564 (HADOOP-106) Port and extend Hadoop native libraries for Windows.
     (Chuan Liu)
 
-    HADOOP-136 CombineFileInputFormat only works with default file system
+    MAPREDUCE-1806 (HADOOP-136) CombineFileInputFormat only works with default file system
     (Ahmed El Baz)
 
-    HADOOP-143 Measure perf impact of generating a Jar file for the classpath
+    HADOOP-8899 (HADOOP-143) Measure perf impact of generating a Jar file for the classpath
     when launching a task (Ahmed El Baz)
 
-    HADOOP-90 Classpath exceeds maximum OS limit. (Ahmed El Baz)
+    HADOOP-8899 (HADOOP-90) Classpath exceeds maximum OS limit. (Ahmed El Baz)
 
     MAPREDUCE-4657 (HADOOP-129) WindowsResourceCalculatorPlugin NPE (Bikas Saha)
 
     MAPREDUCE-4564 (HADOOP-111) Shell timeout mechanism does not work for processes 
     spawned using winutils. (Bikas Saha)
 
-    HADOOP-105 Refactory 'winutils' for Hadoop native libraries use (Chuan Liu)
+    HADOOP-8908 (HADOOP-105) Refactory 'winutils' for Hadoop native libraries use (Chuan Liu)
 
-    HADOOP-119 BuiltInGzipDecompressor : java.io.IOException: stored gzip size
+    HADOOP-8900 (HADOOP-119) BuiltInGzipDecompressor : java.io.IOException: stored gzip size
     doesn't match decompressed size (viatk)
 
-    HADOOP-86 winutils "ls" and "chmod -r" does not work for paths 
+    HADOOP-8694 (HADOOP-86) winutils "ls" and "chmod -r" does not work for paths 
     longer than MAX_PATH. (Ivan Mitic, Chuan Liu)
 
     MAPREDUCE-4561 (HADOOP-5) Support for node health scripts on Windows. (Ivan Mitic)
 
     MAPREDUCE-4597 (HADOOP-110) TestKillSubProcesses intermittently fails. (Bikas Saha)
 
-    HADOOP-60 Provide API to retrieve valid HADOOP_HOME and bin path.
+    HADOOP-8874 (HADOOP-60) Provide API to retrieve valid HADOOP_HOME and bin path.
     (John Gordon)
 
     HADOOP-8739 (HADOOP-103) Minor regression in mapred.cmd. (Ivan Mitic)
@@ -121,7 +133,7 @@ Monarch - unreleased
     HADOOP-8732 (HADOOP-7) Address intermitted timeout test failures on Windows.
     (Ivan Mitic)
 
-    HADOOP-16. hadoop.cmd does not support HADOOP_USER_CLASSPATH_FIRST
+    HADOOP-8903 (HADOOP-16) hadoop.cmd does not support HADOOP_USER_CLASSPATH_FIRST
     (Thejas Nair via suresh)
 
     HDFS-3766 (HADOOP-63). Close stream and unlock storage directory to fix 
@@ -130,7 +142,7 @@ Monarch - unreleased
     HDFS-3763 (HADOOP-62). Fix TestNamenodeMXBean test failure.
     (Brandon Li via suresh)
     
-    HADOOP-113. Missing jersey jars as dependency causes hive tests to fail.
+    HADOOP-8880 (HADOOP-113) Missing jersey jars as dependency causes hive tests to fail.
     (Giri)
 
     HDFS-3564 (HADOOP-124). Improve BlockPlacementPolicy interface and change 
