@@ -251,7 +251,6 @@ int Ls(int argc, wchar_t *argv[])
   LARGE_INTEGER fileSize;
 
   BOOL isSymlink = FALSE;
-  BOOL isJunction = FALSE;
 
   int ret = EXIT_FAILURE;
   int optionsMask = 0;
@@ -294,14 +293,8 @@ int Ls(int argc, wchar_t *argv[])
      ReportErrorCode(L"IsSymbolicLink", dwErrorCode);
      goto LsEnd;
   }
-  dwErrorCode = JunctionPointCheck(longPathName, &isJunction);
-  if (dwErrorCode != ERROR_SUCCESS)
-  {
-    ReportErrorCode(L"IsJunctionPoint", dwErrorCode);
-    goto LsEnd;
-  }
 
-  if (isSymlink || isJunction)
+  if (isSymlink)
     unixAccessMode |= UX_SYMLINK;
   else if (IsDirFileInfo(&fileInformation))
     unixAccessMode |= UX_DIRECTORY;

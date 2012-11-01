@@ -75,11 +75,11 @@ public class TestFileUtil {
 
     // create a symlink to file
     File link = new File(del, LINK);
-    FileUtil.symLinkOrCopy(tmpFile.toString(), link.toString());
+    FileUtil.symLink(tmpFile.toString(), link.toString());
 
     // create a symlink to dir
     File linkDir = new File(del, "tmpDir");
-    FileUtil.symLinkOrCopy(tmp.toString(), linkDir.toString());
+    FileUtil.symLink(tmp.toString(), linkDir.toString());
     Assert.assertEquals(5, del.listFiles().length);
 
     // create a cycle using symlinks. Cycles should be handled
@@ -159,7 +159,7 @@ public class TestFileUtil {
     tmp.mkdirs();
     File tmpFile = new File(tmp, FILE);
     tmpFile.createNewFile();
-    FileUtil.symLinkOrCopy(tmpFile.toString(), zlink.toString());
+    FileUtil.symLink(tmpFile.toString(), zlink.toString());
   }
   
   // Validates the return value.
@@ -329,6 +329,38 @@ public class TestFileUtil {
 
     long du = FileUtil.getDU(TEST_DIR);
     Assert.assertEquals(du, 0);
+  }
+
+  @Test
+  public void testSymlink() throws Exception {
+    Assert.assertFalse(del.exists());
+    del.mkdirs();
+
+    byte[] data = "testSymLink".getBytes();
+
+    File file = new File(del, FILE);
+    File link = new File(del, "_link");
+
+    //write some data to the file
+    FileOutputStream os = new FileOutputStream(file);
+    os.write(data);
+    os.close();
+
+    //create the symlink
+    FileUtil.symLink(file.getAbsolutePath(), link.getAbsolutePath());
+
+    //ensure that symlink length is correctly reported by Java
+    Assert.assertEquals(data.length, file.length());
+    Assert.assertEquals(Shell.WINDOWS ? 0 : data.length, link.length());
+
+    //ensure that we can read from link.
+    FileInputStream in = new FileInputStream(link);
+    long len = 0;
+    while (in.read() > 0) {
+      len++;
+    }
+    in.close();
+    Assert.assertEquals(data.length, len);
   }
 
   private void doUntarAndVerify(File tarFile, File untarDir) 

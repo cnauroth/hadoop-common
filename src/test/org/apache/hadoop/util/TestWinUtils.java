@@ -24,6 +24,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.FileUtil;
@@ -269,7 +271,7 @@ public class TestWinUtils {
 
     File winutilsFile = new File(Shell.WINUTILS);
     File aExe = new File(TEST_DIR, "a.exe");
-    FileUtil.copyFile(winutilsFile.getCanonicalPath(), aExe.getCanonicalPath());
+    FileUtils.copyFile(winutilsFile, aExe);
     chmod("677", aExe);
 
     try {
