@@ -28,7 +28,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.fs.FileUtil;
 
 public class TestJobStatusPersistency extends ClusterMapReduceTestCase {
   static final Path TEST_DIR = 
@@ -158,7 +157,7 @@ public class TestJobStatusPersistency extends ClusterMapReduceTestCase {
       }
 
       if (fs.mkdirs(new Path(TEST_DIR, parent))) {
-        if (FileUtil.chmod(parent.toUri().getPath(), "-w") != 0) {
+        if (!(new File(parent.toUri().getPath()).setWritable(false, false))) {
           fail("Cannot chmod parent!");
         }
       } else {
@@ -177,7 +176,7 @@ public class TestJobStatusPersistency extends ClusterMapReduceTestCase {
         started = false;
       }
     } finally {
-      FileUtil.chmod(parent.toUri().getPath(), "+w");
+      new File(parent.toUri().getPath()).setWritable(true, false);
     }
   }
 }
