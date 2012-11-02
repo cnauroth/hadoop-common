@@ -206,7 +206,6 @@ static BOOL ChangeFileModeRecursively(__in LPCWSTR path, __in_opt INT mode,
 {
   BOOL isDir = FALSE;
   BOOL isSymlink = FALSE;
-  BOOL isJunction = FALSE;
   LPWSTR dir = NULL;
 
   size_t pathSize = 0;
@@ -227,13 +226,8 @@ static BOOL ChangeFileModeRecursively(__in LPCWSTR path, __in_opt INT mode,
     ReportErrorCode(L"IsSymbolicLink", dwRtnCode);
     return FALSE;
   }
-  if ((dwRtnCode = JunctionPointCheck(path, &isJunction)) != ERROR_SUCCESS)
-  {
-    ReportErrorCode(L"IsJunctionPoint", dwRtnCode);
-    return FALSE;
-  }
 
-  if (isSymlink || isJunction || !isDir)
+  if (isSymlink || !isDir)
   {
      if (ChangeFileMode(path, mode, actions))
        return TRUE;

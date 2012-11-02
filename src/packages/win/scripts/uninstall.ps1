@@ -50,22 +50,10 @@ function Main
 	}
 
 	Write-Log "Removing HDFS_DATA_DIR ($ENV:HDFS_DATA_DIR)"
-	### Cleanup HDFS_DATA_DIR. First, remove all files that could be removed
-	### via "rd", second, takeown and try to remove the remaining files
-	### after we took ownership over them. We do this in two steps because
-	### takeown takes a long time to run.
-	$cmd = "rd /s /q $ENV:HDFS_DATA_DIR"
-	Invoke-Cmd $cmd
-	$cmd = "takeown /F $ENV:HDFS_DATA_DIR /A /R /D Y"
-	Invoke-Cmd $cmd
 	$cmd = "rd /s /q $ENV:HDFS_DATA_DIR"
 	Invoke-Cmd $cmd
 
 	Write-Log "Removing Hadoop ($hadoopInstallDir)"
-	$cmd = "rd /s /q $hadoopInstallDir"
-	Invoke-Cmd $cmd
-	$cmd = "takeown /F $hadoopInstallDir /A /R /D Y"
-	Invoke-Cmd $cmd
 	$cmd = "rd /s /q $hadoopInstallDir"
 	Invoke-Cmd $cmd
 }
