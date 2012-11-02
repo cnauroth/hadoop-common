@@ -28,3 +28,13 @@ branch-trunk-win changes - unreleased
 
   HADOOP-8961. GenericOptionsParser URI parsing failure on Windows.
   (Ivan Mitic via suresh)
+
+  HADOOP-8949. Remove FileUtil.CygPathCommand dead code. (Chris Nauroth via 
+  suresh)
+
+  HADOOP-8956. FileSystem.primitiveMkdir failures on Windows cause multiple
+  test suites to fail. (Chris Nauroth via suresh)
+
+  HADOOP-8978. TestTrash fails on Windows. (Chris Nauroth via suresh)
+
+  HADOOP-8979. TestHttpServer fails on Windows. (Chris Nauroth via suresh)
