@@ -84,9 +84,6 @@ class ChRootedFs extends AbstractFileSystem {
         + path.toUri().getPath());
   }
 
-  /**
-   * @see AbstractFileSystem#isValidName(String)
-   */
   @Override
   public boolean isValidName(String src) {
     return myFs.isValidName(fullPath(new Path(src)).toUri().toString());

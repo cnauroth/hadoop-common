@@ -279,9 +279,6 @@ public abstract class FilterFs extends AbstractFileSystem {
     return myFs.getDelegationTokens(renewer);
   }
 
-  /**
-   * @see AbstractFileSystem#isValidName(String)
-   */
   @Override
   public boolean isValidName(String src) {
     return myFs.isValidName(src);
