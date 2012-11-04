@@ -170,3 +170,6 @@ BUG FIXES
 
     HADOOP-8949. Remove FileUtil.CygPathCommand dead code. (Chris Nauroth via 
     suresh)
+
+    HADOOP-8420. Hadoop Common creating package-info.java must not depend on sh.
+    (Bikas Saha via suresh)
