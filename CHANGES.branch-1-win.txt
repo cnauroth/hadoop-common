@@ -173,3 +173,6 @@ BUG FIXES
 
     HADOOP-8420. Hadoop Common creating package-info.java must not depend on sh.
     (Bikas Saha via suresh)
+
+    HADOOP-8983. Minor fixes to windows batch scripts to accept alternate 
+    config directory location. (Ramya Bharathi Nimmagadda via suresh)
