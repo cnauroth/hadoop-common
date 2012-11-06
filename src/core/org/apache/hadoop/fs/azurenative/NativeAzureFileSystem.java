@@ -107,6 +107,9 @@ public class NativeAzureFileSystem extends FileSystem {
           if (result != -1) {
             pos++;
           }
+          if (statistics != null) {
+            statistics.incrementBytesRead(1);
+          }
 
           // The read completed successfully, break to return with the
           // result.
@@ -171,6 +174,9 @@ public class NativeAzureFileSystem extends FileSystem {
           result = in.read(b, off, len);
           if (result > 0) {
             pos += result;
+          }
+          if (statistics != null && result > 0) {
+            statistics.incrementBytesRead(result);
           }
 
           // The read completed successfully, break to return with the

@@ -261,6 +261,27 @@ public class TestNativeAzureFileSystemLive extends TestCase {
     }
   }
 
+  public void testStatistics() throws Exception {
+    if (fs == null)
+      return;
+
+    FileSystem.clearStatistics();
+    FileSystem.Statistics stats = FileSystem.getStatistics("asv", NativeAzureFileSystem.class);
+    assertEquals(0, stats.getBytesRead());
+    assertEquals(0, stats.getBytesWritten());
+    Path newFile = new Path("testStats");
+    writeString(newFile, "12345678");
+    assertEquals(8, stats.getBytesWritten());
+    assertEquals(0, stats.getBytesRead());
+    String readBack = readString(newFile);
+    assertEquals("12345678", readBack);
+    assertEquals(8, stats.getBytesRead());
+    assertEquals(8, stats.getBytesWritten());
+    assertTrue(fs.delete(newFile, true));
+    assertEquals(8, stats.getBytesRead());
+    assertEquals(8, stats.getBytesWritten());
+  }
+
   private void createEmptyFile(Path testFile, FsPermission permission)
       throws IOException {
     FSDataOutputStream outputStream = fs.create(testFile, permission, true,
