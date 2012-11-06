@@ -168,15 +168,6 @@ public class TestNativeAzureFileSystemLive extends TestCase {
     // doesn't actually work as expected right now.
   }
 
-  // This doesn't work right now... (Authorization exception)
-  // public void testGlobalizedFileNames() throws Exception {
-  // if (fs == null) return;
-  // Path testFile = new Path("┘ç╪»┘ê╪¿");
-  // assertTrue(fs.createNewFile(testFile));
-  // assertTrue(fs.exists(testFile));
-  // assertTrue(fs.delete(testFile, true));
-  // }
-
   private static enum RenameVariation {
     NormalFileName, SourceInAFolder, SourceWithSpace, SourceWithPlusAndPercent
   }
