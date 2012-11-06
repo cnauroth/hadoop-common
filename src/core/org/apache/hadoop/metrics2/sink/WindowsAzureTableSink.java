@@ -17,8 +17,10 @@
 
 package org.apache.hadoop.metrics2.sink;
 
+import java.net.InetAddress;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
+import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.UUID;
@@ -30,6 +32,7 @@ import org.apache.hadoop.metrics2.MetricsSink;
 import org.apache.hadoop.metrics2.MetricsTag;
 import org.apache.log4j.Logger;
 
+import com.microsoft.windowsazure.serviceruntime.RoleEnvironment;
 import com.microsoft.windowsazure.services.core.storage.*;
 import com.microsoft.windowsazure.services.table.client.*;
 
@@ -91,6 +94,11 @@ public class WindowsAzureTableSink implements MetricsSink {
 	 */
 	private HashMap<String, CloudTableClient> existingTables = new HashMap<String, CloudTableClient>();
 	
+	private String deploymentId;
+	private String roleName;
+	private String roleInstanceName;
+	private Boolean logDeploymentIdWithMetrics = false;
+	
 	@Override
 	public void init(SubsetConfiguration conf) {
 		logger.info("Entering init");
@@ -110,27 +118,48 @@ public class WindowsAzureTableSink implements MetricsSink {
 		} catch (URISyntaxException uriSyntaxException) {
 			logger.error("Invalid URI. Details: " + uriSyntaxException.getMessage());
 		}
+		
+		// Capture deployment id, role instance, role name if they are set as environment variables
+		// The Java SDK RoleEnvironment class does not seem to work for some reason.
+		// Set the DeploymentId + RoleInstanceId as the partition key
+		deploymentId = System.getenv("HADOOP_METRICS2_DEPLOYMENT_ID");
+		roleName = System.getenv("HADOOP_METRICS2_ROLE");
+		roleInstanceName = System.getenv("HADOOP_METRICS2_ROLEINSTANCE");
+		
+		logDeploymentIdWithMetrics = (deploymentId != null && !deploymentId.isEmpty() && 
+										roleName != null && !roleName.isEmpty() && 
+										roleInstanceName != null && !roleInstanceName.isEmpty());
  	}
 
 	@Override
 	public void putMetrics(MetricsRecord record) {
-		// table name is of the form CONTEXTrecordname
+		SimpleDateFormat formatter = new SimpleDateFormat( "yyyyMM" );  
+		String yearMonthSuffix = formatter.format( new java.util.Date() ); 
+		
+		// table name is of the form CONTEXTrecordname-yyyyMM
+		// A new table is created every month to help with cleaning up old records
 		// Azure Tables can only contain alpha-numeric values
-		String tableName = record.context().toUpperCase() + record.name();
+		String tableName = record.context().toUpperCase() + record.name() + yearMonthSuffix;
 		
-		// Calculate the hour part. record.timestamp() is in milliseconds 
-		// 1000 milliseconds * 60 seconds * 60 minutes
-		long partitionNumber = record.timestamp() / (1000*60*60);
-		
-		AzureTableMetrics2Entity metrics2Entity = 
-				new AzureTableMetrics2Entity(String.valueOf(partitionNumber), 
-											 UUID.randomUUID().toString());
+		String partitionKey;
 		
 		HashMap<String, String> metrics2KeyValuePairs = new HashMap<String, String>();
 		
-		metrics2KeyValuePairs.put("Timestamp", String.valueOf(record.timestamp()));
+		metrics2KeyValuePairs.put("MetricTimestamp", String.valueOf(record.timestamp()));
 		metrics2KeyValuePairs.put("Context", record.context());
 		metrics2KeyValuePairs.put("Name", record.name());
+		metrics2KeyValuePairs.put("IPAddress", getLocalNodeIPAddress());
+		
+		if (logDeploymentIdWithMetrics) {
+			metrics2KeyValuePairs.put("DeploymentId", deploymentId);
+			metrics2KeyValuePairs.put("Role", roleName);
+			metrics2KeyValuePairs.put("RoleInstance", roleInstanceName);
+			
+			partitionKey = deploymentId + "-" + roleName + "-" + roleInstanceName;
+		}
+		else {
+			partitionKey = getLocalNodeName();
+		}
 		
 		for (MetricsTag tag : record.tags()) {
 			metrics2KeyValuePairs.put(tag.name(), String.valueOf(tag.value()));
@@ -139,6 +168,11 @@ public class WindowsAzureTableSink implements MetricsSink {
 		for (Metric metric : record.metrics()) {
 			metrics2KeyValuePairs.put(metric.name(), metric.value().toString());
 		}
+		
+		// The choice of row key means that two records of the same context from the same node 
+		// can't be written at the same time. But this does not happen 
+		AzureTableMetrics2Entity metrics2Entity = 
+				new AzureTableMetrics2Entity(partitionKey, String.valueOf(record.timestamp()));
 		
 		metrics2Entity.setMetrics2KeyValuePairs(metrics2KeyValuePairs);
 		
@@ -195,6 +229,28 @@ public class WindowsAzureTableSink implements MetricsSink {
 		existingTables.put(tableName, tableClient);
 		
 		return tableClient;
+	}
+
+	private String getLocalNodeIPAddress() {
+		String nodeIPAddress; 
+	   
+		try {
+	        nodeIPAddress = InetAddress.getLocalHost().getHostAddress();
+		} catch (Exception e) {
+			nodeIPAddress = "Unknown";
+		}
+	    
+	    return nodeIPAddress;
+	}
+	
+	public String getLocalNodeName() {
+		String nodeName;
+		  try {
+		    nodeName = InetAddress.getLocalHost().getCanonicalHostName();
+		  } catch (Exception e) {
+			  nodeName = "Unknown";
+		  }
+		  return nodeName;
 	}
 	
 	/*
