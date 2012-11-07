@@ -106,9 +106,9 @@ public class NativeAzureFileSystem extends FileSystem {
           result = in.read();
           if (result != -1) {
             pos++;
-          }
-          if (statistics != null) {
-            statistics.incrementBytesRead(1);
+            if (statistics != null) {
+              statistics.incrementBytesRead(1);
+            }
           }
 
           // The read completed successfully, break to return with the
