@@ -192,7 +192,7 @@ public class SecureIOUtils {
       UserGroupInformation.createRemoteUser(expectedOwner);
 
     if (expectedOwner != null &&
-        !status.isOwnedByUser(ugi)) {
+        !status.isOwnedByUser(ugi.getShortUserName(), ugi.getGroupNames())) {
       throw new IOException(
         "Owner '" + status.getOwner() + "' for path " + f + " did not match " +
         "expected owner '" + expectedOwner + "'");

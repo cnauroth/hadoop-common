@@ -150,15 +150,15 @@ public class FileStatus implements Writable, Comparable {
   }
 
   /**
-   * Checks if the given ugi is an owner of this file.
+   * Checks if the given user is an owner of this file.
    * @return true if yes, false otherwise
    */
-  public boolean isOwnedByUser(UserGroupInformation ugi) {
-    if (ugi == null) {
+  public boolean isOwnedByUser(String user, String [] userGroups) {
+    if (user == null) {
       throw new IllegalArgumentException(
-          "UserGroupInformation argument is null");
+          "user argument is null");
     }
-    return owner.equals(ugi.getShortUserName());
+    return owner.equals(user);
   }
 
   /* These are provided so that these values could be loaded lazily 

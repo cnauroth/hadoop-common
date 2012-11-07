@@ -45,6 +45,7 @@ import static org.apache.hadoop.hdfs.server.common.HdfsConstants.NodeType.DATA_N
 import org.apache.hadoop.hdfs.server.common.Storage;
 import org.apache.hadoop.hdfs.server.common.StorageInfo;
 import org.apache.hadoop.hdfs.server.common.Storage.StorageDirectory;
+import org.apache.hadoop.hdfs.server.datanode.DataNode;
 import org.apache.hadoop.hdfs.server.datanode.DataStorage;
 import org.apache.hadoop.hdfs.server.namenode.FSImage;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
@@ -92,7 +93,8 @@ public class UpgradeUtilities {
     Configuration config = new Configuration();
     config.set("dfs.name.dir", namenodeStorage.toString());
     config.set("dfs.data.dir", datanodeStorage.toString());
-    defaultPermissions = config.get("dfs.datanode.data.dir.perm", "755");
+    defaultPermissions = config.get("dfs.datanode.data.dir.perm",
+                                    DataNode.DEFAULT_DATA_DIR_PERMISSION);
     createEmptyDirs(new String[] {TEST_ROOT_DIR.toString()});
     MiniDFSCluster cluster = null;
     try {

@@ -104,8 +104,9 @@ public class JobSubmissionFiles {
     currentUser = currentUgi.getShortUserName();
     if (fs.exists(stagingArea)) {
       FileStatus fsStatus = fs.getFileStatus(stagingArea);
-      if (!(fsStatus.isOwnedByUser(currentUgi) || fsStatus.isOwnedByUser(ugi)) || 
-              !fsStatus.getPermission().equals(JOB_DIR_PERMISSION)) {
+      if (!(fsStatus.isOwnedByUser(currentUser, currentUgi.getGroupNames())
+            || fsStatus.isOwnedByUser(realUser, ugi.getGroupNames()))
+          || !fsStatus.getPermission().equals(JOB_DIR_PERMISSION)) {
          throw new IOException("The ownership/permissions on the staging " +
                       "directory " + stagingArea + " is not as expected. " + 
                       "It is owned by " + fsStatus.getOwner() + " and permissions are "+ 

@@ -121,8 +121,8 @@ public class TestLinuxTaskControllerLaunchArgs extends TestCase {
    * necessary java properties to launch JobLocalizer successfully.
    */
   public void testLTCCallInitializeJob() throws Exception {
-    if (Shell.WINDOWS) {
-      // LinuxTaskContoller is not used on Windows, disabling the test
+    if (!Shell.LINUX) {
+      // LinuxTaskContoller is not supported on non-Linux platforms
       return;
     }
 
@@ -145,8 +145,8 @@ public class TestLinuxTaskControllerLaunchArgs extends TestCase {
    * necessary java properties to launch JobLocalizer successfully.
    */
   public void testLTCCallTruncateLogsAsUser() throws Exception {
-    if (Shell.WINDOWS) {
-      // LinuxTaskContoller is not used on Windows, disabling the test
+    if (!Shell.LINUX) {
+      // LinuxTaskContoller is not supported on non-Linux platforms
       return;
     }
 

@@ -31,7 +31,7 @@ SET LIBJARS=%APP_JAR%,%EXAMPLE_JAR%,%STREAMING_JAR%
 
 CALL %HADOOP_HOME%\bin\hadoop jar gridmix.jar org.apache.hadoop.mapred.GridMixRunner -libjars %LIBJARS%
 
-FOR /F "delims=" %%a in ('%GRID_MIX%\WinDateTime.exe') DO (
+FOR /F "delims=" %%a in ('%CYGWIN_HOME%\bin\date +%%F-%%H-%%M-%%S-%%N') DO (
  SET DATE=%%a
 )
 

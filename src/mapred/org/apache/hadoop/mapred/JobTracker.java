@@ -2362,8 +2362,9 @@ public class JobTracker implements MRConstants, InterTrackerProtocol,
     while (!Thread.currentThread().isInterrupted()) {
       try {
         // if we haven't contacted the namenode go ahead and do it
+        UserGroupInformation mrOwner = getMROwner();
         if (fs == null) {
-          fs = getMROwner().doAs(new PrivilegedExceptionAction<FileSystem>() {
+          fs = mrOwner.doAs(new PrivilegedExceptionAction<FileSystem>() {
             public FileSystem run() throws IOException {
               return FileSystem.get(conf);
           }});
@@ -2375,9 +2376,10 @@ public class JobTracker implements MRConstants, InterTrackerProtocol,
         }
         try {
           FileStatus systemDirStatus = fs.getFileStatus(systemDir);
-          if (!systemDirStatus.isOwnedByUser(getMROwner())) {
+          if (!systemDirStatus.isOwnedByUser(
+                   mrOwner.getShortUserName(), mrOwner.getGroupNames())) {
             throw new AccessControlException("The systemdir " + systemDir +
-                " is not owned by " + getMROwner().getShortUserName());
+                " is not owned by " + mrOwner.getShortUserName());
           }
           if (!systemDirStatus.getPermission().equals(SYSTEM_DIR_PERMISSION)) {
             LOG.warn("Incorrect permissions on " + systemDir +

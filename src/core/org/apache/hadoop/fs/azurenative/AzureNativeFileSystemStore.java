@@ -158,7 +158,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     	  
     	  // Capture the account name from the uri.
     	  //
-    	  String accountName = uri.getAuthority().toLowerCase().split(".", 2)[0];
+    	  String accountName = uri.getAuthority().toLowerCase().split("\\.", 2)[0];
     	  
     	  // Check if the URI has a valid access signature.
     	  //
@@ -181,7 +181,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     		  // Check if the connection string is a shared access signature.
     		  //
     		  sasCreds = new StorageCredentialsSharedAccessSignature (connectionString);
-    		  if (sasCreds.getAccountName().equals(accountName))
+    		  if (sasCreds.getAccountName() != null && sasCreds.getAccountName().equals(accountName))
     		  {
 	    		  // If the SAS credentials were populated then the string is a shared access
     			  // signature and we should connect using the shared access signature
@@ -256,7 +256,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   {
 	  // Capture the account name from the authority.
 	  //
-	  String accountName = authUri.split(".",2)[0];
+	  String accountName = authUri.split("\\.",2)[0];
 	  
 	  // Get the connection string and test for its existence.
 	  //
@@ -453,8 +453,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 	  // TODO: Compare the account name on the shared access signature credentials
 	  // TODO: with the account name on the URI.
 	  //
-	  String accountName = fullUri.getAuthority().toLowerCase().split(".", 2)[0];
-	  if (!sasCreds.getAccountName().equals(accountName))
+	  String accountName = fullUri.getAuthority().toLowerCase().split("\\.", 2)[0];
+	  if (sasCreds.getAccountName() == null || !sasCreds.getAccountName().equals(accountName))
 	  {
 		  // Account names do not correspond and we can assume invalid SAS credential.
 		  //
