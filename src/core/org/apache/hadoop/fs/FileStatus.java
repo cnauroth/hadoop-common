@@ -24,7 +24,6 @@ import java.io.IOException;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.security.UserGroupInformation;
 
 /** Interface that represents the client side information for a file.
  */

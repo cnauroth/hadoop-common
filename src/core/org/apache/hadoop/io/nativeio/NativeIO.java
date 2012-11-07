@@ -39,7 +39,6 @@ import org.apache.commons.logging.LogFactory;
  * more portable mechanism.
  */
 public class NativeIO {
-	
   public static class POSIX {
     // Flags for open() call from bits/fcntl.h
     public static final int O_RDONLY = 00;
@@ -374,7 +373,7 @@ public class NativeIO {
         new Configuration().getLong("hadoop.security.uid.cache.secs", 
                                      4*60*60) * 1000;
       LOG.info("Initialized cache for UID to User mapping with a cache" +
-      		" timeout of " + cacheTimeout/1000 + " seconds.");
+        " timeout of " + cacheTimeout/1000 + " seconds.");
       initialized = true;
     }
   }

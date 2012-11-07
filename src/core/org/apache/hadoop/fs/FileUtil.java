@@ -52,8 +52,8 @@ public class FileUtil {
    * sync with the constant of the same name in:
    * "src\winutils\common.h"
    * */
-  public static final int SYMLINK_NO_PRIVILEGE = 2; 
-
+  public static final int SYMLINK_NO_PRIVILEGE = 2;
+  
   /**
    * convert an array of FileStatus to an array of Path
    * 
