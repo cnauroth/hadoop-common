@@ -143,6 +143,10 @@ with tarfile.open(tar_name, "w:gz") as tar:
       arc_name = base_name + "/lib/native"
       tar.add(native_dir, arcname=arc_name,
         filter=make_file_filter(arc_name, lambda file: file.startswith("lib")))
+    bin_dir = normpath(join(target_dir, "..", "bin"))
+    if isdir(bin_dir):
+      arc_name = base_name + "/bin"
+      tar.add(bin_dir, arcname=arc_name)
   if "${bundle.snappy}" == "true":
     arc_name = base_name + "/lib/native"
     tar.add(r"${snappy.lib}", arcname=arc_name,
