@@ -192,7 +192,6 @@ tar_name = dir_name + ".tar.gz"
 with tarfile.open(tar_name, "w:gz") as tar:
   tar.add(dir_name, arcname=base_name)
                 </echo>
-
                 <exec executable="python" dir="${project.build.directory}" failonerror="true">
                   <arg value="dist-maketar.py" />
                 </exec>
