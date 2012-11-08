@@ -1,15 +1,10 @@
 package org.apache.hadoop.fs.azurenative;
 
-import com.microsoft.windowsazure.services.core.storage.CloudStorageAccount;
-import com.microsoft.windowsazure.services.blob.client.*;
-
-import java.net.*;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.BufferedWriter;
 import java.io.OutputStreamWriter;
-import java.util.*;
 
 import junit.framework.*;
 
@@ -22,59 +17,30 @@ import org.apache.hadoop.security.*;
  * Tests the Native Azure file system (ASV) against an actual blob store if provided in the environment.
  */
 public class TestNativeAzureFileSystemLive extends TestCase {
-  private static final String CONNECTION_STRING_PROPERTY_NAME = "fs.azure.storageConnectionString";
   private FileSystem fs;
-  private CloudBlobContainer container;
-
-  private static boolean hasConnectionString(Configuration conf) {
-    if (conf.get(CONNECTION_STRING_PROPERTY_NAME) != null) {
-      return true;
-    }
-    if (System.getenv(CONNECTION_STRING_PROPERTY_NAME) != null) {
-      conf.set(CONNECTION_STRING_PROPERTY_NAME,
-          System.getenv(CONNECTION_STRING_PROPERTY_NAME));
-      return true;
-    }
-
-    return false;
-  }
+  private AzureBlobStorageTestAccount testAccount;
 
   @Override
   protected void setUp() throws Exception {
-    fs = null;
-    container = null;
-    Configuration conf = new Configuration();
-    if (!hasConnectionString(conf)) {
-      System.out
-          .println("Skipping live Azure test because of missing connection string.");
-      return;
+    testAccount = AzureBlobStorageTestAccount.create();
+    if (testAccount != null) {
+      fs = testAccount.getFileSystem();
     }
-    fs = new NativeAzureFileSystem();
-    String containerName = String.format("asvtests-%s-%tQ",
-        System.getProperty("user.name"), new Date());
-    String connectionString = conf.get(CONNECTION_STRING_PROPERTY_NAME);
-    CloudStorageAccount account = CloudStorageAccount
-        .parse(connectionString);
-    container = account
-        .createCloudBlobClient().getContainerReference(containerName);
-    container.create();
-    String accountUrl = account.getBlobEndpoint().getAuthority();
-    String accountName = accountUrl.substring(0, accountUrl.indexOf('.'));
-    conf.set(CONNECTION_STRING_PROPERTY_NAME + "." + accountName, connectionString);
-    fs.initialize(
-        new URI("asv://" + accountUrl + "/" + containerName + "/"),
-        conf);
   }
 
   @Override
   protected void tearDown() throws Exception {
-    if (fs != null) {
-      fs.close();
+    if (testAccount != null) {
+      testAccount.cleanup();
+      testAccount = null;
       fs = null;
     }
-    if (container != null) {
-      container.delete();
-      container = null;
+  }
+
+  @Override
+  protected void runTest() throws Throwable {
+    if (testAccount != null) {
+      super.runTest();
     }
   }
 
@@ -89,8 +55,6 @@ public class TestNativeAzureFileSystemLive extends TestCase {
   }
 
   public void testStoreDeleteFolder() throws Exception {
-    if (fs == null)
-      return;
     Path testFolder = new Path("storeDeleteFolder");
     assertFalse(fs.exists(testFolder));
     assertTrue(fs.mkdirs(testFolder));
@@ -104,16 +68,12 @@ public class TestNativeAzureFileSystemLive extends TestCase {
   }
 
   public void testFileOwnership() throws Exception {
-    if (fs == null)
-      return;
     Path testFile = new Path("ownershipTestFile");
     writeString(testFile, "Testing");
     testOwnership(testFile);
   }
 
   public void testFolderOwnership() throws Exception {
-    if (fs == null)
-      return;
     Path testFolder = new Path("ownershipTestFolder");
     fs.mkdirs(testFolder);
     testOwnership(testFolder);
@@ -127,8 +87,6 @@ public class TestNativeAzureFileSystemLive extends TestCase {
   }
 
   public void testFilePermissions() throws Exception {
-    if (fs == null)
-      return;
     Path testFile = new Path("permissionTestFile");
     FsPermission permission = FsPermission.createImmutable((short) 644);
     createEmptyFile(testFile, permission);
@@ -138,8 +96,6 @@ public class TestNativeAzureFileSystemLive extends TestCase {
   }
 
   public void testFolderPermissions() throws Exception {
-    if (fs == null)
-      return;
     Path testFolder = new Path("permissionTestFolder");
     FsPermission permission = FsPermission.createImmutable((short) 644);
     fs.mkdirs(testFolder, permission);
@@ -149,8 +105,6 @@ public class TestNativeAzureFileSystemLive extends TestCase {
   }
 
   public void testDeepFileCreation() throws Exception {
-    if (fs == null)
-      return;
     Path testFile = new Path("deep/file/creation/test");
     FsPermission permission = FsPermission.createImmutable((short) 644);
     createEmptyFile(testFile, permission);
@@ -173,8 +127,6 @@ public class TestNativeAzureFileSystemLive extends TestCase {
   }
 
   public void testRename() throws Exception {
-    if (fs == null)
-      return;
     for (RenameVariation variation : RenameVariation.values()) {
       System.out.printf("Rename variation: %s\n", variation);
       Path originalFile;
@@ -212,8 +164,6 @@ public class TestNativeAzureFileSystemLive extends TestCase {
   }
 
   public void testRenameFolder() throws Exception {
-    if (fs == null)
-      return;
     for (RenameFolderVariation variation : RenameFolderVariation.values()) {
       Path originalFolder = new Path("folderToRename");
       if (variation != RenameFolderVariation.CreateJustInnerFile)
@@ -233,8 +183,6 @@ public class TestNativeAzureFileSystemLive extends TestCase {
   }
 
   public void testCopyFromLocalFileSystem() throws Exception {
-    if (fs == null)
-      return;
     Path localFilePath = new Path(System.getProperty("test.build.data",
         "azure_test"));
     FileSystem localFs = FileSystem.get(new Configuration());
@@ -253,9 +201,6 @@ public class TestNativeAzureFileSystemLive extends TestCase {
   }
 
   public void testStatistics() throws Exception {
-    if (fs == null)
-      return;
-
     FileSystem.clearStatistics();
     FileSystem.Statistics stats = FileSystem.getStatistics("asv", NativeAzureFileSystem.class);
     assertEquals(0, stats.getBytesRead());
