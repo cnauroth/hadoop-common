@@ -349,14 +349,15 @@ import tarfile
 def make_file_filter(root, file_name_filter):
   def filter_func(tar_info):
     if tar_info.name == root:
+      # Always include root directory.  Otherwise, tarfile.add assumes you are
+      # filtering out the whole directory and produces an empty tar.
       return tar_info
-    elif tar_info.isfile() or tar_info.issym():
+    if tar_info.isfile() or tar_info.issym():
+      # Include files and symlinks only if they match the specified name filter.
       if file_name_filter(basename(tar_info.name)):
         return tar_info
-      else:
-        return None
-    else:
-      return None
+    # Otherwise, exclude.
+    return None
   return filter_func
 
 base_name = "${project.artifactId}" + "-" + "${project.version}"
