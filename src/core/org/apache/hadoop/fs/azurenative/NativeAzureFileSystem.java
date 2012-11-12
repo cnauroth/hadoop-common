@@ -806,7 +806,7 @@ public class NativeAzureFileSystem extends FileSystem {
     Path absolutePath = makeAbsolute(f);
     String key = pathToKey(absolutePath);
     if (status.isDir()) {
-      FileStatus[] contents = listStatus(f, true);
+      FileStatus[] contents = listStatus(f, false);
       if (!recursive && contents.length > 0) {
         throw new IOException("Directory " + f.toString() + " is not empty.");
       }
