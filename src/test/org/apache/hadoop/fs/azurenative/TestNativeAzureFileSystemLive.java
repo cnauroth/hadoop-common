@@ -200,6 +200,27 @@ public class TestNativeAzureFileSystemLive extends TestCase {
     }
   }
 
+  public void testListDirectory() throws Exception {
+    Path rootFolder = new Path("testingList");
+    assertTrue(fs.mkdirs(rootFolder));
+    FileStatus[] listed = fs.listStatus(rootFolder);
+    assertEquals(0, listed.length);
+    Path innerFolder = new Path(rootFolder, "inner");
+    assertTrue(fs.mkdirs(innerFolder));
+    listed = fs.listStatus(rootFolder);
+    assertEquals(1, listed.length);
+    assertTrue(listed[0].isDir());
+    Path innerFile = new Path(innerFolder, "innerFile");
+    writeString(innerFile, "testing");
+    listed = fs.listStatus(rootFolder);
+    assertEquals(1, listed.length);
+    assertTrue(listed[0].isDir());
+    listed = fs.listStatus(innerFolder);
+    assertEquals(1, listed.length);
+    assertFalse(listed[0].isDir());
+    assertTrue(fs.delete(rootFolder, true));
+  }
+
   public void testStatistics() throws Exception {
     FileSystem.clearStatistics();
     FileSystem.Statistics stats = FileSystem.getStatistics("asv", NativeAzureFileSystem.class);
