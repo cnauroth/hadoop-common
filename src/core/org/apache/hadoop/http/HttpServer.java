@@ -51,8 +51,8 @@ import org.apache.hadoop.security.Krb5AndCertsSslSocketConnector.MODE;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.authorize.AccessControlList;
 import org.apache.hadoop.util.ReflectionUtils;
-import org.mortbay.io.Buffer;
 import org.apache.hadoop.util.Shell;
+import org.mortbay.io.Buffer;
 import org.mortbay.jetty.Connector;
 import org.mortbay.jetty.Handler;
 import org.mortbay.jetty.MimeTypes;
@@ -865,6 +865,5 @@ public class HttpServer implements FilterContainer {
       Buffer mimeBuffer = mimes.getMimeByExtension(path);
       return (mimeBuffer == null) ? null : mimeBuffer.toString();
     }
-
   }
 }

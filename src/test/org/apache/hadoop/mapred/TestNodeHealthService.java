@@ -110,7 +110,7 @@ public class TestNodeHealthService extends TestCase {
     String normalScript = "echo \"I am all fine\"";
     // use extremely large sleep time in script to make sure junit test times
     // out if script termination fails upon timeout.
-    String timeOutScript = "sleep 60000\n echo\" I am fine\"";
+    String timeOutScript = "sleep 60000\n echo \" I am fine\"";
     Configuration conf = getConfForNodeHealthScript();
     conf.writeXml(new FileOutputStream(nodeHealthConfigFile));
 

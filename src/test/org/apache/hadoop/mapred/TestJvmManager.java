@@ -112,7 +112,6 @@ public class TestJvmManager {
     out.write(cmd.getBytes());
     out.close();
     script.setExecutable(true);
-
     return script;
   }
   
@@ -187,21 +186,14 @@ public class TestJvmManager {
       }
       UtilsForTests.waitFor(100);
     }
-
     // assert that the process is launched
     assertTrue("pidFile is not present", pidFile.exists());
-
+    
     // imitate Child code.
     // set pid in jvmManager
-    String pid = null;
-    if (Shell.WINDOWS) {
-      // Use attempt id (JobObject) to kill the process on Windows
-      pid = attemptID.toString();
-    } else {
-      BufferedReader in = new  BufferedReader(new FileReader(pidFile));
-      pid = in.readLine();
-      in.close();
-    }
+    BufferedReader in = new  BufferedReader(new FileReader(pidFile));
+    String pid = in.readLine();
+    in.close();
     JVMId jvmid = mapJvmManager.runningTaskToJvm.get(taskRunner);
     jvmManager.setPidToJvm(jvmid, pid);
 
@@ -260,10 +252,10 @@ public class TestJvmManager {
    * 
    * More details:
    * - Create a Task that will simply invoke an empty script
-   * - Run the task using the default launchJvmAndWait - (RUN_JVM_COUNT) times
+   * - Run the task using the default launchJvmAndWait – (RUN_JVM_COUNT) times
    *    and measure total time 
    * - Run the task using the overload of launchJvmAndWait which takes a list
-   *    of classpath entries - (RUN_JVM_COUNT) times, and measure total time
+   *    of classpath entries – (RUN_JVM_COUNT) times, and measure total time
    * - Assert the time difference is not more than TIME_DIFF_THRESHOLD
    */
   @Test

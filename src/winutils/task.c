@@ -93,7 +93,7 @@ static BOOL ParseCommandLine(__in int argc,
 // Returns:
 // ERROR_SUCCESS: On success
 // GetLastError: otherwise
-DWORD CreateTask(_TCHAR* jobObjName, _TCHAR* cmdLine) 
+DWORD createTask(_TCHAR* jobObjName, _TCHAR* cmdLine) 
 {
   DWORD err = ERROR_SUCCESS;
   DWORD exitCode = EXIT_FAILURE;
@@ -188,7 +188,7 @@ DWORD CreateTask(_TCHAR* jobObjName, _TCHAR* cmdLine)
 // Returns:
 // ERROR_SUCCESS: On success
 // GetLastError: otherwise
-DWORD IsTaskAlive(const _TCHAR* jobObjName, int* isAlive, int* procsInJob)
+DWORD isTaskAlive(const _TCHAR* jobObjName, int* isAlive, int* procsInJob)
 {
   PJOBOBJECT_BASIC_PROCESS_ID_LIST procList;
   HANDLE jobObject = NULL;
@@ -248,7 +248,7 @@ DWORD IsTaskAlive(const _TCHAR* jobObjName, int* isAlive, int* procsInJob)
 // Returns:
 // ERROR_SUCCESS: On success
 // GetLastError: otherwise
-DWORD KillTask(_TCHAR* jobObjName)
+DWORD killTask(_TCHAR* jobObjName)
 {
   HANDLE jobObject = OpenJobObject(JOB_OBJECT_TERMINATE, FALSE, jobObjName);
   if(jobObject == NULL)
@@ -280,7 +280,7 @@ DWORD KillTask(_TCHAR* jobObjName)
 // Returns:
 // ERROR_SUCCESS: On success
 // GetLastError: otherwise
-DWORD PrintTaskProcessList(const _TCHAR* jobObjName)
+DWORD printTaskProcessList(const _TCHAR* jobObjName)
 {
   DWORD i;
   PJOBOBJECT_BASIC_PROCESS_ID_LIST procList;
@@ -377,7 +377,7 @@ int Task(int argc, wchar_t *argv[])
   {
     // Create the task jobobject
     //
-    dwErrorCode = CreateTask(argv[2], argv[3]);
+    dwErrorCode = createTask(argv[2], argv[3]);
     if (dwErrorCode != ERROR_SUCCESS)
     {
       ReportErrorCode(L"createTask", dwErrorCode);
@@ -389,7 +389,7 @@ int Task(int argc, wchar_t *argv[])
     //
     int isAlive;
     int numProcs;
-    dwErrorCode = IsTaskAlive(argv[2], &isAlive, &numProcs);
+    dwErrorCode = isTaskAlive(argv[2], &isAlive, &numProcs);
     if (dwErrorCode != ERROR_SUCCESS)
     {
       ReportErrorCode(L"isTaskAlive", dwErrorCode);
@@ -405,17 +405,17 @@ int Task(int argc, wchar_t *argv[])
   {
     // Check if task jobobject
     //
-    dwErrorCode = KillTask(argv[2]);
+    dwErrorCode = killTask(argv[2]);
     if (dwErrorCode != ERROR_SUCCESS)
     {
-      ReportErrorCode(L"KillTask", dwErrorCode);
+      ReportErrorCode(L"killTask", dwErrorCode);
       goto TaskExit;
     }
   } else if (command == TaskProcessList)
   {
     // Check if task jobobject
     //
-    dwErrorCode = PrintTaskProcessList(argv[2]);
+    dwErrorCode = printTaskProcessList(argv[2]);
     if (dwErrorCode != ERROR_SUCCESS)
     {
       ReportErrorCode(L"printTaskProcessList", dwErrorCode);

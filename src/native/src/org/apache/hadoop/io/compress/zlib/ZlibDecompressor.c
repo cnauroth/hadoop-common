@@ -84,7 +84,7 @@ extern HANDLE LoadZlibTryHadoopNativeDir();
 
 JNIEXPORT void JNICALL
 Java_org_apache_hadoop_io_compress_zlib_ZlibDecompressor_initIDs(
-	JNIEnv *env, jclass class
+JNIEnv *env, jclass class
 	) {
 	// Load libz.so
 #ifdef UNIX
@@ -227,7 +227,7 @@ Java_org_apache_hadoop_io_compress_zlib_ZlibDecompressor_inflateBytesDirect(
     Bytef *compressed_bytes = NULL;
     Bytef *uncompressed_bytes = NULL;
     int rv = 0;
-    int no_decompressed_bytes = 0;	
+    int no_decompressed_bytes = 0;
 	// Get members of ZlibDecompressor
     z_stream *stream = ZSTREAM(
     						(*env)->GetLongField(env, this, 

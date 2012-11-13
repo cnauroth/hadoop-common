@@ -106,6 +106,9 @@ public class NativeAzureFileSystem extends FileSystem {
           result = in.read();
           if (result != -1) {
             pos++;
+            if (statistics != null) {
+              statistics.incrementBytesRead(1);
+            }
           }
 
           // The read completed successfully, break to return with the
@@ -171,6 +174,9 @@ public class NativeAzureFileSystem extends FileSystem {
           result = in.read(b, off, len);
           if (result > 0) {
             pos += result;
+          }
+          if (statistics != null && result > 0) {
+            statistics.incrementBytesRead(result);
           }
 
           // The read completed successfully, break to return with the
@@ -800,7 +806,7 @@ public class NativeAzureFileSystem extends FileSystem {
     Path absolutePath = makeAbsolute(f);
     String key = pathToKey(absolutePath);
     if (status.isDir()) {
-      FileStatus[] contents = listStatus(f, true);
+      FileStatus[] contents = listStatus(f, false);
       if (!recursive && contents.length > 0) {
         throw new IOException("Directory " + f.toString() + " is not empty.");
       }
@@ -889,36 +895,67 @@ public class NativeAzureFileSystem extends FileSystem {
     Set<FileStatus> status = new TreeSet<FileStatus>();
     FileMetadata meta = store.retrieveMetadata(key);
 
-    if (meta != null) {
-      if (!meta.isDir()) {
+    if (meta != null && !meta.isDir()) {
         if (LOG.isDebugEnabled())
           LOG.debug("Found it as a file.");
         return new FileStatus[] { newFile(meta, absolutePath) };
       }
-      PartialListing listing = store.list(key, AZURE_LIST_ALL);
-      for (FileMetadata fileMetadata : listing.getFiles()) {
-        String currentKey = fileMetadata.getKey();
-        if (!recursive && currentKey.indexOf('/', key.length() + 1) > 0) {
-          // It's within an inner directory, skip.
-          continue;
-        }
-        if (currentKey.endsWith(FOLDER_SUFFIX)) {
-          String rawKey = currentKey.substring(0, currentKey.length() -
-              FOLDER_SUFFIX.length() - 1);
-          status.add(newDirectory(fileMetadata, keyToPath(rawKey)));
-        } else {
-          status.add(newFile(fileMetadata, keyToPath(currentKey)));
+
+    PartialListing listing = store.list(key, AZURE_LIST_ALL);
+
+    // If we're supposed to list everything under a folder /a, there are two
+    // types of directories that we need to account for:
+    // 1. What I call representedFolders: directories that were created
+    //    explicitly using mkdirs(), and have a corresponding folder_suffix
+    //    key in there, e.g. someone called mkdirs('/a/b') so we find
+    //    the key /a/b_$FOLDER$
+    // 2. What I call unrepresentedFolders: directories that are implicitly
+    //    there because a file/directory was created under it, e.g. someone
+    //    called mkdirs(/a/c/d) so we only find the key /a/c/d_$FOLDER$,
+    //    implying that there is an /a/c folder.
+    Set<String> unrepresentedFolders = new TreeSet<String>();
+    Set<String> representedFolders = new TreeSet<String>();
+
+    for (FileMetadata fileMetadata : listing.getFiles()) {
+      String currentKey = fileMetadata.getKey();
+      int nextIndexOfSlash = currentKey.indexOf('/', key.length() + 1);
+      if (nextIndexOfSlash > 0) {
+        String possibleUnrepresentedFolder = currentKey.substring(0, nextIndexOfSlash);
+        if (!representedFolders.contains(possibleUnrepresentedFolder)) {
+          unrepresentedFolders.add(possibleUnrepresentedFolder);
         }
       }
+      if (!recursive && nextIndexOfSlash > 0) {
+        // It's within an inner directory, skip.
+        continue;
+      }
+      if (currentKey.endsWith(FOLDER_SUFFIX)) {
+        String rawKey = currentKey.substring(0, currentKey.length() -
+            FOLDER_SUFFIX.length());
+        unrepresentedFolders.remove(rawKey);
+        representedFolders.add(rawKey);
+        status.add(newDirectory(fileMetadata, keyToPath(rawKey)));
+      } else {
+        status.add(newFile(fileMetadata, keyToPath(currentKey)));
+      }
+    }
+    for (String folder : unrepresentedFolders) {
+      status.add(newDirectory(null, keyToPath(folder)));
+    }
+    if (!status.isEmpty()) {
       if (LOG.isDebugEnabled())
         LOG.debug("Found it as a directory with " + status.size()
             + " files in it.");
+      return status.toArray(new FileStatus[0]);
+    } else if (meta != null && meta.isDir()) {
+      if (LOG.isDebugEnabled())
+        LOG.debug("Found it as an empty directory.");
+      return new FileStatus[0];
     } else {
       if (LOG.isDebugEnabled())
         LOG.debug("Didn't find any metadata for it.");
+      return null;
     }
-
-    return status.toArray(new FileStatus[0]);
   }
 
   static class PermissiveFileStatus extends FileStatus {
