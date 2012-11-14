@@ -1924,9 +1924,11 @@
       </fileset>
     </copy>
 
-    <subant target="task-controller" unless="windows">
+    <!-- Removing this as it does not build on Windows
+    <subant target="task-controller">
       <fileset dir="." includes="build.xml"/>
     </subant>
+    -->
 
     <subant target="jsvc">
       <fileset dir="." includes="build.xml"/>
