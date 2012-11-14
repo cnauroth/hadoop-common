@@ -1693,11 +1693,9 @@
       <fileset dir="${basedir}/.eclipse.templates"/>
     </copy>
 
-    <!--Removing this as it does not build on Windows
     <subant target="task-controller">
       <fileset dir="." includes="build.xml"/>
     </subant>
-    -->
 
     <subant target="jsvc">
       <fileset dir="." includes="build.xml"/>
@@ -1926,11 +1924,9 @@
       </fileset>
     </copy>
 
-    <!-- Removing this as it does not build on Windows
     <subant target="task-controller">
       <fileset dir="." includes="build.xml"/>
     </subant>
-    -->
 
     <subant target="jsvc">
       <fileset dir="." includes="build.xml"/>
@@ -2984,7 +2980,7 @@
   </target>
 
   <!-- taskcontroller targets -->
-  <target name="task-controller" depends="init">
+  <target name="task-controller" depends="init" unless="windows" >
     <exec executable="autoreconf" 
           dir="${c++.task-controller.src}"
           searchpath="yes" failonerror="yes">

@@ -157,6 +157,8 @@ Monarch - unreleased
 
     HADOOP-185. Azure file system code formatting, fix warnings and some cleanup.
     (suresh)
+  
+    HADOOP-9040. Fix task-controller to build unless windows ( gkesavan )
 
   INITIAL MS-PATCH
     HADOOP-8457 Address file ownership issue for users in Administrators 
