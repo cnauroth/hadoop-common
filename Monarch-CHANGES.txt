@@ -1,6 +1,9 @@
 Monarch - unreleased
 
   IMPROVEMENTS
+    HADOOP-9027 (HADOOP-158) Build fails on Win8 due to packageNativeHadoop.sh
+    (Ivan Mitic)
+
     HADOOP-8694 (HADOOP-135) Remove file copying logic in symlink code
     (Ivan Mitic)
 
