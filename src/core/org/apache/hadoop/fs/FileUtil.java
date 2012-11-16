@@ -506,21 +506,64 @@ public class FileUtil {
    * @param untarDir The untar directory where to untar the tar file.
    * @throws IOException
    */
-  public static void unTar(File archive, File untarDir) throws IOException {
+  public static void unTar(File inFile, File untarDir) throws IOException {
     if (!untarDir.mkdirs()) {
       if (!untarDir.isDirectory()) {
         throw new IOException("Mkdirs failed to create " + untarDir);
       }
     }
 
-    boolean gzipped = archive.toString().endsWith("gz");
+    boolean gzipped = inFile.toString().endsWith("gz");
+    if(Shell.WINDOWS) {
+      // Tar is not native to Windows. Use simple Java based implementation for 
+      // tests and simple tar archives
+      unTarUsingJava(inFile, untarDir, gzipped);
+    }
+    else {
+      // spawn tar utility to untar archive for full fledged unix behavior such 
+      // as resolving symlinks in tar archives
+      unTarUsingTar(inFile, untarDir, gzipped);
+    }
+  }
+  
+  private static void unTarUsingTar(File inFile, File untarDir,
+      boolean gzipped) throws IOException {
+    StringBuffer untarCommand = new StringBuffer();
+    if (gzipped) {
+      untarCommand.append(" gzip -dc '");
+      untarCommand.append(FileUtil.makeShellPath(inFile));
+      untarCommand.append("' | (");
+    } 
+    untarCommand.append("cd '");
+    untarCommand.append(FileUtil.makeShellPath(untarDir)); 
+    untarCommand.append("' ; ");
 
+    // Force the archive path as local on Windows as it can have a colon
+    untarCommand.append("tar -xf ");
+
+    if (gzipped) {
+      untarCommand.append(" -)");
+    } else {
+      untarCommand.append(FileUtil.makeShellPath(inFile));
+    }
+    String[] shellCmd = { "bash", "-c", untarCommand.toString() };
+    ShellCommandExecutor shexec = new ShellCommandExecutor(shellCmd);
+    shexec.execute();
+    int exitcode = shexec.getExitCode();
+    if (exitcode != 0) {
+      throw new IOException("Error untarring file " + inFile + 
+                  ". Tar process exited with exit code " + exitcode);
+    }
+  }
+  
+  private static void unTarUsingJava(File inFile, File untarDir,
+      boolean gzipped) throws IOException {
     InputStream inputStream = null;
     if (gzipped) {
       inputStream = new BufferedInputStream(new GZIPInputStream(
-          new FileInputStream(archive)));
+          new FileInputStream(inFile)));
     } else {
-      inputStream = new BufferedInputStream(new FileInputStream(archive));
+      inputStream = new BufferedInputStream(new FileInputStream(inFile));
     }
 
     TarArchiveInputStream tis = new TarArchiveInputStream(inputStream);
@@ -530,7 +573,7 @@ public class FileUtil {
       entry = tis.getNextTarEntry();
     }
   }
-
+  
   private static void unpackEntries(TarArchiveInputStream tis,
       TarArchiveEntry entry, File outputDir) throws IOException {
     if (entry.isDirectory()) {
@@ -567,7 +610,7 @@ public class FileUtil {
     outputStream.flush();
     outputStream.close();
   }
-
+  
   /**
    * Create a soft link between a src and destination
    * only on a local disk. HDFS does not support this.

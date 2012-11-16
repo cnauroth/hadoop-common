@@ -185,3 +185,6 @@ BUG FIXES
 
     HADOOP-9026. Hadoop.cmd fails to initialize if user's %path% variable has
     parenthesis. (Ivan Mitic via suresh)
+
+    HADOOP-8847. Change untar to use Java API on Windows instead of spawning
+    tar process. (Bikas Saha via suresh)
