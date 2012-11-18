@@ -504,9 +504,8 @@ public class RawLocalFileSystem extends FileSystem {
       try {
         String output = FileUtil.execCommand(new File(getPath().toUri()), 
             Shell.getGetPermissionCommand());
-        StringTokenizer t = Shell.WINDOWS
-            ? new StringTokenizer(output, "|")
-            : new StringTokenizer(output);
+        StringTokenizer t =
+            new StringTokenizer(output, Shell.TOKEN_SEPARATOR_REGEX);
         //expected format
         //-rw-------    1 username groupname ...
         String permission = t.nextToken();

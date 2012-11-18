@@ -26,8 +26,10 @@
 //	TRUE: on success
 //
 // Notes:
+//   This function could fail on first pass when we fail to find groups for
+//   domain account; so we do not report Windows API errors in this function.
 //   If formatOutput is true, pipe character is used as separator for groups
-//   otherwise, space
+//   otherwise, space.
 //
 static BOOL PrintGroups(
   LPLOCALGROUP_USERS_INFO_0 groups,
