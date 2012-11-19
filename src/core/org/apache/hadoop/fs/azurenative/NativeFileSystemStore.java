@@ -25,8 +25,8 @@ import java.io.IOException;
 import java.net.URI;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.azure.AzureException;
+import org.apache.hadoop.fs.permission.FsPermission;
 
 /**
  * <p>
@@ -45,21 +45,21 @@ interface NativeFileSystemStore {
 
   DataInputStream retrieve(String key, long byteRangeStart) throws IOException;
 
-  DataOutputStream pushout(String key, FsPermission permission)
-      throws AzureException;
+  DataOutputStream pushout(String key, FsPermission permission) throws AzureException;
 
-  PartialListing list(String prefix, final int maxListingCount)
+  PartialListing list(String prefix, final int maxListingCount, final int maxListingDepth)
       throws IOException;
 
-  PartialListing list(String prefix, final int maxListingCount,
+  PartialListing list(String prefix, final int maxListingCount, final int maxListingDepth,
       String priorLastKey) throws IOException;
 
-  PartialListing listAll(String prefix, final int maxListingCount,
+  PartialListing listAll(String prefix, final int maxListingCount, final int maxListingDepth,
       String priorLastKey) throws IOException;
 
   void delete(String key) throws IOException;
 
   void rename(String srcKey, String dstKey) throws IOException;
+  void rename(String encodedKey, String key, boolean needsNormalization) throws IOException;
 
   /**
    * Delete all keys with the given prefix. Used for testing.
@@ -74,4 +74,8 @@ interface NativeFileSystemStore {
    * @throws IOException
    */
   void dump() throws IOException;
+
+
+
+
 }

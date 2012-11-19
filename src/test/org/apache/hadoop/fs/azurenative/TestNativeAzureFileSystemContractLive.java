@@ -3,7 +3,7 @@ package org.apache.hadoop.fs.azurenative;
 import org.apache.hadoop.fs.FileSystemContractBaseTest;
 
 public class TestNativeAzureFileSystemContractLive extends
-    FileSystemContractBaseTest {
+FileSystemContractBaseTest {
   private AzureBlobStorageTestAccount testAccount;
 
   @Override
@@ -28,5 +28,10 @@ public class TestNativeAzureFileSystemContractLive extends
     if (testAccount != null) {
       super.runTest();
     }
+  }
+
+  @Override
+  protected String getPrefixUri() {
+    return testAccount.getUriPrefix();
   }
 }

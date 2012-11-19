@@ -17,6 +17,10 @@ import org.apache.hadoop.security.*;
  * Tests the Native Azure file system (ASV) against an actual blob store if provided in the environment.
  */
 public class TestNativeAzureFileSystemLive extends TestCase {
+
+  private static final String CONNECTION_STRING_PROPERTY_NAME = "fs.azure.storageConnectionString";
+
+  private static String prefixUri;
   private FileSystem fs;
   private AzureBlobStorageTestAccount testAccount;
 
@@ -26,6 +30,8 @@ public class TestNativeAzureFileSystemLive extends TestCase {
     if (testAccount != null) {
       fs = testAccount.getFileSystem();
     }
+
+    prefixUri = testAccount.getUriPrefix();
   }
 
   @Override
@@ -37,6 +43,7 @@ public class TestNativeAzureFileSystemLive extends TestCase {
     }
   }
 
+
   @Override
   protected void runTest() throws Throwable {
     if (testAccount != null) {
@@ -47,7 +54,7 @@ public class TestNativeAzureFileSystemLive extends TestCase {
   public void testStoreRetrieveFile() throws Exception {
     if (fs == null)
       return;
-    Path testFile = new Path("unit-test-file");
+    Path testFile = new Path(prefixUri + "unit-test-file");
     writeString(testFile, "Testing");
     assertTrue(fs.exists(testFile));
     assertEquals("Testing", readString(testFile));
@@ -55,7 +62,7 @@ public class TestNativeAzureFileSystemLive extends TestCase {
   }
 
   public void testStoreDeleteFolder() throws Exception {
-    Path testFolder = new Path("storeDeleteFolder");
+    Path testFolder = new Path(prefixUri + "storeDeleteFolder");
     assertFalse(fs.exists(testFolder));
     assertTrue(fs.mkdirs(testFolder));
     assertTrue(fs.exists(testFolder));
@@ -68,13 +75,13 @@ public class TestNativeAzureFileSystemLive extends TestCase {
   }
 
   public void testFileOwnership() throws Exception {
-    Path testFile = new Path("ownershipTestFile");
+    Path testFile = new Path(prefixUri + "ownershipTestFile");
     writeString(testFile, "Testing");
     testOwnership(testFile);
   }
 
   public void testFolderOwnership() throws Exception {
-    Path testFolder = new Path("ownershipTestFolder");
+    Path testFolder = new Path(prefixUri + "ownershipTestFolder");
     fs.mkdirs(testFolder);
     testOwnership(testFolder);
   }
@@ -87,7 +94,7 @@ public class TestNativeAzureFileSystemLive extends TestCase {
   }
 
   public void testFilePermissions() throws Exception {
-    Path testFile = new Path("permissionTestFile");
+    Path testFile = new Path(prefixUri + "permissionTestFile");
     FsPermission permission = FsPermission.createImmutable((short) 644);
     createEmptyFile(testFile, permission);
     FileStatus ret = fs.getFileStatus(testFile);
@@ -96,7 +103,7 @@ public class TestNativeAzureFileSystemLive extends TestCase {
   }
 
   public void testFolderPermissions() throws Exception {
-    Path testFolder = new Path("permissionTestFolder");
+    Path testFolder = new Path(prefixUri + "permissionTestFolder");
     FsPermission permission = FsPermission.createImmutable((short) 644);
     fs.mkdirs(testFolder, permission);
     FileStatus ret = fs.getFileStatus(testFolder);
@@ -105,16 +112,16 @@ public class TestNativeAzureFileSystemLive extends TestCase {
   }
 
   public void testDeepFileCreation() throws Exception {
-    Path testFile = new Path("deep/file/creation/test");
+    Path testFile = new Path(prefixUri + "deep/file/creation/test");
     FsPermission permission = FsPermission.createImmutable((short) 644);
     createEmptyFile(testFile, permission);
     assertTrue(fs.exists(testFile));
-    assertTrue(fs.exists(new Path("deep")));
-    assertTrue(fs.exists(new Path("deep/file/creation")));
-    FileStatus ret = fs.getFileStatus(new Path("deep/file"));
+    assertTrue(fs.exists(new Path(prefixUri + "deep")));
+    assertTrue(fs.exists(new Path(prefixUri + "deep/file/creation")));
+    FileStatus ret = fs.getFileStatus(new Path(prefixUri + "deep/file"));
     assertTrue(ret.isDir());
     assertEquals(permission, ret.getPermission());
-    assertTrue(fs.delete(new Path("deep"), true));
+    assertTrue(fs.delete(new Path(prefixUri + "deep"), true));
     assertFalse(fs.exists(testFile));
 
     // An alternative test scenario would've been to delete the file first,
@@ -131,26 +138,26 @@ public class TestNativeAzureFileSystemLive extends TestCase {
       System.out.printf("Rename variation: %s\n", variation);
       Path originalFile;
       switch (variation) {
-      case NormalFileName:
-        originalFile = new Path("fileToRename");
-        break;
-      case SourceInAFolder:
-        originalFile = new Path("file/to/rename");
-        break;
-      case SourceWithSpace:
-        originalFile = new Path("file to rename");
-        break;
-      case SourceWithPlusAndPercent:
-        originalFile = new Path("file+to%rename");
-        break;
-      default:
-        throw new Exception("Unknown variation");
+        case NormalFileName:
+          originalFile = new Path(prefixUri + "fileToRename");
+          break;
+        case SourceInAFolder:
+          originalFile = new Path(prefixUri + "file/to/rename");
+          break;
+        case SourceWithSpace:
+          originalFile = new Path(prefixUri + "file to rename");
+          break;
+        case SourceWithPlusAndPercent:
+          originalFile = new Path(prefixUri + "file+to%rename");
+          break;
+        default:
+          throw new Exception("Unknown variation");
       }
-      Path destinationFile = new Path("file/resting/destination");
+      Path destinationFile = new Path(prefixUri + "file/resting/destination");
       assertTrue(fs.createNewFile(originalFile));
       assertTrue(fs.exists(originalFile));
       assertFalse(fs.rename(originalFile, destinationFile)); // Parent directory
-                                                             // doesn't exist
+      // doesn't exist
       assertTrue(fs.mkdirs(destinationFile.getParent()));
       assertTrue(fs.rename(originalFile, destinationFile));
       assertTrue(fs.exists(destinationFile));
@@ -165,13 +172,13 @@ public class TestNativeAzureFileSystemLive extends TestCase {
 
   public void testRenameFolder() throws Exception {
     for (RenameFolderVariation variation : RenameFolderVariation.values()) {
-      Path originalFolder = new Path("folderToRename");
+      Path originalFolder = new Path(prefixUri + "folderToRename");
       if (variation != RenameFolderVariation.CreateJustInnerFile)
         assertTrue(fs.mkdirs(originalFolder));
       Path innerFile = new Path(originalFolder, "innerFile");
       if (variation != RenameFolderVariation.CreateJustFolder)
         assertTrue(fs.createNewFile(innerFile));
-      Path destination = new Path("renamedFolder");
+      Path destination = new Path(prefixUri + "renamedFolder");
       assertTrue(fs.rename(originalFolder, destination));
       assertTrue(fs.exists(destination));
       if (variation != RenameFolderVariation.CreateJustFolder)
@@ -189,7 +196,7 @@ public class TestNativeAzureFileSystemLive extends TestCase {
     localFs.delete(localFilePath, true);
     try {
       writeString(localFs, localFilePath, "Testing");
-      Path dstPath = new Path("copiedFromLocal");
+      Path dstPath = new Path(prefixUri + "copiedFromLocal");
       assertTrue(FileUtil.copy(localFs, localFilePath, fs, dstPath, false,
           fs.getConf()));
       assertTrue(fs.exists(dstPath));
@@ -201,7 +208,7 @@ public class TestNativeAzureFileSystemLive extends TestCase {
   }
 
   public void testListDirectory() throws Exception {
-    Path rootFolder = new Path("testingList");
+    Path rootFolder = new Path(prefixUri+"testingList");
     assertTrue(fs.mkdirs(rootFolder));
     FileStatus[] listed = fs.listStatus(rootFolder);
     assertEquals(0, listed.length);
@@ -226,7 +233,7 @@ public class TestNativeAzureFileSystemLive extends TestCase {
     FileSystem.Statistics stats = FileSystem.getStatistics("asv", NativeAzureFileSystem.class);
     assertEquals(0, stats.getBytesRead());
     assertEquals(0, stats.getBytesWritten());
-    Path newFile = new Path("testStats");
+    Path newFile = new Path(prefixUri + "testStats");
     writeString(newFile, "12345678");
     assertEquals(8, stats.getBytesWritten());
     assertEquals(0, stats.getBytesRead());
