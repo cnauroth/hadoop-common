@@ -165,6 +165,9 @@ Monarch - unreleased
 
     HADOOP-9071. configure ivy log levels for resolve/retrieve ( gkesavan )
 
+    (HADOOP-239). commons-daemon tar gz download fails intermittently failing
+    the build. ( gkesavan )
+
   INITIAL MS-PATCH
     HADOOP-8457 Address file ownership issue for users in Administrators 
     group on Windows. (Ivan Mitic)

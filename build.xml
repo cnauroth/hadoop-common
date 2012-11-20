@@ -3016,7 +3016,7 @@
 
   <target name="jsvc" >
     <mkdir dir="${jsvc.build.dir}" />
-    <get src="${jsvc.location}" dest="${jsvc.build.dir}/${jsvc.dest.name}"/>
+    <get src="${jsvc.location}" dest="${jsvc.build.dir}/${jsvc.dest.name}" usetimestamp="true" maxtime="120"/>
     <untar compression="gzip" src="${jsvc.build.dir}/${jsvc.dest.name}" dest="${jsvc.build.dir}" />
 
     <copy file="${jsvc.build.dir}/jsvc" toFile="${jsvc.install.dir}/jsvc.${os.arch}" verbose="true" />
