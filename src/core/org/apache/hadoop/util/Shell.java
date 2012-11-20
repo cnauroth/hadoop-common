@@ -116,6 +116,21 @@ abstract public class Shell {
     return exeFile.getCanonicalPath();
   }
 
+  /** Set to true on Windows platforms */
+  public static final boolean WINDOWS
+                = System.getProperty("os.name").startsWith("Windows");
+  
+  public static final boolean LINUX
+                = System.getProperty("os.name").startsWith("Linux");
+
+  /** Token separator regex used to parse Shell tool outputs */
+  public static final String TOKEN_SEPARATOR_REGEX
+                = WINDOWS ? "[|\n\r]" : "[ \t\n\r\f]";
+
+  /* Set flag for aiding Windows porting temporarily for branch-1-win*/
+  // TODO - this needs to be fixed
+  public static final boolean DISABLEWINDOWS_TEMPORARILY = WINDOWS; 
+
   /** a Windows utility to emulate Unix commands */
   public static final String WINUTILS = getWinUtilsPath();
 
@@ -280,22 +295,7 @@ abstract public class Shell {
     
     return getUlimitMemoryCommand(memoryLimit);
   }
-  
-  /** Set to true on Windows platforms */
-  public static final boolean WINDOWS
-                = System.getProperty("os.name").startsWith("Windows");
-  
-  public static final boolean LINUX
-                = System.getProperty("os.name").startsWith("Linux");
 
-  /** Token separator regex used to parse Shell tool outputs */
-  public static final String TOKEN_SEPARATOR_REGEX
-                = WINDOWS ? "[|\n\r]" : "[ \t\n\r\f]";
-
-  /* Set flag for aiding Windows porting temporarily for branch-1-win*/
-  // TODO - this needs to be fixed
-  public static final boolean DISABLEWINDOWS_TEMPORARILY = WINDOWS; 
-  
   private long    interval;   // refresh interval in msec
   private long    lastTime;   // last time the command was performed
   private Map<String, String> environment; // env for the command execution
