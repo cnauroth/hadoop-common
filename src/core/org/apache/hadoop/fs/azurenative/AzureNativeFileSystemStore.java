@@ -20,43 +20,20 @@ package org.apache.hadoop.fs.azurenative;
 
 import static org.apache.hadoop.fs.azurenative.NativeAzureFileSystem.PATH_DELIMITER;
 
-import java.io.BufferedInputStream;
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map.Entry;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import java.util.*;
+
+import org.apache.commons.logging.*;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.azure.AzureException;
 import org.apache.hadoop.fs.permission.FsPermission;
 
-import com.microsoft.windowsazure.services.blob.client.BlobListingDetails;
-import com.microsoft.windowsazure.services.blob.client.BlobOutputStream;
-import com.microsoft.windowsazure.services.blob.client.BlobProperties;
-import com.microsoft.windowsazure.services.blob.client.BlobRequestOptions;
-import com.microsoft.windowsazure.services.blob.client.CloudBlob;
-import com.microsoft.windowsazure.services.blob.client.CloudBlobClient;
-import com.microsoft.windowsazure.services.blob.client.CloudBlobContainer;
-import com.microsoft.windowsazure.services.blob.client.CloudBlobDirectory;
-import com.microsoft.windowsazure.services.blob.client.CloudBlockBlob;
-import com.microsoft.windowsazure.services.blob.client.ListBlobItem;
-import com.microsoft.windowsazure.services.core.storage.CloudStorageAccount;
-import com.microsoft.windowsazure.services.core.storage.OperationContext;
-import com.microsoft.windowsazure.services.core.storage.StorageCredentialsSharedAccessSignature;
-import com.microsoft.windowsazure.services.core.storage.StorageException;
-import com.microsoft.windowsazure.services.core.storage.utils.PathUtility;
-import com.microsoft.windowsazure.services.core.storage.utils.UriQueryBuilder;
-import com.microsoft.windowsazure.services.core.storage.utils.Utility;
+import com.microsoft.windowsazure.services.blob.client.*;
+import com.microsoft.windowsazure.services.core.storage.*;
+import com.microsoft.windowsazure.services.core.storage.utils.*;
 import com.sun.servicetag.UnauthorizedAccessException;
 
 class AzureNativeFileSystemStore implements NativeFileSystemStore {
@@ -113,6 +90,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private int concurrentReads = DEFAULT_CONCURRENT_READS;
   private int concurrentWrites = DEFAULT_CONCURRENT_WRITES;
   private boolean isAnonymousCredentials = false;
+  private AzureFileSystemInstrumentation instrumentation;
 
   /**
    * Method the URI and configuration object for necessary to create a storage
@@ -121,12 +99,18 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * 
    * @param uri - URI for target storage blob.
    * @param conf- reference to configuration object.
+   * @param instrumentation - the metrics source that will keep track of operations here.
    * 
    * @throws IllegalArgumentException if URI or job object is null, or invalid scheme.
    */
   @Override
-  public void initialize(URI uri, Configuration conf) throws IllegalArgumentException,
-  AzureException, IOException  {
+  public void initialize(URI uri, Configuration conf, AzureFileSystemInstrumentation instrumentation)
+      throws IllegalArgumentException, AzureException, IOException  {
+    
+    if (null == instrumentation) {
+      throw new IllegalArgumentException("Null instrumentation");
+    }
+    this.instrumentation = instrumentation;
 
     // Check that URI exists.
     //
@@ -670,7 +654,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     final HashMap<String, String[]> queryParameters = PathUtility
         .parseQueryString(fullUri.getRawQuery());
 
-    for (final Entry<String, String[]> mapEntry : queryParameters
+    for (final Map.Entry<String, String[]> mapEntry : queryParameters
         .entrySet()) {
       final String lowKey = mapEntry.getKey().toLowerCase(
           Utility.LOCALE_US);
@@ -839,7 +823,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
       CloudBlockBlob blob = getBlobReference(normKey);
       storePermission(blob, permission);
-      blob.upload(new ByteArrayInputStream(new byte[0]), 0);
+      blob.upload(new ByteArrayInputStream(new byte[0]), 0, null, null, GetInstrumentedContext());
     } catch (Exception e) {
       // Caught exception while attempting upload. Re-throw as an Azure
       // storage
@@ -903,10 +887,14 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private Iterable<ListBlobItem> listRootBlobs() throws StorageException,
   URISyntaxException {
     if (useAbsolutePath()) {
-      return rootDirectory.listBlobs();
+      return rootDirectory.listBlobs(
+          null, false, EnumSet.noneOf(BlobListingDetails.class), null,
+          GetInstrumentedContext());
     } else {
       assert null != container : "Expecting a non-null container for Azure store object.";
-      return container.listBlobs();
+      return container.listBlobs(
+          null, false, EnumSet.noneOf(BlobListingDetails.class), null,
+          GetInstrumentedContext());
     }
   }
 
@@ -929,10 +917,14 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Normalize the prefix for long form of the URI.
       //
       String normPrefix = normalizeKey(aPrefix);
-      return rootDirectory.listBlobs(normPrefix);
+      return rootDirectory.listBlobs(normPrefix,
+          false, EnumSet.noneOf(BlobListingDetails.class), null,
+          GetInstrumentedContext());
     } else {
       assert null != container : "Expecting a non-null container for Azure store object.";
-      return container.listBlobs(aPrefix);
+      return container.listBlobs(aPrefix,
+          false, EnumSet.noneOf(BlobListingDetails.class), null,
+          GetInstrumentedContext());
     }
   }
 
@@ -1133,6 +1125,17 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     //
     return keyAsv;
   }
+  
+  private OperationContext GetInstrumentedContext() {
+    OperationContext ret = new OperationContext();
+    ret.getResponseReceivedEventHandler().addListener(new StorageEvent<ResponseReceivedEvent>() {
+      @Override
+      public void eventOccurred(ResponseReceivedEvent eventArg) {
+        instrumentation.webRequest();
+      }
+    });
+    return ret;
+  }
 
   @Override
   public FileMetadata retrieveMetadata(String key) throws IOException {
@@ -1195,7 +1198,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
               true,
               EnumSet.of(BlobListingDetails.METADATA , BlobListingDetails.SNAPSHOTS),
               null,
-              null);
+              GetInstrumentedContext());
 
       // Check if the directory/container has the blob items.
       //

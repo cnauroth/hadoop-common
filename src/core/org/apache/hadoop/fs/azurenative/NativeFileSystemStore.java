@@ -35,7 +35,7 @@ import org.apache.hadoop.fs.permission.FsPermission;
  */
 interface NativeFileSystemStore {
 
-  void initialize(URI uri, Configuration conf) throws IOException;
+  void initialize(URI uri, Configuration conf, AzureFileSystemInstrumentation instrumentation) throws IOException;
 
   void storeEmptyFile(String key, FsPermission permission) throws IOException;
 

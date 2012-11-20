@@ -47,6 +47,7 @@ import org.apache.hadoop.fs.azure.AzureException;
 import org.apache.hadoop.io.retry.RetryPolicies;
 import org.apache.hadoop.io.retry.RetryPolicy;
 import org.apache.hadoop.io.retry.RetryProxy;
+import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.util.Progressable;
 
 /**
@@ -645,6 +646,7 @@ public class NativeAzureFileSystem extends FileSystem {
   private NativeFileSystemStore store;
   private Path workingDir;
   private long blockSize = MAX_AZURE_BLOCK_SIZE;
+  private AzureFileSystemInstrumentation instrumentation;
 
   public NativeAzureFileSystem() {
     // set store in initialize()
@@ -661,7 +663,9 @@ public class NativeAzureFileSystem extends FileSystem {
     if (store == null) {
       store = createDefaultStore(conf);
     }
-    store.initialize(uri, conf);
+    instrumentation = DefaultMetricsSystem.INSTANCE.register("AzureFileSystemMetrics",
+        "Azure Storage Volume File System metrics",  new AzureFileSystemInstrumentation());
+    store.initialize(uri, conf, instrumentation);
     setConf(conf);
     this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
     this.workingDir = new Path("/user", 
@@ -746,6 +750,16 @@ public class NativeAzureFileSystem extends FileSystem {
       return path;
     }
     return new Path(workingDir, path);
+  }
+  
+  /**
+   * Gets the metrics source for this file system.
+   * This is mainly here for unit testing purposes.
+   *
+   * @return the metrics source.
+   */
+  public AzureFileSystemInstrumentation getInstrumentation() {
+    return instrumentation;
   }
 
   /** This optional operation is not yet supported. */
