@@ -29,9 +29,9 @@ public class TestNativeAzureFileSystemLive extends TestCase {
     testAccount = AzureBlobStorageTestAccount.create();
     if (testAccount != null) {
       fs = testAccount.getFileSystem();
-    }
 
-    prefixUri = testAccount.getUriPrefix();
+      prefixUri = testAccount.getUriPrefix();
+    }
   }
 
   @Override
