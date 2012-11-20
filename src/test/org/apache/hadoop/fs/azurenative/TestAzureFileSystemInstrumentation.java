@@ -39,10 +39,17 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
   }
   
   public void testWebRequestsOnMkdirList() throws Exception {
+    // The number of requests should start at 1
+    // from when we check the existence of the container
+    assertCounter("asv_web_requests", 1L, getMyMetrics());
+    
+    // Create a directory
     assertTrue(fs.mkdirs(new Path(prefixUri + "a")));
-    assertEquals(1, fs.listStatus(new Path(prefixUri + "/")).length);
-    MetricsRecordBuilder metrics = getMyMetrics();
-    assertCounter("asv_web_requests", 2L, metrics);
+    assertCounter("asv_web_requests", 2L, getMyMetrics());
+
+    // List the root contents
+    assertEquals(1, fs.listStatus(new Path(prefixUri + "/")).length);    
+    assertCounter("asv_web_requests", 3L, getMyMetrics());
   }
 
   private MetricsRecordBuilder getMyMetrics() {

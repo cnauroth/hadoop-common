@@ -330,13 +330,13 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // Check for the existence of the Azure container. If it does not exist,
     // create one.
     //
-    if (!container.exists()) {
-      container.create();
+    if (!container.exists(null, getInstrumentedContext())) {
+      container.create(null, getInstrumentedContext());
     }
 
     // Assertion: The container should exist.
     //
-    assert container.exists() : 
+    assert container.exists(null, getInstrumentedContext()) : 
       "Container " + container + " expected but does not exist.";
   }
 
@@ -561,7 +561,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Create the output stream for the Azure blob.
       //
       BlobOutputStream outputStream = blob.openOutputStream(null,
-          options, null);
+          options, getInstrumentedContext());
 
       // Return to caller with DataOutput stream.
       //
@@ -823,7 +823,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
       CloudBlockBlob blob = getBlobReference(normKey);
       storePermission(blob, permission);
-      blob.upload(new ByteArrayInputStream(new byte[0]), 0, null, null, GetInstrumentedContext());
+      blob.upload(new ByteArrayInputStream(new byte[0]), 0, null, null, getInstrumentedContext());
     } catch (Exception e) {
       // Caught exception while attempting upload. Re-throw as an Azure
       // storage
@@ -889,12 +889,12 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     if (useAbsolutePath()) {
       return rootDirectory.listBlobs(
           null, false, EnumSet.noneOf(BlobListingDetails.class), null,
-          GetInstrumentedContext());
+          getInstrumentedContext());
     } else {
       assert null != container : "Expecting a non-null container for Azure store object.";
       return container.listBlobs(
           null, false, EnumSet.noneOf(BlobListingDetails.class), null,
-          GetInstrumentedContext());
+          getInstrumentedContext());
     }
   }
 
@@ -919,12 +919,12 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       String normPrefix = normalizeKey(aPrefix);
       return rootDirectory.listBlobs(normPrefix,
           false, EnumSet.noneOf(BlobListingDetails.class), null,
-          GetInstrumentedContext());
+          getInstrumentedContext());
     } else {
       assert null != container : "Expecting a non-null container for Azure store object.";
       return container.listBlobs(aPrefix,
           false, EnumSet.noneOf(BlobListingDetails.class), null,
-          GetInstrumentedContext());
+          getInstrumentedContext());
     }
   }
 
@@ -1126,7 +1126,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     return keyAsv;
   }
   
-  private OperationContext GetInstrumentedContext() {
+  private OperationContext getInstrumentedContext() {
     OperationContext ret = new OperationContext();
     ret.getResponseReceivedEventHandler().addListener(new StorageEvent<ResponseReceivedEvent>() {
       @Override
@@ -1170,14 +1170,14 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Download attributes and return file metadata only if the blob
       // exists.
       //
-      if (null != blob && blob.exists()) {
+      if (null != blob && blob.exists(null, null, getInstrumentedContext())) {
 
         LOG.debug("Found it as a file.");
 
         // The blob exists, so capture the metadata from the blob
         // properties.
         //
-        blob.downloadAttributes();
+        blob.downloadAttributes(null, null, getInstrumentedContext());
         BlobProperties properties = blob.getProperties();
 
         return new FileMetadata(
@@ -1198,7 +1198,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
               true,
               EnumSet.of(BlobListingDetails.METADATA , BlobListingDetails.SNAPSHOTS),
               null,
-              GetInstrumentedContext());
+              getInstrumentedContext());
 
       // Check if the directory/container has the blob items.
       //
@@ -1215,7 +1215,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
               blobKey = normalizeKey(blobItem.getUri().getPath().split(PATH_DELIMITER,2)[1]);
             }
             blob = getBlobReference(blobKey);
-            if (blob.exists()) {
+            if (blob.exists(null, null, getInstrumentedContext())) {
               LOG.debug(
                   "Found blob as a directory-using this file under it to infer its properties" +
                       blobItem.getUri());
@@ -1223,7 +1223,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
               // Found a blob directory under the key, use its properties to infer
               // permissions and the last modified time.
               //
-              blob.downloadAttributes();
+              blob.downloadAttributes(null, null, getInstrumentedContext());
 
               // The key specifies a directory. Create a FileMetadata object which specifies
               // as such.
@@ -1269,7 +1269,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       BlobRequestOptions options = new BlobRequestOptions();
       options.setConcurrentRequestCount(concurrentReads);
       BufferedInputStream inBufStream = new BufferedInputStream(
-          blob.openInputStream(null, options, null));
+          blob.openInputStream(null, options, getInstrumentedContext()));
 
       // Return a data input stream.
       //
@@ -1305,7 +1305,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
       // Open input stream and seek to the start offset.
       //
-      InputStream in = blob.openInputStream(null, options, null);
+      InputStream in = blob.openInputStream(null, options, getInstrumentedContext());
 
       // Create a data input stream.
       //
@@ -1449,7 +1449,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     AzureLinkedStack<Iterator<ListBlobItem>> dirIteratorStack = 
         new AzureLinkedStack<Iterator<ListBlobItem>>();
 
-    Iterable<ListBlobItem> blobItems = aCloudBlobDirectory.listBlobs();
+    Iterable<ListBlobItem> blobItems = aCloudBlobDirectory.listBlobs(null,
+        false, EnumSet.noneOf(BlobListingDetails.class), null,
+        getInstrumentedContext());
     Iterator<ListBlobItem> blobItemIterator = blobItems.iterator();
 
     if (0 == maxListingDepth || 0 == maxListingCount)
@@ -1530,7 +1532,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
             // an iterator for this directory and continue by iterating through 
             // this directory.
             //
-            blobItems = ((CloudBlobDirectory) blobItem).listBlobs();
+            blobItems = ((CloudBlobDirectory) blobItem).listBlobs(null,
+                false, EnumSet.noneOf(BlobListingDetails.class), null,
+                getInstrumentedContext());
             blobItemIterator = blobItems.iterator();
           } else {
             // Determine format of directory name depending on whether an absolute
@@ -1584,8 +1588,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //
       String normKey = normalizeKey(key);
       CloudBlockBlob blob = getBlobReference(normKey);
-      if (blob.exists()) {
-        blob.delete();
+      if (blob.exists(null, null, getInstrumentedContext())) {
+        blob.delete(DeleteSnapshotsOption.NONE, null, null, getInstrumentedContext());
       }
     } catch (Exception e) {
       // Re-throw as an Azure storage exception.
@@ -1632,7 +1636,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         srcBlob = getBlobReference(srcKey);
       }
 
-      if (!srcBlob.exists()) {
+      if (!srcBlob.exists(null, null, getInstrumentedContext())) {
         throw new AzureException ("Source blob " + srcKey+ " does not exist.");
       }
 
@@ -1644,8 +1648,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Rename the source blob to the destination blob by copying it to
       // the destination blob then deleting it.
       //
-      dstBlob.copyFromBlob(srcBlob);
-      srcBlob.delete();
+      dstBlob.copyFromBlob(srcBlob, null, null, null, getInstrumentedContext());
+      srcBlob.delete(DeleteSnapshotsOption.NONE, null, null, getInstrumentedContext());
     } catch (Exception e) {
       // Re-throw exception as an Azure storage exception.
       //
@@ -1671,7 +1675,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //
       Iterable<ListBlobItem> objects = listRootBlobs(prefix);
       for (ListBlobItem blobItem : objects) {
-        ((CloudBlob) blobItem).delete();
+        ((CloudBlob) blobItem).delete(DeleteSnapshotsOption.NONE, null, null, getInstrumentedContext());
       }
     } catch (Exception e) {
       // Re-throw as an Azure storage exception.
