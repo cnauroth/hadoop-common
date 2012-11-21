@@ -285,7 +285,7 @@ static BOOL ChangeFileModeRecursively(__in LPCWSTR path, __in_opt INT mode,
       LocalFree(filename);
       goto ChangeFileModeRecursivelyEnd;
     }
-
+     
     // The child fileanme is not prepended with long path prefix.
     // Convert the filename to long path format.
     //

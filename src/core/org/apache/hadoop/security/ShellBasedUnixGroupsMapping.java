@@ -71,7 +71,7 @@ public class ShellBasedUnixGroupsMapping implements GroupMappingServiceProvider 
           new StringTokenizer(result, Shell.TOKEN_SEPARATOR_REGEX);
       
       while (tokenizer.hasMoreTokens()) {
-        groups.add(tokenizer.nextToken().trim());
+        groups.add(tokenizer.nextToken());
       }    
     return groups;
   }

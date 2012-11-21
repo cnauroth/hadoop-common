@@ -129,7 +129,6 @@ public class TestUserGroupInformation {
     String line = br.readLine();
 
     System.out.println(userName + ":" + line);
-    String spitChar = Shell.WINDOWS ? "[\\|]" : "[\\s]";
    
     List<String> groups = new ArrayList<String> ();
     String[] tokens = line.split(Shell.TOKEN_SEPARATOR_REGEX);
