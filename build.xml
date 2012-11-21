@@ -66,6 +66,8 @@
   <property name="librecordio.src" value="${c++.src}/librecordio"/>
   <property name="tools.src" value="${basedir}/src/tools"/>
   <property name="winutils.src.dir" value="${basedir}/src/winutils"/>
+  <property name="wininstaller.root.dir" value="${basedir}/src/packages/win"/>
+  <property name="servicehost.src.dir" value="${basedir}/src/packages/win/HadoopServiceHost"/>
 
   <property name="package.prefix" value="/usr"/>
   <property name="package.conf.dir" value="/etc/hadoop"/>
@@ -94,6 +96,7 @@
   <property name="jvm.arch" 
             value="${sun.arch.data.model}"/>
   <property name="build.winutils" value="${build.dir}/winutils/${env.OS}-${env.Platform}"/>
+  <property name="build.servicehost" value="${build.dir}/servicehost"/>
   <property name="build.native" value="${build.dir}/native/${build.platform}"/>
   <!-- 'build.native.win' is the path under which Hadoop native libraries for Windows are built -->
   <!-- We need a special path on Windows because we need a path that can be referenced from MSBuild -->
@@ -145,7 +148,7 @@
 
   <property name="test.libhdfs.conf.dir" value="${c++.libhdfs.src}/tests/conf"/>
   <property name="test.libhdfs.dir" value="${test.build.dir}/libhdfs"/>
-  <property name="test.winutils.dir" value="${test.build.dir}/winutils/"/>
+  <property name="test.wininstaller.dir" value="${test.build.dir}/wininstaller"/>
 
   <property name="librecordio.test.dir" value="${test.build.dir}/librecordio"/>
   <property name="web.src.dir" value="${basedir}/src/web"/>
@@ -649,6 +652,16 @@
     <copy file="${build.winutils}/winutils.exe" todir="${basedir}/bin"/>
   </target>
 
+  <target name="compile-ms-servicehost" if="windows">
+    <mkdir dir="${build.servicehost}"/>
+
+    <exec dir="${build.servicehost}" executable="${msbuild.cmd}" failonerror="true">
+      <arg line="${servicehost.src.dir}/HadoopServiceHost.sln /target:clean;build /p:Platform=&quot;Any CPU&quot; /p:Configuration=Release;OutDir=${build.servicehost}/"/>
+    </exec>
+
+    <copy file="${build.servicehost}/hadoopservicehost.exe" todir="${basedir}/bin"/>
+  </target>
+
   <target name="compile-ms-winutils-debug" if="windows">
     <mkdir dir="${build.winutils}"/>
 
@@ -788,7 +801,7 @@
   <target name="compile-core"
           depends="clover,compile-core-classes,compile-mapred-classes,
           compile-hdfs-classes,compile-core-native,compile-c++,compile-ms-winutils,
-          compile-win-core-native"
+          compile-win-core-native,compile-ms-servicehost"
   	description="Compile core only">
   </target>
 
@@ -1305,6 +1318,44 @@
       <param name="test.include" value="*"/>
       <param name="test.classpath.id" value="test.cluster.classpath"/>
     </antcall>
+  </target>
+
+  <target name="ms-win-installer-test-zip" description="Mini zip file used for test-ms-win-installer">
+    <delete dir="${test.wininstaller.dir}"/>
+    <mkdir dir="${test.wininstaller.dir}"/>
+    <macro_zip param.destfile="${test.wininstaller.dir}/resources/${final.name}.zip">
+      <param.listofitems>
+        <zipfileset dir="${build.dir}">
+          <include name="${final.name}/bin/*" />
+          <include name="${final.name}/conf/*" />
+          <include name="${final.name}/lib/hadoop-capacity-scheduler*" />
+          <include name="${final.name}/contrib/streaming/*" />
+        </zipfileset>
+      </param.listofitems>
+    </macro_zip>
+  </target>
+
+  <target name="test-ms-win-installer" depends="ms-win-installer-test-zip" if="windows">
+    <copy todir="${test.wininstaller.dir}">
+      <fileset dir="${wininstaller.root.dir}" includes="**/*">
+        <exclude name="servicehost/**/*"/>
+      </fileset>
+      <filterchain>
+        <replacetokens>
+          <token key="version" value="${version}" />
+          <token key="test.wininstaller.username" value="${testusername}" />
+          <token key="test.wininstaller.password" value="${testpassword}" />
+        </replacetokens>
+      </filterchain>
+    </copy>
+    <exec dir="${test.wininstaller.dir}"
+        executable="powershell.exe"
+        failonerror="true">
+      <env key="HADOOP_NODE_INSTALL_ROOT" value="${test.wininstaller.dir}/TestHadoop"/>
+      <env key="WINPKG_LOG" value="${test.wininstaller.dir}/TEST-test-ms-win-installer.log"/>
+      <env key="UNZIP_CMD" value="unzip.exe -o @SRC -d @DEST"/>
+      <arg line="${test.wininstaller.dir}/scripts/TestInstallApi.ps1"/>
+    </exec>
   </target>
 
   <target name="nightly" depends="test, tar">

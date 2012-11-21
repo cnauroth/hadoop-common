@@ -13,250 +13,140 @@
 ### See the License for the specific language governing permissions and
 ### limitations under the License.
 
+###
+### Install script that can be used to install Hadoop as a Single-Node cluster.
+### To invoke the scipt, run the following command from PowerShell:
+###   install.ps1 -username <username> -password <password>
+###
+### where:
+###   <username> and <password> represent account credentials used to run
+###   Hadoop services as Windows services.
+###
+### By default, Hadoop is installed to "C:\Hadoop". To change this set
+### HADOOP_NODE_INSTALL_ROOT environment variable to a location were
+### you'd like Hadoop installed.
+###
+### Script pre-requisites:
+###   JAVA_HOME must be set to point to a valid Java location.
+###
+### To uninstall previously installed Single-Node cluster run:
+###   uninstall.ps1
+###
+### NOTE: Notice @version@ strings throughout the file. First compile
+### winpkg with "ant winpkg", that will replace the version string.
+### To install, use:
+###   build\hadoop-@version@.winpkg.zip#scripts\install.ps1
+###
+
 param(
-	[String]
-	[Parameter( Position=0, Mandatory=$true )]
-	$username,
-	[String]
-	[Parameter( Position=1, Mandatory=$true )]
-	$password,
-	[String]
-	$hdfsRole,
-	[String]
-	$mapredRole,
-	[Switch]
-	$skipNamenodeFormat
-	)
+    [String]
+    [Parameter( Position=0, Mandatory=$true )]
+    $username,
+    [String]
+    [Parameter( Position=1, Mandatory=$true )]
+    $password,
+    [String]
+    $hdfsRoles = "namenode datanode secondarynamenode",
+    [String]
+    $mapredRoles = "jobtracker tasktracker historyserver",
+    [Switch]
+    $skipNamenodeFormat = $false
+    )
 
 function Main( $scriptDir )
 {
-	$HDP_INSTALL_PATH, $HDP_RESOURCES_DIR = Initialize-InstallationEnv $scriptDir "hadoop-@version@.winpkg.log"
-	Test-JavaHome
+    if ( -not (Test-Path ENV:WINPKG_LOG))
+    {
+        $ENV:WINPKG_LOG = "hadoop.core.winpkg.log"
+    }
 
-	### $hadoopInstallDir: the directory that contains the appliation, after unzipping
-	$hadoopInstallDir = Join-Path "$ENV:HADOOP_NODE_INSTALL_ROOT" "hadoop-@version@"
-	$hadoopInstallBin = Join-Path "$hadoopInstallDir" "bin"
+    $HadoopCoreVersion = "@version@"
+    $HDP_INSTALL_PATH, $HDP_RESOURCES_DIR = Initialize-InstallationEnv $scriptDir "hadoop-$hadoopCoreVersion.winpkg.log"
+    Test-JavaHome
 
-	Write-Log "HadoopInstallDir: $hadoopInstallDir"
-	Write-Log "HadoopInstallBin: $hadoopInstallBin" 
+    ### $hadoopInstallDir: the directory that contains the appliation, after unzipping
+    $hadoopInstallToBin = Join-Path "$ENV:HADOOP_NODE_INSTALL_ROOT" "hadoop-$hadoopCoreVersion\bin"
+    $nodeInstallRoot = "$ENV:HADOOP_NODE_INSTALL_ROOT"
+    
+    Write-Log "nodeInstallRoot: $nodeInstallRoot"
+    Write-Log "hadoopInstallToBin: $hadoopInstallToBin"
 
-	Write-Log "Username: $username"
-	Write-Log "HdfsRole: $hdfsRole"
-	Write-Log "MapRedRole: $mapRedRole"
-	Write-Log "Ensuring elevated user"
+    Write-Log "Username: $username"
 
-	###
-	### Root directory used for HDFS dn and nn files, and for mapdred local dir
-	###
+    ###
+    ### Initialize root directory used for Core, HDFS and MapRed local folders
+    ###
+    if( -not (Test-Path ENV:HDFS_DATA_DIR))
+    {
+        $ENV:HDFS_DATA_DIR = Join-Path "$ENV:HADOOP_NODE_INSTALL_ROOT" "HDFS"
+    }
+    
+    ###
+    ### Create the Credential object from the given username and password
+    ###
+    $securePassword = ConvertTo-SecureString $password -AsPlainText -Force
+    $serviceCredential = New-Object System.Management.Automation.PSCredential ("$ENV:COMPUTERNAME\$username", $securePassword)
 
-	if( -not (Test-Path ENV:HDFS_DATA_DIR))
-	{
-		$ENV:HDFS_DATA_DIR = Join-Path "$ENV:HADOOP_NODE_INSTALL_ROOT" "HDFS"
-	}
+    ###
+    ### Stop all services before proceeding with the install step, otherwise
+    ### files will be in-use and installation can fail
+    ###
+    Write-Log "Stopping MapRed services if already running before proceeding with install"
+    StopService "mapreduce" "jobtracker tasktracker historyserver"
 
-	###
-	### Begin install
-	###
-	Write-Log "Installing Apache Hadoop hadoop-@version@ to $ENV:HADOOP_NODE_INSTALL_ROOT"
+    Write-Log "Stopping HDFS services if already running before proceeding with install"
+    StopService "hdfs" "namenode datanode secondarynamenode"
 
-	if( -not (Test-Path ENV:MASTER_HDFS))
-	{
-		$ENV:MASTER_HDFS = "namenode datanode secondarynamenode"
-	}
+    ###
+    ### Install and Configure Core
+    ###
+    Install "Core" $NodeInstallRoot $serviceCredential ""
+    Configure "Core" $NodeInstallRoot $serviceCredential @{
+        "fs.checkpoint.dir" = "$ENV:HDFS_DATA_DIR\2nn";
+        "fs.checkpoint.edits.dir" = "$ENV:HDFS_DATA_DIR\2nn"}
 
-	if( -not (Test-Path ENV:MASTER_MR))
-	{
-		$ENV:MASTER_MR = "jobtracker tasktracker"
-	}
+    ###
+    ### Install and Configure HDFS
+    ###
+    Install "Hdfs" $NodeInstallRoot $serviceCredential $hdfsRoles
+    Configure "Hdfs" $NodeInstallRoot $serviceCredential @{
+        "dfs.name.dir" = "$ENV:HDFS_DATA_DIR\nn";
+        "dfs.data.dir" = "$ENV:HDFS_DATA_DIR\dn"}
 
-	if( -not (Test-Path ENV:SLAVE_MR))
-	{
-		$ENV:SLAVE_MR = "tasktracker"
-	}
+    if ($skipNamenodeFormat -ne $true) 
+    {
+        ###
+        ### Format the namenode
+        ###
+        FormatNamenode $false
+    }
+    else
+    {
+        Write-Log "Skipping Namenode format"
+    }
 
-	if( -not (Test-Path ENV:ONEBOX_HDFS))
-	{
-		$ENV:ONEBOX_HDFS = "namenode datanode secondarynamenode"
-	}
+    ###
+    ### Install and Configure MapRed
+    ###
+    Install "MapReduce" $NodeInstallRoot $serviceCredential $mapRedRoles
+    Configure "MapReduce" $NodeInstallRoot $serviceCredential @{
+        "mapred.local.dir" = "$ENV:HDFS_DATA_DIR\mapred\local"}
 
-	if( -not (Test-Path ENV:ONEBOX_MR))
-	{
-		$ENV:ONEBOX_MR = "jobtracker tasktracker historyserver"
-	}
-
-	if( $hdfsRole -eq $null )
-	{
-		$hdfsRole = "ONEBOX_HDFS"
-	}
-
-	if( $mapredRole -eq $null )
-	{
-		$mapredRole = "ONEBOX_MR"
-	}
-
-	###
-	###  Unzip Hadoop distribution from compressed archive
-	###
-
-	Write-Log "Extracting Hadoop Core archive into $hadoopInstallDir"
-	$unzipExpr = "$ENV:WINPKG_BIN\winpkg.ps1 `"$HDP_RESOURCES_DIR\hadoop-@version@.zip`" utils unzip `"$ENV:HADOOP_NODE_INSTALL_ROOT`""
-	Invoke-Ps $unzipExpr
-	
-	foreach( $template in (Get-ChildItem "$HDP_INSTALL_PATH\..\template\conf\*.xml"))
-	{
-		try
-		{
-			Write-Log "Copying XML template from $($template.FullName)"
-			Copy-XmlTemplate $template.FullName "$hadoopInstallDir\conf"
-		}
-		catch [Exception] 
-		{
-			Write-Log $_.Exception.Message $_
-		}
-	}
-
-	$xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template\conf\*.properties`" `"$hadoopInstallDir\bin`""
-	Invoke-Cmd $xcopy_cmd
-
-	$xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template\bin`" `"$hadoopInstallDir\bin`""
-	Invoke-Cmd $xcopy_cmd
-
-	###
-	### Grant Hadoop user access to HADOOP_INSTALL_DIR and HDFS Root
-	###
-	$cmd = "icacls `"$hadoopInstallDir`" /grant ${username}:(OI)(CI)F"
-	Invoke-Cmd $cmd
-
-	if( -not (Test-Path $ENV:HDFS_DATA_DIR))
-	{
-		Write-Log "Creating HDFS Data Directory $ENV:HDFS_DATA_DIR"
-		mkdir $ENV:HDFS_DATA_DIR
-	}
-
-	$cmd = "icacls `"$ENV:HDFS_DATA_DIR`" /grant ${username}:(OI)(CI)F"
-	Invoke-Cmd $cmd
-
-	###
-	### Copy the streaming jar to the Hadoop lib directory
-	###
-	Write-Log "Copying the streaming jar to the Hadoop lib directory"
-	$xcopyStreaming_cmd = "copy /Y `"$hadoopInstallDir\contrib\streaming\hadoop-streaming-@version@.jar`" `"$hadoopInstallDir\lib\hadoop-streaming.jar`""
-	Invoke-Cmd $xcopyStreaming_cmd
-
-	###
-	### Create Hadoop Windows Services and grant user ACLS to start/stop
-	###
-
-	$securePassword = ConvertTo-SecureString $password -AsPlainText -Force
-	$serviceCredentials = New-Object System.Management.Automation.PSCredential ("$ENV:COMPUTERNAME\$username", $securePassword)
-
-	$hdfsRoleServices = $executionContext.InvokeCommand.ExpandString( "`$ENV:$hdfsRole" )
-	$mapRedRoleServices = $executionContext.InvokeCommand.ExpandString( "`$ENV:$mapredRole" )
-
-	Write-Log "HdfsRole: $hdfsRole"	Write-Log "MapRedRole: $mapRedRole"
-	Write-Log "Node HDFS Role Services: $hdfsRoleServices"
-	Write-Log "Node MAPRED Role Services: $mapRedRoleServices"
-
-	$allServices = $hdfsRoleServices + " " + $mapRedRoleServices
-
-	Write-Log "Installing services $allServices"
-
-	foreach( $service in $allServices.Split(' '))
-	{
-		try
-		{
-			Write-Log "Creating service $service as $hadoopInstallBin\$service.exe"
-			Copy-Item "$HDP_RESOURCES_DIR\serviceHost.exe" "$hadoopInstallBin\$service.exe" -Force
-
-			#serviceHost.exe will write to this log but does not create it
-			#Creating the event log needs to be done from an elevated process, so we do it here
-			if( -not ([Diagnostics.EventLog]::SourceExists( "$service" )))
-			{
-				[Diagnostics.EventLog]::CreateEventSource( "$service", "" )
-			}
-
-			Write-Log( "Adding service $service" )
-			$s = New-Service -Name "$service" -BinaryPathName "$hadoopInstallBin\$service.exe" -Credential $serviceCredentials -DisplayName "Apache Hadoop $service"
-
-			$cmd="$ENV:WINDIR\system32\sc.exe failure $service reset= 30 actions= restart/5000"
-			Invoke-Cmd $cmd
-
-			$cmd="$ENV:WINDIR\system32\sc.exe config $service start= auto"
-			Invoke-Cmd $cmd
-
-			Set-ServiceAcl $service
-		}
-		catch [Exception]
-		{
-			Write-Log $_.Exception.Message $_
-		}
-	}
-
-	###
-	### Setup HDFS service config
-	###
-
-	Write-Log "Copying configuration for $hdfsRoleServices"
-
-	foreach( $service in $hdfsRoleServices.Split( ' ' ))
-	{
-		Write-Log "Creating service config ${hadoopInstallBin}\${service}.xml"
-		$cmd = "$hadoopInstallBin\hdfs.cmd --service $service > `"$hadoopInstallBin\$service.xml`""
-		Invoke-Cmd $cmd		
-	}
-
-	###
-	### Setup MapRed service config
-	### 
-
-	foreach( $service in $mapRedRoleServices.Split( ' ' ))
-	{
-		Write-Log "Creating service config $hadoopInstallBin\$service.xml"
-		$cmd = "$hadoopInstallBin\mapred.cmd --service $service > `"$hadoopInstallBin\$service.xml`""
-		Invoke-Cmd $cmd		
-	}
-
-	if ($skipNamenodeFormat -ne $true) 
-	{
-		###
-		### Format the namenode
-		###
-		Write-Log "Formatting HDFS"
-		
-		$cmd="$hadoopInstallBin\hadoop.cmd namenode -format"
-		Invoke-Cmd $cmd
-	}
-	else 
-	{
-		Write-Log "Skipping HDFS format"
-	}
-
-	###
-	### ACL Hadoop logs directory such that machine users can write to it
-	###
-	if( -not (Test-Path "$hadoopInstallDir\logs"))
-	{
-		Write-Log "Creating Hadoop logs folder"
-		$cmd = "mkdir `"$hadoopInstallDir\logs`""
-		Invoke-Cmd $cmd
-	}
-	Write-Log "Giving Users group full permissions on the Hadoop logs folder"
-	$cmd = "icacls `"$hadoopInstallDir\logs`" /grant Users:(OI)(CI)F"
-	Invoke-Cmd $cmd
-
-	Write-Log "Installation of Hadoop Core complete"
+    Write-Log "Install of Hadoop Core, HDFS, MapRed completed successfully"
 }
 
 try
-{
-	$scriptDir = Resolve-Path (Split-Path $MyInvocation.MyCommand.Path)
-	$utilsModule = Import-Module -Name "$scriptDir\..\resources\Winpkg.Utils.psm1" -ArgumentList ("HADOOP") -PassThru
-	Main $scriptDir
+{ 
+    $scriptDir = Resolve-Path (Split-Path $MyInvocation.MyCommand.Path)
+    $utilsModule = Import-Module -Name "$scriptDir\..\resources\Winpkg.Utils.psm1" -ArgumentList ("HADOOP") -PassThru
+    $apiModule = Import-Module -Name "$scriptDir\InstallApi.psm1" -PassThru
+    Main $scriptDir
 }
 finally
 {
-	if( $utilsModule -ne $null )
-	{
-		Remove-Module $utilsModule
-	}
+    if( $utilsModule -ne $null )
+    {
+        Remove-Module $apiModule
+        Remove-Module $utilsModule
+    }
 }

@@ -22,34 +22,34 @@
 
 
 param( [parameter( Position=0, Mandatory=$true)]
-	   [String]  $ComponentName )
+       [String]  $ComponentName )
 
 function Write-Log ($message, $level, $pipelineObj )
 {
-	switch($level)
-	{
-		"Failure" 
-		{
-			$message = "$ComponentName FAILURE: $message"
-			Write-Error $message 
-			break;
-		}
+    switch($level)
+    {
+        "Failure" 
+        {
+            $message = "$ComponentName FAILURE: $message"
+            Write-Error $message 
+            break;
+        }
 
-		"Info"
-		{
-			$message = "${ComponentName}: $message"
-			Write-Host $message
-			break;
-		}
+        "Info"
+        {
+            $message = "${ComponentName}: $message"
+            Write-Host $message
+            break;
+        }
 
-		default
-		{
-			$message = "${ComponentName}: $message"
-			Write-Host "$message"
-		}
-	}
+        default
+        {
+            $message = "${ComponentName}: $message"
+            Write-Host "$message"
+        }
+    }
 
-	
+    
     Out-File -FilePath $ENV:WINPKG_LOG -InputObject "$message" -Append -Encoding "UTF8"
 
     if( $pipelineObj -ne $null )
@@ -60,51 +60,67 @@ function Write-Log ($message, $level, $pipelineObj )
 
 function Write-LogRecord( $source, $record )
 {
-	if( $record -is [Management.Automation.ErrorRecord])
-	{
-		$message = "$ComponentName-$source FAILURE: " + $record.Exception.Message
+    if( $record -is [Management.Automation.ErrorRecord])
+    {
+        $message = "$ComponentName-$source FAILURE: " + $record.Exception.Message
 
-		if( $message.EndsWith( [Environment]::NewLine ))
-		{
-			Write-Host $message -NoNewline
-        	[IO.File]::AppendAllText( "$ENV:WINPKG_LOG", "$message", [Text.Encoding]::UTF8 )
+        if( $message.EndsWith( [Environment]::NewLine ))
+        {
+            Write-Host $message -NoNewline
+            [IO.File]::AppendAllText( "$ENV:WINPKG_LOG", "$message", [Text.Encoding]::UTF8 )
         }
         else
         {
-        	Write-Host $message
-        	Out-File -FilePath $ENV:WINPKG_LOG -InputObject $message -Append -Encoding "UTF8"
+            Write-Host $message
+            Out-File -FilePath $ENV:WINPKG_LOG -InputObject $message -Append -Encoding "UTF8"
         }
-	}
-	else
-	{
-		$message = $record
-		Write-Host $message
-		Out-File -FilePath $ENV:WINPKG_LOG -InputObject "$message" -Append -Encoding "UTF8"
-	}
+    }
+    else
+    {
+        $message = $record
+        Write-Host $message
+        Out-File -FilePath $ENV:WINPKG_LOG -InputObject "$message" -Append -Encoding "UTF8"
+    }
 }
 
 function Invoke-Cmd ($command)
 {
-	Write-Log $command
-	$out = cmd.exe /C "$command" 2>&1
-	$out | ForEach-Object { Write-LogRecord "CMD" $_ }
-	return $out
+    Write-Log $command
+    $out = cmd.exe /C "$command" 2>&1
+    $out | ForEach-Object { Write-LogRecord "CMD" $_ }
+    return $out
+}
+
+function Invoke-CmdChk ($command)
+{
+    Write-Log $command
+    $out = cmd.exe /C "$command" 2>&1
+    $out | ForEach-Object { Write-LogRecord "CMD" $_ }
+    if (-not ($LastExitCode  -eq 0))
+    {
+        throw "Command `"$out`" failed with exit code $LastExitCode "
+    }
+    return $out
 }
 
 function Invoke-Ps ($command)
 {
-	Write-Log $command
-	$out = powershell.exe -InputFormat none -Command "$command" 2>&1
-	#$out | ForEach-Object { Write-LogRecord "PS" $_ }
-	return $out
+    Write-Log $command
+    $out = powershell.exe -InputFormat none -Command "$command" 2>&1
+    #$out | ForEach-Object { Write-LogRecord "PS" $_ }
+    return $out
 }
 
-function Invoke-Winpkg ($arguments)
+function Invoke-PsChk ($command)
 {
-	$command = "$ENV:WINPKG_BIN\winpkg.ps1 $arguments"
-	Write-Log "Invoke-Winpkg: $command"
-	powershell.exe -InputFormat none -Command "$command" 2>&1
-	Write-Log "Invoke-Winpkg Complete: $command"
+    Write-Log $command
+    $out = powershell.exe -InputFormat none -Command "$command" 2>&1
+    #$out | ForEach-Object { Write-LogRecord "PS" $_ }
+    if (-not ($LastExitCode  -eq 0))
+    {
+        throw "Command `"$out`" failed with exit code $LastExitCode "
+    }
+    return $out
 }
 
 ### Sets HADOOP_NODE_INSTALL_ROOT if unset
@@ -113,58 +129,42 @@ function Invoke-Winpkg ($arguments)
 
 function Initialize-InstallationEnv( $scriptDir, $logFilename )
 {
-	$HDP_INSTALL_PATH = $scriptDir
-	$HDP_RESOURCES_DIR = Resolve-Path "$HDP_INSTALL_PATH\..\resources"
+    $HDP_INSTALL_PATH = $scriptDir
+    $HDP_RESOURCES_DIR = Resolve-Path "$HDP_INSTALL_PATH\..\resources"
 
-	if( -not (Test-Path ENV:HADOOP_NODE_INSTALL_ROOT))
-	{
-		$ENV:HADOOP_NODE_INSTALL_ROOT = "c:\hadoop"
-	}
+    if( -not (Test-Path ENV:HADOOP_NODE_INSTALL_ROOT))
+    {
+        $ENV:HADOOP_NODE_INSTALL_ROOT = "c:\hadoop"
+    }
 
-	if( -not (Test-Path ENV:WINPKG_LOG ))
+    if( -not (Test-Path ENV:WINPKG_LOG ))
     {
         throw "ENV:WINPKG_LOG not set"
     }
     else
     {
-	    Write-Log "Logging to existing log $ENV:WINPKG_LOG" "Info"
+        Write-Log "Logging to existing log $ENV:WINPKG_LOG" "Info"
     }
 
-    if( -not (Test-Path ENV:WINPKG_BIN))
+    Write-Log "Logging to $ENV:WINPKG_LOG" "Info"
+    Write-Log "HDP_INSTALL_PATH: $HDP_INSTALL_PATH"
+    Write-Log "HDP_RESOURCES_DIR: $HDP_RESOURCES_DIR"
+
+    $currentPrincipal = New-Object Security.Principal.WindowsPrincipal( [Security.Principal.WindowsIdentity]::GetCurrent( ) )
+    if ( -not ($currentPrincipal.IsInRole( [Security.Principal.WindowsBuiltInRole]::Administrator ) ) )
     {
-    	throw "ENV:WINPKG_BIN not set"
-    }
-    else
-    {
-    	Write-Log "ENV:WINPKG_BIN is $ENV:WINPKG_BIN"
+        throw "install script must be run elevated"
     }
 
-    if( -not (Test-Path "$ENV:WINPKG_BIN\winpkg.ps1" ))
-	{
-		throw "Could not find winpkg script in $ENV:WINPKG_BIN"
-	}
-
-	Write-Log "Logging to $ENV:WINPKG_LOG" "Info"
-	Write-Log "HDP_INSTALL_PATH: $HDP_INSTALL_PATH"
-	Write-Log "HDP_RESOURCES_DIR: $HDP_RESOURCES_DIR"
-
-	$currentPrincipal = New-Object Security.Principal.WindowsPrincipal( [Security.Principal.WindowsIdentity]::GetCurrent( ) )
-	if ( -not ($currentPrincipal.IsInRole( [Security.Principal.WindowsBuiltInRole]::Administrator ) ) )
-	{
-		Write-Log "install script must be run elevated" "Failure"
-		exit 1
-	} 
-
-	return $HDP_INSTALL_PATH, $HDP_RESOURCES_DIR
+    return $HDP_INSTALL_PATH, $HDP_RESOURCES_DIR
 }
 
 function Test-JavaHome
 {
-	if( -not (Test-Path $ENV:JAVA_HOME\bin\java.exe))
-	{
-		Write-Log "JAVA_HOME not set properly; $ENV:JAVA_HOME\bin\java.exe does not exist" "Failure"
-		exit 1
-	}
+    if( -not (Test-Path $ENV:JAVA_HOME\bin\java.exe))
+    {
+        throw "JAVA_HOME not set properly; $ENV:JAVA_HOME\bin\java.exe does not exist"
+    }
 }
 
 ### Add service control permissions to authenticated users.
@@ -174,75 +174,30 @@ function Test-JavaHome
 
 function Set-ServiceAcl ($service)
 {
-	$cmd = "sc sdshow $service"
-	$sd = Invoke-Cmd $cmd
+    $cmd = "sc sdshow $service"
+    $sd = Invoke-Cmd $cmd
 
-	Write-Log "Current SD: $sd"
+    Write-Log "Current SD: $sd"
 
-	## A;; --- allow
-	## RP ---- SERVICE_START
-	## WP ---- SERVICE_STOP
-	## CR ---- SERVICE_USER_DEFINED_CONTROL	
-	## ;;;AU - AUTHENTICATED_USERS
+    ## A;; --- allow
+    ## RP ---- SERVICE_START
+    ## WP ---- SERVICE_STOP
+    ## CR ---- SERVICE_USER_DEFINED_CONTROL    
+    ## ;;;AU - AUTHENTICATED_USERS
 
-	$sd = [String]$sd
-	$sd = $sd.Replace( "S:(", "(A;;RPWPCR;;;AU)S:(" )
-	Write-Log "Modifying SD to: $sd"
+    $sd = [String]$sd
+    $sd = $sd.Replace( "S:(", "(A;;RPWPCR;;;AU)S:(" )
+    Write-Log "Modifying SD to: $sd"
 
-	$cmd = "sc sdset $service $sd"
-	Invoke-Cmd $cmd
+    $cmd = "sc sdset $service $sd"
+    Invoke-Cmd $cmd
 }
 
-function Expand-String([string] $source)
-{
-    return $ExecutionContext.InvokeCommand.ExpandString((($source -replace '"', '`"') -replace '''', '`'''))
-}
-
-function Copy-XmlTemplate( [string][parameter( Position=1, Mandatory=$true)] $Source, 
-	   [string][parameter( Position=2, Mandatory=$true)] $Destination, 
-	   [hashtable][parameter( Position=3 )] $TemplateBindings = @{} )
-{
-
-	### Import template bindings
-	Push-Location Variable:
-
-	foreach( $key in $TemplateBindings.Keys )
-	{
-		$value = $TemplateBindings[$key]
-		New-Item -Path $key -Value $ExecutionContext.InvokeCommand.ExpandString( $value ) | Out-Null
-	}
-
-	Pop-Location
-
-	### Copy and expand
-	$Source = Resolve-Path $Source
-
-	if( Test-Path $Destination -PathType Container )
-	{
-		$Destination = Join-Path $Destination ([IO.Path]::GetFilename( $Source ))
-	}
-
-	$DestinationDir = Resolve-Path (Split-Path $Destination -Parent)
-	$DestinationFilename = [IO.Path]::GetFilename( $Destination )
-	$Destination = Join-Path $DestinationDir $DestinationFilename
-
-	if( $Destination -eq $Source )
-	{
-		throw "Destination $Destination and Source $Source cannot be the same"
-	}
-
-	$template = [IO.File]::ReadAllText( $Source )
-	$expanded = Expand-String( $template )
-	### Output xml files as ANSI files (same as original)
-	write-output $expanded | out-file -encoding ascii $Destination
-}
-
-Export-ModuleMember -Function Copy-XmlTemplate
-Export-ModuleMember -Function Initialize-WinpkgEnv
 Export-ModuleMember -Function Initialize-InstallationEnv
 Export-ModuleMember -Function Invoke-Cmd
+Export-ModuleMember -Function Invoke-CmdChk
 Export-ModuleMember -Function Invoke-Ps
-Export-ModuleMember -Function Invoke-Winpkg
+Export-ModuleMember -Function Invoke-PsChk
 Export-ModuleMember -Function Set-ServiceAcl
 Export-ModuleMember -Function Test-JavaHome
 Export-ModuleMember -Function Write-Log

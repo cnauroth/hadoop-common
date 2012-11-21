@@ -13,61 +13,50 @@
 ### See the License for the specific language governing permissions and
 ### limitations under the License.
 
-
 function Main
 {
-	$HDP_INSTALL_PATH, $HDP_RESOURCES_DIR = Initialize-InstallationEnv $scriptDir "hadoop-@version@.winpkg.log" $ENV:WINPKG_BIN
+    if ( -not (Test-Path ENV:WINPKG_LOG))
+    {
+        $ENV:WINPKG_LOG = "hadoop.core.winpkg.log"
+    }
 
+    $HDP_INSTALL_PATH, $HDP_RESOURCES_DIR = Initialize-InstallationEnv $scriptDir "hadoop-@version@.winpkg.log"
+    $nodeInstallRoot = "$ENV:HADOOP_NODE_INSTALL_ROOT"
 
-	### $hadoopInstallDir: the directory that contains the appliation, after unzipping
-	$hadoopInstallDir = Join-Path "$ENV:HADOOP_NODE_INSTALL_ROOT" "hadoop-@version@"
-	$hadoopInstallBin = Join-Path "$hadoopInstallDir" "bin"
+    if ( -not (Test-Path ENV:HDFS_DATA_DIR))
+    {
+        $ENV:HDFS_DATA_DIR = Join-Path "$ENV:HADOOP_NODE_INSTALL_ROOT" "HDFS"
+    }
+    
+    ###
+    ### Uninstall MapRed, Hdfs and Core
+    ###
+    Uninstall "MapReduce" $nodeInstallRoot
+    Uninstall "Hdfs" $nodeInstallRoot
+    Uninstall "Core" $nodeInstallRoot
 
-	###
-	### Root directory used for HDFS dn and nn files, and for mapdred local dir
-	###
-
-	if( -not (Test-Path ENV:HDFS_DATA_DIR))
-	{
-		$ENV:HDFS_DATA_DIR = "$ENV:HADOOP_NODE_INSTALL_ROOT\HDFS"
-	}
-
-	###
-	### Stop and delete services
-	###
-
-	foreach( $service in ("namenode", "datanode", "secondarynamenode", "jobtracker", "tasktracker", "historyserver"))
-	{
-		Write-Log "Stopping $service"
-		$s = Get-Service $service -ErrorAction SilentlyContinue 
-
-		if( $s -ne $null )
-		{
-			Stop-Service $service
-			$cmd = "sc.exe delete $service"
-			Invoke-Cmd $cmd
-		}
-	}
-
-	Write-Log "Removing HDFS_DATA_DIR ($ENV:HDFS_DATA_DIR)"
-	$cmd = "rd /s /q $ENV:HDFS_DATA_DIR"
-	Invoke-Cmd $cmd
-
-	Write-Log "Removing Hadoop ($hadoopInstallDir)"
-	$cmd = "rd /s /q $hadoopInstallDir"
-	Invoke-Cmd $cmd
+    ###
+    ### Cleanup any remaining content under HDFS data dir
+    ###
+    Write-Log "Removing HDFS_DATA_DIR `"$ENV:HDFS_DATA_DIR`""
+    $cmd = "rd /s /q `"$ENV:HDFS_DATA_DIR`""
+    Invoke-Cmd $cmd
+    
+    Write-Log "Uninstall of Hadoop Core, HDFS, MapRed completed successfully"
 }
 
 try
 {
-	$scriptDir = Resolve-Path (Split-Path $MyInvocation.MyCommand.Path)
-	$utilsModule = Import-Module -Name "$scriptDir\..\resources\Winpkg.Utils.psm1" -ArgumentList ("HADOOP") -PassThru
-	Main $scriptDir
+    $scriptDir = Resolve-Path (Split-Path $MyInvocation.MyCommand.Path)
+    $utilsModule = Import-Module -Name "$scriptDir\..\resources\Winpkg.Utils.psm1" -ArgumentList ("HADOOP") -PassThru
+    $apiModule = Import-Module -Name "$scriptDir\InstallApi.psm1" -PassThru
+    Main $scriptDir
 }
 finally
 {
-	if( $utilsModule -ne $null )
-	{
-		Remove-Module $utilsModule
-	}
+    if( $utilsModule -ne $null )
+    {
+        Remove-Module $apiModule
+        Remove-Module $utilsModule
+    }
 }
