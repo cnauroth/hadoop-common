@@ -84,6 +84,12 @@ abstract public class Shell {
     return home;
   }
   private static String HADOOP_HOME_DIR = checkHadoopHome();
+  private static boolean IS_JAVA7_OR_ABOVE =
+      System.getProperty("java.version").substring(0, 3).compareTo("1.7") >= 0;
+
+  public static boolean isJava7OrAbove() {
+    return IS_JAVA7_OR_ABOVE;
+  }
 
   // Public getter, throws an exception if HADOOP_HOME failed validation
   // checks and is being referenced downstream.
