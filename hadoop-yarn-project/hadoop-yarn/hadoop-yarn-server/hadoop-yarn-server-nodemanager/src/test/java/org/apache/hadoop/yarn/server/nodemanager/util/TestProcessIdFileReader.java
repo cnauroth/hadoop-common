@@ -81,9 +81,6 @@ public class TestProcessIdFileReader {
       PrintWriter fileWriter = new PrintWriter(testFile);
       fileWriter.println("   ");
       fileWriter.println("");
-      fileWriter.println("abc");
-      fileWriter.println("-123");
-      fileWriter.println("-123 ");
       fileWriter.println(" 23 ");
       fileWriter.println("6236");
       fileWriter.close();      
