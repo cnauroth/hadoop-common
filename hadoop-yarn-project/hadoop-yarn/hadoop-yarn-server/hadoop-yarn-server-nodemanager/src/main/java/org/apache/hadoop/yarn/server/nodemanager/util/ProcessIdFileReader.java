@@ -62,15 +62,8 @@ public class ProcessIdFileReader {
           }
           String temp = line.trim(); 
           if (!temp.isEmpty()) {
-            try {
-              Long pid = Long.valueOf(temp);
-              if (pid > 0) {
-                processId = temp;
-                break;
-              }
-            } catch (Exception e) {
-              // do nothing
-            }
+            processId = temp;
+            break;
           }
         }
       }

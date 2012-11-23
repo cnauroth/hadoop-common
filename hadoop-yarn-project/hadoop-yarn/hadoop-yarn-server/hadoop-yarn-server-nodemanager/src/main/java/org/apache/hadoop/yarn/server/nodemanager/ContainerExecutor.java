@@ -37,6 +37,7 @@ import org.apache.hadoop.util.Shell.ShellCommandExecutor;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.container.Container;
 import org.apache.hadoop.yarn.server.nodemanager.util.ProcessIdFileReader;
+import org.apache.hadoop.util.Shell;
 
 public abstract class ContainerExecutor implements Configurable {
 
@@ -253,6 +254,9 @@ public abstract class ContainerExecutor implements Configurable {
 
   public static final boolean isSetsidAvailable = isSetsidSupported();
   private static boolean isSetsidSupported() {
+    if (Shell.WINDOWS) {
+      return false;
+    }
     ShellCommandExecutor shexec = null;
     boolean setsidSupported = true;
     try {

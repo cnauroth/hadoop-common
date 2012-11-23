@@ -119,6 +119,20 @@ abstract public class Shell {
     return WINDOWS ? new String[] { WINUTILS, "symlink", link, target }
                    : new String[] { "ln", "-s", target, link };
   }
+  
+  /** Return a command to execute the given command in OS shell.
+   *  On Windows, the passed in groupId can be used to launch
+   *  and associate the given groupId in a process group. On
+   *  non-Windows, groupId is ignored. */
+  public static String[] getRunCommand(String command,
+                                       String groupId) {
+    if (WINDOWS) {
+      return new String[] { Shell.WINUTILS, "task", "create",
+                            groupId, "cmd /c " + command };
+    } else {
+      return new String[] { "bash", "-c", command };
+    }
+  }
 
   /** a Unix command to set permission */
   public static final String SET_PERMISSION_COMMAND = "chmod";
@@ -140,6 +154,9 @@ abstract public class Shell {
   /** Set to true on Windows platforms */
   public static final boolean WINDOWS /* borrowed from Path.WINDOWS */
                 = System.getProperty("os.name").startsWith("Windows");
+
+  public static final boolean LINUX
+                = System.getProperty("os.name").startsWith("Linux");
   
   private long    interval;   // refresh interval in msec
   private long    lastTime;   // last time the command was performed
