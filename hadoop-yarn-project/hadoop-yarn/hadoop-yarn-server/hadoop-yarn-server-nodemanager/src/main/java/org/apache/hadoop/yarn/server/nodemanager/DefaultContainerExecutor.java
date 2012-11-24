@@ -247,7 +247,7 @@ public class DefaultContainerExecutor extends ContainerExecutor {
       pout.println();
       pout.println("echo $$ > " + pidFile.toString() + ".tmp");
       pout.println("/bin/mv -f " + pidFile.toString() + ".tmp " + pidFile);
-      String exec = ContainerExecutor.isSetsidAvailable? "exec setsid" : "exec";
+      String exec = Shell.isSetsidAvailable? "exec setsid" : "exec";
       pout.println(exec + " /bin/bash -c \"" +
         launchDst.toUri().getPath().toString() + "\"");
     }
@@ -284,7 +284,7 @@ public class DefaultContainerExecutor extends ContainerExecutor {
   @Override
   public boolean signalContainer(String user, String pid, Signal signal)
       throws IOException {
-    final String sigpid = ContainerExecutor.isSetsidAvailable
+    final String sigpid = Shell.isSetsidAvailable
         ? "-" + pid
         : pid;
     LOG.debug("Sending signal " + signal.getValue() + " to pid " + sigpid
@@ -315,27 +315,8 @@ public class DefaultContainerExecutor extends ContainerExecutor {
    * (for logging).
    */
   protected void sendSignal(String pid, Signal signal) throws IOException {
-    if (Shell.WINDOWS) {
-      if (Signal.NULL == signal) {
-        // NULL signal (signal 0) is used to check validity of pid without doing
-        // anything to the process.  On Windows, this requires a separate
-        // winutils command.
-        ShellCommandExecutor shexec = new ShellCommandExecutor(new String[] {
-          Shell.WINUTILS, "task", "isAlive", pid });
-        shexec.execute();
-        if (!shexec.getOutput().contains("IsAlive")) {
-          throw new ExitCodeException(1, "invalid pid " + pid);
-        }
-      } else {
-        ShellCommandExecutor shexec = new ShellCommandExecutor(new String[] {
-          Shell.WINUTILS, "task", "kill", pid });
-        shexec.execute();
-      }
-    } else {
-      ShellCommandExecutor shexec = new ShellCommandExecutor(new String[] { "kill",
-        "-" + signal.getValue(), pid });
-      shexec.execute();
-    }
+    new ShellCommandExecutor(Shell.getSignalKillCommand(signal.getValue(), pid))
+      .execute();
   }
 
   @Override

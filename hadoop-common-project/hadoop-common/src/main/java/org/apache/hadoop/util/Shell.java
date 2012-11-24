@@ -127,10 +127,27 @@ abstract public class Shell {
   public static String[] getRunCommand(String command,
                                        String groupId) {
     if (WINDOWS) {
-      return new String[] { Shell.WINUTILS, "task", "create",
-                            groupId, "cmd /c " + command };
+      return new String[] { WINUTILS, "task", "create", groupId,
+        "cmd /c " + command };
     } else {
       return new String[] { "bash", "-c", command };
+    }
+  }
+
+  /** Return a command to send a signal to a given pid */
+  public static String[] getSignalKillCommand(int code, String pid) {
+    if (WINDOWS) {
+      if (code == 0) {
+        // NULL signal (signal 0) is used to check validity of pid without doing
+        // anything to the process.  On Windows, this requires a separate
+        // winutils command.
+        return new String[] { WINUTILS, "task", "isAlive", pid };
+      } else {
+        return new String[] { WINUTILS, "task", "kill", pid };
+      }
+    } else {
+      return new String[] { "kill", "-" + code,
+        isSetsidAvailable ? "-" + pid : pid };
     }
   }
 
@@ -158,6 +175,26 @@ abstract public class Shell {
   public static final boolean LINUX
                 = System.getProperty("os.name").startsWith("Linux");
   
+  public static final boolean isSetsidAvailable = isSetsidSupported();
+  private static boolean isSetsidSupported() {
+    if (WINDOWS) {
+      return true;
+    }
+    ShellCommandExecutor shexec = null;
+    boolean setsidSupported = true;
+    try {
+      String[] args = {"setsid", "bash", "-c", "echo $$"};
+      shexec = new ShellCommandExecutor(args);
+      shexec.execute();
+    } catch (IOException ioe) {
+      LOG.warn("setsid is not available on this machine. So not using it.");
+      setsidSupported = false;
+    } finally { // handle the exit code
+      LOG.info("setsid exited with exit code " + shexec.getExitCode());
+    }
+    return setsidSupported;
+  }
+
   private long    interval;   // refresh interval in msec
   private long    lastTime;   // last time the command was performed
   private Map<String, String> environment; // env for the command execution
