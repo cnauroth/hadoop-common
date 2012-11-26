@@ -57,7 +57,7 @@ public class TestProcessIdFileReader {
     try {
       testFile = new File(rootDir, "temp.txt");
       PrintWriter fileWriter = new PrintWriter(testFile);
-      fileWriter.println("56789");
+      fileWriter.println(expectedProcessId);
       fileWriter.close();      
       String processId = null; 
                   
