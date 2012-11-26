@@ -136,19 +136,8 @@ abstract public class Shell {
 
   /** Return a command to send a signal to a given pid */
   public static String[] getSignalKillCommand(int code, String pid) {
-    if (WINDOWS) {
-      if (code == 0) {
-        // NULL signal (signal 0) is used to check validity of pid without doing
-        // anything to the process.  On Windows, this requires a separate
-        // winutils command.
-        return new String[] { WINUTILS, "task", "isAlive", pid };
-      } else {
-        return new String[] { WINUTILS, "task", "kill", pid };
-      }
-    } else {
-      return new String[] { "kill", "-" + code,
-        isSetsidAvailable ? "-" + pid : pid };
-    }
+    return WINDOWS ? new String[] { WINUTILS, "task", "kill", pid } :
+      new String[] { "kill", "-" + code, isSetsidAvailable ? "-" + pid : pid };
   }
 
   /** a Unix command to set permission */

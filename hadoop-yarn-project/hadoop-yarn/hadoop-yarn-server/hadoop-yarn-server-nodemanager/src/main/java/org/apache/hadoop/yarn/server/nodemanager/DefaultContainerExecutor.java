@@ -38,6 +38,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.UnsupportedFileSystemException;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.io.IOUtils;
+import org.apache.hadoop.util.ProcessIsAlive;
 import org.apache.hadoop.util.Shell;
 import org.apache.hadoop.util.Shell.ExitCodeException;
 import org.apache.hadoop.util.Shell.ShellCommandExecutor;
@@ -289,22 +290,28 @@ public class DefaultContainerExecutor extends ContainerExecutor {
         : pid;
     LOG.debug("Sending signal " + signal.getValue() + " to pid " + sigpid
         + " as user " + user);
-    try {
-      sendSignal(sigpid, Signal.NULL);
-    } catch (ExitCodeException e) {
+    if (!containerIsAlive(sigpid)) {
       return false;
     }
     try {
-      sendSignal(sigpid, signal);
+      killContainer(sigpid, signal);
     } catch (IOException e) {
-      try {
-        sendSignal(sigpid, Signal.NULL);
-      } catch (IOException ignore) {
+      if (!containerIsAlive(sigpid)) {
         return false;
       }
       throw e;
     }
     return true;
+  }
+
+  /**
+   * Returns true if the process with the specified pid is alive.
+   * 
+   * @param pid String pid
+   * @return boolean true if the process is alive
+   */
+  private boolean containerIsAlive(String pid) throws IOException {
+    return new ProcessIsAlive(pid).isAlive();
   }
 
   /**
@@ -314,7 +321,7 @@ public class DefaultContainerExecutor extends ContainerExecutor {
    * @param signal signal to send
    * (for logging).
    */
-  protected void sendSignal(String pid, Signal signal) throws IOException {
+  private void killContainer(String pid, Signal signal) throws IOException {
     new ShellCommandExecutor(Shell.getSignalKillCommand(signal.getValue(), pid))
       .execute();
   }
