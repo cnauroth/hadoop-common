@@ -50,6 +50,9 @@ public class TestProcessIdFileReader {
     String rootDir = new File(System.getProperty(
         "test.build.data", "/tmp")).getAbsolutePath();
     File testFile = null;
+    String expectedProcessId = Shell.WINDOWS ?
+      "container_1353742680940_0002_01_000001" :
+      "56789";
     
     try {
       testFile = new File(rootDir, "temp.txt");
@@ -60,7 +63,7 @@ public class TestProcessIdFileReader {
                   
       processId = ProcessIdFileReader.getProcessId(
           new Path(rootDir + Path.SEPARATOR + "temp.txt"));
-      Assert.assertEquals("56789", processId);      
+      Assert.assertEquals(expectedProcessId, processId);      
       
     } finally {
       if (testFile != null
