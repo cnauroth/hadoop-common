@@ -37,7 +37,7 @@ import org.apache.hadoop.fs.viewfs.ConfigUtil;
  * We set up fc to be the viewFs with mount point for 
  * /<firstComponent>" pointing to the local file system's testdir 
  */
-public class ViewFsTestSetup {
+public class ViewFsTestSetup extends ViewTestSetupBase {
 
 
    /* 
@@ -54,25 +54,11 @@ public class ViewFsTestSetup {
     
     fclocal.mkdir(targetOfTests, FileContext.DEFAULT_PERM, true);
   
-    String srcTestFirstDir;
-    if (FileContextTestHelper.TEST_ROOT_DIR.startsWith("/")) {
-      int indexOf2ndSlash = FileContextTestHelper.TEST_ROOT_DIR.indexOf('/', 1);
-      srcTestFirstDir = FileContextTestHelper.TEST_ROOT_DIR.substring(0, indexOf2ndSlash);
-    } else {
-      srcTestFirstDir = "/user"; 
-  
-    }
-    //System.out.println("srcTestFirstDir=" + srcTestFirstDir);
-  
     // Set up the defaultMT in the config with mount point links
-    // The test dir is root is below  /user/<userid>
     Configuration conf = new Configuration();
-    ConfigUtil.addLink(conf, srcTestFirstDir,
-        targetOfTests.toUri());
+    ConfigUtil.addLink(conf, getTestMountPoint(), targetOfTests.toUri());
     
     FileContext fc = FileContext.getFileContext(FsConstants.VIEWFS_URI, conf);
-    //System.out.println("SRCOfTests = "+ getTestRootPath(fc, "test"));
-    //System.out.println("TargetOfTests = "+ targetOfTests.toUri());
     return fc;
   }
 
