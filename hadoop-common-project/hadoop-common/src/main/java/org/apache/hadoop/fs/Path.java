@@ -43,7 +43,7 @@ public class Path implements Comparable {
   
   public static final String CUR_DIR = ".";
   
-  static final boolean WINDOWS
+  public static final boolean WINDOWS
     = System.getProperty("os.name").startsWith("Windows");
 
   private URI uri;                                // a hierarchical uri
@@ -158,6 +158,23 @@ public class Path implements Comparable {
     }
   }
 
+  /**
+   * Merge 2 paths such that the second path is appended relative to the first.
+   * The returned path has the scheme and authority of the first path.  On
+   * Windows, the drive specification in the second path is discarded.
+   * 
+   * @param path1 Path first path
+   * @param path2 Path second path, to be appended relative to path1
+   * @return Path merged path
+   */
+  public static Path mergePaths(Path path1, Path path2) {
+    String path2Str = path2.toUri().getPath();
+    if(path2.hasWindowsDrive(path2Str, path2Str.charAt(0)=='/')) {
+      path2Str = path2Str.substring(path2Str.indexOf(':')+1);
+    }
+    return new Path(path1 + path2Str);
+  }
+
   private String normalizePath(String path) {
     // remove double slashes & backslashes
     path = StringUtils.replace(path, "//", "/");
@@ -174,10 +191,11 @@ public class Path implements Comparable {
     return path;
   }
 
-  private boolean hasWindowsDrive(String path, boolean slashed) {
+  private static boolean hasWindowsDrive(String path, boolean slashed) {
     if (!WINDOWS) return false;
     int start = slashed ? 1 : 0;
     return
+      path != null &&
       path.length() >= start+2 &&
       (slashed ? path.charAt(0) == '/' : true) &&
       path.charAt(start+1) == ':' &&
@@ -185,6 +203,25 @@ public class Path implements Comparable {
        (path.charAt(start) >= 'a' && path.charAt(start) <= 'z'));
   }
 
+  /**
+   * Determine whether a given path string represents an absolute path on
+   * Windows. e.g. "C:/a/b" is an absolute path. "C:a/b" is not.
+   *
+   * @param pathString Supplies the path string to evaluate.
+   * @param slashed true if the given path is prefixed with "/".
+   * @return true if the supplied path looks like an absolute path with a Windows
+   * drive-specifier.
+   */
+  public static boolean isWindowsAbsolutePath(final String pathString,
+                                              final boolean slashed) {
+    int start = (slashed ? 1 : 0);
+
+    return
+        hasWindowsDrive(pathString, slashed) &&
+        pathString.length() >= (start + 3) &&
+        ((pathString.charAt(start + 2) == SEPARATOR_CHAR) ||
+          (pathString.charAt(start + 2) == '\\'));
+  }
 
   /** Convert this to a URI. */
   public URI toUri() { return uri; }

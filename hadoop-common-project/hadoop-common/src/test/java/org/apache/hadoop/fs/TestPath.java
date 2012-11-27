@@ -25,6 +25,7 @@ import java.util.Arrays;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.AvroTestUtil;
+import org.apache.hadoop.util.Shell;
 
 import junit.framework.TestCase;
 
@@ -268,6 +269,8 @@ public class TestPath extends TestCase {
   }
 
   public void testGlobEscapeStatus() throws Exception {
+    // This test is not meaningful on Windows where * is disallowed in file name.
+    if (Shell.WINDOWS) return;
     FileSystem lfs = FileSystem.getLocal(new Configuration());
     Path testRoot = lfs.makeQualified(new Path(
         System.getProperty("test.build.data","test/build/data"),
@@ -323,5 +326,31 @@ public class TestPath extends TestCase {
     stats = lfs.globStatus(new Path(testRoot, "\\*/*"));
     assertEquals(1, stats.length);
     assertEquals(new Path(testRoot, "*/f"), stats[0].getPath());
+  }
+
+  public void testMergePaths() {
+    assertEquals(new Path("/foo/bar"),
+      Path.mergePaths(new Path("/foo"),
+        new Path("/bar")));
+
+    assertEquals(new Path("/foo/bar/baz"),
+      Path.mergePaths(new Path("/foo/bar"),
+        new Path("/baz")));
+
+    assertEquals(new Path("/foo/bar/baz"),
+      Path.mergePaths(new Path("/foo"),
+        new Path("/bar/baz")));
+
+    assertEquals(new Path(Shell.WINDOWS ? "/C:/foo/bar" : "/C:/foo/C:/bar"),
+      Path.mergePaths(new Path("/C:/foo"),
+        new Path("/C:/bar")));
+
+    assertEquals(new Path("viewfs:///foo/bar"),
+      Path.mergePaths(new Path("viewfs:///foo"),
+        new Path("file:///bar")));
+
+    assertEquals(new Path("viewfs://vfsauthority/foo/bar"),
+      Path.mergePaths(new Path("viewfs://vfsauthority/foo"),
+        new Path("file://fileauthority/bar")));
   }
 }
