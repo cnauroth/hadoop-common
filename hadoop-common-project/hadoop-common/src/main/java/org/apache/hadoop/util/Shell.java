@@ -134,6 +134,12 @@ abstract public class Shell {
     }
   }
 
+  /** Return a command for determining if process with specified pid is alive. */
+  public static String[] getCheckProcessIsAliveCommand(String pid) {
+    return WINDOWS ? new String[] { WINUTILS, "task", "isAlive", pid } :
+      new String[] { "kill", "-0", isSetsidAvailable ? "-" + pid : pid };
+  }
+
   /** Return a command to send a signal to a given pid */
   public static String[] getSignalKillCommand(int code, String pid) {
     return WINDOWS ? new String[] { WINUTILS, "task", "kill", pid } :

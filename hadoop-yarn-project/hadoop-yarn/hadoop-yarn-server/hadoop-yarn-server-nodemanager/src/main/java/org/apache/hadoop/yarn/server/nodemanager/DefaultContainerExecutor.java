@@ -38,7 +38,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.UnsupportedFileSystemException;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.io.IOUtils;
-import org.apache.hadoop.util.ProcessIsAlive;
 import org.apache.hadoop.util.Shell;
 import org.apache.hadoop.util.Shell.ExitCodeException;
 import org.apache.hadoop.util.Shell.ShellCommandExecutor;
@@ -311,7 +310,16 @@ public class DefaultContainerExecutor extends ContainerExecutor {
    * @return boolean true if the process is alive
    */
   private boolean containerIsAlive(String pid) throws IOException {
-    return new ProcessIsAlive(pid).isAlive();
+    try {
+      new ShellCommandExecutor(Shell.getCheckProcessIsAliveCommand(pid))
+        .execute();
+      // successful execution means process is alive
+      return true;
+    }
+    catch (ExitCodeException e) {
+      // failure (non-zero exit code) means process is not alive
+      return false;
+    }
   }
 
   /**
