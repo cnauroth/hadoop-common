@@ -278,16 +278,19 @@ function CreateAndConfigureHadoopService(
     $service,
     [String]
     [Parameter( Position=1, Mandatory=$true )]
+    $hdpResourcesDir,
+    [String]
+    [Parameter( Position=2, Mandatory=$true )]
     $serviceBinDir,
     [System.Management.Automation.PSCredential]
-    [Parameter( Position=2, Mandatory=$true )]
+    [Parameter( Position=3, Mandatory=$true )]
     $serviceCredential
 )
 {
     if ( -not ( Get-Service "$service" -ErrorAction SilentlyContinue ) )
     {
         Write-Log "Creating service `"$service`" as $serviceBinDir\$service.exe"
-        $xcopyServiceHost_cmd = "copy /Y `"$ENV:HADOOP_HOME\bin\HadoopServiceHost.exe`" `"$serviceBinDir\$service.exe`""
+        $xcopyServiceHost_cmd = "copy /Y `"$hdpResourcesDir\serviceHost.exe`" `"$serviceBinDir\$service.exe`""
         Invoke-CmdChk $xcopyServiceHost_cmd
 
         #HadoopServiceHost.exe will write to this log but does not create it
@@ -406,7 +409,7 @@ function InstallHdfs(
 
     foreach( $service in empty-null $allServices.Split(' '))
     {
-        CreateAndConfigureHadoopService $service $hadoopInstallToBin $serviceCredential
+        CreateAndConfigureHadoopService $service $HDP_RESOURCES_DIR $hadoopInstallToBin $serviceCredential
     }
 
     ###
@@ -545,7 +548,7 @@ function InstallMapRed(
 
     foreach( $service in empty-null $allServices.Split(' '))
     {
-        CreateAndConfigureHadoopService $service $hadoopInstallToBin $serviceCredential
+        CreateAndConfigureHadoopService $service $HDP_RESOURCES_DIR $hadoopInstallToBin $serviceCredential
     }
 
     ###
