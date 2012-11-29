@@ -84,6 +84,12 @@ abstract public class Shell {
     return home;
   }
   private static String HADOOP_HOME_DIR = checkHadoopHome();
+  private static boolean IS_JAVA7_OR_ABOVE =
+      System.getProperty("java.version").substring(0, 3).compareTo("1.7") >= 0;
+
+  public static boolean isJava7OrAbove() {
+    return IS_JAVA7_OR_ABOVE;
+  }
 
   // Public getter, throws an exception if HADOOP_HOME failed validation
   // checks and is being referenced downstream.
@@ -122,6 +128,10 @@ abstract public class Shell {
   
   public static final boolean LINUX
                 = System.getProperty("os.name").startsWith("Linux");
+
+  /** Token separator regex used to parse Shell tool outputs */
+  public static final String TOKEN_SEPARATOR_REGEX
+                = WINDOWS ? "[|\n\r]" : "[ \t\n\r\f]";
 
   /* Set flag for aiding Windows porting temporarily for branch-1-win*/
   // TODO - this needs to be fixed
@@ -193,6 +203,7 @@ abstract public class Shell {
                      : new String[] { "chown", owner };
   }
   
+  /** Return a command to create symbolic links */
   public static String[] getSymlinkCommand(String target, String link) {
     return WINDOWS ? new String[] { WINUTILS, "symlink", link, target }
                    : new String[] { "ln", "-s", target, link };
@@ -290,7 +301,7 @@ abstract public class Shell {
     
     return getUlimitMemoryCommand(memoryLimit);
   }
-  
+
   private long    interval;   // refresh interval in msec
   private long    lastTime;   // last time the command was performed
   private Map<String, String> environment; // env for the command execution

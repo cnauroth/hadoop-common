@@ -163,6 +163,8 @@ Monarch - unreleased
   
     HADOOP-9040. Fix task-controller to build unless windows ( gkesavan )
 
+    HADOOP-9071. configure ivy log levels for resolve/retrieve ( gkesavan )
+
   INITIAL MS-PATCH
     HADOOP-8457 Address file ownership issue for users in Administrators 
     group on Windows. (Ivan Mitic)

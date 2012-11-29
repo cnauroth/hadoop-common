@@ -7,7 +7,6 @@ import static org.apache.hadoop.test.MetricsAsserts.*;
 import junit.framework.TestCase;
 
 public class TestAzureFileSystemInstrumentation extends TestCase {
-  private static String prefixUri;
   private FileSystem fs;
   private AzureBlobStorageTestAccount testAccount;
 
@@ -17,8 +16,6 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     if (testAccount != null) {
       fs = testAccount.getFileSystem();
     }
-
-    prefixUri = testAccount.getUriPrefix();
   }
 
   @Override
@@ -44,11 +41,11 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     assertCounter("asv_web_requests", 1L, getMyMetrics());
     
     // Create a directory
-    assertTrue(fs.mkdirs(new Path(prefixUri + "a")));
+    assertTrue(fs.mkdirs(new Path("a")));
     assertCounter("asv_web_requests", 2L, getMyMetrics());
 
     // List the root contents
-    assertEquals(1, fs.listStatus(new Path(prefixUri + "/")).length);    
+    assertEquals(1, fs.listStatus(new Path("/")).length);    
     assertCounter("asv_web_requests", 3L, getMyMetrics());
   }
 

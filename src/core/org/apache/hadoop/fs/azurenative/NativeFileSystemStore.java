@@ -35,7 +35,8 @@ import org.apache.hadoop.fs.permission.FsPermission;
  */
 interface NativeFileSystemStore {
 
-  void initialize(URI uri, Configuration conf, AzureFileSystemInstrumentation instrumentation) throws IOException;
+  void initialize(URI uri, Configuration conf, AzureFileSystemInstrumentation instrumentation)
+      throws IOException, IllegalArgumentException;
 
   void storeEmptyFile(String key, FsPermission permission) throws IOException;
 
@@ -44,8 +45,8 @@ interface NativeFileSystemStore {
   DataInputStream retrieve(String key) throws IOException;
 
   DataInputStream retrieve(String key, long byteRangeStart) throws IOException;
-
-  DataOutputStream pushout(String key, FsPermission permission) throws AzureException;
+  
+  DataOutputStream storefile(String key, FsPermission permission) throws AzureException;
 
   PartialListing list(String prefix, final int maxListingCount, final int maxListingDepth)
       throws IOException;
@@ -59,7 +60,7 @@ interface NativeFileSystemStore {
   void delete(String key) throws IOException;
 
   void rename(String srcKey, String dstKey) throws IOException;
-  void rename(String encodedKey, String key, boolean needsNormalization) throws IOException;
+
 
   /**
    * Delete all keys with the given prefix. Used for testing.
@@ -74,8 +75,4 @@ interface NativeFileSystemStore {
    * @throws IOException
    */
   void dump() throws IOException;
-
-
-
-
 }

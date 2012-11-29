@@ -10,14 +10,9 @@ import com.microsoft.windowsazure.services.blob.client.CloudBlobContainer;
 import com.microsoft.windowsazure.services.core.storage.CloudStorageAccount;
 
 public final class AzureBlobStorageTestAccount {
-  public enum UriType {
-    FULL, IMPLICIT, RELATIVE
-  }
-
-  private static final String URI_PATH_ENVIRONMENT = "URI_TYPE"; 
 
   private static final String CONNECTION_STRING_PROPERTY_NAME = "fs.azure.storageConnectionString";
-  private String prefixUri;
+  private static final String ACCOUNT_KEY_PROPERTY_NAME = "fs.azure.account.key.";
   private CloudBlobContainer container;
   private FileSystem fs;
 
@@ -59,21 +54,38 @@ public final class AzureBlobStorageTestAccount {
     container.create();
     String accountUrl = account.getBlobEndpoint().getAuthority();
     String accountName = accountUrl.substring(0, accountUrl.indexOf('.'));
+    
+    // Set the account key base on whether the account is authenticated or is an anonymous
+    // public account.
+    //
     conf.set(CONNECTION_STRING_PROPERTY_NAME + "." + accountName, connectionString);
+    String accountKey = null;
 
-    String env = System.getenv(URI_PATH_ENVIRONMENT);
-    UriType typeOfUri = UriType.RELATIVE;
-    if (null != env) {
-      typeOfUri = UriType.valueOf(env.toUpperCase());
+    // Split name value pairs by splitting on the ';' character
+    //
+    final String[] valuePairs =  connectionString.split(";");
+    for (String str : valuePairs) {
+      // Split on the equals sign to get the key/value pair.
+      //
+      String [] pair = str.split("\\=", 2);
+      if (pair[0].toLowerCase().equals("AccountKey".toLowerCase())) {
+        accountKey = pair[1];
+        break;
+      }
     }
-    if (UriType.IMPLICIT == typeOfUri) {
-      fs.initialize (new URI ("asv://" + containerName + "/"), conf);
-    } else {
-      fs.initialize(new URI("asv://" + accountUrl + "/" + containerName + "/"), conf);
+    if (null == accountKey){
+      // Connection string not configured with an account key.
+      //
+      final String errMsg = 
+          String.format("Account key not configured in connection string: '%s'.", connectionString);
+      throw new Exception (errMsg);
     }
+    
+    conf.set(ACCOUNT_KEY_PROPERTY_NAME + accountName, accountKey);
+
+    fs.initialize(new URI("asv://" + accountName + "+" + containerName + "/"), conf);
 
     AzureBlobStorageTestAccount testAcct = new AzureBlobStorageTestAccount(fs, container);
-    testAcct.setUriPrefix(typeOfUri, "asv", accountName, containerName);
 
     return testAcct;
   }
@@ -92,24 +104,4 @@ public final class AzureBlobStorageTestAccount {
   public FileSystem getFileSystem() {
     return fs;
   }
-
-  private void setUriPrefix (UriType typeOfUri, String scheme, String account, String container) {
-    switch (typeOfUri) {
-      case FULL: 
-        prefixUri = scheme + "://" + account + ".blob.core.windows.net" + "/" + container + "/";
-        break;
-      case IMPLICIT:
-        prefixUri = scheme + "://" + container + "/";
-        break;
-
-      default:
-        prefixUri = "";
-        break;
-    }
-  }
-
-  public String getUriPrefix () {
-    return prefixUri;
-  }
-
 }

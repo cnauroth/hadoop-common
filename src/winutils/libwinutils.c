@@ -621,6 +621,7 @@ GetEffectiveRightsForSidEnd:
 //
 //  - If the user or group name does not exist, the user or group SID will be
 //    returned as the name.
+//
 DWORD FindFileOwnerAndPermission(
   __in LPCWSTR pathName,
   __out_opt LPWSTR *pOwnerName,

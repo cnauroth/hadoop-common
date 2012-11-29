@@ -34,7 +34,6 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import com.microsoft.windowsazure.services.blob.client.*;
 import com.microsoft.windowsazure.services.core.storage.*;
 import com.microsoft.windowsazure.services.core.storage.utils.*;
-import com.sun.servicetag.UnauthorizedAccessException;
 
 class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
@@ -54,7 +53,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
   // Constants local to this class.
   //
-  private static final String KEY_CONNECTION_STRING = "fs.azure.storageConnectionString";
+  private static final String KEY_ACCOUNT_KEY_PREFIX = "fs.azure.account.key.";
+  private static final String KEY_ACCOUNT_SAS_PREFIX = "fs.azure.sas.";
   private static final String KEY_CONCURRENT_CONNECTION_VALUE_IN = "fs.azure.concurrentConnection.in";
   private static final String KEY_CONCURRENT_CONNECTION_VALUE_OUT = "fs.azure.concurrentConnection.out";
   private static final String KEY_STREAM_MIN_READ_SIZE = "fs.azure.stream.min.read.size";
@@ -66,7 +66,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final String HTTP_SCHEME = "http";
   private static final String HTTPS_SCHEME = "https";
   private static final String ASV_SCHEME = "asv";
+  private static final String ASV_SECURE_SCHEME = "asvs";
   private static final String ASV_URL_AUTHORITY = ".blob.core.windows.net";
+  private static final String ASV_AUTHORITY_DELIMITER = "+";
+  private static final String AZURE_ROOT_CONTAINER = "$root";
 
   // Default minimum read size for streams is 64MB.
   //
@@ -93,7 +96,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private AzureFileSystemInstrumentation instrumentation;
 
   /**
-   * Method the URI and configuration object for necessary to create a storage
+   * Method for the URI and configuration object necessary to create a storage
    * session with an Azure session. It parses the scheme to ensure it matches
    * the storage protocol supported by this file system.
    * 
@@ -121,11 +124,12 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // Check scheme associated with the URI to ensure it supports one of the
     // protocols for this file system.
     //
-    if (null == uri.getScheme() || !ASV_SCHEME.equals(uri.getScheme().toLowerCase())) {
+    if (null == uri.getScheme() || (!ASV_SCHEME.equals(uri.getScheme().toLowerCase()) &&
+        !ASV_SECURE_SCHEME.equals(uri.getScheme().toLowerCase()))) {
       final String errMsg = 
           String.format(
-              "Cannot initialize ASV file system is not supported." +
-                  "Expected '%s' scheme.", ASV_SCHEME);
+              "Cannot initialize ASV file system. Scheme is not supported, " +
+                  "expected '%s' scheme.", ASV_SCHEME);
       throw new  IllegalArgumentException(errMsg);
     }
 
@@ -155,97 +159,254 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   /**
-   * Get the connection string for the account specified by the URI.
+   * Method to extract the account name from an Azure URI.
    * 
-   * @param auth
-   *            - URI authority containing the account name.
-   * @param conf
-   *            - configuration object.
-   * 
-   * @return boolean - true if account is accessible from the cluster. False
-   *         otherwise.
+   * @param uri -- ASV blob URI
+   * @returns accountName -- the account name for the URI.
+   * @throws URISyntaxException if the URI does not have an authority it is badly formed.
    */
-  private String getAccountConnectionString(final String authUri,
-      final Configuration conf) {
-    // Capture the account name from the authority.
-    //
-    String accountName = authUri.split("\\.", 2)[0];
+  private String getAccountFromAuthority(URI uri) throws URISyntaxException {
 
-    // Get the connection string and test for its existence.
+    // Check to make sure that the authority is valid for the URI.
     //
-    String connectionString = conf.get(KEY_CONNECTION_STRING + "."
-        + accountName);
+    String authority = uri.getRawAuthority();
+    if (null == authority){
+      // Badly formed or illegal URI.
+      //
+      throw new URISyntaxException(uri.toString(), "Expected URI with a valid authority");
+    }
 
-    // Return to caller with the connection string.
+    // The URI has a valid authority. Extract the account name name. It is the first
+    // component of the ASV URI authority.
+    //
+    String accountName = authority.split("\\" + ASV_AUTHORITY_DELIMITER, 2)[0];
+    if ("".equals(accountName)) {
+      // The account name was not specified.
+      //
+      final String errMsg = 
+          String.format("URI '%s' an non-empty account name. Expected URI with a non-empty account",
+              uri.toString());
+      throw new IllegalArgumentException(errMsg);
+    }
+
+    // Return with the container name. It is possible that this name is NULL.
+    //
+    return accountName;
+  }
+
+  /**
+   * Method to extract the container name from an Azure URI.
+   * 
+   * @param uri -- ASV blob URI
+   * @returns containerName -- the container name for the URI. May be null.
+   * @throws URISyntaxException if the uri does not have an authority it is badly formed.
+   */
+  private String getContainerFromAuthority(URI uri) throws URISyntaxException {
+
+    // Check to make sure that the authority is valid for the URI.
+    //
+    String authority = uri.getRawAuthority();
+    if (null == authority){
+      // Badly formed or illegal URI.
+      //
+      throw new URISyntaxException(uri.toString(), "Expected URI with a valid authority");
+    }
+
+    // The URI has a valid authority. Extract the container name. It is the second
+    // component of the ASV URI authority.
+    //
+    String containerName = null;
+    if (authority.contains(ASV_AUTHORITY_DELIMITER)) {
+      containerName = authority.split("\\" + ASV_AUTHORITY_DELIMITER, 2)[1];
+    }
+
+    // If the container name is not part of the authority, then the URI specifies the
+    // $root container.
+    //
+    if (null == containerName || "".equals(containerName)) {
+      // No container specified, used the default $root container for the account.
+      //
+      containerName = AZURE_ROOT_CONTAINER;
+    }
+
+    // Return with the container name. It is possible that this name is NULL.
+    //
+    return containerName;
+  }
+
+  /**
+   * Build an Azure storage connection string given an account name and the key.
+   * 
+   * @param accountName - account name associated with the Azure account.
+   * @param accountKey  -  Azure storage account key.
+   * @return connectionString - connection string build from account name and key
+   * @throws URISyntaxException 
+   * @throws AzureException 
+   */
+  private String buildAzureStorageConnectionString (final String accountName, 
+      final String accountKey) throws AzureException, URISyntaxException {
+    String connectionString = "DefaultEndpointsProtocol=" + getHTTPScheme() + ";" +
+        "AccountName=" + accountName + ";" +
+        "AccountKey=" + accountKey;
+
+    // Return to the caller with the connection string.
     //
     return connectionString;
   }
 
   /**
+   * Get the appropriate return the appropriate scheme for communicating with
+   * Azure depending on whether asv or asvs is specified in the target URI.
+   * 
+   * return scheme - HTTPS if asvs is specified or HTTP if asv is specified.
+   * throws URISyntaxException if session URI does not have the appropriate
+   * scheme.
+   * @throws AzureException 
+   */
+  private String getHTTPScheme () throws URISyntaxException, AzureException {
+    // Determine the appropriate scheme for communicating with Azure storage.
+    //
+    String sessionScheme = sessionUri.getScheme();
+    if (null == sessionScheme) {
+      // The session URI has no scheme and is malformed.
+      //
+      final String errMsg =
+          String.format("Session URI does not have a URI scheme as is malformed.", sessionUri);
+      throw new URISyntaxException(sessionUri.toString(), errMsg);
+    }
+
+    if (ASV_SCHEME.equals(sessionScheme.toLowerCase())){
+      return HTTP_SCHEME;
+    }
+
+    if (ASV_SECURE_SCHEME.equals(sessionScheme.toLowerCase())){
+      return HTTPS_SCHEME;
+    }
+
+    final String errMsg =
+        String.format ("Scheme '%s://' not recognized by Hadoop ASV file system",sessionScheme);
+    throw new AzureException (errMsg);
+  }
+
+  /**
+   * Set the configuration parameters for this client storage session with Azure.
+   * 
+   */
+  private void configureAzureStorageSession() {
+
+    // Assertion: Target session URI already should have been captured.
+    //
+    assert null != sessionUri :
+      "Expected a non-null session URI when configuring storage session";
+
+    // Assertion: A client session already should have been established with Azure.
+    //
+    assert null != serviceClient :
+      String.format("Cannot configure storage session for URI '%s' " + 
+          "if storage session has not been established.", sessionUri.toString());
+
+    // Set up the minimum stream read block size and the write block
+    // size.
+    //
+    serviceClient.setStreamMinimumReadSizeInBytes(
+        sessionConfiguration.getInt(
+            KEY_STREAM_MIN_READ_SIZE, DEFAULT_STREAM_MIN_READ_SIZE));
+
+    serviceClient.setWriteBlockSizeInBytes(
+        sessionConfiguration.getInt(
+            KEY_WRITE_BLOCK_SIZE, DEFAULT_WRITE_BLOCK_SIZE));
+
+    // The job may want to specify a timeout to use when engaging the
+    // storage service. The default is currently 90 seconds. It may
+    // be necessary to increase this value for long latencies in larger
+    // jobs. If the timeout specified is greater than zero seconds use
+    // it,
+    // otherwise use the default service client timeout.
+    //
+    int storageConnectionTimeout = 
+        sessionConfiguration.getInt(
+            KEY_STORAGE_CONNECTION_TIMEOUT, 0);
+
+    if (0 < storageConnectionTimeout) {
+      serviceClient.setTimeoutInMs(storageConnectionTimeout * 1000);
+    }
+
+    // Set the concurrency values equal to the that specified in the
+    // configuration file. If it does not exist, set it to the default
+    // value calculated as double the number of CPU cores on the client
+    // machine. The concurrency value is minimum of double the cores and
+    // the read/write property.
+    //
+    int cpuCores = 2 * Runtime.getRuntime().availableProcessors();
+
+    concurrentReads = sessionConfiguration.getInt(
+        KEY_CONCURRENT_CONNECTION_VALUE_IN,
+        Math.min(cpuCores, DEFAULT_CONCURRENT_READS));
+
+    concurrentWrites = sessionConfiguration.getInt(
+        KEY_CONCURRENT_CONNECTION_VALUE_OUT,
+        Math.min(cpuCores, DEFAULT_CONCURRENT_WRITES));
+  }
+
+
+  /**
    * Connect to Azure storage using shared access signature credentials.
    * 
-   * @param uri
-   *            - URI to target blob
-   * @param sasCreds
-   *            - shared access signature credentials
+   * @param uri - URI to target blob
+   * @param sasCreds - shared access signature credentials
    * 
-   * @throws StorageException
-   *             raised on errors communicating with Azure storage.
-   * @throws IOException
-   *             raised on errors performing I/O or setting up the session.
-   * @throws URISyntaxExceptions
-   *             raised on creating malformed URI's.
+   * @throws StorageException raised on errors communicating with Azure storage.
+   * @throws IOException raised on errors performing I/O or setting up the session.
+   * @throws URISyntaxExceptions raised on creating malformed URI's.
    */
-  private void connectUsingSASCredentials(final URI uri,
-      final StorageCredentialsSharedAccessSignature sasCreds)
-          throws StorageException, IOException, URISyntaxException {
+  private void connectUsingSASCredentials(final StorageCredentialsSharedAccessSignature sasCreds)
+      throws StorageException, IOException, URISyntaxException {
     // Extract the container name from the URI.
     //
-    String containerName = uri.getPath().split(PATH_DELIMITER, 3)[1]
-        .toLowerCase();
+    String containerName = getContainerFromAuthority(sessionUri).toLowerCase();
 
-    // Create blob service client using the shared access signature
+    // Create the account URI.
+    //
+    URI accountUri = new URI(getHTTPScheme() + ":" + PATH_DELIMITER + PATH_DELIMITER +
+        getAccountFromAuthority(sessionUri) + ASV_URL_AUTHORITY);
+
+    // Create blob service client using the account URI and the shared access signature
     // credentials.
     //
-    // URI accountUri = new URI(HTTPS_SCHEME + "://" + uri.getAuthority() +
-    // "/" + containerName);
-    URI accountUri = new URI(HTTPS_SCHEME + "://" + uri.getAuthority()
-        + uri.getPath());
     serviceClient = new CloudBlobClient(accountUri, sasCreds);
 
     // Capture the root directory.
     //
-    String containerUri = HTTPS_SCHEME + "://" + uri.getAuthority()
-        + PATH_DELIMITER + containerName;
-    rootDirectory = serviceClient.getDirectoryReference(containerUri);
+    String containerUriString = accountUri.toString() + PATH_DELIMITER + containerName;
+    rootDirectory = serviceClient.getDirectoryReference(containerUriString);
 
     // Capture the container reference for debugging purposes.
     //
     container = serviceClient.getContainerReference(containerName);
+
+    // Configure Azure storage session.
+    //
+    configureAzureStorageSession();
   }
 
   /**
    * Connect to Azure storage using anonymous credentials.
    * 
-   * @param uri
-   *            - URI to target blob (R/O access to public blob)
+   * @param uri - URI to target blob (R/O access to public blob)
    * 
-   * @throws StorageException
-   *             raised on errors communicating with Azure storage.
-   * @throws IOException
-   *             raised on errors performing I/O or setting up the session.
-   * @throws URISyntaxExceptions
-   *             raised on creating malformed URI's.
+   * @throws StorageException raised on errors communicating with Azure storage.
+   * @throws IOException raised on errors performing I/O or setting up the session.
+   * @throws URISyntaxExceptions raised on creating mal-formed URI's.
    */
   private void connectUsingAnonymousCredentials(final URI uri)
       throws StorageException, IOException, URISyntaxException {
     // Use an HTTP scheme since the URI specifies a publicly accessible
-    // container.
-    // Explicitly create a storage URI corresponding to the URI parameter
-    // for use
-    // in creating the service client.
+    // container. Explicitly create a storage URI corresponding to the URI 
+    // parameter for use in creating the service client.
     //
-    URI storageUri = new URI(HTTP_SCHEME + "://" + uri.getAuthority());
+    URI storageUri = new URI(getHTTPScheme() + ":" + PATH_DELIMITER + PATH_DELIMITER + 
+        getAccountFromAuthority (uri) +
+        ASV_URL_AUTHORITY);
 
     // Create the service client with anonymous credentials.
     //
@@ -253,79 +414,62 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
     // Extract the container name from the URI.
     //
-    String containerName = uri.getPath().split(PATH_DELIMITER, 3)[1]
-        .toLowerCase();
-    String containerUri = HTTPS_SCHEME + "://" + uri.getAuthority()
-        + PATH_DELIMITER + containerName;
+    String containerName = getContainerFromAuthority (uri);
+    String containerUri = storageUri.toString() + PATH_DELIMITER + containerName;
     rootDirectory = serviceClient.getDirectoryReference(containerUri);
 
     // Capture the container reference for debugging purposes.
     //
     container = serviceClient.getContainerReference(containerName);
+
+    // Accessing the storage server unauthenticated using
+    // anonymous credentials.
+    //
+    isAnonymousCredentials = true;
+
+    // Configure Azure storage session.
+    //
+    configureAzureStorageSession();
   }
 
   /**
    * Connect to Azure storage using anonymous credentials.
    * 
-   * @param uri
-   *            - URI to target blob
-   * @param connectionString
-   *            - connection string with Azure storage credentials.
-   * @param isFullUri
-   *            - URI is a full-length absolute URI.
+   * @param uri - URI to target blob
+   * @param connectionString - connection string with Azure storage credentials.
    * 
-   * @throws InvalidKeyException
-   *             on errors parsing the connection string credentials.
-   * @throws StorageException
-   *             on errors communicating with Azure storage.
-   * @throws IOException
-   *             on errors performing I/O or setting up the session.
-   * @throws URISyntaxExceptions
-   *             on creating malformed URI's.
+   * @throws InvalidKeyException raised on errors parsing the connection string credentials.
+   * @throws StorageException raised on errors communicating with Azure storage.
+   * @throws IOException raised on errors performing I/O or setting up the session.
+   * @throws URISyntaxExceptions raised on on creating malformed URI's.
    */
-  private void connectUsingConnectionStringCredentials(final URI uri,
-      final String connectionString, boolean isFullUri)
-          throws InvalidKeyException, StorageException, IOException,
-          URISyntaxException {
+  private void connectUsingConnectionStringCredentials(
+      final String accountName, final String containerName, final String accountKey) 
+          throws InvalidKeyException, StorageException, IOException, URISyntaxException {
+
+    // Build the connection string from the account name and the account key.
+    //
+    String connectionString = buildAzureStorageConnectionString(accountName, accountKey);
+
     // Capture storage account from the connection string in order to create
-    // the blob client.
-    // The blob client will be used to retrieve the container if it exists,
-    // otherwise a new
-    // container is created.
+    // the blob client. The blob client will be used to retrieve the container
+    // if it exists, otherwise a new container is created.
     //
     account = CloudStorageAccount.parse(connectionString);
     serviceClient = account.createCloudBlobClient();
 
-    // Capture the container name and query for the container.
+    // Set the root directory.
     //
-    String containerName = null;
-    if (isFullUri) {
-      // For absolute paths the container name is the root of the URI path
-      // of
-      // the form /<container name>/<remaining path>. Split the path name
-      // into
-      // 3 parts around the delimiter "/" and capture the container name.
-      //
-      containerName = uri.getPath().split(PATH_DELIMITER, 3)[1]
-          .toLowerCase();
+    String containerUri = getHTTPScheme() + ":" + PATH_DELIMITER + PATH_DELIMITER +
+        accountName + 
+        ASV_URL_AUTHORITY +
+        PATH_DELIMITER +
+        containerName;
+    rootDirectory = serviceClient.getDirectoryReference(containerUri);
 
-      // Set the root directory.
-      //
-      String containerUri = HTTPS_SCHEME + "://" + uri.getAuthority()
-          + PATH_DELIMITER + containerName;
-      rootDirectory = serviceClient.getDirectoryReference(containerUri);
-
-      // Capture the container reference for debugging purposes.
-      //
-      container = serviceClient.getContainerReference(containerName);
-    } else {
-      // When the path is not absolute, the container name is the
-      // authority of
-      // the URI.
-      //
-      containerName = uri.getAuthority().toLowerCase();
-    }
-    container = serviceClient.getContainerReference(containerName);
+    // Capture the container reference for debugging purposes.
+    //
+    container = serviceClient.getContainerReference(containerUri.toString());
 
     // Check for the existence of the Azure container. If it does not exist,
     // create one.
@@ -334,10 +478,14 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       container.create(null, getInstrumentedContext());
     }
 
-    // Assertion: The container should exist.
+    // Assertion: The container should exist at this point.
     //
-    assert container.exists(null, getInstrumentedContext()) : 
-      "Container " + container + " expected but does not exist.";
+    assert container.exists() :
+      String.format ("Container %s expected but does not exist", containerName);
+
+    // Configure Azure storage session.
+    //
+    configureAzureStorageSession();
   }
 
   /**
@@ -348,7 +496,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * @throws AzureException
    * @throws IOException
    */
-  private void createAzureStorageSession () throws AzureException, IOException {
+  private void createAzureStorageSession () 
+      throws AzureException, IOException {
 
     // Make sure this object was properly initialized with references to
     // the sessionUri and sessionConfiguration.
@@ -363,11 +512,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // with the Azure storage service for the target URI string.
     //
     try {
-      // Inspect the URI authority to determine the account is explicit or
-      // implicit. An accountis explicit if it takes the absolute log form
-      // of the URI ASV://<account>.blob.core.windows.net/*.
-      // Implicit accounts will take the short form ASV://<container>/*.
-      // Explicit URI's do the the following checks in order:
+      // Inspect the URI authority to determine the account and use the account to
+      // start an Azure blob client session using an account key or a SAS for the
+      // the account.
+      // For all URI's do the following checks in order:
       // 1. Validate that <account> can be used with the current Hadoop 
       //    cluster by checking it exists in the list of configured accounts
       //    for the cluster.
@@ -379,140 +527,88 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // 4. If there is no AccountKey, assume anonymous public blob access
       //    when accessing the blob.
       //
-      // If the account is implicit the retrieve and authenticate the from
-      // the cluster default
-      // connection string.
+      // If the URI does not specify a container use the default root container under
+      // the account name.
       //
-      String authUri = sessionUri.getAuthority().toLowerCase();
-      if (!authUri.endsWith(ASV_URL_AUTHORITY)) {
-        // This is an implicit path based on the ASV scheme. Connect
-        // using the connection string from the configuration object.
-        // Notice that the default connection string already has the
-        // AccountName and AccountKey parts of the credentials
-        // and there is no need to append the AccountName.
-        //
-        account = CloudStorageAccount.parse(
-            sessionConfiguration.get(KEY_CONNECTION_STRING));
-        serviceClient = account.createCloudBlobClient();
 
-        connectUsingConnectionStringCredentials(
-            sessionUri,
-            sessionConfiguration.get(KEY_CONNECTION_STRING), false);
-      } else {
-        // The account use the account list from the configuration file
-        // to determine
-        // if access to the account is allowed.
-        //
-        String connectionString = getAccountConnectionString(
-            authUri,
-            sessionConfiguration);
-        if (null == connectionString) {
-          // The account does not have cluster access, throw
-          // authorization exception.
-          //
-          final String errMsg = 
-              String.format(
-                  "Access to account '%s' not authorized from this cluster.", 
-                  authUri);
-          throw new UnauthorizedAccessException(errMsg);
-        }
+      // Assertion: Container name on the session Uri should be non-null.
+      //
+      assert null != getContainerFromAuthority(sessionUri) : 
+        String.format("Non-null container expected from session URI: ", 
+            sessionUri.toString());
 
-        // Capture the account name from the uri.
+      // Get the account name.
+      //
+      String accountName = getAccountFromAuthority(sessionUri);
+      if(null == accountName) {
+        // Account name is not specified as part of the URI. Throw indicating
+        // an invalid account name.
         //
-        String accountName = 
-            sessionUri.getAuthority().toLowerCase().split("\\.", 2)[0];
+        final String errMsg = 
+            String.format("Cannot load ASV file system account name not specified in URI:",
+                sessionUri.toString());
+        throw new AzureException(errMsg);
+      }
 
-        // Check if the URI has a valid access signature.
+      // Check if there is a SAS associated with the storage account and
+      // container by looking up their key in the job configuration object.
+      // Share access signatures take a property key of the form:
+      //      fs.azure.sas.<blob storage account name>+<container>
+      //
+      String containerName = getContainerFromAuthority(sessionUri);
+      String propertyValue = sessionConfiguration.get(
+          KEY_ACCOUNT_SAS_PREFIX + accountName + 
+          ASV_AUTHORITY_DELIMITER + containerName);
+      if (null != propertyValue){
+        // Check if the connection string is a valid shared access
+        // signature.
         //
-        StorageCredentialsSharedAccessSignature sasCreds = 
-            parseAndValidateSAS(sessionUri, true);
+        String sas = propertyValue.replace(';', '&');
+        StorageCredentialsSharedAccessSignature sasCreds = parseAndValidateSAS(sas);
         if (null != sasCreds) {
-          // Shared access signature exists, so access target using
-          // shared access signature credentials.
+          // If the SAS credentials were populated then the string
+          // is a shared access signature and we should connect using
+          // the shared access signature credentials.
           //
-          connectUsingSASCredentials(sessionUri, sasCreds);
-        } else if ("".equals(connectionString)) {
-          // The connection string is empty implying anonymous public
-          // blob access.
-          //
-          connectUsingAnonymousCredentials(sessionUri);
+          connectUsingSASCredentials(sasCreds);
 
-          // Accessing the storage server unauthenticated using
-          // anonymous credentials.
+          // Return to caller.
           //
-          isAnonymousCredentials = true;
-        } else {
-          // Check if the connection string is a shared access
-          // signature.
-          //
-          URI sasUri = new URI(sessionUri.toString() + "?"
-              + connectionString.replace(';', '&'));
-          sasCreds = parseAndValidateSAS(sasUri, true);
-          if (null != sasCreds) {
-            // If the SAS credentials were populated then the string
-            // is a shared access signature and we should connect using
-            // the shared access signature credentials.
-            //
-            connectUsingSASCredentials(sasUri, sasCreds);
-          } else {
-            // A non-empty connection string implies that the
-            // account key is stored in the
-            // configuration file. Use the account key to access
-            // blob storage. The
-            // configuration object only contains the key. Make sure
-            // to append the account
-            // name to the configuration string.
-            //
-            String fullConnectionString = connectionString
-                + ";AccountName=" + accountName;
-            connectUsingConnectionStringCredentials(
-                sessionUri,
-                fullConnectionString, true);
-          }
+          return;
         }
+
+        // The account does not have cluster access, throw
+        // authorization exception.
+        //
+        final String errMsg = 
+            String.format(
+                "Access signature is malformed or invalid." +
+                    "Access to account '%s' using configured shared access signature " +
+                    "is not authorized.", accountName);
+        throw new AzureException(errMsg);
       }
 
-      // Set up the minimum stream read block size and the write block
-      // size.
+      // No valid shared access signatures are associated with this account. Check
+      // whether the account is configured with an account key.
       //
-      serviceClient.setStreamMinimumReadSizeInBytes(
-          sessionConfiguration.getInt(
-              KEY_STREAM_MIN_READ_SIZE, DEFAULT_STREAM_MIN_READ_SIZE));
+      propertyValue = sessionConfiguration.get(KEY_ACCOUNT_KEY_PREFIX + accountName);
+      if (null != propertyValue) {
 
-      serviceClient.setWriteBlockSizeInBytes(
-          sessionConfiguration.getInt(
-              KEY_WRITE_BLOCK_SIZE, DEFAULT_WRITE_BLOCK_SIZE));
+        // Account key was found. Create the Azure storage session using the account
+        // key and container.
+        //
+        connectUsingConnectionStringCredentials(getAccountFromAuthority(sessionUri),
+            getContainerFromAuthority(sessionUri), propertyValue);
 
-      // The job may want to specify a timeout to use when engaging the
-      // storage service. The default is currently 90 seconds. It may
-      // be necessary to increase this value for long latencies in larger
-      // jobs. If the timeout specified is greater than zero seconds use
-      // it,
-      // otherwise use the default service client timeout.
-      //
-      int storageConnectionTimeout = 
-          sessionConfiguration.getInt(
-              KEY_STORAGE_CONNECTION_TIMEOUT, 0);
-
-      if (0 < storageConnectionTimeout) {
-        serviceClient.setTimeoutInMs(storageConnectionTimeout * 1000);
+        // Return to caller
+        //
+        return;
       }
 
-      // Set the concurrency values equal to the that specified in the
-      // configuration file. If it does not exist, set it to the default
-      // value calculated as double the number of CPU cores on the client
-      // machine. The concurrency value is minimum of double the cores and
-      // the read/write property.
+      // The account access is not configured for this cluster. Try anonymous access.
       //
-      int cpuCores = 2 * Runtime.getRuntime().availableProcessors();
+      connectUsingAnonymousCredentials(sessionUri);
 
-      concurrentReads = sessionConfiguration.getInt(
-          KEY_CONCURRENT_CONNECTION_VALUE_IN,
-          Math.min(cpuCores, DEFAULT_CONCURRENT_READS));
-
-      concurrentWrites = sessionConfiguration.getInt(
-          KEY_CONCURRENT_CONNECTION_VALUE_OUT,
-          Math.min(cpuCores, DEFAULT_CONCURRENT_WRITES));
     } catch (Exception e) {
       // Caught exception while attempting to initialize the Azure File
       // System store, re-throw the exception.
@@ -522,7 +618,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   @Override
-  public DataOutputStream pushout(String key, FsPermission permission) 
+  public DataOutputStream storefile(String key, FsPermission permission) 
       throws AzureException {
     try {
 
@@ -530,7 +626,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Azure storage server.
       //
       if (null == serviceClient) {
-        createAzureStorageSession();
+        final String errMsg = 
+            String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
+        throw new AzureException(errMsg);
       }
 
       // Check if there is an authenticated account associated with the
@@ -590,52 +688,22 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * @throws StorageException
    *             errors occurring during any operation with the Azure runtime
    */
-  private StorageCredentialsSharedAccessSignature parseAndValidateQuery(
-      final URI fullUri) throws StorageException {
+  private StorageCredentialsSharedAccessSignature parseAndValidateSAS(
+      final String sasToken) throws StorageException {
     StorageCredentialsSharedAccessSignature sasCreds = null;
-
-    // Capture URI query part.
-    String uriQueryToken = fullUri.getRawQuery();
 
     // If the query token is null return with null credentials.
     //
-    if (null == uriQueryToken) {
+    if (null == sasToken) {
       return sasCreds;
     }
 
-    // // TODO: Temporary workaround to validate the share access signature.
-    // // TODO: Compare the account name on the shared access signature
-    // credentials
-    // // TODO: with the account name on the URI.
-    // // TODO: Does not work!
-    // StorageCredentialsSharedAccessSignature.getAccountName
-    // // TODO: always returns null.
-    // //
-    // if (null != sasCreds)
-    // {
-    // String accountName =
-    // fullUri.getAuthority().toLowerCase().split("\\.", 2)[0];
-    // String credsAccountName = sasCreds.getAccountName();
-    // if (null != credsAccountName &&
-    // !credsAccountName.equals(accountName))
-    // {
-    // // Account names do not correspond and we can assume invalid SAS
-    // credential.
-    // //
-    // sasCreds = null;
-    // }
-    // }
-    //
-    // // Return shared access signature credentials.
-    // //
-    // return sasCreds;
-
     /**
-     * TODO: Explicit parsing of the query token is preferable. However the
-     * Constants.QueryConstants TODO: enumeration is not available in
-     * microsoft.windowsazure-api.0.2.2.jar. The code below can TODO: be lit
-     * up when the code base migrates to
-     * microsoft.windowsazure-api-0.3.1.jar.
+     * TODO: Explicit parsing of the sas token is preferable. However the
+     * TODO: Constants.QueryConstants enumeration is not available in
+     * TODO: microsoft.windowsazure-api.0.2.2.jar. The code below can
+     * TODO: be lit up when the code base migrates to 
+     * TODO: microsoft.windowsazure-api-0.3.1.jar.
      */
     // Reset SAS component parameters to null.
     //
@@ -651,8 +719,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
     // Initialize HashMap with query parameters.
     //
-    final HashMap<String, String[]> queryParameters = PathUtility
-        .parseQueryString(fullUri.getRawQuery());
+    final HashMap<String, String[]> queryParameters = PathUtility.parseQueryString(sasToken);
 
     for (final Map.Entry<String, String[]> mapEntry : queryParameters
         .entrySet()) {
@@ -728,48 +795,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     return sasCreds;
   }
 
-  /**
-   * Parse the URI for shared access signature (SAS) and validate that no
-   * other query parameters are passed in with the URI. The SAS will be
-   * validated by capturing its corresponding credentials.
-   * 
-   * @param fullUri
-   *            - the complete URI of the blob reference
-   * @param usePathUris
-   *            - true if path style URIs are used.
-   * 
-   * @returns StorageCredentialsSharedAccessSignature shared access
-   *          credentials.
-   * 
-   * @throws URISyntaxException
-   *             if the full URI is invalid.
-   * @throws StorageException
-   *             if an error occures in the AzureSDK runtime.
-   */
-  private StorageCredentialsSharedAccessSignature parseAndValidateSAS(
-      final URI fullUri, final boolean usePathUris)
-          throws URISyntaxException, StorageException {
-
-    // This method expects an absolute URI. If the URI is not absolute,
-    // throw an illegal
-    // argument exception.
-    //
-    if (!fullUri.isAbsolute()) {
-      final String errMsg = String.format(
-          "URI '%s' is not an absolute URI. This method only accepts"
-              + " absolute URIs.", fullUri.toString());
-      throw new IllegalArgumentException(errMsg);
-    }
-
-    // Parse and validate the query part of the URI. Notice that the URI was
-    // validated as an absolute URI already.
-    //
-    StorageCredentialsSharedAccessSignature sasCreds = parseAndValidateQuery(fullUri);
-
-    // Return to caller with the SAS credentials.
-    //
-    return sasCreds;
-  }
 
   private static void storePermission(CloudBlob blob, FsPermission permission) {
     HashMap<String, String> metadata = blob.getMetadata();
@@ -799,14 +824,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // server.
       //
       if (null == serviceClient) {
-        createAzureStorageSession();
+        final String errMsg = 
+            String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
+        throw new AssertionError(errMsg);
       }
-
-      // Note: No need to make  sure to normalize the key after the createAzureStorage
-      //       has started since the method absolutePath looks at the  session URI
-      //       authority suffix to determine absolute paths.
-      //
-      String normKey = normalizeKey(key);
 
       // Check if there is an authenticated account associated with the file
       // this instance of the ASV file system. If not the file system has not
@@ -817,11 +838,12 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         // allowed to
         // anonymous accounts.
         //
-        throw new Exception(
+        throw new AzureException(
             "Uploads to to public accounts using anonymous access is prohibited.");
       }
 
-      CloudBlockBlob blob = getBlobReference(normKey);
+      // CloudBlockBlob blob = getBlobReference(normKey);
+      CloudBlockBlob blob = getBlobReference (key);
       storePermission(blob, permission);
       blob.upload(new ByteArrayInputStream(new byte[0]), 0, null, null, getInstrumentedContext());
     } catch (Exception e) {
@@ -846,11 +868,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //
       assert null == account : "Non-null account not expected for anonymous credentials";
 
-      // Assertion: Anonymous credentials are only valid for absolute
-      // paths.
-      //
-      assert useAbsolutePath() : "Expected an absolute path for anonymous access.";
-
       // Access to this storage account is unauthenticated.
       //
       return false;
@@ -867,7 +884,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * 
    * @returns boolean : true if the suffix of the authority is ASV_URL_AUTHORITY
    */
-  private boolean useAbsolutePath() {
+  public boolean useAbsolutePath() {
     // Check that the suffix of the authority is ASV_URL_AUTHORITY
     //
     return sessionUri.getAuthority().toLowerCase().endsWith(ASV_URL_AUTHORITY);
@@ -884,18 +901,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * @throws URISyntaxException
    * 
    */
-  private Iterable<ListBlobItem> listRootBlobs() throws StorageException,
-  URISyntaxException {
-    if (useAbsolutePath()) {
-      return rootDirectory.listBlobs(
+  private Iterable<ListBlobItem> listRootBlobs() throws StorageException, URISyntaxException {
+    return rootDirectory.listBlobs(
           null, false, EnumSet.noneOf(BlobListingDetails.class), null,
           getInstrumentedContext());
-    } else {
-      assert null != container : "Expecting a non-null container for Azure store object.";
-      return container.listBlobs(
-          null, false, EnumSet.noneOf(BlobListingDetails.class), null,
-          getInstrumentedContext());
-    }
   }
 
   /**
@@ -913,19 +922,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    */
   private Iterable<ListBlobItem> listRootBlobs(String aPrefix)
       throws StorageException, URISyntaxException {
-    if (useAbsolutePath()) {
-      // Normalize the prefix for long form of the URI.
-      //
-      String normPrefix = normalizeKey(aPrefix);
-      return rootDirectory.listBlobs(normPrefix,
+
+    return rootDirectory.listBlobs(aPrefix,
           false, EnumSet.noneOf(BlobListingDetails.class), null,
           getInstrumentedContext());
-    } else {
-      assert null != container : "Expecting a non-null container for Azure store object.";
-      return container.listBlobs(aPrefix,
-          false, EnumSet.noneOf(BlobListingDetails.class), null,
-          getInstrumentedContext());
-    }
   }
 
   /**
@@ -948,59 +948,20 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private Iterable<ListBlobItem> listRootBlobs(String aPrefix, boolean useFlatBlobListing, 
       EnumSet<BlobListingDetails> listingDetails, BlobRequestOptions options,
       OperationContext opContext) throws StorageException, URISyntaxException {
-    if (useAbsolutePath()) {
-      // Normalize the prefix for long form of the URI.
-      //
-      String normPrefix = normalizeKey(aPrefix);
-      CloudBlobDirectory directory = serviceClient.getDirectoryReference(
-          rootDirectory.getUri().toString() + normPrefix);
 
-      // TODO: BUGBUG-There is a defect in the WindowsAzure SDK whick ignores the use
-      // TODO: flat blob listing setting. The listBlobs calls below always traverses the
-      // TODO: hierarchical namespace regardless of the value of useFlatBlobListing.
-      //
-      return directory.listBlobs(
-          null,
-          useFlatBlobListing,
-          listingDetails,
-          options,
-          opContext);
-    } else {
-      assert null != container : "Expecting a non-null container for Azure store object.";
-      return container.listBlobs(
-          aPrefix,
-          useFlatBlobListing,
-          listingDetails,
-          options,
-          opContext);
-    }
-  }
+    CloudBlobDirectory directory = serviceClient.getDirectoryReference(
+        rootDirectory.getUri().toString() + aPrefix);
 
-  /**
-   * This private method get a directory reference using the service client or
-   * the container depending on whether the session was created using an absolute
-   * path.
-   * 
-   *
-   * @param aKey : a key used to query Azure for the block directory
-   * @returns blobDirectory : a reference to an Azure block blob directory
-   * @throws StorageException if there is a problem communicating with Azure
-   * 
-   */
-  private CloudBlobDirectory getDirectoryReference(String aKey)
-      throws StorageException, URISyntaxException {
-
-    CloudBlobDirectory blobDirectory = null;
-    if (useAbsolutePath()) {
-      blobDirectory = serviceClient.getDirectoryReference(rootDirectory.getUri().toString() + aKey);
-    } else {
-      assert null != container : "Expecting a non-null container for Azure store object.";
-      blobDirectory = container.getDirectoryReference(aKey);
-    }
-
-    // Return with blob directory.
+    // TODO: BUGBUG-There is a defect in the WindowsAzure SDK whick ignores the use
+    // TODO: flat blob listing setting. The listBlobs calls below always traverses the
+    // TODO: hierarchical namespace regardless of the value of useFlatBlobListing.
     //
-    return blobDirectory;
+    return directory.listBlobs(
+        null,
+        useFlatBlobListing,
+        listingDetails,
+        options,
+        opContext);
   }
 
   /**
@@ -1020,110 +981,41 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private CloudBlockBlob getBlobReference(String aKey)
       throws StorageException, URISyntaxException {
 
-    CloudBlockBlob blob = null;
-    if (useAbsolutePath()) {
-      blob = serviceClient.getBlockBlobReference(rootDirectory.getUri().toString() + aKey);
-    } else {
-      assert null != container : "Expecting a non-null container for Azure store object.";
-      blob = container.getBlockBlobReference(aKey);
-    }
-
+    CloudBlockBlob blob = serviceClient.getBlockBlobReference(
+        rootDirectory.getUri().toString() + aKey);
     // Return with block blob.
     return blob;
   }
 
   /**
-   * This private method normalizes the key based on the format of the
-   * originating URI. If the originating URI is in the short form, eg.
-   * asv://container/<key>, the method is no-op and returns the original key.
-   * If the originating URI is in the long form, eg.
-   * asv://<AccountName>.blob.core.windows.net/<container>/*., then the key is
-   * prefixed with the container name and the container component has to be
-   * removed from the key to return a normalized key.
+   * This private method normalizes the key by stripping the container
+   * name from the path and returns a path relative to the root directory
+   * of the container.
    * 
-   * Note: The format of the originating URI is determined by whether the
-   * rootDirectory non-null. A non-null root directory indicates that the
-   * originating URI was in the long form.
-   * 
-   * @param aKey
-   *            : a key to be normalized
-   * 
-   * @returns normalizedKey : a normalized key
-   */
-  private String normalizeKey(String aKey) {
-
-    String normKey = aKey;
-    if (useAbsolutePath()) {
-      // The root directory is non-null so the original URI must have been in
-      // the long form. Remove the path prefix. This prefix should correspond 
-      // to the container name.
-      //
-      String[] keySplits = aKey.split(PATH_DELIMITER, 2);
-
-      // Assertion: The first component of the split should correspond to
-      // the container name.
-      //
-      assert null != container : "Expected a non-null container for on Azure store";
-      assert keySplits[0].equals(container.getName()) : 
-        "Expected container: " + container.getName();
-
-      // The tail end of the split corresponds to the file path. Note the
-      // tail end is not prefixed with the PATH_DELIMITER.
-      //
-      if (1 < keySplits.length) {
-        normKey = keySplits[1];
-      } else {
-        normKey = PATH_DELIMITER;
-      }
-    }
-
-    // Return the normalized key.
-    //
-    return normKey;
-  }
-
-  /**
-   * This private method fixes the scheme on a key based on the format of the
-   * originating URI. If the originating URI is in the short form, eg.
-   * asv://container/<key>, the method is no-op and returns the original key.
-   * If the originating URI is in the long form, eg.
-   * asv://<AccountName>.blob.core.windows.net/<container>/*., then the asv://
-   * scheme replaces whatever scheme the current key has.
-   * 
-   * Note: The format of the originating URI is determined by whether the
-   * rootDirectory non-null. A non-null root directory indicates that the
-   * originating URI was in the long form.
-   * 
-   * @param aKey
-   *            : a key to be denormalized
+   * @param aKey - adjust this key to a path relative to the root directory
    * @throws URISyntaxException
    * 
-   * @returns denormalizedKey : a denormalized key prefixed with the container
-   *          name
+   * @returns normKey
    */
-  private String fixScheme(String aKey) throws Exception {
+  private String normalizeKey(String aKey) throws URISyntaxException {
 
-    String keyAsv = aKey;
-    if (useAbsolutePath()) {
-      URI keyUri = new URI(aKey);
-      String keyScheme = keyUri.getScheme();
+    String normKey = aKey;
 
-      if ("".equals(keyScheme)) {
-        throw new URISyntaxException(keyUri.toString(),
-            "Expecting scheme on URI");
-      }
+    URI keyUri = new URI(aKey);
+    String keyScheme = keyUri.getScheme();
 
-      // Strip the container name from the path and return the path
-      // relative to
-      // the
-      // root directory of the container.
-      //
-      keyAsv = keyUri.getPath().split(PATH_DELIMITER, 2)[1];
+    if (null == keyScheme) {
+      throw new URISyntaxException(keyUri.toString(), "Expecting scheme on URI");
     }
 
-    // Return the normalized key.
+    // Strip the container name from the path and return the path
+    // relative to the root directory of the container.
     //
-    return keyAsv;
+    normKey = keyUri.getPath().split(PATH_DELIMITER, 3)[2];
+
+    // Return the fixed key.
+    //
+    return normKey;
   }
   
   private OperationContext getInstrumentedContext() {
@@ -1144,28 +1036,26 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // check if a session exists, if not create a session with the Azure storage server.
     //
     if (null == serviceClient) {
-      createAzureStorageSession();
+      final String errMsg = 
+          String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
+      throw new AssertionError(errMsg);
     }
 
     if (LOG.isDebugEnabled()) {
       LOG.debug("Retrieving metadata for " + key);
     }
 
-    String normalizedKey = normalizeKey(key);
-
     try {
       // Handle the degenerate cases where the key does not exist or the
-      // key is
-      // a
-      // container.
+      // key is a container.
       //
-      if (normalizedKey.equals("/")) {
-        // The key refers to a container.
+      if (key.equals("/")) {
+        // The key refers to root directory of container.
         //
-        return new FileMetadata(normalizedKey, FsPermission.getDefault());
+        return new FileMetadata(key, FsPermission.getDefault());
       }
 
-      CloudBlockBlob blob = getBlobReference(normalizedKey);
+      CloudBlockBlob blob = getBlobReference(key);
 
       // Download attributes and return file metadata only if the blob
       // exists.
@@ -1205,16 +1095,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       if (null != objects) {
         for (ListBlobItem blobItem : objects) {
           if (blobItem.getUri() != null) {
-            String blobKey = blobItem.getUri().toString();
-            if (useAbsolutePath())
-            {
-              // Strip the scheme, authority name, and container name, and trailing "/"
-              // from URI because getBlobReference will insert this prefix for the
-              // absolute path.
-              //
-              blobKey = normalizeKey(blobItem.getUri().getPath().split(PATH_DELIMITER,2)[1]);
-            }
-            blob = getBlobReference(blobKey);
+            blob = getBlobReference(blobItem.getUri().getPath().split(PATH_DELIMITER,3)[2]);
             if (blob.exists(null, null, getInstrumentedContext())) {
               LOG.debug(
                   "Found blob as a directory-using this file under it to infer its properties" +
@@ -1233,13 +1114,17 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
               // TODO: using polymorphism to distinguish the two.
               //
               return new FileMetadata(key, getPermission(blob));
-            } else {
-              LOG.debug("URI obtained but does not  exist: " + blobItem.getUri().toString());
             }
+
+            // Log that the target URI does not exist.
+            //
+            LOG.debug("URI obtained but does not  exist: " + blobItem.getUri().toString());
           }
         }
       }
 
+      // Return to caller with a null metadata object.
+      //
       return null;
 
     } catch (Exception e) {
@@ -1256,16 +1141,14 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Azure storage server.
       //
       if (null == serviceClient) {
-        createAzureStorageSession();
+        final String errMsg = 
+            String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
+        throw new AssertionError(errMsg);
       }
-
-      // Normalize the key before attempting to get a reference to it.
-      //
-      String normKey = normalizeKey(key);
 
       // Get blob reference and open the input buffer stream.
       //
-      CloudBlockBlob blob = getBlobReference(normKey);
+      CloudBlockBlob blob = getBlobReference(key);
       BlobRequestOptions options = new BlobRequestOptions();
       options.setConcurrentRequestCount(concurrentReads);
       BufferedInputStream inBufStream = new BufferedInputStream(
@@ -1290,16 +1173,14 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Azure storage server.
       //
       if (null == serviceClient) {
-        createAzureStorageSession();
+        final String errMsg = 
+            String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
+        throw new AssertionError(errMsg);
       }
-
-      // Normalize the key before attempting to get a reference to it.
-      //
-      String normKey = normalizeKey(key);
 
       // Get blob reference and open the input buffer stream.
       //
-      CloudBlockBlob blob = getBlobReference(normKey);
+      CloudBlockBlob blob = getBlobReference(key);
       BlobRequestOptions options = new BlobRequestOptions();
       options.setConcurrentRequestCount(concurrentReads);
 
@@ -1374,8 +1255,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           // path is being used or not.
           //
           //
-          blobKey = useAbsolutePath() ? fixScheme(blob.getUri().toString())
-              : blob.getName();
+          blobKey = normalizeKey(blob.getUri().toString());
 
           FileMetadata metadata = new FileMetadata(
               blobKey,
@@ -1390,27 +1270,25 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           // Determine format of directory name depending on whether an absolute
           // path is being used or not.
           //
-          String dirKey = useAbsolutePath() 
-              ? fixScheme (((CloudBlobDirectory) blobItem).getUri().toString())
-                  : normalizeKey( ((CloudBlobDirectory) blobItem).getUri().getPath().toString()); 
+          String dirKey = normalizeKey (((CloudBlobDirectory) blobItem).getUri().toString());
 
-              // Reached the targeted listing depth. Return metadata for the
-              // directory using default permissions.
-              //
-              // TODO: Something smarter should be done about permissions. Maybe
-              // TODO: inherit the permissions of the first non-directory blob.
-              //
-              FileMetadata directoryMetadata = new FileMetadata(dirKey, FsPermission.getDefault());
+          // Reached the targeted listing depth. Return metadata for the
+          // directory using default permissions.
+          //
+          // TODO: Something smarter should be done about permissions. Maybe
+          // TODO: inherit the permissions of the first non-directory blob.
+          //
+          FileMetadata directoryMetadata = new FileMetadata(dirKey, FsPermission.getDefault());
 
-              // Add the directory metadata to the list.
-              //
-              fileMetadata.add(directoryMetadata);
+          // Add the directory metadata to the list.
+          //
+          fileMetadata.add(directoryMetadata);
 
-              // Currently at a depth of one, decrement the listing depth for
-              // sub-directories.
-              //
-              buildUpList((CloudBlobDirectory) blobItem, fileMetadata,
-                  maxListingCount, maxListingDepth - 1);
+          // Currently at a depth of one, decrement the listing depth for
+          // sub-directories.
+          //
+          buildUpList((CloudBlobDirectory) blobItem, fileMetadata,
+              maxListingCount, maxListingDepth - 1);
         }
       }
       // TODO: Original code indicated that this may be a hack.
@@ -1503,8 +1381,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           // path is being used or not.
           //
           //
-          blobKey = useAbsolutePath() ? fixScheme(blob.getUri().toString())
-              : blob.getName();
+          blobKey = normalizeKey(blob.getUri().toString());
 
           FileMetadata metadata = new FileMetadata(
               blobKey,
@@ -1540,21 +1417,19 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
             // Determine format of directory name depending on whether an absolute
             // path is being used or not.
             //
-            String dirKey = useAbsolutePath() 
-                ? fixScheme (((CloudBlobDirectory) blobItem).getUri().toString())
-                    : normalizeKey( ((CloudBlobDirectory) blobItem).getUri().getPath().toString());
+            String dirKey = normalizeKey (((CloudBlobDirectory) blobItem).getUri().toString());
 
-                // Reached the targeted listing depth. Return metadata for the
-                // directory using default permissions.
-                //
-                // TODO: Something smarter should be done about permissions. Maybe
-                // TODO: inherit the permissions of the first non-directory blob.
-                //
-                FileMetadata directoryMetadata = new FileMetadata(dirKey, FsPermission.getDefault());
+            // Reached the targeted listing depth. Return metadata for the
+            // directory using default permissions.
+            //
+            // TODO: Something smarter should be done about permissions. Maybe
+            // TODO: inherit the permissions of the first non-directory blob.
+            //
+            FileMetadata directoryMetadata = new FileMetadata(dirKey, FsPermission.getDefault());
 
-                // Add the directory metadata to the list.
-                //
-                aFileMetadataList.add(directoryMetadata);
+            // Add the directory metadata to the list.
+            //
+            aFileMetadataList.add(directoryMetadata);
           }
         }
       }
@@ -1586,8 +1461,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     try {
       // Get the blob reference an delete it.
       //
-      String normKey = normalizeKey(key);
-      CloudBlockBlob blob = getBlobReference(normKey);
+      CloudBlockBlob blob = getBlobReference(key);
       if (blob.exists(null, null, getInstrumentedContext())) {
         blob.delete(DeleteSnapshotsOption.NONE, null, null, getInstrumentedContext());
       }
@@ -1599,15 +1473,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   @Override
-  public void rename(String srcKey, String dstKey) throws IOException {
-    // Delegate to other rename polymorph setting with the needs
-    // normalizationflag set to false.
-    //
-    rename(srcKey, dstKey, false);
-  }
-
-  @Override
-  public void rename(String srcKey, String dstKey, boolean needsNormalization)
+  public void rename(String srcKey, String dstKey)
       throws IOException {
 
     if (LOG.isDebugEnabled()) {
@@ -1619,22 +1485,15 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // check if a session exists, if not create a session with the Azure storage server.
       //
       if (null == serviceClient) {
-        createAzureStorageSession();
+        final String errMsg = 
+            String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
+        throw new AssertionError(errMsg);
       }
 
       // Get the source blob and assert its existence. If the source key
       // needs to be normalized then normalize it.
       //
-      CloudBlockBlob srcBlob = null;
-      if (needsNormalization) {
-        // The source key needs normalization.
-        //
-        srcBlob = getBlobReference(normalizeKey(srcKey));
-      } else {
-        // No normalization required, leave the source key as is.
-        //
-        srcBlob = getBlobReference(srcKey);
-      }
+      CloudBlockBlob srcBlob = getBlobReference(srcKey);
 
       if (!srcBlob.exists(null, null, getInstrumentedContext())) {
         throw new AzureException ("Source blob " + srcKey+ " does not exist.");
@@ -1643,7 +1502,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Get the destination blob. The destination key always needs to be 
       // normalized.
       //
-      CloudBlockBlob dstBlob = getBlobReference(normalizeKey(dstKey));
+      CloudBlockBlob dstBlob = getBlobReference(dstKey);
 
       // Rename the source blob to the destination blob by copying it to
       // the destination blob then deleting it.
@@ -1658,7 +1517,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
 
-
   @Override
   public void purge(String prefix) throws IOException {
     try {
@@ -1667,7 +1525,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // check if a session exists, if not create a session with the Azure storage server.
       //
       if (null == serviceClient) {
-        createAzureStorageSession();
+        final String errMsg = 
+            String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
+        throw new AssertionError(errMsg);
       }
 
       // Get all blob items with the given prefix from the container and delete

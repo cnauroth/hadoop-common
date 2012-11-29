@@ -506,21 +506,64 @@ public class FileUtil {
    * @param untarDir The untar directory where to untar the tar file.
    * @throws IOException
    */
-  public static void unTar(File archive, File untarDir) throws IOException {
+  public static void unTar(File inFile, File untarDir) throws IOException {
     if (!untarDir.mkdirs()) {
       if (!untarDir.isDirectory()) {
         throw new IOException("Mkdirs failed to create " + untarDir);
       }
     }
 
-    boolean gzipped = archive.toString().endsWith("gz");
+    boolean gzipped = inFile.toString().endsWith("gz");
+    if(Shell.WINDOWS) {
+      // Tar is not native to Windows. Use simple Java based implementation for 
+      // tests and simple tar archives
+      unTarUsingJava(inFile, untarDir, gzipped);
+    }
+    else {
+      // spawn tar utility to untar archive for full fledged unix behavior such 
+      // as resolving symlinks in tar archives
+      unTarUsingTar(inFile, untarDir, gzipped);
+    }
+  }
+  
+  private static void unTarUsingTar(File inFile, File untarDir,
+      boolean gzipped) throws IOException {
+    StringBuffer untarCommand = new StringBuffer();
+    if (gzipped) {
+      untarCommand.append(" gzip -dc '");
+      untarCommand.append(FileUtil.makeShellPath(inFile));
+      untarCommand.append("' | (");
+    } 
+    untarCommand.append("cd '");
+    untarCommand.append(FileUtil.makeShellPath(untarDir)); 
+    untarCommand.append("' ; ");
 
+    // Force the archive path as local on Windows as it can have a colon
+    untarCommand.append("tar -xf ");
+
+    if (gzipped) {
+      untarCommand.append(" -)");
+    } else {
+      untarCommand.append(FileUtil.makeShellPath(inFile));
+    }
+    String[] shellCmd = { "bash", "-c", untarCommand.toString() };
+    ShellCommandExecutor shexec = new ShellCommandExecutor(shellCmd);
+    shexec.execute();
+    int exitcode = shexec.getExitCode();
+    if (exitcode != 0) {
+      throw new IOException("Error untarring file " + inFile + 
+                  ". Tar process exited with exit code " + exitcode);
+    }
+  }
+  
+  private static void unTarUsingJava(File inFile, File untarDir,
+      boolean gzipped) throws IOException {
     InputStream inputStream = null;
     if (gzipped) {
       inputStream = new BufferedInputStream(new GZIPInputStream(
-          new FileInputStream(archive)));
+          new FileInputStream(inFile)));
     } else {
-      inputStream = new BufferedInputStream(new FileInputStream(archive));
+      inputStream = new BufferedInputStream(new FileInputStream(inFile));
     }
 
     TarArchiveInputStream tis = new TarArchiveInputStream(inputStream);
@@ -530,7 +573,7 @@ public class FileUtil {
       entry = tis.getNextTarEntry();
     }
   }
-
+  
   private static void unpackEntries(TarArchiveInputStream tis,
       TarArchiveEntry entry, File outputDir) throws IOException {
     if (entry.isDirectory()) {
@@ -567,7 +610,7 @@ public class FileUtil {
     outputStream.flush();
     outputStream.close();
   }
-
+  
   /**
    * Create a soft link between a src and destination
    * only on a local disk. HDFS does not support this.
@@ -580,11 +623,34 @@ public class FileUtil {
    */
   public static int symLink(String target, String linkname) throws IOException{
     // Run the input paths through Java's File so that they are converted to the
-    // native OS form. FIXME: Long term fix is to expose symLink API that
-    // accepts File instead of String, as symlinks can only be created on the
-    // local FS.
-    String[] cmd = Shell.getSymlinkCommand(new File(target).getPath(),
-        new File(linkname).getPath());
+    // native OS form
+    File targetFile = new File(target);
+    File linkFile = new File(linkname);
+
+    // If not on Java7+, copy a file instead of creating a symlink since
+    // Java6 has close to no support for symlinks on Windows. Specifically
+    // File#length and File#renameTo do not work as expected.
+    // (see HADOOP-9061 for additional details)
+    // We still create symlinks for directories, since the scenario in this
+    // case is different. The directory content could change in which
+    // case the symlink loses its purpose (for example task attempt log folder
+    // is symlinked under userlogs and userlogs are generated afterwards).
+    if (Shell.WINDOWS && !Shell.isJava7OrAbove() && targetFile.isFile()) {
+      try {
+        LOG.info("FileUtil#symlink: On Java6, copying file instead "
+            + linkname + " -> " + target);
+        org.apache.commons.io.FileUtils.copyFile(targetFile, linkFile);
+      } catch (IOException ex) {
+        LOG.warn("FileUtil#symlink failed to copy the file with error: "
+            + ex.getMessage());
+        // Exit with non-zero exit code
+        return 1;
+      }
+      return 0;
+    }
+
+    String[] cmd = Shell.getSymlinkCommand(targetFile.getPath(),
+        linkFile.getPath());
     ShellCommandExecutor shExec = new ShellCommandExecutor(cmd);
     try {
       shExec.execute();
@@ -864,49 +930,5 @@ public class FileUtil {
     
     jarStream.close();
     return jarFile;
-  }
-
-  /** Returns the file length. In case of a symbolic link, follows the link
-   *  and returns the target file length. API is used to provide
-   *  transparent behavior between Unix and Windows since on Windows
-   *  {@link File#length()} does not follow symbolic links.
-   * @param file file to extract the length for
-   *
-   * @throws IOException if an error occurred.
-   */
-  public static long getLengthFollowSymlink(File file) {
-    return getLengthFollowSymlink(file, false);
-  }
-
-  /** Package level API used for unit-testing only. */
-  static long getLengthFollowSymlink(File file, boolean disableNativeIO) {
-    if (!Shell.WINDOWS) {
-      return file.length();
-    } else {
-      try {
-        // FIXME: Below logic is not needed On Java 7 under Windows since
-        // File#length returns the correct value.
-        if (!disableNativeIO && NativeIO.isAvailable()) {
-          // Use Windows native API for extracting the file length if NativeIO
-          // is available.
-          return NativeIO.Windows.getLengthFollowSymlink(
-            file.getCanonicalPath());
-        } else {
-          // If NativeIO is not available, we have to provide the fallback
-          // mechanism since downstream Hadoop projects do not want
-          // to worry about adding hadoop.dll to the java library path.
-
-          // Extract the target link size via winutils
-          String output = FileUtil.execCommand(
-            file, new String[] { Shell.WINUTILS, "ls", "-L", "-F" });
-          // Output tokens are separated with a pipe character
-          String[] args = output.split("\\|");
-          return Long.parseLong(args[4]);
-        }
-      } catch (IOException ex) {
-        // In case of an error return zero to be consistent with File#length
-        return 0;
-      }
-    }
   }
 }

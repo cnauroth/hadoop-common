@@ -66,6 +66,8 @@
   <property name="librecordio.src" value="${c++.src}/librecordio"/>
   <property name="tools.src" value="${basedir}/src/tools"/>
   <property name="winutils.src.dir" value="${basedir}/src/winutils"/>
+  <property name="wininstaller.root.dir" value="${basedir}/src/packages/win"/>
+  <property name="servicehost.src.dir" value="${basedir}/src/packages/win/HadoopServiceHost"/>
 
   <property name="package.prefix" value="/usr"/>
   <property name="package.conf.dir" value="/etc/hadoop"/>
@@ -94,6 +96,7 @@
   <property name="jvm.arch" 
             value="${sun.arch.data.model}"/>
   <property name="build.winutils" value="${build.dir}/winutils/${env.OS}-${env.Platform}"/>
+  <property name="build.servicehost" value="${build.dir}/servicehost"/>
   <property name="build.native" value="${build.dir}/native/${build.platform}"/>
   <!-- 'build.native.win' is the path under which Hadoop native libraries for Windows are built -->
   <!-- We need a special path on Windows because we need a path that can be referenced from MSBuild -->
@@ -145,7 +148,7 @@
 
   <property name="test.libhdfs.conf.dir" value="${c++.libhdfs.src}/tests/conf"/>
   <property name="test.libhdfs.dir" value="${test.build.dir}/libhdfs"/>
-  <property name="test.winutils.dir" value="${test.build.dir}/winutils/"/>
+  <property name="test.wininstaller.dir" value="${test.build.dir}/wininstaller"/>
 
   <property name="librecordio.test.dir" value="${test.build.dir}/librecordio"/>
   <property name="web.src.dir" value="${basedir}/src/web"/>
@@ -240,6 +243,8 @@
 
   <!-- IVY properteis set here -->
   <property name="ivy.dir" location="ivy" />
+  <!-- loglevel take values like default|download-only|quiet -->
+  <property name="loglevel" value="quiet"/>
   <loadproperties srcfile="${ivy.dir}/libraries.properties"/>
   <property name="mvnrepo" value="http://repo2.maven.org/maven2"/>
   <property name="asfrepo" value="https://repository.apache.org"/> 
@@ -647,6 +652,14 @@
     <copy file="${build.winutils}/winutils.exe" todir="${basedir}/bin"/>
   </target>
 
+  <target name="compile-ms-servicehost" if="windows">
+    <mkdir dir="${build.servicehost}"/>
+
+    <exec dir="${build.servicehost}" executable="${msbuild.cmd}" failonerror="true">
+      <arg line="${servicehost.src.dir}/HadoopServiceHost.sln /target:clean;build /p:Platform=&quot;Any CPU&quot; /p:Configuration=Release;OutDir=${build.servicehost}/"/>
+    </exec>
+  </target>
+
   <target name="compile-ms-winutils-debug" if="windows">
     <mkdir dir="${build.winutils}"/>
 
@@ -786,7 +799,7 @@
   <target name="compile-core"
           depends="clover,compile-core-classes,compile-mapred-classes,
           compile-hdfs-classes,compile-core-native,compile-c++,compile-ms-winutils,
-          compile-win-core-native"
+          compile-win-core-native,compile-ms-servicehost"
   	description="Compile core only">
   </target>
 
@@ -1303,6 +1316,44 @@
       <param name="test.include" value="*"/>
       <param name="test.classpath.id" value="test.cluster.classpath"/>
     </antcall>
+  </target>
+
+  <target name="ms-win-installer-test-zip" description="Mini zip file used for test-ms-win-installer">
+    <delete dir="${test.wininstaller.dir}"/>
+    <mkdir dir="${test.wininstaller.dir}"/>
+    <macro_zip param.destfile="${test.wininstaller.dir}/resources/${final.name}.zip">
+      <param.listofitems>
+        <zipfileset dir="${build.dir}">
+          <include name="${final.name}/bin/*" />
+          <include name="${final.name}/conf/*" />
+          <include name="${final.name}/lib/hadoop-capacity-scheduler*" />
+          <include name="${final.name}/contrib/streaming/*" />
+        </zipfileset>
+      </param.listofitems>
+    </macro_zip>
+  </target>
+
+  <target name="test-ms-win-installer" depends="ms-win-installer-test-zip" if="windows">
+    <copy todir="${test.wininstaller.dir}">
+      <fileset dir="${wininstaller.root.dir}" includes="**/*">
+        <exclude name="servicehost/**/*"/>
+      </fileset>
+      <filterchain>
+        <replacetokens>
+          <token key="version" value="${version}" />
+          <token key="test.wininstaller.username" value="${testusername}" />
+          <token key="test.wininstaller.password" value="${testpassword}" />
+        </replacetokens>
+      </filterchain>
+    </copy>
+    <exec dir="${test.wininstaller.dir}"
+        executable="powershell.exe"
+        failonerror="true">
+      <env key="HADOOP_NODE_INSTALL_ROOT" value="${test.wininstaller.dir}/TestHadoop"/>
+      <env key="WINPKG_LOG" value="${test.wininstaller.dir}/TEST-test-ms-win-installer.log"/>
+      <env key="UNZIP_CMD" value="unzip.exe -o @SRC -d @DEST"/>
+      <arg line="${test.wininstaller.dir}/scripts/TestInstallApi.ps1"/>
+    </exec>
   </target>
 
   <target name="nightly" depends="test, tar">
@@ -2670,78 +2721,78 @@
   </target>
 
   <target name="ivy-resolve" depends="ivy-init">
-    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings"/>
+    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" log="${loglevel}" />
   </target>
 
   <target name="ivy-resolve-javadoc" depends="ivy-init">
-    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="javadoc"/>
+    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="javadoc" log="${loglevel}"/>
   </target>
 
   <target name="ivy-resolve-releaseaudit" depends="ivy-init">
-    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="releaseaudit"/>
+    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="releaseaudit" log="${loglevel}"/>
   </target>
 
   <target name="ivy-resolve-test" depends="ivy-init">
-    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="test" />
+    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="test"  log="${loglevel}"/>
   </target>
 
   <target name="ivy-resolve-common" depends="ivy-init">
-    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="common" />
+    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="common"  log="${loglevel}"/>
   </target>
 
   <target name="ivy-resolve-jdiff" depends="ivy-init">
-    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="jdiff" />
+    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="jdiff"  log="${loglevel}"/>
   </target>
 
   <target name="ivy-resolve-checkstyle" depends="ivy-init">
-    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="checkstyle"/>
+    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="checkstyle" log="${loglevel}"/>
   </target>
 
   <target name="ivy-retrieve" depends="ivy-resolve"
     description="Retrieve Ivy-managed artifacts">
     <ivy:retrieve settingsRef="${ant.project.name}.ivy.settings"
-      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}"/>
+      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}" log="${loglevel}"/>
   </target>
 
   <target name="ivy-retrieve-checkstyle" depends="ivy-resolve-checkstyle"
     description="Retrieve Ivy-managed artifacts for the checkstyle configurations">
     <ivy:retrieve settingsRef="${ant.project.name}.ivy.settings"
-      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}"/>
+      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}" log="${loglevel}"/>
     <ivy:cachepath pathid="checkstyle-classpath" conf="checkstyle"/>
   </target>
 
   <target name="ivy-retrieve-jdiff" depends="ivy-resolve-jdiff"
     description="Retrieve Ivy-managed artifacts for the javadoc configurations">
     <ivy:retrieve settingsRef="${ant.project.name}.ivy.settings"
-      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}"/>
+      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}" log="${loglevel}"/>
     <ivy:cachepath pathid="jdiff-classpath" conf="jdiff"/>
   </target>
 
   <target name="ivy-retrieve-javadoc" depends="ivy-resolve-javadoc"
     description="Retrieve Ivy-managed artifacts for the javadoc configurations">
     <ivy:retrieve settingsRef="${ant.project.name}.ivy.settings"
-      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}"/>
+      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}" log="${loglevel}"/>
     <ivy:cachepath pathid="javadoc-classpath" conf="javadoc"/>
   </target>
 
   <target name="ivy-retrieve-test" depends="ivy-resolve-test"
     description="Retrieve Ivy-managed artifacts for the test configurations">
     <ivy:retrieve settingsRef="${ant.project.name}.ivy.settings"
-      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}"/>
+      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}" log="${loglevel}"/>
     <ivy:cachepath pathid="ivy-test.classpath" conf="test"/>
   </target>
 
   <target name="ivy-retrieve-common" depends="ivy-resolve-common"
     description="Retrieve Ivy-managed artifacts for the compile configurations">
     <ivy:retrieve settingsRef="${ant.project.name}.ivy.settings"
-      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}"/>
+      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}" log="${loglevel}"/>
     <ivy:cachepath pathid="ivy-common.classpath" conf="common"/>
   </target>
 
   <target name="ivy-retrieve-releaseaudit" depends="ivy-resolve-releaseaudit"
     description="Retrieve Ivy-managed artifacts for the compile configurations">
     <ivy:retrieve settingsRef="${ant.project.name}.ivy.settings"
-      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}" />
+      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}"  log="${loglevel}"/>
     <ivy:cachepath pathid="releaseaudit-classpath" conf="releaseaudit"/>
     <available classname="${rat.reporting.classname}" 
       classpathref="releaseaudit-classpath" property="rat.present" value="true"/>
@@ -3014,8 +3065,7 @@
 
   <target name="jsvc" >
     <mkdir dir="${jsvc.build.dir}" />
-    <get src="${jsvc.location}" dest="${jsvc.build.dir}/${jsvc.dest.name}" />
-
+    <get src="${jsvc.location}" dest="${jsvc.build.dir}/${jsvc.dest.name}"/>
     <untar compression="gzip" src="${jsvc.build.dir}/${jsvc.dest.name}" dest="${jsvc.build.dir}" />
 
     <copy file="${jsvc.build.dir}/jsvc" toFile="${jsvc.install.dir}/jsvc.${os.arch}" verbose="true" />
