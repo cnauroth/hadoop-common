@@ -35,10 +35,18 @@ import com.microsoft.windowsazure.services.blob.client.*;
 import com.microsoft.windowsazure.services.core.storage.*;
 import com.microsoft.windowsazure.services.core.storage.utils.*;
 
+import static org.apache.hadoop.fs.azurenative.AzureStorageInteractionLayer.*;
+
 class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
   public static final Log LOG = LogFactory.getLog(AzureNativeFileSystemStore.class);
 
+  private CloudStorageAccount account;
+  private AzureStorageInteractionLayer storageInteractionLayer =
+      new AzureStorageInteractionLayerImpl();
+  private CloudBlobDirectoryWrapper rootDirectory;
+  private CloudBlobContainerWrapper container;
+  
   // TODO: Storage constants for SAS queries. This is a workaround until
   // TODO: microsoft.windows.azure-api.3.3.jar is available.
   //
@@ -84,10 +92,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final int DEFAULT_CONCURRENT_READS = 4;
   private static final int DEFAULT_CONCURRENT_WRITES = 8;
 
-  private CloudStorageAccount account;
-  private CloudBlobContainer container;
-  private CloudBlobDirectory rootDirectory;
-  private CloudBlobClient serviceClient;
   private URI sessionUri;
   private Configuration sessionConfiguration;
   private int concurrentReads = DEFAULT_CONCURRENT_READS;
@@ -301,18 +305,18 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
     // Assertion: A client session already should have been established with Azure.
     //
-    assert null != serviceClient :
+    assert null != storageInteractionLayer :
       String.format("Cannot configure storage session for URI '%s' " + 
           "if storage session has not been established.", sessionUri.toString());
 
     // Set up the minimum stream read block size and the write block
     // size.
     //
-    serviceClient.setStreamMinimumReadSizeInBytes(
+    storageInteractionLayer.setStreamMinimumReadSizeInBytes(
         sessionConfiguration.getInt(
             KEY_STREAM_MIN_READ_SIZE, DEFAULT_STREAM_MIN_READ_SIZE));
 
-    serviceClient.setWriteBlockSizeInBytes(
+    storageInteractionLayer.setWriteBlockSizeInBytes(
         sessionConfiguration.getInt(
             KEY_WRITE_BLOCK_SIZE, DEFAULT_WRITE_BLOCK_SIZE));
 
@@ -328,7 +332,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
             KEY_STORAGE_CONNECTION_TIMEOUT, 0);
 
     if (0 < storageConnectionTimeout) {
-      serviceClient.setTimeoutInMs(storageConnectionTimeout * 1000);
+      storageInteractionLayer.setTimeoutInMs(storageConnectionTimeout * 1000);
     }
 
     // Set the concurrency values equal to the that specified in the
@@ -373,16 +377,16 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // Create blob service client using the account URI and the shared access signature
     // credentials.
     //
-    serviceClient = new CloudBlobClient(accountUri, sasCreds);
+    storageInteractionLayer.createBlobClient(accountUri, sasCreds);
 
     // Capture the root directory.
     //
     String containerUriString = accountUri.toString() + PATH_DELIMITER + containerName;
-    rootDirectory = serviceClient.getDirectoryReference(containerUriString);
+    rootDirectory = storageInteractionLayer.getDirectoryReference(containerUriString);
 
     // Capture the container reference for debugging purposes.
     //
-    container = serviceClient.getContainerReference(containerName);
+    container = storageInteractionLayer.getContainerReference(containerName);
 
     // Configure Azure storage session.
     //
@@ -410,17 +414,17 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
     // Create the service client with anonymous credentials.
     //
-    serviceClient = new CloudBlobClient(storageUri);
+    storageInteractionLayer.createBlobClient(storageUri);
 
     // Extract the container name from the URI.
     //
     String containerName = getContainerFromAuthority (uri);
     String containerUri = storageUri.toString() + PATH_DELIMITER + containerName;
-    rootDirectory = serviceClient.getDirectoryReference(containerUri);
+    rootDirectory = storageInteractionLayer.getDirectoryReference(containerUri);
 
     // Capture the container reference for debugging purposes.
     //
-    container = serviceClient.getContainerReference(containerName);
+    container = storageInteractionLayer.getContainerReference(containerName);
 
     // Accessing the storage server unauthenticated using
     // anonymous credentials.
@@ -456,7 +460,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // if it exists, otherwise a new container is created.
     //
     account = CloudStorageAccount.parse(connectionString);
-    serviceClient = account.createCloudBlobClient();
+    storageInteractionLayer.createBlobClient(account);
 
     // Set the root directory.
     //
@@ -465,22 +469,22 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         ASV_URL_AUTHORITY +
         PATH_DELIMITER +
         containerName;
-    rootDirectory = serviceClient.getDirectoryReference(containerUri);
+    rootDirectory = storageInteractionLayer.getDirectoryReference(containerUri);
 
     // Capture the container reference for debugging purposes.
     //
-    container = serviceClient.getContainerReference(containerUri.toString());
+    container = storageInteractionLayer.getContainerReference(containerUri.toString());
 
     // Check for the existence of the Azure container. If it does not exist,
     // create one.
     //
-    if (!container.exists(null, getInstrumentedContext())) {
-      container.create(null, getInstrumentedContext());
+    if (!container.exists(getInstrumentedContext())) {
+      container.create(getInstrumentedContext());
     }
 
     // Assertion: The container should exist at this point.
     //
-    assert container.exists() :
+    assert container.exists(getInstrumentedContext()) :
       String.format ("Container %s expected but does not exist", containerName);
 
     // Configure Azure storage session.
@@ -625,7 +629,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Check if a session exists, if not create a session with the
       // Azure storage server.
       //
-      if (null == serviceClient) {
+      if (null == storageInteractionLayer) {
         final String errMsg = 
             String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
         throw new AzureException(errMsg);
@@ -647,7 +651,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Get the block blob reference from the store's container and
       // return it.
       //
-      CloudBlockBlob blob = getBlobReference(key);
+      CloudBlockBlobWrapper blob = getBlobReference(key);
       storePermission(blob, permission);
 
       // Set up request options.
@@ -658,7 +662,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
       // Create the output stream for the Azure blob.
       //
-      BlobOutputStream outputStream = blob.openOutputStream(null,
+      OutputStream outputStream = blob.openOutputStream(
           options, getInstrumentedContext());
 
       // Return to caller with DataOutput stream.
@@ -796,7 +800,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
 
-  private static void storePermission(CloudBlob blob, FsPermission permission) {
+  private static void storePermission(CloudBlockBlobWrapper blob, FsPermission permission) {
     HashMap<String, String> metadata = blob.getMetadata();
     if (null == metadata) {
       metadata = new HashMap<String, String> ();
@@ -805,7 +809,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     blob.setMetadata(metadata);
   }
 
-  private static FsPermission getPermission (CloudBlob blob) {
+  private static FsPermission getPermission (CloudBlockBlobWrapper blob) {
     HashMap<String, String> metadata = blob.getMetadata();
     if (null != metadata && metadata.containsKey(PERMISSION_METADATA_KEY)) {
       return new FsPermission(Short.parseShort(metadata.get(PERMISSION_METADATA_KEY)));
@@ -823,7 +827,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // so first, check if a session exists, if not create a session with the Azure storage
       // server.
       //
-      if (null == serviceClient) {
+      if (null == storageInteractionLayer) {
         final String errMsg = 
             String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
         throw new AssertionError(errMsg);
@@ -842,10 +846,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
             "Uploads to to public accounts using anonymous access is prohibited.");
       }
 
-      // CloudBlockBlob blob = getBlobReference(normKey);
-      CloudBlockBlob blob = getBlobReference (key);
+      CloudBlockBlobWrapper blob = getBlobReference(key);
       storePermission(blob, permission);
-      blob.upload(new ByteArrayInputStream(new byte[0]), 0, null, null, getInstrumentedContext());
+      blob.upload(new ByteArrayInputStream(new byte[0]), getInstrumentedContext());
     } catch (Exception e) {
       // Caught exception while attempting upload. Re-throw as an Azure
       // storage
@@ -949,7 +952,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       EnumSet<BlobListingDetails> listingDetails, BlobRequestOptions options,
       OperationContext opContext) throws StorageException, URISyntaxException {
 
-    CloudBlobDirectory directory = serviceClient.getDirectoryReference(
+    CloudBlobDirectoryWrapper directory = storageInteractionLayer.getDirectoryReference(
         rootDirectory.getUri().toString() + aPrefix);
 
     // TODO: BUGBUG-There is a defect in the WindowsAzure SDK whick ignores the use
@@ -978,10 +981,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * @throws URISyntaxException
    * 
    */
-  private CloudBlockBlob getBlobReference(String aKey)
+  private CloudBlockBlobWrapper getBlobReference(String aKey)
       throws StorageException, URISyntaxException {
 
-    CloudBlockBlob blob = serviceClient.getBlockBlobReference(
+    CloudBlockBlobWrapper blob = storageInteractionLayer.getBlockBlobReference(
         rootDirectory.getUri().toString() + aKey);
     // Return with block blob.
     return blob;
@@ -1035,7 +1038,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // Attempts to check status may occur before opening any streams so first,
     // check if a session exists, if not create a session with the Azure storage server.
     //
-    if (null == serviceClient) {
+    if (null == storageInteractionLayer) {
       final String errMsg = 
           String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
       throw new AssertionError(errMsg);
@@ -1055,19 +1058,19 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         return new FileMetadata(key, FsPermission.getDefault());
       }
 
-      CloudBlockBlob blob = getBlobReference(key);
+      CloudBlockBlobWrapper blob = getBlobReference(key);
 
       // Download attributes and return file metadata only if the blob
       // exists.
       //
-      if (null != blob && blob.exists(null, null, getInstrumentedContext())) {
+      if (null != blob && blob.exists(getInstrumentedContext())) {
 
         LOG.debug("Found it as a file.");
 
         // The blob exists, so capture the metadata from the blob
         // properties.
         //
-        blob.downloadAttributes(null, null, getInstrumentedContext());
+        blob.downloadAttributes(getInstrumentedContext());
         BlobProperties properties = blob.getProperties();
 
         return new FileMetadata(
@@ -1096,7 +1099,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         for (ListBlobItem blobItem : objects) {
           if (blobItem.getUri() != null) {
             blob = getBlobReference(blobItem.getUri().getPath().split(PATH_DELIMITER,3)[2]);
-            if (blob.exists(null, null, getInstrumentedContext())) {
+            if (blob.exists(getInstrumentedContext())) {
               LOG.debug(
                   "Found blob as a directory-using this file under it to infer its properties" +
                       blobItem.getUri());
@@ -1104,7 +1107,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
               // Found a blob directory under the key, use its properties to infer
               // permissions and the last modified time.
               //
-              blob.downloadAttributes(null, null, getInstrumentedContext());
+              blob.downloadAttributes(getInstrumentedContext());
 
               // The key specifies a directory. Create a FileMetadata object which specifies
               // as such.
@@ -1140,7 +1143,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Check if a session exists, if not create a session with the
       // Azure storage server.
       //
-      if (null == serviceClient) {
+      if (null == storageInteractionLayer) {
         final String errMsg = 
             String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
         throw new AssertionError(errMsg);
@@ -1148,11 +1151,11 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
       // Get blob reference and open the input buffer stream.
       //
-      CloudBlockBlob blob = getBlobReference(key);
+      CloudBlockBlobWrapper blob = getBlobReference(key);
       BlobRequestOptions options = new BlobRequestOptions();
       options.setConcurrentRequestCount(concurrentReads);
       BufferedInputStream inBufStream = new BufferedInputStream(
-          blob.openInputStream(null, options, getInstrumentedContext()));
+          blob.openInputStream(options, getInstrumentedContext()));
 
       // Return a data input stream.
       //
@@ -1172,7 +1175,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Check if a session exists, if not create a session with the
       // Azure storage server.
       //
-      if (null == serviceClient) {
+      if (null == storageInteractionLayer) {
         final String errMsg = 
             String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
         throw new AssertionError(errMsg);
@@ -1180,13 +1183,13 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
       // Get blob reference and open the input buffer stream.
       //
-      CloudBlockBlob blob = getBlobReference(key);
+      CloudBlockBlobWrapper blob = getBlobReference(key);
       BlobRequestOptions options = new BlobRequestOptions();
       options.setConcurrentRequestCount(concurrentReads);
 
       // Open input stream and seek to the start offset.
       //
-      InputStream in = blob.openInputStream(null, options, getInstrumentedContext());
+      InputStream in = blob.openInputStream(options, getInstrumentedContext());
 
       // Create a data input stream.
       //
@@ -1242,13 +1245,13 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           break;
         }
 
-        if (blobItem instanceof CloudBlob) {
+        if (blobItem instanceof CloudBlockBlobWrapper) {
           // TODO: Validate that the following code block actually
           // makes
           // TODO: sense. Min Wei tagged it as a hack
           // Fix the scheme on the key.
           String blobKey = null;
-          CloudBlob blob = (CloudBlob) blobItem;
+          CloudBlockBlobWrapper blob = (CloudBlockBlobWrapper) blobItem;
           BlobProperties properties = blob.getProperties();
 
           // Determine format of the blob name depending on whether an absolute
@@ -1266,11 +1269,11 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           // Add the metadata to the list.
           //
           fileMetadata.add(metadata);
-        } else {
+        } else if (blobItem instanceof CloudBlobDirectoryWrapper) {
           // Determine format of directory name depending on whether an absolute
           // path is being used or not.
           //
-          String dirKey = normalizeKey (((CloudBlobDirectory) blobItem).getUri().toString());
+          String dirKey = normalizeKey (((CloudBlobDirectoryWrapper) blobItem).getUri().toString());
 
           // Reached the targeted listing depth. Return metadata for the
           // directory using default permissions.
@@ -1287,7 +1290,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           // Currently at a depth of one, decrement the listing depth for
           // sub-directories.
           //
-          buildUpList((CloudBlobDirectory) blobItem, fileMetadata,
+          buildUpList((CloudBlobDirectoryWrapper) blobItem, fileMetadata,
               maxListingCount, maxListingDepth - 1);
         }
       }
@@ -1318,7 +1321,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * @param maxListingLength -- maximum length of the built up list.
    */
 
-  private void buildUpList(CloudBlobDirectory aCloudBlobDirectory,
+  private void buildUpList(CloudBlobDirectoryWrapper aCloudBlobDirectory,
       ArrayList<FileMetadata> aFileMetadataList, final int maxListingCount, 
       final int maxListingDepth) throws Exception {
 
@@ -1372,9 +1375,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         // directory
         // item.
         //
-        if (blobItem instanceof CloudBlob) {
+        if (blobItem instanceof CloudBlockBlobWrapper) {
           String blobKey = null;
-          CloudBlob blob = (CloudBlob) blobItem;
+          CloudBlockBlobWrapper blob = (CloudBlockBlobWrapper) blobItem;
           BlobProperties properties = blob.getProperties();
 
           // Determine format of the blob name depending on whether an absolute
@@ -1392,7 +1395,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           // Add the metadata to the list.
           //
           aFileMetadataList.add(metadata);
-        } else {
+        } else if (blobItem instanceof CloudBlobDirectoryWrapper) {
           // This is a directory blob, push the current iterator onto
           // the stack of iterators and start iterating through the current
           // directory.
@@ -1409,7 +1412,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
             // an iterator for this directory and continue by iterating through 
             // this directory.
             //
-            blobItems = ((CloudBlobDirectory) blobItem).listBlobs(null,
+            blobItems = ((CloudBlobDirectoryWrapper) blobItem).listBlobs(null,
                 false, EnumSet.noneOf(BlobListingDetails.class), null,
                 getInstrumentedContext());
             blobItemIterator = blobItems.iterator();
@@ -1417,7 +1420,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
             // Determine format of directory name depending on whether an absolute
             // path is being used or not.
             //
-            String dirKey = normalizeKey (((CloudBlobDirectory) blobItem).getUri().toString());
+            String dirKey = normalizeKey (((CloudBlobDirectoryWrapper) blobItem).getUri().toString());
 
             // Reached the targeted listing depth. Return metadata for the
             // directory using default permissions.
@@ -1461,9 +1464,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     try {
       // Get the blob reference an delete it.
       //
-      CloudBlockBlob blob = getBlobReference(key);
-      if (blob.exists(null, null, getInstrumentedContext())) {
-        blob.delete(DeleteSnapshotsOption.NONE, null, null, getInstrumentedContext());
+      CloudBlockBlobWrapper blob = getBlobReference(key);
+      if (blob.exists(getInstrumentedContext())) {
+        blob.delete(getInstrumentedContext());
       }
     } catch (Exception e) {
       // Re-throw as an Azure storage exception.
@@ -1484,7 +1487,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Attempts rename may occur before opening any streams so first,
       // check if a session exists, if not create a session with the Azure storage server.
       //
-      if (null == serviceClient) {
+      if (null == storageInteractionLayer) {
         final String errMsg = 
             String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
         throw new AssertionError(errMsg);
@@ -1493,22 +1496,22 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Get the source blob and assert its existence. If the source key
       // needs to be normalized then normalize it.
       //
-      CloudBlockBlob srcBlob = getBlobReference(srcKey);
+      CloudBlockBlobWrapper srcBlob = getBlobReference(srcKey);
 
-      if (!srcBlob.exists(null, null, getInstrumentedContext())) {
+      if (!srcBlob.exists(getInstrumentedContext())) {
         throw new AzureException ("Source blob " + srcKey+ " does not exist.");
       }
 
       // Get the destination blob. The destination key always needs to be 
       // normalized.
       //
-      CloudBlockBlob dstBlob = getBlobReference(dstKey);
+      CloudBlockBlobWrapper dstBlob = getBlobReference(dstKey);
 
       // Rename the source blob to the destination blob by copying it to
       // the destination blob then deleting it.
       //
-      dstBlob.copyFromBlob(srcBlob, null, null, null, getInstrumentedContext());
-      srcBlob.delete(DeleteSnapshotsOption.NONE, null, null, getInstrumentedContext());
+      dstBlob.copyFromBlob(srcBlob, getInstrumentedContext());
+      srcBlob.delete(getInstrumentedContext());
     } catch (Exception e) {
       // Re-throw exception as an Azure storage exception.
       //
@@ -1524,7 +1527,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Attempts to purge may occur before opening any streams so first,
       // check if a session exists, if not create a session with the Azure storage server.
       //
-      if (null == serviceClient) {
+      if (null == storageInteractionLayer) {
         final String errMsg = 
             String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
         throw new AssertionError(errMsg);
