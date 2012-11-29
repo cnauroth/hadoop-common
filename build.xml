@@ -658,8 +658,6 @@
     <exec dir="${build.servicehost}" executable="${msbuild.cmd}" failonerror="true">
       <arg line="${servicehost.src.dir}/HadoopServiceHost.sln /target:clean;build /p:Platform=&quot;Any CPU&quot; /p:Configuration=Release;OutDir=${build.servicehost}/"/>
     </exec>
-
-    <copy file="${build.servicehost}/hadoopservicehost.exe" todir="${basedir}/bin"/>
   </target>
 
   <target name="compile-ms-winutils-debug" if="windows">
