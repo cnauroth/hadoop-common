@@ -656,7 +656,8 @@ public class NativeAzureFileSystem extends FileSystem {
   }
 
   @Override
-  public void initialize(URI uri, Configuration conf) throws IOException {
+  public void initialize(URI uri, Configuration conf)
+      throws IOException, IllegalArgumentException {
     super.initialize(uri, conf);
     if (store == null) {
       store = createDefaultStore(conf);
@@ -786,7 +787,7 @@ public class NativeAzureFileSystem extends FileSystem {
     // blocks.
     //
     OutputStream bufOutStream = new NativeAzureFsOutputStream(
-        store.pushout(keyEncoded, permission), key, keyEncoded);
+        store.storefile(keyEncoded, permission), key, keyEncoded);
 
     // Construct the data output stream from the buffered output stream.
     //
@@ -1091,221 +1092,219 @@ public class NativeAzureFileSystem extends FileSystem {
    * TODO: BUGBUG! mkdirs should walk the directory tree before creating the leaf
    * TODO: file or subdirectory.
    */
-   @Override
-   public boolean mkdirs(Path f, FsPermission permission) throws IOException {
+  @Override
+  public boolean mkdirs(Path f, FsPermission permission) throws IOException {
 
-     if (LOG.isDebugEnabled()){
-       LOG.debug("Creating directory: " + f.toString());
-     }
+    if (LOG.isDebugEnabled()){
+      LOG.debug("Creating directory: " + f.toString());
+    }
 
-     Path absolutePath = makeAbsolute(f);
-     String key = pathToKey(absolutePath);
-     store.storeEmptyFile(key + FOLDER_SUFFIX, permission);
+    Path absolutePath = makeAbsolute(f);
+    String key = pathToKey(absolutePath);
+    store.storeEmptyFile(key + FOLDER_SUFFIX, permission);
 
-     // otherwise throws exception
-     return true;
-   }
+    // otherwise throws exception
+    return true;
+  }
 
-   @Override
-   public FSDataInputStream open(Path f, int bufferSize) throws IOException {
-     if (LOG.isDebugEnabled()){
-       LOG.debug("Opening file: " + f.toString());
-     }
+  @Override
+  public FSDataInputStream open(Path f, int bufferSize) throws IOException {
+    if (LOG.isDebugEnabled()){
+      LOG.debug("Opening file: " + f.toString());
+    }
 
-     if (!exists(f)) {
-       throw new FileNotFoundException(f.toString());
-     }
-     Path absolutePath = makeAbsolute(f);
-     String key = pathToKey(absolutePath);
+    if (!exists(f)) {
+      throw new FileNotFoundException(f.toString());
+    }
+    Path absolutePath = makeAbsolute(f);
+    String key = pathToKey(absolutePath);
 
-     return new FSDataInputStream(new BufferedFSInputStream(
-         new NativeAzureFsInputStream(store.retrieve(key), key), bufferSize));
-   }
+    return new FSDataInputStream(new BufferedFSInputStream(
+        new NativeAzureFsInputStream(store.retrieve(key), key), bufferSize));
+  }
 
-   private boolean existsAndIsFile(Path f) throws IOException {
+  private boolean existsAndIsFile(Path f) throws IOException {
 
-     Path absolutePath = makeAbsolute(f);
-     String key = pathToKey(absolutePath);
+    Path absolutePath = makeAbsolute(f);
+    String key = pathToKey(absolutePath);
 
-     if (key.length() == 0) {
-       return false;
-     }
+    if (key.length() == 0) {
+      return false;
+    }
 
-     FileMetadata meta = store.retrieveMetadata(key);
-     if (meta != null && !meta.isDir()) {
-       // Azure object with given key exists, so this is a file
-       return true;
-     }
+    FileMetadata meta = store.retrieveMetadata(key);
+    if (meta != null && !meta.isDir()) {
+      // Azure object with given key exists, so this is a file
+      return true;
+    }
 
-     if (meta != null && meta.isDir()) {
-       // Azure object with given key exists, so this is a directory
-       return false;
-     }
-
-
-     PartialListing listing = store.list(key, 1, AZURE_UNBOUNDED_DEPTH, null);
-     if (listing.getFiles().length > 0 || listing.getCommonPrefixes().length > 0) {
-       // Non-empty directory
-       return false;
-     }
-
-     meta = store.retrieveMetadata(key + FOLDER_SUFFIX);
-     if (null != meta)
-     {
-       // The Azure object associated with the key is an empty folder.
-       //
-       return false;
-     }
-
-     throw new FileNotFoundException(absolutePath
-         + ": No such file or directory");
-   }
-
-   @Override
-   public boolean rename(Path src, Path dst) throws IOException {
-
-     if (LOG.isDebugEnabled()) {
-       LOG.debug("Moving " + src.toString() + " to " + dst.toString());
-     }
-     String srcKey = pathToKey(makeAbsolute(src));
-
-     if (srcKey.length() == 0) {
-       // Cannot rename root of file system
-       return false;
-     }
-
-     // Figure out the final destination
-     String dstKey;
-     try {
-       boolean dstIsFile = existsAndIsFile(dst);
-       if (dstIsFile) {
-         // Attempting to overwrite a file using rename()
-         return false;
-       } else {
-         // Move to within the existing directory
-         //
-         dstKey = pathToKey(makeAbsolute(new Path(dst, src.getName())));
-       }
-     } catch (FileNotFoundException e) {
-       // dst doesn't exist, so we can proceed
-       dstKey = pathToKey(makeAbsolute(dst));
-       try {
-         if (!getFileStatus(dst.getParent()).isDir()) {
-           return false; // parent dst is a file
-         }
-       } catch (FileNotFoundException ex) {
-         return false; // parent dst does not exist
-       }
-     }
-
-     try {
-       String srcName = null;
-       String dstName = null;
-
-       // Check if the source is a file which exists.
-       //
-       boolean srcIsFile = existsAndIsFile(src);
-       if (srcIsFile) {
-         store.rename(srcKey, dstKey, true);
-       } else {
-         // Move everything inside the folder.
-         //
-         String priorLastKey = null;
-
-         // Calculate the index of the part of the string to be moved. That
-         // is everything on the path up to the folder name.
-         //
-         do {
-           // List all blobs rooted at the source folder.
-           //
-           PartialListing listing = store.listAll(srcKey, AZURE_LIST_ALL,
-               AZURE_UNBOUNDED_DEPTH, priorLastKey);
+    if (meta != null && meta.isDir()) {
+      // Azure object with given key exists, so this is a directory
+      return false;
+    }
 
 
-           // Rename all the files in the folder.
-           //
-           for (FileMetadata file : listing.getFiles()) {
-             // Rename all non-directory entries under the folder to point to the
-             // final destination.
-             //
-             if (!file.isDir()) {
-               srcName = file.getKey();
-               String suffix  = srcName.substring(srcKey.length());
-               dstName = dstKey + suffix;  
-               store.rename(srcName, dstName, true);
-             }
-           }
-           priorLastKey = listing.getPriorLastKey();
-         } while (priorLastKey != null);
-       }
-       // Rename the top level _$FOLDER for the folder.
-       //
-       FileMetadata metaDir = store.retrieveMetadata (srcKey + FOLDER_SUFFIX);
-       if (null != metaDir)
-       {
-         // The folder contains a folder suffix, delete it.
-         //
-         srcName = srcKey + FOLDER_SUFFIX;
-         dstName = dstKey + FOLDER_SUFFIX;
-         store.rename(srcName, dstName, true);
+    PartialListing listing = store.list(key, 1, AZURE_UNBOUNDED_DEPTH, null);
+    if (listing.getFiles().length > 0 || listing.getCommonPrefixes().length > 0) {
+      // Non-empty directory
+      return false;
+    }
 
-       }
+    meta = store.retrieveMetadata(key + FOLDER_SUFFIX);
+    if (null != meta)
+    {
+      // The Azure object associated with the key is an empty folder.
+      //
+      return false;
+    }
 
-       return true;
-     } catch (FileNotFoundException e) {
-       // Source file does not exist;
-       return false;
-     } catch (OutOfMemoryError e1) {
-       // TODO: Does it make sense to print an error message here since there
-       // TODO: maybe no memory to even print the message?
-       System.err.println("Encountered out of memory error possibly due to "
-           + "an attempt to rename too many files");
-       return false;
-     }
-   }
+    throw new FileNotFoundException(absolutePath
+        + ": No such file or directory");
+  }
 
-   /**
-    * Set the working directory to the given directory.
-    */
-   @Override
-   public void setWorkingDirectory(Path newDir) {
-     workingDir = newDir;
-   }
+  @Override
+  public boolean rename(Path src, Path dst) throws IOException {
 
-   @Override
-   public Path getWorkingDirectory() {
-     return workingDir;
-   }
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Moving " + src.toString() + " to " + dst.toString());
+    }
+    String srcKey = pathToKey(makeAbsolute(src));
 
-   /**
-    * Encode the key with a random prefix for load balancing in Azure storage.
-    * Upload data to a random temporary file then do storage side renaming to
-    * recover the original key.
-    * 
-    * @param aKey
-    * @param numBuckets
-    * @return Encoded version of the original key.
-    */
-   private static String encodeKey(String aKey) {
-     // Get the tail end of the key name.
-     //
-     String fileName = aKey.substring(aKey.lastIndexOf(Path.SEPARATOR) + 1,
-         aKey.length());
+    if (srcKey.length() == 0) {
+      // Cannot rename root of file system
+      return false;
+    }
 
-     // Construct the randomized prefix of the file name. The prefix ensures the
-     // file always
-     // drops into the same folder but with a varying tail key name.
-     //
-     String filePrefix = AZURE_TEMP_FOLDER + Path.SEPARATOR
-         + UUID.randomUUID().toString();
+    // Figure out the final destination
+    String dstKey;
+    try {
+      boolean dstIsFile = existsAndIsFile(dst);
+      if (dstIsFile) {
+        // Attempting to overwrite a file using rename()
+        return false;
+      } else {
+        // Move to within the existing directory
+        //
+        dstKey = pathToKey(makeAbsolute(new Path(dst, src.getName())));
+      }
+    } catch (FileNotFoundException e) {
+      // dst doesn't exist, so we can proceed
+      dstKey = pathToKey(makeAbsolute(dst));
+      try {
+        if (!getFileStatus(dst.getParent()).isDir()) {
+          return false; // parent dst is a file
+        }
+      } catch (FileNotFoundException ex) {
+        return false; // parent dst does not exist
+      }
+    }
 
-     // Concatenate the randomized prefix with the tail of the key name.
-     //
-     String randomizedKey = filePrefix + fileName;
+    try {
+      String srcName = null;
+      String dstName = null;
 
-     // Return to the caller with the randomized key.
-     //
-     return randomizedKey;
-   }
+      // Check if the source is a file which exists.
+      //
+      boolean srcIsFile = existsAndIsFile(src);
+      if (srcIsFile) {
+        store.rename(srcKey, dstKey);
+      } else {
+        // Move everything inside the folder.
+        //
+        String priorLastKey = null;
 
+        // Calculate the index of the part of the string to be moved. That
+        // is everything on the path up to the folder name.
+        //
+        do {
+          // List all blobs rooted at the source folder.
+          //
+          PartialListing listing = store.listAll(srcKey, AZURE_LIST_ALL,
+              AZURE_UNBOUNDED_DEPTH, priorLastKey);
+
+          // Rename all the files in the folder.
+          //
+          for (FileMetadata file : listing.getFiles()) {
+            // Rename all non-directory entries under the folder to point to the
+            // final destination.
+            //
+            if (!file.isDir()) {
+              srcName = file.getKey();
+              String suffix  = srcName.substring(srcKey.length());
+              dstName = dstKey + suffix;  
+              store.rename(srcName, dstName);
+            }
+          }
+          priorLastKey = listing.getPriorLastKey();
+        } while (priorLastKey != null);
+      }
+      // Rename the top level _$FOLDER for the folder.
+      //
+      FileMetadata metaDir = store.retrieveMetadata (srcKey + FOLDER_SUFFIX);
+      if (null != metaDir)
+      {
+        // The folder contains a folder suffix, delete it.
+        //
+        srcName = srcKey + FOLDER_SUFFIX;
+        dstName = dstKey + FOLDER_SUFFIX;
+        store.rename(srcName, dstName);
+
+      }
+
+      return true;
+    } catch (FileNotFoundException e) {
+      // Source file does not exist;
+      return false;
+    } catch (OutOfMemoryError e1) {
+      // TODO: Does it make sense to print an error message here since there
+      // TODO: maybe no memory to even print the message?
+      System.err.println("Encountered out of memory error possibly due to "
+          + "an attempt to rename too many files");
+      return false;
+    }
+  }
+
+  /**
+   * Set the working directory to the given directory.
+   */
+  @Override
+  public void setWorkingDirectory(Path newDir) {
+    workingDir = newDir;
+  }
+
+  @Override
+  public Path getWorkingDirectory() {
+    return workingDir;
+  }
+
+  /**
+   * Encode the key with a random prefix for load balancing in Azure storage.
+   * Upload data to a random temporary file then do storage side renaming to
+   * recover the original key.
+   * 
+   * @param aKey
+   * @param numBuckets
+   * @return Encoded version of the original key.
+   */
+  private static String encodeKey(String aKey) {
+    // Get the tail end of the key name.
+    //
+    String fileName = aKey.substring(aKey.lastIndexOf(Path.SEPARATOR) + 1,
+        aKey.length());
+
+    // Construct the randomized prefix of the file name. The prefix ensures the
+    // file always
+    // drops into the same folder but with a varying tail key name.
+    //
+    String filePrefix = AZURE_TEMP_FOLDER + Path.SEPARATOR
+        + UUID.randomUUID().toString();
+
+    // Concatenate the randomized prefix with the tail of the key name.
+    //
+    String randomizedKey = filePrefix + fileName;
+
+    // Return to the caller with the randomized key.
+    //
+    return randomizedKey;
+  }
 }

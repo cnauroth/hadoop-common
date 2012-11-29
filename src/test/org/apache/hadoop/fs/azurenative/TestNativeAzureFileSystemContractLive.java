@@ -29,9 +29,4 @@ FileSystemContractBaseTest {
       super.runTest();
     }
   }
-
-  @Override
-  protected String getPrefixUri() {
-    return testAccount.getUriPrefix();
-  }
 }
