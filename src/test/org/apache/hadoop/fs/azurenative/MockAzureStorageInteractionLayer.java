@@ -1,0 +1,229 @@
+package org.apache.hadoop.fs.azurenative;
+
+import java.io.*;
+import java.net.*;
+import java.util.*;
+
+import org.apache.commons.io.output.ByteArrayOutputStream;
+
+import com.microsoft.windowsazure.services.blob.client.*;
+import com.microsoft.windowsazure.services.core.storage.*;
+
+public class MockAzureStorageInteractionLayer extends AzureStorageInteractionLayer {
+  private InMemoryBlockBlobStore backingStore;
+
+  @Override
+  public void setStreamMinimumReadSizeInBytes(int minimumReadSize) {
+  }
+
+  @Override
+  public void setWriteBlockSizeInBytes(int writeBlockSizeInBytes) {
+  }
+
+  @Override
+  public void setTimeoutInMs(int timeoutInMs) {
+  }
+
+  @Override
+  public void createBlobClient(CloudStorageAccount account) {
+    backingStore = new InMemoryBlockBlobStore();
+  }
+
+  @Override
+  public void createBlobClient(URI baseUri) {
+    backingStore = new InMemoryBlockBlobStore();
+  }
+
+  @Override
+  public void createBlobClient(URI baseUri, StorageCredentials credentials) {
+    backingStore = new InMemoryBlockBlobStore();
+  }
+
+  @Override
+  public CloudBlobDirectoryWrapper getDirectoryReference(String uri)
+      throws URISyntaxException, StorageException {
+    return new MockCloudBlobDirectoryWrapper(new URI(
+        uri.endsWith("/") ? uri : uri + "/"));
+  }
+
+  @Override
+  public CloudBlobContainerWrapper getContainerReference(String uri)
+      throws URISyntaxException, StorageException {
+    return new MockCloudBlobContainerWrapper();
+  }
+
+  @Override
+  public CloudBlockBlobWrapper getBlockBlobReference(String blobAddressUri)
+      throws URISyntaxException, StorageException {
+    return new MockCloudBlockBlobWrapper(new URI(blobAddressUri), false);
+  }
+
+  class MockCloudBlobContainerWrapper extends CloudBlobContainerWrapper {
+    private boolean created = false;
+
+    @Override
+    public boolean exists(OperationContext opContext) throws StorageException {
+      return created;
+    }
+
+    @Override
+    public void create(OperationContext opContext) throws StorageException {
+      created = true;
+    }
+  }
+  
+  class MockCloudBlobDirectoryWrapper extends CloudBlobDirectoryWrapper {
+    private URI uri;
+
+    public MockCloudBlobDirectoryWrapper(URI uri) {
+      this.uri = uri;
+    }
+
+    @Override
+    public CloudBlobContainer getContainer() throws URISyntaxException,
+        StorageException {
+      return null;
+    }
+
+    @Override
+    public CloudBlobDirectory getParent() throws URISyntaxException,
+        StorageException {
+      return null;
+    }
+
+    @Override
+    public URI getUri() {
+      return uri;
+    }
+
+    @Override
+    public Iterable<ListBlobItem> listBlobs(String prefix,
+        boolean useFlatBlobListing, EnumSet<BlobListingDetails> listingDetails,
+        BlobRequestOptions options, OperationContext opContext)
+        throws URISyntaxException, StorageException {
+      ArrayList<ListBlobItem> ret = new ArrayList<ListBlobItem>();
+      String fullPrefix = prefix == null ?
+          uri.toString() :
+          uri.toString() + prefix;
+      HashSet<String> addedDirectories = new HashSet<String>();
+      for (String current : backingStore.getKeys()) {
+        if (current.startsWith(fullPrefix)) {
+          int indexOfSlash = current.indexOf('/', fullPrefix.length());
+          if (useFlatBlobListing || indexOfSlash < 0) {
+            ret.add(new MockCloudBlockBlobWrapper(
+                new URI(current),
+                listingDetails.contains(BlobListingDetails.METADATA)));
+          } else {
+            String directoryName = current.substring(0, indexOfSlash);
+            if (!addedDirectories.contains(directoryName)) {
+              addedDirectories.add(current);
+              ret.add(new MockCloudBlobDirectoryWrapper(new URI(
+                  directoryName + "/")));
+            }
+          }
+        }
+      }
+      return ret;
+    }
+  }
+  
+  class MockCloudBlockBlobWrapper extends CloudBlockBlobWrapper {
+    private URI uri;
+    private HashMap<String, String> metadata =
+        new HashMap<String, String>();
+    private BlobProperties properties;
+    
+    public MockCloudBlockBlobWrapper(URI uri, boolean getMetadata) {
+      this.uri = uri;
+      refreshProperties(getMetadata);
+    }
+
+    private void refreshProperties(boolean getMetadata) {
+      if (backingStore.exists(uri.toString())) {
+        byte[] content = backingStore.getContent(uri.toString());
+        properties = new BlobProperties();
+        properties.setLength(content.length);
+        properties.setLastModified(new Date());
+        if (getMetadata) {
+          metadata = backingStore.getMetadata(uri.toString());
+        }
+      }
+    }
+
+    @Override
+    public CloudBlobContainer getContainer() throws URISyntaxException,
+        StorageException {
+      return null;
+    }
+
+    @Override
+    public CloudBlobDirectory getParent() throws URISyntaxException,
+        StorageException {
+      return null;
+    }
+
+    @Override
+    public URI getUri() {
+      return uri;
+    }
+
+    @Override
+    public HashMap<String, String> getMetadata() {
+      return metadata;
+    }
+
+    @Override
+    public void setMetadata(HashMap<String, String> metadata) {
+      this.metadata = metadata;
+    }
+
+    @Override
+    public void copyFromBlob(CloudBlockBlobWrapper sourceBlob,
+        OperationContext opContext) throws StorageException, URISyntaxException {
+      backingStore.copy(sourceBlob.getUri().toString(), uri.toString());
+    }
+
+    @Override
+    public void delete(OperationContext opContext) throws StorageException {
+      backingStore.delete(uri.toString());
+    }
+
+    @Override
+    public boolean exists(OperationContext opContext) throws StorageException {
+      return backingStore.exists(uri.toString());
+    }
+
+    @Override
+    public void downloadAttributes(OperationContext opContext)
+        throws StorageException {
+      refreshProperties(true);
+    }
+
+    @Override
+    public BlobProperties getProperties() {
+      return properties;
+    }
+
+    @Override
+    public InputStream openInputStream(BlobRequestOptions options,
+        OperationContext opContext) throws StorageException {
+      return new ByteArrayInputStream(backingStore.getContent(uri.toString()));
+    }
+
+    @Override
+    public OutputStream openOutputStream(BlobRequestOptions options,
+        OperationContext opContext) throws StorageException {
+      return backingStore.upload(uri.toString(), metadata);
+    }
+
+    @Override
+    public void upload(InputStream sourceStream, OperationContext opContext)
+        throws StorageException, IOException {
+      ByteArrayOutputStream allContent = new ByteArrayOutputStream();
+      allContent.write(sourceStream);
+      backingStore.setContent(uri.toString(), allContent.toByteArray(),
+          metadata);
+      refreshProperties(false);
+    }
+  }
+}

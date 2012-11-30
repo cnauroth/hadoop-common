@@ -8,6 +8,7 @@ import org.apache.hadoop.fs.FileSystem;
 
 import com.microsoft.windowsazure.services.blob.client.CloudBlobContainer;
 import com.microsoft.windowsazure.services.core.storage.CloudStorageAccount;
+import com.microsoft.windowsazure.services.core.storage.utils.Base64;
 
 public final class AzureBlobStorageTestAccount {
 
@@ -32,6 +33,19 @@ public final class AzureBlobStorageTestAccount {
     }
 
     return false;
+  }
+  
+  public static AzureBlobStorageTestAccount createMock() throws Exception {
+    Configuration conf = new Configuration();
+    AzureNativeFileSystemStore store = new AzureNativeFileSystemStore();
+    store.setAzureStorageInteractionLayer(new MockAzureStorageInteractionLayer());
+    FileSystem fs = new NativeAzureFileSystem(store);
+    conf.set(ACCOUNT_KEY_PROPERTY_NAME + "mockAccount",
+        Base64.encode(new byte[] {1, 2, 3}));
+    fs.initialize(new URI("asv://mockAccount+mockContainer/"), conf);
+    AzureBlobStorageTestAccount testAcct =
+        new AzureBlobStorageTestAccount(fs, null);
+    return testAcct;
   }
 
   public static AzureBlobStorageTestAccount create() throws Exception {

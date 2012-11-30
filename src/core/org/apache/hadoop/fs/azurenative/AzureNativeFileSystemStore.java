@@ -98,6 +98,11 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private int concurrentWrites = DEFAULT_CONCURRENT_WRITES;
   private boolean isAnonymousCredentials = false;
   private AzureFileSystemInstrumentation instrumentation;
+  
+  void setAzureStorageInteractionLayer(
+      AzureStorageInteractionLayer storageInteractionLayer) {
+    this.storageInteractionLayer = storageInteractionLayer;
+  }
 
   /**
    * Method for the URI and configuration object necessary to create a storage
