@@ -16,10 +16,6 @@ Monarch - unreleased
     MAPREDUCE-1806 (HADOOP-136) CombineFileInputFormat only works with default file system
     (Ahmed El Baz)
 
-    MAPREDUCE-4657 (HADOOP-129) WindowsResourceCalculatorPlugin NPE (Bikas Saha)
-
-    MAPREDUCE-4561 (HADOOP-5) Support for node health scripts on Windows. (Ivan Mitic)
-
     HADOOP-8874 (HADOOP-60) Provide API to retrieve valid HADOOP_HOME and bin path.
     (John Gordon)
 
