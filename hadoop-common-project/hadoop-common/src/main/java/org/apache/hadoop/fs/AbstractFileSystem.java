@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.logging.Log;
@@ -85,14 +86,24 @@ public abstract class AbstractFileSystem {
   
   /**
    * Returns true if the specified string is considered valid as a filename by
-   * this file system.  The default implementation always returns true.
-   * Subclasses may override this method to implement specific validation rules
-   * for specific file systems.
+   * this file system.  The default implementation enforces the rules of HDFS,
+   * but subclasses may override this method to implement specific validation
+   * rules for specific file systems.
    * 
    * @param src String source filename to check
    * @return boolean true if the specified string is considered valid
    */
   public boolean isValidName(String src) {
+    // Prohibit ".." "." and anything containing ":"
+    StringTokenizer tokens = new StringTokenizer(src, Path.SEPARATOR);
+    while(tokens.hasMoreTokens()) {
+      String element = tokens.nextToken();
+      if (element.equals("..") ||
+          element.equals(".")  ||
+          (element.indexOf(":") >= 0)) {
+        return false;
+      }
+    }
     return true;
   }
   

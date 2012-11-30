@@ -436,19 +436,4 @@ public class Hdfs extends AbstractFileSystem {
       throws InvalidToken, IOException {
     dfs.cancelDelegationToken((Token<DelegationTokenIdentifier>) token);
   }
-
-  @Override
-  public boolean isValidName(String src) {
-    // Prohibit ".." "." and anything containing ":"
-    StringTokenizer tokens = new StringTokenizer(src, Path.SEPARATOR);
-    while(tokens.hasMoreTokens()) {
-      String element = tokens.nextToken();
-      if (element.equals("..") ||
-          element.equals(".")  ||
-          (element.indexOf(":") >= 0)) {
-        return false;
-      }
-    }
-    return true;
-  }
 }
