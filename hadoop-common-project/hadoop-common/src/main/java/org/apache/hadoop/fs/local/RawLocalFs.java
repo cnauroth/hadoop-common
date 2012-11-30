@@ -167,6 +167,13 @@ public class RawLocalFs extends DelegateToFileSystem {
     throw new AssertionError();
   }
 
+  @Override
+  public boolean isValidName(String src) {
+    // Different local file systems have different validation rules.  Skip
+    // validation here and just let the local file system handle it.
+    return true;
+  }
+
   private static String getPathWithoutSchemeAndAuthority(Path path) {
     // This code depends on Path.toString() to remove the leading slash before
     // the drive specification on Windows.
