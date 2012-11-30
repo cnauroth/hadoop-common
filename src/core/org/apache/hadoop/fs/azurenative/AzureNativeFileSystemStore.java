@@ -960,10 +960,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     CloudBlobDirectoryWrapper directory = storageInteractionLayer.getDirectoryReference(
         rootDirectory.getUri().toString() + aPrefix);
 
-    // TODO: BUGBUG-There is a defect in the WindowsAzure SDK whick ignores the use
-    // TODO: flat blob listing setting. The listBlobs calls below always traverses the
-    // TODO: hierarchical namespace regardless of the value of useFlatBlobListing.
-    //
     return directory.listBlobs(
         null,
         useFlatBlobListing,

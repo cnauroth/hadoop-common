@@ -7,6 +7,15 @@ import java.util.*;
 import com.microsoft.windowsazure.services.blob.client.*;
 import com.microsoft.windowsazure.services.core.storage.*;
 
+/**
+ * This is a very thin layer over the methods exposed by the Windows
+ * Azure Storage SDK that we need for ASV implementation. This base
+ * class has a real implementation that just simply redirects to
+ * the SDK, and a memory-backed one that's used for unit tests.
+ * 
+ *  IMPORTANT: all the methods here must remain very simple redirects
+ *  since code written here can't be properly unit tested.
+ */
 abstract class AzureStorageInteractionLayer {
   public abstract void setStreamMinimumReadSizeInBytes(int minimumReadSize);
 

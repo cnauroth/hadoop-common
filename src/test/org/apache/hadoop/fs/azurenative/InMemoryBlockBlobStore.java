@@ -3,6 +3,10 @@ package org.apache.hadoop.fs.azurenative;
 import java.io.*;
 import java.util.*;
 
+/**
+ * A simple memory key-value store to help mock the
+ * Windows Azure Storage implementation for unit testing.
+ */
 public class InMemoryBlockBlobStore {
   private final HashMap<String, Entry> blobs =
       new HashMap<String, Entry>();

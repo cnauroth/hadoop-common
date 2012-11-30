@@ -7,6 +7,10 @@ import java.util.*;
 import com.microsoft.windowsazure.services.blob.client.*;
 import com.microsoft.windowsazure.services.core.storage.*;
 
+/**
+ * A real implementation of the Azure interaction layer that
+ * just redirects calls to the Windows Azure storage SDK.
+ */
 class AzureStorageInteractionLayerImpl extends AzureStorageInteractionLayer {
   private CloudBlobClient serviceClient;
 
@@ -62,6 +66,10 @@ class AzureStorageInteractionLayerImpl extends AzureStorageInteractionLayer {
         serviceClient.getBlockBlobReference(blobAddressUri));
   }
   
+  /**
+   * This iterator wraps every ListBlobItem as they come from the
+   * listBlobs() calls to their proper wrapping objects.
+   */
   private static class WrappingIterator implements Iterator<ListBlobItem> {
     private final Iterator<ListBlobItem> present;
     
