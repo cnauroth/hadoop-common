@@ -38,3 +38,21 @@ branch-trunk-win changes - unreleased
   HADOOP-8978. TestTrash fails on Windows. (Chris Nauroth via suresh)
 
   HADOOP-8979. TestHttpServer fails on Windows. (Chris Nauroth via suresh)
+
+  HADOOP-8953. Shell PathData parsing failures on Windows. (Arpit Agarwal via
+  suresh)
+
+  HADOOP-8975. TestFileContextResolveAfs fails on Windows. (Chris Nauroth via
+  suresh)
+
+  HADOOP-8977. Multiple FsShell test failures on Windows. (Chris Nauroth via
+  suresh)
+
+  HADOOP-9005. Merge hadoop cmd line scripts from branch-1-win. (David Lao, 
+  Bikas Saha, Lauren Yang, Chuan Liu, Thejas M Nair and Ivan Mitic via suresh)
+
+  HADOOP-9008. Building hadoop tarball fails on Windows. (Chris Nauroth via
+  suresh)
+
+  HADOOP-9011. saveVersion.py does not include branch in version annotation.
+  (Chris Nauroth via suresh)
