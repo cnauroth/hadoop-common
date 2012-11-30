@@ -1019,14 +1019,15 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
   
   private OperationContext getInstrumentedContext() {
-    OperationContext ret = new OperationContext();
-    ret.getResponseReceivedEventHandler().addListener(new StorageEvent<ResponseReceivedEvent>() {
-      @Override
-      public void eventOccurred(ResponseReceivedEvent eventArg) {
-        instrumentation.webRequest();
-      }
-    });
-    return ret;
+    OperationContext operationContext = new OperationContext();
+    operationContext.getResponseReceivedEventHandler().addListener(
+        new StorageEvent<ResponseReceivedEvent>() {
+          @Override
+          public void eventOccurred(ResponseReceivedEvent eventArg) {
+            instrumentation.webResponse();
+          }
+        });
+    return operationContext;
   }
 
   @Override
