@@ -33,7 +33,6 @@ import org.apache.hadoop.fs.AbstractFileSystem;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileContext;
 import org.apache.hadoop.fs.FileContextTestHelper;
-import org.apache.hadoop.fs.InvalidPathException;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.FileContextTestHelper.fileType;
 import org.apache.hadoop.fs.FileStatus;
@@ -439,7 +438,6 @@ public class ViewFsBaseTest {
   public void testGetFileChecksum() throws AccessControlException
     , UnresolvedLinkException, IOException {
     AbstractFileSystem mockAFS = Mockito.mock(AbstractFileSystem.class);
-    Mockito.when(mockAFS.isValidName(Mockito.anyString())).thenReturn(true);
     InodeTree.ResolveResult<AbstractFileSystem> res =
       new InodeTree.ResolveResult<AbstractFileSystem>(null, mockAFS , null,
         new Path("someFile"));
