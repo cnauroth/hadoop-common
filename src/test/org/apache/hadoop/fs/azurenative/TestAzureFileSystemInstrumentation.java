@@ -1,7 +1,6 @@
 package org.apache.hadoop.fs.azurenative;
 
 import java.io.*;
-import java.util.*;
 
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.metrics2.*;
