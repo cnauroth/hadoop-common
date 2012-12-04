@@ -18,7 +18,6 @@
 package org.apache.hadoop.hdfs.web;
 
 import static org.apache.hadoop.fs.FileSystemTestHelper.exists;
-import static org.apache.hadoop.fs.FileSystemTestHelper.getTestRootPath;
 
 import java.io.IOException;
 import java.net.URI;

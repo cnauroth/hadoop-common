@@ -57,7 +57,10 @@ public class TestViewFsFileStatusHdfs {
   private static Configuration CONF = new Configuration();
   private static FileSystem fHdfs;
   private static FileSystem vfs;
-  
+
+  private final FileSystemTestHelper fileSystemTestHelper =
+    new FileSystemTestHelper(true);
+
   @BeforeClass
   public static void clusterSetupAtBegining() throws IOException,
       LoginException, URISyntaxException {
@@ -79,7 +82,7 @@ public class TestViewFsFileStatusHdfs {
   @Test
   public void testFileStatusSerialziation()
       throws IOException, URISyntaxException {
-   long len = FileSystemTestHelper.createFile(fHdfs, testfilename);
+   long len = this.fileSystemTestHelper.createFile(fHdfs, testfilename);
     FileStatus stat = vfs.getFileStatus(new Path(testfilename));
     assertEquals(len, stat.getLen());
     // check serialization/deserialization
@@ -95,9 +98,10 @@ public class TestViewFsFileStatusHdfs {
   @Test
   public void testGetFileChecksum() throws IOException, URISyntaxException {
     // Create two different files in HDFS
-    FileSystemTestHelper.createFile(fHdfs, someFile);
-    FileSystemTestHelper.createFile(fHdfs, FileSystemTestHelper
-      .getTestRootPath(fHdfs, someFile + "other"), 1, 512);
+    this.fileSystemTestHelper.createFile(fHdfs, someFile);
+    FileSystemTestHelper.createFile(fHdfs,
+      this.fileSystemTestHelper.getTestRootPath(fHdfs, someFile + "other"), 1,
+      512);
     // Get checksum through ViewFS
     FileChecksum viewFSCheckSum = vfs.getFileChecksum(
       new Path("/vfstmp/someFileForTestGetFileChecksum"));
