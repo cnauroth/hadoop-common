@@ -21,12 +21,14 @@ import java.io.IOException;
 import java.util.Set;
 
 import junit.framework.Assert;
+import org.apache.hadoop.fs.FileContextTestHelper;
 import org.apache.hadoop.util.ShutdownHookManager;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.apache.hadoop.fs.FileContextTestHelper.*;
+import static org.apache.hadoop.fs.FileContextTestHelper.createFile;
+import static org.apache.hadoop.fs.FileContextTestHelper.exists;
 
 /**
  * Tests {@link FileContext.#deleteOnExit(Path)} functionality.
@@ -36,6 +38,9 @@ public class TestFileContextDeleteOnExit {
   private static int numBlocks = 2;
   
   private FileContext fc;
+
+  private final FileContextTestHelper fileContextTestHelper =
+    new FileContextTestHelper();
   
   @Before
   public void setup() throws IOException {
@@ -85,5 +90,13 @@ public class TestFileContextDeleteOnExit {
     Assert.assertFalse(exists(fc, file1));
     Assert.assertFalse(exists(fc, file2));
     Assert.assertFalse(exists(fc, dir));
+  }
+
+  private Path getTestRootPath(FileContext fc) {
+    return this.fileContextTestHelper.getTestRootPath(fc);
+  }
+
+  private Path getTestRootPath(FileContext fc, String pathString) {
+    return this.fileContextTestHelper.getTestRootPath(fc, pathString);
   }
 }

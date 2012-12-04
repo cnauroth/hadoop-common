@@ -20,12 +20,11 @@ package org.apache.hadoop.fs;
 
 import java.net.URI;
 
+import org.apache.hadoop.fs.FileContextTestHelper;
 import org.apache.hadoop.fs.FileSystem.Statistics;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-
-import static org.apache.hadoop.fs.FileContextTestHelper.*;
 
 /**
  * <p>
@@ -36,15 +35,19 @@ public class TestLocalFsFCStatistics extends FCStatisticsBaseTest {
   
   static final String LOCAL_FS_ROOT_URI =  "file:///tmp/test";
 
+  private final FileContextTestHelper fileContextTestHelper =
+    new FileContextTestHelper();
+
   @Before
   public void setUp() throws Exception {
     fc = FileContext.getLocalFSFileContext();
-    fc.mkdir(getTestRootPath(fc, "test"), FileContext.DEFAULT_PERM, true);
+    fc.mkdir(this.fileContextTestHelper.getTestRootPath(fc, "test"),
+      FileContext.DEFAULT_PERM, true);
   }
 
   @After
   public void tearDown() throws Exception {
-    fc.delete(getTestRootPath(fc, "test"), true);
+    fc.delete(this.fileContextTestHelper.getTestRootPath(fc, "test"), true);
   }
 
   @Override

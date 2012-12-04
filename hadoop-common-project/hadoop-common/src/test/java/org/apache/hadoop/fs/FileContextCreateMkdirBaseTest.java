@@ -26,8 +26,12 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import static org.apache.hadoop.fs.FileContextTestHelper.*;
+import org.apache.hadoop.fs.FileContextTestHelper;
 import org.apache.commons.logging.impl.Log4JLogger;
+
+import static org.apache.hadoop.fs.FileContextTestHelper.createFile;
+import static org.apache.hadoop.fs.FileContextTestHelper.isDir;
+import static org.apache.hadoop.fs.FileContextTestHelper.isFile;
 
 /**
  * <p>
@@ -52,6 +56,8 @@ import org.apache.commons.logging.impl.Log4JLogger;
 public abstract class FileContextCreateMkdirBaseTest {
    
   protected static FileContext fc;
+
+  private final FileContextTestHelper fileContextTestHelper;
       
   {
     try {
@@ -63,6 +69,15 @@ public abstract class FileContextCreateMkdirBaseTest {
     }
   }
   
+  public FileContextCreateMkdirBaseTest() {
+    this.fileContextTestHelper = new FileContextTestHelper();
+  }
+
+  public FileContextCreateMkdirBaseTest(
+      FileContextTestHelper fileContextTestHelper) {
+
+    this.fileContextTestHelper = fileContextTestHelper;
+  }
 
   @Before
   public void setUp() throws Exception {
@@ -127,7 +142,8 @@ public abstract class FileContextCreateMkdirBaseTest {
   @Test
   public void testCreateNonRecursiveWithNonExistingDir() {
     try {
-      createFileNonRecursive(fc, getTestRootPath(fc, "NonExisting/foo"));
+      this.fileContextTestHelper.createFileNonRecursive(fc,
+        getTestRootPath(fc, "NonExisting/foo"));
       Assert.fail("Create with non existing parent dir should have failed");
     } catch (IOException e) {
       // As expected
@@ -148,5 +164,13 @@ public abstract class FileContextCreateMkdirBaseTest {
     Path f = getTestRootPath(fc,"NonExisting/foo");
     createFile(fc, f);
     Assert.assertTrue(isFile(fc, f));
+  }
+
+  private Path getTestRootPath(FileContext fc) {
+    return this.fileContextTestHelper.getTestRootPath(fc);
+  }
+
+  private Path getTestRootPath(FileContext fc, String pathString) {
+    return this.fileContextTestHelper.getTestRootPath(fc, pathString);
   }
 }

@@ -26,11 +26,11 @@ import javax.security.auth.login.LoginException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
+import org.apache.hadoop.fs.FileContextTestHelper;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.StringUtils;
-import static org.apache.hadoop.fs.FileContextTestHelper.*;
 import org.apache.commons.logging.impl.Log4JLogger;
 import org.apache.log4j.Level;
 import org.junit.After;
@@ -39,6 +39,10 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+
+import static org.apache.hadoop.fs.FileContextTestHelper.exists;
+import static org.apache.hadoop.fs.FileContextTestHelper.isDir;
+import static org.apache.hadoop.fs.FileContextTestHelper.isFile;
 
 public class TestFcHdfsSetUMask {
   
@@ -78,7 +82,10 @@ public class TestFcHdfsSetUMask {
 
   private static final FsPermission WIDE_OPEN_TEST_UMASK = FsPermission
       .createImmutable((short) (0777 ^ 0777));
-  
+
+  private final FileContextTestHelper fileContextTestHelper =
+    new FileContextTestHelper(true);
+
   @BeforeClass
   public static void clusterSetupAtBegining()
         throws IOException, LoginException, URISyntaxException  {
@@ -226,7 +233,7 @@ public class TestFcHdfsSetUMask {
       FsPermission expectedPerms) throws IOException {
     Path f = getTestRootPath(fc,"foo");
     fc.setUMask(umask);
-    createFile(fc, f);
+    this.fileContextTestHelper.createFile(fc, f);
     Assert.assertTrue(isFile(fc, f));
     Assert.assertEquals("permissions on file are wrong",  
         expectedPerms , fc.getFileStatus(f).getPermission());
@@ -240,12 +247,19 @@ public class TestFcHdfsSetUMask {
     Path fParent = getTestRootPath(fc, "NonExisting");
     Assert.assertFalse(exists(fc, fParent));
     fc.setUMask(umask);
-    createFile(fc, f);
+    this.fileContextTestHelper.createFile(fc, f);
     Assert.assertTrue(isFile(fc, f));
     Assert.assertEquals("permissions on file are wrong",  
         expectedFilePerms, fc.getFileStatus(f).getPermission());
     Assert.assertEquals("permissions on parent directory are wrong",  
         expectedDirPerms, fc.getFileStatus(fParent).getPermission());
   }
- 
+
+  private Path getTestRootPath(FileContext fc) {
+    return this.fileContextTestHelper.getTestRootPath(fc);
+  }
+
+  private Path getTestRootPath(FileContext fc, String pathString) {
+    return this.fileContextTestHelper.getTestRootPath(fc, pathString);
+  }
 }

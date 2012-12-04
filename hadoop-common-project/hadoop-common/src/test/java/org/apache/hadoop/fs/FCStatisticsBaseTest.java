@@ -23,6 +23,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
 
+import org.apache.hadoop.fs.FileContextTestHelper;
 import org.apache.hadoop.fs.FileSystem.Statistics;
 import org.junit.Assert;
 import org.junit.Test;
@@ -41,13 +42,16 @@ public abstract class FCStatisticsBaseTest {
   
   //fc should be set appropriately by the deriving test.
   protected static FileContext fc = null;
+
+  private final FileContextTestHelper fileContextTestHelper =
+    new FileContextTestHelper(false);
   
   @Test
   public void testStatistics() throws IOException, URISyntaxException {
     URI fsUri = getFsUri();
     Statistics stats = FileContext.getStatistics(fsUri);
     Assert.assertEquals(0, stats.getBytesRead());
-    Path filePath = getTestRootPath(fc, "file1");
+    Path filePath = this.fileContextTestHelper.getTestRootPath(fc, "file1");
     createFile(fc, filePath, numBlocks, blockSize);
 
     Assert.assertEquals(0, stats.getBytesRead());

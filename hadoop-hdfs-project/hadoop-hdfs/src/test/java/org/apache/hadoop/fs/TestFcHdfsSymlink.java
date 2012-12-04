@@ -17,7 +17,6 @@
  */
 package org.apache.hadoop.fs;
 
-import static org.apache.hadoop.fs.FileContextTestHelper.getAbsoluteTestRootDir;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
@@ -26,6 +25,7 @@ import java.net.URI;
 
 import org.apache.commons.logging.impl.Log4JLogger;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileContextTestHelper;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
@@ -99,12 +99,18 @@ public class TestFcHdfsSymlink extends FileContextSymlinkBaseTest {
   public static void testTearDown() throws Exception {
     cluster.shutdown();
   }
-     
+
+  public TestFcHdfsSymlink() {
+    super(new FileContextTestHelper(true));
+  }
+
   @Test
   /** Access a file using a link that spans Hdfs to LocalFs */
   public void testLinkAcrossFileSystems() throws IOException {
-    Path localDir  = new Path("file://"+getAbsoluteTestRootDir(fc)+"/test");
-    Path localFile = new Path("file://"+getAbsoluteTestRootDir(fc)+"/test/file");
+    Path localDir  = new Path("file", null, getAbsoluteTestRootDir(fc) +
+      "/test");
+    Path localFile = new Path("file", null, getAbsoluteTestRootDir(fc) +
+      "/test/file");
     Path link      = new Path(testBaseDir1(), "linkToFile");
     FileContext localFc = FileContext.getLocalFSFileContext();
     localFc.delete(localDir, true);
@@ -120,7 +126,8 @@ public class TestFcHdfsSymlink extends FileContextSymlinkBaseTest {
   @Test
   /** Test renaming a file across two file systems using a link */
   public void testRenameAcrossFileSystemsViaLink() throws IOException {
-    Path localDir    = new Path("file://"+getAbsoluteTestRootDir(fc)+"/test");
+    Path localDir    = new Path("file", null, getAbsoluteTestRootDir(fc) +
+      "/test");
     Path hdfsFile    = new Path(testBaseDir1(), "file");
     Path link        = new Path(testBaseDir1(), "link");
     Path hdfsFileNew = new Path(testBaseDir1(), "fileNew");

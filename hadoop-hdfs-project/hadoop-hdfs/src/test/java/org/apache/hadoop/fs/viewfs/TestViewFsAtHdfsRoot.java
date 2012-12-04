@@ -23,6 +23,7 @@ import java.net.URISyntaxException;
 import javax.security.auth.login.LoginException;
 
 import org.apache.hadoop.fs.FileContext;
+import org.apache.hadoop.fs.FileContextTestHelper;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
@@ -59,6 +60,10 @@ public class TestViewFsAtHdfsRoot extends ViewFsBaseTest {
   @AfterClass
   public static void ClusterShutdownAtEnd() throws Exception {
     cluster.shutdown();   
+  }
+
+  public TestViewFsAtHdfsRoot() {
+    super(new FileContextTestHelper(true));
   }
 
   @Override

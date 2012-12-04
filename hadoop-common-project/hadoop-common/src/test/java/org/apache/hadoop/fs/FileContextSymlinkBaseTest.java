@@ -21,6 +21,7 @@ import java.io.*;
 import java.net.URI;
 import java.util.EnumSet;
 import org.apache.hadoop.fs.FileContext;
+import org.apache.hadoop.fs.FileContextTestHelper;
 import org.apache.hadoop.fs.Options.CreateOpts;
 import org.apache.hadoop.fs.Options.Rename;
 import org.apache.hadoop.fs.permission.FsPermission;
@@ -44,6 +45,8 @@ public abstract class FileContextSymlinkBaseTest {
   static final int  fileSize  = 16384;
  
   protected static FileContext fc;
+
+  private final FileContextTestHelper fileContextTestHelper;
 
   abstract protected String getScheme();
   abstract protected String testBaseDir1() throws IOException;
@@ -77,6 +80,16 @@ public abstract class FileContextSymlinkBaseTest {
   protected static void appendToFile(Path p) throws IOException {
     FileContextTestHelper.appendToFile(fc, p, fileSize / blockSize, 
         CreateOpts.blockSize(blockSize));
+  }
+
+  public FileContextSymlinkBaseTest() {
+    this.fileContextTestHelper = new FileContextTestHelper(false);
+  }
+
+  public FileContextSymlinkBaseTest(
+      FileContextTestHelper fileContextTestHelper) {
+
+    this.fileContextTestHelper = fileContextTestHelper;
   }
 
   @Before
@@ -1352,5 +1365,9 @@ public abstract class FileContextSymlinkBaseTest {
       assertEquals(3, fc.getFileStatus(file).getAccessTime());
       assertEquals(2, fc.getFileStatus(file).getModificationTime());
     }
+  }
+
+  protected String getAbsoluteTestRootDir(FileContext fc) throws IOException {
+    return this.fileContextTestHelper.getAbsoluteTestRootDir(fc);
   }
 }

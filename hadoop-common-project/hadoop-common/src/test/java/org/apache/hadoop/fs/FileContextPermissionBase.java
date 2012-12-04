@@ -25,6 +25,7 @@ import java.util.StringTokenizer;
 
 import junit.framework.Assert;
 
+import org.apache.hadoop.fs.FileContextTestHelper;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.Shell;
@@ -33,7 +34,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.apache.hadoop.fs.FileContextTestHelper.*;
+import static org.apache.hadoop.fs.FileContextTestHelper.createFile;
+import static org.apache.hadoop.fs.FileContextTestHelper.exists;
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -70,6 +72,16 @@ public abstract class FileContextPermissionBase {
   
   protected static FileContext fc;
 
+  private final FileContextTestHelper fileContextTestHelper;
+
+  public FileContextPermissionBase() {
+    this.fileContextTestHelper = new FileContextTestHelper(false);
+  }
+
+  public FileContextPermissionBase(FileContextTestHelper fileContextTestHelper) {
+    this.fileContextTestHelper = fileContextTestHelper;
+  }
+
   @Before
   public void setUp() throws Exception {
     fc.mkdir(getTestRootPath(fc), FileContext.DEFAULT_PERM, true);
@@ -94,7 +106,7 @@ public abstract class FileContextPermissionBase {
     }
     String filename = "foo";
     Path f = getTestRootPath(fc, filename);
-    createFile(fc, filename);
+    this.fileContextTestHelper.createFile(fc, filename);
     doFilePermissionCheck(FileContext.DEFAULT_PERM.applyUMask(fc.getUMask()),
                         fc.getFileStatus(f).getPermission());
   }
@@ -109,7 +121,7 @@ public abstract class FileContextPermissionBase {
 
     String filename = "foo";
     Path f = getTestRootPath(fc, filename);
-    createFile(fc, f);
+    this.fileContextTestHelper.createFile(fc, f);
 
     try {
       // create files and manipulate them.
@@ -210,5 +222,13 @@ public abstract class FileContextPermissionBase {
   static final FsPermission FILE_MASK_ZERO = new FsPermission((short) 0);
   FsPermission getFileMask() {
     return FILE_MASK_ZERO;
+  }
+
+  private Path getTestRootPath(FileContext fc) {
+    return this.fileContextTestHelper.getTestRootPath(fc);
+  }
+
+  private Path getTestRootPath(FileContext fc, String pathString) {
+    return this.fileContextTestHelper.getTestRootPath(fc, pathString);
   }
 }

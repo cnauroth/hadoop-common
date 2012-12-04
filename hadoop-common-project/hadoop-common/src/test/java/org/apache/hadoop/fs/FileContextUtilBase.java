@@ -17,13 +17,13 @@
  */
 package org.apache.hadoop.fs;
 
-import static org.apache.hadoop.fs.FileContextTestHelper.getTestRootPath;
 import static org.apache.hadoop.fs.FileContextTestHelper.readFile;
 import static org.apache.hadoop.fs.FileContextTestHelper.writeFile;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 
+import org.apache.hadoop.fs.FileContextTestHelper;
 import org.apache.hadoop.util.StringUtils;
 import org.junit.After;
 import org.junit.Before;
@@ -45,6 +45,8 @@ import org.junit.Test;
  */
 public abstract class FileContextUtilBase {
   protected FileContext fc;
+  private final FileContextTestHelper fileContextTestHelper =
+    new FileContextTestHelper(false);
   
   {
     try {
@@ -104,5 +106,13 @@ public abstract class FileContextUtilBase {
     // verify that file2 contains test string
     assertTrue("Copied files does not match ",Arrays.equals(ts.getBytes(),
         readFile(fc,file2,ts.getBytes().length)));
+  }
+
+  private Path getTestRootPath(FileContext fc) {
+    return this.fileContextTestHelper.getTestRootPath(fc);
+  }
+
+  private Path getTestRootPath(FileContext fc, String pathString) {
+    return this.fileContextTestHelper.getTestRootPath(fc, pathString);
   }
 }

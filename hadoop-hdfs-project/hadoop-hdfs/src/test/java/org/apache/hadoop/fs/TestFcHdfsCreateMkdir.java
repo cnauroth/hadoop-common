@@ -24,6 +24,7 @@ import java.net.URISyntaxException;
 import javax.security.auth.login.LoginException;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileContextTestHelper;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -37,7 +38,11 @@ public class TestFcHdfsCreateMkdir extends
   
   private static MiniDFSCluster cluster;
   private static Path defaultWorkingDirectory;
-  
+
+  public TestFcHdfsCreateMkdir() {
+    super(new FileContextTestHelper(true));
+  }
+
   @BeforeClass
   public static void clusterSetupAtBegining()
                                     throws IOException, LoginException, URISyntaxException  {

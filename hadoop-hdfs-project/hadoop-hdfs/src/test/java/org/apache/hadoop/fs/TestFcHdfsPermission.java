@@ -24,6 +24,7 @@ import java.net.URISyntaxException;
 import javax.security.auth.login.LoginException;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileContextTestHelper;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
@@ -55,6 +56,10 @@ public class TestFcHdfsPermission extends FileContextPermissionBase {
     cluster.shutdown();   
   }
   
+  public TestFcHdfsPermission() {
+    super(new FileContextTestHelper(true));
+  }
+
   @Override
   @Before
   public void setUp() throws Exception {

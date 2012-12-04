@@ -32,7 +32,11 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.apache.hadoop.fs.FileContextTestHelper.*;
+import static org.apache.hadoop.fs.FileContextTestHelper.exists;
+import static org.apache.hadoop.fs.FileContextTestHelper.isDir;
+import static org.apache.hadoop.fs.FileContextTestHelper.isFile;
+import static org.apache.hadoop.fs.FileContextTestHelper.getDefaultBlockSize;
+import static org.apache.hadoop.fs.FileContextTestHelper.getFileData;
 import static org.apache.hadoop.fs.CreateFlag.*;
 
 /**
@@ -73,6 +77,8 @@ public abstract class FileContextMainOperationsBaseTest  {
   }
   
   protected static FileContext fc;
+
+  private final FileContextTestHelper fileContextTestHelper;
   
   final private static PathFilter DEFAULT_FILTER = new PathFilter() {
     @Override
@@ -95,6 +101,16 @@ public abstract class FileContextMainOperationsBaseTest  {
   private static byte[] data = getFileData(numBlocks,
       getDefaultBlockSize());
   
+  public FileContextMainOperationsBaseTest() {
+    this.fileContextTestHelper = new FileContextTestHelper(false);
+  }
+  
+  public FileContextMainOperationsBaseTest(
+      FileContextTestHelper fileContextTestHelper) {
+
+    this.fileContextTestHelper = fileContextTestHelper;
+  }
+
   @Before
   public void setUp() throws Exception {
     fc.mkdir(getTestRootPath(fc, "test"), FileContext.DEFAULT_PERM, true);
@@ -102,7 +118,8 @@ public abstract class FileContextMainOperationsBaseTest  {
   
   @After
   public void tearDown() throws Exception {
-    fc.delete(new Path(getAbsoluteTestRootPath(fc), new Path("test")), true);
+    fc.delete(new Path(this.fileContextTestHelper.getAbsoluteTestRootPath(fc),
+      new Path("test")), true);
     fc.delete(LOCAL_FS_ROOT_PATH, true);
   }
   
@@ -136,7 +153,8 @@ public abstract class FileContextMainOperationsBaseTest  {
   public void testWorkingDirectory() throws Exception {
 
     // First we cd to our test root
-    Path workDir = new Path(getAbsoluteTestRootPath(fc), new Path("test"));
+    Path workDir = new Path(
+      this.fileContextTestHelper.getAbsoluteTestRootPath(fc), new Path("test"));
     fc.setWorkingDirectory(workDir);
     Assert.assertEquals(workDir, fc.getWorkingDirectory());
 
@@ -149,7 +167,8 @@ public abstract class FileContextMainOperationsBaseTest  {
     // cd using a relative path
 
     // Go back to our test root
-    workDir = new Path(getAbsoluteTestRootPath(fc), new Path("test"));
+    workDir = new Path(this.fileContextTestHelper.getAbsoluteTestRootPath(fc),
+      new Path("test"));
     fc.setWorkingDirectory(workDir);
     Assert.assertEquals(workDir, fc.getWorkingDirectory());
     
@@ -1190,4 +1209,8 @@ public abstract class FileContextMainOperationsBaseTest  {
       }
     return false;
  }
+
+  protected Path getTestRootPath(FileContext fc, String pathString) {
+    return this.fileContextTestHelper.getTestRootPath(fc, pathString);
+  }
 }
