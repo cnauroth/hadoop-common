@@ -70,17 +70,6 @@ public final class FileContextTestHelper {
     return fc.makeQualified(new Path(
       stripDriveSpec(TEST_ROOT_DIR, this.stripDriveSpec), pathString));
   }
-
-  private static String stripDriveSpec(String pathString, boolean strip) {
-    if (strip && Shell.WINDOWS && pathString.length() >= 2 &&
-        Character.toUpperCase(pathString.charAt(0)) >= 'A' &&
-        Character.toUpperCase(pathString.charAt(0)) <= 'Z' &&
-        pathString.charAt(1) == ':') {
-
-      return pathString.substring(2);
-    }
-    return pathString;
-  }
   
   
   // the getAbsolutexxx method is needed because the root test dir
@@ -262,5 +251,16 @@ public final class FileContextTestHelper {
       Assert.assertTrue(s.isSymlink());
     }
     Assert.assertEquals(aFc.makeQualified(new Path(path)), s.getPath());
+  }
+
+  private static String stripDriveSpec(String pathString, boolean strip) {
+    if (strip && Shell.WINDOWS && pathString.length() >= 2 &&
+        Character.toUpperCase(pathString.charAt(0)) >= 'A' &&
+        Character.toUpperCase(pathString.charAt(0)) <= 'Z' &&
+        pathString.charAt(1) == ':') {
+
+      return pathString.substring(2);
+    }
+    return pathString;
   }
 }
