@@ -93,8 +93,7 @@ public final class FileSystemTestHelper {
   // is often relative to the working directory of process
   // running the unit tests.
 
-  String getAbsoluteTestRootDir(FileSystem fSys)
-      throws IOException {
+  String getAbsoluteTestRootDir(FileSystem fSys) throws IOException {
     // NOTE: can't cache because of different filesystems!
     //if (absTestRootDir == null) 
       String testRootDir = stripDriveSpec(TEST_ROOT_DIR, this.stripDriveSpec);
@@ -112,8 +111,7 @@ public final class FileSystemTestHelper {
     return fSys.makeQualified(new Path(getAbsoluteTestRootDir(fSys)));
   }
 
-  public Path getDefaultWorkingDirectory(FileSystem fSys)
-      throws IOException {
+  public Path getDefaultWorkingDirectory(FileSystem fSys) throws IOException {
     return getTestRootPath(fSys, "/user/" + System.getProperty("user.name"))
         .makeQualified(fSys.getUri(),
             fSys.getWorkingDirectory());
@@ -211,8 +209,7 @@ public final class FileSystemTestHelper {
     return null;
   }
   
-  public static FileStatus containsPath(Path path,
-      FileStatus[] dirList)
+  public static FileStatus containsPath(Path path, FileStatus[] dirList)
     throws IOException {
     for(int i = 0; i < dirList.length; i ++) { 
       if (path.equals(dirList[i].getPath()))

@@ -93,8 +93,7 @@ public final class FileContextTestHelper {
     return fc.makeQualified(new Path(getAbsoluteTestRootDir(fc)));
   }
 
-  public Path getDefaultWorkingDirectory(FileContext fc)
-      throws IOException {
+  public Path getDefaultWorkingDirectory(FileContext fc) throws IOException {
     return getTestRootPath(fc, "/user/" + System.getProperty("user.name"))
         .makeQualified(fc.getDefaultFileSystem().getUri(),
             fc.getWorkingDirectory());
@@ -201,14 +200,12 @@ public final class FileContextTestHelper {
     return buffer;
   }
 
-  public FileStatus containsPath(FileContext fc, Path path,
-      FileStatus[] dirList)
+  public FileStatus containsPath(FileContext fc, Path path, FileStatus[] dirList)
     throws IOException {
     return containsPath(getTestRootPath(fc, path.toString()), dirList);
   }
   
-  public FileStatus containsPath(Path path,
-      FileStatus[] dirList)
+  public FileStatus containsPath(Path path, FileStatus[] dirList)
     throws IOException {
     for(int i = 0; i < dirList.length; i ++) { 
       if (path.equals(dirList[i].getPath()))

@@ -98,7 +98,7 @@ public class TestFcHdfsSymlink extends FileContextSymlinkBaseTest {
   public static void testTearDown() throws Exception {
     cluster.shutdown();
   }
-
+     
   public TestFcHdfsSymlink() {
     super(new FileContextTestHelper(true));
   }

@@ -74,7 +74,7 @@ public class TestHDFSFileContextMainOperations extends
   public static void ClusterShutdownAtEnd() throws Exception {
     cluster.shutdown();   
   }
-
+  
   public TestHDFSFileContextMainOperations() {
     super(new FileContextTestHelper(true));
   }
