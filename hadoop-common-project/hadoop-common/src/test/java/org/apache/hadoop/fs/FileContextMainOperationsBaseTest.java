@@ -1207,7 +1207,7 @@ public abstract class FileContextMainOperationsBaseTest  {
     return false;
  }
 
-  protected Path getAbsoluteTestRootPath(FileContext fc) {
+  protected Path getAbsoluteTestRootPath(FileContext fc) throws IOException {
     return fileContextTestHelper.getAbsoluteTestRootPath(fc);
   }
 
