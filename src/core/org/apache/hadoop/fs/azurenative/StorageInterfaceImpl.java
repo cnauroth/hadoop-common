@@ -11,7 +11,7 @@ import com.microsoft.windowsazure.services.core.storage.*;
  * A real implementation of the Azure interaction layer that
  * just redirects calls to the Windows Azure storage SDK.
  */
-class AzureStorageInteractionLayerImpl extends AzureStorageInteractionLayer {
+class StorageInterfaceImpl extends StorageInterface {
   private CloudBlobClient serviceClient;
 
   @Override
