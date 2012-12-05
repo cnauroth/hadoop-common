@@ -951,6 +951,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * URI. If the root directory is non-null the URI in the file constructor
    * was in the long form.
    * 
+   * @param includeMetadata if set, the listed items will have their metadata
+   *                        populated already.
+   * 
    * @returns blobItems : iterable collection of blob items.
    * @throws URISyntaxException
    * 
@@ -975,6 +978,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * 
    * @param aPrefix
    *            : string name representing the prefix of containing blobs.
+   * @param includeMetadata if set, the listed items will have their metadata
+   *                        populated already.
+   * 
    * @returns blobItems : iterable collection of blob items.
    * @throws URISyntaxException
    * 
@@ -1286,6 +1292,13 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     return list(prefix, null, maxListingCount, maxListingDepth, priorLastKey);
   }
 
+  /**
+   * Searches the given list of {@link FileMetadata} objects for a directory with
+   * the given key.
+   * @param list The list to search. 
+   * @param key The key to search for.
+   * @return The wanted directory, or null if not found.
+   */
   private static FileMetadata getDirectoryInList(final Iterable<FileMetadata> list,
       String key) {
     for (FileMetadata current : list) {
@@ -1346,7 +1359,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
                 getPermission(blob));
           }
 
-          // Add the metadata to the list.
+          // Add the metadata to the list, but remove any existing duplicate
+          // entries first that we may have added by finding nested files.  
           //
           FileMetadata existing = getDirectoryInList(fileMetadata, blobKey);
           if (existing != null) {
@@ -1371,7 +1385,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           //
           FileMetadata directoryMetadata = new FileMetadata(dirKey, FsPermission.getDefault());
 
-          // Add the directory metadata to the list.
+          // Add the directory metadata to the list only if it's not already there.
           //
           if (getDirectoryInList(fileMetadata, dirKey) == null) {
             fileMetadata.add(directoryMetadata);
