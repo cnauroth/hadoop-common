@@ -83,7 +83,7 @@ public abstract class FileContextSymlinkBaseTest {
   }
 
   public FileContextSymlinkBaseTest() {
-    this.fileContextTestHelper = new FileContextTestHelper();
+    this(new FileContextTestHelper());
   }
 
   public FileContextSymlinkBaseTest(

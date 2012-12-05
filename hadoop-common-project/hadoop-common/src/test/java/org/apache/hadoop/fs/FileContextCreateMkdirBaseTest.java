@@ -70,7 +70,7 @@ public abstract class FileContextCreateMkdirBaseTest {
   }
   
   public FileContextCreateMkdirBaseTest() {
-    this.fileContextTestHelper = new FileContextTestHelper();
+    this(new FileContextTestHelper());
   }
 
   public FileContextCreateMkdirBaseTest(

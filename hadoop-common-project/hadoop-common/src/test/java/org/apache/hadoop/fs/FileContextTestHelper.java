@@ -42,7 +42,7 @@ public final class FileContextTestHelper {
   private final boolean stripDriveSpec;
 
   public FileContextTestHelper() {
-    this.stripDriveSpec = false;
+    this(false);
   }
   
   public FileContextTestHelper(boolean stripDriveSpec) {
