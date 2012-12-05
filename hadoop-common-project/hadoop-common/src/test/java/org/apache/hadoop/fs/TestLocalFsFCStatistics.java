@@ -41,13 +41,13 @@ public class TestLocalFsFCStatistics extends FCStatisticsBaseTest {
   @Before
   public void setUp() throws Exception {
     fc = FileContext.getLocalFSFileContext();
-    fc.mkdir(this.fileContextTestHelper.getTestRootPath(fc, "test"),
+    fc.mkdir(fileContextTestHelper.getTestRootPath(fc, "test"),
       FileContext.DEFAULT_PERM, true);
   }
 
   @After
   public void tearDown() throws Exception {
-    fc.delete(this.fileContextTestHelper.getTestRootPath(fc, "test"), true);
+    fc.delete(fileContextTestHelper.getTestRootPath(fc, "test"), true);
   }
 
   @Override

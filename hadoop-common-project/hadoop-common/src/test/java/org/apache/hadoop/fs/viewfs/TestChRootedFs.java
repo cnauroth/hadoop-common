@@ -53,7 +53,7 @@ public class TestChRootedFs {
   public void setUp() throws Exception {
     // create the test root on local_fs
     fcTarget = FileContext.getLocalFSFileContext();
-    chrootedTo = this.fileContextTestHelper.getAbsoluteTestRootPath(fcTarget);
+    chrootedTo = fileContextTestHelper.getAbsoluteTestRootPath(fcTarget);
     // In case previous test was killed before cleanup
     fcTarget.delete(chrootedTo, true);
     
@@ -112,12 +112,12 @@ public class TestChRootedFs {
     
 
     // Create file 
-    this.fileContextTestHelper.createFileNonRecursive(fc, "/foo");
+    fileContextTestHelper.createFileNonRecursive(fc, "/foo");
     Assert.assertTrue(isFile(fc, new Path("/foo")));
     Assert.assertTrue(isFile(fcTarget, new Path(chrootedTo, "foo")));
     
     // Create file with recursive dir
-    this.fileContextTestHelper.createFile(fc, "/newDir/foo");
+    fileContextTestHelper.createFile(fc, "/newDir/foo");
     Assert.assertTrue(isFile(fc, new Path("/newDir/foo")));
     Assert.assertTrue(isFile(fcTarget, new Path(chrootedTo,"newDir/foo")));
     
@@ -127,7 +127,7 @@ public class TestChRootedFs {
     Assert.assertFalse(exists(fcTarget, new Path(chrootedTo,"newDir/foo")));
     
     // Create file with a 2 component dirs recursively
-    this.fileContextTestHelper.createFile(fc, "/newDir/newDir2/foo");
+    fileContextTestHelper.createFile(fc, "/newDir/newDir2/foo");
     Assert.assertTrue(isFile(fc, new Path("/newDir/newDir2/foo")));
     Assert.assertTrue(isFile(fcTarget, new Path(chrootedTo,"newDir/newDir2/foo")));
     
@@ -140,12 +140,12 @@ public class TestChRootedFs {
   
   @Test
   public void testMkdirDelete() throws IOException {
-    fc.mkdir(this.fileContextTestHelper.getTestRootPath(fc, "/dirX"),
+    fc.mkdir(fileContextTestHelper.getTestRootPath(fc, "/dirX"),
       FileContext.DEFAULT_PERM, false);
     Assert.assertTrue(isDir(fc, new Path("/dirX")));
     Assert.assertTrue(isDir(fcTarget, new Path(chrootedTo,"dirX")));
     
-    fc.mkdir(this.fileContextTestHelper.getTestRootPath(fc, "/dirX/dirY"),
+    fc.mkdir(fileContextTestHelper.getTestRootPath(fc, "/dirX/dirY"),
       FileContext.DEFAULT_PERM, false);
     Assert.assertTrue(isDir(fc, new Path("/dirX/dirY")));
     Assert.assertTrue(isDir(fcTarget, new Path(chrootedTo,"dirX/dirY")));
@@ -164,12 +164,12 @@ public class TestChRootedFs {
   @Test
   public void testRename() throws IOException {
     // Rename a file
-    this.fileContextTestHelper.createFile(fc, "/newDir/foo");
+    fileContextTestHelper.createFile(fc, "/newDir/foo");
     fc.rename(new Path("/newDir/foo"), new Path("/newDir/fooBar"));
     Assert.assertFalse(exists(fc, new Path("/newDir/foo")));
     Assert.assertFalse(exists(fcTarget, new Path(chrootedTo,"newDir/foo")));
     Assert.assertTrue(isFile(fc,
-      this.fileContextTestHelper.getTestRootPath(fc,"/newDir/fooBar")));
+      fileContextTestHelper.getTestRootPath(fc,"/newDir/fooBar")));
     Assert.assertTrue(isFile(fcTarget, new Path(chrootedTo,"newDir/fooBar")));
     
     
@@ -179,7 +179,7 @@ public class TestChRootedFs {
     Assert.assertFalse(exists(fc, new Path("/newDir/dirFoo")));
     Assert.assertFalse(exists(fcTarget, new Path(chrootedTo,"newDir/dirFoo")));
     Assert.assertTrue(isDir(fc,
-      this.fileContextTestHelper.getTestRootPath(fc,"/newDir/dirFooBar")));
+      fileContextTestHelper.getTestRootPath(fc,"/newDir/dirFooBar")));
     Assert.assertTrue(isDir(fcTarget, new Path(chrootedTo,"newDir/dirFooBar")));
   }
   
@@ -213,10 +213,10 @@ public class TestChRootedFs {
     
     
 
-    this.fileContextTestHelper.createFileNonRecursive(fc, "/foo");
-    this.fileContextTestHelper.createFileNonRecursive(fc, "/bar");
+    fileContextTestHelper.createFileNonRecursive(fc, "/foo");
+    fileContextTestHelper.createFileNonRecursive(fc, "/bar");
     fc.mkdir(new Path("/dirX"), FileContext.DEFAULT_PERM, false);
-    fc.mkdir(this.fileContextTestHelper.getTestRootPath(fc, "/dirY"),
+    fc.mkdir(fileContextTestHelper.getTestRootPath(fc, "/dirY"),
         FileContext.DEFAULT_PERM, false);
     fc.mkdir(new Path("/dirX/dirXX"), FileContext.DEFAULT_PERM, false);
     
@@ -224,16 +224,16 @@ public class TestChRootedFs {
     Assert.assertEquals(4, dirPaths.length);
     
     // Note the the file status paths are the full paths on target
-    fs = this.fileContextTestHelper.containsPath(fcTarget, "foo", dirPaths);
+    fs = fileContextTestHelper.containsPath(fcTarget, "foo", dirPaths);
       Assert.assertNotNull(fs);
       Assert.assertTrue(fs.isFile());
-    fs = this.fileContextTestHelper.containsPath(fcTarget, "bar", dirPaths);
+    fs = fileContextTestHelper.containsPath(fcTarget, "bar", dirPaths);
       Assert.assertNotNull(fs);
       Assert.assertTrue(fs.isFile());
-    fs = this.fileContextTestHelper.containsPath(fcTarget, "dirX", dirPaths);
+    fs = fileContextTestHelper.containsPath(fcTarget, "dirX", dirPaths);
       Assert.assertNotNull(fs);
       Assert.assertTrue(fs.isDirectory());
-    fs = this.fileContextTestHelper.containsPath(fcTarget, "dirY", dirPaths);
+    fs = fileContextTestHelper.containsPath(fcTarget, "dirY", dirPaths);
       Assert.assertNotNull(fs);
       Assert.assertTrue(fs.isDirectory());
   }
@@ -284,8 +284,7 @@ public class TestChRootedFs {
     fc.mkdir(new Path("newDir"), FileContext.DEFAULT_PERM, true);
     Assert.assertTrue(isDir(fc, new Path(absoluteDir, "newDir")));
 
-    absoluteDir = this.fileContextTestHelper.getTestRootPath(fc,
-      "nonexistingPath");
+    absoluteDir = fileContextTestHelper.getTestRootPath(fc, "nonexistingPath");
     try {
       fc.setWorkingDirectory(absoluteDir);
       Assert.fail("cd to non existing dir should have failed");
@@ -309,7 +308,7 @@ public class TestChRootedFs {
   @Test
   public void testResolvePath() throws IOException {
     Assert.assertEquals(chrootedTo, fc.getDefaultFileSystem().resolvePath(new Path("/"))); 
-    this.fileContextTestHelper.createFile(fc, "/foo");
+    fileContextTestHelper.createFile(fc, "/foo");
     Assert.assertEquals(new Path(chrootedTo, "foo"),
         fc.getDefaultFileSystem().resolvePath(new Path("/foo"))); 
   }

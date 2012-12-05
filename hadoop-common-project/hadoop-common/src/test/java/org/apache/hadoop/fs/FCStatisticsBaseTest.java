@@ -51,7 +51,7 @@ public abstract class FCStatisticsBaseTest {
     URI fsUri = getFsUri();
     Statistics stats = FileContext.getStatistics(fsUri);
     Assert.assertEquals(0, stats.getBytesRead());
-    Path filePath = this.fileContextTestHelper.getTestRootPath(fc, "file1");
+    Path filePath = fileContextTestHelper.getTestRootPath(fc, "file1");
     createFile(fc, filePath, numBlocks, blockSize);
 
     Assert.assertEquals(0, stats.getBytesRead());

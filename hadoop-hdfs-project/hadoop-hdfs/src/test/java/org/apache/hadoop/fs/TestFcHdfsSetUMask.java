@@ -233,7 +233,7 @@ public class TestFcHdfsSetUMask {
       FsPermission expectedPerms) throws IOException {
     Path f = getTestRootPath(fc,"foo");
     fc.setUMask(umask);
-    this.fileContextTestHelper.createFile(fc, f);
+    fileContextTestHelper.createFile(fc, f);
     Assert.assertTrue(isFile(fc, f));
     Assert.assertEquals("permissions on file are wrong",  
         expectedPerms , fc.getFileStatus(f).getPermission());
@@ -247,7 +247,7 @@ public class TestFcHdfsSetUMask {
     Path fParent = getTestRootPath(fc, "NonExisting");
     Assert.assertFalse(exists(fc, fParent));
     fc.setUMask(umask);
-    this.fileContextTestHelper.createFile(fc, f);
+    fileContextTestHelper.createFile(fc, f);
     Assert.assertTrue(isFile(fc, f));
     Assert.assertEquals("permissions on file are wrong",  
         expectedFilePerms, fc.getFileStatus(f).getPermission());
@@ -256,10 +256,10 @@ public class TestFcHdfsSetUMask {
   }
 
   private Path getTestRootPath(FileContext fc) {
-    return this.fileContextTestHelper.getTestRootPath(fc);
+    return fileContextTestHelper.getTestRootPath(fc);
   }
 
   private Path getTestRootPath(FileContext fc, String pathString) {
-    return this.fileContextTestHelper.getTestRootPath(fc, pathString);
+    return fileContextTestHelper.getTestRootPath(fc, pathString);
   }
 }

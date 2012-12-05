@@ -1368,6 +1368,6 @@ public abstract class FileContextSymlinkBaseTest {
   }
 
   protected String getAbsoluteTestRootDir(FileContext fc) throws IOException {
-    return this.fileContextTestHelper.getAbsoluteTestRootDir(fc);
+    return fileContextTestHelper.getAbsoluteTestRootDir(fc);
   }
 }

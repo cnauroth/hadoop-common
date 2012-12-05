@@ -109,10 +109,10 @@ public abstract class FileContextUtilBase {
   }
 
   private Path getTestRootPath(FileContext fc) {
-    return this.fileContextTestHelper.getTestRootPath(fc);
+    return fileContextTestHelper.getTestRootPath(fc);
   }
 
   private Path getTestRootPath(FileContext fc, String pathString) {
-    return this.fileContextTestHelper.getTestRootPath(fc, pathString);
+    return fileContextTestHelper.getTestRootPath(fc, pathString);
   }
 }

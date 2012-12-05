@@ -63,12 +63,12 @@ public final class FileContextTestHelper {
 
   public Path getTestRootPath(FileContext fc) {
     return fc.makeQualified(new Path(stripDriveSpec(TEST_ROOT_DIR,
-      this.stripDriveSpec)));
+      stripDriveSpec)));
   }
 
   public Path getTestRootPath(FileContext fc, String pathString) {
     return fc.makeQualified(new Path(
-      stripDriveSpec(TEST_ROOT_DIR, this.stripDriveSpec), pathString));
+      stripDriveSpec(TEST_ROOT_DIR, stripDriveSpec), pathString));
   }
   
   
@@ -78,7 +78,7 @@ public final class FileContextTestHelper {
   public String getAbsoluteTestRootDir(FileContext fc)
       throws IOException {
     if (absTestRootDir == null) {
-      String testRootDir = stripDriveSpec(TEST_ROOT_DIR, this.stripDriveSpec);
+      String testRootDir = stripDriveSpec(TEST_ROOT_DIR, stripDriveSpec);
       if (new Path(testRootDir).isAbsolute()) {
         absTestRootDir = testRootDir;
       } else {

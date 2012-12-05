@@ -142,7 +142,7 @@ public abstract class FileContextCreateMkdirBaseTest {
   @Test
   public void testCreateNonRecursiveWithNonExistingDir() {
     try {
-      this.fileContextTestHelper.createFileNonRecursive(fc,
+      fileContextTestHelper.createFileNonRecursive(fc,
         getTestRootPath(fc, "NonExisting/foo"));
       Assert.fail("Create with non existing parent dir should have failed");
     } catch (IOException e) {
@@ -167,10 +167,10 @@ public abstract class FileContextCreateMkdirBaseTest {
   }
 
   private Path getTestRootPath(FileContext fc) {
-    return this.fileContextTestHelper.getTestRootPath(fc);
+    return fileContextTestHelper.getTestRootPath(fc);
   }
 
   private Path getTestRootPath(FileContext fc, String pathString) {
-    return this.fileContextTestHelper.getTestRootPath(fc, pathString);
+    return fileContextTestHelper.getTestRootPath(fc, pathString);
   }
 }

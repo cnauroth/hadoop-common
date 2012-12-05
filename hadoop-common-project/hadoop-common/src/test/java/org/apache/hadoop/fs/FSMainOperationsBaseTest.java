@@ -1146,10 +1146,10 @@ public abstract class FSMainOperationsBaseTest  {
  }
   
   protected Path getAbsoluteTestRootPath(FileSystem fSys) throws IOException {
-    return this.fileSystemTestHelper.getAbsoluteTestRootPath(fSys);
+    return fileSystemTestHelper.getAbsoluteTestRootPath(fSys);
   }
 
   protected Path getTestRootPath(FileSystem fSys, String pathString) {
-    return this.fileSystemTestHelper.getTestRootPath(fSys, pathString);
+    return fileSystemTestHelper.getTestRootPath(fSys, pathString);
   }
 }
