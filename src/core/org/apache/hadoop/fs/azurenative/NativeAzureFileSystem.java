@@ -66,7 +66,6 @@ public class NativeAzureFileSystem extends FileSystem {
   static final String PATH_DELIMITER = Path.SEPARATOR;
   static final String AZURE_TEMP_FOLDER = "_$azuretmpfolder$";
 
-  private static final String FOLDER_SUFFIX = "_$folder$";
   private static final String keyMaxRetries = "fs.azure.maxRetries";
   private static final String keySleepTime = "fs.azure.sleepTimeSeconds";
 
@@ -831,23 +830,13 @@ public class NativeAzureFileSystem extends FileSystem {
     // Capture the metadata for the path.
     //
     FileMetadata metaFile = store.retrieveMetadata(key);
-    if (null == metaFile){
-      // The metadata for the path does not exist, deletion is unsuccessful.
-      // Check if path is an empty directory.
-      //
-      metaFile = store.retrieveMetadata(key + FOLDER_SUFFIX);
-      if (null == metaFile) {
-        // The path to be deleted does not exist.
-        //
-        return false;
-      }
 
-      // Path to be deleted is an empty directory.
+    if (null == metaFile) {
+      // The path to be deleted does not exist.
       //
-      store.delete(key + FOLDER_SUFFIX);
-      return true;
+      return false;
     }
-
+    
     // The path exists, determine if it is a folder containing objects,
     // an empty folder, or a simple file and take the appropriate actions.
     //
@@ -873,40 +862,23 @@ public class NativeAzureFileSystem extends FileSystem {
 
       // Delete all the files in the folder.
       //
-      String suffix = null;
       for (FileMetadata p : contents){
+        // Tag on the directory name found as the suffix of the suffix of the parent
+        // directory to get the new absolute path.
+        //
+        String suffix = p.getKey().substring(p.getKey().lastIndexOf(PATH_DELIMITER));
         if (!p.isDir()){
-          // Tag on the file name found as the suffix of the suffix of the parent
-          // directory to get the new absolute path.
-          //
-          suffix = p.getKey().substring(p.getKey().lastIndexOf(PATH_DELIMITER));
           store.delete(key + suffix);
         } else {
-          // Tag on the directory name found as the suffix of the suffix of the parent
-          // directory to get the new absolute path.
-          //
-          suffix = p.getKey().substring(0, p.getKey().lastIndexOf(PATH_DELIMITER));
-          suffix = suffix.substring(suffix.lastIndexOf(PATH_DELIMITER));
-
           // Recursively delete contents of the sub-folders. Notice this also
-          // deletes the _$FOLDER$ blob for the directory.
+          // deletes the blob for the directory.
           //
           if(!delete(new Path(f.toString() + suffix), true)){
             return false;
           }
         }
       }
-
-      // Delete the top level _$FOLDER for the directory.
-      // TODO: BUGBUG--currently not every directory contains the FOLDER_SUFFIX.
-      //
-      FileMetadata metaDir = store.retrieveMetadata (key + FOLDER_SUFFIX);
-      if (null != metaDir)
-      {
-        // The folder contains a folder suffix, delete it.
-        //
-        store.delete(key + FOLDER_SUFFIX);
-      }
+      store.delete(key);
     }
 
     // File or directory was successfully deleted.
@@ -929,30 +901,17 @@ public class NativeAzureFileSystem extends FileSystem {
       return newDirectory(null, absolutePath);
     }
 
-    FileMetadata meta = store.retrieveMetadata(key + FOLDER_SUFFIX);
-    if (meta != null) {
-      // The path is an empty folder.
-      //
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Path " + f.toString() + " was found as an empty folder.");
-      }
-
-      // Return a reference to a new directory object.
-      //
-      return newDirectory(meta, absolutePath);  
-    }
-
-    // The path is either a non-empty folder or a file. Retrieve metadata to
+    // The path is either a folder or a file. Retrieve metadata to
     // determine if it is a directory or file.
     //
-    meta = store.retrieveMetadata(key);
+    FileMetadata meta = store.retrieveMetadata(key);
     if (meta != null) {
       if (meta.isDir())
       {
         // The path is a folder with files in it.
         //
         if (LOG.isDebugEnabled()) {
-          LOG.debug("Path " + f.toString() + "is a non-empty folder.");
+          LOG.debug("Path " + f.toString() + "is a folder.");
         }
 
         // Return reference to the directory object.
@@ -1019,20 +978,7 @@ public class NativeAzureFileSystem extends FileSystem {
         //       to the status set as files flattening out recursive listings
         //       using "-lsr" down the file system hierarchy.
         //
-        if (fileMetadata.getKey().endsWith(FOLDER_SUFFIX)){
-          // Handle the case where there is an empty sub-directory so only the
-          // stub _$folder$ file exists.
-          //
-          String folder = fileMetadata.getKey().substring(
-              0, fileMetadata.getKey().length() - FOLDER_SUFFIX.length());
-          FileStatus folderStat = newDirectory(fileMetadata, keyToPath(folder));
-          if (!status.contains(folderStat)){
-            // If the directory were non-empty it will appear lexicographically
-            // before the stub file for the directory.
-            // 
-            status.add (folderStat);
-          }
-        } else if (fileMetadata.isDir()) {
+        if (fileMetadata.isDir()) {
           status.add(newDirectory(fileMetadata, subpath));
         } else {
           status.add(newFile(fileMetadata, subpath));
@@ -1042,28 +988,13 @@ public class NativeAzureFileSystem extends FileSystem {
         LOG.debug("Found path as a directory with " + status.size() + " files in it.");
       }
     } else {
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Did not find any metadata for path.");
-      }
-
-      // No metadata found for path. Check if path is an empty directory.
-      //
-      meta = store.retrieveMetadata(key + FOLDER_SUFFIX);
-      if (null == meta) {
-        // There is no metadata found for the path.
-        //
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("Did not find any metadata for path: " + key);
-        }
-
-        return null;
-      }
-
-      // Path found is an empty folder.
+      // There is no metadata found for the path.
       //
       if (LOG.isDebugEnabled()) {
-        LOG.debug("Path found is an empty folder: " + key);
+        LOG.debug("Did not find any metadata for path: " + key);
       }
+
+      return null;
     }
 
     return status.toArray(new FileStatus[0]);
@@ -1115,7 +1046,7 @@ public class NativeAzureFileSystem extends FileSystem {
 
     Path absolutePath = makeAbsolute(f);
     String key = pathToKey(absolutePath);
-    store.storeEmptyFile(key + FOLDER_SUFFIX, permission);
+    store.storeEmptyFolder(key, permission);
 
     // otherwise throws exception
     return true;
@@ -1161,14 +1092,6 @@ public class NativeAzureFileSystem extends FileSystem {
     PartialListing listing = store.list(key, 1, AZURE_UNBOUNDED_DEPTH, null);
     if (listing.getFiles().length > 0 || listing.getCommonPrefixes().length > 0) {
       // Non-empty directory
-      return false;
-    }
-
-    meta = store.retrieveMetadata(key + FOLDER_SUFFIX);
-    if (null != meta)
-    {
-      // The Azure object associated with the key is an empty folder.
-      //
       return false;
     }
 
@@ -1251,18 +1174,13 @@ public class NativeAzureFileSystem extends FileSystem {
           }
           priorLastKey = listing.getPriorLastKey();
         } while (priorLastKey != null);
-      }
-      // Rename the top level _$FOLDER for the folder.
-      //
-      FileMetadata metaDir = store.retrieveMetadata (srcKey + FOLDER_SUFFIX);
-      if (null != metaDir)
-      {
-        // The folder contains a folder suffix, delete it.
+        // Rename the top level empty blob for the folder.
         //
-        srcName = srcKey + FOLDER_SUFFIX;
-        dstName = dstKey + FOLDER_SUFFIX;
-        store.rename(srcName, dstName);
-
+        FileMetadata metaDir = store.retrieveMetadata(srcKey);
+        if (null != metaDir)
+        {
+          store.rename(srcKey, dstKey);
+        }
       }
 
       return true;

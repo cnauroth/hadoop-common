@@ -40,6 +40,8 @@ interface NativeFileSystemStore {
 
   void storeEmptyFile(String key, FsPermission permission) throws IOException;
 
+  void storeEmptyFolder(String key, FsPermission permission) throws IOException;
+
   FileMetadata retrieveMetadata(String key) throws IOException;
 
   DataInputStream retrieve(String key) throws IOException;

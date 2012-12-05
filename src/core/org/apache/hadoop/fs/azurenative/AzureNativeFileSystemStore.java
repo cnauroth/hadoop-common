@@ -70,6 +70,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final String KEY_WRITE_BLOCK_SIZE = "fs.azure.write.block.size";
 
   private static final String PERMISSION_METADATA_KEY = "permission";
+  private static final String IS_FOLDER_METADATA_KEY = "isFolder";
 
   private static final String HTTP_SCHEME = "http";
   private static final String HTTPS_SCHEME = "https";
@@ -804,17 +805,16 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     return sasCreds;
   }
 
-
   private static void storePermission(CloudBlockBlobWrapper blob, FsPermission permission) {
     HashMap<String, String> metadata = blob.getMetadata();
     if (null == metadata) {
       metadata = new HashMap<String, String> ();
     }
-    metadata.put(PERMISSION_METADATA_KEY,  Short.toString(permission.toShort()));
+    metadata.put(PERMISSION_METADATA_KEY, Short.toString(permission.toShort()));
     blob.setMetadata(metadata);
   }
 
-  private static FsPermission getPermission (CloudBlockBlobWrapper blob) {
+  private static FsPermission getPermission(CloudBlockBlobWrapper blob) {
     HashMap<String, String> metadata = blob.getMetadata();
     if (null != metadata && metadata.containsKey(PERMISSION_METADATA_KEY)) {
       return new FsPermission(Short.parseShort(metadata.get(PERMISSION_METADATA_KEY)));
@@ -822,16 +822,27 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       return FsPermission.getDefault();
     }
   }
+
+  private static void storeIsFolder(CloudBlockBlobWrapper blob) {
+    HashMap<String, String> metadata = blob.getMetadata();
+    if (null == metadata) {
+      metadata = new HashMap<String, String> ();
+    }
+    metadata.put(IS_FOLDER_METADATA_KEY, "true");
+    blob.setMetadata(metadata);
+  }
+
+  private static boolean getIsFolder(CloudBlockBlobWrapper blob) {
+    HashMap<String, String> metadata = blob.getMetadata();
+    return null != metadata && metadata.containsKey(IS_FOLDER_METADATA_KEY);
+  }
+
   @Override
   public void storeEmptyFile(String key, FsPermission permission) throws IOException {
 
     // Upload null byte stream directly to the Azure blob store.
     //
     try {
-      // Guard against attempts to upload empty byte may occur before opening any streams
-      // so first, check if a session exists, if not create a session with the Azure storage
-      // server.
-      //
       if (null == storageInteractionLayer) {
         final String errMsg = 
             String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
@@ -853,6 +864,41 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
       CloudBlockBlobWrapper blob = getBlobReference(key);
       storePermission(blob, permission);
+      blob.upload(new ByteArrayInputStream(new byte[0]), getInstrumentedContext());
+    } catch (Exception e) {
+      // Caught exception while attempting upload. Re-throw as an Azure
+      // storage
+      // exception.
+      //
+      throw new AzureException(e);
+    }
+  }
+
+  @Override
+  public void storeEmptyFolder(String key, FsPermission permission) throws IOException {
+
+    if (null == storageInteractionLayer) {
+      final String errMsg =
+          String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
+      throw new AssertionError(errMsg);
+    }
+    // Check if there is an authenticated account associated with the file
+    // this instance of the ASV file system. If not the file system has not
+    // been authenticated and all access is anonymous.
+    //
+    if (!isAuthenticatedAccess()) {
+      // Preemptively raise an exception indicating no uploads are
+      // allowed to
+      // anonymous accounts.
+      //
+      throw new AzureException(
+          "Uploads to to public accounts using anonymous access is prohibited.");
+    }
+
+    try {
+      CloudBlockBlobWrapper blob = getBlobReference(key);
+      storePermission(blob, permission);
+      storeIsFolder(blob);
       blob.upload(new ByteArrayInputStream(new byte[0]), getInstrumentedContext());
     } catch (Exception e) {
       // Caught exception while attempting upload. Re-throw as an Azure
@@ -909,9 +955,14 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * @throws URISyntaxException
    * 
    */
-  private Iterable<ListBlobItem> listRootBlobs() throws StorageException, URISyntaxException {
+  private Iterable<ListBlobItem> listRootBlobs(boolean includeMetadata)
+      throws StorageException, URISyntaxException {
     return rootDirectory.listBlobs(
-          null, false, EnumSet.noneOf(BlobListingDetails.class), null,
+          null, false,
+          includeMetadata ?
+              EnumSet.of(BlobListingDetails.METADATA) :
+              EnumSet.noneOf(BlobListingDetails.class),
+          null,
           getInstrumentedContext());
   }
 
@@ -928,11 +979,16 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * @throws URISyntaxException
    * 
    */
-  private Iterable<ListBlobItem> listRootBlobs(String aPrefix)
+  private Iterable<ListBlobItem> listRootBlobs(String aPrefix,
+      boolean includeMetadata)
       throws StorageException, URISyntaxException {
 
     return rootDirectory.listBlobs(aPrefix,
-          false, EnumSet.noneOf(BlobListingDetails.class), null,
+          false,
+          includeMetadata ?
+              EnumSet.of(BlobListingDetails.METADATA) :
+              EnumSet.noneOf(BlobListingDetails.class),
+          null,
           getInstrumentedContext());
   }
 
@@ -1067,19 +1123,26 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //
       if (null != blob && blob.exists(getInstrumentedContext())) {
 
-        LOG.debug("Found it as a file.");
+        LOG.debug("Found it as an explicit bob. Checking if it's a file or folder.");
 
         // The blob exists, so capture the metadata from the blob
         // properties.
         //
         blob.downloadAttributes(getInstrumentedContext());
-        BlobProperties properties = blob.getProperties();
-
-        return new FileMetadata(
-            key, // Always return denormalized key with metadata.
-            properties.getLength(),
-            properties.getLastModified().getTime(),
-            getPermission(blob));
+        
+        if (getIsFolder(blob)) {
+          LOG.debug("It's a folder blob.");
+          return new FileMetadata(key, getPermission(blob));
+        } else {
+          LOG.debug("It's a normal blob.");
+          BlobProperties properties = blob.getProperties();
+          
+          return new FileMetadata(
+              key, // Always return denormalized key with metadata.
+              properties.getLength(),
+              properties.getLastModified().getTime(),
+              getPermission(blob));
+        }
       }
 
       // There is no file with that key name, but maybe it is a folder.
@@ -1223,6 +1286,16 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     return list(prefix, null, maxListingCount, maxListingDepth, priorLastKey);
   }
 
+  private static FileMetadata getDirectoryInList(final Iterable<FileMetadata> list,
+      String key) {
+    for (FileMetadata current : list) {
+      if (current.isDir() && current.getKey().equals(key)) {
+        return current;
+      }
+    }
+    return null;
+  }
+
   private PartialListing list(String prefix, String delimiter,
       final int maxListingCount, final int maxListingDepth, String priorLastKey) 
           throws IOException {
@@ -1233,9 +1306,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
       Iterable<ListBlobItem> objects;
       if (prefix.equals("/")) {
-        objects = listRootBlobs();
+        objects = listRootBlobs(true);
       } else {
-        objects = listRootBlobs(prefix);
+        objects = listRootBlobs(prefix, true);
       }
 
       ArrayList<FileMetadata> fileMetadata = new ArrayList<FileMetadata>();
@@ -1262,20 +1335,33 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           //
           blobKey = normalizeKey(blob.getUri().toString());
 
-          FileMetadata metadata = new FileMetadata(
-              blobKey,
-              properties.getLength(),
-              properties.getLastModified().getTime(),
-              getPermission(blob));
+          FileMetadata metadata;
+          if (getIsFolder(blob)) {
+            metadata = new FileMetadata(blobKey, getPermission(blob));
+          } else {
+            metadata = new FileMetadata(
+                blobKey,
+                properties.getLength(),
+                properties.getLastModified().getTime(),
+                getPermission(blob));
+          }
 
           // Add the metadata to the list.
           //
+          FileMetadata existing = getDirectoryInList(fileMetadata, blobKey);
+          if (existing != null) {
+            fileMetadata.remove(existing);
+          }
           fileMetadata.add(metadata);
         } else if (blobItem instanceof CloudBlobDirectoryWrapper) {
           // Determine format of directory name depending on whether an absolute
           // path is being used or not.
           //
           String dirKey = normalizeKey (((CloudBlobDirectoryWrapper) blobItem).getUri().toString());
+          // Strip the last /
+          if (dirKey.endsWith(PATH_DELIMITER)) {
+            dirKey = dirKey.substring(0, dirKey.length() - 1);
+          }
 
           // Reached the targeted listing depth. Return metadata for the
           // directory using default permissions.
@@ -1287,7 +1373,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
           // Add the directory metadata to the list.
           //
-          fileMetadata.add(directoryMetadata);
+          if (getDirectoryInList(fileMetadata, dirKey) == null) {
+            fileMetadata.add(directoryMetadata);
+          }
 
           // Currently at a depth of one, decrement the listing depth for
           // sub-directories.
@@ -1333,7 +1421,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         new AzureLinkedStack<Iterator<ListBlobItem>>();
 
     Iterable<ListBlobItem> blobItems = aCloudBlobDirectory.listBlobs(null,
-        false, EnumSet.noneOf(BlobListingDetails.class), null,
+        false, EnumSet.of(BlobListingDetails.METADATA), null,
         getInstrumentedContext());
     Iterator<ListBlobItem> blobItemIterator = blobItems.iterator();
 
@@ -1388,14 +1476,23 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           //
           blobKey = normalizeKey(blob.getUri().toString());
 
-          FileMetadata metadata = new FileMetadata(
-              blobKey,
-              properties.getLength(), 
-              properties.getLastModified().getTime(),
-              getPermission(blob));
+          FileMetadata metadata;
+          if (getIsFolder(blob)) {
+            metadata = new FileMetadata(blobKey, getPermission(blob));
+          } else {
+            metadata = new FileMetadata(
+                blobKey,
+                properties.getLength(), 
+                properties.getLastModified().getTime(),
+                getPermission(blob));
+          }
 
           // Add the metadata to the list.
           //
+          FileMetadata existing = getDirectoryInList(aFileMetadataList, blobKey);
+          if (existing != null) {
+            aFileMetadataList.remove(existing);
+          }
           aFileMetadataList.add(metadata);
         } else if (blobItem instanceof CloudBlobDirectoryWrapper) {
           // This is a directory blob, push the current iterator onto
@@ -1423,18 +1520,23 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
             // path is being used or not.
             //
             String dirKey = normalizeKey (((CloudBlobDirectoryWrapper) blobItem).getUri().toString());
-
-            // Reached the targeted listing depth. Return metadata for the
-            // directory using default permissions.
-            //
-            // TODO: Something smarter should be done about permissions. Maybe
-            // TODO: inherit the permissions of the first non-directory blob.
-            //
-            FileMetadata directoryMetadata = new FileMetadata(dirKey, FsPermission.getDefault());
-
-            // Add the directory metadata to the list.
-            //
-            aFileMetadataList.add(directoryMetadata);
+            if (dirKey.endsWith(PATH_DELIMITER)) {
+              dirKey = dirKey.substring(0, dirKey.length() - 1);
+            }
+            
+            if (getDirectoryInList(aFileMetadataList, dirKey) == null) {
+              // Reached the targeted listing depth. Return metadata for the
+              // directory using default permissions.
+              //
+              // TODO: Something smarter should be done about permissions. Maybe
+              // TODO: inherit the permissions of the first non-directory blob.
+              //
+              FileMetadata directoryMetadata = new FileMetadata(dirKey, FsPermission.getDefault());
+  
+              // Add the directory metadata to the list.
+              //
+              aFileMetadataList.add(directoryMetadata);
+            }
           }
         }
       }
@@ -1538,7 +1640,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Get all blob items with the given prefix from the container and delete
       // them.
       //
-      Iterable<ListBlobItem> objects = listRootBlobs(prefix);
+      Iterable<ListBlobItem> objects = listRootBlobs(prefix, false);
       for (ListBlobItem blobItem : objects) {
         ((CloudBlob) blobItem).delete(DeleteSnapshotsOption.NONE, null, null, getInstrumentedContext());
       }
