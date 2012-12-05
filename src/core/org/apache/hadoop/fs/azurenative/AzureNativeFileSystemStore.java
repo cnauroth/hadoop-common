@@ -1501,7 +1501,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
                 getPermission(blob));
           }
 
-          // Add the metadata to the list.
+          // Add the directory metadata to the list only if it's not already there.
           //
           FileMetadata existing = getDirectoryInList(aFileMetadataList, blobKey);
           if (existing != null) {
