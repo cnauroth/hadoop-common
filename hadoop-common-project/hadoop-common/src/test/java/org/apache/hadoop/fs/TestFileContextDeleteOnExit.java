@@ -27,8 +27,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.apache.hadoop.fs.FileContextTestHelper.createFile;
-import static org.apache.hadoop.fs.FileContextTestHelper.exists;
+import static org.apache.hadoop.fs.FileContextTestHelper.*;
 
 /**
  * Tests {@link FileContext.#deleteOnExit(Path)} functionality.

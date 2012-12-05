@@ -57,7 +57,7 @@ public class TestViewFsFileStatusHdfs {
   private static Configuration CONF = new Configuration();
   private static FileSystem fHdfs;
   private static FileSystem vfs;
-
+  
   private final FileSystemTestHelper fileSystemTestHelper =
     new FileSystemTestHelper(true);
 

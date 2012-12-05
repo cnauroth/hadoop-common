@@ -22,6 +22,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.EnumSet;
 
+import static org.apache.hadoop.fs.FileContextTestHelper.*;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.AbstractFileSystem;
 import org.apache.hadoop.fs.CreateFlag;
@@ -36,10 +38,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
-
-import static org.apache.hadoop.fs.FileContextTestHelper.exists;
-import static org.apache.hadoop.fs.FileContextTestHelper.isDir;
-import static org.apache.hadoop.fs.FileContextTestHelper.isFile;
 
 public class TestChRootedFs {
   FileContext fc; // The ChRoootedFs

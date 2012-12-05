@@ -118,8 +118,7 @@ public abstract class FileContextMainOperationsBaseTest  {
   
   @After
   public void tearDown() throws Exception {
-    fc.delete(new Path(fileContextTestHelper.getAbsoluteTestRootPath(fc),
-      new Path("test")), true);
+    fc.delete(new Path(getAbsoluteTestRootPath(fc), new Path("test")), true);
     fc.delete(LOCAL_FS_ROOT_PATH, true);
   }
   
@@ -153,8 +152,7 @@ public abstract class FileContextMainOperationsBaseTest  {
   public void testWorkingDirectory() throws Exception {
 
     // First we cd to our test root
-    Path workDir = new Path(fileContextTestHelper.getAbsoluteTestRootPath(fc),
-      new Path("test"));
+    Path workDir = new Path(getAbsoluteTestRootPath(fc), new Path("test"));
     fc.setWorkingDirectory(workDir);
     Assert.assertEquals(workDir, fc.getWorkingDirectory());
 
@@ -167,8 +165,7 @@ public abstract class FileContextMainOperationsBaseTest  {
     // cd using a relative path
 
     // Go back to our test root
-    workDir = new Path(fileContextTestHelper.getAbsoluteTestRootPath(fc),
-      new Path("test"));
+    workDir = new Path(getAbsoluteTestRootPath(fc), new Path("test"));
     fc.setWorkingDirectory(workDir);
     Assert.assertEquals(workDir, fc.getWorkingDirectory());
     
@@ -1209,6 +1206,10 @@ public abstract class FileContextMainOperationsBaseTest  {
       }
     return false;
  }
+
+  protected Path getAbsoluteTestRootPath(FileContext fc) {
+    return fileContextTestHelper.getAbsoluteTestRootPath(fc);
+  }
 
   protected Path getTestRootPath(FileContext fc, String pathString) {
     return fileContextTestHelper.getTestRootPath(fc, pathString);

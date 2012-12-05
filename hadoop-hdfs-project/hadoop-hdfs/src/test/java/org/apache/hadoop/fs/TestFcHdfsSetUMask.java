@@ -31,6 +31,7 @@ import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.StringUtils;
+import static org.apache.hadoop.fs.FileContextTestHelper.*;
 import org.apache.commons.logging.impl.Log4JLogger;
 import org.apache.log4j.Level;
 import org.junit.After;
@@ -39,10 +40,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-
-import static org.apache.hadoop.fs.FileContextTestHelper.exists;
-import static org.apache.hadoop.fs.FileContextTestHelper.isDir;
-import static org.apache.hadoop.fs.FileContextTestHelper.isFile;
 
 public class TestFcHdfsSetUMask {
   

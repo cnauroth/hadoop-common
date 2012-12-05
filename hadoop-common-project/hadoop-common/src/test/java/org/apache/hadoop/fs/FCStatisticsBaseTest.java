@@ -51,7 +51,7 @@ public abstract class FCStatisticsBaseTest {
     URI fsUri = getFsUri();
     Statistics stats = FileContext.getStatistics(fsUri);
     Assert.assertEquals(0, stats.getBytesRead());
-    Path filePath = fileContextTestHelper.getTestRootPath(fc, "file1");
+    Path filePath = getTestRootPath(fc, "file1");
     createFile(fc, filePath, numBlocks, blockSize);
 
     Assert.assertEquals(0, stats.getBytesRead());
@@ -100,5 +100,9 @@ public abstract class FCStatisticsBaseTest {
       SchemeAuthString += uri.getAuthority();
     }
     return URI.create(SchemeAuthString);
+  }
+
+  protected Path getTestRootPath(FileContext fc, String pathString){
+    return fileContextTestHelper.getTestRootPath(fc, pathString);
   }
 }
