@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.util.Set;
 
 import junit.framework.Assert;
-import org.apache.hadoop.fs.FileContextTestHelper;
 import org.apache.hadoop.util.ShutdownHookManager;
 import org.junit.After;
 import org.junit.Before;

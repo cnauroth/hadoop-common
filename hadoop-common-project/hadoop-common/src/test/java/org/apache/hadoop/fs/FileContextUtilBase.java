@@ -23,7 +23,6 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 
-import org.apache.hadoop.fs.FileContextTestHelper;
 import org.apache.hadoop.util.StringUtils;
 import org.junit.After;
 import org.junit.Before;

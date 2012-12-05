@@ -26,12 +26,8 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.apache.hadoop.fs.FileContextTestHelper;
+import static org.apache.hadoop.fs.FileContextTestHelper.*;
 import org.apache.commons.logging.impl.Log4JLogger;
-
-import static org.apache.hadoop.fs.FileContextTestHelper.createFile;
-import static org.apache.hadoop.fs.FileContextTestHelper.isDir;
-import static org.apache.hadoop.fs.FileContextTestHelper.isFile;
 
 /**
  * <p>

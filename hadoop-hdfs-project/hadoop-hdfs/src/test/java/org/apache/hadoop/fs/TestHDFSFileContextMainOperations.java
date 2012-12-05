@@ -25,7 +25,6 @@ import java.net.URISyntaxException;
 
 import javax.security.auth.login.LoginException;
 
-import org.apache.hadoop.fs.FileContextTestHelper;
 import org.apache.hadoop.fs.Options.Rename;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.hdfs.HdfsConfiguration;

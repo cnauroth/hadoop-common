@@ -32,11 +32,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.apache.hadoop.fs.FileContextTestHelper.exists;
-import static org.apache.hadoop.fs.FileContextTestHelper.isDir;
-import static org.apache.hadoop.fs.FileContextTestHelper.isFile;
-import static org.apache.hadoop.fs.FileContextTestHelper.getDefaultBlockSize;
-import static org.apache.hadoop.fs.FileContextTestHelper.getFileData;
+import static org.apache.hadoop.fs.FileContextTestHelper.*;
 import static org.apache.hadoop.fs.CreateFlag.*;
 
 /**
