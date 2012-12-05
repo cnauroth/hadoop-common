@@ -35,15 +35,15 @@ import com.microsoft.windowsazure.services.blob.client.*;
 import com.microsoft.windowsazure.services.core.storage.*;
 import com.microsoft.windowsazure.services.core.storage.utils.*;
 
-import static org.apache.hadoop.fs.azurenative.AzureStorageInteractionLayer.*;
+import static org.apache.hadoop.fs.azurenative.StorageInterface.*;
 
 class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
   public static final Log LOG = LogFactory.getLog(AzureNativeFileSystemStore.class);
 
   private CloudStorageAccount account;
-  private AzureStorageInteractionLayer storageInteractionLayer =
-      new AzureStorageInteractionLayerImpl();
+  private StorageInterface storageInteractionLayer =
+      new StorageInterfaceImpl();
   private CloudBlobDirectoryWrapper rootDirectory;
   private CloudBlobContainerWrapper container;
   
@@ -101,7 +101,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private AzureFileSystemInstrumentation instrumentation;
   
   void setAzureStorageInteractionLayer(
-      AzureStorageInteractionLayer storageInteractionLayer) {
+      StorageInterface storageInteractionLayer) {
     this.storageInteractionLayer = storageInteractionLayer;
   }
 
