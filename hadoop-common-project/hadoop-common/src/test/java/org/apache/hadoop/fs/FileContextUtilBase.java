@@ -46,7 +46,7 @@ import org.junit.Test;
 public abstract class FileContextUtilBase {
   protected FileContext fc;
   private final FileContextTestHelper fileContextTestHelper =
-    new FileContextTestHelper(false);
+    new FileContextTestHelper();
   
   {
     try {

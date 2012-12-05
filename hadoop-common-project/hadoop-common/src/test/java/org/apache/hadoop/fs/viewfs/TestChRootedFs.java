@@ -47,7 +47,7 @@ public class TestChRootedFs {
   Path chrootedTo;
 
   private final FileContextTestHelper fileContextTestHelper =
-    new FileContextTestHelper(false);
+    new FileContextTestHelper();
 
   @Before
   public void setUp() throws Exception {

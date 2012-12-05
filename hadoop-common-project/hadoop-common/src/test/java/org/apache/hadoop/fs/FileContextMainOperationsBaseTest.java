@@ -102,7 +102,7 @@ public abstract class FileContextMainOperationsBaseTest  {
       getDefaultBlockSize());
   
   public FileContextMainOperationsBaseTest() {
-    this.fileContextTestHelper = new FileContextTestHelper(false);
+    this.fileContextTestHelper = new FileContextTestHelper();
   }
   
   public FileContextMainOperationsBaseTest(

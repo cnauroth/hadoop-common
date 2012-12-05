@@ -75,7 +75,7 @@ public abstract class FileContextPermissionBase {
   private final FileContextTestHelper fileContextTestHelper;
 
   public FileContextPermissionBase() {
-    this.fileContextTestHelper = new FileContextTestHelper(false);
+    this.fileContextTestHelper = new FileContextTestHelper();
   }
 
   public FileContextPermissionBase(FileContextTestHelper fileContextTestHelper) {

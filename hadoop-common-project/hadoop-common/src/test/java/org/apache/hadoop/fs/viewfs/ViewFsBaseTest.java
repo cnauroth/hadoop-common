@@ -79,7 +79,7 @@ public class ViewFsBaseTest {
   private final FileContextTestHelper fileContextTestHelper;
 
   public ViewFsBaseTest() {
-    this.fileContextTestHelper = new FileContextTestHelper(false);
+    this.fileContextTestHelper = new FileContextTestHelper();
   }
 
   public ViewFsBaseTest(FileContextTestHelper fileContextTestHelper) {

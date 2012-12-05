@@ -44,7 +44,7 @@ public abstract class FCStatisticsBaseTest {
   protected static FileContext fc = null;
 
   private final FileContextTestHelper fileContextTestHelper =
-    new FileContextTestHelper(false);
+    new FileContextTestHelper();
   
   @Test
   public void testStatistics() throws IOException, URISyntaxException {
