@@ -38,7 +38,7 @@ public final class AzureBlobStorageTestAccount {
   public static AzureBlobStorageTestAccount createMock() throws Exception {
     Configuration conf = new Configuration();
     AzureNativeFileSystemStore store = new AzureNativeFileSystemStore();
-    store.setAzureStorageInteractionLayer(new MockAzureStorageInteractionLayer());
+    store.setAzureStorageInteractionLayer(new MockStorageInterface());
     FileSystem fs = new NativeAzureFileSystem(store);
     conf.set(ACCOUNT_KEY_PROPERTY_NAME + "mockAccount",
         Base64.encode(new byte[] {1, 2, 3}));

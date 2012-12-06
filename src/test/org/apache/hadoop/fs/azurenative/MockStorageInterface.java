@@ -13,7 +13,7 @@ import com.microsoft.windowsazure.services.core.storage.*;
  * A mock implementation of the Azure Storage interaction
  * layer for unit tests. Just does in-memory storage.
  */
-public class MockAzureStorageInteractionLayer extends StorageInterface {
+public class MockStorageInterface extends StorageInterface {
   private InMemoryBlockBlobStore backingStore;
 
   @Override
