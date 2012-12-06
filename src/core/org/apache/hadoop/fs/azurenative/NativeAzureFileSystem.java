@@ -1033,10 +1033,6 @@ public class NativeAzureFileSystem extends FileSystem {
 
   }
 
-  /**
-   * TODO: BUGBUG! mkdirs should walk the directory tree before creating the leaf
-   * TODO: file or subdirectory.
-   */
   @Override
   public boolean mkdirs(Path f, FsPermission permission) throws IOException {
 
@@ -1045,6 +1041,18 @@ public class NativeAzureFileSystem extends FileSystem {
     }
 
     Path absolutePath = makeAbsolute(f);
+
+    // Check that there is no file in the parent chain of the given path.
+    for (Path current = absolutePath;
+        current.toUri().getPath().length() > 1; // Stop when you get to the root
+        current = current.getParent()) {
+      FileMetadata currentMetadata = store.retrieveMetadata(pathToKey(current));
+      if (currentMetadata != null && !currentMetadata.isDir()) {
+        throw new IOException("Cannot create directory " + f + " because " +
+            current + " is an existing file.");
+      }
+    }
+
     String key = pathToKey(absolutePath);
     store.storeEmptyFolder(key, permission);
 

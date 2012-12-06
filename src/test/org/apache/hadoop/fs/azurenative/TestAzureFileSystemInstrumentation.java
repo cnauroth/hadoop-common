@@ -48,7 +48,12 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     
     // Create a directory
     assertTrue(fs.mkdirs(new Path("a")));
-    base = assertWebResponsesEquals(base, 1);
+    // At the time of writing, it takes 1 request to create the actual directory,
+    // plus 2 requests per level to check that there's no blob with that name
+    // So for the path above (/user/<name>/a), it takes 2 requests each to check
+    // there's no blob called /user, no blob called /user/<name> and no blob
+    // called /user/<name>/a, and then 1 reqest for the creation, totalling 7.
+    base = assertWebResponsesInRange(base, 1, 7);
 
     // List the root contents
     assertEquals(1, fs.listStatus(new Path("/")).length);    
@@ -67,11 +72,12 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     outputStream.close();
     
     // The exact number of requests/responses that happen to create a file
-    // can vary  - at the time of writing this code it takes 9
+    // can vary  - at the time of writing this code it takes 7
     // requests/responses for the 1000 byte file (33 for 100 MB), but that
     // can very easily change in the future. Just assert that we do roughly
-    // more than 2 but less than 20.
-    base = assertWebResponsesInRange(base, 2, 20);
+    // more than 2 but less than 15.
+    logOpResponseCount("Creating a 1K file", base);
+    base = assertWebResponsesInRange(base, 2, 15);
     
     // Read the file
     InputStream inputStream = fs.open(filePath);
@@ -83,8 +89,9 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     assertEquals(FILE_SIZE, count);
     
     // Again, exact number varies. At the time of writing this code
-    // it takes 6 request/responses, so just assert a rough range between
+    // it takes 4 request/responses, so just assert a rough range between
     // 1 and 10.
+    logOpResponseCount("Reading a 1K file", base);
     base = assertWebResponsesInRange(base, 1, 10);
   }
 
@@ -96,12 +103,14 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     
     // Create an empty file
     assertTrue(fs.createNewFile(originalPath));
+    logOpResponseCount("Creating an empty file", base);
     base = assertWebResponsesInRange(base, 2, 20);
     
     // Rename the file
     assertTrue(fs.rename(originalPath, destinationPath));
-    // Varies: at the time of writing this code it takes 12 requests/responses.
-    base = assertWebResponsesInRange(base, 2, 20);
+    // Varies: at the time of writing this code it takes 8 requests/responses.
+    logOpResponseCount("Renaming a file", base);
+    base = assertWebResponsesInRange(base, 2, 15);
   }
 
   public void testWebResponsesOnFileExistsDelete() throws Exception {
@@ -111,9 +120,10 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     
     // Check existence
     assertFalse(fs.exists(filePath));
-    // At the time of writing this code it takes 4 requests/responses to
+    // At the time of writing this code it takes 2 requests/responses to
     // check existence, which seems excessive. Check for range 1-4 for now.
-    base = assertWebResponsesInRange(base, 1, 4);
+    logOpResponseCount("Checking file existence for non-existent file", base);
+    base = assertWebResponsesInRange(base, 1, 2);
     
     // Create an empty file
     assertTrue(fs.createNewFile(filePath));
@@ -121,12 +131,14 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     
     // Check existence again
     assertTrue(fs.exists(filePath));
-    base = assertWebResponsesInRange(base, 1, 4);
+    logOpResponseCount("Checking file existence for existent file", base);
+    base = assertWebResponsesInRange(base, 1, 2);
     
     // Delete the file
     assertTrue(fs.delete(filePath, false));
     // At the time of writing this code it takes 4 requests/responses to
     // delete, which seems excessive. Check for range 1-4 for now.
+    logOpResponseCount("Deleting a file", base);
     base = assertWebResponsesInRange(base, 1, 4);
   }
 
@@ -139,7 +151,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     
     // Create an empty directory
     assertTrue(fs.mkdirs(originalDirName));
-    base = assertWebResponsesEquals(base, 1);
+    base = getCurrentWebResponses();
     
     // Create an inner file
     assertTrue(fs.createNewFile(innerFileName));
@@ -147,9 +159,15 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     
     // Rename the directory
     assertTrue(fs.rename(originalDirName, destDirName));
-    // At the time of writing this code it takes 18 requests/responses
+    // At the time of writing this code it takes 14 requests/responses
     // to rename the directory with one file. Check for range 1-20 for now.
+    logOpResponseCount("Renaming a directory", base);
     base = assertWebResponsesInRange(base, 1, 20);
+  }
+
+  private void logOpResponseCount(String opName, long base) {
+    System.out.println(opName + " took " + (getCurrentWebResponses() - base) +
+        " web responses to complete.");
   }
 
   /**

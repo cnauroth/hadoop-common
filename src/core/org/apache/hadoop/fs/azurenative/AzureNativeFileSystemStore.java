@@ -1160,40 +1160,26 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           listRootBlobs(
               key,
               true,
-              EnumSet.of(BlobListingDetails.METADATA , BlobListingDetails.SNAPSHOTS),
+              EnumSet.of(BlobListingDetails.METADATA),
               null,
               getInstrumentedContext());
 
       // Check if the directory/container has the blob items.
       //
-      if (null != objects) {
-        for (ListBlobItem blobItem : objects) {
-          if (blobItem.getUri() != null) {
-            blob = getBlobReference(blobItem.getUri().getPath().split(PATH_DELIMITER,3)[2]);
-            if (blob.exists(getInstrumentedContext())) {
-              LOG.debug(
-                  "Found blob as a directory-using this file under it to infer its properties" +
-                      blobItem.getUri());
-
-              // Found a blob directory under the key, use its properties to infer
-              // permissions and the last modified time.
-              //
-              blob.downloadAttributes(getInstrumentedContext());
-
-              // The key specifies a directory. Create a FileMetadata object which specifies
-              // as such.
-              //
-              // TODO: Maybe there a directory metadata class which extends the file metadata
-              // TODO: class or an explicit parameter indicating it is a directory rather than
-              // TODO: using polymorphism to distinguish the two.
-              //
-              return new FileMetadata(key, getPermission(blob));
-            }
-
-            // Log that the target URI does not exist.
-            //
-            LOG.debug("URI obtained but does not  exist: " + blobItem.getUri().toString());
-          }
+      for (ListBlobItem blobItem : objects) {
+        if (blobItem instanceof CloudBlockBlobWrapper) {
+          LOG.debug(
+              "Found blob as a directory-using this file under it to infer its properties" +
+                  blobItem.getUri());
+    
+          // The key specifies a directory. Create a FileMetadata object which specifies
+          // as such.
+          //
+          // TODO: Maybe there a directory metadata class which extends the file metadata
+          // TODO: class or an explicit parameter indicating it is a directory rather than
+          // TODO: using polymorphism to distinguish the two.
+          //
+          return new FileMetadata(key, getPermission((CloudBlockBlobWrapper)blobItem));
         }
       }
 
