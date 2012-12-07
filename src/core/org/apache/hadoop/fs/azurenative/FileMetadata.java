@@ -31,6 +31,7 @@ class FileMetadata {
   private final long lastModified;
   private final boolean isDir;
   private final FsPermission permission;
+  private final boolean isImplicit;
 
   public FileMetadata(String key, long length, long lastModified, FsPermission permission) {
     this.key = key;
@@ -38,14 +39,16 @@ class FileMetadata {
     this.lastModified = lastModified;
     this.isDir = false;
     this.permission = permission;
+    this.isImplicit = false; // File are never implicit.
   }
 
-  public FileMetadata(String key, FsPermission permission) {
+  public FileMetadata(String key, FsPermission permission, boolean isImplicit) {
     this.key = key;
     this.isDir = true;
     this.length = 0;
     this.lastModified = 0;
     this.permission = permission;
+    this.isImplicit = isImplicit;
   }
 
   public boolean isDir() {
@@ -66,6 +69,16 @@ class FileMetadata {
   
   public FsPermission getPermission() {
     return permission;
+  }
+  
+  /**
+   * Indicates whether this is an implicit directory (no real blob backing it)
+   * or an explicit one.
+   * @return true if this is an implicit directory, or false if it's an
+   *         explicit directory or a file.
+   */
+  public boolean isImplicit() {
+    return isImplicit;
   }
 
   @Override

@@ -1076,37 +1076,6 @@ public class NativeAzureFileSystem extends FileSystem {
         new NativeAzureFsInputStream(store.retrieve(key), key), bufferSize));
   }
 
-  private boolean existsAndIsFile(Path f) throws IOException {
-
-    Path absolutePath = makeAbsolute(f);
-    String key = pathToKey(absolutePath);
-
-    if (key.length() == 0) {
-      return false;
-    }
-
-    FileMetadata meta = store.retrieveMetadata(key);
-    if (meta != null && !meta.isDir()) {
-      // Azure object with given key exists, so this is a file
-      return true;
-    }
-
-    if (meta != null && meta.isDir()) {
-      // Azure object with given key exists, so this is a directory
-      return false;
-    }
-
-
-    PartialListing listing = store.list(key, 1, AZURE_UNBOUNDED_DEPTH, null);
-    if (listing.getFiles().length > 0 || listing.getCommonPrefixes().length > 0) {
-      // Non-empty directory
-      return false;
-    }
-
-    throw new FileNotFoundException(absolutePath
-        + ": No such file or directory");
-  }
-
   @Override
   public boolean rename(Path src, Path dst) throws IOException {
 
@@ -1121,87 +1090,88 @@ public class NativeAzureFileSystem extends FileSystem {
     }
 
     // Figure out the final destination
-    String dstKey;
-    try {
-      boolean dstIsFile = existsAndIsFile(dst);
-      if (dstIsFile) {
-        // Attempting to overwrite a file using rename()
+    Path absoluteDst = makeAbsolute(dst);
+    String dstKey = pathToKey(absoluteDst);
+    FileMetadata dstMetadata = store.retrieveMetadata(dstKey);
+    if (dstMetadata != null && dstMetadata.isDir()) {
+      // It's an existing directory.
+      dstKey = pathToKey(makeAbsolute(new Path(dst, src.getName())));
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Destination is a directory, adjusted the destination to be " + dstKey);
+      }
+    } else if (dstMetadata != null) {
+      // Attempting to overwrite a file using rename()
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Destination is an already existing file, failing the rename.");
+      }
+      return false;      
+    } else {
+      // Check that the parent directory exists.
+      FileMetadata parentOfDestMetadata =
+          store.retrieveMetadata(pathToKey(absoluteDst.getParent()));
+      if (parentOfDestMetadata == null) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Parent of the destination doesn't exist, failing the rename.");
+        }
         return false;
-      } else {
-        // Move to within the existing directory
-        //
-        dstKey = pathToKey(makeAbsolute(new Path(dst, src.getName())));
-      }
-    } catch (FileNotFoundException e) {
-      // dst doesn't exist, so we can proceed
-      dstKey = pathToKey(makeAbsolute(dst));
-      try {
-        if (!getFileStatus(dst.getParent()).isDir()) {
-          return false; // parent dst is a file
+      } else if (!parentOfDestMetadata.isDir()) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Parent of the destination is a file, failing the rename.");
         }
-      } catch (FileNotFoundException ex) {
-        return false; // parent dst does not exist
+        return false;
       }
     }
-
-    try {
-      String srcName = null;
-      String dstName = null;
-
-      // Check if the source is a file which exists.
+    FileMetadata srcMetadata = store.retrieveMetadata(srcKey);
+    if (srcMetadata == null) {
+      // Source doesn't exist
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Source doesn't exist, failing the rename.");
+      }
+      return false;
+    } else if (!srcMetadata.isDir()) {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Source found as a file, renaming.");
+      }
+      store.rename(srcKey, dstKey);
+    } else {
+      // Move everything inside the folder.
       //
-      boolean srcIsFile = existsAndIsFile(src);
-      if (srcIsFile) {
-        store.rename(srcKey, dstKey);
-      } else {
-        // Move everything inside the folder.
-        //
-        String priorLastKey = null;
+      String priorLastKey = null;
 
-        // Calculate the index of the part of the string to be moved. That
-        // is everything on the path up to the folder name.
+      // Calculate the index of the part of the string to be moved. That
+      // is everything on the path up to the folder name.
+      //
+      do {
+        // List all blobs rooted at the source folder.
         //
-        do {
-          // List all blobs rooted at the source folder.
-          //
-          PartialListing listing = store.listAll(srcKey, AZURE_LIST_ALL,
-              AZURE_UNBOUNDED_DEPTH, priorLastKey);
+        PartialListing listing = store.listAll(srcKey, AZURE_LIST_ALL,
+            AZURE_UNBOUNDED_DEPTH, priorLastKey);
 
-          // Rename all the files in the folder.
+        // Rename all the files in the folder.
+        //
+        for (FileMetadata file : listing.getFiles()) {
+          // Rename all non-directory entries under the folder to point to the
+          // final destination.
           //
-          for (FileMetadata file : listing.getFiles()) {
-            // Rename all non-directory entries under the folder to point to the
-            // final destination.
-            //
-            if (!file.isDir()) {
-              srcName = file.getKey();
-              String suffix  = srcName.substring(srcKey.length());
-              dstName = dstKey + suffix;  
-              store.rename(srcName, dstName);
-            }
+          if (!file.isDir()) {
+            String srcName = file.getKey();
+            String suffix  = srcName.substring(srcKey.length());
+            String dstName = dstKey + suffix;  
+            store.rename(srcName, dstName);
           }
-          priorLastKey = listing.getPriorLastKey();
-        } while (priorLastKey != null);
-        // Rename the top level empty blob for the folder.
-        //
-        FileMetadata metaDir = store.retrieveMetadata(srcKey);
-        if (null != metaDir)
-        {
-          store.rename(srcKey, dstKey);
         }
+        priorLastKey = listing.getPriorLastKey();
+      } while (priorLastKey != null);
+      // Rename the top level empty blob for the folder.
+      //
+      if (!srcMetadata.isImplicit()) {
+        store.rename(srcKey, dstKey);
       }
-
-      return true;
-    } catch (FileNotFoundException e) {
-      // Source file does not exist;
-      return false;
-    } catch (OutOfMemoryError e1) {
-      // TODO: Does it make sense to print an error message here since there
-      // TODO: maybe no memory to even print the message?
-      System.err.println("Encountered out of memory error possibly due to "
-          + "an attempt to rename too many files");
-      return false;
     }
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Renamed successfully.");
+    }
+    return true;
   }
 
   /**

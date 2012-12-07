@@ -164,6 +164,18 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
       fs.delete(destinationFile.getParent(), true);
     }
   }
+  
+  public void testRenameImplicitFolder() throws Exception {
+    Path testFile = new Path("deep/file/rename/test");
+    FsPermission permission = FsPermission.createImmutable((short)644);
+    createEmptyFile(testFile, permission);
+    assertTrue(fs.rename(new Path("deep/file"), new Path("deep/renamed")));
+    assertFalse(fs.exists(testFile));
+    FileStatus newStatus = fs.getFileStatus(new Path("deep/renamed/rename/test"));
+    assertNotNull(newStatus);
+    assertEquals(permission, newStatus.getPermission());
+    assertTrue(fs.delete(new Path("deep"), true));
+  }
 
   private static enum RenameFolderVariation {
     CreateFolderAndInnerFile, CreateJustInnerFile, CreateJustFolder

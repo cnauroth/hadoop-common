@@ -108,7 +108,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     
     // Rename the file
     assertTrue(fs.rename(originalPath, destinationPath));
-    // Varies: at the time of writing this code it takes 8 requests/responses.
+    // Varies: at the time of writing this code it takes 7 requests/responses.
     logOpResponseCount("Renaming a file", base);
     base = assertWebResponsesInRange(base, 2, 15);
   }
@@ -159,7 +159,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     
     // Rename the directory
     assertTrue(fs.rename(originalDirName, destDirName));
-    // At the time of writing this code it takes 14 requests/responses
+    // At the time of writing this code it takes 11 requests/responses
     // to rename the directory with one file. Check for range 1-20 for now.
     logOpResponseCount("Renaming a directory", base);
     base = assertWebResponsesInRange(base, 1, 20);

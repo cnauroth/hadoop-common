@@ -1119,7 +1119,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       if (key.equals("/")) {
         // The key refers to root directory of container.
         //
-        return new FileMetadata(key, FsPermission.getDefault());
+        return new FileMetadata(key, FsPermission.getDefault(), true);
       }
 
       CloudBlockBlobWrapper blob = getBlobReference(key);
@@ -1138,7 +1138,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         
         if (getIsFolder(blob)) {
           LOG.debug("It's a folder blob.");
-          return new FileMetadata(key, getPermission(blob));
+          return new FileMetadata(key, getPermission(blob), false);
         } else {
           LOG.debug("It's a normal blob.");
           BlobProperties properties = blob.getProperties();
@@ -1179,7 +1179,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           // TODO: class or an explicit parameter indicating it is a directory rather than
           // TODO: using polymorphism to distinguish the two.
           //
-          return new FileMetadata(key, getPermission((CloudBlockBlobWrapper)blobItem));
+          return new FileMetadata(key, getPermission((CloudBlockBlobWrapper)blobItem), true);
         }
       }
 
@@ -1336,7 +1336,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
           FileMetadata metadata;
           if (getIsFolder(blob)) {
-            metadata = new FileMetadata(blobKey, getPermission(blob));
+            metadata = new FileMetadata(blobKey, getPermission(blob), false);
           } else {
             metadata = new FileMetadata(
                 blobKey,
@@ -1369,7 +1369,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           // TODO: Something smarter should be done about permissions. Maybe
           // TODO: inherit the permissions of the first non-directory blob.
           //
-          FileMetadata directoryMetadata = new FileMetadata(dirKey, FsPermission.getDefault());
+          FileMetadata directoryMetadata = new FileMetadata(dirKey, FsPermission.getDefault(), true);
 
           // Add the directory metadata to the list only if it's not already there.
           //
@@ -1478,7 +1478,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
           FileMetadata metadata;
           if (getIsFolder(blob)) {
-            metadata = new FileMetadata(blobKey, getPermission(blob));
+            metadata = new FileMetadata(blobKey, getPermission(blob), false);
           } else {
             metadata = new FileMetadata(
                 blobKey,
@@ -1531,7 +1531,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
               // TODO: Something smarter should be done about permissions. Maybe
               // TODO: inherit the permissions of the first non-directory blob.
               //
-              FileMetadata directoryMetadata = new FileMetadata(dirKey, FsPermission.getDefault());
+              FileMetadata directoryMetadata = new FileMetadata(dirKey, FsPermission.getDefault(), true);
   
               // Add the directory metadata to the list.
               //
