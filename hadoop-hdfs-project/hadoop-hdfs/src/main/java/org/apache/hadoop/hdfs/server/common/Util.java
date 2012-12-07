@@ -28,6 +28,7 @@ import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.fs.Path;
 
 @InterfaceAudience.Private
 public final class Util {
@@ -45,8 +46,9 @@ public final class Util {
     URI u = null;
     // try to make a URI
     try {
-      u = new URI(s);
-    } catch (URISyntaxException e){
+      u = new Path(s).toUri();
+    } catch (IllegalArgumentException e){
+      // Path throws IllegalArgumentException if it can't parse URI
       LOG.error("Syntax error in URI " + s
           + ". Please check hdfs configuration.", e);
     }
