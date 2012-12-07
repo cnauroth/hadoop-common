@@ -609,7 +609,6 @@ class BlockPoolSliceScanner {
   void shutdown() {
     if (verificationLog != null) {
       verificationLog.close();
-      verificationLog = null;
     }
   }
   
