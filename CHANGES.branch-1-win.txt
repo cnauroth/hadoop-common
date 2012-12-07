@@ -202,3 +202,8 @@ BUG FIXES
 
     HADOOP-9102. winutils task isAlive does not return a non-zero exit code if
     the requested task is not alive. (Chris Nauroth via suresh)
+
+  Merged from branch-1
+
+    HADOOP-9090. Support on-demand publish of metrics. (Mostafa Elhemali via
+    suresh)
