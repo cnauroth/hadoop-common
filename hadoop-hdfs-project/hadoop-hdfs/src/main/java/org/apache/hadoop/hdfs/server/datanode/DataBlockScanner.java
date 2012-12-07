@@ -100,6 +100,11 @@ public class DataBlockScanner implements Runnable {
       }
       bpScanner.scanBlockPoolSlice();
     }
+
+    // Call shutdown for each allocated BlockPoolSliceScanner.
+    for (BlockPoolSliceScanner bpss: blockPoolScannerMap.values()) {
+      bpss.shutdown();
+    }
   }
 
   // Wait for at least one block pool to be up

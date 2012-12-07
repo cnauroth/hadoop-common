@@ -602,6 +602,16 @@ class BlockPoolSliceScanner {
       lastScanTime.set(Time.now());
     }
   }
+
+  /**
+   * Shuts down this BlockPoolSliceScanner and releases any internal resources.
+   */
+  void shutdown() {
+    if (verificationLog != null) {
+      verificationLog.close();
+      verificationLog = null;
+    }
+  }
   
   private void scan() {
     if (LOG.isDebugEnabled()) {
