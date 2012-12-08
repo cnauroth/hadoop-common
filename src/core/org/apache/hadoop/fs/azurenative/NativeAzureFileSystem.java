@@ -660,11 +660,19 @@ public class NativeAzureFileSystem extends FileSystem {
   public void initialize(URI uri, Configuration conf)
       throws IOException, IllegalArgumentException {
     super.initialize(uri, conf);
+
     if (store == null) {
       store = createDefaultStore(conf);
     }
-    instrumentation = DefaultMetricsSystem.INSTANCE.register("AzureFileSystemMetrics",
-        "Azure Storage Volume File System metrics",  new AzureFileSystemInstrumentation());
+
+    // Make sure the metrics system is available before interacting with Azure
+    AzureFileSystemMetricsSystem.fileSystemStarted();
+    String sourceName = "AzureFileSystemMetrics",
+        sourceDesc = "Azure Storage Volume File System metrics";
+    instrumentation = DefaultMetricsSystem.INSTANCE.register(sourceName,
+        sourceDesc, new AzureFileSystemInstrumentation());
+    AzureFileSystemMetricsSystem.registerSource(sourceName, sourceDesc,
+        instrumentation);
     store.initialize(uri, conf, instrumentation);
     setConf(conf);
     this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
@@ -1185,6 +1193,12 @@ public class NativeAzureFileSystem extends FileSystem {
   @Override
   public Path getWorkingDirectory() {
     return workingDir;
+  }
+
+  @Override
+  public void close() throws IOException {
+    super.close();
+    AzureFileSystemMetricsSystem.fileSystemClosed();
   }
 
   /**

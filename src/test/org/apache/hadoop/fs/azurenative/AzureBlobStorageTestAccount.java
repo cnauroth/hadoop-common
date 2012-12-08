@@ -35,7 +35,13 @@ public final class AzureBlobStorageTestAccount {
     return false;
   }
   
+  private static void saveMetricsConfigFile() {
+    new org.apache.hadoop.metrics2.impl.ConfigBuilder()
+    .save("hadoop-metrics2-azure-file-system.properties");
+  }
+
   public static AzureBlobStorageTestAccount createMock() throws Exception {
+    saveMetricsConfigFile();
     Configuration conf = new Configuration();
     AzureNativeFileSystemStore store = new AzureNativeFileSystemStore();
     store.setAzureStorageInteractionLayer(new MockStorageInterface());
@@ -49,6 +55,7 @@ public final class AzureBlobStorageTestAccount {
   }
 
   public static AzureBlobStorageTestAccount create() throws Exception {
+    saveMetricsConfigFile();
     FileSystem fs = null;
     CloudBlobContainer container = null;
     Configuration conf = new Configuration();
@@ -68,7 +75,7 @@ public final class AzureBlobStorageTestAccount {
     container.create();
     String accountUrl = account.getBlobEndpoint().getAuthority();
     String accountName = accountUrl.substring(0, accountUrl.indexOf('.'));
-    
+
     // Set the account key base on whether the account is authenticated or is an anonymous
     // public account.
     //
@@ -94,7 +101,7 @@ public final class AzureBlobStorageTestAccount {
           String.format("Account key not configured in connection string: '%s'.", connectionString);
       throw new Exception (errMsg);
     }
-    
+
     conf.set(ACCOUNT_KEY_PROPERTY_NAME + accountName, accountKey);
 
     fs.initialize(new URI("asv://" + accountName + "+" + containerName + "/"), conf);
