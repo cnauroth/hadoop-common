@@ -633,6 +633,8 @@ public class DatanodeManager {
       // Mostly called inside an RPC, update ip and peer hostname
       String hostname = dnAddress.getHostName();
       String ip = dnAddress.getHostAddress();
+      // On Windows, host name resolution does not give "localhost" for
+      // 127.0.0.1, so allow it as a special case.
       if (hostname.equals(ip) && !ip.equals("127.0.0.1")) {
         LOG.warn("Unresolved datanode registration from " + ip);
         throw new DisallowedDatanodeException(nodeReg);
