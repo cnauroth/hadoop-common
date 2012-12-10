@@ -813,6 +813,9 @@ public class NativeAzureFileSystem extends FileSystem {
     // Construct the data output stream from the buffered output stream.
     //
     FSDataOutputStream fsOut = new FSDataOutputStream(bufOutStream, statistics);
+    
+    // Increment the counter
+    instrumentation.fileCreated();
 
     // Return data output stream to caller.
     //

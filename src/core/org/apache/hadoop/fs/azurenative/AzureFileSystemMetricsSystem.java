@@ -4,17 +4,13 @@ import org.apache.hadoop.metrics2.*;
 import org.apache.hadoop.metrics2.impl.MetricsSystemImpl;
 
 final class AzureFileSystemMetricsSystem {
-  private static final MetricsSystemImpl instance =
-      new MetricsSystemImpl();
+  private static MetricsSystemImpl instance;
   private static int numFileSystems;
-  private static boolean initialized = false;
   
   public synchronized static void fileSystemStarted() {
     if (numFileSystems == 0) {
-      if (!initialized) {
-        instance.init("azure-file-system");
-        initialized = true;
-      }
+      instance = new MetricsSystemImpl();
+      instance.init("azure-file-system");
       instance.start();
     }
     numFileSystems++;
@@ -25,7 +21,7 @@ final class AzureFileSystemMetricsSystem {
     if (numFileSystems == 1) {
       instance.stop();
       instance.shutdown();
-      initialized = false;
+      instance = null;
     }
     numFileSystems--;
   }

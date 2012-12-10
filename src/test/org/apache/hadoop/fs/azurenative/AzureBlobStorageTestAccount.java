@@ -1,10 +1,14 @@
 package org.apache.hadoop.fs.azurenative;
 
 import java.net.URI;
-import java.util.Date;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.commons.configuration.SubsetConfiguration;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.metrics2.*;
 
 import com.microsoft.windowsazure.services.blob.client.CloudBlobContainer;
 import com.microsoft.windowsazure.services.core.storage.CloudStorageAccount;
@@ -14,12 +18,61 @@ public final class AzureBlobStorageTestAccount {
 
   private static final String CONNECTION_STRING_PROPERTY_NAME = "fs.azure.storageConnectionString";
   private static final String ACCOUNT_KEY_PROPERTY_NAME = "fs.azure.account.key.";
+  private static final String SINK_IDENTIFIER = "identifier";
   private CloudBlobContainer container;
   private FileSystem fs;
+  private final int sinkIdentifier;
+  private static AtomicInteger sinkIdentifierCounter = new AtomicInteger();
+  private static final ConcurrentHashMap<Integer, ArrayList<MetricsRecord>> allMetrics =
+      new ConcurrentHashMap<Integer, ArrayList<MetricsRecord>>();
 
-  private AzureBlobStorageTestAccount(FileSystem fs, CloudBlobContainer container) {
+  private AzureBlobStorageTestAccount(FileSystem fs, CloudBlobContainer container,
+      int sinkIdentifier) {
     this.container = container;
     this.fs = fs;
+    this.sinkIdentifier = sinkIdentifier;
+  }
+
+  private static void addRecord(int sinkIdentifier, MetricsRecord record) {
+    ArrayList<MetricsRecord> list = new ArrayList<MetricsRecord>();
+    ArrayList<MetricsRecord> previous = allMetrics.putIfAbsent(sinkIdentifier, list);
+    if (previous != null) {
+      list = previous;
+    }
+    list.add(record);
+  }
+
+  private static ArrayList<MetricsRecord> getRecords(int sinkIdentifier) {
+    return allMetrics.get(sinkIdentifier);
+  }
+
+  public Number getLatestMetricValue(String metricName, Number defaultValue) 
+      throws IndexOutOfBoundsException{
+    ArrayList<MetricsRecord> myMetrics = getRecords(sinkIdentifier);
+    if (myMetrics == null) {
+      if (defaultValue != null) {
+        return defaultValue;
+      }
+      throw new IndexOutOfBoundsException(metricName);
+    }
+    boolean found = false;
+    Number ret = null;
+    for (MetricsRecord currentRecord : myMetrics) {
+      for (Metric currentMetric : currentRecord.metrics()) {
+        if (currentMetric.name().equalsIgnoreCase(metricName)) {
+          found = true;
+          ret = currentMetric.value();
+          break;
+        }
+      }
+    }
+    if (!found) {
+      if (defaultValue != null) {
+        return defaultValue;
+      }
+      throw new IndexOutOfBoundsException(metricName);
+    }
+    return ret;
   }
 
   private static boolean hasConnectionString(Configuration conf) {
@@ -35,13 +88,16 @@ public final class AzureBlobStorageTestAccount {
     return false;
   }
   
-  private static void saveMetricsConfigFile() {
+  private static void saveMetricsConfigFile(int sinkIdentifier) {
     new org.apache.hadoop.metrics2.impl.ConfigBuilder()
+    .add("azure-file-system.sink.azuretestcollector.class", StandardCollector.class.getName())
+    .add("azure-file-system.sink.azuretestcollector." + SINK_IDENTIFIER, sinkIdentifier)
     .save("hadoop-metrics2-azure-file-system.properties");
   }
 
   public static AzureBlobStorageTestAccount createMock() throws Exception {
-    saveMetricsConfigFile();
+    int sinkIdentifier = sinkIdentifierCounter.incrementAndGet();
+    saveMetricsConfigFile(sinkIdentifier);
     Configuration conf = new Configuration();
     AzureNativeFileSystemStore store = new AzureNativeFileSystemStore();
     store.setAzureStorageInteractionLayer(new MockStorageInterface());
@@ -50,12 +106,13 @@ public final class AzureBlobStorageTestAccount {
         Base64.encode(new byte[] {1, 2, 3}));
     fs.initialize(new URI("asv://mockAccount+mockContainer/"), conf);
     AzureBlobStorageTestAccount testAcct =
-        new AzureBlobStorageTestAccount(fs, null);
+        new AzureBlobStorageTestAccount(fs, null, sinkIdentifier);
     return testAcct;
   }
 
   public static AzureBlobStorageTestAccount create() throws Exception {
-    saveMetricsConfigFile();
+    int sinkIdentifier = sinkIdentifierCounter.incrementAndGet();
+    saveMetricsConfigFile(sinkIdentifier);
     FileSystem fs = null;
     CloudBlobContainer container = null;
     Configuration conf = new Configuration();
@@ -106,7 +163,8 @@ public final class AzureBlobStorageTestAccount {
 
     fs.initialize(new URI("asv://" + accountName + "+" + containerName + "/"), conf);
 
-    AzureBlobStorageTestAccount testAcct = new AzureBlobStorageTestAccount(fs, container);
+    AzureBlobStorageTestAccount testAcct =
+        new AzureBlobStorageTestAccount(fs, container, sinkIdentifier);
 
     return testAcct;
   }
@@ -124,5 +182,23 @@ public final class AzureBlobStorageTestAccount {
 
   public FileSystem getFileSystem() {
     return fs;
+  }
+
+  public static class StandardCollector implements MetricsSink {
+    private int sinkIdentifier;
+    
+    @Override
+    public void init(SubsetConfiguration conf) {
+      sinkIdentifier = conf.getInt(SINK_IDENTIFIER);
+    }
+
+    @Override
+    public void putMetrics(MetricsRecord record) {
+      addRecord(sinkIdentifier, record);
+    }
+
+    @Override
+    public void flush() {
+    }
   }
 }

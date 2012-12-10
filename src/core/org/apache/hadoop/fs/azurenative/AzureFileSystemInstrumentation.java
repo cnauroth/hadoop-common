@@ -16,7 +16,12 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
           "asv_web_responses",
           "Total number of web responses obtained from Azure Storage",
           0L);
-  
+  private final MetricMutableCounterLong numberOfFilesCreated =
+      registry.newCounter(
+          "asv_files_created",
+          "Total number of files created through the ASV file system.",
+          0L);
+
   /**
    * Indicate that we just got a web response from Azure Storage. This should
    * be called for every web request/response we do (to get accurate metrics
@@ -25,7 +30,14 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
   public void webResponse() {
     numberOfWebResponses.incr();
   }
-  
+
+  /**
+   * Indicate that we just created a file through ASV.
+   */
+  public void fileCreated() {
+    numberOfFilesCreated.incr();
+  }
+
   @Override
   public void getMetrics(MetricsBuilder builder, boolean all) {
     registry.snapshot(builder.addRecord(registry.name()), all);
