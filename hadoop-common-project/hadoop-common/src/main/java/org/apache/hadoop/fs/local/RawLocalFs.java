@@ -169,12 +169,10 @@ public class RawLocalFs extends DelegateToFileSystem {
 
   @Override
   public boolean isValidName(String src) {
-    if (Shell.WINDOWS) {
-      // On Windows, skip validation and let the local file system handle it.
-      return true;
-    } else {
-      return super.isValidName(src);
-    }
+    // Different local file systems have different validation rules.  Skip
+    // validation here and just let the OS handle it.  This is consistent with
+    // RawLocalFileSystem.
+    return true;
   }
 
   private static String getPathWithoutSchemeAndAuthority(Path path) {
