@@ -269,10 +269,6 @@ Trunk (Unreleased)
     HDFS-4260 Fix HDFS tests to set test dir to a valid HDFS path as opposed
     to the local build path (Chri Nauroth via Sanjay)
 
-    HDFS-4261. Fix bugs in Balancer that it does not terminate in some cases
-    and it checks BlockPlacementPolicy instance incorrectly.  (Junping Du via
-    szetszwo)
-
 Release 2.0.3-alpha - Unreleased 
 
   INCOMPATIBLE CHANGES
@@ -413,6 +409,9 @@ Release 2.0.3-alpha - Unreleased
 
     HDFS-3680. Allow customized audit logging in HDFS FSNamesystem. (Marcelo
     Vanzin via atm)
+
+    HDFS-4130. BKJM: The reading for editlog at NN starting using bkjm is not efficient.
+    (Han Xiao via umamahesh)
 
   OPTIMIZATIONS
 
@@ -584,6 +583,21 @@ Release 2.0.3-alpha - Unreleased
 
     HDFS-4279. NameNode does not initialize generic conf keys when started
     with -recover. (Colin Patrick McCabe via atm)
+
+    HDFS-4291. edit log unit tests leave stray test_edit_log_file around
+    (Colin Patrick McCabe via todd)
+
+    HDFS-4292. Sanity check not correct in RemoteBlockReader2.newBlockReader
+    (Binglin Chang via todd)
+
+    HDFS-4295. Using port 1023 should be valid when starting Secure DataNode
+    (Stephen Chu via todd)
+
+    HDFS-4294. Backwards compatibility is not maintained for TestVolumeId.
+    (Ivan A. Veselovsky and Robert Parker via atm)
+
+    HDFS-2264. NamenodeProtocol has the wrong value for clientPrincipal in
+    KerberosInfo annotation. (atm)
 
   BREAKDOWN OF HDFS-3077 SUBTASKS
 
