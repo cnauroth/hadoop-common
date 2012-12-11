@@ -249,8 +249,7 @@ public class DataBlockScanner implements Runnable {
     if (blockScannerThread != null) {
       try {
         blockScannerThread.join();
-      }
-      catch (InterruptedException e) {
+      } catch (InterruptedException e) {
         // shutting down anyway
       }
     }
