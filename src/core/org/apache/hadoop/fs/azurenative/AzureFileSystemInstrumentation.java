@@ -21,6 +21,11 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
           "asv_files_created",
           "Total number of files created through the ASV file system.",
           0L);
+  private final MetricMutableGaugeLong bytesWrittenInLastSecond =
+      registry.newGauge(
+          "asv_bytes_written_last_second",
+          "Total number of bytes written to Azure Storage during the last second.",
+          0L);
 
   /**
    * Indicate that we just got a web response from Azure Storage. This should
@@ -36,6 +41,15 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
    */
   public void fileCreated() {
     numberOfFilesCreated.incr();
+  }
+
+  /**
+   * Sets the current gauge value for how many bytes were written in the last
+   *  second.
+   * @param currentBytesWritten The number of bytes.
+   */
+  public void updateBytesWrittenInLastSecond(long currentBytesWritten) {
+    bytesWrittenInLastSecond.set(currentBytesWritten);
   }
 
   @Override

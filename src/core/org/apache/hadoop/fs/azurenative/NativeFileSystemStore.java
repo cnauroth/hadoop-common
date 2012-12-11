@@ -18,6 +18,7 @@
 
 package org.apache.hadoop.fs.azurenative;
 
+import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -33,7 +34,7 @@ import org.apache.hadoop.fs.permission.FsPermission;
  * An abstraction for a key-based {@link File} store.
  * </p>
  */
-interface NativeFileSystemStore {
+interface NativeFileSystemStore extends Closeable {
 
   void initialize(URI uri, Configuration conf, AzureFileSystemInstrumentation instrumentation)
       throws IOException, IllegalArgumentException;

@@ -16,6 +16,7 @@ import junit.framework.TestCase;
 
 public class TestAzureFileSystemInstrumentation extends TestCase {
   private static final String ASV_WEB_RESPONSES = "asv_web_responses";
+  private static final String ASV_BYTES_WRITTEN = "asv_bytes_written_last_second";
   private FileSystem fs;
   private AzureBlobStorageTestAccount testAccount;
 
@@ -62,6 +63,8 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
 
   public void testWebResponsesOnFileCreateRead() throws Exception {
     long base = getBaseWebResponses();
+    
+    assertEquals(0, getCurrentBytesWritten());
 
     Path filePath = new Path("/metricsTest_webResponses");
     final int FILE_SIZE = 1000;
@@ -78,6 +81,11 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     // more than 2 but less than 15.
     logOpResponseCount("Creating a 1K file", base);
     base = assertWebResponsesInRange(base, 2, 15);
+    long bytesWritten = getCurrentBytesWritten();
+    assertTrue("The bytes written in the last second " + bytesWritten +
+        " is pretty far from the expected range of around " + FILE_SIZE +
+        " bytes plus a little overheaed.",
+        bytesWritten > (FILE_SIZE / 2) && bytesWritten < (FILE_SIZE * 2));
     
     // Read the file
     InputStream inputStream = fs.open(filePath);
@@ -186,6 +194,16 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
   private long getCurrentWebResponses() {
     ArgumentCaptor<Long> captor = ArgumentCaptor.forClass(Long.class);
     verify(getMyMetrics()).addCounter(eq(ASV_WEB_RESPONSES), anyString(),
+        captor.capture());
+    return captor.getValue();
+  }
+
+  /**
+   * Gets the current value of the asv_web_responses counter.
+   */
+  private long getCurrentBytesWritten() {
+    ArgumentCaptor<Long> captor = ArgumentCaptor.forClass(Long.class);
+    verify(getMyMetrics()).addGauge(eq(ASV_BYTES_WRITTEN), anyString(),
         captor.capture());
     return captor.getValue();
   }

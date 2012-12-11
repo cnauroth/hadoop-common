@@ -21,8 +21,7 @@ package org.apache.hadoop.fs.azurenative;
 import static org.apache.hadoop.fs.azurenative.NativeAzureFileSystem.PATH_DELIMITER;
 
 import java.io.*;
-import java.net.URI;
-import java.net.URISyntaxException;
+import java.net.*;
 import java.security.InvalidKeyException;
 import java.util.*;
 
@@ -33,6 +32,7 @@ import org.apache.hadoop.fs.permission.FsPermission;
 
 import com.microsoft.windowsazure.services.blob.client.*;
 import com.microsoft.windowsazure.services.core.storage.*;
+import com.microsoft.windowsazure.services.core.storage.Constants.HeaderConstants;
 import com.microsoft.windowsazure.services.core.storage.utils.*;
 
 import static org.apache.hadoop.fs.azurenative.StorageInterface.*;
@@ -99,6 +99,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private int concurrentWrites = DEFAULT_CONCURRENT_WRITES;
   private boolean isAnonymousCredentials = false;
   private AzureFileSystemInstrumentation instrumentation;
+  private Thread uploadBandwidthUpdater;
   
   void setAzureStorageInteractionLayer(
       StorageInterface storageInteractionLayer) {
@@ -124,6 +125,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       throw new IllegalArgumentException("Null instrumentation");
     }
     this.instrumentation = instrumentation;
+    this.uploadBandwidthUpdater = new Thread(new UploadBandwidthUpdater());
+    this.uploadBandwidthUpdater.start();
 
     // Check that URI exists.
     //
@@ -1084,13 +1087,93 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     return normKey;
   }
   
+  private static final class BlockWritingWindow {
+    private final Date startDate;
+    private final Date endDate;
+    private final long bytesWritten;
+    
+    public BlockWritingWindow(Date startDate, Date endDate, long bytesWritten) {
+      this.startDate = startDate;
+      this.endDate = endDate;
+      this.bytesWritten = bytesWritten;
+    }
+    
+    public Date getStartDate() { return startDate; }
+    public Date getEndDate() { return endDate; }
+    public long getBytesWritten() { return bytesWritten; }
+  }
+  
+  private final class UploadBandwidthUpdater implements Runnable {
+    @Override
+    public void run() {
+      try {
+        while (true) {
+          Thread.sleep(1000);
+          ArrayList<BlockWritingWindow> toProcess = null;
+          synchronized (blocksWrittenLock) {
+            if (!allBlocksWritten.isEmpty()) {
+              toProcess = allBlocksWritten;
+              allBlocksWritten = new ArrayList<BlockWritingWindow>(1000);
+            }
+          }
+          if (toProcess != null) {
+            long bytesWrittenInLastSecond = 0;
+            long cutoffTime = new Date().getTime() - 1000;
+            for (BlockWritingWindow currentWindow : toProcess) {
+              if (currentWindow.getStartDate().getTime() > cutoffTime) {
+                bytesWrittenInLastSecond += currentWindow.bytesWritten;
+              } else if (currentWindow.getEndDate().getTime() > cutoffTime) {
+                long adjustedBytes = (currentWindow.getBytesWritten() *
+                    (currentWindow.getEndDate().getTime() -
+                        currentWindow.getStartDate().getTime())) /
+                    (currentWindow.getEndDate().getTime() -
+                        cutoffTime);
+                bytesWrittenInLastSecond += adjustedBytes;
+              }
+            }
+            instrumentation.updateBytesWrittenInLastSecond(bytesWrittenInLastSecond);
+          } else {
+            instrumentation.updateBytesWrittenInLastSecond(0);
+          }
+        }
+      } catch (InterruptedException e) {
+      }
+    }
+  }
+  
+  private ArrayList<BlockWritingWindow> allBlocksWritten =
+      new ArrayList<BlockWritingWindow>(1000);
+  private final Object blocksWrittenLock = new Object();
+  
   private OperationContext getInstrumentedContext() {
-    OperationContext operationContext = new OperationContext();
+    final OperationContext operationContext = new OperationContext();
     operationContext.getResponseReceivedEventHandler().addListener(
         new StorageEvent<ResponseReceivedEvent>() {
           @Override
           public void eventOccurred(ResponseReceivedEvent eventArg) {
             instrumentation.webResponse();
+            RequestResult currentResult = operationContext.getLastResult();
+            // Check if the result was a successful block upload.
+            if (currentResult.getStatusCode() == HttpURLConnection.HTTP_CREATED) {
+              if (eventArg.getConnectionObject() instanceof HttpURLConnection) {
+                HttpURLConnection connection = (HttpURLConnection)eventArg.getConnectionObject();
+                // If it's a PUT request then we're uploading blocks
+                if (connection.getRequestMethod().equalsIgnoreCase("PUT")) {
+                  String lengthString = connection.getRequestProperty(
+                      HeaderConstants.CONTENT_LENGTH);
+                  if (lengthString != null) {
+                    long length = Long.parseLong(lengthString);
+                    if (length > 0) {
+                      Date startDate = currentResult.getStartDate();
+                      Date endDate = currentResult.getStopDate();
+                      synchronized (blocksWrittenLock) {
+                        allBlocksWritten.add(new BlockWritingWindow(startDate, endDate, length));
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         });
     return operationContext;
@@ -1653,5 +1736,17 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
   @Override
   public void dump() throws IOException {
+  }
+
+  @Override
+  public void close() throws IOException {
+    if (uploadBandwidthUpdater != null) {
+      uploadBandwidthUpdater.interrupt();
+      try {
+        uploadBandwidthUpdater.join();
+      } catch (InterruptedException e) {
+      }
+      uploadBandwidthUpdater = null;
+    }
   }
 }

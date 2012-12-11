@@ -1201,6 +1201,7 @@ public class NativeAzureFileSystem extends FileSystem {
   @Override
   public void close() throws IOException {
     super.close();
+    store.close();
     AzureFileSystemMetricsSystem.fileSystemClosed();
   }
 
