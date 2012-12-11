@@ -85,12 +85,12 @@ public abstract class AbstractFileSystem {
   }
   
   /**
-   * Returns true if the specified string is considered valid as a filename by
-   * this file system.  The default implementation enforces the rules of HDFS,
-   * but subclasses may override this method to implement specific validation
-   * rules for specific file systems.
+   * Returns true if the specified string is considered valid in the path part
+   * of a URI by this file system.  The default implementation enforces the rules
+   * of HDFS, but subclasses may override this method to implement specific
+   * validation rules for specific file systems.
    * 
-   * @param src String source filename to check
+   * @param src String source filename to check, path part of the URI
    * @return boolean true if the specified string is considered valid
    */
   public boolean isValidName(String src) {
