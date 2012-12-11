@@ -152,14 +152,11 @@ Release 1.1.0 - (partial upto at r1293509 as of 2012-02-24 17:46:42)
     HDFS-3163. TestHDFSCLI.testAll fails if user name is not all lowercase.
     (Brandon Li via suresh)
 
-<<<<<<< HEAD
     HDFS-8417. HADOOP-6963 didn't update hadoop-core-pom-template.xml (Zhihong Ted Yu via cos)
 
     HDFS-3652. FSEditLog failure removes the wrong edit stream when storage
     dirs have same name. (todd)
 
-=======
->>>>>>> a623176... Added a branching information to CHANGES.txt along with a section for changes merged from branch-1 to branch-1-win
 Release 1.0.3 - 2012.05.07
 
   NEW FEATURES
