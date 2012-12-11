@@ -1423,13 +1423,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           blobKey = normalizeKey(blob.getUri().toString());
 
           FileMetadata metadata;
-<<<<<<< HEAD
-          if (getIsFolder(blob)) {
-            metadata = new FileMetadata(blobKey, getPermission(blob), false);
-=======
           if (retrieveFolderAttribute(blob)) {
-            metadata = new FileMetadata(blobKey, getPermission(blob));
->>>>>>> ChangeFolderBlob
+            metadata = new FileMetadata(blobKey, getPermission(blob), false);
           } else {
             metadata = new FileMetadata(
                 blobKey,
@@ -1570,13 +1565,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           blobKey = normalizeKey(blob.getUri().toString());
 
           FileMetadata metadata;
-<<<<<<< HEAD
-          if (getIsFolder(blob)) {
-            metadata = new FileMetadata(blobKey, getPermission(blob), false);
-=======
           if (retrieveFolderAttribute(blob)) {
-            metadata = new FileMetadata(blobKey, getPermission(blob));
->>>>>>> ChangeFolderBlob
+            metadata = new FileMetadata(blobKey, getPermission(blob), false);
           } else {
             metadata = new FileMetadata(
                 blobKey,
