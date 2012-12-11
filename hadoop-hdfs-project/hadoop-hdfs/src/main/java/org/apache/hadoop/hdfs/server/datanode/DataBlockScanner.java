@@ -237,9 +237,22 @@ public class DataBlockScanner implements Runnable {
     }
   }
   
-  public synchronized void shutdown() {
+  public void shutdown() {
+    synchronized (this) {
+      if (blockScannerThread != null) {
+        blockScannerThread.interrupt();
+      }
+    }
+
+    // We cannot join within the synchronized block, because it would create a
+    // deadlock situation.  blockScannerThread calls other synchronized methods.
     if (blockScannerThread != null) {
-      blockScannerThread.interrupt();
+      try {
+        blockScannerThread.join();
+      }
+      catch (InterruptedException e) {
+        // shutting down anyway
+      }
     }
   }
 
