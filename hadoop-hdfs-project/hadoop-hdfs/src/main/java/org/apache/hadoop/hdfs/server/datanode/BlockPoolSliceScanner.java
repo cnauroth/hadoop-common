@@ -619,7 +619,8 @@ class BlockPoolSliceScanner {
     try {
       adjustThrottler();
         
-      while (datanode.shouldRun && !Thread.interrupted()
+      while (datanode.shouldRun
+          && !datanode.blockScanner.blockScannerThread.isInterrupted()
           && datanode.isBPServiceAlive(blockPoolId)) {
         long now = Time.now();
         synchronized (this) {
