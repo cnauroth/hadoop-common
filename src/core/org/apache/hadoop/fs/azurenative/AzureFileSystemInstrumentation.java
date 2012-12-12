@@ -26,6 +26,12 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
           "asv_bytes_written_last_second",
           "Total number of bytes written to Azure Storage during the last second.",
           0L);
+  private final MetricMutableCounterLong rawBytesUploaded =
+      registry.newCounter(
+          "asv_raw_bytes_uploaded",
+          "Total number of raw bytes (including overhead) uploaded by to Azure" +
+          " Storage.",
+          0L);
 
   /**
    * Indicate that we just got a web response from Azure Storage. This should
@@ -50,6 +56,14 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
    */
   public void updateBytesWrittenInLastSecond(long currentBytesWritten) {
     bytesWrittenInLastSecond.set(currentBytesWritten);
+  }
+
+  /**
+   * Indicate that we just uploaded some data to Azure storage.
+   * @param numberOfBytes The raw number of bytes uploaded (including overhead).
+   */
+  public void rawBytesUploaded(long numberOfBytes) {
+    rawBytesUploaded.incr(numberOfBytes);
   }
 
   @Override

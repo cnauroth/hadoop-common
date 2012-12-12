@@ -83,8 +83,13 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     long bytesWritten = getCurrentBytesWritten(getInstrumentation());
     assertTrue("The bytes written in the last second " + bytesWritten +
         " is pretty far from the expected range of around " + FILE_SIZE +
-        " bytes plus a little overheaed.",
+        " bytes plus a little overhead.",
         bytesWritten > (FILE_SIZE / 2) && bytesWritten < (FILE_SIZE * 2));
+    long totalBytesWritten = getCurrentTotalBytesWritten(getInstrumentation());
+    assertTrue("The total bytes written  " + totalBytesWritten +
+        " is pretty far from the expected range of around " + FILE_SIZE +
+        " bytes plus a little overhead.",
+        totalBytesWritten >= FILE_SIZE && bytesWritten < (FILE_SIZE * 2));
     
     // Read the file
     InputStream inputStream = fs.open(filePath);

@@ -63,6 +63,7 @@ class ResponseReceivedMetricUpdater extends
               Date startDate = currentResult.getStartDate();
               Date endDate = currentResult.getStopDate();
               blockUploadGaugeUpdater.blockUploaded(startDate, endDate, length);
+              instrumentation.rawBytesUploaded(length);
             }
           }
         }
