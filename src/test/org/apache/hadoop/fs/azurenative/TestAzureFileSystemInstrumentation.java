@@ -5,6 +5,7 @@ import java.io.*;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.metrics2.*;
 import static org.apache.hadoop.test.MetricsAsserts.*;
+import static org.apache.hadoop.fs.azurenative.AzureMetricsTestUtil.*;
 
 import org.hamcrest.*;
 import org.mockito.ArgumentCaptor;
@@ -15,8 +16,6 @@ import static org.mockito.Mockito.*;
 import junit.framework.TestCase;
 
 public class TestAzureFileSystemInstrumentation extends TestCase {
-  private static final String ASV_WEB_RESPONSES = "asv_web_responses";
-  private static final String ASV_BYTES_WRITTEN = "asv_bytes_written_last_second";
   private FileSystem fs;
   private AzureBlobStorageTestAccount testAccount;
 
@@ -64,7 +63,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
   public void testWebResponsesOnFileCreateRead() throws Exception {
     long base = getBaseWebResponses();
     
-    assertEquals(0, getCurrentBytesWritten());
+    assertEquals(0, getCurrentBytesWritten(getInstrumentation()));
 
     Path filePath = new Path("/metricsTest_webResponses");
     final int FILE_SIZE = 1000;
@@ -81,7 +80,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     // more than 2 but less than 15.
     logOpResponseCount("Creating a 1K file", base);
     base = assertWebResponsesInRange(base, 2, 15);
-    long bytesWritten = getCurrentBytesWritten();
+    long bytesWritten = getCurrentBytesWritten(getInstrumentation());
     assertTrue("The bytes written in the last second " + bytesWritten +
         " is pretty far from the expected range of around " + FILE_SIZE +
         " bytes plus a little overheaed.",
@@ -199,16 +198,6 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
   }
 
   /**
-   * Gets the current value of the asv_web_responses counter.
-   */
-  private long getCurrentBytesWritten() {
-    ArgumentCaptor<Long> captor = ArgumentCaptor.forClass(Long.class);
-    verify(getMyMetrics()).addGauge(eq(ASV_BYTES_WRITTEN), anyString(),
-        captor.capture());
-    return captor.getValue();
-  }
-
-  /**
    * Checks that the asv_web_responses counter is at the given value.
    * @param base The base value (before the operation of interest).
    * @param expected The expected value for the operation of interest.
@@ -241,7 +230,11 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
    * @return The metrics record.
    */
   private MetricsRecordBuilder getMyMetrics() {
-    return getMetrics(((NativeAzureFileSystem)fs).getInstrumentation());
+    return getMetrics(getInstrumentation());
+  }
+
+  private AzureFileSystemInstrumentation getInstrumentation() {
+    return ((NativeAzureFileSystem)fs).getInstrumentation();
   }
 
   /**
