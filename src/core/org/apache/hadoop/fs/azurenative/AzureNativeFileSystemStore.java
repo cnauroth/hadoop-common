@@ -823,7 +823,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     }
   }
 
-  private static void storeIsFolder(CloudBlockBlobWrapper blob) {
+  private static void storeFolderAttribute(CloudBlockBlobWrapper blob) {
     HashMap<String, String> metadata = blob.getMetadata();
     if (null == metadata) {
       metadata = new HashMap<String, String> ();
@@ -832,7 +832,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     blob.setMetadata(metadata);
   }
 
-  private static boolean getIsFolder(CloudBlockBlobWrapper blob) {
+  private static boolean retrieveFolderAttribute(CloudBlockBlobWrapper blob) {
     HashMap<String, String> metadata = blob.getMetadata();
     return null != metadata && metadata.containsKey(IS_FOLDER_METADATA_KEY);
   }
@@ -898,7 +898,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     try {
       CloudBlockBlobWrapper blob = getBlobReference(key);
       storePermission(blob, permission);
-      storeIsFolder(blob);
+      storeFolderAttribute(blob);
       blob.upload(new ByteArrayInputStream(new byte[0]), getInstrumentedContext());
     } catch (Exception e) {
       // Caught exception while attempting upload. Re-throw as an Azure
@@ -1083,7 +1083,12 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     //
     return normKey;
   }
-  
+
+  /**
+   * Creates a new OperationContext for the Azure Storage operation that has
+   * listeners hooked to it that will update the metrics for this file system.
+   * @return The OperationContext object to use.
+   */
   private OperationContext getInstrumentedContext() {
     OperationContext operationContext = new OperationContext();
     operationContext.getResponseReceivedEventHandler().addListener(
@@ -1136,7 +1141,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         //
         blob.downloadAttributes(getInstrumentedContext());
         
-        if (getIsFolder(blob)) {
+        if (retrieveFolderAttribute(blob)) {
           LOG.debug("It's a folder blob.");
           return new FileMetadata(key, getPermission(blob));
         } else {
@@ -1335,7 +1340,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           blobKey = normalizeKey(blob.getUri().toString());
 
           FileMetadata metadata;
-          if (getIsFolder(blob)) {
+          if (retrieveFolderAttribute(blob)) {
             metadata = new FileMetadata(blobKey, getPermission(blob));
           } else {
             metadata = new FileMetadata(
@@ -1477,7 +1482,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           blobKey = normalizeKey(blob.getUri().toString());
 
           FileMetadata metadata;
-          if (getIsFolder(blob)) {
+          if (retrieveFolderAttribute(blob)) {
             metadata = new FileMetadata(blobKey, getPermission(blob));
           } else {
             metadata = new FileMetadata(
