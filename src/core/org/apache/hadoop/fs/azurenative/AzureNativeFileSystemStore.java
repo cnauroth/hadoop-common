@@ -32,7 +32,6 @@ import org.apache.hadoop.fs.permission.FsPermission;
 
 import com.microsoft.windowsazure.services.blob.client.*;
 import com.microsoft.windowsazure.services.core.storage.*;
-import com.microsoft.windowsazure.services.core.storage.Constants.HeaderConstants;
 import com.microsoft.windowsazure.services.core.storage.utils.*;
 
 import static org.apache.hadoop.fs.azurenative.StorageInterface.*;
@@ -1093,33 +1092,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    */
   private OperationContext getInstrumentedContext() {
     final OperationContext operationContext = new OperationContext();
-    operationContext.getResponseReceivedEventHandler().addListener(
-        new StorageEvent<ResponseReceivedEvent>() {
-          @Override
-          public void eventOccurred(ResponseReceivedEvent eventArg) {
-            instrumentation.webResponse();
-            RequestResult currentResult = operationContext.getLastResult();
-            // Check if the result was a successful block upload.
-            if (currentResult.getStatusCode() == HttpURLConnection.HTTP_CREATED) {
-              if (eventArg.getConnectionObject() instanceof HttpURLConnection) {
-                HttpURLConnection connection = (HttpURLConnection)eventArg.getConnectionObject();
-                // If it's a PUT request then we're uploading blocks
-                if (connection.getRequestMethod().equalsIgnoreCase("PUT")) {
-                  String lengthString = connection.getRequestProperty(
-                      HeaderConstants.CONTENT_LENGTH);
-                  if (lengthString != null) {
-                    long length = Long.parseLong(lengthString);
-                    if (length > 0) {
-                      Date startDate = currentResult.getStartDate();
-                      Date endDate = currentResult.getStopDate();
-                      blockUploadGaugeUpdater.blockUploaded(startDate, endDate, length);
-                    }
-                  }
-                }
-              }
-            }
-          }
-        });
+    ResponseReceivedMetricUpdater.hook(operationContext, instrumentation, blockUploadGaugeUpdater);
     return operationContext;
   }
 
