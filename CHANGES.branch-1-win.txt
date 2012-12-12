@@ -250,3 +250,6 @@ BUG FIXES
 
     HADOOP-8617. Backport HADOOP-6148, HADOOP-6166 and HADOOP-7333 for a pure
     Java CRC32 calculator implementation.  (Brandon Li via szetszwo)
+
+    HADOOP-7096. Allow setting of end-of-record delimiter for TextInputFormat
+    (Ahmed Radwan, backported by suresh)
