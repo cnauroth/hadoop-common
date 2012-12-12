@@ -99,7 +99,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private int concurrentWrites = DEFAULT_CONCURRENT_WRITES;
   private boolean isAnonymousCredentials = false;
   private AzureFileSystemInstrumentation instrumentation;
-  private Thread uploadBandwidthUpdater;
+  private BlockUploadGaugeUpdater blockUploadGaugeUpdater;
   
   void setAzureStorageInteractionLayer(
       StorageInterface storageInteractionLayer) {
@@ -125,8 +125,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       throw new IllegalArgumentException("Null instrumentation");
     }
     this.instrumentation = instrumentation;
-    this.uploadBandwidthUpdater = new Thread(new UploadBandwidthUpdater());
-    this.uploadBandwidthUpdater.start();
+    this.blockUploadGaugeUpdater = new BlockUploadGaugeUpdater(instrumentation);
 
     // Check that URI exists.
     //
@@ -1087,64 +1086,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     return normKey;
   }
 
-  private static final class BlockWritingWindow {
-    private final Date startDate;
-    private final Date endDate;
-    private final long bytesWritten;
-    
-    public BlockWritingWindow(Date startDate, Date endDate, long bytesWritten) {
-      this.startDate = startDate;
-      this.endDate = endDate;
-      this.bytesWritten = bytesWritten;
-    }
-    
-    public Date getStartDate() { return startDate; }
-    public Date getEndDate() { return endDate; }
-    public long getBytesWritten() { return bytesWritten; }
-  }
-  
-  private final class UploadBandwidthUpdater implements Runnable {
-    @Override
-    public void run() {
-      try {
-        while (true) {
-          Thread.sleep(1000);
-          ArrayList<BlockWritingWindow> toProcess = null;
-          synchronized (blocksWrittenLock) {
-            if (!allBlocksWritten.isEmpty()) {
-              toProcess = allBlocksWritten;
-              allBlocksWritten = new ArrayList<BlockWritingWindow>(1000);
-            }
-          }
-          if (toProcess != null) {
-            long bytesWrittenInLastSecond = 0;
-            long cutoffTime = new Date().getTime() - 1000;
-            for (BlockWritingWindow currentWindow : toProcess) {
-              if (currentWindow.getStartDate().getTime() > cutoffTime) {
-                bytesWrittenInLastSecond += currentWindow.bytesWritten;
-              } else if (currentWindow.getEndDate().getTime() > cutoffTime) {
-                long adjustedBytes = (currentWindow.getBytesWritten() *
-                    (currentWindow.getEndDate().getTime() -
-                        currentWindow.getStartDate().getTime())) /
-                    (currentWindow.getEndDate().getTime() -
-                        cutoffTime);
-                bytesWrittenInLastSecond += adjustedBytes;
-              }
-            }
-            instrumentation.updateBytesWrittenInLastSecond(bytesWrittenInLastSecond);
-          } else {
-            instrumentation.updateBytesWrittenInLastSecond(0);
-          }
-        }
-      } catch (InterruptedException e) {
-      }
-    }
-  }
-  
-  private ArrayList<BlockWritingWindow> allBlocksWritten =
-      new ArrayList<BlockWritingWindow>(1000);
-  private final Object blocksWrittenLock = new Object();
-
   /**
    * Creates a new OperationContext for the Azure Storage operation that has
    * listeners hooked to it that will update the metrics for this file system.
@@ -1171,9 +1112,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
                     if (length > 0) {
                       Date startDate = currentResult.getStartDate();
                       Date endDate = currentResult.getStopDate();
-                      synchronized (blocksWrittenLock) {
-                        allBlocksWritten.add(new BlockWritingWindow(startDate, endDate, length));
-                      }
+                      blockUploadGaugeUpdater.blockUploaded(startDate, endDate, length);
                     }
                   }
                 }
@@ -1744,14 +1683,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   @Override
-  public void close() throws IOException {
-    if (uploadBandwidthUpdater != null) {
-      uploadBandwidthUpdater.interrupt();
-      try {
-        uploadBandwidthUpdater.join();
-      } catch (InterruptedException e) {
-      }
-      uploadBandwidthUpdater = null;
-    }
+  public void close() {
+    blockUploadGaugeUpdater.close();
   }
 }
