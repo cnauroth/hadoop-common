@@ -89,7 +89,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     assertTrue("The total bytes written  " + totalBytesWritten +
         " is pretty far from the expected range of around " + FILE_SIZE +
         " bytes plus a little overhead.",
-        totalBytesWritten >= FILE_SIZE && bytesWritten < (FILE_SIZE * 2));
+        totalBytesWritten >= FILE_SIZE && totalBytesWritten < (FILE_SIZE * 2));
     
     // Read the file
     InputStream inputStream = fs.open(filePath);
@@ -105,6 +105,8 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     // 1 and 10.
     logOpResponseCount("Reading a 1K file", base);
     base = assertWebResponsesInRange(base, 1, 10);
+    long totalBytesRead = getCurrentTotalBytesRead(getInstrumentation());
+    assertEquals(FILE_SIZE, totalBytesRead);
   }
 
   public void testWebResponsesOnFileRenameDelete() throws Exception {

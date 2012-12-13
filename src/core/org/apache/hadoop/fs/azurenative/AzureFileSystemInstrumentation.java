@@ -29,7 +29,13 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
   private final MetricMutableCounterLong rawBytesUploaded =
       registry.newCounter(
           "asv_raw_bytes_uploaded",
-          "Total number of raw bytes (including overhead) uploaded by to Azure" +
+          "Total number of raw bytes (including overhead) uploaded to Azure" +
+          " Storage.",
+          0L);
+  private final MetricMutableCounterLong rawBytesDownloaded =
+      registry.newCounter(
+          "asv_raw_bytes_downloaded",
+          "Total number of raw bytes (including overhead) downloaded from Azure" +
           " Storage.",
           0L);
 
@@ -64,6 +70,14 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
    */
   public void rawBytesUploaded(long numberOfBytes) {
     rawBytesUploaded.incr(numberOfBytes);
+  }
+
+  /**
+   * Indicate that we just downloaded some data to Azure storage.
+   * @param numberOfBytes The raw number of bytes downloaded (including overhead).
+   */
+  public void rawBytesDownloaded(long numberOfBytes) {
+    rawBytesDownloaded.incr(numberOfBytes);
   }
 
   @Override

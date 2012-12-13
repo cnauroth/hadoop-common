@@ -11,6 +11,8 @@ public final class AzureMetricsTestUtil {
   public static final String ASV_BYTES_WRITTEN = "asv_bytes_written_last_second";
   public static final String ASV_RAW_BYTES_UPLOADED =
       "asv_raw_bytes_uploaded";
+  public static final String ASV_RAW_BYTES_DOWNLOADED =
+      "asv_raw_bytes_downloaded";
 
   /**
    * Gets the current value of the asv_web_responses counter.
@@ -24,14 +26,30 @@ public final class AzureMetricsTestUtil {
   }
 
   /**
-   * Gets the current value of the asv_bytes_written_last_second counter.
+   * Gets the current value of the given counter.
+   */
+  public static long getLongCounterValue(AzureFileSystemInstrumentation instrumentation,
+      String counterName) {
+    ArgumentCaptor<Long> captor = ArgumentCaptor.forClass(Long.class);
+    verify(getMetrics(instrumentation))
+      .addCounter(eq(counterName), anyString(),
+        captor.capture());
+    return captor.getValue();
+  }
+
+  /**
+   * Gets the current value of the asv_raw_bytes_uploaded counter.
    */
   public static long getCurrentTotalBytesWritten(
       AzureFileSystemInstrumentation instrumentation) {
-    ArgumentCaptor<Long> captor = ArgumentCaptor.forClass(Long.class);
-    verify(getMetrics(instrumentation))
-      .addCounter(eq(ASV_RAW_BYTES_UPLOADED), anyString(),
-        captor.capture());
-    return captor.getValue();
+    return getLongCounterValue(instrumentation, ASV_RAW_BYTES_UPLOADED);
+  }
+
+  /**
+   * Gets the current value of the asv_raw_bytes_downloaded counter.
+   */
+  public static long getCurrentTotalBytesRead(
+      AzureFileSystemInstrumentation instrumentation) {
+    return getLongCounterValue(instrumentation, ASV_RAW_BYTES_DOWNLOADED);
   }
 }

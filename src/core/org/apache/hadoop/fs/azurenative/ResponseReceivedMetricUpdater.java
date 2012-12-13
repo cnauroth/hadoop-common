@@ -45,28 +45,47 @@ class ResponseReceivedMetricUpdater extends
     operationContext.getResponseReceivedEventHandler().addListener(listener);
   }
 
+  private long getRequestContentLength(HttpURLConnection connection) {
+    String lengthString = connection.getRequestProperty(
+        HeaderConstants.CONTENT_LENGTH);
+    if (lengthString != null)
+      return Long.parseLong(lengthString);
+    else
+      return 0;
+  }
+
+  private long getResponseContentLength(HttpURLConnection connection) {
+    return connection.getContentLength();
+  }
+
   @Override
   public void eventOccurred(ResponseReceivedEvent eventArg) {
     instrumentation.webResponse();
     RequestResult currentResult = operationContext.getLastResult();
-    // Check if the result was a successful block upload.
-    if (currentResult.getStatusCode() == HttpURLConnection.HTTP_CREATED) {
-      if (eventArg.getConnectionObject() instanceof HttpURLConnection) {
-        HttpURLConnection connection = (HttpURLConnection)eventArg.getConnectionObject();
-        // If it's a PUT request then we're uploading blocks
-        if (connection.getRequestMethod().equalsIgnoreCase("PUT")) {
-          String lengthString = connection.getRequestProperty(
-              HeaderConstants.CONTENT_LENGTH);
-          if (lengthString != null) {
-            long length = Long.parseLong(lengthString);
-            if (length > 0) {
-              Date startDate = currentResult.getStartDate();
-              Date endDate = currentResult.getStopDate();
-              blockUploadGaugeUpdater.blockUploaded(startDate, endDate, length);
-              instrumentation.rawBytesUploaded(length);
-            }
-          }
-        }
+    if (!(eventArg.getConnectionObject() instanceof HttpURLConnection)) {
+      // Typically this shouldn't happen, but just let it pass
+      return;
+    }
+    HttpURLConnection connection =
+        (HttpURLConnection)eventArg.getConnectionObject();
+    if (currentResult.getStatusCode() == HttpURLConnection.HTTP_CREATED &&
+        connection.getRequestMethod().equalsIgnoreCase("PUT")) {
+      // If it's a PUT with an HTTP_CREATED status then it's a successful
+      // block upload.
+      long length = getRequestContentLength(connection);
+      if (length > 0) {
+        Date startDate = currentResult.getStartDate();
+        Date endDate = currentResult.getStopDate();
+        blockUploadGaugeUpdater.blockUploaded(startDate, endDate, length);
+        instrumentation.rawBytesUploaded(length);
+      }
+    } else if (currentResult.getStatusCode() == HttpURLConnection.HTTP_PARTIAL &&
+        connection.getRequestMethod().equalsIgnoreCase("GET")) {
+      // If it's a GET with an HTTP_PARTIAL status then it's a successful
+      // block download.
+      long length = getResponseContentLength(connection);
+      if (length > 0) {
+        instrumentation.rawBytesDownloaded(length);
       }
     }
   }
