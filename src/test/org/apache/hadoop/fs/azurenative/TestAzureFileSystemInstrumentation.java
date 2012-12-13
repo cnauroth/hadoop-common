@@ -43,7 +43,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     }
   }
 
-  public void testWebResponsesOnMkdirList() throws Exception {
+  public void testMetricsOnMkdirList() throws Exception {
     long base = getBaseWebResponses();
     
     // Create a directory
@@ -54,13 +54,14 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     // there's no blob called /user, no blob called /user/<name> and no blob
     // called /user/<name>/a, and then 1 reqest for the creation, totalling 7.
     base = assertWebResponsesInRange(base, 1, 7);
+    assertEquals(1, getLongCounterValue(getInstrumentation(), ASV_DIRECTORIES_CREATED));
 
     // List the root contents
     assertEquals(1, fs.listStatus(new Path("/")).length);    
     base = assertWebResponsesEquals(base, 1);
   }
 
-  public void testWebResponsesOnFileCreateRead() throws Exception {
+  public void testMetricsOnFileCreateRead() throws Exception {
     long base = getBaseWebResponses();
     
     assertEquals(0, getCurrentBytesWritten(getInstrumentation()));
@@ -99,7 +100,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     }
     inputStream.close();
     assertEquals(FILE_SIZE, count);
-    
+
     // Again, exact number varies. At the time of writing this code
     // it takes 4 request/responses, so just assert a rough range between
     // 1 and 10.
@@ -109,17 +110,19 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     assertEquals(FILE_SIZE, totalBytesRead);
   }
 
-  public void testWebResponsesOnFileRenameDelete() throws Exception {
+  public void testMetricsOnFileRename() throws Exception {
     long base = getBaseWebResponses();
-    
+
     Path originalPath = new Path("/metricsTest_RenameStart");
     Path destinationPath = new Path("/metricsTest_RenameFinal");
-    
+
     // Create an empty file
+    assertEquals(0, getLongCounterValue(getInstrumentation(), ASV_FILES_CREATED));
     assertTrue(fs.createNewFile(originalPath));
     logOpResponseCount("Creating an empty file", base);
     base = assertWebResponsesInRange(base, 2, 20);
-    
+    assertEquals(1, getLongCounterValue(getInstrumentation(), ASV_FILES_CREATED));
+
     // Rename the file
     assertTrue(fs.rename(originalPath, destinationPath));
     // Varies: at the time of writing this code it takes 7 requests/responses.
@@ -127,36 +130,38 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     base = assertWebResponsesInRange(base, 2, 15);
   }
 
-  public void testWebResponsesOnFileExistsDelete() throws Exception {
+  public void testMetricsOnFileExistsDelete() throws Exception {
     long base = getBaseWebResponses();
-    
+
     Path filePath = new Path("/metricsTest_delete");
-    
+
     // Check existence
     assertFalse(fs.exists(filePath));
     // At the time of writing this code it takes 2 requests/responses to
     // check existence, which seems excessive. Check for range 1-4 for now.
     logOpResponseCount("Checking file existence for non-existent file", base);
     base = assertWebResponsesInRange(base, 1, 2);
-    
+
     // Create an empty file
     assertTrue(fs.createNewFile(filePath));
     base = getCurrentWebResponses();
-    
+
     // Check existence again
     assertTrue(fs.exists(filePath));
     logOpResponseCount("Checking file existence for existent file", base);
     base = assertWebResponsesInRange(base, 1, 2);
-    
+
     // Delete the file
+    assertEquals(0, getLongCounterValue(getInstrumentation(), ASV_FILES_DELETED));
     assertTrue(fs.delete(filePath, false));
     // At the time of writing this code it takes 4 requests/responses to
     // delete, which seems excessive. Check for range 1-4 for now.
     logOpResponseCount("Deleting a file", base);
     base = assertWebResponsesInRange(base, 1, 4);
+    assertEquals(1, getLongCounterValue(getInstrumentation(), ASV_FILES_DELETED));
   }
 
-  public void testWebResponsesOnDirRename() throws Exception {
+  public void testMetricsOnDirRename() throws Exception {
     long base = getBaseWebResponses();
     
     Path originalDirName = new Path("/metricsTestDirectory_RenameStart");

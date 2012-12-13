@@ -8,11 +8,16 @@ import org.mockito.ArgumentCaptor;
 
 public final class AzureMetricsTestUtil {
   public static final String ASV_WEB_RESPONSES = "asv_web_responses";
-  public static final String ASV_BYTES_WRITTEN = "asv_bytes_written_last_second";
+  public static final String ASV_BYTES_WRITTEN =
+      "asv_bytes_written_last_second";
   public static final String ASV_RAW_BYTES_UPLOADED =
       "asv_raw_bytes_uploaded";
   public static final String ASV_RAW_BYTES_DOWNLOADED =
       "asv_raw_bytes_downloaded";
+  public static final String ASV_FILES_CREATED = "asv_files_created";
+  public static final String ASV_FILES_DELETED = "asv_files_deleted";
+  public static final String ASV_DIRECTORIES_CREATED = "asv_directories_created";
+  public static final String ASV_DIRECTORIES_DELETED = "asv_directories_deleted";
 
   /**
    * Gets the current value of the asv_web_responses counter.

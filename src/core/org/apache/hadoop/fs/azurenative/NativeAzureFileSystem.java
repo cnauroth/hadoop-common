@@ -856,6 +856,7 @@ public class NativeAzureFileSystem extends FileSystem {
       // suffixed file as appropriate.
       //
       store.delete(key);
+      instrumentation.fileDeleted();
     } else {
       // The path specifies a folder. Recursively delete all entries under the
       // folder. List all the blobs in the current folder.
@@ -880,6 +881,7 @@ public class NativeAzureFileSystem extends FileSystem {
         String suffix = p.getKey().substring(p.getKey().lastIndexOf(PATH_DELIMITER));
         if (!p.isDir()){
           store.delete(key + suffix);
+          instrumentation.fileDeleted();
         } else {
           // Recursively delete contents of the sub-folders. Notice this also
           // deletes the blob for the directory.
@@ -890,6 +892,7 @@ public class NativeAzureFileSystem extends FileSystem {
         }
       }
       store.delete(key);
+      instrumentation.directoryDeleted();
     }
 
     // File or directory was successfully deleted.
@@ -1066,6 +1069,7 @@ public class NativeAzureFileSystem extends FileSystem {
 
     String key = pathToKey(absolutePath);
     store.storeEmptyFolder(key, permission);
+    instrumentation.directoryCreated();
 
     // otherwise throws exception
     return true;

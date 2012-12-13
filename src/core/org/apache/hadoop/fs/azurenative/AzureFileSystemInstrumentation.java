@@ -21,6 +21,21 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
           "asv_files_created",
           "Total number of files created through the ASV file system.",
           0L);
+  private final MetricMutableCounterLong numberOfFilesDeleted =
+      registry.newCounter(
+          "asv_files_deleted",
+          "Total number of files deleted through the ASV file system.",
+          0L);
+  private final MetricMutableCounterLong numberOfDirectoriesCreated =
+      registry.newCounter(
+          "asv_directories_created",
+          "Total number of directories created through the ASV file system.",
+          0L);
+  private final MetricMutableCounterLong numberOfDirectoriesDeleted =
+      registry.newCounter(
+          "asv_directories_deleted",
+          "Total number of directories deleted through the ASV file system.",
+          0L);
   private final MetricMutableGaugeLong bytesWrittenInLastSecond =
       registry.newGauge(
           "asv_bytes_written_last_second",
@@ -53,6 +68,27 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
    */
   public void fileCreated() {
     numberOfFilesCreated.incr();
+  }
+
+  /**
+   * Indicate that we just deleted a file through ASV.
+   */
+  public void fileDeleted() {
+    numberOfFilesDeleted.incr();
+  }
+
+  /**
+   * Indicate that we just created a directory through ASV.
+   */
+  public void directoryCreated() {
+    numberOfDirectoriesCreated.incr();
+  }
+
+  /**
+   * Indicate that we just deleted a directory through ASV.
+   */
+  public void directoryDeleted() {
+    numberOfDirectoriesDeleted.incr();
   }
 
   /**
