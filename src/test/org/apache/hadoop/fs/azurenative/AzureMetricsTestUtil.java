@@ -10,6 +10,8 @@ public final class AzureMetricsTestUtil {
   public static final String ASV_WEB_RESPONSES = "asv_web_responses";
   public static final String ASV_BYTES_WRITTEN =
       "asv_bytes_written_last_second";
+  public static final String ASV_BYTES_READ =
+      "asv_bytes_read_last_second";
   public static final String ASV_RAW_BYTES_UPLOADED =
       "asv_raw_bytes_uploaded";
   public static final String ASV_RAW_BYTES_DOWNLOADED =
@@ -19,13 +21,11 @@ public final class AzureMetricsTestUtil {
   public static final String ASV_DIRECTORIES_CREATED = "asv_directories_created";
   public static final String ASV_DIRECTORIES_DELETED = "asv_directories_deleted";
 
-  /**
-   * Gets the current value of the asv_web_responses counter.
-   */
-  public static long getCurrentBytesWritten(AzureFileSystemInstrumentation instrumentation) {
+  public static long getLongGaugeValue(AzureFileSystemInstrumentation instrumentation,
+      String gaugeName) {
     ArgumentCaptor<Long> captor = ArgumentCaptor.forClass(Long.class);
     verify(getMetrics(instrumentation))
-      .addGauge(eq(ASV_BYTES_WRITTEN), anyString(),
+      .addGauge(eq(gaugeName), anyString(),
         captor.capture());
     return captor.getValue();
   }
@@ -40,6 +40,20 @@ public final class AzureMetricsTestUtil {
       .addCounter(eq(counterName), anyString(),
         captor.capture());
     return captor.getValue();
+  }
+
+  /**
+   * Gets the current value of the asv_bytes_written_last_second counter.
+   */
+  public static long getCurrentBytesWritten(AzureFileSystemInstrumentation instrumentation) {
+    return getLongGaugeValue(instrumentation, ASV_BYTES_WRITTEN);
+  }
+
+  /**
+   * Gets the current value of the asv_bytes_read_last_second counter.
+   */
+  public static long getCurrentBytesRead(AzureFileSystemInstrumentation instrumentation) {
+    return getLongGaugeValue(instrumentation, ASV_BYTES_READ);
   }
 
   /**

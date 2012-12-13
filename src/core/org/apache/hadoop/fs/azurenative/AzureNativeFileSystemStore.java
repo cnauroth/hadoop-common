@@ -97,11 +97,15 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private int concurrentWrites = DEFAULT_CONCURRENT_WRITES;
   private boolean isAnonymousCredentials = false;
   private AzureFileSystemInstrumentation instrumentation;
-  private BlockUploadGaugeUpdater blockUploadGaugeUpdater;
+  private BandwidthGaugeUpdater bandwidthGaugeUpdater;
   
   void setAzureStorageInteractionLayer(
       StorageInterface storageInteractionLayer) {
     this.storageInteractionLayer = storageInteractionLayer;
+  }
+
+  BandwidthGaugeUpdater getBandwidthGaugeUpdater() {
+    return bandwidthGaugeUpdater;
   }
 
   /**
@@ -123,7 +127,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       throw new IllegalArgumentException("Null instrumentation");
     }
     this.instrumentation = instrumentation;
-    this.blockUploadGaugeUpdater = new BlockUploadGaugeUpdater(instrumentation);
+    this.bandwidthGaugeUpdater = new BandwidthGaugeUpdater(instrumentation);
     if (null == this.storageInteractionLayer) {
       this.storageInteractionLayer = new StorageInterfaceImpl();
     }
@@ -1119,7 +1123,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    */
   private OperationContext getInstrumentedContext() {
     final OperationContext operationContext = new OperationContext();
-    ResponseReceivedMetricUpdater.hook(operationContext, instrumentation, blockUploadGaugeUpdater);
+    ResponseReceivedMetricUpdater.hook(operationContext, instrumentation, bandwidthGaugeUpdater);
     return operationContext;
   }
 
@@ -1691,6 +1695,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
   @Override
   public void close() {
-    blockUploadGaugeUpdater.close();
+    bandwidthGaugeUpdater.close();
   }
 }

@@ -61,6 +61,12 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     base = assertWebResponsesEquals(base, 1);
   }
 
+  private BandwidthGaugeUpdater getBandwidthGaugeUpdater() {
+    NativeAzureFileSystem azureFs = (NativeAzureFileSystem)fs;
+    AzureNativeFileSystemStore azureStore = azureFs.getStore();
+    return azureStore.getBandwidthGaugeUpdater();
+  }
+
   public void testMetricsOnFileCreateRead() throws Exception {
     long base = getBaseWebResponses();
     
@@ -68,6 +74,10 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
 
     Path filePath = new Path("/metricsTest_webResponses");
     final int FILE_SIZE = 1000;
+
+    // Suppress auto-update of bandwidth metrics so we get
+    // to update them exactly when we want to.
+    getBandwidthGaugeUpdater().suppressAutoUpdate();
 
     // Create a file
     OutputStream outputStream = fs.create(filePath);
@@ -81,6 +91,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     // more than 2 but less than 15.
     logOpResponseCount("Creating a 1K file", base);
     base = assertWebResponsesInRange(base, 2, 15);
+    getBandwidthGaugeUpdater().triggerUpdate(true);
     long bytesWritten = getCurrentBytesWritten(getInstrumentation());
     assertTrue("The bytes written in the last second " + bytesWritten +
         " is pretty far from the expected range of around " + FILE_SIZE +
@@ -106,8 +117,14 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     // 1 and 10.
     logOpResponseCount("Reading a 1K file", base);
     base = assertWebResponsesInRange(base, 1, 10);
+    getBandwidthGaugeUpdater().triggerUpdate(false);
     long totalBytesRead = getCurrentTotalBytesRead(getInstrumentation());
     assertEquals(FILE_SIZE, totalBytesRead);
+    long bytesRead = getCurrentBytesRead(getInstrumentation());
+    assertTrue("The bytes read in the last second " + bytesRead +
+        " is pretty far from the expected range of around " + FILE_SIZE +
+        " bytes plus a little overhead.",
+        bytesRead > (FILE_SIZE / 2) && bytesRead < (FILE_SIZE * 2));
   }
 
   public void testMetricsOnFileRename() throws Exception {

@@ -1,7 +1,6 @@
 package org.apache.hadoop.fs.azurenative;
 
 import java.net.*;
-import java.util.*;
 
 import com.microsoft.windowsazure.services.core.storage.*;
 import com.microsoft.windowsazure.services.core.storage.Constants.HeaderConstants;
@@ -14,11 +13,11 @@ class ResponseReceivedMetricUpdater extends
     StorageEvent<ResponseReceivedEvent> {
   private final AzureFileSystemInstrumentation instrumentation;
   private final OperationContext operationContext;
-  private final BlockUploadGaugeUpdater blockUploadGaugeUpdater;
+  private final BandwidthGaugeUpdater blockUploadGaugeUpdater;
 
   private ResponseReceivedMetricUpdater(OperationContext operationContext,
       AzureFileSystemInstrumentation instrumentation,
-      BlockUploadGaugeUpdater blockUploadGaugeUpdater) {
+      BandwidthGaugeUpdater blockUploadGaugeUpdater) {
     this.instrumentation = instrumentation;
     this.operationContext = operationContext;
     this.blockUploadGaugeUpdater = blockUploadGaugeUpdater;
@@ -37,7 +36,7 @@ class ResponseReceivedMetricUpdater extends
   public static void hook(
       OperationContext operationContext,
       AzureFileSystemInstrumentation instrumentation,
-      BlockUploadGaugeUpdater blockUploadGaugeUpdater) {
+      BandwidthGaugeUpdater blockUploadGaugeUpdater) {
     ResponseReceivedMetricUpdater listener =
         new ResponseReceivedMetricUpdater(operationContext,
             instrumentation,
@@ -74,9 +73,10 @@ class ResponseReceivedMetricUpdater extends
       // block upload.
       long length = getRequestContentLength(connection);
       if (length > 0) {
-        Date startDate = currentResult.getStartDate();
-        Date endDate = currentResult.getStopDate();
-        blockUploadGaugeUpdater.blockUploaded(startDate, endDate, length);
+        blockUploadGaugeUpdater.blockUploaded(
+            currentResult.getStartDate(),
+            currentResult.getStopDate(),
+            length);
         instrumentation.rawBytesUploaded(length);
       }
     } else if (currentResult.getStatusCode() == HttpURLConnection.HTTP_PARTIAL &&
@@ -85,6 +85,10 @@ class ResponseReceivedMetricUpdater extends
       // block download.
       long length = getResponseContentLength(connection);
       if (length > 0) {
+        blockUploadGaugeUpdater.blockDownloaded(
+            currentResult.getStartDate(),
+            currentResult.getStopDate(),
+            length);
         instrumentation.rawBytesDownloaded(length);
       }
     }

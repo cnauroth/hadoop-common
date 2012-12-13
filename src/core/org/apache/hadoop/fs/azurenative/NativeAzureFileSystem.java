@@ -643,6 +643,7 @@ public class NativeAzureFileSystem extends FileSystem {
 
   private URI uri;
   private NativeFileSystemStore store;
+  private AzureNativeFileSystemStore actualStore;
   private Path workingDir;
   private long blockSize = MAX_AZURE_BLOCK_SIZE;
   private AzureFileSystemInstrumentation instrumentation;
@@ -681,8 +682,8 @@ public class NativeAzureFileSystem extends FileSystem {
     this.blockSize = conf.getLong(AZURE_BLOCK_SIZE_PROPERTY_NAME, MAX_AZURE_BLOCK_SIZE);
   }
 
-  private static NativeFileSystemStore createDefaultStore(Configuration conf) {
-    AzureNativeFileSystemStore store = new AzureNativeFileSystemStore();
+  private NativeFileSystemStore createDefaultStore(Configuration conf) {
+    actualStore = new AzureNativeFileSystemStore();
 
     // TODO: Remove literals to improve portability and facilitate future
     // TODO: future changes to constants.
@@ -713,7 +714,7 @@ public class NativeAzureFileSystem extends FileSystem {
     methodNameToPolicyMap.put("storeFile", methodPolicy);
 
     return (NativeFileSystemStore) RetryProxy.create(
-        NativeFileSystemStore.class, store, methodNameToPolicyMap);
+        NativeFileSystemStore.class, actualStore, methodNameToPolicyMap);
   }
 
   private String pathToKey(Path path) {
@@ -759,7 +760,16 @@ public class NativeAzureFileSystem extends FileSystem {
     }
     return new Path(workingDir, path);
   }
-  
+
+  /**
+   * For unit test purposes, retrieves the AzureNativeFileSystemStore store
+   * backing this file system.
+   * @return The store object.
+   */
+  AzureNativeFileSystemStore getStore() {
+    return actualStore;
+  }
+
   /**
    * Gets the metrics source for this file system.
    * This is mainly here for unit testing purposes.
