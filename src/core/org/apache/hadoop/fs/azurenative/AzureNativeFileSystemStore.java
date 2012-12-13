@@ -42,8 +42,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   public static final Log LOG = LogFactory.getLog(AzureNativeFileSystemStore.class);
 
   private CloudStorageAccount account;
-  private StorageInterface storageInteractionLayer =
-      new StorageInterfaceImpl();
+  private StorageInterface storageInteractionLayer;
   private CloudBlobDirectoryWrapper rootDirectory;
   private CloudBlobContainerWrapper container;
   
@@ -124,6 +123,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       throw new IllegalArgumentException("Null instrumentation");
     }
     this.instrumentation = instrumentation;
+    if (null == this.storageInteractionLayer) {
+      this.storageInteractionLayer = new StorageInterfaceImpl();
+    }
 
     // Check that URI exists.
     //
@@ -1134,7 +1136,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //
       if (null != blob && blob.exists(getInstrumentedContext())) {
 
-        LOG.debug("Found it as an explicit bob. Checking if it's a file or folder.");
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Found " + key +
+              " as an explicit blob. Checking if it's a file or folder.");
+        }
 
         // The blob exists, so capture the metadata from the blob
         // properties.
@@ -1142,10 +1147,14 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         blob.downloadAttributes(getInstrumentedContext());
         
         if (retrieveFolderAttribute(blob)) {
-          LOG.debug("It's a folder blob.");
+          if (LOG.isDebugEnabled()) {
+            LOG.debug(key + " is a folder blob.");
+          }
           return new FileMetadata(key, getPermission(blob));
         } else {
-          LOG.debug("It's a normal blob.");
+          if (LOG.isDebugEnabled()) {
+            LOG.debug(key + " is a normal blob.");
+          }
           BlobProperties properties = blob.getProperties();
           
           return new FileMetadata(
@@ -1176,9 +1185,11 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           if (blobItem.getUri() != null) {
             blob = getBlobReference(blobItem.getUri().getPath().split(PATH_DELIMITER,3)[2]);
             if (blob.exists(getInstrumentedContext())) {
-              LOG.debug(
-                  "Found blob as a directory-using this file under it to infer its properties" +
+              if (LOG.isDebugEnabled()) {
+                LOG.debug(
+                  "Found blob as a directory-using this file under it to infer its properties: " +
                       blobItem.getUri());
+              }
 
               // Found a blob directory under the key, use its properties to infer
               // permissions and the last modified time.
@@ -1197,7 +1208,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
             // Log that the target URI does not exist.
             //
-            LOG.debug("URI obtained but does not  exist: " + blobItem.getUri().toString());
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("URI obtained but does not  exist: " + blobItem.getUri().toString());
+            }
           }
         }
       }
