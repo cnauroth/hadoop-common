@@ -45,6 +45,13 @@ abstract public class Shell {
   
   public static final Log LOG = LogFactory.getLog(Shell.class);
   
+  private static boolean IS_JAVA7_OR_ABOVE =
+      System.getProperty("java.version").substring(0, 3).compareTo("1.7") >= 0;
+
+  public static boolean isJava7OrAbove() {
+    return IS_JAVA7_OR_ABOVE;
+  }
+
   /** a Unix command to get the current user's name */
   public final static String USER_NAME_COMMAND = "whoami";
 
