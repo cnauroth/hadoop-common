@@ -20,6 +20,10 @@ public final class AzureMetricsTestUtil {
   public static final String ASV_FILES_DELETED = "asv_files_deleted";
   public static final String ASV_DIRECTORIES_CREATED = "asv_directories_created";
   public static final String ASV_DIRECTORIES_DELETED = "asv_directories_deleted";
+  public static final String ASV_UPLOAD_RATE =
+      "asv_maximum_upload_bytes_per_second";
+  public static final String ASV_DOWNLOAD_RATE =
+      "asv_maximum_download_bytes_per_second";
 
   public static long getLongGaugeValue(AzureFileSystemInstrumentation instrumentation,
       String gaugeName) {

@@ -1,6 +1,7 @@
 package org.apache.hadoop.fs.azurenative;
 
 import java.io.*;
+import java.util.*;
 
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.metrics2.*;
@@ -80,9 +81,11 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     getBandwidthGaugeUpdater().suppressAutoUpdate();
 
     // Create a file
+    Date start = new Date();
     OutputStream outputStream = fs.create(filePath);
     outputStream.write(new byte[FILE_SIZE]);
     outputStream.close();
+    long uploadDurationMs = new Date().getTime() - start.getTime();
     
     // The exact number of requests/responses that happen to create a file
     // can vary  - at the time of writing this code it takes 7
@@ -102,14 +105,25 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
         " is pretty far from the expected range of around " + FILE_SIZE +
         " bytes plus a little overhead.",
         totalBytesWritten >= FILE_SIZE && totalBytesWritten < (FILE_SIZE * 2));
+    long uploadRate = getLongGaugeValue(getInstrumentation(), ASV_UPLOAD_RATE);
+    System.out.println("Upload rate: " + uploadRate + " bytes/second.");
+    long expectedRate = (FILE_SIZE * 1000L) / uploadDurationMs;
+    assertTrue("The upload rate " + uploadRate +
+        " is below the expected range of around " + expectedRate +
+        " bytes/second that the unit test observed. This should never be" +
+        " the case since the test underestimates the rate by looking at " +
+        " end-to-end time instead of just block upload time.",
+        uploadRate >= expectedRate);
     
     // Read the file
+    start = new Date();
     InputStream inputStream = fs.open(filePath);
     int count = 0;
     while (inputStream.read() >= 0) {
       count++;
     }
     inputStream.close();
+    long downloadDurationMs = new Date().getTime() - start.getTime();
     assertEquals(FILE_SIZE, count);
 
     // Again, exact number varies. At the time of writing this code
@@ -125,6 +139,15 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
         " is pretty far from the expected range of around " + FILE_SIZE +
         " bytes plus a little overhead.",
         bytesRead > (FILE_SIZE / 2) && bytesRead < (FILE_SIZE * 2));
+    long downloadRate = getLongGaugeValue(getInstrumentation(), ASV_DOWNLOAD_RATE);
+    System.out.println("Download rate: " + downloadRate + " bytes/second.");
+    expectedRate = (FILE_SIZE * 1000L) / downloadDurationMs;
+    assertTrue("The download rate " + downloadRate +
+        " is below the expected range of around " + expectedRate +
+        " bytes/second that the unit test observed. This should never be" +
+        " the case since the test underestimates the rate by looking at " +
+        " end-to-end time instead of just block upload time.",
+        downloadRate >= expectedRate);
   }
 
   public void testMetricsOnFileRename() throws Exception {

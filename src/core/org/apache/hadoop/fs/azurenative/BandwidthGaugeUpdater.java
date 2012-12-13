@@ -44,13 +44,22 @@ class BandwidthGaugeUpdater {
       allBlocksRead.add(new BlockTransferWindow(startDate, endDate, length));
     }
   }
-  
+
   private void updateBytesTransferred(boolean updateWrite, long bytes) {
     if (updateWrite) {
       instrumentation.updateBytesWrittenInLastSecond(bytes);
     }
     else {
       instrumentation.updateBytesReadInLastSecond(bytes);
+    }
+  }
+
+  private void updateBytesTransferRate(boolean updateWrite, long bytesPerSecond) {
+    if (updateWrite) {
+      instrumentation.currentUploadBytesPerSecond(bytesPerSecond);
+    }
+    else {
+      instrumentation.currentDownloadBytesPerSecond(bytesPerSecond);
     }
   }
 
@@ -68,7 +77,7 @@ class BandwidthGaugeUpdater {
   public void resumeAutoUpdate() {
     suppressAutoUpdate = false;
   }
-  
+
   /**
    * Triggers the update of the metrics gauge based on all the blocks
    * uploaded/downloaded so far. This is typically done periodically in a
@@ -91,6 +100,7 @@ class BandwidthGaugeUpdater {
     if (toProcess != null) {
       long bytesInLastSecond = 0;
       long cutoffTime = new Date().getTime() - windowSizeMs;
+      long maxSingleBlockTransferRate = 0;
       for (BlockTransferWindow currentWindow : toProcess) {
         if (currentWindow.getStartDate().getTime() > cutoffTime) {
           bytesInLastSecond += currentWindow.bytesTransferred;
@@ -102,8 +112,18 @@ class BandwidthGaugeUpdater {
                   currentWindow.getStartDate().getTime());
           bytesInLastSecond += adjustedBytes;
         }
+        long currentBlockTransferRate =
+            (currentWindow.getBytesTransferred() * 1000) /
+            (currentWindow.getEndDate().getTime() -
+                currentWindow.getStartDate().getTime());
+        maxSingleBlockTransferRate =
+            Math.max(maxSingleBlockTransferRate, currentBlockTransferRate);
       }
       updateBytesTransferred(updateWrite, bytesInLastSecond);
+      long aggregateTransferRate = bytesInLastSecond;
+      long maxObservedTransferRate =
+          Math.max(aggregateTransferRate, maxSingleBlockTransferRate);
+      updateBytesTransferRate(updateWrite, maxObservedTransferRate);
     } else {
       updateBytesTransferred(updateWrite, 0);
     }

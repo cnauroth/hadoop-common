@@ -46,6 +46,16 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
           "asv_bytes_read_last_second",
           "Total number of bytes read from Azure Storage during the last second.",
           0L);
+  private final MetricMutableGaugeLong maximumUploadBytesPerSecond =
+      registry.newGauge(
+          "asv_maximum_upload_bytes_per_second",
+          "The maximum upload rate encountered to Azure Storage in bytes/second.",
+          0L);
+  private final MetricMutableGaugeLong maximumDownloadBytesPerSecond =
+      registry.newGauge(
+          "asv_maximum_download_bytes_per_second",
+          "The maximum download rate encountered to Azure Storage in bytes/second.",
+          0L);
   private final MetricMutableCounterLong rawBytesUploaded =
       registry.newCounter(
           "asv_raw_bytes_uploaded",
@@ -58,6 +68,8 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
           "Total number of raw bytes (including overhead) downloaded from Azure" +
           " Storage.",
           0L);
+  private long currentMaximumUploadBytesPerSecond;
+  private long currentMaximumDownloadBytesPerSecond;
 
   /**
    * Indicate that we just got a web response from Azure Storage. This should
@@ -112,6 +124,28 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
    */
   public void updateBytesReadInLastSecond(long currentBytesRead) {
     bytesReadInLastSecond.set(currentBytesRead);
+  }
+
+  /**
+   * Record the current bytes-per-second upload rate seen.
+   * @param bytesPerSecond The bytes per second.
+   */
+  public synchronized void currentUploadBytesPerSecond(long bytesPerSecond) {
+    if (bytesPerSecond > currentMaximumUploadBytesPerSecond) {
+      currentMaximumUploadBytesPerSecond = bytesPerSecond;
+      maximumUploadBytesPerSecond.set(bytesPerSecond);
+    }
+  }
+
+  /**
+   * Record the current bytes-per-second download rate seen.
+   * @param bytesPerSecond The bytes per second.
+   */
+  public synchronized void currentDownloadBytesPerSecond(long bytesPerSecond) {
+    if (bytesPerSecond > currentMaximumDownloadBytesPerSecond) {
+      currentMaximumDownloadBytesPerSecond = bytesPerSecond;
+      maximumDownloadBytesPerSecond.set(bytesPerSecond);
+    }
   }
 
   /**
