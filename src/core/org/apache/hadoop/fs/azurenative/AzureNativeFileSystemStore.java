@@ -41,8 +41,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   public static final Log LOG = LogFactory.getLog(AzureNativeFileSystemStore.class);
 
   private CloudStorageAccount account;
-  private StorageInterface storageInteractionLayer =
-      new StorageInterfaceImpl();
+  private StorageInterface storageInteractionLayer;
   private CloudBlobDirectoryWrapper rootDirectory;
   private CloudBlobContainerWrapper container;
   
@@ -125,6 +124,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     }
     this.instrumentation = instrumentation;
     this.blockUploadGaugeUpdater = new BlockUploadGaugeUpdater(instrumentation);
+    if (null == this.storageInteractionLayer) {
+      this.storageInteractionLayer = new StorageInterfaceImpl();
+    }
 
     // Check that URI exists.
     //
@@ -1059,21 +1061,13 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * name from the path and returns a path relative to the root directory
    * of the container.
    * 
-   * @param aKey - adjust this key to a path relative to the root directory
-   * @throws URISyntaxException
+   * @param keyUri - adjust this key to a path relative to the root directory
    * 
    * @returns normKey
    */
-  private String normalizeKey(String aKey) throws URISyntaxException {
+  private String normalizeKey(URI keyUri) {
 
-    String normKey = aKey;
-
-    URI keyUri = new URI(aKey);
-    String keyScheme = keyUri.getScheme();
-
-    if (null == keyScheme) {
-      throw new URISyntaxException(keyUri.toString(), "Expecting scheme on URI");
-    }
+    String normKey;
 
     // Strip the container name from the path and return the path
     // relative to the root directory of the container.
@@ -1083,6 +1077,39 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // Return the fixed key.
     //
     return normKey;
+  }
+
+  /**
+   * This private method normalizes the key by stripping the container
+   * name from the path and returns a path relative to the root directory
+   * of the container.
+   *
+   * @param blob - adjust the key to this blob to a path relative to the root
+   *               directory
+   *
+   * @returns normKey
+   */
+  private String normalizeKey(CloudBlockBlobWrapper blob) {
+    return normalizeKey(blob.getUri());
+  }
+
+  /**
+   * This private method normalizes the key by stripping the container
+   * name from the path and returns a path relative to the root directory
+   * of the container.
+   *
+   * @param blob - adjust the key to this directory to a path relative to the
+   *               root directory
+   *
+   * @returns normKey
+   */
+  private String normalizeKey(CloudBlobDirectoryWrapper directory) {
+    String dirKey = normalizeKey(directory.getUri());
+    // Strip the last /
+    if (dirKey.endsWith(PATH_DELIMITER)) {
+      dirKey = dirKey.substring(0, dirKey.length() - 1);
+    }
+    return dirKey;
   }
 
   /**
@@ -1129,7 +1156,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //
       if (null != blob && blob.exists(getInstrumentedContext())) {
 
-        LOG.debug("Found it as an explicit bob. Checking if it's a file or folder.");
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Found " + key +
+              " as an explicit blob. Checking if it's a file or folder.");
+        }
 
         // The blob exists, so capture the metadata from the blob
         // properties.
@@ -1137,10 +1167,14 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         blob.downloadAttributes(getInstrumentedContext());
         
         if (retrieveFolderAttribute(blob)) {
-          LOG.debug("It's a folder blob.");
+          if (LOG.isDebugEnabled()) {
+            LOG.debug(key + " is a folder blob.");
+          }
           return new FileMetadata(key, getPermission(blob), false);
         } else {
-          LOG.debug("It's a normal blob.");
+          if (LOG.isDebugEnabled()) {
+            LOG.debug(key + " is a normal blob.");
+          }
           BlobProperties properties = blob.getProperties();
           
           return new FileMetadata(
@@ -1332,7 +1366,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           // path is being used or not.
           //
           //
-          blobKey = normalizeKey(blob.getUri().toString());
+          blobKey = normalizeKey(blob);
 
           FileMetadata metadata;
           if (retrieveFolderAttribute(blob)) {
@@ -1354,10 +1388,11 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           }
           fileMetadata.add(metadata);
         } else if (blobItem instanceof CloudBlobDirectoryWrapper) {
+          CloudBlobDirectoryWrapper directory = (CloudBlobDirectoryWrapper) blobItem;
           // Determine format of directory name depending on whether an absolute
           // path is being used or not.
           //
-          String dirKey = normalizeKey (((CloudBlobDirectoryWrapper) blobItem).getUri().toString());
+          String dirKey = normalizeKey(directory);
           // Strip the last /
           if (dirKey.endsWith(PATH_DELIMITER)) {
             dirKey = dirKey.substring(0, dirKey.length() - 1);
@@ -1380,7 +1415,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           // Currently at a depth of one, decrement the listing depth for
           // sub-directories.
           //
-          buildUpList((CloudBlobDirectoryWrapper) blobItem, fileMetadata,
+          buildUpList(directory, fileMetadata,
               maxListingCount, maxListingDepth - 1);
         }
       }
@@ -1474,7 +1509,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           // path is being used or not.
           //
           //
-          blobKey = normalizeKey(blob.getUri().toString());
+          blobKey = normalizeKey(blob);
 
           FileMetadata metadata;
           if (retrieveFolderAttribute(blob)) {
@@ -1495,6 +1530,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           }
           aFileMetadataList.add(metadata);
         } else if (blobItem instanceof CloudBlobDirectoryWrapper) {
+          CloudBlobDirectoryWrapper directory = (CloudBlobDirectoryWrapper) blobItem;
+
           // This is a directory blob, push the current iterator onto
           // the stack of iterators and start iterating through the current
           // directory.
@@ -1511,7 +1548,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
             // an iterator for this directory and continue by iterating through 
             // this directory.
             //
-            blobItems = ((CloudBlobDirectoryWrapper) blobItem).listBlobs(null,
+            blobItems = directory.listBlobs(null,
                 false, EnumSet.noneOf(BlobListingDetails.class), null,
                 getInstrumentedContext());
             blobItemIterator = blobItems.iterator();
@@ -1519,10 +1556,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
             // Determine format of directory name depending on whether an absolute
             // path is being used or not.
             //
-            String dirKey = normalizeKey (((CloudBlobDirectoryWrapper) blobItem).getUri().toString());
-            if (dirKey.endsWith(PATH_DELIMITER)) {
-              dirKey = dirKey.substring(0, dirKey.length() - 1);
-            }
+            String dirKey = normalizeKey(directory);
             
             if (getDirectoryInList(aFileMetadataList, dirKey) == null) {
               // Reached the targeted listing depth. Return metadata for the
