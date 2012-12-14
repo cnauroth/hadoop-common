@@ -1091,7 +1091,7 @@ public class NativeAzureFileSystem extends FileSystem {
   public boolean rename(Path src, Path dst) throws IOException {
 
     if (LOG.isDebugEnabled()) {
-      LOG.debug("Moving " + src.toString() + " to " + dst.toString());
+      LOG.debug("Moving " + src + " to " + dst);
     }
     String srcKey = pathToKey(makeAbsolute(src));
 
@@ -1108,12 +1108,14 @@ public class NativeAzureFileSystem extends FileSystem {
       // It's an existing directory.
       dstKey = pathToKey(makeAbsolute(new Path(dst, src.getName())));
       if (LOG.isDebugEnabled()) {
-        LOG.debug("Destination is a directory, adjusted the destination to be " + dstKey);
+        LOG.debug("Destination " + dst +
+            " is a directory, adjusted the destination to be " + dstKey);
       }
     } else if (dstMetadata != null) {
       // Attempting to overwrite a file using rename()
       if (LOG.isDebugEnabled()) {
-        LOG.debug("Destination is an already existing file, failing the rename.");
+        LOG.debug("Destination " + dst +
+            " is an already existing file, failing the rename.");
       }
       return false;      
     } else {
@@ -1122,12 +1124,14 @@ public class NativeAzureFileSystem extends FileSystem {
           store.retrieveMetadata(pathToKey(absoluteDst.getParent()));
       if (parentOfDestMetadata == null) {
         if (LOG.isDebugEnabled()) {
-          LOG.debug("Parent of the destination doesn't exist, failing the rename.");
+          LOG.debug("Parent of the destination " + dst +
+              " doesn't exist, failing the rename.");
         }
         return false;
       } else if (!parentOfDestMetadata.isDir()) {
         if (LOG.isDebugEnabled()) {
-          LOG.debug("Parent of the destination is a file, failing the rename.");
+          LOG.debug("Parent of the destination " + dst +
+              " is a file, failing the rename.");
         }
         return false;
       }
@@ -1136,12 +1140,12 @@ public class NativeAzureFileSystem extends FileSystem {
     if (srcMetadata == null) {
       // Source doesn't exist
       if (LOG.isDebugEnabled()) {
-        LOG.debug("Source doesn't exist, failing the rename.");
+        LOG.debug("Source " + src + " doesn't exist, failing the rename.");
       }
       return false;
     } else if (!srcMetadata.isDir()) {
       if (LOG.isDebugEnabled()) {
-        LOG.debug("Source found as a file, renaming.");
+        LOG.debug("Source " + src + " found as a file, renaming.");
       }
       store.rename(srcKey, dstKey);
     } else {
@@ -1175,12 +1179,13 @@ public class NativeAzureFileSystem extends FileSystem {
       } while (priorLastKey != null);
       // Rename the top level empty blob for the folder.
       //
-      if (!srcMetadata.isImplicit()) {
+      if (srcMetadata.getBlobMaterialization() ==
+          BlobMaterialization.Explicit) {
         store.rename(srcKey, dstKey);
       }
     }
     if (LOG.isDebugEnabled()) {
-      LOG.debug("Renamed successfully.");
+      LOG.debug("Renamed " + src + " to " + dst + " successfully.");
     }
     return true;
   }
