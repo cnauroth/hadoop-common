@@ -1054,9 +1054,9 @@ public class NativeAzureFileSystem extends FileSystem {
     Path absolutePath = makeAbsolute(f);
 
     // Check that there is no file in the parent chain of the given path.
-    for (Path current = absolutePath;
-        current.toUri().getPath().length() > 1; // Stop when you get to the root
-        current = current.getParent()) {
+    for (Path current = absolutePath, parent = current.getParent();
+        parent != null; // Stop when you get to the root
+        current = parent, parent = current.getParent()) {
       FileMetadata currentMetadata = store.retrieveMetadata(pathToKey(current));
       if (currentMetadata != null && !currentMetadata.isDir()) {
         throw new IOException("Cannot create directory " + f + " because " +
