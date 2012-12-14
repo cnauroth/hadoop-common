@@ -840,43 +840,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   @Override
-  public void storeEmptyFile(String key, FsPermission permission) throws IOException {
-
-    // Upload null byte stream directly to the Azure blob store.
-    //
-    try {
-      if (null == storageInteractionLayer) {
-        final String errMsg = 
-            String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
-        throw new AssertionError(errMsg);
-      }
-
-      // Check if there is an authenticated account associated with the file
-      // this instance of the ASV file system. If not the file system has not
-      // been authenticated and all access is anonymous.
-      //
-      if (!isAuthenticatedAccess()) {
-        // Preemptively raise an exception indicating no uploads are
-        // allowed to
-        // anonymous accounts.
-        //
-        throw new AzureException(
-            "Uploads to to public accounts using anonymous access is prohibited.");
-      }
-
-      CloudBlockBlobWrapper blob = getBlobReference(key);
-      storePermission(blob, permission);
-      blob.upload(new ByteArrayInputStream(new byte[0]), getInstrumentedContext());
-    } catch (Exception e) {
-      // Caught exception while attempting upload. Re-throw as an Azure
-      // storage
-      // exception.
-      //
-      throw new AzureException(e);
-    }
-  }
-
-  @Override
   public void storeEmptyFolder(String key, FsPermission permission) throws IOException {
 
     if (null == storageInteractionLayer) {
