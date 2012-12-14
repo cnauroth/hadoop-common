@@ -566,6 +566,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
                 sessionUri.toString());
         throw new AzureException(errMsg);
       }
+      instrumentation.setAccountName(accountName);
 
       // Check if there is a SAS associated with the storage account and
       // container by looking up their key in the job configuration object.
@@ -573,6 +574,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //      fs.azure.sas.<blob storage account name>+<container>
       //
       String containerName = getContainerFromAuthority(sessionUri);
+      instrumentation.setContainerName(containerName);
       String propertyValue = sessionConfiguration.get(
           KEY_ACCOUNT_SAS_PREFIX + accountName + 
           ASV_AUTHORITY_DELIMITER + containerName);

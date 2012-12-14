@@ -19,6 +19,7 @@ public final class AzureBlobStorageTestAccount {
   private static final String CONNECTION_STRING_PROPERTY_NAME = "fs.azure.storageConnectionString";
   private static final String ACCOUNT_KEY_PROPERTY_NAME = "fs.azure.account.key.";
   private static final String SINK_IDENTIFIER = "identifier";
+  private CloudStorageAccount account;
   private CloudBlobContainer container;
   private FileSystem fs;
   private final int sinkIdentifier;
@@ -26,8 +27,11 @@ public final class AzureBlobStorageTestAccount {
   private static final ConcurrentHashMap<Integer, ArrayList<MetricsRecord>> allMetrics =
       new ConcurrentHashMap<Integer, ArrayList<MetricsRecord>>();
 
-  private AzureBlobStorageTestAccount(FileSystem fs, CloudBlobContainer container,
+  private AzureBlobStorageTestAccount(FileSystem fs,
+      CloudStorageAccount account,
+      CloudBlobContainer container,
       int sinkIdentifier) {
+    this.account = account;
     this.container = container;
     this.fs = fs;
     this.sinkIdentifier = sinkIdentifier;
@@ -106,7 +110,7 @@ public final class AzureBlobStorageTestAccount {
         Base64.encode(new byte[] {1, 2, 3}));
     fs.initialize(new URI("asv://mockAccount+mockContainer/"), conf);
     AzureBlobStorageTestAccount testAcct =
-        new AzureBlobStorageTestAccount(fs, null, sinkIdentifier);
+        new AzureBlobStorageTestAccount(fs, null, null, sinkIdentifier);
     return testAcct;
   }
 
@@ -164,7 +168,7 @@ public final class AzureBlobStorageTestAccount {
     fs.initialize(new URI("asv://" + accountName + "+" + containerName + "/"), conf);
 
     AzureBlobStorageTestAccount testAcct =
-        new AzureBlobStorageTestAccount(fs, container, sinkIdentifier);
+        new AzureBlobStorageTestAccount(fs, account, container, sinkIdentifier);
 
     return testAcct;
   }
@@ -184,6 +188,24 @@ public final class AzureBlobStorageTestAccount {
     return fs;
   }
 
+  /**
+   * Gets the real blob container backing this account if it's not
+   * a mock. 
+   * @return A container, or null if it's a mock.
+   */
+  public CloudBlobContainer getRealContainer() {
+    return container;
+  }
+
+  /**
+   * Gets the real blob account backing this account if it's not
+   * a mock. 
+   * @return An account, or null if it's a mock.
+   */
+  public CloudStorageAccount getRealAccount() {
+    return account;
+  }
+  
   public static class StandardCollector implements MetricsSink {
     private int sinkIdentifier;
     

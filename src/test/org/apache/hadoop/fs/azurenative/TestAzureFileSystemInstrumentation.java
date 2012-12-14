@@ -44,6 +44,21 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     }
   }
 
+  public void testMetricTags() throws Exception {
+    String accountName =
+        testAccount.getRealAccount().getBlobEndpoint()
+        .getAuthority().split("\\.")[0];
+    String containerName =
+        testAccount.getRealContainer().getName();
+    MetricsRecordBuilder myMetrics = getMyMetrics();
+    verify(myMetrics).add(argThat(
+        new TagMatcher("accountName", accountName)
+        ));
+    verify(myMetrics).add(argThat(
+        new TagMatcher("containerName", containerName)
+        ));
+  }
+
   public void testMetricsOnMkdirList() throws Exception {
     long base = getBaseWebResponses();
     
@@ -287,6 +302,33 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
 
   private AzureFileSystemInstrumentation getInstrumentation() {
     return ((NativeAzureFileSystem)fs).getInstrumentation();
+  }
+
+  /**
+   * A matcher class for asserting that we got a tag with a given
+   * value.
+   */
+  private static class TagMatcher extends BaseMatcher<MetricsTag> {
+    private final String tagName;
+    private final String tagValue;
+    
+    public TagMatcher(String tagName, String tagValue) {
+      this.tagName = tagName;
+      this.tagValue = tagValue;
+    }
+
+    @Override
+    public boolean matches(Object toMatch) {
+      MetricsTag asTag = (MetricsTag)toMatch;
+      return asTag.name().equals(tagName) &&
+          asTag.value().equals(tagValue);
+    }
+
+    @Override
+    public void describeTo(Description desc) {
+      desc.appendText("Has tag " + tagName +
+          " with value " + tagValue);
+    }
   }
 
   /**

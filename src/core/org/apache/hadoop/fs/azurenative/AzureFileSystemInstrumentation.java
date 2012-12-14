@@ -72,6 +72,26 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
   private long currentMaximumDownloadBytesPerSecond;
 
   /**
+   * Sets the account name to tag all the metrics with.
+   * @param accountName The account name.
+   */
+  public void setAccountName(String accountName) {
+    registry.tag("accountName",
+        "Name of the Azure Storage account that these metrics are going against",
+        accountName);
+  }
+
+  /**
+   * Sets the container name to tag all the metrics with.
+   * @param containerName The container name.
+   */
+  public void setContainerName(String containerName) {
+    registry.tag("containerName",
+        "Name of the Azure Storage container that these metrics are going against",
+        containerName);
+  }
+
+  /**
    * Indicate that we just got a web response from Azure Storage. This should
    * be called for every web request/response we do (to get accurate metrics
    * of how we're hitting the storage service).
