@@ -6,6 +6,10 @@ import org.apache.hadoop.fs.*;
 
 import junit.framework.*;
 
+/**
+ * Tests that ASV handles things gracefully when users add blobs to
+ * the Azure Storage container from outside ASV's control.
+ */
 public class TestOutOfBandAzureBlobOperations extends TestCase {
   private static String toMockUri(String path) {
     return String.format("http://%s.blob.core.windows.net/%s/%s",
