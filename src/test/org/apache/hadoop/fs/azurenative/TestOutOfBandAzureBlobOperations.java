@@ -3,6 +3,7 @@ package org.apache.hadoop.fs.azurenative;
 import java.util.*;
 
 import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.azure.AzureException;
 
 import junit.framework.*;
 
@@ -44,33 +45,54 @@ public class TestOutOfBandAzureBlobOperations extends TestCase {
   }
 
   public void testImplicitFolderListed() throws Exception {
-    createEmptyBlobOutOfBand("ab/b");
+    createEmptyBlobOutOfBand("root/b");
 
     // List the blob itself.
-    FileStatus[] obtained = fs.listStatus(new Path("/ab/b"));
+    FileStatus[] obtained = fs.listStatus(new Path("/root/b"));
     assertNotNull(obtained);
     assertEquals(1, obtained.length);
     assertFalse(obtained[0].isDir());
-    assertEquals("/ab/b", obtained[0].getPath().toUri().getPath());
+    assertEquals("/root/b", obtained[0].getPath().toUri().getPath());
 
     // List the directory
-    obtained = fs.listStatus(new Path("/ab"));
+    obtained = fs.listStatus(new Path("/root"));
     assertNotNull(obtained);
     assertEquals(1, obtained.length);
     assertFalse(obtained[0].isDir());
-    assertEquals("/ab/b", obtained[0].getPath().toUri().getPath());
+    assertEquals("/root/b", obtained[0].getPath().toUri().getPath());
 
     // Get the directory's file status
-    FileStatus dirStatus = fs.getFileStatus(new Path("/ab"));
+    FileStatus dirStatus = fs.getFileStatus(new Path("/root"));
     assertNotNull(dirStatus);
     assertTrue(dirStatus.isDir());
-    assertEquals("/ab", dirStatus.getPath().toUri().getPath());
+    assertEquals("/root", dirStatus.getPath().toUri().getPath());
   }
 
   public void testImplicitFolderDeleted() throws Exception {
-    createEmptyBlobOutOfBand("ab/b");
-    assertTrue(fs.exists(new Path("/ab")));
-    assertTrue(fs.delete(new Path("/ab"), true));
-    assertFalse(fs.exists(new Path("/ab")));
+    createEmptyBlobOutOfBand("root/b");
+    assertTrue(fs.exists(new Path("/root")));
+    assertTrue(fs.delete(new Path("/root"), true));
+    assertFalse(fs.exists(new Path("/root")));
+  }
+
+  public void testFileInImplicitFolderDeleted() throws Exception {
+    createEmptyBlobOutOfBand("root/b");
+    assertTrue(fs.exists(new Path("/root")));
+    assertTrue(fs.delete(new Path("/root/b"), true));
+    assertTrue("This fails right now because of HADOOP-274",
+        fs.exists(new Path("/root")));
+  }
+
+  public void testFileAndImplicitFolderSameName() throws Exception {
+    createEmptyBlobOutOfBand("root/b");
+    createEmptyBlobOutOfBand("root/b/c");
+    try {
+      fs.listStatus(new Path("root/b")); // This should throw.
+      assertTrue(
+          "Should've thrown. This doesn't work right now because of HADOOP-275",
+          false);
+    } catch (AzureException e) {
+      assertEquals("Validate this message", e.getMessage());
+    }
   }
 }
