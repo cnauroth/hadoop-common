@@ -38,8 +38,6 @@ interface NativeFileSystemStore {
   void initialize(URI uri, Configuration conf, AzureFileSystemInstrumentation instrumentation)
       throws IOException, IllegalArgumentException;
 
-  void storeEmptyFile(String key, FsPermission permission) throws IOException;
-
   void storeEmptyFolder(String key, FsPermission permission) throws IOException;
 
   FileMetadata retrieveMetadata(String key) throws IOException;
