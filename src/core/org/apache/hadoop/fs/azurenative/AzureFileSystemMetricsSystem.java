@@ -11,7 +11,6 @@ final class AzureFileSystemMetricsSystem {
     if (numFileSystems == 0) {
       instance = new MetricsSystemImpl();
       instance.init("azure-file-system");
-      instance.start();
     }
     numFileSystems++;
   }
