@@ -845,43 +845,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   @Override
-  public void storeEmptyFile(String key, FsPermission permission) throws IOException {
-
-    // Upload null byte stream directly to the Azure blob store.
-    //
-    try {
-      if (null == storageInteractionLayer) {
-        final String errMsg = 
-            String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
-        throw new AssertionError(errMsg);
-      }
-
-      // Check if there is an authenticated account associated with the file
-      // this instance of the ASV file system. If not the file system has not
-      // been authenticated and all access is anonymous.
-      //
-      if (!isAuthenticatedAccess()) {
-        // Preemptively raise an exception indicating no uploads are
-        // allowed to
-        // anonymous accounts.
-        //
-        throw new AzureException(
-            "Uploads to to public accounts using anonymous access is prohibited.");
-      }
-
-      CloudBlockBlobWrapper blob = getBlobReference(key);
-      storePermission(blob, permission);
-      blob.upload(new ByteArrayInputStream(new byte[0]), getInstrumentedContext());
-    } catch (Exception e) {
-      // Caught exception while attempting upload. Re-throw as an Azure
-      // storage
-      // exception.
-      //
-      throw new AzureException(e);
-    }
-  }
-
-  @Override
   public void storeEmptyFolder(String key, FsPermission permission) throws IOException {
 
     if (null == storageInteractionLayer) {
@@ -1150,7 +1113,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       if (key.equals("/")) {
         // The key refers to root directory of container.
         //
-        return new FileMetadata(key, FsPermission.getDefault(), true);
+        return new FileMetadata(key, FsPermission.getDefault(), BlobMaterialization.Implicit);
       }
 
       CloudBlockBlobWrapper blob = getBlobReference(key);
@@ -1174,7 +1137,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           if (LOG.isDebugEnabled()) {
             LOG.debug(key + " is a folder blob.");
           }
-          return new FileMetadata(key, getPermission(blob), false);
+          return new FileMetadata(key, getPermission(blob), BlobMaterialization.Explicit);
         } else {
           if (LOG.isDebugEnabled()) {
             LOG.debug(key + " is a normal blob.");
@@ -1217,7 +1180,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           // TODO: class or an explicit parameter indicating it is a directory rather than
           // TODO: using polymorphism to distinguish the two.
           //
-          return new FileMetadata(key, getPermission((CloudBlockBlobWrapper)blobItem), true);
+          return new FileMetadata(key, getPermission((CloudBlockBlobWrapper)blobItem),
+              BlobMaterialization.Implicit);
         }
       }
 
@@ -1374,7 +1338,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
           FileMetadata metadata;
           if (retrieveFolderAttribute(blob)) {
-            metadata = new FileMetadata(blobKey, getPermission(blob), false);
+            metadata = new FileMetadata(blobKey, getPermission(blob),
+                BlobMaterialization.Explicit);
           } else {
             metadata = new FileMetadata(
                 blobKey,
@@ -1408,7 +1373,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           // TODO: Something smarter should be done about permissions. Maybe
           // TODO: inherit the permissions of the first non-directory blob.
           //
-          FileMetadata directoryMetadata = new FileMetadata(dirKey, FsPermission.getDefault(), true);
+          FileMetadata directoryMetadata = new FileMetadata(dirKey, FsPermission.getDefault(),
+              BlobMaterialization.Implicit);
 
           // Add the directory metadata to the list only if it's not already there.
           //
@@ -1517,7 +1483,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
           FileMetadata metadata;
           if (retrieveFolderAttribute(blob)) {
-            metadata = new FileMetadata(blobKey, getPermission(blob), false);
+            metadata = new FileMetadata(blobKey, getPermission(blob),
+                BlobMaterialization.Explicit);
           } else {
             metadata = new FileMetadata(
                 blobKey,
@@ -1569,7 +1536,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
               // TODO: Something smarter should be done about permissions. Maybe
               // TODO: inherit the permissions of the first non-directory blob.
               //
-              FileMetadata directoryMetadata = new FileMetadata(dirKey, FsPermission.getDefault(), true);
+              FileMetadata directoryMetadata = new FileMetadata(dirKey,
+                  FsPermission.getDefault(),
+                  BlobMaterialization.Implicit);
   
               // Add the directory metadata to the list.
               //

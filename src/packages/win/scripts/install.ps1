@@ -102,14 +102,23 @@ function Main( $scriptDir )
     ###
     ### Install and Configure Core
     ###
+    # strip out domain/machinename if it exists. will not work with domain users.
+    $shortUsername = $username
+    if($username.IndexOf('\') -ge 0)
+    {
+        $shortUsername = $username.SubString($username.IndexOf('\') + 1)
+    }
+
     Install "Core" $NodeInstallRoot $serviceCredential ""
     Configure "Core" $NodeInstallRoot $serviceCredential @{
         "fs.checkpoint.dir" = "$ENV:HDFS_DATA_DIR\2nn";
-        "fs.checkpoint.edits.dir" = "$ENV:HDFS_DATA_DIR\2nn"}
+        "fs.checkpoint.edits.dir" = "$ENV:HDFS_DATA_DIR\2nn";
+        "hadoop.proxyuser.$shortUsername.groups" = "HadoopUsers";
+        "hadoop.proxyuser.$shortUsername.hosts" = "localhost";}
 
     ###
     ### Install and Configure HDFS
-    ###
+    ###    
     Install "Hdfs" $NodeInstallRoot $serviceCredential $hdfsRoles
     Configure "Hdfs" $NodeInstallRoot $serviceCredential @{
         "dfs.name.dir" = "$ENV:HDFS_DATA_DIR\nn";
