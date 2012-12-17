@@ -57,6 +57,9 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     verify(myMetrics).add(argThat(
         new TagMatcher("containerName", containerName)
         ));
+    verify(myMetrics).add(argThat(
+        new TagMatcher("context", "azureFileSystem")
+        ));
   }
 
   public void testMetricsOnMkdirList() throws Exception {

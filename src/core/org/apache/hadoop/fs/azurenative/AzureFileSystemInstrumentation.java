@@ -10,7 +10,8 @@ import org.apache.hadoop.metrics2.lib.*;
  */
 final class AzureFileSystemInstrumentation implements MetricsSource {
   private final MetricsRegistry registry =
-      new MetricsRegistry("azureFileSystem");
+      new MetricsRegistry("azureFileSystem")
+      .setContext("azureFileSystem");
   private final MetricMutableCounterLong numberOfWebResponses =
       registry.newCounter(
           "asv_web_responses",
