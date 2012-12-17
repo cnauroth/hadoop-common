@@ -1,7 +1,8 @@
 Monarch - unreleased
 
   IMPROVEMENTS
-
+    PROD - 98 - Set the Oozie related core-site.xml settings in winpkg scripts
+  
     HADOOP-175 UnitTest: org.apache.hadoop.mapred.TestJobStatusPersistency.
     testJobStoreDisablingWithInvalidPath (Chuan Liu)
     

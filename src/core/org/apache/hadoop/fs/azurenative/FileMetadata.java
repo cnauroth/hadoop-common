@@ -31,24 +31,41 @@ class FileMetadata {
   private final long lastModified;
   private final boolean isDir;
   private final FsPermission permission;
-  private final boolean isImplicit;
+  private final BlobMaterialization blobMaterialization;
 
-  public FileMetadata(String key, long length, long lastModified, FsPermission permission) {
+  /**
+   * Constructs a FileMetadata object for a file.
+   * @param key The key (path) to the file.
+   * @param length The length in bytes of the file.
+   * @param lastModified The last modified date
+   *                     (milliseconds since January 1, 1970 UTC.)
+   * @param permission The permission for the file.
+   */
+  public FileMetadata(String key, long length, long lastModified,
+      FsPermission permission) {
     this.key = key;
     this.length = length;
     this.lastModified = lastModified;
     this.isDir = false;
     this.permission = permission;
-    this.isImplicit = false; // File are never implicit.
+    this.blobMaterialization = BlobMaterialization.Explicit; // File are never implicit.
   }
 
-  public FileMetadata(String key, FsPermission permission, boolean isImplicit) {
+  /**
+   * Constructs a FileMetadata object for a directory.
+   * @param key The key (path) to the directory.
+   * @param permission The permission for the directory.
+   * @param blobMaterialization Whether this is an implicit (no real blob
+   *                            backing it) or explicit directory.
+   */
+  public FileMetadata(String key, FsPermission permission,
+      BlobMaterialization blobMaterialization) {
     this.key = key;
     this.isDir = true;
     this.length = 0;
     this.lastModified = 0;
     this.permission = permission;
-    this.isImplicit = isImplicit;
+    this.blobMaterialization = blobMaterialization;
   }
 
   public boolean isDir() {
@@ -74,11 +91,11 @@ class FileMetadata {
   /**
    * Indicates whether this is an implicit directory (no real blob backing it)
    * or an explicit one.
-   * @return true if this is an implicit directory, or false if it's an
+   * @return Implicit if this is an implicit directory, or Explicit if it's an
    *         explicit directory or a file.
    */
-  public boolean isImplicit() {
-    return isImplicit;
+  public BlobMaterialization getBlobMaterialization() {
+    return blobMaterialization;
   }
 
   @Override
