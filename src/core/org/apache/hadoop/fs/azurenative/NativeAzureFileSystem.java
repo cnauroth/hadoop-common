@@ -1205,8 +1205,14 @@ public class NativeAzureFileSystem extends FileSystem {
 
   @Override
   public void close() throws IOException {
+    // Call the base close() to close any resources there.
     super.close();
+    // Close the store to close any resources there - e.g. the bandwidth
+    // updater thread would be stopped at this time.
     store.close();
+    // Notify the metrics system that this file system is closed, which may
+    // trigger one final metrics push to get the accurate final file system
+    // metrics out.
     AzureFileSystemMetricsSystem.fileSystemClosed();
   }
 
