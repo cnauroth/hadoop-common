@@ -717,6 +717,9 @@ public class NativeAzureFileSystem extends FileSystem {
         NativeFileSystemStore.class, actualStore, methodNameToPolicyMap);
   }
 
+  // TODO: The logic for this method is confusing as to whether it strips the
+  // last slash or not (it adds it in the beginning, then strips it at the end).
+  // We should revisit that.
   private String pathToKey(Path path) {
     // Convert the path to a URI to parse the scheme, the authority, and the
     // path from the path object.
@@ -921,7 +924,7 @@ public class NativeAzureFileSystem extends FileSystem {
     //
     Path absolutePath = makeAbsolute(f);
     String key = pathToKey(absolutePath);
-    if (key.length() == 1) { // root always exists
+    if (key.length() == 0) { // root always exists
       return newDirectory(null, absolutePath);
     }
 
