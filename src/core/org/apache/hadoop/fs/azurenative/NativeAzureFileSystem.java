@@ -1195,7 +1195,7 @@ public class NativeAzureFileSystem extends FileSystem {
    */
   @Override
   public void setWorkingDirectory(Path newDir) {
-    workingDir = newDir;
+    workingDir = makeAbsolute(newDir);
   }
 
   @Override
