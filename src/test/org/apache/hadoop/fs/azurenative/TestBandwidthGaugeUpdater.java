@@ -6,7 +6,7 @@ import java.util.*;
 
 import junit.framework.*;
 
-public class TestBlockUploadGaugeUpdater extends TestCase {
+public class TestBandwidthGaugeUpdater extends TestCase {
   public void testSingleThreaded() throws Exception {
     AzureFileSystemInstrumentation instrumentation =
         new AzureFileSystemInstrumentation();
