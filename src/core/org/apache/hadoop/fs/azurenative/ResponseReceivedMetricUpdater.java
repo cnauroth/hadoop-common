@@ -44,6 +44,11 @@ class ResponseReceivedMetricUpdater extends
     operationContext.getResponseReceivedEventHandler().addListener(listener);
   }
 
+  /**
+   * Get the content length of the request in the given HTTP connection.
+   * @param connection The connection.
+   * @return The content length, or zero if not found.
+   */
   private long getRequestContentLength(HttpURLConnection connection) {
     String lengthString = connection.getRequestProperty(
         HeaderConstants.CONTENT_LENGTH);
@@ -53,10 +58,18 @@ class ResponseReceivedMetricUpdater extends
       return 0;
   }
 
+  /**
+   * Gets the content length of the response in the given HTTP connection.
+   * @param connection The connection.
+   * @return The content length.
+   */
   private long getResponseContentLength(HttpURLConnection connection) {
     return connection.getContentLength();
   }
 
+  /**
+   * Handle the response-received event from Azure SDK.
+   */
   @Override
   public void eventOccurred(ResponseReceivedEvent eventArg) {
     instrumentation.webResponse();
