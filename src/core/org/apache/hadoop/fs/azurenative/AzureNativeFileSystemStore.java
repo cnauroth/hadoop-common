@@ -78,9 +78,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final String ASV_AUTHORITY_DELIMITER = "+";
   private static final String AZURE_ROOT_CONTAINER = "$root";
 
-  // Default minimum read size for streams is 64MB.
+  // Default minimum read size for streams is 4MB.
   //
-  private static final int DEFAULT_STREAM_MIN_READ_SIZE = 67108864;
+  private static final int DEFAULT_STREAM_MIN_READ_SIZE = 4 * 1024 * 1024;
 
   // Default write block size is 4MB.
   //
