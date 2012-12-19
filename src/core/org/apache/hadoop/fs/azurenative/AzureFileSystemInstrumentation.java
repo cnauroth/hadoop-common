@@ -1,5 +1,7 @@
 package org.apache.hadoop.fs.azurenative;
 
+import java.util.*;
+
 import org.apache.hadoop.metrics2.*;
 import org.apache.hadoop.metrics2.lib.*;
 
@@ -71,6 +73,14 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
           0L);
   private long currentMaximumUploadBytesPerSecond;
   private long currentMaximumDownloadBytesPerSecond;
+  private UUID fileSystemId;
+
+  public AzureFileSystemInstrumentation() {
+    fileSystemId = UUID.randomUUID();
+    registry.tag("asvFileSystemId",
+        "A unique identifier for the file ",
+        fileSystemId.toString());
+  }
 
   /**
    * Sets the account name to tag all the metrics with.

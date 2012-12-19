@@ -60,6 +60,9 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     verify(myMetrics).add(argThat(
         new TagMatcher("context", "azureFileSystem")
         ));
+    verify(myMetrics).add(argThat(
+        new TagExistsMatcher("asvFileSystemId")
+        ));
   }
 
   public void testMetricsOnMkdirList() throws Exception {
@@ -311,26 +314,49 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
    * A matcher class for asserting that we got a tag with a given
    * value.
    */
-  private static class TagMatcher extends BaseMatcher<MetricsTag> {
-    private final String tagName;
+  private static class TagMatcher extends TagExistsMatcher {
     private final String tagValue;
     
     public TagMatcher(String tagName, String tagValue) {
-      this.tagName = tagName;
+      super(tagName);
       this.tagValue = tagValue;
+    }
+
+    @Override
+    public boolean matches(MetricsTag toMatch) {
+      return toMatch.value().equals(tagValue);
+    }
+
+    @Override
+    public void describeTo(Description desc) {
+      super.describeTo(desc);
+      desc.appendText(" with value " + tagValue);
+    }
+  }
+
+  /**
+   * A matcher class for asserting that we got a tag with any value.
+   */
+  private static class TagExistsMatcher extends BaseMatcher<MetricsTag> {
+    private final String tagName;
+    
+    public TagExistsMatcher(String tagName) {
+      this.tagName = tagName;
     }
 
     @Override
     public boolean matches(Object toMatch) {
       MetricsTag asTag = (MetricsTag)toMatch;
-      return asTag.name().equals(tagName) &&
-          asTag.value().equals(tagValue);
+      return asTag.name().equals(tagName) && matches(asTag);
+    }
+    
+    protected boolean matches(MetricsTag toMatch) {
+      return true;
     }
 
     @Override
     public void describeTo(Description desc) {
-      desc.appendText("Has tag " + tagName +
-          " with value " + tagValue);
+      desc.appendText("Has tag " + tagName);
     }
   }
 
