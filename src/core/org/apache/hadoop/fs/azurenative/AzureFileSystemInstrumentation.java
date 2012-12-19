@@ -71,8 +71,28 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
           "Total number of raw bytes (including overhead) downloaded from Azure" +
           " Storage.",
           0L);
+  private final MetricMutableGaugeLong averageBlockUploadLatencyMs =
+      registry.newGauge(
+          "asv_average_block_upload_latency_ms",
+          "The average latency in milliseconds of uploading a single block" +
+          ". The average latency is calculated over a 5-second rolling" +
+          " window.",
+          0L);
+  private final MetricMutableGaugeLong averageBlockDownloadLatencyMs =
+      registry.newGauge(
+          "asv_average_block_download_latency_ms",
+          "The average latency in milliseconds of downloading a single block" +
+          ". The average latency is calculated over a 5-second rolling" +
+          " window.",
+          0L);
   private long currentMaximumUploadBytesPerSecond;
   private long currentMaximumDownloadBytesPerSecond;
+  private static final long LATENCY_ROLLING_AVERAGE_WINDOW_MS =
+      5000;
+  private RollingWindowAverage currentBlockUploadLatency =
+      new RollingWindowAverage(LATENCY_ROLLING_AVERAGE_WINDOW_MS);
+  private RollingWindowAverage currentBlockDownloadLatency =
+      new RollingWindowAverage(LATENCY_ROLLING_AVERAGE_WINDOW_MS);
   private UUID fileSystemId;
 
   public AzureFileSystemInstrumentation() {
@@ -195,8 +215,28 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
     rawBytesDownloaded.incr(numberOfBytes);
   }
 
+  /**
+   * Indicate that we just uploaded a block and record its latency.
+   * @param latency The latency in milliseconds.
+   */
+  public void blockUploaded(long latency) {
+    currentBlockUploadLatency.addPoint(latency);
+  }
+
+  /**
+   * Indicate that we just downloaded a block and record its latency.
+   * @param latency The latency in milliseconds.
+   */
+  public void blockDownloaded(long latency) {
+    currentBlockDownloadLatency.addPoint(latency);
+  }
+
   @Override
   public void getMetrics(MetricsBuilder builder, boolean all) {
+    averageBlockDownloadLatencyMs.set(
+        currentBlockDownloadLatency.getCurrentAverage());
+    averageBlockUploadLatencyMs.set(
+        currentBlockUploadLatency.getCurrentAverage());
     registry.snapshot(builder.addRecord(registry.name()), all);
   }
 }

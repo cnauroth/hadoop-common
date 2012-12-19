@@ -24,6 +24,10 @@ public final class AzureMetricsTestUtil {
       "asv_maximum_upload_bytes_per_second";
   public static final String ASV_DOWNLOAD_RATE =
       "asv_maximum_download_bytes_per_second";
+  public static final String ASV_UPLOAD_LATENCY =
+      "asv_average_block_upload_latency_ms";
+  public static final String ASV_DOWNLOAD_LATENCY =
+      "asv_average_block_download_latency_ms";
 
   public static long getLongGaugeValue(AzureFileSystemInstrumentation instrumentation,
       String gaugeName) {
