@@ -262,3 +262,6 @@ BUG FIXES
     HDFS-3942. Backport HDFS-3495 and HDFS-4234: Update Balancer to support new
     NetworkTopology with NodeGroup and use generic code for choosing datanode
     in Balancer.  (Junping Du via szetszwo)
+
+    HDFS-4320. Add a separate configuration for namenode rpc address instead
+    of using fs.default.name. (Mostafa Elhemali via suresh)
