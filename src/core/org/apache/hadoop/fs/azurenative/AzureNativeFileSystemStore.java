@@ -663,6 +663,42 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
                 + "access is prohibited."));
       }
 
+      /**
+       * Note: Windows Azure Blob Storage does not allow the creation of arbitrary directory
+       *      paths under the default $root directory.  This is by design to eliminate
+       *      ambiguity in specifying a implicit blob address. A blob in the $root conatiner
+       *      cannot include a / in its name and must be careful not to include a trailing
+       *      '/' when referencing  blobs in the $root container.
+       *      A '/; in the $root container permits ambiguous blob names as in the following
+       *      example involving two containers $root and mycontainer:
+       *                http://myaccount.blob.core.windows.net/$root
+       *                http://myaccount.blob.core.windows.net/mycontainer
+       *      If the URL "mycontainer/somefile.txt were allowed in $root then the URL:
+       *                http://myaccount.blob.core.windows.net/mycontainer/myblob.txt
+       *      could mean either:
+       *        (1) container=mycontainer; blob=myblob.txt
+       *        (2) container=$root; blob=mycontainer/myblob.txt
+       *
+       *      To avoid this type of ambiguity the Azure blob storage prevents arbitrary path
+       *      under $root.  For a simple and more consistent user experience it was decided
+       *      to eliminate the opportunity for creating such paths by making the $root container
+       *      read-only under ASV.  (cf. JIRA HADOOP-254).
+       */
+
+      //Check that no attempt is made to write to blobs on default
+      //$root containers.
+      //
+      if (AZURE_ROOT_CONTAINER.equals(getContainerFromAuthority(sessionUri))){
+        // Azure containers are restricted to non-root containers.
+        //
+        final String errMsg =
+            String.format(
+                "Writes to '%s' container for URI '%s' are prohibited, " +
+                    "only updates on non-root containers permitted.",
+                    AZURE_ROOT_CONTAINER, sessionUri.toString());
+        throw new AzureException(errMsg);
+      }
+
       // Get the block blob reference from the store's container and
       // return it.
       //
