@@ -43,6 +43,7 @@ class BandwidthGaugeUpdater {
     this.instrumentation = instrumentation;
     if (!manualUpdateTrigger) {
       uploadBandwidthUpdater = new Thread(new UploadBandwidthUpdater());
+      uploadBandwidthUpdater.setDaemon(true);
       uploadBandwidthUpdater.start();
     }
   }
