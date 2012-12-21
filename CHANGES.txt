@@ -158,6 +158,8 @@ Release 1.1.0 - (partial upto at r1293509 as of 2012-02-24 17:46:42)
     HDFS-3652. FSEditLog failure removes the wrong edit stream when storage
     dirs have same name. (todd)
 
+    HADOOP-8329. Build fails with Java 7. (eli)
+
 Release 1.0.3 - 2012.05.07
 
   NEW FEATURES
