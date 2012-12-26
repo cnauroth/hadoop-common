@@ -30,7 +30,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.azure.AzureException;
 import org.apache.hadoop.fs.permission.*;
 import org.mortbay.util.ajax.JSON;
-import org.mortbay.util.ajax.JSON.Output;
 
 import com.microsoft.windowsazure.services.blob.client.*;
 import com.microsoft.windowsazure.services.core.storage.*;
@@ -125,7 +124,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     private static final String PERMISSIONS_TAG = "permissions";
     
     @Override
-    public void toJSON(Object obj, Output out) {
+    public void toJSON(Object obj, JSON.Output out) {
       PermissionStatus permissionStatus = (PermissionStatus)obj;
       // Don't store group as null, just store it as empty string
       // (which is FileStatus behavior).
