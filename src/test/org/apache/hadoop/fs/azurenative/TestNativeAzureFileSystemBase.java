@@ -50,6 +50,10 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     }
   }
 
+  public void testCheckingNonExistentOneLetterFile() throws Exception {
+    assertFalse(fs.exists(new Path("/a")));
+  }
+
   public void testStoreRetrieveFile() throws Exception {
     if (fs == null)
       return;

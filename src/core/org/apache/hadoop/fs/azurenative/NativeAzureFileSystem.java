@@ -717,6 +717,9 @@ public class NativeAzureFileSystem extends FileSystem {
         NativeFileSystemStore.class, actualStore, methodNameToPolicyMap);
   }
 
+  // TODO: The logic for this method is confusing as to whether it strips the
+  // last slash or not (it adds it in the beginning, then strips it at the end).
+  // We should revisit that.
   private String pathToKey(Path path) {
     // Convert the path to a URI to parse the scheme, the authority, and the
     // path from the path object.
@@ -862,34 +865,9 @@ public class NativeAzureFileSystem extends FileSystem {
     // an empty folder, or a simple file and take the appropriate actions.
     //
     if (!metaFile.isDir()){
-      // The path specifies a file. We need to check the parent path
-      // to make sure it's a proper materialized directory before we
-      // delete the file. Otherwise we may get into a situation where
-      // the file we were deleting was the last one in an implicit directory
-      // (e.g. the blob store only contains the blob a/b and there's no
-      // corresponding directory blob a) and that would implicitly delete
-      // the directory as well, which is not correct.
+      // The path specifies a file or empty folder.  Delete the file or the folder
+      // suffixed file as appropriate.
       //
-      Path parentPath = absolutePath.getParent();
-      if (parentPath.getParent() != null) {// Not root
-        String parentKey = pathToKey(parentPath);
-        FileMetadata parentMetadata = store.retrieveMetadata(parentKey);
-        if (!parentMetadata.isDir()) {
-          // Invalid state: the parent path is actually a file. Throw.
-          //
-          throw new AzureException("File " + f + " has a parent directory " +
-              parentPath + " which is also a file. Can't resolve.");
-        }
-        if (parentMetadata.getBlobMaterialization() ==
-            BlobMaterialization.Implicit) {
-          if (LOG.isDebugEnabled()) {
-            LOG.debug("Found an implicit parent directory while trying to" +
-            		" delete the file " + f + ". Creating the directory blob for" +
-                " it in " + parentKey + ".");
-          }
-          store.storeEmptyFolder(parentKey, metaFile.getPermission());
-        }
-      }
       store.delete(key);
       instrumentation.fileDeleted();
     } else {
@@ -946,7 +924,7 @@ public class NativeAzureFileSystem extends FileSystem {
     //
     Path absolutePath = makeAbsolute(f);
     String key = pathToKey(absolutePath);
-    if (key.length() == 1) { // root always exists
+    if (key.length() == 0) { // root always exists
       return newDirectory(null, absolutePath);
     }
 
