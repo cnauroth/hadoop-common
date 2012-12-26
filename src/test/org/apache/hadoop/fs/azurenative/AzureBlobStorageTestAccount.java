@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.configuration.SubsetConfiguration;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.metrics2.*;
 
 import com.microsoft.windowsazure.services.blob.client.CloudBlobContainer;
@@ -61,6 +62,17 @@ public final class AzureBlobStorageTestAccount {
 
   private static ArrayList<MetricsRecord> getRecords(int sinkIdentifier) {
     return allMetrics.get(sinkIdentifier);
+  }
+
+  public static String toMockUri(String path) {
+    return String.format("http://%s.blob.core.windows.net/%s/%s",
+        AzureBlobStorageTestAccount.MOCK_ACCOUNT_NAME,
+        AzureBlobStorageTestAccount.MOCK_CONTAINER_NAME,
+        path);
+  }
+
+  public static String toMockUri(Path path) {
+    return toMockUri(path.toUri().getRawPath().substring(1)); // Remove the first /
   }
 
   public Number getLatestMetricValue(String metricName, Number defaultValue) 
