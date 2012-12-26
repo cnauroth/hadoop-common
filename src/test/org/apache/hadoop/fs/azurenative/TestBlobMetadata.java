@@ -30,6 +30,17 @@ public class TestBlobMetadata extends TestCase {
     backingStore = null;
   }
 
+  private static String getExpectedOwner() throws Exception {
+    return UserGroupInformation.getCurrentUser().getShortUserName();
+  }
+
+  private static String getExpectedPermissionString(String permissionString)
+      throws Exception {
+    return String.format(
+        "{\"owner\":\"%s\",\"group\":\"\",\"permissions\":\"%s\"}",
+        getExpectedOwner(), permissionString);
+  }
+
   public void testPermissionMetadata() throws Exception {
     FsPermission justMe = new FsPermission(
         FsAction.READ_WRITE, FsAction.NONE, FsAction.NONE);
@@ -37,18 +48,30 @@ public class TestBlobMetadata extends TestCase {
     fs.create(selfishFile, justMe,
         true, 4096, fs.getDefaultReplication(), fs.getDefaultBlockSize(), null).close();
     HashMap<String, String> metadata =
-        backingStore.getMetadata(AzureBlobStorageTestAccount.toMockUri(selfishFile));
+        backingStore.getMetadata(
+            AzureBlobStorageTestAccount.toMockUri(selfishFile));
     assertNotNull(metadata);
     String storedPermission = metadata.get("asv_permission");
-    String expectedOwner = UserGroupInformation.getCurrentUser().getShortUserName();
-    String expectedPermission = String.format(
-        "{\"owner\":\"%s\",\"group\":\"\",\"permissions\":\"rw-------\"}",
-        expectedOwner);
-    assertEquals(expectedPermission, storedPermission);
+    assertEquals(getExpectedPermissionString("rw-------"),
+        storedPermission);
     FileStatus retrievedStatus = fs.getFileStatus(selfishFile);
     assertNotNull(retrievedStatus);
     assertEquals(justMe, retrievedStatus.getPermission());
-    assertEquals(expectedOwner, retrievedStatus.getOwner());
+    assertEquals(getExpectedOwner(), retrievedStatus.getOwner());
     assertEquals("", retrievedStatus.getGroup());
+  }
+
+  public void testFolderMetadata() throws Exception {
+    Path folder = new Path("/folder");
+    FsPermission justRead = new FsPermission(
+        FsAction.READ, FsAction.READ, FsAction.READ);
+    fs.mkdirs(folder, justRead);
+    HashMap<String, String> metadata =
+        backingStore.getMetadata(
+            AzureBlobStorageTestAccount.toMockUri(folder));
+    assertNotNull(metadata);
+    assertEquals("true", metadata.get("asv_isfolder"));
+    assertEquals(getExpectedPermissionString("r--r--r--"),
+        metadata.get("asv_permission"));
   }
 }

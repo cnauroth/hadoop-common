@@ -70,7 +70,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final String KEY_WRITE_BLOCK_SIZE = "fs.azure.write.block.size";
 
   private static final String PERMISSION_METADATA_KEY = "asv_permission";
-  private static final String IS_FOLDER_METADATA_KEY = "asv_isFolder";
+  private static final String IS_FOLDER_METADATA_KEY = "asv_isfolder";
 
   private static final String HTTP_SCHEME = "http";
   private static final String HTTPS_SCHEME = "https";
