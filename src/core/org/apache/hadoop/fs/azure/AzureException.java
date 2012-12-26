@@ -30,6 +30,10 @@ public class AzureException extends IOException {
     super(message);
   }
 
+  public AzureException(String message, Throwable cause) {
+    super(message, cause);
+  }
+
   public AzureException(Throwable t) {
     super(t);
   }

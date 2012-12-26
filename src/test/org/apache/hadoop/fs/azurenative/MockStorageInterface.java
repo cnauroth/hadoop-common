@@ -29,6 +29,10 @@ public class MockStorageInterface extends StorageInterface {
   }
 
   @Override
+  public void setRetryPolicyFactory(final RetryPolicyFactory retryPolicyFactory) {
+  }
+
+  @Override
   public void setTimeoutInMs(int timeoutInMs) {
   }
 

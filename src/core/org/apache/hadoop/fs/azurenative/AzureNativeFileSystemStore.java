@@ -101,6 +101,25 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private BandwidthGaugeUpdater bandwidthGaugeUpdater;
   private final static JSON permissionJsonSerializer =
       createPermissionJsonSerializer();
+  private boolean suppressRetryPolicy = false;
+
+  /**
+   * Suppress the default retry policy for the Storage, useful in unit
+   * tests to test negative cases without waiting forever.
+   */
+  void suppressRetryPolicy() {
+    suppressRetryPolicy = true;
+  }
+
+  /**
+   * If we're asked by unit tests to not retry, set the retry policy factory
+   * in the client accordingly.
+   */
+  private void suppressRetryPolicyInClientIfNeeded() {
+    if (suppressRetryPolicy) {
+      storageInteractionLayer.setRetryPolicyFactory(new RetryNoRetry());
+    }
+  }
 
   /**
    * Creates a JSON serilalizer that can serialize a PermissionStatus object
@@ -454,6 +473,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // credentials.
     //
     storageInteractionLayer.createBlobClient(accountUri, sasCreds);
+    suppressRetryPolicyInClientIfNeeded();
 
     // Capture the root directory.
     //
@@ -484,13 +504,15 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // container. Explicitly create a storage URI corresponding to the URI 
     // parameter for use in creating the service client.
     //
+    String accountName = getAccountFromAuthority(uri);
     URI storageUri = new URI(getHTTPScheme() + ":" + PATH_DELIMITER + PATH_DELIMITER + 
-        getAccountFromAuthority (uri) +
+        accountName +
         ASV_URL_AUTHORITY);
 
     // Create the service client with anonymous credentials.
     //
     storageInteractionLayer.createBlobClient(storageUri);
+    suppressRetryPolicyInClientIfNeeded();
 
     // Extract the container name from the URI.
     //
@@ -498,9 +520,24 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     String containerUri = storageUri.toString() + PATH_DELIMITER + containerName;
     rootDirectory = storageInteractionLayer.getDirectoryReference(containerUri);
 
-    // Capture the container reference for debugging purposes.
+    // Capture the container reference.
     //
     container = storageInteractionLayer.getContainerReference(containerName);
+
+    // Check for container existence, and our ability to access it.
+    //
+    try {
+      if (!container.exists(getInstrumentedContext())) {
+        throw new AzureException("Container " + containerName +
+            " in account " + accountName + " not found, and we can't create " +
+            " it using anoynomous credentials.");
+      }
+    } catch (StorageException ex) {
+      throw new AzureException("Unable to access container " + containerName +
+          " in account " + accountName +
+          " using anonymous credentials, and no credentials found for them " +
+          " in the configuration.", ex);
+    }
 
     // Accessing the storage server unauthenticated using
     // anonymous credentials.
@@ -537,6 +574,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     //
     account = CloudStorageAccount.parse(connectionString);
     storageInteractionLayer.createBlobClient(account);
+    suppressRetryPolicyInClientIfNeeded();
 
     // Set the root directory.
     //
