@@ -1,5 +1,7 @@
 package org.apache.hadoop.fs.azurenative;
 
+import java.net.*;
+
 import org.apache.hadoop.conf.*;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.azure.AzureException;
@@ -26,7 +28,7 @@ public class TestAzureFileSystemErrorConditions extends TestCase {
    */
   public void testAccessUnauthorizedPublicContainer() throws Exception {
     Path noAccessPath = new Path(
-        "asv://hopefullyNonExistentAccount+nonExistentContainer/someFile");
+        "asv://nonExistentContainer@hopefullyNonExistentAccount/someFile");
     NativeAzureFileSystem.suppressRetryPolicy();
     try {
       FileSystem.get(noAccessPath.toUri(), new Configuration())
@@ -40,5 +42,29 @@ public class TestAzureFileSystemErrorConditions extends TestCase {
     } finally {
       NativeAzureFileSystem.resumeRetryPolicy();
     }
+  }
+
+  private void testBadUriScenario(String badURI) throws Exception {
+    try {
+      FileSystem.get(new URI(badURI), new Configuration());
+      assertTrue("Should've thrown.", false);
+    } catch (AzureException ex) {
+      URISyntaxException cause = (URISyntaxException)ex.getCause();
+      assertNotNull(cause);
+      assertTrue("Bad message: " + cause.getMessage(),
+          cause.getMessage().contains(badURI));
+    } catch (IllegalArgumentException ex) {
+      // We also throw that sometimes.
+      assertTrue("Bad message: " + ex.getMessage(),
+          ex.getMessage().contains("authority"));
+    }
+  }
+
+  /**
+   * Tests various bad URI scenario.
+   */
+  public void testBadUri() throws Exception {
+    testBadUriScenario("asv://two@ats@bad");
+    testBadUriScenario("asv:///noAuthority"); // And no default ASV file system
   }
 }

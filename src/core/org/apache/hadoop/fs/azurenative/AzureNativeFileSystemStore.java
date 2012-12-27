@@ -76,7 +76,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final String ASV_SCHEME = "asv";
   private static final String ASV_SECURE_SCHEME = "asvs";
   private static final String ASV_URL_AUTHORITY = ".blob.core.windows.net";
-  private static final String ASV_AUTHORITY_DELIMITER = "+";
+  private static final String ASV_AUTHORITY_DELIMITER = "@";
   private static final String AZURE_ROOT_CONTAINER = "$root";
 
   // Default minimum read size for streams is 4MB.
@@ -275,22 +275,24 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       throw new URISyntaxException(uri.toString(), "Expected URI with a valid authority");
     }
 
-    // The URI has a valid authority. Extract the account name name. It is the first
-    // component of the ASV URI authority.
+    // The URI has a valid authority. Extract the account name name. It is the second
+    // (or only) component of the ASV URI authority.
     //
-    String accountName = authority.split("\\" + ASV_AUTHORITY_DELIMITER, 2)[0];
-    if ("".equals(accountName)) {
-      // The account name was not specified.
+    String[] split = authority.split(ASV_AUTHORITY_DELIMITER);
+    if (split.length == 1) {
+      // No container specified, just the account.
       //
-      final String errMsg = 
-          String.format("URI '%s' an non-empty account name. Expected URI with a non-empty account",
-              uri.toString());
-      throw new IllegalArgumentException(errMsg);
+      return authority;
+    } else if (split.length == 2) {
+      // Container specified, the account comes after that.
+      //
+      return split[1];
+    } else {
+      // Invalid authority.
+      //
+      throw new URISyntaxException(uri.toString(), "The authority " + authority +
+          " of the URI should only have one " + ASV_AUTHORITY_DELIMITER);
     }
-
-    // Return with the container name. It is possible that this name is NULL.
-    //
-    return accountName;
   }
 
   /**
@@ -311,12 +313,12 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       throw new URISyntaxException(uri.toString(), "Expected URI with a valid authority");
     }
 
-    // The URI has a valid authority. Extract the container name. It is the second
+    // The URI has a valid authority. Extract the container name. It is the first
     // component of the ASV URI authority.
     //
     String containerName = null;
     if (authority.contains(ASV_AUTHORITY_DELIMITER)) {
-      containerName = authority.split("\\" + ASV_AUTHORITY_DELIMITER, 2)[1];
+      containerName = authority.split("\\" + ASV_AUTHORITY_DELIMITER, 2)[0];
     }
 
     // If the container name is not part of the authority, then the URI specifies the
@@ -678,7 +680,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       instrumentation.setContainerName(containerName);
       String propertyValue = sessionConfiguration.get(
           KEY_ACCOUNT_SAS_PREFIX + accountName + 
-          ASV_AUTHORITY_DELIMITER + containerName);
+          "." + containerName);
       if (null != propertyValue){
         // Check if the connection string is a valid shared access
         // signature.
