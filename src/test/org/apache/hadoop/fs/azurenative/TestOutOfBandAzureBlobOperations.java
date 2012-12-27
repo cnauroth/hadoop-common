@@ -78,13 +78,22 @@ public class TestOutOfBandAzureBlobOperations extends TestCase {
   public void testFileAndImplicitFolderSameName() throws Exception {
     createEmptyBlobOutOfBand("root/b");
     createEmptyBlobOutOfBand("root/b/c");
+    FileStatus[] listResult = fs.listStatus(new Path("/root/b"));
+    // File should win.
+    assertEquals(1, listResult.length);
+    assertFalse(listResult[0].isDir());
     try {
-      fs.listStatus(new Path("root/b")); // This should throw.
+      // Trying to delete root/b/c would cause a dilemma for ASV, so
+      // it should throw.
+      fs.delete(new Path("/root/b/c"), true);
       assertTrue(
-          "Should've thrown. This doesn't work right now because of HADOOP-275",
+          "Should've thrown.",
           false);
     } catch (AzureException e) {
-      assertEquals("Validate this message", e.getMessage());
+      assertEquals(
+          "File /root/b/c has a parent directory /root/b" +
+          " which is also a file. Can't resolve.",
+          e.getMessage());
     }
   }
 }
