@@ -1308,6 +1308,9 @@ public class NativeAzureFileSystem extends FileSystem {
     AzureFileSystemMetricsSystem.fileSystemClosed();
   }
 
+  public void recoverFilesWithDanglingTempData(Path root) {
+  }
+
   /**
    * Encode the key with a random prefix for load balancing in Azure storage.
    * Upload data to a random temporary file then do storage side renaming to

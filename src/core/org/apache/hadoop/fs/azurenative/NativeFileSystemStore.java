@@ -51,6 +51,8 @@ interface NativeFileSystemStore {
   void storeEmptyLinkFile(String key, String tempBlobKey,
       PermissionStatus permissionStatus) throws AzureException;
 
+  String getLinkInFileMetadata(String key) throws AzureException;
+
   PartialListing list(String prefix, final int maxListingCount, final int maxListingDepth)
       throws IOException;
 

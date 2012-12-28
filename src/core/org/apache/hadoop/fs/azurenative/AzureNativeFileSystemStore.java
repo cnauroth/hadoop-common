@@ -973,6 +973,15 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     blob.setMetadata(metadata);
   }
 
+  private static String getMetadataAttribute(CloudBlockBlobWrapper blob,
+      String key) {
+    HashMap<String, String> metadata = blob.getMetadata();
+    if (null == metadata || !metadata.containsKey(key)) {
+      return null;
+    }
+    return metadata.get(key);
+  }
+
   private void storePermissionStatus(CloudBlockBlobWrapper blob,
       PermissionStatus permissionStatus) {
     storeMetadataAttribute(blob,
@@ -980,10 +989,11 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   private PermissionStatus getPermissionStatus(CloudBlockBlobWrapper blob) {
-    HashMap<String, String> metadata = blob.getMetadata();
-    if (null != metadata && metadata.containsKey(PERMISSION_METADATA_KEY)) {
+    String permissionMetadataValue = getMetadataAttribute(blob,
+        PERMISSION_METADATA_KEY);
+    if (permissionMetadataValue == null) {
       return PermissionStatusJsonSerializer.fromJSONString(
-          metadata.get(PERMISSION_METADATA_KEY));
+          permissionMetadataValue);
     } else {
       return defaultPermission();
     }
@@ -997,6 +1007,11 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       String linkTarget) {
     storeMetadataAttribute(blob,
         LINK_BACK_TO_UPLOAD_IN_PROGRESS_METADATA_KEY, linkTarget);
+  }
+  
+  private static String getLinkAttributeValue(CloudBlockBlobWrapper blob) {
+    return getMetadataAttribute(blob,
+        LINK_BACK_TO_UPLOAD_IN_PROGRESS_METADATA_KEY);
   }
 
   private static boolean retrieveFolderAttribute(CloudBlockBlobWrapper blob) {
@@ -1046,7 +1061,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   @Override
   public void storeEmptyLinkFile(String key, String tempBlobKey,
       PermissionStatus permissionStatus) throws AzureException {
-
     if (null == storageInteractionLayer) {
       final String errMsg =
           String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
@@ -1072,8 +1086,33 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       blob.upload(new ByteArrayInputStream(new byte[0]), getInstrumentedContext());
     } catch (Exception e) {
       // Caught exception while attempting upload. Re-throw as an Azure
-      // storage
-      // exception.
+      // storage exception.
+      //
+      throw new AzureException(e);
+    }
+  }
+
+  /**
+   * If the blob with the given key exists and has a link in its metadata
+   * to a temporary file (see storeEmptyLinkFile), this method returns
+   * the key to that temporary file.
+   * Otherwise, returns null.
+   */
+  @Override
+  public String getLinkInFileMetadata(String key) throws AzureException {
+    if (null == storageInteractionLayer) {
+      final String errMsg =
+          String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
+      throw new AssertionError(errMsg);
+    }
+
+    try {
+      CloudBlockBlobWrapper blob = getBlobReference(key);
+      blob.downloadAttributes(getInstrumentedContext());
+      return getLinkAttributeValue(blob);
+    } catch (Exception e) {
+      // Caught exception while attempting download. Re-throw as an Azure
+      // storage exception.
       //
       throw new AzureException(e);
     }
