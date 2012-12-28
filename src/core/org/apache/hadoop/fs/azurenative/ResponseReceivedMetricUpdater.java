@@ -1,7 +1,6 @@
 package org.apache.hadoop.fs.azurenative;
 
 import java.net.*;
-import java.util.*;
 
 import com.microsoft.windowsazure.services.core.storage.*;
 import com.microsoft.windowsazure.services.core.storage.Constants.HeaderConstants;
@@ -14,11 +13,11 @@ class ResponseReceivedMetricUpdater extends
     StorageEvent<ResponseReceivedEvent> {
   private final AzureFileSystemInstrumentation instrumentation;
   private final OperationContext operationContext;
-  private final BlockUploadGaugeUpdater blockUploadGaugeUpdater;
+  private final BandwidthGaugeUpdater blockUploadGaugeUpdater;
 
   private ResponseReceivedMetricUpdater(OperationContext operationContext,
       AzureFileSystemInstrumentation instrumentation,
-      BlockUploadGaugeUpdater blockUploadGaugeUpdater) {
+      BandwidthGaugeUpdater blockUploadGaugeUpdater) {
     this.instrumentation = instrumentation;
     this.operationContext = operationContext;
     this.blockUploadGaugeUpdater = blockUploadGaugeUpdater;
@@ -37,7 +36,7 @@ class ResponseReceivedMetricUpdater extends
   public static void hook(
       OperationContext operationContext,
       AzureFileSystemInstrumentation instrumentation,
-      BlockUploadGaugeUpdater blockUploadGaugeUpdater) {
+      BandwidthGaugeUpdater blockUploadGaugeUpdater) {
     ResponseReceivedMetricUpdater listener =
         new ResponseReceivedMetricUpdater(operationContext,
             instrumentation,
@@ -45,28 +44,71 @@ class ResponseReceivedMetricUpdater extends
     operationContext.getResponseReceivedEventHandler().addListener(listener);
   }
 
+  /**
+   * Get the content length of the request in the given HTTP connection.
+   * @param connection The connection.
+   * @return The content length, or zero if not found.
+   */
+  private long getRequestContentLength(HttpURLConnection connection) {
+    String lengthString = connection.getRequestProperty(
+        HeaderConstants.CONTENT_LENGTH);
+    if (lengthString != null)
+      return Long.parseLong(lengthString);
+    else
+      return 0;
+  }
+
+  /**
+   * Gets the content length of the response in the given HTTP connection.
+   * @param connection The connection.
+   * @return The content length.
+   */
+  private long getResponseContentLength(HttpURLConnection connection) {
+    return connection.getContentLength();
+  }
+
+  /**
+   * Handle the response-received event from Azure SDK.
+   */
   @Override
   public void eventOccurred(ResponseReceivedEvent eventArg) {
     instrumentation.webResponse();
     RequestResult currentResult = operationContext.getLastResult();
-    // Check if the result was a successful block upload.
-    if (currentResult.getStatusCode() == HttpURLConnection.HTTP_CREATED) {
-      if (eventArg.getConnectionObject() instanceof HttpURLConnection) {
-        HttpURLConnection connection = (HttpURLConnection)eventArg.getConnectionObject();
-        // If it's a PUT request then we're uploading blocks
-        if (connection.getRequestMethod().equalsIgnoreCase("PUT")) {
-          String lengthString = connection.getRequestProperty(
-              HeaderConstants.CONTENT_LENGTH);
-          if (lengthString != null) {
-            long length = Long.parseLong(lengthString);
-            if (length > 0) {
-              Date startDate = currentResult.getStartDate();
-              Date endDate = currentResult.getStopDate();
-              blockUploadGaugeUpdater.blockUploaded(startDate, endDate, length);
-              instrumentation.rawBytesUploaded(length);
-            }
-          }
-        }
+    if (!(eventArg.getConnectionObject() instanceof HttpURLConnection)) {
+      // Typically this shouldn't happen, but just let it pass
+      return;
+    }
+    HttpURLConnection connection =
+        (HttpURLConnection)eventArg.getConnectionObject();
+    if (currentResult.getStatusCode() == HttpURLConnection.HTTP_CREATED &&
+        connection.getRequestMethod().equalsIgnoreCase("PUT")) {
+      // If it's a PUT with an HTTP_CREATED status then it's a successful
+      // block upload.
+      long length = getRequestContentLength(connection);
+      if (length > 0) {
+        blockUploadGaugeUpdater.blockUploaded(
+            currentResult.getStartDate(),
+            currentResult.getStopDate(),
+            length);
+        instrumentation.rawBytesUploaded(length);
+        instrumentation.blockUploaded(
+            currentResult.getStopDate().getTime() -
+            currentResult.getStartDate().getTime());
+      }
+    } else if (currentResult.getStatusCode() == HttpURLConnection.HTTP_PARTIAL &&
+        connection.getRequestMethod().equalsIgnoreCase("GET")) {
+      // If it's a GET with an HTTP_PARTIAL status then it's a successful
+      // block download.
+      long length = getResponseContentLength(connection);
+      if (length > 0) {
+        blockUploadGaugeUpdater.blockDownloaded(
+            currentResult.getStartDate(),
+            currentResult.getStopDate(),
+            length);
+        instrumentation.rawBytesDownloaded(length);
+        instrumentation.blockDownloaded(
+            currentResult.getStopDate().getTime() -
+            currentResult.getStartDate().getTime());
       }
     }
   }

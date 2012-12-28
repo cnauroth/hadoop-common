@@ -643,6 +643,7 @@ public class NativeAzureFileSystem extends FileSystem {
 
   private URI uri;
   private NativeFileSystemStore store;
+  private AzureNativeFileSystemStore actualStore;
   private Path workingDir;
   private long blockSize = MAX_AZURE_BLOCK_SIZE;
   private AzureFileSystemInstrumentation instrumentation;
@@ -670,7 +671,7 @@ public class NativeAzureFileSystem extends FileSystem {
     String sourceName = "AzureFileSystemMetrics",
         sourceDesc = "Azure Storage Volume File System metrics";
     instrumentation = DefaultMetricsSystem.INSTANCE.register(sourceName,
-        sourceDesc, new AzureFileSystemInstrumentation());
+        sourceDesc, new AzureFileSystemInstrumentation(conf));
     AzureFileSystemMetricsSystem.registerSource(sourceName, sourceDesc,
         instrumentation);
     store.initialize(uri, conf, instrumentation);
@@ -681,8 +682,8 @@ public class NativeAzureFileSystem extends FileSystem {
     this.blockSize = conf.getLong(AZURE_BLOCK_SIZE_PROPERTY_NAME, MAX_AZURE_BLOCK_SIZE);
   }
 
-  private static NativeFileSystemStore createDefaultStore(Configuration conf) {
-    AzureNativeFileSystemStore store = new AzureNativeFileSystemStore();
+  private NativeFileSystemStore createDefaultStore(Configuration conf) {
+    actualStore = new AzureNativeFileSystemStore();
 
     // TODO: Remove literals to improve portability and facilitate future
     // TODO: future changes to constants.
@@ -713,9 +714,12 @@ public class NativeAzureFileSystem extends FileSystem {
     methodNameToPolicyMap.put("storeFile", methodPolicy);
 
     return (NativeFileSystemStore) RetryProxy.create(
-        NativeFileSystemStore.class, store, methodNameToPolicyMap);
+        NativeFileSystemStore.class, actualStore, methodNameToPolicyMap);
   }
 
+  // TODO: The logic for this method is confusing as to whether it strips the
+  // last slash or not (it adds it in the beginning, then strips it at the end).
+  // We should revisit that.
   private String pathToKey(Path path) {
     // Convert the path to a URI to parse the scheme, the authority, and the
     // path from the path object.
@@ -759,7 +763,16 @@ public class NativeAzureFileSystem extends FileSystem {
     }
     return new Path(workingDir, path);
   }
-  
+
+  /**
+   * For unit test purposes, retrieves the AzureNativeFileSystemStore store
+   * backing this file system.
+   * @return The store object.
+   */
+  AzureNativeFileSystemStore getStore() {
+    return actualStore;
+  }
+
   /**
    * Gets the metrics source for this file system.
    * This is mainly here for unit testing purposes.
@@ -786,7 +799,9 @@ public class NativeAzureFileSystem extends FileSystem {
       LOG.debug("Creating file: " + f.toString());
     }
 
-    if (exists(f) && !overwrite) {
+    // Only check for existence (requires a web request) if we're not
+    // overwriting.
+    if (!overwrite && exists(f)) {
       throw new IOException("File already exists:" + f);
     }
 
@@ -856,6 +871,7 @@ public class NativeAzureFileSystem extends FileSystem {
       // suffixed file as appropriate.
       //
       store.delete(key);
+      instrumentation.fileDeleted();
     } else {
       // The path specifies a folder. Recursively delete all entries under the
       // folder. List all the blobs in the current folder.
@@ -880,6 +896,7 @@ public class NativeAzureFileSystem extends FileSystem {
         String suffix = p.getKey().substring(p.getKey().lastIndexOf(PATH_DELIMITER));
         if (!p.isDir()){
           store.delete(key + suffix);
+          instrumentation.fileDeleted();
         } else {
           // Recursively delete contents of the sub-folders. Notice this also
           // deletes the blob for the directory.
@@ -890,6 +907,7 @@ public class NativeAzureFileSystem extends FileSystem {
         }
       }
       store.delete(key);
+      instrumentation.directoryDeleted();
     }
 
     // File or directory was successfully deleted.
@@ -908,7 +926,7 @@ public class NativeAzureFileSystem extends FileSystem {
     //
     Path absolutePath = makeAbsolute(f);
     String key = pathToKey(absolutePath);
-    if (key.length() == 1) { // root always exists
+    if (key.length() == 0) { // root always exists
       return newDirectory(null, absolutePath);
     }
 
@@ -1066,6 +1084,7 @@ public class NativeAzureFileSystem extends FileSystem {
 
     String key = pathToKey(absolutePath);
     store.storeEmptyFolder(key, permission);
+    instrumentation.directoryCreated();
 
     // otherwise throws exception
     return true;

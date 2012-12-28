@@ -1,4 +1,7 @@
 Monarch - unreleased
+  TEMPORARY WORKAROUNDS
+    HADOOP-325 - Hadoop core doesn't compile with openjdk 7
+        THis is not the final fix, please do not backport to apache.
 
   IMPROVEMENTS
     PROD - 98 - Set the Oozie related core-site.xml settings in winpkg scripts

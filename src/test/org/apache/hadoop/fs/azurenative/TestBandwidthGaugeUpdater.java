@@ -4,22 +4,24 @@ import static org.apache.hadoop.fs.azurenative.AzureMetricsTestUtil.*;
 
 import java.util.*;
 
+import org.apache.hadoop.conf.*;
+
 import junit.framework.*;
 
-public class TestBlockUploadGaugeUpdater extends TestCase {
+public class TestBandwidthGaugeUpdater extends TestCase {
   public void testSingleThreaded() throws Exception {
     AzureFileSystemInstrumentation instrumentation =
-        new AzureFileSystemInstrumentation();
-    BlockUploadGaugeUpdater updater =
-        new BlockUploadGaugeUpdater(instrumentation, 1000, true);
-    updater.triggerUpdate();
+        new AzureFileSystemInstrumentation(new Configuration());
+    BandwidthGaugeUpdater updater =
+        new BandwidthGaugeUpdater(instrumentation, 1000, true);
+    updater.triggerUpdate(true);
     assertEquals(0, getCurrentBytesWritten(instrumentation));
     updater.blockUploaded(new Date(), new Date(), 150);
-    updater.triggerUpdate();
+    updater.triggerUpdate(true);
     assertEquals(150, getCurrentBytesWritten(instrumentation));
     updater.blockUploaded(new Date(new Date().getTime() - 10000),
         new Date(), 200);
-    updater.triggerUpdate();
+    updater.triggerUpdate(true);
     long currentBytes = getCurrentBytesWritten(instrumentation);
     assertTrue(
         "We expect around (200/10 = 20) bytes written as the gauge value." +
@@ -30,16 +32,16 @@ public class TestBlockUploadGaugeUpdater extends TestCase {
 
   public void testMultiThreaded() throws Exception {
     final AzureFileSystemInstrumentation instrumentation =
-        new AzureFileSystemInstrumentation();
-    final BlockUploadGaugeUpdater updater =
-        new BlockUploadGaugeUpdater(instrumentation, 1000, true);
+        new AzureFileSystemInstrumentation(new Configuration());
+    final BandwidthGaugeUpdater updater =
+        new BandwidthGaugeUpdater(instrumentation, 1000, true);
     Thread[] threads = new Thread[10];
     for (int i = 0; i < threads.length; i++) {
       threads[i] = new Thread(new Runnable() {
         @Override
         public void run() {
-          updater.blockUploaded(new Date(), new Date(), 10);
-          updater.blockUploaded(new Date(0), new Date(0), 10);
+          updater.blockDownloaded(new Date(), new Date(), 10);
+          updater.blockDownloaded(new Date(0), new Date(0), 10);
         }
       });
     }
@@ -49,8 +51,8 @@ public class TestBlockUploadGaugeUpdater extends TestCase {
     for (Thread t : threads) {
       t.join();
     }
-    updater.triggerUpdate();
-    assertEquals(10 * threads.length, getCurrentBytesWritten(instrumentation));
+    updater.triggerUpdate(false);
+    assertEquals(10 * threads.length, getCurrentBytesRead(instrumentation));
     updater.close();
   }
 }

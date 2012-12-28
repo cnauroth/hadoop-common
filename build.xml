@@ -84,10 +84,17 @@
   <property name="build.anttasks" value="${build.dir}/ant"/>
   <property name="build.librecordio" value="${build.dir}/librecordio"/>
   <!-- convert spaces to _ so that mac os doesn't break things -->
-  <script language="javascript">
-    var before = project.getProperty("os.name");
-    project.setProperty("nonspace.os", before.replaceAll(" ", "_"));
-  </script>
+  <!-- Hack. to temporarily fix https://hwxmonarch.atlassian.net/browse/HADOOP-325 -->
+  <condition property="nonspace.os" value="windows">
+    <os family="windows" />
+  </condition>
+  <condition property="nonspace.os" value="mac">
+    <os family="mac" />
+  </condition>
+  <condition property="nonspace.os" value="unix">
+    <os family="unix" />
+  </condition>
+
   <condition property="build.platform"
     value="${env.OS}-${os.arch}-${sun.arch.data.model}"
     else="${nonspace.os}-${os.arch}-${sun.arch.data.model}">

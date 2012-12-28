@@ -78,9 +78,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final String ASV_AUTHORITY_DELIMITER = "+";
   private static final String AZURE_ROOT_CONTAINER = "$root";
 
-  // Default minimum read size for streams is 64MB.
+  // Default minimum read size for streams is 4MB.
   //
-  private static final int DEFAULT_STREAM_MIN_READ_SIZE = 67108864;
+  private static final int DEFAULT_STREAM_MIN_READ_SIZE = 4 * 1024 * 1024;
 
   // Default write block size is 4MB.
   //
@@ -97,11 +97,15 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private int concurrentWrites = DEFAULT_CONCURRENT_WRITES;
   private boolean isAnonymousCredentials = false;
   private AzureFileSystemInstrumentation instrumentation;
-  private BlockUploadGaugeUpdater blockUploadGaugeUpdater;
+  private BandwidthGaugeUpdater bandwidthGaugeUpdater;
   
   void setAzureStorageInteractionLayer(
       StorageInterface storageInteractionLayer) {
     this.storageInteractionLayer = storageInteractionLayer;
+  }
+
+  BandwidthGaugeUpdater getBandwidthGaugeUpdater() {
+    return bandwidthGaugeUpdater;
   }
 
   /**
@@ -123,7 +127,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       throw new IllegalArgumentException("Null instrumentation");
     }
     this.instrumentation = instrumentation;
-    this.blockUploadGaugeUpdater = new BlockUploadGaugeUpdater(instrumentation);
+    this.bandwidthGaugeUpdater = new BandwidthGaugeUpdater(instrumentation);
     if (null == this.storageInteractionLayer) {
       this.storageInteractionLayer = new StorageInterfaceImpl();
     }
@@ -562,6 +566,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
                 sessionUri.toString());
         throw new AzureException(errMsg);
       }
+      instrumentation.setAccountName(accountName);
 
       // Check if there is a SAS associated with the storage account and
       // container by looking up their key in the job configuration object.
@@ -569,6 +574,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //      fs.azure.sas.<blob storage account name>+<container>
       //
       String containerName = getContainerFromAuthority(sessionUri);
+      instrumentation.setContainerName(containerName);
       String propertyValue = sessionConfiguration.get(
           KEY_ACCOUNT_SAS_PREFIX + accountName + 
           ASV_AUTHORITY_DELIMITER + containerName);
@@ -655,6 +661,42 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         throw new AzureException(new IOException(
             "Uploads to public accounts using anonymous "
                 + "access is prohibited."));
+      }
+
+      /**
+       * Note: Windows Azure Blob Storage does not allow the creation of arbitrary directory
+       *      paths under the default $root directory.  This is by design to eliminate
+       *      ambiguity in specifying a implicit blob address. A blob in the $root conatiner
+       *      cannot include a / in its name and must be careful not to include a trailing
+       *      '/' when referencing  blobs in the $root container.
+       *      A '/; in the $root container permits ambiguous blob names as in the following
+       *      example involving two containers $root and mycontainer:
+       *                http://myaccount.blob.core.windows.net/$root
+       *                http://myaccount.blob.core.windows.net/mycontainer
+       *      If the URL "mycontainer/somefile.txt were allowed in $root then the URL:
+       *                http://myaccount.blob.core.windows.net/mycontainer/myblob.txt
+       *      could mean either:
+       *        (1) container=mycontainer; blob=myblob.txt
+       *        (2) container=$root; blob=mycontainer/myblob.txt
+       *
+       *      To avoid this type of ambiguity the Azure blob storage prevents arbitrary path
+       *      under $root.  For a simple and more consistent user experience it was decided
+       *      to eliminate the opportunity for creating such paths by making the $root container
+       *      read-only under ASV.  (cf. JIRA HADOOP-254).
+       */
+
+      //Check that no attempt is made to write to blobs on default
+      //$root containers.
+      //
+      if (AZURE_ROOT_CONTAINER.equals(getContainerFromAuthority(sessionUri))){
+        // Azure containers are restricted to non-root containers.
+        //
+        final String errMsg =
+            String.format(
+                "Writes to '%s' container for URI '%s' are prohibited, " +
+                    "only updates on non-root containers permitted.",
+                    AZURE_ROOT_CONTAINER, sessionUri.toString());
+        throw new AzureException(errMsg);
       }
 
       // Get the block blob reference from the store's container and
@@ -1082,7 +1124,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    */
   private OperationContext getInstrumentedContext() {
     final OperationContext operationContext = new OperationContext();
-    ResponseReceivedMetricUpdater.hook(operationContext, instrumentation, blockUploadGaugeUpdater);
+    ResponseReceivedMetricUpdater.hook(operationContext, instrumentation, bandwidthGaugeUpdater);
     return operationContext;
   }
 
@@ -1660,6 +1702,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
   @Override
   public void close() {
-    blockUploadGaugeUpdater.close();
+    bandwidthGaugeUpdater.close();
   }
 }

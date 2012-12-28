@@ -16,6 +16,10 @@ import com.microsoft.windowsazure.services.core.storage.*;
 public class MockStorageInterface extends StorageInterface {
   private InMemoryBlockBlobStore backingStore;
 
+  public InMemoryBlockBlobStore getBackingStore() {
+    return backingStore;
+  }
+
   @Override
   public void setStreamMinimumReadSizeInBytes(int minimumReadSize) {
   }

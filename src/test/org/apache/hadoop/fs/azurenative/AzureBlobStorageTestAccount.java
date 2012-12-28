@@ -19,20 +19,37 @@ public final class AzureBlobStorageTestAccount {
   private static final String CONNECTION_STRING_PROPERTY_NAME = "fs.azure.storageConnectionString";
   private static final String ACCOUNT_KEY_PROPERTY_NAME = "fs.azure.account.key.";
   private static final String SINK_IDENTIFIER = "identifier";
+  public static final String MOCK_ACCOUNT_NAME = "mockAccount";
+  public static final String MOCK_CONTAINER_NAME = "mockContainer";
+  public static final String MOCK_ASV_URI = "asv://" + MOCK_ACCOUNT_NAME + "+" +
+      MOCK_CONTAINER_NAME + "/";
+  private CloudStorageAccount account;
   private CloudBlobContainer container;
   private FileSystem fs;
   private final int sinkIdentifier;
+  private MockStorageInterface mockStorage;
   private static AtomicInteger sinkIdentifierCounter = new AtomicInteger();
   private static final ConcurrentHashMap<Integer, ArrayList<MetricsRecord>> allMetrics =
       new ConcurrentHashMap<Integer, ArrayList<MetricsRecord>>();
 
-  private AzureBlobStorageTestAccount(FileSystem fs, CloudBlobContainer container,
+  private AzureBlobStorageTestAccount(FileSystem fs,
+      CloudStorageAccount account,
+      CloudBlobContainer container,
       int sinkIdentifier) {
+    this.account = account;
     this.container = container;
     this.fs = fs;
     this.sinkIdentifier = sinkIdentifier;
   }
 
+  private AzureBlobStorageTestAccount(FileSystem fs,
+      MockStorageInterface mockStorage,
+      int sinkIdentifier) {
+    this.fs = fs;
+    this.mockStorage = mockStorage;
+    this.sinkIdentifier = sinkIdentifier;
+  }
+  
   private static void addRecord(int sinkIdentifier, MetricsRecord record) {
     ArrayList<MetricsRecord> list = new ArrayList<MetricsRecord>();
     ArrayList<MetricsRecord> previous = allMetrics.putIfAbsent(sinkIdentifier, list);
@@ -100,13 +117,14 @@ public final class AzureBlobStorageTestAccount {
     saveMetricsConfigFile(sinkIdentifier);
     Configuration conf = new Configuration();
     AzureNativeFileSystemStore store = new AzureNativeFileSystemStore();
-    store.setAzureStorageInteractionLayer(new MockStorageInterface());
+    MockStorageInterface mockStorage = new MockStorageInterface();
+    store.setAzureStorageInteractionLayer(mockStorage);
     FileSystem fs = new NativeAzureFileSystem(store);
-    conf.set(ACCOUNT_KEY_PROPERTY_NAME + "mockAccount",
+    conf.set(ACCOUNT_KEY_PROPERTY_NAME + MOCK_ACCOUNT_NAME,
         Base64.encode(new byte[] {1, 2, 3}));
-    fs.initialize(new URI("asv://mockAccount+mockContainer/"), conf);
+    fs.initialize(new URI(MOCK_ASV_URI), conf);
     AzureBlobStorageTestAccount testAcct =
-        new AzureBlobStorageTestAccount(fs, null, sinkIdentifier);
+        new AzureBlobStorageTestAccount(fs, mockStorage, sinkIdentifier);
     return testAcct;
   }
 
@@ -164,7 +182,7 @@ public final class AzureBlobStorageTestAccount {
     fs.initialize(new URI("asv://" + accountName + "+" + containerName + "/"), conf);
 
     AzureBlobStorageTestAccount testAcct =
-        new AzureBlobStorageTestAccount(fs, container, sinkIdentifier);
+        new AzureBlobStorageTestAccount(fs, account, container, sinkIdentifier);
 
     return testAcct;
   }
@@ -182,6 +200,33 @@ public final class AzureBlobStorageTestAccount {
 
   public FileSystem getFileSystem() {
     return fs;
+  }
+
+  /**
+   * Gets the real blob container backing this account if it's not
+   * a mock. 
+   * @return A container, or null if it's a mock.
+   */
+  public CloudBlobContainer getRealContainer() {
+    return container;
+  }
+
+  /**
+   * Gets the real blob account backing this account if it's not
+   * a mock. 
+   * @return An account, or null if it's a mock.
+   */
+  public CloudStorageAccount getRealAccount() {
+    return account;
+  }
+
+  /**
+   * Gets the mock storage interface if this account is backed
+   * by a mock.
+   * @return The mock storage, or null if it's backed by a real account.
+   */
+  public MockStorageInterface getMockStorage() {
+    return mockStorage;
   }
 
   public static class StandardCollector implements MetricsSink {
