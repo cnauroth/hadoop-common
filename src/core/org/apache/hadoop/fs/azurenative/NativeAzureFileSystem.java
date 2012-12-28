@@ -799,7 +799,9 @@ public class NativeAzureFileSystem extends FileSystem {
       LOG.debug("Creating file: " + f.toString());
     }
 
-    if (exists(f) && !overwrite) {
+    // Only check for existence (requires a web request) if we're not
+    // overwriting.
+    if (!overwrite && exists(f)) {
       throw new IOException("File already exists:" + f);
     }
 
