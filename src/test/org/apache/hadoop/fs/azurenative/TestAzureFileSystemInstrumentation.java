@@ -9,6 +9,7 @@ import org.apache.hadoop.metrics2.lib.*;
 
 import static org.apache.hadoop.test.MetricsAsserts.*;
 import static org.apache.hadoop.fs.azurenative.AzureMetricsTestUtil.*;
+import static org.apache.hadoop.fs.azurenative.AzureFileSystemInstrumentation.*;
 
 import org.hamcrest.*;
 import org.mockito.ArgumentCaptor;
@@ -137,6 +138,19 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
         " the case since the test underestimates the rate by looking at " +
         " end-to-end time instead of just block upload time.",
         uploadRate >= expectedRate);
+    long uploadLatency = getLongGaugeValue(getInstrumentation(),
+        ASV_UPLOAD_LATENCY);
+    System.out.println("Upload latency: " + uploadLatency);
+    long expectedLatency = uploadDurationMs; // We're uploading less than a block.
+    assertTrue("The upload latency " + uploadLatency +
+        " should be greater than zero now that I've just uploaded a file.",
+        uploadLatency > 0);
+    assertTrue("The upload latency " + uploadLatency +
+        " is more than the expected range of around " + expectedLatency +
+        " milliseconds that the unit test observed. This should never be" +
+        " the case since the test overestimates the latency by looking at " +
+        " end-to-end time instead of just block upload time.",
+        uploadLatency <= expectedLatency);
     
     // Read the file
     start = new Date();
@@ -169,8 +183,21 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
         " is below the expected range of around " + expectedRate +
         " bytes/second that the unit test observed. This should never be" +
         " the case since the test underestimates the rate by looking at " +
-        " end-to-end time instead of just block upload time.",
+        " end-to-end time instead of just block download time.",
         downloadRate >= expectedRate);
+    long downloadLatency = getLongGaugeValue(getInstrumentation(),
+        ASV_DOWNLOAD_LATENCY);
+    System.out.println("Download latency: " + downloadLatency);
+    expectedLatency = downloadDurationMs; // We're downloading less than a block.
+    assertTrue("The download latency " + downloadLatency +
+        " should be greater than zero now that I've just downloaded a file.",
+        uploadLatency > 0);
+    assertTrue("The download latency " + downloadLatency +
+        " is more than the expected range of around " + expectedLatency +
+        " milliseconds that the unit test observed. This should never be" +
+        " the case since the test overestimates the latency by looking at " +
+        " end-to-end time instead of just block download time.",
+        downloadLatency <= expectedLatency);
   }
 
   public void testMetricsOnFileRename() throws Exception {

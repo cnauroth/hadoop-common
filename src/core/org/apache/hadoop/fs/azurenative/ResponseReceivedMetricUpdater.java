@@ -91,6 +91,9 @@ class ResponseReceivedMetricUpdater extends
             currentResult.getStopDate(),
             length);
         instrumentation.rawBytesUploaded(length);
+        instrumentation.blockUploaded(
+            currentResult.getStopDate().getTime() -
+            currentResult.getStartDate().getTime());
       }
     } else if (currentResult.getStatusCode() == HttpURLConnection.HTTP_PARTIAL &&
         connection.getRequestMethod().equalsIgnoreCase("GET")) {
@@ -103,6 +106,9 @@ class ResponseReceivedMetricUpdater extends
             currentResult.getStopDate(),
             length);
         instrumentation.rawBytesDownloaded(length);
+        instrumentation.blockDownloaded(
+            currentResult.getStopDate().getTime() -
+            currentResult.getStartDate().getTime());
       }
     }
   }

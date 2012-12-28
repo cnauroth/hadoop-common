@@ -4,12 +4,14 @@ import static org.apache.hadoop.fs.azurenative.AzureMetricsTestUtil.*;
 
 import java.util.*;
 
+import org.apache.hadoop.conf.*;
+
 import junit.framework.*;
 
 public class TestBandwidthGaugeUpdater extends TestCase {
   public void testSingleThreaded() throws Exception {
     AzureFileSystemInstrumentation instrumentation =
-        new AzureFileSystemInstrumentation();
+        new AzureFileSystemInstrumentation(new Configuration());
     BandwidthGaugeUpdater updater =
         new BandwidthGaugeUpdater(instrumentation, 1000, true);
     updater.triggerUpdate(true);
@@ -30,7 +32,7 @@ public class TestBandwidthGaugeUpdater extends TestCase {
 
   public void testMultiThreaded() throws Exception {
     final AzureFileSystemInstrumentation instrumentation =
-        new AzureFileSystemInstrumentation();
+        new AzureFileSystemInstrumentation(new Configuration());
     final BandwidthGaugeUpdater updater =
         new BandwidthGaugeUpdater(instrumentation, 1000, true);
     Thread[] threads = new Thread[10];
