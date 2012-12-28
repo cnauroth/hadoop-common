@@ -689,7 +689,7 @@ public class NativeAzureFileSystem extends FileSystem {
     String sourceName = "AzureFileSystemMetrics",
         sourceDesc = "Azure Storage Volume File System metrics";
     instrumentation = DefaultMetricsSystem.INSTANCE.register(sourceName,
-        sourceDesc, new AzureFileSystemInstrumentation());
+        sourceDesc, new AzureFileSystemInstrumentation(conf));
     AzureFileSystemMetricsSystem.registerSource(sourceName, sourceDesc,
         instrumentation);
     store.initialize(uri, conf, instrumentation);
@@ -822,7 +822,9 @@ public class NativeAzureFileSystem extends FileSystem {
       LOG.debug("Creating file: " + f.toString());
     }
 
-    if (exists(f) && !overwrite) {
+    // Only check for existence (requires a web request) if we're not
+    // overwriting.
+    if (!overwrite && exists(f)) {
       throw new IOException("File already exists:" + f);
     }
 
@@ -890,9 +892,35 @@ public class NativeAzureFileSystem extends FileSystem {
     // an empty folder, or a simple file and take the appropriate actions.
     //
     if (!metaFile.isDir()){
-      // The path specifies a file or empty folder.  Delete the file or the folder
-      // suffixed file as appropriate.
+      // The path specifies a file. We need to check the parent path
+      // to make sure it's a proper materialized directory before we
+      // delete the file. Otherwise we may get into a situation where
+      // the file we were deleting was the last one in an implicit directory
+      // (e.g. the blob store only contains the blob a/b and there's no
+      // corresponding directory blob a) and that would implicitly delete
+      // the directory as well, which is not correct.
       //
+      Path parentPath = absolutePath.getParent();
+      if (parentPath.getParent() != null) {// Not root
+        String parentKey = pathToKey(parentPath);
+        FileMetadata parentMetadata = store.retrieveMetadata(parentKey);
+        if (!parentMetadata.isDir()) {
+          // Invalid state: the parent path is actually a file. Throw.
+          //
+          throw new AzureException("File " + f + " has a parent directory " +
+              parentPath + " which is also a file. Can't resolve.");
+        }
+        if (parentMetadata.getBlobMaterialization() ==
+            BlobMaterialization.Implicit) {
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Found an implicit parent directory while trying to" +
+                " delete the file " + f + ". Creating the directory blob for" +
+                " it in " + parentKey + ".");
+          }
+          store.storeEmptyFolder(parentKey,
+              createPermissionStatus(FsPermission.getDefault()));
+        }
+      }
       store.delete(key);
       instrumentation.fileDeleted();
     } else {
@@ -1248,7 +1276,7 @@ public class NativeAzureFileSystem extends FileSystem {
    */
   @Override
   public void setWorkingDirectory(Path newDir) {
-    workingDir = newDir;
+    workingDir = makeAbsolute(newDir);
   }
 
   @Override

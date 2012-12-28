@@ -72,8 +72,7 @@ public class TestOutOfBandAzureBlobOperations extends TestCase {
     createEmptyBlobOutOfBand("root/b");
     assertTrue(fs.exists(new Path("/root")));
     assertTrue(fs.delete(new Path("/root/b"), true));
-    assertTrue("This fails right now because of HADOOP-274",
-        fs.exists(new Path("/root")));
+    assertTrue(fs.exists(new Path("/root")));
   }
 
   public void testFileAndImplicitFolderSameName() throws Exception {

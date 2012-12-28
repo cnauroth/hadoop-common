@@ -205,12 +205,20 @@ public abstract class FSMainOperationsBaseTest  {
     createFile(getTestRootPath(fSys, "test/hadoop/file"));
     
     Path testSubDir = getTestRootPath(fSys, "test/hadoop/file/subdir");
-    Assert.assertFalse(fSys.mkdirs(testSubDir));
+    try {
+      Assert.assertFalse(fSys.mkdirs(testSubDir));
+    } catch (IOException e) {
+      // That can also be thrown instead of returning false.
+    }
     Assert.assertFalse(exists(fSys, testSubDir));
     
     Path testDeepSubDir = getTestRootPath(fSys, "test/hadoop/file/deep/sub/dir");
     Assert.assertFalse(exists(fSys, testSubDir));
-    Assert.assertFalse(fSys.mkdirs(testDeepSubDir));
+    try {
+      Assert.assertFalse(fSys.mkdirs(testDeepSubDir));
+    } catch (IOException e) {
+      // That can also be thrown instead of returning false.
+    }
     Assert.assertFalse(exists(fSys, testDeepSubDir));
     
   }
