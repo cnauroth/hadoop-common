@@ -5,6 +5,8 @@ import java.util.*;
 
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.metrics2.*;
+import org.apache.hadoop.metrics2.lib.*;
+
 import static org.apache.hadoop.test.MetricsAsserts.*;
 import static org.apache.hadoop.fs.azurenative.AzureMetricsTestUtil.*;
 
@@ -58,7 +60,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
         new TagMatcher("containerName", containerName)
         ));
     verify(myMetrics).add(argThat(
-        new TagMatcher("context", "azureFileSystem")
+        new TagMatcher(MetricsRegistry.CONTEXT_KEY, "azureFileSystem")
         ));
     verify(myMetrics).add(argThat(
         new TagExistsMatcher("asvFileSystemId")
