@@ -689,7 +689,7 @@ public class NativeAzureFileSystem extends FileSystem {
     String sourceName = "AzureFileSystemMetrics",
         sourceDesc = "Azure Storage Volume File System metrics";
     instrumentation = DefaultMetricsSystem.INSTANCE.register(sourceName,
-        sourceDesc, new AzureFileSystemInstrumentation());
+        sourceDesc, new AzureFileSystemInstrumentation(conf));
     AzureFileSystemMetricsSystem.registerSource(sourceName, sourceDesc,
         instrumentation);
     store.initialize(uri, conf, instrumentation);
@@ -822,7 +822,9 @@ public class NativeAzureFileSystem extends FileSystem {
       LOG.debug("Creating file: " + f.toString());
     }
 
-    if (exists(f) && !overwrite) {
+    // Only check for existence (requires a web request) if we're not
+    // overwriting.
+    if (!overwrite && exists(f)) {
       throw new IOException("File already exists:" + f);
     }
 
@@ -915,7 +917,8 @@ public class NativeAzureFileSystem extends FileSystem {
                 " delete the file " + f + ". Creating the directory blob for" +
                 " it in " + parentKey + ".");
           }
-          store.storeEmptyFolder(parentKey, metaFile.getPermissionStatus());
+          store.storeEmptyFolder(parentKey,
+              createPermissionStatus(FsPermission.getDefault()));
         }
       }
       store.delete(key);
@@ -1273,7 +1276,7 @@ public class NativeAzureFileSystem extends FileSystem {
    */
   @Override
   public void setWorkingDirectory(Path newDir) {
-    workingDir = newDir;
+    workingDir = makeAbsolute(newDir);
   }
 
   @Override

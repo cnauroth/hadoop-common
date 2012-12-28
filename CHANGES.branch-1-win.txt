@@ -265,3 +265,6 @@ BUG FIXES
 
     HDFS-4320. Add a separate configuration for namenode rpc address instead
     of using fs.default.name. (Mostafa Elhemali via suresh)
+
+    HDFS-4341. Set default data dir permission in MiniDFSClusterWithNodeGroup.
+    (Ivan Mitic via szetszwo)
