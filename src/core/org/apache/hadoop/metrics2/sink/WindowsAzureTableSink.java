@@ -18,6 +18,7 @@
 package org.apache.hadoop.metrics2.sink;
 
 import java.net.InetAddress;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.text.SimpleDateFormat;
@@ -26,6 +27,7 @@ import java.util.Map.Entry;
 import java.util.UUID;
 
 import org.apache.commons.configuration.SubsetConfiguration;
+import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.metrics2.Metric;
 import org.apache.hadoop.metrics2.MetricsRecord;
 import org.apache.hadoop.metrics2.MetricsSink;
@@ -59,14 +61,14 @@ import com.microsoft.windowsazure.services.table.client.*;
  *    javax.mail.jar
  * 
  * Table Schema:
- * A new table is created per context and record name combination and the 
- * table is named "CONTEXTrecordname".
+ * tables are named using the format "CONTEXTrecordname".
  * For example:
  * DFSnamenode, DFSdatanode, DFSFSnamesystem, JVMmetrics, MAPREDjobtracker, MAPREDtasktracker, RPCrpc
  * 
- * The table data is partitioned by hour and the partition number is the hours since January 1, 1970, 00:00:00 GMT 
- * and the row key is a random UUID.
+ * If the *.accesskey property is populated, the table will be created if it does not exist. 
  * 
+ * If *.sas property is used then table of the form CONTEXTrecordname is expected to already exist.
+ *  
  * Hadoop-metrics2.properties:
  * The windows azure storage account name and the access key must be passed in through the properties file.
  * 
@@ -77,12 +79,13 @@ import com.microsoft.windowsazure.services.table.client.*;
  * 		namenode.sink.dfsinstance.context=dfs
  * 		namenode.sink.dfsinstance.accountname=azure_storage_account_name_here
  * 		namenode.sink.dfsinstance.accesskey=azure_storage_account_key_here
- * 
+ * 		namenode.sink.dfsinstance.sas=azure_storage_account_sharedaccesskey_here
  */
 public class WindowsAzureTableSink implements MetricsSink {
 
 	private static final String STORAGE_ACCOUNT_KEY = "accountname";
 	private static final String STORAGE_ACCESSKEY_KEY = "accesskey";
+	private static final String STORAGE_SAS_KEY = "sas";
 	
 	private CloudStorageAccount storageAccount;
 	
@@ -98,23 +101,44 @@ public class WindowsAzureTableSink implements MetricsSink {
 	private String roleName;
 	private String roleInstanceName;
 	private Boolean logDeploymentIdWithMetrics = false;
+	private Boolean createMetricsTables = false;
+	private Boolean useSas = false;
+	private String storageAccountName;
 	
 	@Override
 	public void init(SubsetConfiguration conf) {
 		logger.info("Entering init");
 		
-		String storageAccountName = conf.getString(STORAGE_ACCOUNT_KEY);
+		storageAccountName = conf.getString(STORAGE_ACCOUNT_KEY);
 		String storageAccountKey = conf.getString(STORAGE_ACCESSKEY_KEY);
+		String storageAccountSas = conf.getString(STORAGE_SAS_KEY);
 		
-		String storageConnectionString = "DefaultEndpointsProtocol=http" + 
-			    				  		 ";AccountName=" + storageAccountName +
-			    				  		 ";AccountKey=" + storageAccountKey;
+		// If we have the storage key, then use that. 
+		// We can now also create metrics tables if they don't exist
+		if (storageAccountKey != null && !StringUtils.isEmpty(storageAccountKey)) {
+			createMetricsTables = true;
+			logger.info("Using full storageAccessKey. Will create tables if missing");
+		} else if (storageAccountSas == null || StringUtils.isEmpty(storageAccountSas)) {
+			logger.error("accesskey or sas missing in the metrics2 properties file");
+		} else {
+			// Use shared access signatures to upload data
+			useSas = true;
+			createMetricsTables = false;
+			
+			logger.info("Using SAS. Will not create tables");
+		}
+		
+		StorageCredentials credentials = null;
+		
+		if (!useSas) {
+			credentials = new StorageCredentialsAccountAndKey(storageAccountName, storageAccountKey);
+		} else {
+			credentials = new StorageCredentialsSharedAccessSignature(storageAccountSas);
+		}
 		
 		// Retrieve storage account from connection-string
 		try {
-			storageAccount = CloudStorageAccount.parse(storageConnectionString);
-		} catch (InvalidKeyException invalidKeyException) {
-			logger.error("Invalid Key for storage account: " + storageAccountName);
+			storageAccount = new CloudStorageAccount(credentials);
 		} catch (URISyntaxException uriSyntaxException) {
 			logger.error("Invalid URI. Details: " + uriSyntaxException.getMessage());
 		}
@@ -136,10 +160,8 @@ public class WindowsAzureTableSink implements MetricsSink {
 		SimpleDateFormat formatter = new SimpleDateFormat( "yyyyMM" );  
 		String yearMonthSuffix = formatter.format( new java.util.Date() ); 
 		
-		// table name is of the form CONTEXTrecordname-yyyyMM
-		// A new table is created every month to help with cleaning up old records
-		// Azure Tables can only contain alpha-numeric values
-		String tableName = record.context().toUpperCase() + record.name() + yearMonthSuffix;
+		// Note: Azure Tables can only contain alpha-numeric values
+		String tableName = record.context().toUpperCase() + record.name();
 		
 		String partitionKey;
 		
@@ -155,7 +177,7 @@ public class WindowsAzureTableSink implements MetricsSink {
 			metrics2KeyValuePairs.put("Role", roleName);
 			metrics2KeyValuePairs.put("RoleInstance", roleInstanceName);
 			
-			partitionKey = deploymentId + "-" + roleName + "-" + roleInstanceName;
+			partitionKey = deploymentId + "-" + roleName + "-" + yearMonthSuffix;
 		}
 		else {
 			partitionKey = getLocalNodeName();
@@ -179,15 +201,15 @@ public class WindowsAzureTableSink implements MetricsSink {
 		CloudTableClient tableClient;
 		
 		try {
-			tableClient = createTableIfNotExists(tableName);
+			tableClient = getTableClient(tableName);
 		} catch (StorageException storageException) {
-			logger.error(String.format("createTableIfNotExists failed. Details: %s, %s", 
-					storageException.getMessage(), storageException.getStackTrace()));
+			logger.error(String.format("getTableClient failed. Details: %s, %s", 
+					storageException.getMessage(), storageException));
 			
 			return;
 		} catch (URISyntaxException syntaxException) {
-			logger.error(String.format("createTableIfNotExists failed. Details: %s, %s", 
-					syntaxException.getMessage(), syntaxException.getStackTrace()));
+			logger.error(String.format("getTableClient failed. Details: %s, %s", 
+					syntaxException.getMessage(), syntaxException));
 			
 			return;
 		}
@@ -198,7 +220,7 @@ public class WindowsAzureTableSink implements MetricsSink {
 			tableClient.execute(tableName, insertMetricOperation);
 		} catch (StorageException storageException) {
 			logger.error(String.format("tableClient.execute failed. Details: %s, %s", 
-					storageException.getMessage(), storageException.getStackTrace()));
+					storageException.getMessage(), storageException));
 			
 			return;
 		}
@@ -212,19 +234,42 @@ public class WindowsAzureTableSink implements MetricsSink {
 	/*
 	 * Create a windows azure table if one does not already exist.
 	 */
-	private CloudTableClient createTableIfNotExists(String tableName)
+	private CloudTableClient getTableClient(String tableName)
 			throws StorageException, URISyntaxException {
 		if (existingTables.containsKey(tableName)) {
 			return existingTables.get(tableName);
 		}
 		
 		// Create the table client.
-		CloudTableClient tableClient = storageAccount.createCloudTableClient();
-		 
-		// Create the table if it doesn't exist.
-		tableClient.getTableReference(tableName).createIfNotExist();
+		CloudTableClient tableClient;
 		
-		logger.info(String.format("Created table '%s'", tableName));
+		if (!useSas) {
+			tableClient = storageAccount.createCloudTableClient();
+		} else {
+			// If we use SAS, then we will have to create the CloudTableClient object
+			// manually using the table endpoint baseUri. 
+			URI tableBaseUri = new URI(
+					String.format("https://%s.table.core.windows.net",  
+					storageAccountName));
+			
+			StorageCredentials credentials = storageAccount.getCredentials();
+			tableClient = new CloudTableClient(tableBaseUri, credentials);
+			
+			logger.debug("Endpoint = " + tableBaseUri);
+		}
+		
+		CloudTable table = tableClient.getTableReference(tableName);
+		
+		if (createMetricsTables) {
+			// Create the table if it doesn't exist.
+			boolean created = table.createIfNotExist();
+			
+			if (created) {
+				logger.info(String.format("Created table '%s'", tableName));
+			} else {
+				logger.info(String.format("Table '%s' already exists", tableName));
+			}
+		}
 		
 		existingTables.put(tableName, tableClient);
 		
