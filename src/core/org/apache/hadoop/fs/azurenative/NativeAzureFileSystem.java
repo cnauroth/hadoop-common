@@ -832,6 +832,17 @@ public class NativeAzureFileSystem extends FileSystem {
     String key = pathToKey(absolutePath);
     String keyEncoded = encodeKey(key);
 
+    PermissionStatus permissionStatus = createPermissionStatus(permission);
+
+    // First create a blob at the real key, pointing back to the temporary file
+    // This accomplishes a few things:
+    // 1. Makes sure we can create a file there.
+    // 2. Makes it visible to other concurrent threads/processes/nodes what we're
+    //    doing.
+    // 3. Makes it easier to restore/cleanup data in the event of us crashing.
+    //
+    store.storeEmptyLinkFile(key, keyEncoded, permissionStatus);
+
     // The key is encoded to point to a common container at the storage server.
     // This reduces the number of splits on the server side when load balancing.
     // Ingress to Azure storage can take advantage of earlier splits. We remove
@@ -844,7 +855,7 @@ public class NativeAzureFileSystem extends FileSystem {
     // blocks.
     //
     OutputStream bufOutStream = new NativeAzureFsOutputStream(
-        store.storefile(keyEncoded, createPermissionStatus(permission)),
+        store.storefile(keyEncoded, permissionStatus),
         key,
         keyEncoded);
 
