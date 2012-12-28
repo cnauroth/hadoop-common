@@ -892,7 +892,7 @@ public class NativeAzureFileSystem extends FileSystem {
                 " delete the file " + f + ". Creating the directory blob for" +
                 " it in " + parentKey + ".");
           }
-          store.storeEmptyFolder(parentKey, metaFile.getPermission());
+          store.storeEmptyFolder(parentKey, FsPermission.getDefault());
         }
       }
       store.delete(key);
