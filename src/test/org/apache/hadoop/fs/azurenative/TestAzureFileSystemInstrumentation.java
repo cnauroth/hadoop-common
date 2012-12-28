@@ -7,6 +7,7 @@ import org.apache.hadoop.fs.*;
 import org.apache.hadoop.metrics2.*;
 import static org.apache.hadoop.test.MetricsAsserts.*;
 import static org.apache.hadoop.fs.azurenative.AzureMetricsTestUtil.*;
+import static org.apache.hadoop.fs.azurenative.AzureFileSystemInstrumentation.*;
 
 import org.hamcrest.*;
 import org.mockito.ArgumentCaptor;

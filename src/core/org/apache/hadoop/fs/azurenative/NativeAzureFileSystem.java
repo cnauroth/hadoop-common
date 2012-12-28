@@ -671,7 +671,7 @@ public class NativeAzureFileSystem extends FileSystem {
     String sourceName = "AzureFileSystemMetrics",
         sourceDesc = "Azure Storage Volume File System metrics";
     instrumentation = DefaultMetricsSystem.INSTANCE.register(sourceName,
-        sourceDesc, new AzureFileSystemInstrumentation());
+        sourceDesc, new AzureFileSystemInstrumentation(conf));
     AzureFileSystemMetricsSystem.registerSource(sourceName, sourceDesc,
         instrumentation);
     store.initialize(uri, conf, instrumentation);
