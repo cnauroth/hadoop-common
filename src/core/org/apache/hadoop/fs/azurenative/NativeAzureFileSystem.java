@@ -1070,6 +1070,13 @@ public class NativeAzureFileSystem extends FileSystem {
         //       using "-lsr" down the file system hierarchy.
         //
         if (fileMetadata.isDir()) {
+          // Make sure we hide the temp upload folder
+          //
+          if (fileMetadata.getKey().equals(AZURE_TEMP_FOLDER)) {
+            // Don't expose that.
+            //
+            continue;
+          }
           status.add(newDirectory(fileMetadata, subpath));
         } else {
           status.add(newFile(fileMetadata, subpath));
