@@ -1,5 +1,8 @@
 package org.apache.hadoop.fs.azurenative;
 
+import java.util.*;
+
+import org.apache.hadoop.conf.*;
 import org.apache.hadoop.metrics2.*;
 import org.apache.hadoop.metrics2.lib.*;
 
@@ -9,67 +12,131 @@ import org.apache.hadoop.metrics2.lib.*;
  * of the Hadoop cluster with Azure Storage.  
  */
 final class AzureFileSystemInstrumentation implements MetricsSource {
+  static final String ASV_WEB_RESPONSES = "asv_web_responses";
+  static final String ASV_BYTES_WRITTEN =
+      "asv_bytes_written_last_second";
+  static final String ASV_BYTES_READ =
+      "asv_bytes_read_last_second";
+  static final String ASV_RAW_BYTES_UPLOADED =
+      "asv_raw_bytes_uploaded";
+  static final String ASV_RAW_BYTES_DOWNLOADED =
+      "asv_raw_bytes_downloaded";
+  static final String ASV_FILES_CREATED = "asv_files_created";
+  static final String ASV_FILES_DELETED = "asv_files_deleted";
+  static final String ASV_DIRECTORIES_CREATED = "asv_directories_created";
+  static final String ASV_DIRECTORIES_DELETED = "asv_directories_deleted";
+  static final String ASV_UPLOAD_RATE =
+      "asv_maximum_upload_bytes_per_second";
+  static final String ASV_DOWNLOAD_RATE =
+      "asv_maximum_download_bytes_per_second";
+  static final String ASV_UPLOAD_LATENCY =
+      "asv_average_block_upload_latency_ms";
+  static final String ASV_DOWNLOAD_LATENCY =
+      "asv_average_block_download_latency_ms";
+
+  /**
+   * Config key for how big the rolling window size for latency metrics should
+   * be (in seconds).
+   */
+  private static final String KEY_ROLLING_WINDOW_SIZE = "fs.azure.metrics.rolling.window.size";
+
   private final MetricsRegistry registry =
-      new MetricsRegistry("azureFileSystem");
+      new MetricsRegistry("azureFileSystem")
+      .setContext("azureFileSystem");
   private final MetricMutableCounterLong numberOfWebResponses =
       registry.newCounter(
-          "asv_web_responses",
+          ASV_WEB_RESPONSES,
           "Total number of web responses obtained from Azure Storage",
           0L);
   private final MetricMutableCounterLong numberOfFilesCreated =
       registry.newCounter(
-          "asv_files_created",
+          ASV_FILES_CREATED,
           "Total number of files created through the ASV file system.",
           0L);
   private final MetricMutableCounterLong numberOfFilesDeleted =
       registry.newCounter(
-          "asv_files_deleted",
+          ASV_FILES_DELETED,
           "Total number of files deleted through the ASV file system.",
           0L);
   private final MetricMutableCounterLong numberOfDirectoriesCreated =
       registry.newCounter(
-          "asv_directories_created",
+          ASV_DIRECTORIES_CREATED,
           "Total number of directories created through the ASV file system.",
           0L);
   private final MetricMutableCounterLong numberOfDirectoriesDeleted =
       registry.newCounter(
-          "asv_directories_deleted",
+          ASV_DIRECTORIES_DELETED,
           "Total number of directories deleted through the ASV file system.",
           0L);
   private final MetricMutableGaugeLong bytesWrittenInLastSecond =
       registry.newGauge(
-          "asv_bytes_written_last_second",
+          ASV_BYTES_WRITTEN,
           "Total number of bytes written to Azure Storage during the last second.",
           0L);
   private final MetricMutableGaugeLong bytesReadInLastSecond =
       registry.newGauge(
-          "asv_bytes_read_last_second",
+          ASV_BYTES_READ,
           "Total number of bytes read from Azure Storage during the last second.",
           0L);
   private final MetricMutableGaugeLong maximumUploadBytesPerSecond =
       registry.newGauge(
-          "asv_maximum_upload_bytes_per_second",
+          ASV_UPLOAD_RATE,
           "The maximum upload rate encountered to Azure Storage in bytes/second.",
           0L);
   private final MetricMutableGaugeLong maximumDownloadBytesPerSecond =
       registry.newGauge(
-          "asv_maximum_download_bytes_per_second",
+          ASV_DOWNLOAD_RATE,
           "The maximum download rate encountered to Azure Storage in bytes/second.",
           0L);
   private final MetricMutableCounterLong rawBytesUploaded =
       registry.newCounter(
-          "asv_raw_bytes_uploaded",
+          ASV_RAW_BYTES_UPLOADED,
           "Total number of raw bytes (including overhead) uploaded to Azure" +
           " Storage.",
           0L);
   private final MetricMutableCounterLong rawBytesDownloaded =
       registry.newCounter(
-          "asv_raw_bytes_downloaded",
+          ASV_RAW_BYTES_DOWNLOADED,
           "Total number of raw bytes (including overhead) downloaded from Azure" +
           " Storage.",
           0L);
+  private final MetricMutableGaugeLong averageBlockUploadLatencyMs;
+  private final MetricMutableGaugeLong averageBlockDownloadLatencyMs;
   private long currentMaximumUploadBytesPerSecond;
   private long currentMaximumDownloadBytesPerSecond;
+  private static final int DEFAULT_LATENCY_ROLLING_AVERAGE_WINDOW =
+      5; // seconds
+  private final RollingWindowAverage currentBlockUploadLatency;
+  private final RollingWindowAverage currentBlockDownloadLatency;
+  private UUID fileSystemId;
+
+  public AzureFileSystemInstrumentation(Configuration conf) {
+    fileSystemId = UUID.randomUUID();
+    registry.tag("asvFileSystemId",
+        "A unique identifier for the file ",
+        fileSystemId.toString());
+    final int rollingWindowSizeInSeconds =
+        conf.getInt(KEY_ROLLING_WINDOW_SIZE,
+            DEFAULT_LATENCY_ROLLING_AVERAGE_WINDOW);
+    averageBlockUploadLatencyMs =
+        registry.newGauge(
+            ASV_UPLOAD_LATENCY,
+            String.format("The average latency in milliseconds of uploading a single block" +
+            ". The average latency is calculated over a %d-second rolling" +
+            " window.", rollingWindowSizeInSeconds),
+            0L);
+    averageBlockDownloadLatencyMs =
+        registry.newGauge(
+            ASV_DOWNLOAD_LATENCY,
+            String.format("The average latency in milliseconds of downloading a single block" +
+            ". The average latency is calculated over a %d-second rolling" +
+            " window.", rollingWindowSizeInSeconds),
+            0L);
+    currentBlockUploadLatency =
+        new RollingWindowAverage(rollingWindowSizeInSeconds * 1000);
+    currentBlockDownloadLatency =
+        new RollingWindowAverage(rollingWindowSizeInSeconds * 1000);
+  }
 
   /**
    * Sets the account name to tag all the metrics with.
@@ -184,8 +251,28 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
     rawBytesDownloaded.incr(numberOfBytes);
   }
 
+  /**
+   * Indicate that we just uploaded a block and record its latency.
+   * @param latency The latency in milliseconds.
+   */
+  public void blockUploaded(long latency) {
+    currentBlockUploadLatency.addPoint(latency);
+  }
+
+  /**
+   * Indicate that we just downloaded a block and record its latency.
+   * @param latency The latency in milliseconds.
+   */
+  public void blockDownloaded(long latency) {
+    currentBlockDownloadLatency.addPoint(latency);
+  }
+
   @Override
   public void getMetrics(MetricsBuilder builder, boolean all) {
+    averageBlockDownloadLatencyMs.set(
+        currentBlockDownloadLatency.getCurrentAverage());
+    averageBlockUploadLatencyMs.set(
+        currentBlockUploadLatency.getCurrentAverage());
     registry.snapshot(builder.addRecord(registry.name()), all);
   }
 }

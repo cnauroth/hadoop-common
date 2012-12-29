@@ -5,8 +5,11 @@ import java.util.*;
 
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.metrics2.*;
+import org.apache.hadoop.metrics2.lib.*;
+
 import static org.apache.hadoop.test.MetricsAsserts.*;
 import static org.apache.hadoop.fs.azurenative.AzureMetricsTestUtil.*;
+import static org.apache.hadoop.fs.azurenative.AzureFileSystemInstrumentation.*;
 
 import org.hamcrest.*;
 import org.mockito.ArgumentCaptor;
@@ -56,6 +59,12 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
         ));
     verify(myMetrics).add(argThat(
         new TagMatcher("containerName", containerName)
+        ));
+    verify(myMetrics).add(argThat(
+        new TagMatcher(MetricsRegistry.CONTEXT_KEY, "azureFileSystem")
+        ));
+    verify(myMetrics).add(argThat(
+        new TagExistsMatcher("asvFileSystemId")
         ));
   }
 
@@ -129,6 +138,19 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
         " the case since the test underestimates the rate by looking at " +
         " end-to-end time instead of just block upload time.",
         uploadRate >= expectedRate);
+    long uploadLatency = getLongGaugeValue(getInstrumentation(),
+        ASV_UPLOAD_LATENCY);
+    System.out.println("Upload latency: " + uploadLatency);
+    long expectedLatency = uploadDurationMs; // We're uploading less than a block.
+    assertTrue("The upload latency " + uploadLatency +
+        " should be greater than zero now that I've just uploaded a file.",
+        uploadLatency > 0);
+    assertTrue("The upload latency " + uploadLatency +
+        " is more than the expected range of around " + expectedLatency +
+        " milliseconds that the unit test observed. This should never be" +
+        " the case since the test overestimates the latency by looking at " +
+        " end-to-end time instead of just block upload time.",
+        uploadLatency <= expectedLatency);
     
     // Read the file
     start = new Date();
@@ -161,8 +183,21 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
         " is below the expected range of around " + expectedRate +
         " bytes/second that the unit test observed. This should never be" +
         " the case since the test underestimates the rate by looking at " +
-        " end-to-end time instead of just block upload time.",
+        " end-to-end time instead of just block download time.",
         downloadRate >= expectedRate);
+    long downloadLatency = getLongGaugeValue(getInstrumentation(),
+        ASV_DOWNLOAD_LATENCY);
+    System.out.println("Download latency: " + downloadLatency);
+    expectedLatency = downloadDurationMs; // We're downloading less than a block.
+    assertTrue("The download latency " + downloadLatency +
+        " should be greater than zero now that I've just downloaded a file.",
+        uploadLatency > 0);
+    assertTrue("The download latency " + downloadLatency +
+        " is more than the expected range of around " + expectedLatency +
+        " milliseconds that the unit test observed. This should never be" +
+        " the case since the test overestimates the latency by looking at " +
+        " end-to-end time instead of just block download time.",
+        downloadLatency <= expectedLatency);
   }
 
   public void testMetricsOnFileRename() throws Exception {
@@ -308,26 +343,49 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
    * A matcher class for asserting that we got a tag with a given
    * value.
    */
-  private static class TagMatcher extends BaseMatcher<MetricsTag> {
-    private final String tagName;
+  private static class TagMatcher extends TagExistsMatcher {
     private final String tagValue;
     
     public TagMatcher(String tagName, String tagValue) {
-      this.tagName = tagName;
+      super(tagName);
       this.tagValue = tagValue;
+    }
+
+    @Override
+    public boolean matches(MetricsTag toMatch) {
+      return toMatch.value().equals(tagValue);
+    }
+
+    @Override
+    public void describeTo(Description desc) {
+      super.describeTo(desc);
+      desc.appendText(" with value " + tagValue);
+    }
+  }
+
+  /**
+   * A matcher class for asserting that we got a tag with any value.
+   */
+  private static class TagExistsMatcher extends BaseMatcher<MetricsTag> {
+    private final String tagName;
+    
+    public TagExistsMatcher(String tagName) {
+      this.tagName = tagName;
     }
 
     @Override
     public boolean matches(Object toMatch) {
       MetricsTag asTag = (MetricsTag)toMatch;
-      return asTag.name().equals(tagName) &&
-          asTag.value().equals(tagValue);
+      return asTag.name().equals(tagName) && matches(asTag);
+    }
+    
+    protected boolean matches(MetricsTag toMatch) {
+      return true;
     }
 
     @Override
     public void describeTo(Description desc) {
-      desc.appendText("Has tag " + tagName +
-          " with value " + tagValue);
+      desc.appendText("Has tag " + tagName);
     }
   }
 
