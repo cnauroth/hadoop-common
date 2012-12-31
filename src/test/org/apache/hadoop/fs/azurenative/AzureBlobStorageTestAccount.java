@@ -22,8 +22,8 @@ public final class AzureBlobStorageTestAccount {
   private static final String SINK_IDENTIFIER = "identifier";
   public static final String MOCK_ACCOUNT_NAME = "mockAccount";
   public static final String MOCK_CONTAINER_NAME = "mockContainer";
-  public static final String MOCK_ASV_URI = "asv://" + MOCK_CONTAINER_NAME + "@" +
-      MOCK_ACCOUNT_NAME + "/";
+  public static final String MOCK_ASV_URI = "asv://" + MOCK_ACCOUNT_NAME + "+" +
+      MOCK_CONTAINER_NAME + "/";
   private CloudStorageAccount account;
   private CloudBlobContainer container;
   private FileSystem fs;
@@ -191,7 +191,7 @@ public final class AzureBlobStorageTestAccount {
 
     conf.set(ACCOUNT_KEY_PROPERTY_NAME + accountName, accountKey);
 
-    fs.initialize(new URI("asv://" + containerName + "@" + accountName + "/"), conf);
+    fs.initialize(new URI("asv://" + accountName + "+" + containerName + "/"), conf);
 
     AzureBlobStorageTestAccount testAcct =
         new AzureBlobStorageTestAccount(fs, account, container, sinkIdentifier);
