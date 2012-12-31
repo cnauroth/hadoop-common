@@ -82,6 +82,14 @@ public class NativeAzureFileSystem extends FileSystem {
   private static int DEFAULT_MAX_RETRIES = 4;
   private static int DEFAULT_SLEEP_TIME_SECONDS = 10;
 
+  static final String AZURE_RINGBUFFER_CAPACITY_PROPERTY_NAME =
+      "fs.azure.ring.buffer.capacity";
+  private static final int DEFAULT_RINGBUFFER_CAPACITY = 4;
+  static final String AZURE_OUTPUT_STREAM_BUFFER_SIZE_PROPERTY_NAME =
+      "fs.azure.output.stream.buffer.size";
+  // 4MB buffers.
+  private static final int DEFAULT_OUTPUT_STREAM_BUFFERSIZE = 4 * 1024 * 1024;
+
   private class NativeAzureFsInputStream extends FSInputStream {
     private InputStream in;
     private final String key;
@@ -248,9 +256,6 @@ public class NativeAzureFileSystem extends FileSystem {
     private ByteArrayOutputStream buffer;
     private AzureRingBuffer<ByteArrayOutputStream> outRingBuffer;
 
-    private static final int S_DEFAULT_RINGBUFFER_CAPACITY = 4;
-    private static final int S_STREAM_BUFFERSIZE = 4 * 1024 * 1024; // 4MB buffers.
-
     public NativeAzureFsOutputStream(OutputStream out, String aKey,
         String anEncodedKey) throws IOException {
       // Check input arguments. The output stream should be non-null and the
@@ -275,7 +280,7 @@ public class NativeAzureFileSystem extends FileSystem {
       // Initialize the member variables with the incoming parameters.
       //
       this.out = out;
-      this.buffer = new ByteArrayOutputStream(S_STREAM_BUFFERSIZE);
+      this.buffer = new ByteArrayOutputStream(getBufferSize());
 
       setKey(aKey);
       setEncodedKey(anEncodedKey);
@@ -284,7 +289,13 @@ public class NativeAzureFileSystem extends FileSystem {
       // streams.
       //
       outRingBuffer = new AzureRingBuffer<ByteArrayOutputStream>(
-          S_DEFAULT_RINGBUFFER_CAPACITY);
+          getConf().getInt(AZURE_RINGBUFFER_CAPACITY_PROPERTY_NAME,
+          DEFAULT_RINGBUFFER_CAPACITY));
+    }
+
+    private int getBufferSize() {
+      return getConf().getInt(AZURE_OUTPUT_STREAM_BUFFER_SIZE_PROPERTY_NAME,
+          DEFAULT_OUTPUT_STREAM_BUFFERSIZE);
     }
 
     @Override
@@ -317,6 +328,17 @@ public class NativeAzureFileSystem extends FileSystem {
           //
           assert outRingBuffer.isEmpty() : 
             "Empty ring buffer expected after writing all contents to output stream.";
+
+          // Write out the current contents of the current buffer to the stream and
+          // flush again.
+          //
+          if (null != buffer && 0 < buffer.size()) {
+            // Write the current byte array output buffer stream to the output
+            // stream.
+            //
+            buffer.writeTo(out);
+            buffer = new ByteArrayOutputStream(getBufferSize());
+          }
 
           // Flush the output stream to ensure all the newly added
           // buffers are written to the Azure blob.
@@ -355,7 +377,7 @@ public class NativeAzureFileSystem extends FileSystem {
       // Create a new byte array output buffer stream for subsequent writes.
       //
       if (null == buffer) {
-        buffer = new ByteArrayOutputStream(S_STREAM_BUFFERSIZE);
+        buffer = new ByteArrayOutputStream(getBufferSize());
       }
     }
 
@@ -381,22 +403,6 @@ public class NativeAzureFileSystem extends FileSystem {
       //
       assert (outRingBuffer.isEmpty()) : 
         "Unexpected non-empty ring buffer after flush.";
-
-      // Write out the current contents of the current buffer to the stream and
-      // flush again.
-      //
-      if (null != buffer && 0 < buffer.size()) {
-        // Write the current byte array output buffer stream to the output
-        // stream.
-        //
-        buffer.writeTo(out);
-
-        // Flush the output stream again. This will be a no-op if the current
-        // buffer
-        // was zero length.
-        //
-        out.flush();
-      }
 
       // Close the output stream and decode the key for the output stream
       // before returning to the caller.
@@ -451,12 +457,12 @@ public class NativeAzureFileSystem extends FileSystem {
     // for streaming new writes.
     // TODO: need a better name for this
     private void processCurrentStreamIfFull() throws IOException {
-      if (buffer.size() >= S_STREAM_BUFFERSIZE) {
+      if (buffer.size() >= getBufferSize()) {
         addCurrentStreamToRingBuffer();
 
         // Create a new byte array output stream.
         //
-        buffer = new ByteArrayOutputStream(S_STREAM_BUFFERSIZE);
+        buffer = new ByteArrayOutputStream(getBufferSize());
       }
     }
 
@@ -540,7 +546,7 @@ public class NativeAzureFileSystem extends FileSystem {
       // and create a new buffer
       processCurrentStreamIfFull();
 
-      if (buffer.size() + len <= S_STREAM_BUFFERSIZE) {
+      if (buffer.size() + len <= getBufferSize()) {
         // The whole byte sub-array can fit into the current stream buffer.
         //
         buffer.write(b, off, len);
@@ -549,7 +555,7 @@ public class NativeAzureFileSystem extends FileSystem {
         // as we are calling processCurrentStreamIfFull
         // before we reach here
         //
-        assert (buffer.size() < S_STREAM_BUFFERSIZE) : 
+        assert (buffer.size() < getBufferSize()) : 
           "Unexpected buffer size:" + buffer.size();
 
         // The byte sub-array writes past the end of the buffer stream.
@@ -557,7 +563,7 @@ public class NativeAzureFileSystem extends FileSystem {
         // stream to the ring buffer.
         //
         int lenPartial = 0;
-        lenPartial = buffer.size() + len - S_STREAM_BUFFERSIZE;
+        lenPartial = buffer.size() + len - getBufferSize();
 
         buffer.write(b, off, len - lenPartial);
 
@@ -571,13 +577,13 @@ public class NativeAzureFileSystem extends FileSystem {
         // and a new buffer is created. So, if a buffer is not full, the loop
         // should not run
         // as there is no need to add m_buffer to ring buffer yet
-        while (buffer.size() >= S_STREAM_BUFFERSIZE) {
+        while (buffer.size() >= getBufferSize()) {
           // current stream would be full because of the previous write
           processCurrentStreamIfFull();
 
           if (remainingLength > 0) {
             int streamBufferLength = Math.min(remainingLength,
-                S_STREAM_BUFFERSIZE);
+                getBufferSize());
             buffer.write(b, newOffset, streamBufferLength);
 
             // update the remaining length and newOffset
