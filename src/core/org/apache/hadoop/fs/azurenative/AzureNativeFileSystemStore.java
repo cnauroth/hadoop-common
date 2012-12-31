@@ -103,7 +103,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       createPermissionJsonSerializer();
 
   /**
-   * Creates a JSON serilalizer that can serialize a PermissionStatus object
+   * Creates a JSON serializer that can serialize a PermissionStatus object
    * into the JSON string we want in the blob metadata.
    * @return The JSON serializer.
    */
@@ -122,7 +122,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     private static final String OWNER_TAG = "owner";
     private static final String GROUP_TAG = "group";
     private static final String PERMISSIONS_TAG = "permissions";
-    
+
     @Override
     public void toJSON(Object obj, JSON.Output out) {
       PermissionStatus permissionStatus = (PermissionStatus)obj;
@@ -917,7 +917,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * Default permission to use when no permission metadata is found.
    * @return The default permission to use.
    */
-  private static PermissionStatus defaultPermission() {
+  private static PermissionStatus defaultPermissionNoBlobMetadata() {
     return new PermissionStatus("", "", FsPermission.getDefault());
   }
 
@@ -937,7 +937,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       return PermissionStatusJsonSerializer.fromJSONString(
           metadata.get(PERMISSION_METADATA_KEY));
     } else {
-      return defaultPermission();
+      return defaultPermissionNoBlobMetadata();
     }
   }
 
@@ -1224,7 +1224,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       if (key.equals("/")) {
         // The key refers to root directory of container.
         //
-        return new FileMetadata(key, defaultPermission(), BlobMaterialization.Implicit);
+        return new FileMetadata(key, defaultPermissionNoBlobMetadata(), BlobMaterialization.Implicit);
       }
 
       CloudBlockBlobWrapper blob = getBlobReference(key);
@@ -1484,7 +1484,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           // TODO: Something smarter should be done about permissions. Maybe
           // TODO: inherit the permissions of the first non-directory blob.
           //
-          FileMetadata directoryMetadata = new FileMetadata(dirKey, defaultPermission(),
+          FileMetadata directoryMetadata = new FileMetadata(dirKey, defaultPermissionNoBlobMetadata(),
               BlobMaterialization.Implicit);
 
           // Add the directory metadata to the list only if it's not already there.
@@ -1648,7 +1648,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
               // TODO: inherit the permissions of the first non-directory blob.
               //
               FileMetadata directoryMetadata = new FileMetadata(dirKey,
-                  defaultPermission(),
+                  defaultPermissionNoBlobMetadata(),
                   BlobMaterialization.Implicit);
   
               // Add the directory metadata to the list.
