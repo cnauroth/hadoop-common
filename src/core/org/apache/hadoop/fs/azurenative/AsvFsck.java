@@ -6,9 +6,24 @@ import org.apache.hadoop.conf.*;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.util.*;
 
+/**
+ * An fsck tool implementation for ASV that does various admin/cleanup/recovery
+ * tasks on the ASV file system.
+ */
 public class AsvFsck extends Configured implements Tool {
+  private FileSystem mockFileSystemForTesting = null;
+
   public AsvFsck(Configuration conf) {
     super(conf);
+  }
+
+  /**
+   * For testing purposes, set the file system to use here instead of
+   * relying on getting it from the FileSystem class based on the URI.
+   * @param fileSystem The file system to use.
+   */
+  public void setMockFileSystemForTesting(FileSystem fileSystem) {
+    this.mockFileSystemForTesting = fileSystem;
   }
 
   @Override
@@ -34,7 +49,12 @@ public class AsvFsck extends Configured implements Tool {
     if (pathToCheck == null) {
       pathToCheck = new Path("/"); // Check everything.
     }
-    FileSystem fs = FileSystem.get(pathToCheck.toUri(), getConf());
+    FileSystem fs;
+    if (mockFileSystemForTesting == null) {
+      fs = FileSystem.get(pathToCheck.toUri(), getConf());
+    } else {
+      fs = mockFileSystemForTesting;
+    }
     if (!(fs instanceof NativeAzureFileSystem)) {
       System.err.println("Can only check ASV file system. Instead I'm asked to" +
           " check: " + fs.getUri());

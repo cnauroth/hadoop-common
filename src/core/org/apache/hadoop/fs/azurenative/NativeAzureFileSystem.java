@@ -18,18 +18,9 @@
 
 package org.apache.hadoop.fs.azurenative;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.URI;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
@@ -65,6 +56,15 @@ public class NativeAzureFileSystem extends FileSystem {
   public static final Log LOG = LogFactory.getLog(NativeAzureFileSystem.class);
 
   static final String AZURE_BLOCK_SIZE_PROPERTY_NAME = "fs.azure.block.size";
+  /**
+   * The time span in seconds before which we consider a temp blob to be
+   * dangling (not being actively uploaded to) and up for reclamation.
+   *
+   * So e.g. if this is 60, then any temporary blobs more than a minute old
+   * would be considered dangling.
+   */
+  static final String AZURE_DANGLING_CUTOFF_PROPERTY_NAME = "fs.azure.dangling.temp.cutoff.seconds";
+  private static final int AZURE_DANGLING_CUTOFF_DEFAULT = 3600;
   static final String PATH_DELIMITER = Path.SEPARATOR;
   static final String AZURE_TEMP_FOLDER = "_$azuretmpfolder$";
 
@@ -1315,7 +1315,51 @@ public class NativeAzureFileSystem extends FileSystem {
     AzureFileSystemMetricsSystem.fileSystemClosed();
   }
 
-  public void recoverFilesWithDanglingTempData(Path root) {
+  /**
+   * Looks under the given root path for any blob that are left "dangling",
+   * meaning that they are place-holder blobs that we created while we upload
+   * the data to a temporary blob, but for some reason we crashed in the middle
+   * of the upload and left them there.
+   * @param root The root path to consider.
+   * @throws IOException
+   */
+  public void recoverFilesWithDanglingTempData(Path root) throws IOException {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Recovering files with dangling temp data in " + root);
+    }
+    // Calculate the cut-off for when to consider a blob to be dangling.
+    long cutoffForDangling = new Date().getTime() -
+        getConf().getInt(AZURE_DANGLING_CUTOFF_PROPERTY_NAME,
+            AZURE_DANGLING_CUTOFF_DEFAULT) * 1000;
+    // Go over all the blobs under the given root and look for blobs to
+    // recover.
+    String priorLastKey = null;
+    do {
+      PartialListing listing = store.listAll(pathToKey(root), AZURE_LIST_ALL,
+          AZURE_UNBOUNDED_DEPTH, priorLastKey);
+
+      for (FileMetadata file : listing.getFiles()) {
+        if (!file.isDir()) { // We don't recover directory blobs
+          // See if this blob has a link in it (meaning it's a place-holder
+          // blob for when the upload to the temp blob is complete).
+          String link = store.getLinkInFileMetadata(file.getKey());
+          if (link != null) {
+            // It has a link, see if the temp blob it is pointing to is
+            // existent and old enough to be considered dangling.
+            FileMetadata linkMetadata = store.retrieveMetadata(link);
+            if (linkMetadata != null &&
+                linkMetadata.getLastModified() >= cutoffForDangling) {
+              // Found one!
+              if (LOG.isDebugEnabled()) {
+                LOG.debug("Recovering " + file.getKey());
+              }
+              store.rename(linkMetadata.getKey(), file.getKey());
+            }
+          }
+        }
+      }
+      priorLastKey = listing.getPriorLastKey();
+    } while (priorLastKey != null);
   }
 
   /**
