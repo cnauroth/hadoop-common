@@ -70,8 +70,7 @@ public class TestAsvFsck extends TestCase {
     // Now we should the file with the data there.
     fileStatus = fs.getFileStatus(danglingFile);
     assertNotNull(fileStatus);
-    // Below doesn't work because of bugs in flush() in ASV.
-    //assertEquals(3, fileStatus.getLen());
+    assertEquals(3, fileStatus.getLen());
     assertEquals(0, getNumTempBlobs());
   }
 }
