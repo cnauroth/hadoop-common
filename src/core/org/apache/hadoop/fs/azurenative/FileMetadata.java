@@ -18,7 +18,7 @@
 
 package org.apache.hadoop.fs.azurenative;
 
-import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.fs.permission.*;
 
 /**
  * <p>
@@ -30,7 +30,7 @@ class FileMetadata {
   private final long length;
   private final long lastModified;
   private final boolean isDir;
-  private final FsPermission permission;
+  private final PermissionStatus permissionStatus;
   private final BlobMaterialization blobMaterialization;
 
   /**
@@ -39,32 +39,32 @@ class FileMetadata {
    * @param length The length in bytes of the file.
    * @param lastModified The last modified date
    *                     (milliseconds since January 1, 1970 UTC.)
-   * @param permission The permission for the file.
+   * @param permissionStatus The permission for the file.
    */
   public FileMetadata(String key, long length, long lastModified,
-      FsPermission permission) {
+      PermissionStatus permissionStatus) {
     this.key = key;
     this.length = length;
     this.lastModified = lastModified;
     this.isDir = false;
-    this.permission = permission;
+    this.permissionStatus = permissionStatus;
     this.blobMaterialization = BlobMaterialization.Explicit; // File are never implicit.
   }
 
   /**
    * Constructs a FileMetadata object for a directory.
    * @param key The key (path) to the directory.
-   * @param permission The permission for the directory.
+   * @param permissionStatus The permission for the directory.
    * @param blobMaterialization Whether this is an implicit (no real blob
    *                            backing it) or explicit directory.
    */
-  public FileMetadata(String key, FsPermission permission,
+  public FileMetadata(String key, PermissionStatus permissionStatus,
       BlobMaterialization blobMaterialization) {
     this.key = key;
     this.isDir = true;
     this.length = 0;
     this.lastModified = 0;
-    this.permission = permission;
+    this.permissionStatus = permissionStatus;
     this.blobMaterialization = blobMaterialization;
   }
 
@@ -84,8 +84,8 @@ class FileMetadata {
     return lastModified;
   }
   
-  public FsPermission getPermission() {
-    return permission;
+  public PermissionStatus getPermissionStatus() {
+    return permissionStatus;
   }
   
   /**
@@ -100,6 +100,6 @@ class FileMetadata {
 
   @Override
   public String toString() {
-    return "FileMetadata[" + key + ", " + length + ", " + lastModified + ", " + permission + "]";
+    return "FileMetadata[" + key + ", " + length + ", " + lastModified + ", " + permissionStatus + "]";
   }
 }

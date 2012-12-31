@@ -30,16 +30,9 @@ public class TestOutOfBandAzureBlobOperations extends TestCase {
     backingStore = null;
   }
 
-  private static String toMockUri(String path) {
-    return String.format("http://%s.blob.core.windows.net/%s/%s",
-        AzureBlobStorageTestAccount.MOCK_ACCOUNT_NAME,
-        AzureBlobStorageTestAccount.MOCK_CONTAINER_NAME,
-        path);
-  }
-
   private void createEmptyBlobOutOfBand(String path) {
     backingStore.setContent(
-        toMockUri(path),
+        AzureBlobStorageTestAccount.toMockUri(path),
         new byte[] { 1, 2 },
         new HashMap<String, String>());
   }

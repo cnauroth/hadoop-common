@@ -28,7 +28,8 @@ import java.util.*;
 import org.apache.commons.logging.*;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.azure.AzureException;
-import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.fs.permission.*;
+import org.mortbay.util.ajax.JSON;
 
 import com.microsoft.windowsazure.services.blob.client.*;
 import com.microsoft.windowsazure.services.core.storage.*;
@@ -67,8 +68,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final String KEY_STORAGE_CONNECTION_TIMEOUT = "fs.azure.storage.timeout";
   private static final String KEY_WRITE_BLOCK_SIZE = "fs.azure.write.block.size";
 
-  private static final String PERMISSION_METADATA_KEY = "permission";
-  private static final String IS_FOLDER_METADATA_KEY = "isFolder";
+  private static final String PERMISSION_METADATA_KEY = "asv_permission";
+  private static final String IS_FOLDER_METADATA_KEY = "asv_isfolder";
 
   private static final String HTTP_SCHEME = "http";
   private static final String HTTPS_SCHEME = "https";
@@ -98,6 +99,68 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private boolean isAnonymousCredentials = false;
   private AzureFileSystemInstrumentation instrumentation;
   private BandwidthGaugeUpdater bandwidthGaugeUpdater;
+  private final static JSON permissionJsonSerializer =
+      createPermissionJsonSerializer();
+
+  /**
+   * Creates a JSON serializer that can serialize a PermissionStatus object
+   * into the JSON string we want in the blob metadata.
+   * @return The JSON serializer.
+   */
+  private static JSON createPermissionJsonSerializer() {
+    JSON serializer = new JSON();
+    serializer.addConvertor(PermissionStatus.class,
+        new PermissionStatusJsonSerializer());
+    return serializer;
+  }
+
+  /**
+   * A convertor for PermissionStatus to/from JSON as we want it in the blob
+   * metadata.
+   */
+  private static class PermissionStatusJsonSerializer implements JSON.Convertor {
+    private static final String OWNER_TAG = "owner";
+    private static final String GROUP_TAG = "group";
+    private static final String PERMISSIONS_TAG = "permissions";
+
+    @Override
+    public void toJSON(Object obj, JSON.Output out) {
+      PermissionStatus permissionStatus = (PermissionStatus)obj;
+      // Don't store group as null, just store it as empty string
+      // (which is FileStatus behavior).
+      String group = permissionStatus.getGroupName() == null ?
+          "" : permissionStatus.getGroupName();
+      out.add(OWNER_TAG, permissionStatus.getUserName());
+      out.add(GROUP_TAG, group);
+      out.add(PERMISSIONS_TAG, permissionStatus.getPermission().toString());
+    }
+
+    @Override
+    public Object fromJSON(@SuppressWarnings("rawtypes") Map object) {
+      return PermissionStatusJsonSerializer.fromJSONMap(object);
+    }
+
+    @SuppressWarnings("rawtypes")
+    public static PermissionStatus fromJSONString(String jsonString) {
+      // The JSON class can only find out about an object's class (and call me)
+      // if we store the class name in the JSON string. Since I don't want to
+      // do that (it's an implementation detail), I just deserialize as a
+      // the default Map (JSON's default behavior) and parse that.
+      return fromJSONMap(
+          (Map)permissionJsonSerializer.fromJSON(jsonString));
+    }
+
+    private static PermissionStatus fromJSONMap(
+        @SuppressWarnings("rawtypes") Map object) {
+      return new PermissionStatus(
+          (String)object.get(OWNER_TAG),
+          (String)object.get(GROUP_TAG),
+          // The initial - below is the Unix file type,
+          // which FsPermission needs there but ignores.
+          FsPermission.valueOf("-" + (String)object.get(PERMISSIONS_TAG))
+          );
+    }
+  }
   
   void setAzureStorageInteractionLayer(
       StorageInterface storageInteractionLayer) {
@@ -637,7 +700,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   @Override
-  public DataOutputStream storefile(String key, FsPermission permission) 
+  public DataOutputStream storefile(String key, PermissionStatus permissionStatus)
       throws AzureException {
     try {
 
@@ -703,7 +766,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // return it.
       //
       CloudBlockBlobWrapper blob = getBlobReference(key);
-      storePermission(blob, permission);
+      storePermissionStatus(blob, permissionStatus);
 
       // Set up request options.
       //
@@ -850,21 +913,31 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     return sasCreds;
   }
 
-  private static void storePermission(CloudBlockBlobWrapper blob, FsPermission permission) {
+  /**
+   * Default permission to use when no permission metadata is found.
+   * @return The default permission to use.
+   */
+  private static PermissionStatus defaultPermissionNoBlobMetadata() {
+    return new PermissionStatus("", "", FsPermission.getDefault());
+  }
+
+  private void storePermissionStatus(CloudBlockBlobWrapper blob,
+      PermissionStatus permissionStatus) {
     HashMap<String, String> metadata = blob.getMetadata();
     if (null == metadata) {
       metadata = new HashMap<String, String> ();
     }
-    metadata.put(PERMISSION_METADATA_KEY, Short.toString(permission.toShort()));
+    metadata.put(PERMISSION_METADATA_KEY, permissionJsonSerializer.toJSON(permissionStatus));
     blob.setMetadata(metadata);
   }
 
-  private static FsPermission getPermission(CloudBlockBlobWrapper blob) {
+  private PermissionStatus getPermissionStatus(CloudBlockBlobWrapper blob) {
     HashMap<String, String> metadata = blob.getMetadata();
     if (null != metadata && metadata.containsKey(PERMISSION_METADATA_KEY)) {
-      return new FsPermission(Short.parseShort(metadata.get(PERMISSION_METADATA_KEY)));
+      return PermissionStatusJsonSerializer.fromJSONString(
+          metadata.get(PERMISSION_METADATA_KEY));
     } else {
-      return FsPermission.getDefault();
+      return defaultPermissionNoBlobMetadata();
     }
   }
 
@@ -883,7 +956,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   @Override
-  public void storeEmptyFolder(String key, FsPermission permission) throws IOException {
+  public void storeEmptyFolder(String key, PermissionStatus permissionStatus) throws IOException {
 
     if (null == storageInteractionLayer) {
       final String errMsg =
@@ -905,7 +978,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
     try {
       CloudBlockBlobWrapper blob = getBlobReference(key);
-      storePermission(blob, permission);
+      storePermissionStatus(blob, permissionStatus);
       storeFolderAttribute(blob);
       blob.upload(new ByteArrayInputStream(new byte[0]), getInstrumentedContext());
     } catch (Exception e) {
@@ -1151,7 +1224,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       if (key.equals("/")) {
         // The key refers to root directory of container.
         //
-        return new FileMetadata(key, FsPermission.getDefault(), BlobMaterialization.Implicit);
+        return new FileMetadata(key, defaultPermissionNoBlobMetadata(), BlobMaterialization.Implicit);
       }
 
       CloudBlockBlobWrapper blob = getBlobReference(key);
@@ -1175,7 +1248,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           if (LOG.isDebugEnabled()) {
             LOG.debug(key + " is a folder blob.");
           }
-          return new FileMetadata(key, getPermission(blob), BlobMaterialization.Explicit);
+          return new FileMetadata(key, getPermissionStatus(blob), BlobMaterialization.Explicit);
         } else {
           if (LOG.isDebugEnabled()) {
             LOG.debug(key + " is a normal blob.");
@@ -1186,7 +1259,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
               key, // Always return denormalized key with metadata.
               properties.getLength(),
               properties.getLastModified().getTime(),
-              getPermission(blob));
+              getPermissionStatus(blob));
         }
       }
 
@@ -1218,7 +1291,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           // TODO: class or an explicit parameter indicating it is a directory rather than
           // TODO: using polymorphism to distinguish the two.
           //
-          return new FileMetadata(key, getPermission((CloudBlockBlobWrapper)blobItem),
+          return new FileMetadata(key, getPermissionStatus((CloudBlockBlobWrapper)blobItem),
               BlobMaterialization.Implicit);
         }
       }
@@ -1376,14 +1449,14 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
           FileMetadata metadata;
           if (retrieveFolderAttribute(blob)) {
-            metadata = new FileMetadata(blobKey, getPermission(blob),
+            metadata = new FileMetadata(blobKey, getPermissionStatus(blob),
                 BlobMaterialization.Explicit);
           } else {
             metadata = new FileMetadata(
                 blobKey,
                 properties.getLength(),
                 properties.getLastModified().getTime(),
-                getPermission(blob));
+                getPermissionStatus(blob));
           }
 
           // Add the metadata to the list, but remove any existing duplicate
@@ -1411,7 +1484,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           // TODO: Something smarter should be done about permissions. Maybe
           // TODO: inherit the permissions of the first non-directory blob.
           //
-          FileMetadata directoryMetadata = new FileMetadata(dirKey, FsPermission.getDefault(),
+          FileMetadata directoryMetadata = new FileMetadata(dirKey, defaultPermissionNoBlobMetadata(),
               BlobMaterialization.Implicit);
 
           // Add the directory metadata to the list only if it's not already there.
@@ -1521,14 +1594,14 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
           FileMetadata metadata;
           if (retrieveFolderAttribute(blob)) {
-            metadata = new FileMetadata(blobKey, getPermission(blob),
+            metadata = new FileMetadata(blobKey, getPermissionStatus(blob),
                 BlobMaterialization.Explicit);
           } else {
             metadata = new FileMetadata(
                 blobKey,
                 properties.getLength(), 
                 properties.getLastModified().getTime(),
-                getPermission(blob));
+                getPermissionStatus(blob));
           }
 
           // Add the directory metadata to the list only if it's not already there.
@@ -1575,7 +1648,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
               // TODO: inherit the permissions of the first non-directory blob.
               //
               FileMetadata directoryMetadata = new FileMetadata(dirKey,
-                  FsPermission.getDefault(),
+                  defaultPermissionNoBlobMetadata(),
                   BlobMaterialization.Implicit);
   
               // Add the directory metadata to the list.

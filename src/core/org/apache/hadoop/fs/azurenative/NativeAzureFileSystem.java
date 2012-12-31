@@ -43,11 +43,13 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.fs.permission.PermissionStatus;
 import org.apache.hadoop.fs.azure.AzureException;
 import org.apache.hadoop.io.retry.RetryPolicies;
 import org.apache.hadoop.io.retry.RetryPolicy;
 import org.apache.hadoop.io.retry.RetryProxy;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.Progressable;
 
 /**
@@ -823,7 +825,9 @@ public class NativeAzureFileSystem extends FileSystem {
     // blocks.
     //
     OutputStream bufOutStream = new NativeAzureFsOutputStream(
-        store.storefile(keyEncoded, permission), key, keyEncoded);
+        store.storefile(keyEncoded, createPermissionStatus(permission)),
+        key,
+        keyEncoded);
 
     // Construct the data output stream from the buffered output stream.
     //
@@ -892,7 +896,8 @@ public class NativeAzureFileSystem extends FileSystem {
                 " delete the file " + f + ". Creating the directory blob for" +
                 " it in " + parentKey + ".");
           }
-          store.storeEmptyFolder(parentKey, FsPermission.getDefault());
+          store.storeEmptyFolder(parentKey,
+              createPermissionStatus(FsPermission.getDefault()));
         }
       }
       store.delete(key);
@@ -1054,37 +1059,48 @@ public class NativeAzureFileSystem extends FileSystem {
     return status.toArray(new FileStatus[0]);
   }
 
-  public class PermissiveFileStatus extends FileStatus {
-    public PermissiveFileStatus (long length, boolean isdir, long modification_time, Path path,
-        FsPermission permission) {
-      super(length, isdir, 1, blockSize, modification_time, 0, 
-          permission, null, null, path);
-    }
-
-    @Override
-    public boolean isOwnedByUser(String user, String [] userGroups) {
-      return true;
-    }
-  }
-
   private FileStatus newFile(FileMetadata meta, Path path) {
-
-    return new PermissiveFileStatus (
+    return new FileStatus (
         meta.getLength(),
         false,
+        1,
+        blockSize,
         meta.getLastModified(),
-        path.makeQualified(this),
-        meta.getPermission());
+        0,
+        meta.getPermissionStatus().getPermission(),
+        meta.getPermissionStatus().getUserName(),
+        meta.getPermissionStatus().getGroupName(),
+        path.makeQualified(this));
   }
 
   private FileStatus newDirectory(FileMetadata meta, Path path) {
-    return new PermissiveFileStatus (
-        0, 
-        true,
+    return new FileStatus (
         0,
-        path.makeQualified(this),
-        null == meta ? FsPermission.getDefault() : meta.getPermission());
+        true,
+        1,
+        blockSize,
+        meta == null ? 0 : meta.getLastModified(),
+        0,
+        meta == null ? FsPermission.getDefault() : meta.getPermissionStatus().getPermission(),
+        meta == null ? "" : meta.getPermissionStatus().getUserName(),
+        meta == null ? "" : meta.getPermissionStatus().getGroupName(),
+        path.makeQualified(this));
+  }
 
+  /**
+   * Creates the PermissionStatus object to use for the given permission,
+   * based on the current user in context.
+   * @param permission The permission for the file.
+   * @return The permission status object to use.
+   * @throws IOException If login fails in getCurrentUser
+   */
+  private PermissionStatus createPermissionStatus(FsPermission permission)
+      throws IOException {
+    // Create the permission status for this file based on current user
+    return new PermissionStatus(
+        UserGroupInformation.getCurrentUser().getShortUserName(),
+        null,
+        permission);
   }
 
   @Override
@@ -1108,7 +1124,7 @@ public class NativeAzureFileSystem extends FileSystem {
     }
 
     String key = pathToKey(absolutePath);
-    store.storeEmptyFolder(key, permission);
+    store.storeEmptyFolder(key, createPermissionStatus(permission));
     instrumentation.directoryCreated();
 
     // otherwise throws exception
