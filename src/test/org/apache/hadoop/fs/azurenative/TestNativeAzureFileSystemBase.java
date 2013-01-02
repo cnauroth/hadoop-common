@@ -261,6 +261,12 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     assertEquals(8, stats.getBytesWritten());
   }
 
+  public void testUriEncoding() throws Exception {
+    fs.create(new Path("p/t%5Fe")).close();
+    assertTrue(fs.rename(new Path("p"), new Path("q")));
+    assertTrue(fs.delete(new Path("q"), true));
+  }
+
   private void createEmptyFile(Path testFile, FsPermission permission)
       throws IOException {
     FSDataOutputStream outputStream = fs.create(testFile, permission, true,
