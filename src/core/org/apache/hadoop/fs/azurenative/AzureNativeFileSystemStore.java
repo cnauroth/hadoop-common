@@ -45,6 +45,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private StorageInterface storageInteractionLayer;
   private CloudBlobDirectoryWrapper rootDirectory;
   private CloudBlobContainerWrapper container;
+
   
   // TODO: Storage constants for SAS queries. This is a workaround until
   // TODO: microsoft.windows.azure-api.3.3.jar is available.
@@ -78,7 +79,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final String ASV_SCHEME = "asv";
   private static final String ASV_SECURE_SCHEME = "asvs";
   private static final String ASV_URL_AUTHORITY = ".blob.core.windows.net";
-  private static final String ASV_AUTHORITY_DELIMITER = "+";
+  private static final String ASV_AUTHORITY_DELIMITER = "@";
   private static final String AZURE_ROOT_CONTAINER = "$root";
 
   // Default minimum read size for streams is 4MB.
@@ -182,7 +183,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           );
     }
   }
-  
+
   void setAzureStorageInteractionLayer(
       StorageInterface storageInteractionLayer) {
     this.storageInteractionLayer = storageInteractionLayer;
@@ -206,7 +207,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   @Override
   public void initialize(URI uri, Configuration conf, AzureFileSystemInstrumentation instrumentation)
       throws IllegalArgumentException, AzureException, IOException  {
-    
+
     if (null == instrumentation) {
       throw new IllegalArgumentException("Null instrumentation");
     }
@@ -277,22 +278,32 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       throw new URISyntaxException(uri.toString(), "Expected URI with a valid authority");
     }
 
-    // The URI has a valid authority. Extract the account name name. It is the first
-    // component of the ASV URI authority.
+    // Check if authority container the delimiter separating the account name from the 
+    // the container.
     //
-    String accountName = authority.split("\\" + ASV_AUTHORITY_DELIMITER, 2)[0];
-    if ("".equals(accountName)) {
-      // The account name was not specified.
+    if (!authority.contains (ASV_AUTHORITY_DELIMITER)) {
+      return authority;
+    } 
+
+    // Split off the container name and the authority.
+    //
+    String [] authorityParts = authority.split(ASV_AUTHORITY_DELIMITER, 2);
+
+    // Because the string contains an '@' delimiter, a container must be specified.
+    //
+    if (authorityParts.length < 2 || "".equals(authorityParts[0])) {
+      // Badly formed ASV authority since there is no container.
       //
       final String errMsg = 
-          String.format("URI '%s' an non-empty account name. Expected URI with a non-empty account",
+          String.format("URI '%' has a malformed ASV authority, expected container name." +
+              "Authority takes the form" + " asv://[<container name>@]<account name>",
               uri.toString());
       throw new IllegalArgumentException(errMsg);
     }
 
     // Return with the container name. It is possible that this name is NULL.
     //
-    return accountName;
+    return authorityParts[1];
   }
 
   /**
@@ -316,23 +327,32 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // The URI has a valid authority. Extract the container name. It is the second
     // component of the ASV URI authority.
     //
-    String containerName = null;
-    if (authority.contains(ASV_AUTHORITY_DELIMITER)) {
-      containerName = authority.split("\\" + ASV_AUTHORITY_DELIMITER, 2)[1];
-    }
-
-    // If the container name is not part of the authority, then the URI specifies the
-    // $root container.
-    //
-    if (null == containerName || "".equals(containerName)) {
-      // No container specified, used the default $root container for the account.
+    if (!authority.contains(ASV_AUTHORITY_DELIMITER)) {
+      // The authority does not have a container name. Use the default container by
+      // setting the container name to the default Azure root container.
       //
-      containerName = AZURE_ROOT_CONTAINER;
+      return AZURE_ROOT_CONTAINER;
+    } 
+
+    // Split off the container name and the authority.
+    //
+    String [] authorityParts = authority.split(ASV_AUTHORITY_DELIMITER, 2);
+
+    // Because the string contains an '@' delimiter, a container must be specified.
+    //
+    if (authorityParts.length < 2 || "".equals(authorityParts[0])) {
+      // Badly formed ASV authority since there is no container.
+      //
+      final String errMsg =
+          String.format("URI '%' has a malformed ASV authority, expected container name." +
+              "Authority takes the form" + " asv://[<container name>@]<account name>",
+              uri.toString());
+      throw new IllegalArgumentException(errMsg);
     }
 
-    // Return with the container name. It is possible that this name is NULL.
+    // Set the container name from the first entry for the split parts of the authority.
     //
-    return containerName;
+    return authorityParts[0];
   }
 
   /**
@@ -679,8 +699,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       String containerName = getContainerFromAuthority(sessionUri);
       instrumentation.setContainerName(containerName);
       String propertyValue = sessionConfiguration.get(
-          KEY_ACCOUNT_SAS_PREFIX + accountName + 
-          ASV_AUTHORITY_DELIMITER + containerName);
+          KEY_ACCOUNT_SAS_PREFIX + containerName + 
+          ASV_AUTHORITY_DELIMITER + accountName);
       if (null != propertyValue){
         // Check if the connection string is a valid shared access
         // signature.
@@ -989,7 +1009,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private PermissionStatus getPermissionStatus(CloudBlockBlobWrapper blob) {
     String permissionMetadataValue = getMetadataAttribute(blob,
         PERMISSION_METADATA_KEY);
-    if (permissionMetadataValue == null) {
+    if (permissionMetadataValue != null) {
       return PermissionStatusJsonSerializer.fromJSONString(
           permissionMetadataValue);
     } else {
@@ -1168,12 +1188,12 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private Iterable<ListBlobItem> listRootBlobs(boolean includeMetadata)
       throws StorageException, URISyntaxException {
     return rootDirectory.listBlobs(
-          null, false,
-          includeMetadata ?
-              EnumSet.of(BlobListingDetails.METADATA) :
+        null, false,
+        includeMetadata ?
+            EnumSet.of(BlobListingDetails.METADATA) :
               EnumSet.noneOf(BlobListingDetails.class),
-          null,
-          getInstrumentedContext());
+              null,
+              getInstrumentedContext());
   }
 
   /**
@@ -1194,15 +1214,15 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    */
   private Iterable<ListBlobItem> listRootBlobs(String aPrefix,
       boolean includeMetadata)
-      throws StorageException, URISyntaxException {
+          throws StorageException, URISyntaxException {
 
     return rootDirectory.listBlobs(aPrefix,
-          false,
-          includeMetadata ?
-              EnumSet.of(BlobListingDetails.METADATA) :
+        false,
+        includeMetadata ?
+            EnumSet.of(BlobListingDetails.METADATA) :
               EnumSet.noneOf(BlobListingDetails.class),
-          null,
-          getInstrumentedContext());
+              null,
+              getInstrumentedContext());
   }
 
   /**
@@ -1369,7 +1389,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         // properties.
         //
         blob.downloadAttributes(getInstrumentedContext());
-        
+
         if (retrieveFolderAttribute(blob)) {
           if (LOG.isDebugEnabled()) {
             LOG.debug(key + " is a folder blob.");
@@ -1380,7 +1400,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
             LOG.debug(key + " is a normal blob.");
           }
           BlobProperties properties = blob.getProperties();
-          
+
           return new FileMetadata(
               key, // Always return denormalized key with metadata.
               properties.getLength(),
@@ -1409,7 +1429,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           LOG.debug(
               "Found blob as a directory-using this file under it to infer its properties" +
                   blobItem.getUri());
-    
+
           // The key specifies a directory. Create a FileMetadata object which specifies
           // as such.
           //
@@ -1765,7 +1785,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
             // path is being used or not.
             //
             String dirKey = normalizeKey(directory);
-            
+
             if (getDirectoryInList(aFileMetadataList, dirKey) == null) {
               // Reached the targeted listing depth. Return metadata for the
               // directory using default permissions.
@@ -1776,7 +1796,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
               FileMetadata directoryMetadata = new FileMetadata(dirKey,
                   defaultPermissionNoBlobMetadata(),
                   BlobMaterialization.Implicit);
-  
+
               // Add the directory metadata to the list.
               //
               aFileMetadataList.add(directoryMetadata);
