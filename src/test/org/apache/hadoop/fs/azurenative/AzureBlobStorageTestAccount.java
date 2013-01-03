@@ -1,6 +1,7 @@
 package org.apache.hadoop.fs.azurenative;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -11,7 +12,14 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.metrics2.*;
 
+import com.microsoft.windowsazure.services.blob.client.BlobContainerPermissions;
+import com.microsoft.windowsazure.services.blob.client.BlobContainerPublicAccessType;
+import com.microsoft.windowsazure.services.blob.client.BlobOutputStream;
+import com.microsoft.windowsazure.services.blob.client.CloudBlobClient;
 import com.microsoft.windowsazure.services.blob.client.CloudBlobContainer;
+import com.microsoft.windowsazure.services.blob.client.CloudBlockBlob;
+import com.microsoft.windowsazure.services.blob.client.SharedAccessBlobPermissions;
+import com.microsoft.windowsazure.services.blob.client.SharedAccessBlobPolicy;
 import com.microsoft.windowsazure.services.core.storage.CloudStorageAccount;
 import com.microsoft.windowsazure.services.core.storage.utils.Base64;
 
@@ -19,19 +27,27 @@ public final class AzureBlobStorageTestAccount {
 
   private static final String CONNECTION_STRING_PROPERTY_NAME = "fs.azure.storageConnectionString";
   private static final String ACCOUNT_KEY_PROPERTY_NAME = "fs.azure.account.key.";
+  private static final String ACCOUNT_SAS_PROPERTY_NAME = "fs.azure.sas.";;
   private static final String SINK_IDENTIFIER = "identifier";
   public static final String MOCK_ACCOUNT_NAME = "mockAccount";
   public static final String MOCK_CONTAINER_NAME = "mockContainer";
-  public static final String MOCK_ASV_URI = "asv://" + MOCK_ACCOUNT_NAME + "+" +
-      MOCK_CONTAINER_NAME + "/";
+  public static final String  ASV_AUTHORITY_DELIMITER = "@";
+  public static final String ASV_SCHEME = "asv";
+  public static final String PATH_DELIMITER = "/";
+  public static final String AZURE_ROOT_CONTAINER = "$root";
+  public static final String MOCK_ASV_URI = "asv://" + MOCK_CONTAINER_NAME + 
+      ASV_AUTHORITY_DELIMITER + MOCK_ACCOUNT_NAME + "/";
+
   private CloudStorageAccount account;
   private CloudBlobContainer container;
+  private CloudBlockBlob blob;
   private FileSystem fs;
   private final int sinkIdentifier;
   private MockStorageInterface mockStorage;
   private static AtomicInteger sinkIdentifierCounter = new AtomicInteger();
   private static final ConcurrentHashMap<Integer, ArrayList<MetricsRecord>> allMetrics =
       new ConcurrentHashMap<Integer, ArrayList<MetricsRecord>>();
+
 
   private AzureBlobStorageTestAccount(FileSystem fs,
       CloudStorageAccount account,
@@ -43,6 +59,23 @@ public final class AzureBlobStorageTestAccount {
     this.sinkIdentifier = sinkIdentifier;
   }
 
+  /**
+   * Create a test account sessions with the default root container.
+   * 
+   * @param fs - file system, namely ASV file system
+   * @param account - Windows Azure account object
+   * @param blob - block blob reference
+   * @param sinkIdentifier - instrumentation sink identifier
+   */
+  private AzureBlobStorageTestAccount(FileSystem fs, CloudStorageAccount account, 
+      CloudBlockBlob blob, int sinkIdentifier) {
+
+    this.account = account;
+    this.blob = blob;
+    this.fs = fs;
+    this.sinkIdentifier = sinkIdentifier;
+  }  
+
   private AzureBlobStorageTestAccount(FileSystem fs,
       MockStorageInterface mockStorage,
       int sinkIdentifier) {
@@ -50,7 +83,7 @@ public final class AzureBlobStorageTestAccount {
     this.mockStorage = mockStorage;
     this.sinkIdentifier = sinkIdentifier;
   }
-  
+
   private static void addRecord(int sinkIdentifier, MetricsRecord record) {
     ArrayList<MetricsRecord> list = new ArrayList<MetricsRecord>();
     ArrayList<MetricsRecord> previous = allMetrics.putIfAbsent(sinkIdentifier, list);
@@ -116,7 +149,7 @@ public final class AzureBlobStorageTestAccount {
 
     return false;
   }
-  
+
   private static void saveMetricsConfigFile(int sinkIdentifier) {
     new org.apache.hadoop.metrics2.impl.ConfigBuilder()
     .add("azure-file-system.sink.azuretestcollector.class", StandardCollector.class.getName())
@@ -140,6 +173,18 @@ public final class AzureBlobStorageTestAccount {
     return testAcct;
   }
 
+  private static URI createAccountUri(String accountName)
+      throws URISyntaxException {
+    return new URI(ASV_SCHEME + ":" + PATH_DELIMITER + PATH_DELIMITER + accountName);
+  }
+
+  private static URI createAccountUri(String accountName, String containerName)
+      throws URISyntaxException {
+    return new URI(ASV_SCHEME + ":" + PATH_DELIMITER + PATH_DELIMITER +
+        containerName + ASV_AUTHORITY_DELIMITER + accountName);
+  }
+
+
   public static AzureBlobStorageTestAccount create() throws Exception {
     int sinkIdentifier = sinkIdentifierCounter.incrementAndGet();
     saveMetricsConfigFile(sinkIdentifier);
@@ -155,10 +200,8 @@ public final class AzureBlobStorageTestAccount {
     String containerName = String.format("asvtests-%s-%tQ",
         System.getProperty("user.name"), new Date());
     String connectionString = conf.get(CONNECTION_STRING_PROPERTY_NAME);
-    CloudStorageAccount account = CloudStorageAccount
-        .parse(connectionString);
-    container = account
-        .createCloudBlobClient().getContainerReference(containerName);
+    CloudStorageAccount account = CloudStorageAccount.parse(connectionString);
+    container = account.createCloudBlobClient().getContainerReference(containerName);
     container.create();
     String accountUrl = account.getBlobEndpoint().getAuthority();
     String accountName = accountUrl.substring(0, accountUrl.indexOf('.'));
@@ -169,18 +212,12 @@ public final class AzureBlobStorageTestAccount {
     conf.set(CONNECTION_STRING_PROPERTY_NAME + "." + accountName, connectionString);
     String accountKey = null;
 
-    // Split name value pairs by splitting on the ';' character
+    // Capture the account key from the connection string.
     //
-    final String[] valuePairs =  connectionString.split(";");
-    for (String str : valuePairs) {
-      // Split on the equals sign to get the key/value pair.
-      //
-      String [] pair = str.split("\\=", 2);
-      if (pair[0].toLowerCase().equals("AccountKey".toLowerCase())) {
-        accountKey = pair[1];
-        break;
-      }
-    }
+    accountKey = getAccountKey (connectionString);
+
+    // Check if connection string is configured with or without an account key.
+    //
     if (null == accountKey){
       // Connection string not configured with an account key.
       //
@@ -189,13 +226,439 @@ public final class AzureBlobStorageTestAccount {
       throw new Exception (errMsg);
     }
 
+    // Set the account key property.
+    //
     conf.set(ACCOUNT_KEY_PROPERTY_NAME + accountName, accountKey);
 
-    fs.initialize(new URI("asv://" + accountName + "+" + containerName + "/"), conf);
+    // Set account URI and initialize Azure file system.
+    //
+    URI accountUri = createAccountUri(accountName, containerName);
+    fs.initialize(accountUri, conf);
 
+    // Create test account initializing the appropriate member variables.
+    //
     AzureBlobStorageTestAccount testAcct =
         new AzureBlobStorageTestAccount(fs, account, container, sinkIdentifier);
 
+    return testAcct;
+  }
+
+  private static String generateContainerName() throws Exception {
+    String containerName =
+        String.format ("asvtests-%s-%tQ",
+            System.getProperty("user.name"),
+            new Date());
+    return containerName;
+  }
+
+  private static String getAccountKey (String connectionString) throws Exception {
+
+    String acctKey = null;
+
+    // Split name value pairs by splitting on the ';' character
+    //
+    final String[] valuePairs =  connectionString.split(";");
+    for (String str : valuePairs) {
+      // Split on the equals sign to get the key/value pair.
+      //
+      String [] pair = str.split("\\=", 2);
+      if (pair[0].toLowerCase().equals("AccountKey".toLowerCase())) {
+        acctKey = pair[1];
+        break;
+      }
+    }
+
+    // Return to caller with the account name.
+    //
+    return acctKey;
+  }
+
+  private static String generateSAS(CloudBlobClient blobClient, 
+      String accountName, String containerName) throws Exception {
+
+    // Create a container if it does not exist. The container name
+    // must be lower case.
+    //
+    CloudBlobContainer container =  blobClient.getContainerReference(
+        "https://" + accountName +
+        ".blob.core.windows.net/" + containerName);
+    container.createIfNotExist();
+
+    // Create a new shared access policy.
+    //
+    SharedAccessBlobPolicy sasPolicy = new SharedAccessBlobPolicy();
+
+    // Create a UTC Gregorian calendar value.
+    //
+    GregorianCalendar calendar = new GregorianCalendar(TimeZone.getTimeZone("UTC"));
+
+    // Specify the current time as the start time for the shared access
+    // signature.
+    //
+    calendar.setTime(new Date());
+    sasPolicy.setSharedAccessStartTime(calendar.getTime());
+
+    // Use the start time delta one hour as the end time for the shared
+    // access signature.
+    //
+    calendar.add(Calendar.HOUR, 10);
+    sasPolicy.setSharedAccessExpiryTime(calendar.getTime());
+
+    // Set READ and WRITE permissions.
+    //
+    sasPolicy.setPermissions(EnumSet.of(
+        SharedAccessBlobPermissions.READ,
+        SharedAccessBlobPermissions.WRITE,
+        SharedAccessBlobPermissions.LIST));
+
+    // Create the container permissions.
+    //
+    BlobContainerPermissions containerPermissions =
+        new BlobContainerPermissions();
+
+    // Turn public access to the container off.
+    //
+    containerPermissions.setPublicAccess(BlobContainerPublicAccessType.OFF);
+
+    // Set the policy using the values set above.
+    //
+    containerPermissions.getSharedAccessPolicies().put("testasvpolicy", sasPolicy);
+    container.uploadPermissions(containerPermissions);
+
+    // Create a shared access signature for the container.
+    //
+    String sas = container.generateSharedAccessSignature(sasPolicy, "testasvpolicy");
+
+    // Return to caller with the shared access signature.
+    //
+    return sas;
+  }
+
+  public static AzureBlobStorageTestAccount createSAS()
+      throws Exception {
+
+    int sinkIdentifier = sinkIdentifierCounter.incrementAndGet();
+    saveMetricsConfigFile(sinkIdentifier);
+
+    FileSystem fs = null;
+    CloudBlobContainer container = null;
+    Configuration conf = new Configuration();
+
+    // Check for the existence of a connection string.
+    //
+    if (!hasConnectionString(conf))
+    {
+      // Skip test because of missing connection string.
+      //
+      System.out.println (
+          "Skipping live Azure test because of missing connection string.");
+    }
+
+    // Set up a session with the cloud blob client to generate SAS and check the
+    // existence of a container and capture the container object.
+    //
+    String connectionString = conf.get(CONNECTION_STRING_PROPERTY_NAME);
+    CloudStorageAccount account = CloudStorageAccount.parse(connectionString);
+    CloudBlobClient blobClient = account.createCloudBlobClient();
+
+    // Capture the account URL and the account name.
+    //
+    String accountUrl = account.getBlobEndpoint().getAuthority();
+    String accountName = accountUrl.substring(0, accountUrl.indexOf('.'));
+
+    // Generate a container name and create a shared access signature string for it.
+    //
+    String containerName = generateContainerName();
+    String sas = generateSAS(blobClient, accountName, containerName);
+
+    // Capture the blob container object. It should exist after generating the 
+    // shared access signature.
+    //
+    container = blobClient.getContainerReference(containerName);
+    if (null == container || !container.exists()) {
+      final String errMsg =
+          String.format ("Container '%s' expected but not found while creating SAS account.");
+      throw new Exception (errMsg);
+    }
+
+    // Set the account key base on whether the account is authenticated or is an anonymous
+    // public account.
+    //
+    conf.set(CONNECTION_STRING_PROPERTY_NAME + "." + accountName, connectionString);
+    String accountKey = null;
+
+    // Capture the account key.
+    //
+    accountKey = getAccountKey (connectionString);
+    if (null == accountKey){
+      // Connection string not configured with an account key.
+      //
+      final String errMsg = 
+          String.format("Account key not configured in connection string: '%s'.", connectionString);
+      throw new Exception (errMsg);
+    }
+
+    // Set the account key property name to test the precedence of SAS over account keys.
+    //
+    conf.set(ACCOUNT_KEY_PROPERTY_NAME + accountName, accountKey);
+
+    // Create SAS properties.
+    //
+    conf.set(
+        ACCOUNT_SAS_PROPERTY_NAME + containerName + ASV_AUTHORITY_DELIMITER + accountName, 
+        sas.replace('&', ';'));
+
+    // Set the account URI.
+    //
+    URI accountUri = createAccountUri(accountName, containerName);
+
+    // Initialize the Native Azure file system.
+    //
+    fs = new NativeAzureFileSystem();
+    fs.initialize(accountUri, conf);
+
+    // Create test account initializing the appropriate member variables.
+    //
+    AzureBlobStorageTestAccount testAcct = new AzureBlobStorageTestAccount(
+        fs, account, container, sinkIdentifier);
+
+    // Return to caller with test account.
+    //
+    return testAcct;
+  }
+
+  public static void primePublicContainer(CloudBlobClient blobClient, String accountName,
+      String containerName, String blobName, int fileSize)
+          throws Exception {
+
+    // Create a container if it does not exist. The container name
+    // must be lower case.
+    //
+    CloudBlobContainer container = 
+        blobClient.getContainerReference(
+            "https://" + accountName +
+            ".blob.core.windows.net/" + containerName);
+    container.createIfNotExist();
+
+    // Create a new shared access policy.
+    //
+    SharedAccessBlobPolicy sasPolicy = new SharedAccessBlobPolicy();
+
+    // Set READ and WRITE permissions.
+    //
+    sasPolicy.setPermissions(EnumSet.of(
+        SharedAccessBlobPermissions.READ,
+        SharedAccessBlobPermissions.WRITE,
+        SharedAccessBlobPermissions.LIST,
+        SharedAccessBlobPermissions.DELETE));
+
+    // Create the container permissions.
+    //
+    BlobContainerPermissions containerPermissions = new BlobContainerPermissions();
+
+    // Turn public access to the container off.
+    //
+    containerPermissions.setPublicAccess(BlobContainerPublicAccessType.CONTAINER);
+
+    // Set the policy using the values set above.
+    //
+    containerPermissions.getSharedAccessPolicies().put("testasvpolicy", sasPolicy);
+    container.uploadPermissions(containerPermissions);
+
+    // Create a blob output stream.
+    //
+    String blobAddressUri = 
+        String.format("https://%s.blob.core.windows.net/%s/%s",
+            accountName, containerName, blobName);
+    CloudBlockBlob blob = blobClient.getBlockBlobReference(blobAddressUri);    
+    BlobOutputStream outputStream = blob.openOutputStream();
+
+    outputStream.write(new byte[fileSize]);
+    outputStream.close();
+  }
+
+  public static AzureBlobStorageTestAccount createAnonymous(
+      final String blobName, final int fileSize) throws Exception {
+
+    int sinkIdentifier = sinkIdentifierCounter.incrementAndGet();
+    saveMetricsConfigFile(sinkIdentifier);
+
+    FileSystem fs = null;
+    CloudBlobContainer container = null;
+    Configuration conf = new Configuration();
+
+    // Check for the existence of a connection string.
+    //
+    if (!hasConnectionString(conf))
+    {
+      // Skip test because of missing connection string.
+      //
+      System.out.println (
+          "Skipping live Azure test because of missing connection string.");
+    }
+
+    // Set up a session with the cloud blob client to generate SAS and check the
+    // existence of a container and capture the container object.
+    //
+    String connectionString = conf.get(CONNECTION_STRING_PROPERTY_NAME);
+    CloudStorageAccount account = CloudStorageAccount.parse(connectionString);
+    CloudBlobClient blobClient = account.createCloudBlobClient();
+
+    // Capture the account URL and the account name.
+    //
+    String accountUrl = account.getBlobEndpoint().getAuthority();
+    String accountName = accountUrl.substring(0, accountUrl.indexOf('.'));
+
+    // Generate a container name and create a shared access signature string for it.
+    //
+    String containerName = generateContainerName();
+
+    // Set up public container with the specified blob name.
+    //
+    primePublicContainer (blobClient, accountName, containerName, blobName, fileSize);
+
+    // Capture the blob container object. It should exist after generating the 
+    // shared access signature.
+    //
+    container = blobClient.getContainerReference(containerName);
+    if (null == container || !container.exists()) {
+      final String errMsg =
+          String.format ("Container '%s' expected but not found while creating SAS account.");
+      throw new Exception (errMsg);
+    }
+
+    // Set the account URI.
+    //
+    URI accountUri = createAccountUri(accountName, containerName);
+
+    // Initialize the Native Azure file system with anonymous credentials.
+    //
+    fs = new NativeAzureFileSystem();
+    fs.initialize(accountUri, conf);
+
+    // Create test account initializing the appropriate member variables.
+    //
+    AzureBlobStorageTestAccount testAcct = new AzureBlobStorageTestAccount(
+        fs, account, container, sinkIdentifier);
+
+    // Return to caller with test account.
+    //
+    return testAcct;
+  }
+
+  private static CloudBlockBlob primeRootContainer(CloudBlobClient blobClient, String accountName, 
+      String blobName, int fileSize) throws Exception {
+
+    // Create a container if it does not exist. The container name
+    // must be lower case.
+    //
+    CloudBlobContainer container = 
+        blobClient.getContainerReference(
+            "https://" + accountName +
+            ".blob.core.windows.net/" + "$root");
+    container.createIfNotExist();
+
+    // Create a blob output stream.
+    //
+    String blobAddressUri = 
+        String.format("https://%s.blob.core.windows.net/$root/%s",
+            accountName, blobName);
+    CloudBlockBlob blob = blobClient.getBlockBlobReference(blobAddressUri);    
+    BlobOutputStream outputStream = blob.openOutputStream();
+
+    outputStream.write(new byte[fileSize]);
+    outputStream.close();
+
+    // Return a reference to the block blob object.
+    //
+    return blob;
+  }
+
+  public static AzureBlobStorageTestAccount createRoot(
+      final String blobName, final int fileSize) throws Exception {
+
+    int sinkIdentifier = sinkIdentifierCounter.incrementAndGet();
+    saveMetricsConfigFile(sinkIdentifier);
+
+    FileSystem fs = null;
+    CloudBlobContainer container = null;
+    Configuration conf = new Configuration();
+
+    // Check for the existence of a connection string.
+    //
+    if (!hasConnectionString(conf))
+    {
+      // Skip test because of missing connection string.
+      //
+      System.out.println (
+          "Skipping live Azure test because of missing connection string.");
+    }
+
+    // Set up a session with the cloud blob client to generate SAS and check the
+    // existence of a container and capture the container object.
+    //
+    String connectionString = conf.get(CONNECTION_STRING_PROPERTY_NAME);
+    CloudStorageAccount account = CloudStorageAccount.parse(connectionString);
+    CloudBlobClient blobClient = account.createCloudBlobClient();
+
+    // Capture the account URL and the account name.
+    //
+    String accountUrl = account.getBlobEndpoint().getAuthority();
+    String accountName = accountUrl.substring(0, accountUrl.indexOf('.'));
+
+
+    // Set up public container with the specified blob name.
+    //
+    CloudBlockBlob blobRoot = primeRootContainer (blobClient, accountName, blobName, fileSize);
+
+    // Capture the blob container object. It should exist after generating the 
+    // shared access signature.
+    //
+    container = blobClient.getContainerReference(AZURE_ROOT_CONTAINER);
+    if (null == container || !container.exists()) {
+      final String errMsg =
+          String.format ("Container '%s' expected but not found while creating SAS account.");
+      throw new Exception (errMsg);
+    }
+
+    // Set the account key base on whether the account is authenticated or is an anonymous
+    // public account.
+    //
+    conf.set(CONNECTION_STRING_PROPERTY_NAME + "." + accountName, connectionString);
+    String accountKey = null;
+
+    // Capture the account key.
+    //
+    accountKey = getAccountKey(connectionString);
+    if (null == accountKey){
+      // Connection string not configured with an account key.
+      //
+      final String errMsg = 
+          String.format("Account key not configured in connection string: '%s'.", connectionString);
+      throw new Exception (errMsg);
+    }
+
+    // Set the account key property name to test the precedence of SAS over account keys.
+    //
+    conf.set(ACCOUNT_KEY_PROPERTY_NAME + accountName, accountKey);
+
+    // Set the account URI without a container name.
+    //
+    URI accountUri = createAccountUri(accountName);
+
+    // Initialize the Native Azure file system with anonymous credentials.
+    //
+    fs = new NativeAzureFileSystem();
+    fs.initialize(accountUri, conf);
+
+    // Create test account initializing the appropriate member variables.
+    // Set the container value to null for the default root container.
+    //
+    AzureBlobStorageTestAccount testAcct = new AzureBlobStorageTestAccount(
+        fs, account, blobRoot, sinkIdentifier);
+
+    // Return to caller with test account.
+    //
     return testAcct;
   }
 
@@ -207,6 +670,14 @@ public final class AzureBlobStorageTestAccount {
     if (container != null) {
       container.delete();
       container = null;
+    }
+    if (blob != null) {
+      // The blob member variable is set for blobs under root containers.
+      // Delete blob objects created for root container tests when cleaning
+      // up the test account.
+      //
+      blob.delete ();
+      blob = null;
     }
   }
 
@@ -243,7 +714,7 @@ public final class AzureBlobStorageTestAccount {
 
   public static class StandardCollector implements MetricsSink {
     private int sinkIdentifier;
-    
+
     @Override
     public void init(SubsetConfiguration conf) {
       sinkIdentifier = conf.getInt(SINK_IDENTIFIER);
