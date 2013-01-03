@@ -26,7 +26,7 @@ public class TestAzureFileSystemErrorConditions extends TestCase {
    */
   public void testAccessUnauthorizedPublicContainer() throws Exception {
     Path noAccessPath = new Path(
-        "asv://hopefullyNonExistentAccount+nonExistentContainer/someFile");
+        "asv://nonExistentContainer@hopefullyNonExistentAccount/someFile");
     NativeAzureFileSystem.suppressRetryPolicy();
     try {
       FileSystem.get(noAccessPath.toUri(), new Configuration())
