@@ -281,3 +281,6 @@ BUG FIXES
 
     MAPREDUCE-4909. TestKeyValueTextInputFormat fails with Open JDK 7 on
     Windows. (Arpit Agarwal via suresh)
+
+    HDFS-4355. TestNameNodeMetrics.testCorruptBlock fails with open JDK7.
+    (Brandon Li via suresh)
