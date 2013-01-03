@@ -97,7 +97,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private Configuration sessionConfiguration;
   private int concurrentReads = DEFAULT_CONCURRENT_READS;
   private int concurrentWrites = DEFAULT_CONCURRENT_WRITES;
-  private String sharedAccessSignature = null;
   private boolean isAnonymousCredentials = false;
   private AzureFileSystemInstrumentation instrumentation;
   private BandwidthGaugeUpdater bandwidthGaugeUpdater;
