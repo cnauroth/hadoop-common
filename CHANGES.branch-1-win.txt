@@ -268,3 +268,16 @@ BUG FIXES
 
     HDFS-4341. Set default data dir permission in MiniDFSClusterWithNodeGroup.
     (Ivan Mitic via szetszwo)
+
+    HDFS-4337. Backport HDFS-4240: For nodegroup-aware block placement, when a
+    node is excluded, the nodes in the same nodegroup should also be excluded.
+    (Meng Gong via szetszwo)
+
+    HADOOP-9174. TestSecurityUtil fails with Open JDK 7. (Arpit Agarwal via
+    suresh)
+
+    HADOOP-9175. TestWritableName fails with Open JDK 7. (Arpit Agarwal via
+    suresh)
+
+    MAPREDUCE-4909. TestKeyValueTextInputFormat fails with Open JDK 7 on
+    Windows. (Arpit Agarwal via suresh)
