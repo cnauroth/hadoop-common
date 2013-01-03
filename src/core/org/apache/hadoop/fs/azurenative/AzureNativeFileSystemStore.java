@@ -989,7 +989,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private PermissionStatus getPermissionStatus(CloudBlockBlobWrapper blob) {
     String permissionMetadataValue = getMetadataAttribute(blob,
         PERMISSION_METADATA_KEY);
-    if (permissionMetadataValue == null) {
+    if (permissionMetadataValue != null) {
       return PermissionStatusJsonSerializer.fromJSONString(
           permissionMetadataValue);
     } else {
