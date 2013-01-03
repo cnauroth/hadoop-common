@@ -276,5 +276,8 @@ BUG FIXES
     HADOOP-9174. TestSecurityUtil fails with Open JDK 7. (Arpit Agarwal via
     suresh)
 
-    HADOOP-9175. TestWritableName fails with Open JDK 7. Contributed by Arpit
-    Agarwal.
+    HADOOP-9175. TestWritableName fails with Open JDK 7. (Arpit Agarwal via
+    suresh)
+
+    MAPREDUCE-4909. TestKeyValueTextInputFormat fails with Open JDK 7 on
+    Windows. (Arpit Agarwal via suresh)
