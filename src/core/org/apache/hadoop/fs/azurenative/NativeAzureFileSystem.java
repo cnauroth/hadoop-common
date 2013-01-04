@@ -82,6 +82,18 @@ public class NativeAzureFileSystem extends FileSystem {
   private static int DEFAULT_MAX_RETRIES = 4;
   private static int DEFAULT_SLEEP_TIME_SECONDS = 10;
 
+  /**
+   * The configuration property that determines which group owns files created
+   * in ASV.
+   */
+  private static final String AZURE_DEFAULT_GROUP_PROPERTY_NAME =
+      "fs.azure.permissions.supergroup";
+  /**
+   * The default value for fs.azure.permissions.supergroup. Chosen as the same
+   * default as DFS.
+   */
+  static final String AZURE_DEFAULT_GROUP_DEFAULT =
+      "supergroup";
   static final String AZURE_RINGBUFFER_CAPACITY_PROPERTY_NAME =
       "fs.azure.ring.buffer.capacity";
   private static final int DEFAULT_RINGBUFFER_CAPACITY = 4;
@@ -1144,7 +1156,8 @@ public class NativeAzureFileSystem extends FileSystem {
     // Create the permission status for this file based on current user
     return new PermissionStatus(
         UserGroupInformation.getCurrentUser().getShortUserName(),
-        null,
+        getConf().get(AZURE_DEFAULT_GROUP_PROPERTY_NAME,
+            AZURE_DEFAULT_GROUP_DEFAULT),
         permission);
   }
 
