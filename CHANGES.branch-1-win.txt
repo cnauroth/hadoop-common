@@ -284,3 +284,5 @@ BUG FIXES
 
     HDFS-4355. TestNameNodeMetrics.testCorruptBlock fails with open JDK7.
     (Brandon Li via suresh)
+
+    HDFS-4358. TestCheckpoint failure with JDK7. (Arpit Agarwal via suresh)
