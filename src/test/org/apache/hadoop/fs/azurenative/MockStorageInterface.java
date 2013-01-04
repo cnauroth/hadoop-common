@@ -115,6 +115,12 @@ public class MockStorageInterface extends StorageInterface {
         throws StorageException {
       metadata = backingStore.getContainerMetadata();
     }
+
+    @Override
+    public void uploadMetadata(OperationContext opContext)
+        throws StorageException {
+      backingStore.setContainerMetadata(metadata);
+    }
   }
 
   private static class PreExistingContainer {

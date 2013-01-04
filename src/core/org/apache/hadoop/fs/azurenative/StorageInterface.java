@@ -233,8 +233,8 @@ abstract class StorageInterface {
     public abstract void setMetadata(HashMap<String,String> metadata);
 
     /**
-     * Downloads the container's attributes, which consist of metadata and properties, using the specified request
-     * options and operation context.
+     * Downloads the container's attributes, which consist of metadata and properties, using the specified
+     * operation context.
      *
      * @param opContext
      *            An {@link OperationContext} object that represents the context for the current operation. This object
@@ -246,6 +246,20 @@ abstract class StorageInterface {
      */
     public abstract void downloadAttributes(
         OperationContext opContext) throws StorageException;
+
+    /**
+     * Uploads the container's metadata using the specified operation context.
+     *
+     * @param opContext
+     *            An {@link OperationContext} object that represents the context for the current operation. This object
+     *            is used to track requests to the storage service, and to provide additional runtime information about
+     *            the operation.
+     *
+     * @throws StorageException
+     *             If a storage service error occurred.
+     */
+    public abstract void uploadMetadata(OperationContext opContext)
+        throws StorageException;
 
     /**
      * Creates the container using the specified operation context.

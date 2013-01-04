@@ -184,6 +184,12 @@ class StorageInterfaceImpl extends StorageInterface {
         throws StorageException {
       container.downloadAttributes(null, opContext);
     }
+
+    @Override
+    public void uploadMetadata(OperationContext opContext)
+        throws StorageException {
+      container.uploadMetadata(null, opContext);
+    }
   }
 
   static class CloudBlockBlobWrapperImpl extends CloudBlockBlobWrapper {

@@ -1,7 +1,9 @@
 package org.apache.hadoop.fs.azurenative;
 
+import java.net.URI;
 import java.util.*;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.permission.*;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -45,11 +47,46 @@ public class TestBlobMetadata extends TestCase {
 
   /**
    * Tests that ASV stamped the version in the container metadata.
-   * @throws Exception
    */
   public void testContainerVersionMetadata() throws Exception {
     HashMap<String, String> containerMetadata =
         backingStore.getContainerMetadata();
+    assertNotNull(containerMetadata);
+    assertEquals(AzureNativeFileSystemStore.CURRENT_ASV_VERSION,
+        containerMetadata.get(AzureNativeFileSystemStore.VERSION_METADATA_KEY));
+  }
+
+  /**
+   * Tests that ASV stamped the version in the container metadata if
+   * it does a write operation to a pre-existing container.
+   */
+  public void testPreExistingContainerVersionMetadata() throws Exception {
+    // Create a mock storage with a pre-existing container that has no
+    // ASV version metadata on it.
+    AzureNativeFileSystemStore store = new AzureNativeFileSystemStore();
+    MockStorageInterface mockStorage = new MockStorageInterface();
+    store.setAzureStorageInteractionLayer(mockStorage);
+    FileSystem fs = new NativeAzureFileSystem(store);
+    Configuration conf = new Configuration();
+    AzureBlobStorageTestAccount.setMockAccountKey(conf);
+    mockStorage.addPreExistingContainer(
+        AzureBlobStorageTestAccount.getMockContainerUri(),
+        null);
+    fs.initialize(new URI(AzureBlobStorageTestAccount.MOCK_ASV_URI), conf);
+
+    // Now, do some read operations (should touch the metadata)
+    assertFalse(fs.exists(new Path("/IDontExist")));
+    assertEquals(0, fs.listStatus(new Path("/")).length);
+
+    // Check that no container metadata exists yet
+    assertNull(mockStorage.getBackingStore().getContainerMetadata());
+
+    // Now do a write operation - should stamp the version
+    fs.mkdirs(new Path("/dir"));
+
+    // Check that now we have the version stamp
+    HashMap<String, String> containerMetadata =
+        mockStorage.getBackingStore().getContainerMetadata();
     assertNotNull(containerMetadata);
     assertEquals(AzureNativeFileSystemStore.CURRENT_ASV_VERSION,
         containerMetadata.get(AzureNativeFileSystemStore.VERSION_METADATA_KEY));
