@@ -102,11 +102,6 @@ goto :eof
   set HADOOP_OPTS=%HADOOP_OPTS% %HADOOP_CLIENT_OPTS%
   goto :eof
 
-:dfsck
-  set CLASS=org.apache.hadoop.hdfs.tools.DFSck
-  set HADOOP_OPTS=%HADOOP_OPTS% %HADOOP_CLIENT_OPTS%
-  goto :eof
-
 :balancer
   set CLASS=org.apache.hadoop.hdfs.server.balancer.Balancer
   set HADOOP_OPTS=%HADOOP_OPTS% %HADOOP_BALANCER_OPTS%
@@ -172,7 +167,6 @@ goto :eof
   @echo   datanode             run a DFS datanode
   @echo   dfsadmin             run a DFS admin client
   @echo   fsck                 run a filesystem checking utility
-  @echo   dfsck                run a DFS filesystem checking utility
   @echo   balancer             run a cluster balancing utility
   @echo   jmxget               get JMX exported values from NameNode or DataNode.
   @echo   oiv                  apply the offline fsimage viewer to an fsimage

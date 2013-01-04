@@ -1,5 +1,7 @@
 package org.apache.hadoop.tools;
 
+import java.net.URI;
+
 import org.apache.hadoop.conf.*;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.azurenative.*;
@@ -17,8 +19,16 @@ public class FsckRedirect extends Configured implements Tool {
 
   @Override
   public int run(String[] args) throws Exception {
-    // Check if the default file system is ASV.
-    FileSystem fs = FileSystem.get(getConf());
+    String path = "/";
+    for (String currentArg : args) {
+      if (!currentArg.startsWith("-")) {
+        // Path given on the command-line
+        path = currentArg;
+        break;
+      }
+    }
+    // Check if the file system we're checking is ASV.
+    FileSystem fs = FileSystem.get(new URI(path), getConf());
     if (fs instanceof NativeAzureFileSystem) {
       // Run the ASV file-check
       return new AsvFsck(getConf()).run(args);
