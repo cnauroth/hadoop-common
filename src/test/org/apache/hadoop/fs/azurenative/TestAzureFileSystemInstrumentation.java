@@ -284,9 +284,9 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
    * after the creation of the file system object.
    */
   private long getBaseWebResponses() {
-    // The number of requests should start at 1
-    // from when we check the existence of the container
-    return assertWebResponsesEquals(0, 1);    
+    // The number of requests should start at 2
+    // from when we check the existence of the container and its version
+    return assertWebResponsesEquals(0, 2);
   }
 
   /**
