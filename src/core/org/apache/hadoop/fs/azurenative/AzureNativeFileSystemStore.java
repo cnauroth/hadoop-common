@@ -72,7 +72,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final String PERMISSION_METADATA_KEY = "asv_permission";
   private static final String IS_FOLDER_METADATA_KEY = "asv_isfolder";
   static final String LINK_BACK_TO_UPLOAD_IN_PROGRESS_METADATA_KEY =
-      "asv_linktotempupload"; // TODO: Validate naming.
+      "asv_tmpupload";
 
   private static final String HTTP_SCHEME = "http";
   private static final String HTTPS_SCHEME = "https";
