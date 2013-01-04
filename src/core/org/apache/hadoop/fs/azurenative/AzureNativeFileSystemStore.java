@@ -601,8 +601,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // 1. Validate that <account> can be used with the current Hadoop 
       //    cluster by checking it exists in the list of configured accounts
       //    for the cluster.
-      // 3. Look up the AccountKey in the list of configured accounts for the cluster.
-      // 4. If there is no AccountKey, assume anonymous public blob access
+      // 2. Look up the AccountKey in the list of configured accounts for the cluster.
+      // 3. If there is no AccountKey, assume anonymous public blob access
       //    when accessing the blob.
       //
       // If the URI does not specify a container use the default root container under
