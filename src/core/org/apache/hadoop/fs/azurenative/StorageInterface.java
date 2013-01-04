@@ -58,6 +58,14 @@ abstract class StorageInterface {
   public abstract void setTimeoutInMs(int timeoutInMs);
 
   /**
+   * Sets the RetryPolicyFactory object to use when making service requests.
+   *
+   * @param retryPolicyFactory
+   *            the RetryPolicyFactory object to use when making service requests.
+   */
+  public abstract void setRetryPolicyFactory(final RetryPolicyFactory retryPolicyFactory);
+
+  /**
    * Creates a new Blob service client.
    * 
    */

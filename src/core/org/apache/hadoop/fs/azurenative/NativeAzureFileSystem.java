@@ -667,6 +667,7 @@ public class NativeAzureFileSystem extends FileSystem {
   private Path workingDir;
   private long blockSize = MAX_AZURE_BLOCK_SIZE;
   private AzureFileSystemInstrumentation instrumentation;
+  private static boolean suppressRetryPolicy = false;
 
   public NativeAzureFileSystem() {
     // set store in initialize()
@@ -675,6 +676,21 @@ public class NativeAzureFileSystem extends FileSystem {
 
   public NativeAzureFileSystem(NativeFileSystemStore store) {
     this.store = store;
+  }
+
+  /**
+   * Suppress the default retry policy for the Storage, useful in unit
+   * tests to test negative cases without waiting forever.
+   */
+  static void suppressRetryPolicy() {
+    suppressRetryPolicy = true;
+  }
+
+  /**
+   * Undo the effect of suppressRetryPolicy.
+   */
+  static void resumeRetryPolicy() {
+    suppressRetryPolicy = false;
   }
 
   @Override
@@ -704,6 +720,11 @@ public class NativeAzureFileSystem extends FileSystem {
 
   private NativeFileSystemStore createDefaultStore(Configuration conf) {
     actualStore = new AzureNativeFileSystemStore();
+
+    if (suppressRetryPolicy) {
+      actualStore.suppressRetryPolicy();
+      return actualStore;
+    }
 
     // TODO: Remove literals to improve portability and facilitate future
     // TODO: future changes to constants.
