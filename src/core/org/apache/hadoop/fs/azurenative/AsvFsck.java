@@ -12,6 +12,7 @@ import org.apache.hadoop.util.*;
  */
 public class AsvFsck extends Configured implements Tool {
   private FileSystem mockFileSystemForTesting = null;
+  private static final String lostAndFound = "/lost+found";
 
   public AsvFsck(Configuration conf) {
     super(conf);
@@ -42,7 +43,7 @@ public class AsvFsck extends Configured implements Tool {
           return 1;
         }
         pathToCheck = new Path(arg);
-      } else if (arg.equals("-recover")) {
+      } else if (arg.equals("-move")) {
         doRecover = true;
       }
     }
@@ -62,20 +63,21 @@ public class AsvFsck extends Configured implements Tool {
     }
     NativeAzureFileSystem asvFs = (NativeAzureFileSystem)fs;
     if (doRecover) {
-      asvFs.recoverFilesWithDanglingTempData(pathToCheck);
+      asvFs.recoverFilesWithDanglingTempData(pathToCheck, new Path(lostAndFound));
     }
     return 0;
   }
 
   private static void printUsage() {
-    System.out.println("Usage: AsvFSck [<path>] [-recover]");
+    System.out.println("Usage: AsvFSck [<path>] [-move]");
     System.out.println("\t<path>\tstart checking from this path");
-    System.out.println("\t-recover\trecover any files whose upload was interrupted mid-stream.");
+    System.out.println("\t-move\tmove any files whose upload was interrupted" +
+    		" mid-stream to " + lostAndFound);
     ToolRunner.printGenericCommandUsage(System.out);
   }
 
   private boolean doPrintUsage(List<String> args) {
-    return args.contains("-?") || args.contains("-H");
+    return args.contains("-H");
   }
 
   public static void main(String[] args) throws Exception {

@@ -37,8 +37,10 @@ public class TestBlobMetadata extends TestCase {
   private static String getExpectedPermissionString(String permissionString)
       throws Exception {
     return String.format(
-        "{\"owner\":\"%s\",\"group\":\"\",\"permissions\":\"%s\"}",
-        getExpectedOwner(), permissionString);
+        "{\"owner\":\"%s\",\"group\":\"%s\",\"permissions\":\"%s\"}",
+        getExpectedOwner(),
+        NativeAzureFileSystem.AZURE_DEFAULT_GROUP_DEFAULT,
+        permissionString);
   }
 
   public void testPermissionMetadata() throws Exception {
@@ -58,7 +60,8 @@ public class TestBlobMetadata extends TestCase {
     assertNotNull(retrievedStatus);
     assertEquals(justMe, retrievedStatus.getPermission());
     assertEquals(getExpectedOwner(), retrievedStatus.getOwner());
-    assertEquals("", retrievedStatus.getGroup());
+    assertEquals(NativeAzureFileSystem.AZURE_DEFAULT_GROUP_DEFAULT,
+        retrievedStatus.getGroup());
   }
 
   public void testFolderMetadata() throws Exception {

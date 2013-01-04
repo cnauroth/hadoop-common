@@ -72,7 +72,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final String PERMISSION_METADATA_KEY = "asv_permission";
   private static final String IS_FOLDER_METADATA_KEY = "asv_isfolder";
   static final String LINK_BACK_TO_UPLOAD_IN_PROGRESS_METADATA_KEY =
-      "asv_linktotempupload"; // TODO: Validate naming.
+      "asv_tmpupload";
 
   private static final String HTTP_SCHEME = "http";
   private static final String HTTPS_SCHEME = "https";
@@ -1226,6 +1226,22 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   /**
+   * Appends the given string to the root directory's URI, and returns
+   * the new URI.
+   * @param pathSuffix The suffix to append.
+   * @return The URI with the suffix appended.
+   */
+  private URI appendToRootDirectoryPath(String pathSuffix)
+      throws URISyntaxException {
+    return new URI(
+        rootDirectory.getUri().getScheme(),
+        rootDirectory.getUri().getHost(),
+        rootDirectory.getUri().getPath() + pathSuffix,
+        rootDirectory.getUri().getQuery(),
+        rootDirectory.getUri().getFragment());
+  }
+
+  /**
    * This private method uses the root directory or the original container to
    * list blobs under the directory or container given a specified prefix for
    * the directory depending on whether the original file system object was
@@ -1247,7 +1263,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       OperationContext opContext) throws StorageException, URISyntaxException {
 
     CloudBlobDirectoryWrapper directory = storageInteractionLayer.getDirectoryReference(
-        rootDirectory.getUri().toString() + aPrefix);
+        appendToRootDirectoryPath(aPrefix).toString());
 
     return directory.listBlobs(
         null,
@@ -1275,7 +1291,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       throws StorageException, URISyntaxException {
 
     CloudBlockBlobWrapper blob = storageInteractionLayer.getBlockBlobReference(
-        rootDirectory.getUri().toString() + aKey);
+        appendToRootDirectoryPath(aKey).toString());
     // Return with block blob.
     return blob;
   }

@@ -58,19 +58,22 @@ public class TestAsvFsck extends TestCase {
     Configuration conf = fs.getConf();
     // Set the dangling cutoff to zero, so every temp blob is considered
     // dangling.
-    conf.setInt(NativeAzureFileSystem.AZURE_DANGLING_CUTOFF_PROPERTY_NAME, 0);
+    conf.setInt(NativeAzureFileSystem.AZURE_TEMP_EXPIRY_PROPERTY_NAME, 0);
     AsvFsck fsck = new AsvFsck(conf);
     fsck.setMockFileSystemForTesting(fs);
     fsck.run(new String[]
         {
           AzureBlobStorageTestAccount.MOCK_ASV_URI,
-          "-recover"
+          "-move"
         });
 
-    // Now we should the file with the data there.
-    fileStatus = fs.getFileStatus(danglingFile);
+    // Now we should the see the file in lost+found with the data there.
+    fileStatus = fs.getFileStatus(new Path("/lost+found",
+        danglingFile.getName()));
     assertNotNull(fileStatus);
     assertEquals(3, fileStatus.getLen());
     assertEquals(0, getNumTempBlobs());
+    // But not in its original location
+    assertFalse(fs.exists(danglingFile));
   }
 }

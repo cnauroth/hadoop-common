@@ -63,8 +63,8 @@ public class NativeAzureFileSystem extends FileSystem {
    * So e.g. if this is 60, then any temporary blobs more than a minute old
    * would be considered dangling.
    */
-  static final String AZURE_DANGLING_CUTOFF_PROPERTY_NAME = "fs.azure.dangling.temp.cutoff.seconds";
-  private static final int AZURE_DANGLING_CUTOFF_DEFAULT = 3600;
+  static final String AZURE_TEMP_EXPIRY_PROPERTY_NAME = "fs.azure.fsck.temp.expiry.seconds";
+  private static final int AZURE_TEMP_EXPIRY_DEFAULT = 3600;
   static final String PATH_DELIMITER = Path.SEPARATOR;
   static final String AZURE_TEMP_FOLDER = "_$azuretmpfolder$";
 
@@ -82,6 +82,18 @@ public class NativeAzureFileSystem extends FileSystem {
   private static int DEFAULT_MAX_RETRIES = 4;
   private static int DEFAULT_SLEEP_TIME_SECONDS = 10;
 
+  /**
+   * The configuration property that determines which group owns files created
+   * in ASV.
+   */
+  private static final String AZURE_DEFAULT_GROUP_PROPERTY_NAME =
+      "fs.azure.permissions.supergroup";
+  /**
+   * The default value for fs.azure.permissions.supergroup. Chosen as the same
+   * default as DFS.
+   */
+  static final String AZURE_DEFAULT_GROUP_DEFAULT =
+      "supergroup";
   static final String AZURE_RINGBUFFER_CAPACITY_PROPERTY_NAME =
       "fs.azure.ring.buffer.capacity";
   private static final int DEFAULT_RINGBUFFER_CAPACITY = 4;
@@ -1144,7 +1156,8 @@ public class NativeAzureFileSystem extends FileSystem {
     // Create the permission status for this file based on current user
     return new PermissionStatus(
         UserGroupInformation.getCurrentUser().getShortUserName(),
-        null,
+        getConf().get(AZURE_DEFAULT_GROUP_PROPERTY_NAME,
+            AZURE_DEFAULT_GROUP_DEFAULT),
         permission);
   }
 
@@ -1326,17 +1339,19 @@ public class NativeAzureFileSystem extends FileSystem {
    * meaning that they are place-holder blobs that we created while we upload
    * the data to a temporary blob, but for some reason we crashed in the middle
    * of the upload and left them there.
+   * If any are found, we move them to the destination given.
    * @param root The root path to consider.
+   * @param destination The destination path to move any recovered files to.
    * @throws IOException
    */
-  public void recoverFilesWithDanglingTempData(Path root) throws IOException {
+  public void recoverFilesWithDanglingTempData(Path root, Path destination) throws IOException {
     if (LOG.isDebugEnabled()) {
       LOG.debug("Recovering files with dangling temp data in " + root);
     }
     // Calculate the cut-off for when to consider a blob to be dangling.
     long cutoffForDangling = new Date().getTime() -
-        getConf().getInt(AZURE_DANGLING_CUTOFF_PROPERTY_NAME,
-            AZURE_DANGLING_CUTOFF_DEFAULT) * 1000;
+        getConf().getInt(AZURE_TEMP_EXPIRY_PROPERTY_NAME,
+            AZURE_TEMP_EXPIRY_DEFAULT) * 1000;
     // Go over all the blobs under the given root and look for blobs to
     // recover.
     String priorLastKey = null;
@@ -1359,7 +1374,14 @@ public class NativeAzureFileSystem extends FileSystem {
               if (LOG.isDebugEnabled()) {
                 LOG.debug("Recovering " + file.getKey());
               }
-              store.rename(linkMetadata.getKey(), file.getKey());
+              // Move to the final destination
+              String finalDestinationKey =
+                  pathToKey(new Path(destination, file.getKey()));
+              store.rename(linkMetadata.getKey(), finalDestinationKey);
+              if (!finalDestinationKey.equals(file.getKey())) {
+                // Delete the empty link file now that we've restored it.
+                store.delete(file.getKey());
+              }
             }
           }
         }
