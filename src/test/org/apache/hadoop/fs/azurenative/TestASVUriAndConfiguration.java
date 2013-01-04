@@ -84,19 +84,6 @@ public class TestASVUriAndConfiguration extends TestCase {
     assertTrue(validateIOStreams(new Path("/asv_scheme")));
   }
 
-
-  public void testConnectUsingSAS() throws Exception {
-
-    // Create the test account with SAS credentials.
-    //
-    testAccount = AzureBlobStorageTestAccount.createSAS();
-
-    // Validate input and output on the connection.
-    //
-    assertTrue(validateIOStreams(new Path("/sastest.txt")));
-  }
-
-
   public void testConnectUsingAnonymous() throws Exception {
 
     // Create test account with anonymous credentials
@@ -107,7 +94,6 @@ public class TestASVUriAndConfiguration extends TestCase {
     //
     assertEquals(FILE_SIZE, readInputStream(new Path ("/testAsv.txt")));
   }
-
 
   public void testConnectToRoot() throws Exception {
 

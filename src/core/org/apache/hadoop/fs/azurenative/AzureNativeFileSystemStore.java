@@ -33,7 +33,6 @@ import org.mortbay.util.ajax.JSON;
 
 import com.microsoft.windowsazure.services.blob.client.*;
 import com.microsoft.windowsazure.services.core.storage.*;
-import com.microsoft.windowsazure.services.core.storage.utils.*;
 
 import static org.apache.hadoop.fs.azurenative.StorageInterface.*;
 
@@ -47,22 +46,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private CloudBlobContainerWrapper container;
 
   
-  // TODO: Storage constants for SAS queries. This is a workaround until
-  // TODO: microsoft.windows.azure-api.3.3.jar is available.
-  //
-
-  private static final String SIGNATURE = "sig";
-  private static final String SIGNED_START = "st";
-  private static final String SIGNED_EXPIRY = "se";
-  private static final String SIGNED_IDENTIFIER = "si";
-  private static final String SIGNED_RESOURCE = "sr";
-  private static final String SIGNED_PERMISSIONS = "sp";
-  private static final String SIGNED_VERSION = "sv";
-
   // Constants local to this class.
   //
   private static final String KEY_ACCOUNT_KEY_PREFIX = "fs.azure.account.key.";
-  private static final String KEY_ACCOUNT_SAS_PREFIX = "fs.azure.sas.";
   private static final String KEY_CONCURRENT_CONNECTION_VALUE_IN = "fs.azure.concurrentConnection.in";
   private static final String KEY_CONCURRENT_CONNECTION_VALUE_OUT = "fs.azure.concurrentConnection.out";
   private static final String KEY_STREAM_MIN_READ_SIZE = "fs.azure.stream.min.read.size";
@@ -467,48 +453,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         Math.min(cpuCores, DEFAULT_CONCURRENT_WRITES));
   }
 
-
-  /**
-   * Connect to Azure storage using shared access signature credentials.
-   * 
-   * @param uri - URI to target blob
-   * @param sasCreds - shared access signature credentials
-   * 
-   * @throws StorageException raised on errors communicating with Azure storage.
-   * @throws IOException raised on errors performing I/O or setting up the session.
-   * @throws URISyntaxExceptions raised on creating malformed URI's.
-   */
-  private void connectUsingSASCredentials(final StorageCredentialsSharedAccessSignature sasCreds)
-      throws StorageException, IOException, URISyntaxException {
-    // Extract the container name from the URI.
-    //
-    String containerName = getContainerFromAuthority(sessionUri).toLowerCase();
-
-    // Create the account URI.
-    //
-    URI accountUri = new URI(getHTTPScheme() + ":" + PATH_DELIMITER + PATH_DELIMITER +
-        getAccountFromAuthority(sessionUri) + ASV_URL_AUTHORITY);
-
-    // Create blob service client using the account URI and the shared access signature
-    // credentials.
-    //
-    storageInteractionLayer.createBlobClient(accountUri, sasCreds);
-    suppressRetryPolicyInClientIfNeeded();
-
-    // Capture the root directory.
-    //
-    String containerUriString = accountUri.toString() + PATH_DELIMITER + containerName;
-    rootDirectory = storageInteractionLayer.getDirectoryReference(containerUriString);
-
-    // Capture the container reference for debugging purposes.
-    //
-    container = storageInteractionLayer.getContainerReference(containerName);
-
-    // Configure Azure storage session.
-    //
-    configureAzureStorageSession();
-  }
-
   /**
    * Connect to Azure storage using anonymous credentials.
    * 
@@ -651,17 +595,13 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     //
     try {
       // Inspect the URI authority to determine the account and use the account to
-      // start an Azure blob client session using an account key or a SAS for the
-      // the account.
+      // start an Azure blob client session using an account key for the
+      // the account or anonymously.
       // For all URI's do the following checks in order:
       // 1. Validate that <account> can be used with the current Hadoop 
       //    cluster by checking it exists in the list of configured accounts
       //    for the cluster.
-      // 2. If URI contains a valid access signature, use the access signature
-      //    storage credentials to create an ASV blob client to access the
-      //    URI path.
-      // 3. If the URI does not contain a valid access signature, look up
-      //    the AccountKey in the list of configured accounts for the cluster.
+      // 3. Look up the AccountKey in the list of configured accounts for the cluster.
       // 4. If there is no AccountKey, assume anonymous public blob access
       //    when accessing the blob.
       //
@@ -689,49 +629,12 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       }
       instrumentation.setAccountName(accountName);
 
-      // Check if there is a SAS associated with the storage account and
-      // container by looking up their key in the job configuration object.
-      // Share access signatures take a property key of the form:
-      //      fs.azure.sas.<blob storage account name>+<container>
-      //
       String containerName = getContainerFromAuthority(sessionUri);
       instrumentation.setContainerName(containerName);
-      String propertyValue = sessionConfiguration.get(
-          KEY_ACCOUNT_SAS_PREFIX + containerName + 
-          ASV_AUTHORITY_DELIMITER + accountName);
-      if (null != propertyValue){
-        // Check if the connection string is a valid shared access
-        // signature.
-        //
-        String sas = propertyValue.replace(';', '&');
-        StorageCredentialsSharedAccessSignature sasCreds = parseAndValidateSAS(sas);
-        if (null != sasCreds) {
-          // If the SAS credentials were populated then the string
-          // is a shared access signature and we should connect using
-          // the shared access signature credentials.
-          //
-          connectUsingSASCredentials(sasCreds);
 
-          // Return to caller.
-          //
-          return;
-        }
-
-        // The account does not have cluster access, throw
-        // authorization exception.
-        //
-        final String errMsg = 
-            String.format(
-                "Access signature is malformed or invalid." +
-                    "Access to account '%s' using configured shared access signature " +
-                    "is not authorized.", accountName);
-        throw new AzureException(errMsg);
-      }
-
-      // No valid shared access signatures are associated with this account. Check
-      // whether the account is configured with an account key.
+      // Check whether the account is configured with an account key.
       //
-      propertyValue = sessionConfiguration.get(KEY_ACCOUNT_KEY_PREFIX + accountName);
+      String propertyValue = sessionConfiguration.get(KEY_ACCOUNT_KEY_PREFIX + accountName);
       if (null != propertyValue) {
 
         // Account key was found. Create the Azure storage session using the account
@@ -848,127 +751,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //
       throw new AzureException(e);
     }
-  }
-
-  /**
-   * Parse the query parameter. If credentials are present, populate a storage
-   * credentials shared access signature object.
-   * 
-   * @param fullURI
-   *            - check the query string on the URI
-   * @returns StorageCredentialsSharedAccess signature if one is populated, or
-   *          null otherwise.
-   * 
-   * @throws IllegalArgumentException
-   *             if any SAS parameter is not found.
-   * @throws StorageException
-   *             errors occurring during any operation with the Azure runtime
-   */
-  private StorageCredentialsSharedAccessSignature parseAndValidateSAS(
-      final String sasToken) throws StorageException {
-    StorageCredentialsSharedAccessSignature sasCreds = null;
-
-    // If the query token is null return with null credentials.
-    //
-    if (null == sasToken) {
-      return sasCreds;
-    }
-
-    /**
-     * TODO: Explicit parsing of the sas token is preferable. However the
-     * TODO: Constants.QueryConstants enumeration is not available in
-     * TODO: microsoft.windowsazure-api.0.2.2.jar. The code below can
-     * TODO: be lit up when the code base migrates to 
-     * TODO: microsoft.windowsazure-api-0.3.1.jar.
-     */
-    // Reset SAS component parameters to null.
-    //
-    String signature = null;
-    String signedStart = null;
-    String signedExpiry = null;
-    String signedResource = null;
-    String signedPermissions = null;
-    String signedIdentifier = null;
-    String signedVersion = null;
-
-    boolean sasParameterFound = false;
-
-    // Initialize HashMap with query parameters.
-    //
-    final HashMap<String, String[]> queryParameters = PathUtility.parseQueryString(sasToken);
-
-    for (final Map.Entry<String, String[]> mapEntry : queryParameters
-        .entrySet()) {
-      final String lowKey = mapEntry.getKey().toLowerCase(
-          Utility.LOCALE_US);
-
-      if (lowKey.equals(SIGNED_START)) {
-        signedStart = mapEntry.getValue()[0];
-        sasParameterFound = true;
-      } else if (lowKey.equals(SIGNED_EXPIRY)) {
-        signedExpiry = mapEntry.getValue()[0];
-        sasParameterFound = true;
-      } else if (lowKey.equals(SIGNED_PERMISSIONS)) {
-        signedPermissions = mapEntry.getValue()[0];
-        sasParameterFound = true;
-      } else if (lowKey.equals(SIGNED_RESOURCE)) {
-        signedResource = mapEntry.getValue()[0];
-        sasParameterFound = true;
-      } else if (lowKey.equals(SIGNED_IDENTIFIER)) {
-        signedIdentifier = mapEntry.getValue()[0];
-        sasParameterFound = true;
-      } else if (lowKey.equals(SIGNED_VERSION)) {
-        signedVersion = mapEntry.getValue()[0];
-        sasParameterFound = true;
-      } else if (lowKey.equals(SIGNATURE)) {
-        signature = mapEntry.getValue()[0];
-        sasParameterFound = true;
-      }
-    }
-
-    if (sasParameterFound) {
-      if (null == signature) {
-        final String errMsg = "Missing mandatory parameter for valid Shared Access Signature";
-        throw new IllegalArgumentException(errMsg);
-      }
-
-      UriQueryBuilder builder = new UriQueryBuilder();
-
-      if (!Utility.isNullOrEmpty(signedStart)) {
-        builder.add(SIGNED_START, signedStart);
-      }
-
-      if (!Utility.isNullOrEmpty(signedExpiry)) {
-        builder.add(SIGNED_EXPIRY, signedExpiry);
-      }
-
-      if (!Utility.isNullOrEmpty(signedPermissions)) {
-        builder.add(SIGNED_PERMISSIONS, signedPermissions);
-      }
-
-      if (!Utility.isNullOrEmpty(signedResource)) {
-        builder.add(SIGNED_RESOURCE, signedResource);
-      }
-
-      if (!Utility.isNullOrEmpty(signedIdentifier)) {
-        builder.add(SIGNED_IDENTIFIER, signedIdentifier);
-      }
-
-      if (!Utility.isNullOrEmpty(signedVersion)) {
-        builder.add(SIGNED_VERSION, signedVersion);
-      }
-
-      if (!Utility.isNullOrEmpty(signature)) {
-        builder.add(SIGNATURE, signature);
-      }
-
-      final String token = builder.toString();
-      sasCreds = new StorageCredentialsSharedAccessSignature(token);
-    }
-
-    // Return shared access signature credentials.
-    //
-    return sasCreds;
   }
 
   /**

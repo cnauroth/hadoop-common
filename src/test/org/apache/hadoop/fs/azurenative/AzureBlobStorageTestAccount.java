@@ -12,14 +12,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.metrics2.*;
 
-import com.microsoft.windowsazure.services.blob.client.BlobContainerPermissions;
-import com.microsoft.windowsazure.services.blob.client.BlobContainerPublicAccessType;
-import com.microsoft.windowsazure.services.blob.client.BlobOutputStream;
-import com.microsoft.windowsazure.services.blob.client.CloudBlobClient;
-import com.microsoft.windowsazure.services.blob.client.CloudBlobContainer;
-import com.microsoft.windowsazure.services.blob.client.CloudBlockBlob;
-import com.microsoft.windowsazure.services.blob.client.SharedAccessBlobPermissions;
-import com.microsoft.windowsazure.services.blob.client.SharedAccessBlobPolicy;
+import com.microsoft.windowsazure.services.blob.client.*;
 import com.microsoft.windowsazure.services.core.storage.CloudStorageAccount;
 import com.microsoft.windowsazure.services.core.storage.utils.Base64;
 
@@ -27,7 +20,6 @@ public final class AzureBlobStorageTestAccount {
 
   private static final String CONNECTION_STRING_PROPERTY_NAME = "fs.azure.storageConnectionString";
   private static final String ACCOUNT_KEY_PROPERTY_NAME = "fs.azure.account.key.";
-  private static final String ACCOUNT_SAS_PROPERTY_NAME = "fs.azure.sas.";;
   private static final String SINK_IDENTIFIER = "identifier";
   public static final String MOCK_ACCOUNT_NAME = "mockAccount";
   public static final String MOCK_CONTAINER_NAME = "mockContainer";
@@ -251,8 +243,8 @@ public final class AzureBlobStorageTestAccount {
     return containerName;
   }
 
-  private static String getAccountKey (String connectionString) throws Exception {
-
+  private static String getAccountKey(String connectionString)
+      throws Exception {
     String acctKey = null;
 
     // Split name value pairs by splitting on the ';' character
@@ -271,160 +263,6 @@ public final class AzureBlobStorageTestAccount {
     // Return to caller with the account name.
     //
     return acctKey;
-  }
-
-  private static String generateSAS(CloudBlobClient blobClient, 
-      String accountName, String containerName) throws Exception {
-
-    // Create a container if it does not exist. The container name
-    // must be lower case.
-    //
-    CloudBlobContainer container =  blobClient.getContainerReference(
-        "https://" + accountName +
-        ".blob.core.windows.net/" + containerName);
-    container.createIfNotExist();
-
-    // Create a new shared access policy.
-    //
-    SharedAccessBlobPolicy sasPolicy = new SharedAccessBlobPolicy();
-
-    // Create a UTC Gregorian calendar value.
-    //
-    GregorianCalendar calendar = new GregorianCalendar(TimeZone.getTimeZone("UTC"));
-
-    // Specify the current time as the start time for the shared access
-    // signature.
-    //
-    calendar.setTime(new Date());
-    sasPolicy.setSharedAccessStartTime(calendar.getTime());
-
-    // Use the start time delta one hour as the end time for the shared
-    // access signature.
-    //
-    calendar.add(Calendar.HOUR, 10);
-    sasPolicy.setSharedAccessExpiryTime(calendar.getTime());
-
-    // Set READ and WRITE permissions.
-    //
-    sasPolicy.setPermissions(EnumSet.of(
-        SharedAccessBlobPermissions.READ,
-        SharedAccessBlobPermissions.WRITE,
-        SharedAccessBlobPermissions.LIST));
-
-    // Create the container permissions.
-    //
-    BlobContainerPermissions containerPermissions =
-        new BlobContainerPermissions();
-
-    // Turn public access to the container off.
-    //
-    containerPermissions.setPublicAccess(BlobContainerPublicAccessType.OFF);
-
-    // Set the policy using the values set above.
-    //
-    containerPermissions.getSharedAccessPolicies().put("testasvpolicy", sasPolicy);
-    container.uploadPermissions(containerPermissions);
-
-    // Create a shared access signature for the container.
-    //
-    String sas = container.generateSharedAccessSignature(sasPolicy, "testasvpolicy");
-
-    // Return to caller with the shared access signature.
-    //
-    return sas;
-  }
-
-  public static AzureBlobStorageTestAccount createSAS()
-      throws Exception {
-
-    int sinkIdentifier = sinkIdentifierCounter.incrementAndGet();
-    saveMetricsConfigFile(sinkIdentifier);
-
-    FileSystem fs = null;
-    CloudBlobContainer container = null;
-    Configuration conf = new Configuration();
-
-    // Check for the existence of a connection string.
-    //
-    if (!hasConnectionString(conf))
-    {
-      // Skip test because of missing connection string.
-      //
-      System.out.println (
-          "Skipping live Azure test because of missing connection string.");
-    }
-
-    // Set up a session with the cloud blob client to generate SAS and check the
-    // existence of a container and capture the container object.
-    //
-    String connectionString = conf.get(CONNECTION_STRING_PROPERTY_NAME);
-    CloudStorageAccount account = CloudStorageAccount.parse(connectionString);
-    CloudBlobClient blobClient = account.createCloudBlobClient();
-
-    // Capture the account URL and the account name.
-    //
-    String accountUrl = account.getBlobEndpoint().getAuthority();
-    String accountName = accountUrl.substring(0, accountUrl.indexOf('.'));
-
-    // Generate a container name and create a shared access signature string for it.
-    //
-    String containerName = generateContainerName();
-    String sas = generateSAS(blobClient, accountName, containerName);
-
-    // Capture the blob container object. It should exist after generating the 
-    // shared access signature.
-    //
-    container = blobClient.getContainerReference(containerName);
-    if (null == container || !container.exists()) {
-      final String errMsg =
-          String.format ("Container '%s' expected but not found while creating SAS account.");
-      throw new Exception (errMsg);
-    }
-
-    // Set the account key base on whether the account is authenticated or is an anonymous
-    // public account.
-    //
-    conf.set(CONNECTION_STRING_PROPERTY_NAME + "." + accountName, connectionString);
-    String accountKey = null;
-
-    // Capture the account key.
-    //
-    accountKey = getAccountKey (connectionString);
-    if (null == accountKey){
-      // Connection string not configured with an account key.
-      //
-      final String errMsg = 
-          String.format("Account key not configured in connection string: '%s'.", connectionString);
-      throw new Exception (errMsg);
-    }
-
-    // Set the account key property name to test the precedence of SAS over account keys.
-    //
-    conf.set(ACCOUNT_KEY_PROPERTY_NAME + accountName, accountKey);
-
-    // Create SAS properties.
-    //
-    conf.set(
-        ACCOUNT_SAS_PROPERTY_NAME + containerName + ASV_AUTHORITY_DELIMITER + accountName, 
-        sas.replace('&', ';'));
-
-    // Set the account URI.
-    //
-    URI accountUri = createAccountUri(accountName, containerName);
-
-    // Initialize the Native Azure file system.
-    //
-    fs = new NativeAzureFileSystem();
-    fs.initialize(accountUri, conf);
-
-    // Create test account initializing the appropriate member variables.
-    //
-    AzureBlobStorageTestAccount testAcct = new AzureBlobStorageTestAccount(
-        fs, account, container, sinkIdentifier);
-
-    // Return to caller with test account.
-    //
-    return testAcct;
   }
 
   public static void primePublicContainer(CloudBlobClient blobClient, String accountName,
