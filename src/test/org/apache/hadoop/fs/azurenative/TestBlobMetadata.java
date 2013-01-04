@@ -43,6 +43,18 @@ public class TestBlobMetadata extends TestCase {
         permissionString);
   }
 
+  /**
+   * Tests that ASV stamped the version in the container metadata.
+   * @throws Exception
+   */
+  public void testContainerVersionMetadata() throws Exception {
+    HashMap<String, String> containerMetadata =
+        backingStore.getContainerMetadata();
+    assertNotNull(containerMetadata);
+    assertEquals(AzureNativeFileSystemStore.CURRENT_ASV_VERSION,
+        containerMetadata.get(AzureNativeFileSystemStore.VERSION_METADATA_KEY));
+  }
+
   public void testPermissionMetadata() throws Exception {
     FsPermission justMe = new FsPermission(
         FsAction.READ_WRITE, FsAction.NONE, FsAction.NONE);

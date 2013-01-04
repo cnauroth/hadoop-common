@@ -89,6 +89,12 @@ public final class AzureBlobStorageTestAccount {
     return allMetrics.get(sinkIdentifier);
   }
 
+  public static String getMockContainerUri() {
+    return String.format("http://%s.blob.core.windows.net/%s",
+        AzureBlobStorageTestAccount.MOCK_ACCOUNT_NAME,
+        AzureBlobStorageTestAccount.MOCK_CONTAINER_NAME);
+  }
+
   public static String toMockUri(String path) {
     return String.format("http://%s.blob.core.windows.net/%s/%s",
         AzureBlobStorageTestAccount.MOCK_ACCOUNT_NAME,
@@ -157,12 +163,20 @@ public final class AzureBlobStorageTestAccount {
     MockStorageInterface mockStorage = new MockStorageInterface();
     store.setAzureStorageInteractionLayer(mockStorage);
     FileSystem fs = new NativeAzureFileSystem(store);
-    conf.set(ACCOUNT_KEY_PROPERTY_NAME + MOCK_ACCOUNT_NAME,
-        Base64.encode(new byte[] {1, 2, 3}));
+    setMockAccountKey(conf);
     fs.initialize(new URI(MOCK_ASV_URI), conf);
     AzureBlobStorageTestAccount testAcct =
         new AzureBlobStorageTestAccount(fs, mockStorage, sinkIdentifier);
     return testAcct;
+  }
+
+  /**
+   * Sets the mock account key in the given configuration.
+   * @param conf The configuration.
+   */
+  public static void setMockAccountKey(Configuration conf) {
+    conf.set(ACCOUNT_KEY_PROPERTY_NAME + MOCK_ACCOUNT_NAME,
+        Base64.encode(new byte[] {1, 2, 3}));
   }
 
   private static URI createAccountUri(String accountName)

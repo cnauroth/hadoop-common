@@ -1,5 +1,8 @@
 package org.apache.hadoop.fs.azurenative;
 
+import java.net.URI;
+import java.util.HashMap;
+
 import org.apache.hadoop.conf.*;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.azure.AzureException;
@@ -40,5 +43,31 @@ public class TestAzureFileSystemErrorConditions extends TestCase {
     } finally {
       NativeAzureFileSystem.resumeRetryPolicy();
     }
+  }
+
+  public void testAccessContainerWithWrongVersion() throws Exception {
+    AzureNativeFileSystemStore store = new AzureNativeFileSystemStore();
+    MockStorageInterface mockStorage = new MockStorageInterface();
+    store.setAzureStorageInteractionLayer(mockStorage);
+    FileSystem fs = new NativeAzureFileSystem(store);
+    Configuration conf = new Configuration();
+    AzureBlobStorageTestAccount.setMockAccountKey(conf);
+    HashMap<String, String> metadata = new HashMap<String, String>();
+    metadata.put(AzureNativeFileSystemStore.VERSION_METADATA_KEY,
+        "2090-04-05"); // It's from the future!
+    mockStorage.addPreExistingContainer(
+        AzureBlobStorageTestAccount.getMockContainerUri(),
+        metadata);
+
+    boolean passed = false;
+    try {
+      fs.initialize(new URI(AzureBlobStorageTestAccount.MOCK_ASV_URI), conf);
+      passed = true;
+    } catch (AzureException ex) {
+      assertTrue("Unexpected exception message: " + ex,
+          ex.getMessage().contains("unsupported version: 2090-04-05."));
+    }
+    assertFalse("Should've thrown an exception because of the wrong version.",
+        passed);
   }
 }

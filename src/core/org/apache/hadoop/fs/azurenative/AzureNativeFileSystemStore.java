@@ -57,6 +57,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
   private static final String PERMISSION_METADATA_KEY = "asv_permission";
   private static final String IS_FOLDER_METADATA_KEY = "asv_isfolder";
+  static final String VERSION_METADATA_KEY = "asv_version";
+  static final String CURRENT_ASV_VERSION = "2013-01-01";
 
   private static final String HTTP_SCHEME = "http";
   private static final String HTTPS_SCHEME = "https";
@@ -557,7 +559,20 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // create one.
     //
     if (!container.exists(getInstrumentedContext())) {
+      // Stamp the version in there.
+      storeVersionAttribute(container);
       container.create(getInstrumentedContext());
+    } else {
+      // Container already exists, check to see if it's not my current version
+      container.downloadAttributes(getInstrumentedContext());
+      String containerVersion = retrieveVersionAttribute(container);
+      if (containerVersion != null // No version is OK,
+                                   // means it was probably created by the user
+          && !containerVersion.equals(CURRENT_ASV_VERSION)) {
+        throw new AzureException("The container " + containerName +
+            " is at an unsupported version: " + containerVersion +
+            ". Current supported version: " + CURRENT_ASV_VERSION);
+      }
     }
 
     // Assertion: The container should exist at this point.
@@ -793,6 +808,21 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static boolean retrieveFolderAttribute(CloudBlockBlobWrapper blob) {
     HashMap<String, String> metadata = blob.getMetadata();
     return null != metadata && metadata.containsKey(IS_FOLDER_METADATA_KEY);
+  }
+
+  private static void storeVersionAttribute(CloudBlobContainerWrapper container) {
+    HashMap<String, String> metadata = container.getMetadata();
+    if (null == metadata) {
+      metadata = new HashMap<String, String> ();
+    }
+    metadata.put(VERSION_METADATA_KEY, CURRENT_ASV_VERSION);
+    container.setMetadata(metadata);
+  }
+
+  private static String retrieveVersionAttribute(CloudBlobContainerWrapper container) {
+    HashMap<String, String> metadata = container.getMetadata();
+    return metadata == null || !metadata.containsKey(VERSION_METADATA_KEY) ?
+        null : metadata.get(VERSION_METADATA_KEY);
   }
 
   @Override

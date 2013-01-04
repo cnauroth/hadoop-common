@@ -15,9 +15,16 @@ import com.microsoft.windowsazure.services.core.storage.*;
  */
 public class MockStorageInterface extends StorageInterface {
   private InMemoryBlockBlobStore backingStore;
+  private final ArrayList<PreExistingContainer> preExistingContainers =
+      new ArrayList<MockStorageInterface.PreExistingContainer>();
 
   public InMemoryBlockBlobStore getBackingStore() {
     return backingStore;
+  }
+
+  public void addPreExistingContainer(String uri,
+      HashMap<String, String> metadata) {
+    preExistingContainers.add(new PreExistingContainer(uri, metadata));
   }
 
   @Override
@@ -61,7 +68,15 @@ public class MockStorageInterface extends StorageInterface {
   @Override
   public CloudBlobContainerWrapper getContainerReference(String uri)
       throws URISyntaxException, StorageException {
-    return new MockCloudBlobContainerWrapper();
+    MockCloudBlobContainerWrapper container = new MockCloudBlobContainerWrapper();
+    for (PreExistingContainer existing : preExistingContainers) {
+      if (uri.equalsIgnoreCase(existing.containerUri)) {
+        container.created = true;
+        backingStore.setContainerMetadata(existing.containerMetadata);
+        break;
+      }
+    }
+    return container;
   }
 
   @Override
@@ -72,6 +87,7 @@ public class MockStorageInterface extends StorageInterface {
 
   class MockCloudBlobContainerWrapper extends CloudBlobContainerWrapper {
     private boolean created = false;
+    private HashMap<String, String> metadata;
 
     @Override
     public boolean exists(OperationContext opContext) throws StorageException {
@@ -81,9 +97,37 @@ public class MockStorageInterface extends StorageInterface {
     @Override
     public void create(OperationContext opContext) throws StorageException {
       created = true;
+      backingStore.setContainerMetadata(metadata);
+    }
+
+    @Override
+    public HashMap<String, String> getMetadata() {
+      return metadata;
+    }
+
+    @Override
+    public void setMetadata(HashMap<String, String> metadata) {
+      this.metadata = metadata;
+    }
+
+    @Override
+    public void downloadAttributes(OperationContext opContext)
+        throws StorageException {
+      metadata = backingStore.getContainerMetadata();
     }
   }
-  
+
+  private static class PreExistingContainer {
+    final String containerUri;
+    final HashMap<String, String> containerMetadata;
+
+    public PreExistingContainer(String uri,
+        HashMap<String, String> metadata) {
+      this.containerUri = uri;
+      this.containerMetadata = metadata;
+    }
+  }
+
   class MockCloudBlobDirectoryWrapper extends CloudBlobDirectoryWrapper {
     private URI uri;
 

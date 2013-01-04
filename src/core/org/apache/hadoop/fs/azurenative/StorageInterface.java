@@ -218,13 +218,43 @@ abstract class StorageInterface {
         throws StorageException;
 
     /**
-     * Creates the container using the specified operation context.
-     * 
+     * Returns the metadata for the container.
+     *
+     * @return A <code>java.util.HashMap</code> object that represents the metadata for the container.
+     */
+    public abstract HashMap<String,String> getMetadata();
+
+    /**
+     * Sets the metadata for the container.
+     *
+     * @param metadata
+     *            A <code>java.util.HashMap</code> object that represents the metadata being assigned to the container.
+     */
+    public abstract void setMetadata(HashMap<String,String> metadata);
+
+    /**
+     * Downloads the container's attributes, which consist of metadata and properties, using the specified request
+     * options and operation context.
+     *
      * @param opContext
      *            An {@link OperationContext} object that represents the context for the current operation. This object
      *            is used to track requests to the storage service, and to provide additional runtime information about
      *            the operation.
      * 
+     * @throws StorageException
+     *             If a storage service error occurred.
+     */
+    public abstract void downloadAttributes(
+        OperationContext opContext) throws StorageException;
+
+    /**
+     * Creates the container using the specified operation context.
+     *
+     * @param opContext
+     *            An {@link OperationContext} object that represents the context for the current operation. This object
+     *            is used to track requests to the storage service, and to provide additional runtime information about
+     *            the operation.
+     *
      * @throws StorageException
      *             If a storage service error occurred.
      */
