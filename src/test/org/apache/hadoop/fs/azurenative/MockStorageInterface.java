@@ -22,6 +22,13 @@ public class MockStorageInterface extends StorageInterface {
     return backingStore;
   }
 
+  /**
+   * Mocks the situation where a container already exists before ASV
+   * comes in, i.e. the situation where a user creates a container then
+   * mounts ASV on the pre-existing container.
+   * @param uri The URI of the container.
+   * @param metadata The metadata on the container.
+   */
   public void addPreExistingContainer(String uri,
       HashMap<String, String> metadata) {
     preExistingContainers.add(new PreExistingContainer(uri, metadata));
@@ -69,8 +76,12 @@ public class MockStorageInterface extends StorageInterface {
   public CloudBlobContainerWrapper getContainerReference(String uri)
       throws URISyntaxException, StorageException {
     MockCloudBlobContainerWrapper container = new MockCloudBlobContainerWrapper();
+    // Check if we have a pre-existing container with that name, and prime
+    // the wrapper with that knowledge if it's found.
     for (PreExistingContainer existing : preExistingContainers) {
       if (uri.equalsIgnoreCase(existing.containerUri)) {
+        // We have a pre-existing container. Mark the wrapper as created and
+        // make sure we use the metadata for it.
         container.created = true;
         backingStore.setContainerMetadata(existing.containerMetadata);
         break;

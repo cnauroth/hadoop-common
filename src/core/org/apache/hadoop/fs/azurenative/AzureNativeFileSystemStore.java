@@ -692,7 +692,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * to the underlying container: it makes sure to put the ASV current
    * version in the container's metadata if it's not already there.
    */
-  private void putVersionOnContainerIfNeeded() throws StorageException {
+  private void versionContainer() throws StorageException {
     if (!needToStampVersionOnWrite) {
       return;
     }
@@ -740,7 +740,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
                 + "access is prohibited."));
       }
 
-      putVersionOnContainerIfNeeded();
+      versionContainer();
 
       /**
        * Note: Windows Azure Blob Storage does not allow the creation of arbitrary directory
@@ -888,7 +888,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     }
 
     try {
-      putVersionOnContainerIfNeeded();
+      versionContainer();
       CloudBlockBlobWrapper blob = getBlobReference(key);
       storePermissionStatus(blob, permissionStatus);
       storeFolderAttribute(blob);
@@ -1612,7 +1612,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   @Override
   public void delete(String key) throws IOException {
     try {
-      putVersionOnContainerIfNeeded();
+      versionContainer();
       // Get the blob reference an delete it.
       //
       CloudBlockBlobWrapper blob = getBlobReference(key);
@@ -1644,7 +1644,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         throw new AssertionError(errMsg);
       }
 
-      putVersionOnContainerIfNeeded();
+      versionContainer();
       // Get the source blob and assert its existence. If the source key
       // needs to be normalized then normalize it.
       //
@@ -1685,7 +1685,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         throw new AssertionError(errMsg);
       }
 
-      putVersionOnContainerIfNeeded();
+      versionContainer();
       // Get all blob items with the given prefix from the container and delete
       // them.
       //
