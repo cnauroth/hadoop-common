@@ -57,6 +57,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
   private static final String PERMISSION_METADATA_KEY = "asv_permission";
   private static final String IS_FOLDER_METADATA_KEY = "asv_isfolder";
+  static final String VERSION_METADATA_KEY = "asv_version";
+  static final String CURRENT_ASV_VERSION = "2013-01-01";
 
   private static final String HTTP_SCHEME = "http";
   private static final String HTTPS_SCHEME = "https";
@@ -89,6 +91,12 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private final static JSON permissionJsonSerializer =
       createPermissionJsonSerializer();
   private boolean suppressRetryPolicy = false;
+  /**
+   * If set, then we need to put a version property on the container the first
+   * time we do any write operation in there.
+   */
+  private boolean needToStampVersionOnWrite = false;
+  private final Object versionStampLock = new Object();
 
   /**
    * Suppress the default retry policy for the Storage, useful in unit
@@ -557,7 +565,26 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // create one.
     //
     if (!container.exists(getInstrumentedContext())) {
+      // Stamp the version in there.
+      storeVersionAttribute(container);
       container.create(getInstrumentedContext());
+    } else {
+      // Container already exists, check to see if it's not my current version
+      container.downloadAttributes(getInstrumentedContext());
+      String containerVersion = retrieveVersionAttribute(container);
+      if (containerVersion != null // No version is OK,
+                                   // means it was probably created by the user
+          && !containerVersion.equals(CURRENT_ASV_VERSION)) {
+        throw new AzureException("The container " + containerName +
+            " is at an unsupported version: " + containerVersion +
+            ". Current supported version: " + CURRENT_ASV_VERSION);
+      }
+      if (containerVersion == null) {
+        // We're OK with reading from containers with no version metadata,
+        // but we need to stamp the version the first time we do any write
+        // operation so that we later know what version of ASV messed with it.
+        needToStampVersionOnWrite = true;
+      }
     }
 
     // Assertion: The container should exist at this point.
@@ -660,6 +687,32 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     }
   }
 
+  /**
+   * This should be called from any method that does any modifications
+   * to the underlying container: it makes sure to put the ASV current
+   * version in the container's metadata if it's not already there.
+   */
+  private void versionContainer() throws StorageException {
+    if (!needToStampVersionOnWrite) {
+      return;
+    }
+    synchronized (versionStampLock) {
+      if (!needToStampVersionOnWrite) {
+        return;
+      }
+
+      // Make sure that the container still doesn't have any version
+      // stamped on it.
+      container.downloadAttributes(getInstrumentedContext());
+      if (retrieveVersionAttribute(container) == null) {
+        // No ASV version found, just stamp the current version.
+        storeVersionAttribute(container);
+        container.uploadMetadata(getInstrumentedContext());
+      }
+      needToStampVersionOnWrite = false; // Done, no need to do this anymore.
+    }
+  }
+
   @Override
   public DataOutputStream storefile(String key, PermissionStatus permissionStatus)
       throws AzureException {
@@ -686,6 +739,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
             "Uploads to public accounts using anonymous "
                 + "access is prohibited."));
       }
+
+      versionContainer();
 
       /**
        * Note: Windows Azure Blob Storage does not allow the creation of arbitrary directory
@@ -795,6 +850,21 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     return null != metadata && metadata.containsKey(IS_FOLDER_METADATA_KEY);
   }
 
+  private static void storeVersionAttribute(CloudBlobContainerWrapper container) {
+    HashMap<String, String> metadata = container.getMetadata();
+    if (null == metadata) {
+      metadata = new HashMap<String, String> ();
+    }
+    metadata.put(VERSION_METADATA_KEY, CURRENT_ASV_VERSION);
+    container.setMetadata(metadata);
+  }
+
+  private static String retrieveVersionAttribute(CloudBlobContainerWrapper container) {
+    HashMap<String, String> metadata = container.getMetadata();
+    return metadata == null || !metadata.containsKey(VERSION_METADATA_KEY) ?
+        null : metadata.get(VERSION_METADATA_KEY);
+  }
+
   @Override
   public void storeEmptyFolder(String key, PermissionStatus permissionStatus) throws IOException {
 
@@ -803,6 +873,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
       throw new AssertionError(errMsg);
     }
+
     // Check if there is an authenticated account associated with the file
     // this instance of the ASV file system. If not the file system has not
     // been authenticated and all access is anonymous.
@@ -817,6 +888,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     }
 
     try {
+      versionContainer();
       CloudBlockBlobWrapper blob = getBlobReference(key);
       storePermissionStatus(blob, permissionStatus);
       storeFolderAttribute(blob);
@@ -1540,6 +1612,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   @Override
   public void delete(String key) throws IOException {
     try {
+      versionContainer();
       // Get the blob reference an delete it.
       //
       CloudBlockBlobWrapper blob = getBlobReference(key);
@@ -1571,6 +1644,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         throw new AssertionError(errMsg);
       }
 
+      versionContainer();
       // Get the source blob and assert its existence. If the source key
       // needs to be normalized then normalize it.
       //
@@ -1611,6 +1685,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         throw new AssertionError(errMsg);
       }
 
+      versionContainer();
       // Get all blob items with the given prefix from the container and delete
       // them.
       //

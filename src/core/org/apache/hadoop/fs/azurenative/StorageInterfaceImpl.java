@@ -168,6 +168,28 @@ class StorageInterfaceImpl extends StorageInterface {
     public void create(OperationContext opContext) throws StorageException {
       container.create(null, opContext);
     }
+
+    @Override
+    public HashMap<String, String> getMetadata() {
+      return container.getMetadata();
+    }
+
+    @Override
+    public void setMetadata(HashMap<String, String> metadata) {
+      container.setMetadata(metadata);
+    }
+
+    @Override
+    public void downloadAttributes(OperationContext opContext)
+        throws StorageException {
+      container.downloadAttributes(null, opContext);
+    }
+
+    @Override
+    public void uploadMetadata(OperationContext opContext)
+        throws StorageException {
+      container.uploadMetadata(null, opContext);
+    }
   }
 
   static class CloudBlockBlobWrapperImpl extends CloudBlockBlobWrapper {

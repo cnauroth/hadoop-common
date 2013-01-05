@@ -77,8 +77,9 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     // plus 2 requests per level to check that there's no blob with that name
     // So for the path above (/user/<name>/a), it takes 2 requests each to check
     // there's no blob called /user, no blob called /user/<name> and no blob
-    // called /user/<name>/a, and then 1 reqest for the creation, totalling 7.
-    base = assertWebResponsesInRange(base, 1, 7);
+    // called /user/<name>/a, and then 1 request for the creation, and then
+    // 2 requests for checking/stamping the version of AS, totaling 9.
+    base = assertWebResponsesInRange(base, 1, 9);
     assertEquals(1, getLongCounterValue(getInstrumentation(), ASV_DIRECTORIES_CREATED));
 
     // List the root contents
@@ -284,9 +285,9 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
    * after the creation of the file system object.
    */
   private long getBaseWebResponses() {
-    // The number of requests should start at 1
-    // from when we check the existence of the container
-    return assertWebResponsesEquals(0, 1);    
+    // The number of requests should start at 2
+    // from when we check the existence of the container and its version
+    return assertWebResponsesEquals(0, 2);
   }
 
   /**

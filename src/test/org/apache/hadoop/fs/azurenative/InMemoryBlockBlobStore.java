@@ -10,6 +10,7 @@ import java.util.*;
 public class InMemoryBlockBlobStore {
   private final HashMap<String, Entry> blobs =
       new HashMap<String, Entry>();
+  private HashMap<String, String> containerMetadata;
 
   public synchronized Iterable<String> getKeys() {
     return blobs.keySet();
@@ -53,6 +54,15 @@ public class InMemoryBlockBlobStore {
   @SuppressWarnings("unchecked")
   public synchronized HashMap<String, String> getMetadata(String key) {
     return (HashMap<String, String>)blobs.get(key).metadata.clone();
+  }
+
+  public synchronized HashMap<String, String> getContainerMetadata() {
+    return containerMetadata;
+  }
+
+  public synchronized void setContainerMetadata(
+      HashMap<String, String> metadata) {
+    containerMetadata = metadata;
   }
 
   private static class Entry {
