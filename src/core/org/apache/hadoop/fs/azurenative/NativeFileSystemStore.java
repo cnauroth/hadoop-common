@@ -38,7 +38,7 @@ interface NativeFileSystemStore {
   void initialize(URI uri, Configuration conf, AzureFileSystemInstrumentation instrumentation)
       throws IOException, IllegalArgumentException;
 
-  void storeEmptyFolder(String key, PermissionStatus permissionStatus) throws IOException;
+  void storeEmptyFolder(String key, PermissionStatus permissionStatus) throws AzureException;
 
   FileMetadata retrieveMetadata(String key) throws IOException;
 
@@ -47,6 +47,11 @@ interface NativeFileSystemStore {
   DataInputStream retrieve(String key, long byteRangeStart) throws IOException;
   
   DataOutputStream storefile(String key, PermissionStatus permissionStatus) throws AzureException;
+
+  void storeEmptyLinkFile(String key, String tempBlobKey,
+      PermissionStatus permissionStatus) throws AzureException;
+
+  String getLinkInFileMetadata(String key) throws AzureException;
 
   PartialListing list(String prefix, final int maxListingCount, final int maxListingDepth)
       throws IOException;

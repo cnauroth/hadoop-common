@@ -113,7 +113,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     long uploadDurationMs = new Date().getTime() - start.getTime();
     
     // The exact number of requests/responses that happen to create a file
-    // can vary  - at the time of writing this code it takes 7
+    // can vary  - at the time of writing this code it takes 6
     // requests/responses for the 1000 byte file (33 for 100 MB), but that
     // can very easily change in the future. Just assert that we do roughly
     // more than 2 but less than 15.

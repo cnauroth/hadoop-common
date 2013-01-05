@@ -59,6 +59,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final String IS_FOLDER_METADATA_KEY = "asv_isfolder";
   static final String VERSION_METADATA_KEY = "asv_version";
   static final String CURRENT_ASV_VERSION = "2013-01-01";
+  static final String LINK_BACK_TO_UPLOAD_IN_PROGRESS_METADATA_KEY =
+      "asv_tmpupload";
 
   private static final String HTTP_SCHEME = "http";
   private static final String HTTPS_SCHEME = "https";
@@ -816,33 +818,55 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     return new PermissionStatus("", "", FsPermission.getDefault());
   }
 
-  private void storePermissionStatus(CloudBlockBlobWrapper blob,
-      PermissionStatus permissionStatus) {
+  private static void storeMetadataAttribute(CloudBlockBlobWrapper blob,
+      String key, String value) {
     HashMap<String, String> metadata = blob.getMetadata();
     if (null == metadata) {
       metadata = new HashMap<String, String> ();
     }
-    metadata.put(PERMISSION_METADATA_KEY, permissionJsonSerializer.toJSON(permissionStatus));
+    metadata.put(key, value);
     blob.setMetadata(metadata);
   }
 
-  private PermissionStatus getPermissionStatus(CloudBlockBlobWrapper blob) {
+  private static String getMetadataAttribute(CloudBlockBlobWrapper blob,
+      String key) {
     HashMap<String, String> metadata = blob.getMetadata();
-    if (null != metadata && metadata.containsKey(PERMISSION_METADATA_KEY)) {
+    if (null == metadata || !metadata.containsKey(key)) {
+      return null;
+    }
+    return metadata.get(key);
+  }
+
+  private void storePermissionStatus(CloudBlockBlobWrapper blob,
+      PermissionStatus permissionStatus) {
+    storeMetadataAttribute(blob,
+        PERMISSION_METADATA_KEY, permissionJsonSerializer.toJSON(permissionStatus));
+  }
+
+  private PermissionStatus getPermissionStatus(CloudBlockBlobWrapper blob) {
+    String permissionMetadataValue = getMetadataAttribute(blob,
+        PERMISSION_METADATA_KEY);
+    if (permissionMetadataValue != null) {
       return PermissionStatusJsonSerializer.fromJSONString(
-          metadata.get(PERMISSION_METADATA_KEY));
+          permissionMetadataValue);
     } else {
       return defaultPermissionNoBlobMetadata();
     }
   }
 
   private static void storeFolderAttribute(CloudBlockBlobWrapper blob) {
-    HashMap<String, String> metadata = blob.getMetadata();
-    if (null == metadata) {
-      metadata = new HashMap<String, String> ();
-    }
-    metadata.put(IS_FOLDER_METADATA_KEY, "true");
-    blob.setMetadata(metadata);
+    storeMetadataAttribute(blob, IS_FOLDER_METADATA_KEY, "true");
+  }
+
+  private static void storeLinkAttribute(CloudBlockBlobWrapper blob,
+      String linkTarget) {
+    storeMetadataAttribute(blob,
+        LINK_BACK_TO_UPLOAD_IN_PROGRESS_METADATA_KEY, linkTarget);
+  }
+  
+  private static String getLinkAttributeValue(CloudBlockBlobWrapper blob) {
+    return getMetadataAttribute(blob,
+        LINK_BACK_TO_UPLOAD_IN_PROGRESS_METADATA_KEY);
   }
 
   private static boolean retrieveFolderAttribute(CloudBlockBlobWrapper blob) {
@@ -866,7 +890,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   @Override
-  public void storeEmptyFolder(String key, PermissionStatus permissionStatus) throws IOException {
+  public void storeEmptyFolder(String key, PermissionStatus permissionStatus) throws AzureException {
 
     if (null == storageInteractionLayer) {
       final String errMsg =
@@ -897,6 +921,70 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Caught exception while attempting upload. Re-throw as an Azure
       // storage
       // exception.
+      //
+      throw new AzureException(e);
+    }
+  }
+
+  /**
+   * Stores an empty blob that's linking to the temporary file where're we're
+   * uploading the initial data.
+   */
+  @Override
+  public void storeEmptyLinkFile(String key, String tempBlobKey,
+      PermissionStatus permissionStatus) throws AzureException {
+    if (null == storageInteractionLayer) {
+      final String errMsg =
+          String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
+      throw new AssertionError(errMsg);
+    }
+    // Check if there is an authenticated account associated with the file
+    // this instance of the ASV file system. If not the file system has not
+    // been authenticated and all access is anonymous.
+    //
+    if (!isAuthenticatedAccess()) {
+      // Preemptively raise an exception indicating no uploads are
+      // allowed to
+      // anonymous accounts.
+      //
+      throw new AzureException(
+          "Uploads to to public accounts using anonymous access is prohibited.");
+    }
+
+    try {
+      CloudBlockBlobWrapper blob = getBlobReference(key);
+      storePermissionStatus(blob, permissionStatus);
+      storeLinkAttribute(blob, tempBlobKey);
+      blob.upload(new ByteArrayInputStream(new byte[0]), getInstrumentedContext());
+    } catch (Exception e) {
+      // Caught exception while attempting upload. Re-throw as an Azure
+      // storage exception.
+      //
+      throw new AzureException(e);
+    }
+  }
+
+  /**
+   * If the blob with the given key exists and has a link in its metadata
+   * to a temporary file (see storeEmptyLinkFile), this method returns
+   * the key to that temporary file.
+   * Otherwise, returns null.
+   */
+  @Override
+  public String getLinkInFileMetadata(String key) throws AzureException {
+    if (null == storageInteractionLayer) {
+      final String errMsg =
+          String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
+      throw new AssertionError(errMsg);
+    }
+
+    try {
+      CloudBlockBlobWrapper blob = getBlobReference(key);
+      blob.downloadAttributes(getInstrumentedContext());
+      return getLinkAttributeValue(blob);
+    } catch (Exception e) {
+      // Caught exception while attempting download. Re-throw as an Azure
+      // storage exception.
       //
       throw new AzureException(e);
     }
