@@ -286,3 +286,5 @@ BUG FIXES
     (Brandon Li via suresh)
 
     HDFS-4358. TestCheckpoint failure with JDK7. (Arpit Agarwal via suresh)
+
+    HADOOP-9179. TestFileSystem fails with open JDK7. (Brandon Li via suresh)
