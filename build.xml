@@ -237,8 +237,8 @@
   <!-- These args are passed along to FindBugs -->
   <property name="findbugs.jvmargs" value="-Xmx512M" />
 
-  <property name="package.buildroot" value="/tmp/hadoop_package_build_${user.name}" override="false"/>
-  <property name="package.build.dir" value="/tmp/hadoop_package_build_${user.name}/BUILD" override="false"/>
+  <property name="package.buildroot" value="/tmp/hadoop_package_build_${user.name}"/>
+  <property name="package.build.dir" value="/tmp/hadoop_package_build_${user.name}/BUILD"/>
 
   <!-- Indicate is Snappy native library should be bundled with Hadoop or not -->
   <property name="bundle.snappy" value="false"/>
