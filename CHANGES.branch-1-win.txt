@@ -288,3 +288,6 @@ BUG FIXES
     HDFS-4358. TestCheckpoint failure with JDK7. (Arpit Agarwal via suresh)
 
     HADOOP-9179. TestFileSystem fails with open JDK7. (Brandon Li via suresh)
+
+    MAPREDUCE-4914. TestMiniMRDFSSort fails with openJDK7. (Brandon Li via
+    suresh)
