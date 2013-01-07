@@ -13,7 +13,54 @@ public class InMemoryBlockBlobStore {
   private HashMap<String, String> containerMetadata;
 
   public synchronized Iterable<String> getKeys() {
-    return blobs.keySet();
+    return new ArrayList<String>(blobs.keySet());
+  }
+
+  public static class ListBlobEntry {
+    private final String key;
+    private final HashMap<String, String> metadata;
+    private final int contentLength;
+
+    ListBlobEntry(String key, HashMap<String, String> metadata, int contentLength) {
+      this.key = key;
+      this.metadata = metadata;
+      this.contentLength = contentLength;
+    }
+
+    public String getKey() {
+      return key;
+    }
+
+    public HashMap<String, String> getMetadata() {
+      return metadata;
+    }
+
+    public int getContentLength() {
+      return contentLength;
+    }
+  }
+
+  /**
+   * List all the blobs whose key starts with the given prefix.
+   * @param prefix The prefix to check.
+   * @param includeMetadata If set, the metadata in the returned listing will
+   *                        be populated; otherwise it'll be null.
+   * @return The listing.
+   */
+  public synchronized Iterable<ListBlobEntry> listBlobs(String prefix,
+      boolean includeMetadata) {
+    ArrayList<ListBlobEntry> list = new ArrayList<ListBlobEntry>();
+    for (Map.Entry<String, Entry> entry : blobs.entrySet()) {
+      if (entry.getKey().startsWith(prefix)) {
+        list.add(new ListBlobEntry(
+            entry.getKey(),
+            includeMetadata ?
+                new HashMap<String, String>(entry.getValue().metadata) :
+                  null,
+            entry.getValue().content.length));
+      }
+    }
+    return list;
   }
 
   public synchronized byte[] getContent(String key) {

@@ -93,7 +93,7 @@ public class MockStorageInterface extends StorageInterface {
   @Override
   public CloudBlockBlobWrapper getBlockBlobReference(String blobAddressUri)
       throws URISyntaxException, StorageException {
-    return new MockCloudBlockBlobWrapper(new URI(blobAddressUri), false);
+    return new MockCloudBlockBlobWrapper(new URI(blobAddressUri), null, 0);
   }
 
   class MockCloudBlobContainerWrapper extends CloudBlobContainerWrapper {
@@ -178,21 +178,22 @@ public class MockStorageInterface extends StorageInterface {
       String fullPrefix = prefix == null ?
           uri.toString() :
           uri.toString() + prefix;
+      boolean includeMetadata = listingDetails.contains(BlobListingDetails.METADATA);
       HashSet<String> addedDirectories = new HashSet<String>();
-      for (String current : backingStore.getKeys()) {
-        if (current.startsWith(fullPrefix)) {
-          int indexOfSlash = current.indexOf('/', fullPrefix.length());
-          if (useFlatBlobListing || indexOfSlash < 0) {
-            ret.add(new MockCloudBlockBlobWrapper(
-                new URI(current),
-                listingDetails.contains(BlobListingDetails.METADATA)));
-          } else {
-            String directoryName = current.substring(0, indexOfSlash);
-            if (!addedDirectories.contains(directoryName)) {
-              addedDirectories.add(current);
-              ret.add(new MockCloudBlobDirectoryWrapper(new URI(
-                  directoryName + "/")));
-            }
+      for (InMemoryBlockBlobStore.ListBlobEntry current : backingStore.listBlobs(
+          fullPrefix, includeMetadata)) {
+        int indexOfSlash = current.getKey().indexOf('/', fullPrefix.length());
+        if (useFlatBlobListing || indexOfSlash < 0) {
+          ret.add(new MockCloudBlockBlobWrapper(
+              new URI(current.getKey()),
+              current.getMetadata(),
+              current.getContentLength()));
+        } else {
+          String directoryName = current.getKey().substring(0, indexOfSlash);
+          if (!addedDirectories.contains(directoryName)) {
+            addedDirectories.add(current.getKey());
+            ret.add(new MockCloudBlobDirectoryWrapper(new URI(
+                directoryName + "/")));
           }
         }
       }
@@ -205,16 +206,19 @@ public class MockStorageInterface extends StorageInterface {
     private HashMap<String, String> metadata =
         new HashMap<String, String>();
     private BlobProperties properties;
-    
-    public MockCloudBlockBlobWrapper(URI uri, boolean getMetadata) {
+
+    public MockCloudBlockBlobWrapper(URI uri, HashMap<String, String> metadata,
+        int length) {
       this.uri = uri;
-      refreshProperties(getMetadata);
+      this.metadata = metadata;
+      properties = new BlobProperties();
+      properties.setLength(length);
+      properties.setLastModified(new Date());
     }
 
     private void refreshProperties(boolean getMetadata) {
       if (backingStore.exists(uri.toString())) {
         byte[] content = backingStore.getContent(uri.toString());
-        properties = new BlobProperties();
         properties.setLength(content.length);
         properties.setLastModified(new Date());
         if (getMetadata) {
