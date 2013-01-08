@@ -205,6 +205,9 @@ BUG FIXES
     HADOOP-9102. winutils task isAlive does not return a non-zero exit code if
     the requested task is not alive. (Chris Nauroth via suresh)
 
+    HADOOP-9185. TestFileCreation.testFsClose should clean up on exit.
+    (Arpit Agarwal via suresh)
+
   Merged from branch-1
 
     HDFS-385. Backport: Add support for an experimental API that allows a
