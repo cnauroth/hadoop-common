@@ -1195,11 +1195,12 @@ public class NativeAzureFileSystem extends FileSystem {
       LOG.debug("Opening file: " + f.toString());
     }
 
-    if (!exists(f)) {
-      throw new FileNotFoundException(f.toString());
-    }
     Path absolutePath = makeAbsolute(f);
     String key = pathToKey(absolutePath);
+    FileMetadata meta = store.retrieveMetadata(key);
+    if (meta == null || meta.isDir()) {
+      throw new FileNotFoundException(f.toString());
+    }
 
     return new FSDataInputStream(new BufferedFSInputStream(
         new NativeAzureFsInputStream(store.retrieve(key), key), bufferSize));
