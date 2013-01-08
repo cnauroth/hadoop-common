@@ -51,9 +51,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final String KEY_ACCOUNT_KEY_PREFIX = "fs.azure.account.key.";
   private static final String KEY_CONCURRENT_CONNECTION_VALUE_IN = "fs.azure.concurrentConnection.in";
   private static final String KEY_CONCURRENT_CONNECTION_VALUE_OUT = "fs.azure.concurrentConnection.out";
-  private static final String KEY_STREAM_MIN_READ_SIZE = "fs.azure.stream.min.read.size";
+  private static final String KEY_STREAM_MIN_READ_SIZE = "fs.azure.read.request.size";
   private static final String KEY_STORAGE_CONNECTION_TIMEOUT = "fs.azure.storage.timeout";
-  private static final String KEY_WRITE_BLOCK_SIZE = "fs.azure.write.block.size";
+  private static final String KEY_WRITE_BLOCK_SIZE = "fs.azure.write.request.size";
 
   private static final String PERMISSION_METADATA_KEY = "asv_permission";
   private static final String IS_FOLDER_METADATA_KEY = "asv_isfolder";
