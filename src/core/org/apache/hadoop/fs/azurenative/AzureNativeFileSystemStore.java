@@ -49,8 +49,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   // Constants local to this class.
   //
   private static final String KEY_ACCOUNT_KEY_PREFIX = "fs.azure.account.key.";
-  private static final String KEY_CONCURRENT_CONNECTION_VALUE_IN = "fs.azure.concurrentConnection.in";
-  private static final String KEY_CONCURRENT_CONNECTION_VALUE_OUT = "fs.azure.concurrentConnection.out";
+  private static final String KEY_CONCURRENT_CONNECTION_VALUE_OUT =
+      "fs.azure.concurrentRequestCount.out";
   private static final String KEY_STREAM_MIN_READ_SIZE = "fs.azure.read.request.size";
   private static final String KEY_STORAGE_CONNECTION_TIMEOUT = "fs.azure.storage.timeout";
   private static final String KEY_WRITE_BLOCK_SIZE = "fs.azure.write.request.size";
@@ -78,14 +78,12 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   //
   private static final int DEFAULT_WRITE_BLOCK_SIZE = 4194304;
 
-  // DEFAULT concurrency for writes and reads.
+  // DEFAULT concurrency for writes.
   //
-  private static final int DEFAULT_CONCURRENT_READS = 4;
   private static final int DEFAULT_CONCURRENT_WRITES = 8;
 
   private URI sessionUri;
   private Configuration sessionConfiguration;
-  private int concurrentReads = DEFAULT_CONCURRENT_READS;
   private int concurrentWrites = DEFAULT_CONCURRENT_WRITES;
   private boolean isAnonymousCredentials = false;
   private AzureFileSystemInstrumentation instrumentation;
@@ -453,10 +451,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // the read/write property.
     //
     int cpuCores = 2 * Runtime.getRuntime().availableProcessors();
-
-    concurrentReads = sessionConfiguration.getInt(
-        KEY_CONCURRENT_CONNECTION_VALUE_IN,
-        Math.min(cpuCores, DEFAULT_CONCURRENT_READS));
 
     concurrentWrites = sessionConfiguration.getInt(
         KEY_CONCURRENT_CONNECTION_VALUE_OUT,
@@ -1338,10 +1332,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Get blob reference and open the input buffer stream.
       //
       CloudBlockBlobWrapper blob = getBlobReference(key);
-      BlobRequestOptions options = new BlobRequestOptions();
-      options.setConcurrentRequestCount(concurrentReads);
       BufferedInputStream inBufStream = new BufferedInputStream(
-          blob.openInputStream(options, getInstrumentedContext()));
+          blob.openInputStream(null, getInstrumentedContext()));
 
       // Return a data input stream.
       //
@@ -1370,12 +1362,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Get blob reference and open the input buffer stream.
       //
       CloudBlockBlobWrapper blob = getBlobReference(key);
-      BlobRequestOptions options = new BlobRequestOptions();
-      options.setConcurrentRequestCount(concurrentReads);
 
       // Open input stream and seek to the start offset.
       //
-      InputStream in = blob.openInputStream(options, getInstrumentedContext());
+      InputStream in = blob.openInputStream(null, getInstrumentedContext());
 
       // Create a data input stream.
       //
