@@ -90,7 +90,25 @@
       <outputDirectory>/share/hadoop/${hadoop.component}</outputDirectory>
       <includes>
         <include>${project.artifactId}-${project.version}.jar</include>
+      </includes>
+      <excludes>
+        <exclude>hadoop-tools-dist-*.jar</exclude>
+      </excludes>
+    </fileSet>
+    <fileSet>
+      <directory>${project.build.directory}</directory>
+      <outputDirectory>/share/hadoop/${hadoop.component}/tests</outputDirectory>
+      <includes>
         <include>${project.artifactId}-${project.version}-tests.jar</include>
+      </includes>
+      <excludes>
+        <exclude>hadoop-tools-dist-*.jar</exclude>
+      </excludes>
+    </fileSet>
+    <fileSet>
+      <directory>${project.build.directory}</directory>
+      <outputDirectory>/share/hadoop/${hadoop.component}/sources</outputDirectory>
+      <includes>
         <include>${project.artifactId}-${project.version}-sources.jar</include>
         <include>${project.artifactId}-${project.version}-test-sources.jar</include>
       </includes>
