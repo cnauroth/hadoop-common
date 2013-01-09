@@ -139,6 +139,13 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
   }
 
   /**
+   * The unique identifier for this file system in the metrics.
+   */
+  public UUID getFileSystemId() {
+    return fileSystemId;
+  }
+
+  /**
    * Sets the account name to tag all the metrics with.
    * @param accountName The account name.
    */
