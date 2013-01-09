@@ -77,7 +77,7 @@ public class NativeAzureFileSystem extends FileSystem {
   private static final int AZURE_LIST_ALL = -1;
   private static final int AZURE_UNBOUNDED_DEPTH = -1;
 
-  private static final long MAX_AZURE_BLOCK_SIZE = 64 * 1024 * 1024L;
+  private static final long MAX_AZURE_BLOCK_SIZE = 512 * 1024 * 1024L;
 
   private static int DEFAULT_MAX_RETRIES = 4;
   private static int DEFAULT_SLEEP_TIME_SECONDS = 10;
