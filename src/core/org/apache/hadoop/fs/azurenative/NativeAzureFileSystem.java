@@ -74,6 +74,9 @@ public class NativeAzureFileSystem extends FileSystem {
 
   private static final long MAX_AZURE_BLOCK_SIZE = 512 * 1024 * 1024L;
 
+  private static int DEFAULT_MAX_RETRIES = 4;
+  private static int DEFAULT_SLEEP_TIME_SECONDS = 10;
+
   /**
    * The configuration property that determines which group owns files created
    * in ASV.
