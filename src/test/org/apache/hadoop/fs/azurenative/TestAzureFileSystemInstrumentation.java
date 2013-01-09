@@ -74,12 +74,14 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     // Create a directory
     assertTrue(fs.mkdirs(new Path("a")));
     // At the time of writing, it takes 1 request to create the actual directory,
-    // plus 2 requests per level to check that there's no blob with that name
+    // plus 2 requests per level to check that there's no blob with that name and
+    // 1 request per level above to create it if it doesn't exist.
     // So for the path above (/user/<name>/a), it takes 2 requests each to check
     // there's no blob called /user, no blob called /user/<name> and no blob
-    // called /user/<name>/a, and then 1 request for the creation, and then
-    // 2 requests for checking/stamping the version of AS, totaling 9.
-    base = assertWebResponsesInRange(base, 1, 9);
+    // called /user/<name>/a, and then 3 request for the creation of the three
+    // levels, and then 2 requests for checking/stamping the version of AS,
+    // totaling 11.
+    base = assertWebResponsesInRange(base, 1, 11);
     assertEquals(1, getLongCounterValue(getInstrumentation(), ASV_DIRECTORIES_CREATED));
 
     // List the root contents
