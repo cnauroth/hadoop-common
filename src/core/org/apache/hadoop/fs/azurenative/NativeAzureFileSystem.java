@@ -1322,6 +1322,49 @@ public class NativeAzureFileSystem extends FileSystem {
   }
 
   @Override
+  public void setPermission(Path p, FsPermission permission) throws IOException {
+    Path absolutePath = makeAbsolute(p);
+    String key = pathToKey(absolutePath);
+    FileMetadata metadata = store.retrieveMetadata(key);
+    if (metadata == null) {
+      throw new FileNotFoundException("File doesn't exist: " + p);
+    }
+    if (metadata.getBlobMaterialization() == BlobMaterialization.Implicit) {
+      // It's an implicit folder, need to materialize it.
+      store.storeEmptyFolder(key, createPermissionStatus(permission));
+    } else if (!metadata.getPermissionStatus().getPermission().
+        equals(permission)) {
+      store.changePermissionStatus(key, new PermissionStatus(
+          metadata.getPermissionStatus().getUserName(),
+          metadata.getPermissionStatus().getGroupName(),
+          permission));
+    }
+  }
+
+  @Override
+  public void setOwner(Path p, String username, String groupname)
+      throws IOException {
+    Path absolutePath = makeAbsolute(p);
+    String key = pathToKey(absolutePath);
+    FileMetadata metadata = store.retrieveMetadata(key);
+    if (metadata == null) {
+      throw new FileNotFoundException("File doesn't exist: " + p);
+    }
+    PermissionStatus newPermissionStatus = new PermissionStatus(
+        username == null ?
+            metadata.getPermissionStatus().getUserName() : username,
+        groupname == null ?
+            metadata.getPermissionStatus().getGroupName() : groupname,
+        metadata.getPermissionStatus().getPermission());
+    if (metadata.getBlobMaterialization() == BlobMaterialization.Implicit) {
+      // It's an implicit folder, need to materialize it.
+      store.storeEmptyFolder(key, newPermissionStatus);
+    } else {
+      store.changePermissionStatus(key, newPermissionStatus);
+    }
+  }
+
+  @Override
   public void close() throws IOException {
     // Call the base close() to close any resources there.
     super.close();

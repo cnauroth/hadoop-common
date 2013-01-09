@@ -438,5 +438,20 @@ abstract class StorageInterface {
      */
     public abstract void upload(InputStream sourceStream,
         OperationContext opContext) throws StorageException, IOException;
+
+    /**
+     * Uploads the blob's metadata to the storage service using the specified lease ID, request options, and operation
+     * context.
+     *
+     * @param opContext
+     *            An {@link OperationContext} object that represents the context for the current operation. This object
+     *            is used to track requests to the storage service, and to provide additional runtime information about
+     *            the operation.
+     *
+     * @throws StorageException
+     *             If a storage service error occurred.
+     */
+    public abstract void uploadMetadata(OperationContext opContext)
+        throws StorageException;
   }
 }

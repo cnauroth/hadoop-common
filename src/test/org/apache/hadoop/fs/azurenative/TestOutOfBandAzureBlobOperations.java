@@ -4,6 +4,7 @@ import java.util.*;
 
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.azure.AzureException;
+import org.apache.hadoop.fs.permission.*;
 
 import junit.framework.*;
 
@@ -95,5 +96,14 @@ public class TestOutOfBandAzureBlobOperations extends TestCase {
           " which is also a file. Can't resolve.",
           e.getMessage());
     }
+  }
+
+  public void testSetPermissionOnImplicitFolder() throws Exception {
+    createEmptyBlobOutOfBand("root/b");
+    FsPermission newPermission = new FsPermission((short)0600);
+    fs.setPermission(new Path("/root"), newPermission);
+    FileStatus newStatus = fs.getFileStatus(new Path("/root"));
+    assertNotNull(newStatus);
+    assertEquals(newPermission, newStatus.getPermission());
   }
 }

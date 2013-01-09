@@ -1759,6 +1759,21 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     }
   }
 
+  /**
+   * Changes the permission status on the given key.
+   */
+  @Override
+  public void changePermissionStatus(String key, PermissionStatus newPermission)
+      throws AzureException {
+    try {
+      CloudBlockBlobWrapper blob = getBlobReference(key);
+      blob.downloadAttributes(getInstrumentedContext());
+      storePermissionStatus(blob, newPermission);
+      blob.uploadMetadata(getInstrumentedContext());
+    } catch (Exception e) {
+      throw new AzureException(e);
+    }
+  }
 
   @Override
   public void purge(String prefix) throws IOException {
