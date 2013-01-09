@@ -297,3 +297,6 @@ BUG FIXES
 
     MAPREDUCE-4915. TestShuffleExceptionCount fails with open JDK7.
     (Brandon Li via suresh)
+
+    HADOOP-9191. TestAccessControlList and TestJobHistoryConfig fail with
+    JDK7. (Arpit Agarwal via suresh)
