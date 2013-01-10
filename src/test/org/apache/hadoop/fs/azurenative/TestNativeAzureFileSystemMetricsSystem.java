@@ -41,4 +41,12 @@ public class TestNativeAzureFileSystemMetricsSystem extends TestCase {
     a3.closeFileSystem();
     assertEquals(0, getFilesCreated(a3));
   }
+
+  public void testMetricsSourceNames() {
+    // Reset the metrics source name counter to get deterministic results.
+    NativeAzureFileSystem.resetMetricsSourceNameCounter();
+    assertEquals("AzureFileSystemMetrics", NativeAzureFileSystem.newMetricsSourceName());
+    assertEquals("AzureFileSystemMetrics2", NativeAzureFileSystem.newMetricsSourceName());
+    NativeAzureFileSystem.resetMetricsSourceNameCounter();
+  }
 }

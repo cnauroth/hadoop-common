@@ -709,6 +709,14 @@ public class NativeAzureFileSystem extends FileSystem {
     }
   }
 
+  /**
+   * Resets the global metrics source name counter - only used for
+   * unit testing.
+   */
+  static void resetMetricsSourceNameCounter() {
+    metricsSourceNameCounter.set(0);
+  }
+
   @Override
   public void initialize(URI uri, Configuration conf)
       throws IOException, IllegalArgumentException {
