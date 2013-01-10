@@ -1,10 +1,6 @@
 package org.apache.hadoop.fs.azurenative;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.BufferedWriter;
-import java.io.OutputStreamWriter;
+import java.io.*;
 
 import junit.framework.*;
 
@@ -265,6 +261,17 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     fs.create(new Path("p/t%5Fe")).close();
     assertTrue(fs.rename(new Path("p"), new Path("q")));
     assertTrue(fs.delete(new Path("q"), true));
+  }
+
+  public void testReadingDirectoryAsFile() throws Exception {
+    Path dir = new Path("/x");
+    assertTrue(fs.mkdirs(dir));
+    try {
+      fs.open(dir).close();
+      assertTrue("Should've thrown", false);
+    } catch (FileNotFoundException ex) {
+      assertEquals("/x is a directory not a file.", ex.getMessage());
+    }
   }
 
   private void createEmptyFile(Path testFile, FsPermission permission)
