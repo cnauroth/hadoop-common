@@ -4,6 +4,7 @@ import java.util.*;
 
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.azure.AzureException;
+import org.apache.hadoop.fs.permission.*;
 
 import junit.framework.*;
 
@@ -122,5 +123,22 @@ public class TestOutOfBandAzureBlobOperations extends TestCase {
           AzureBlobStorageTestAccount.toMockUri("x/y")));
       fs.delete(new Path("/x"), true);
     }
+  }
+
+  public void testSetPermissionOnImplicitFolder() throws Exception {
+    createEmptyBlobOutOfBand("root/b");
+    FsPermission newPermission = new FsPermission((short)0600);
+    fs.setPermission(new Path("/root"), newPermission);
+    FileStatus newStatus = fs.getFileStatus(new Path("/root"));
+    assertNotNull(newStatus);
+    assertEquals(newPermission, newStatus.getPermission());
+  }
+
+  public void testSetOwnerOnImplicitFolder() throws Exception {
+    createEmptyBlobOutOfBand("root/b");
+    fs.setOwner(new Path("/root"), "newOwner", null);
+    FileStatus newStatus = fs.getFileStatus(new Path("/root"));
+    assertNotNull(newStatus);
+    assertEquals("newOwner", newStatus.getOwner());
   }
 }

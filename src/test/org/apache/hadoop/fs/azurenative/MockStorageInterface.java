@@ -302,5 +302,12 @@ public class MockStorageInterface extends StorageInterface {
           metadata);
       refreshProperties(false);
     }
+
+    @Override
+    public void uploadMetadata(OperationContext opContext)
+        throws StorageException {
+      backingStore.setContent(uri.toString(),
+          backingStore.getContent(uri.toString()), metadata);
+    }
   }
 }

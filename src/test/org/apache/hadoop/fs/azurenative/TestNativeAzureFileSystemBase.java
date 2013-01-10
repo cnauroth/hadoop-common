@@ -274,6 +274,61 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     }
   }
 
+  public void testSetPermissionOnFile() throws Exception {
+    Path newFile = new Path("testPermission");
+    OutputStream output = fs.create(newFile);
+    output.write(13);
+    output.close();
+    FsPermission newPermission = new FsPermission((short)0700);
+    fs.setPermission(newFile, newPermission);
+    FileStatus newStatus = fs.getFileStatus(newFile);
+    assertNotNull(newStatus);
+    assertEquals(newPermission, newStatus.getPermission());
+    assertEquals("supergroup", newStatus.getGroup());
+    assertEquals(UserGroupInformation.getCurrentUser().getShortUserName(),
+        newStatus.getOwner());
+    assertEquals(1, newStatus.getLen());
+  }
+
+  public void testSetPermissionOnFolder() throws Exception {
+    Path newFolder = new Path("testPermission");
+    assertTrue(fs.mkdirs(newFolder));
+    FsPermission newPermission = new FsPermission((short)0600);
+    fs.setPermission(newFolder, newPermission);
+    FileStatus newStatus = fs.getFileStatus(newFolder);
+    assertNotNull(newStatus);
+    assertEquals(newPermission, newStatus.getPermission());
+    assertTrue(newStatus.isDir());
+  }
+
+  public void testSetOwnerOnFile() throws Exception {
+    Path newFile = new Path("testOwner");
+    OutputStream output = fs.create(newFile);
+    output.write(13);
+    output.close();
+    fs.setOwner(newFile, "newUser", null);
+    FileStatus newStatus = fs.getFileStatus(newFile);
+    assertNotNull(newStatus);
+    assertEquals("newUser", newStatus.getOwner());
+    assertEquals("supergroup", newStatus.getGroup());
+    assertEquals(1, newStatus.getLen());
+    fs.setOwner(newFile, null, "newGroup");
+    newStatus = fs.getFileStatus(newFile);
+    assertNotNull(newStatus);
+    assertEquals("newUser", newStatus.getOwner());
+    assertEquals("newGroup", newStatus.getGroup());
+  }
+
+  public void testSetOwnerOnFolder() throws Exception {
+    Path newFolder = new Path("testOwner");
+    assertTrue(fs.mkdirs(newFolder));
+    fs.setOwner(newFolder, "newUser", null);
+    FileStatus newStatus = fs.getFileStatus(newFolder);
+    assertNotNull(newStatus);
+    assertEquals("newUser", newStatus.getOwner());
+    assertTrue(newStatus.isDir());
+  }
+
   private void createEmptyFile(Path testFile, FsPermission permission)
       throws IOException {
     FSDataOutputStream outputStream = fs.create(testFile, permission, true,

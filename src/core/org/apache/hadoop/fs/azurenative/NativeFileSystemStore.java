@@ -62,6 +62,9 @@ interface NativeFileSystemStore {
   PartialListing listAll(String prefix, final int maxListingCount, final int maxListingDepth,
       String priorLastKey) throws IOException;
 
+  void changePermissionStatus(String key, PermissionStatus newPermission)
+      throws AzureException;
+
   void delete(String key) throws IOException;
 
   void rename(String srcKey, String dstKey) throws IOException;
