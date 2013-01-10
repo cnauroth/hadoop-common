@@ -1374,19 +1374,66 @@ public class NativeAzureFileSystem extends FileSystem {
   }
 
   /**
-   * Looks under the given root path for any blob that are left "dangling",
-   * meaning that they are place-holder blobs that we created while we upload
-   * the data to a temporary blob, but for some reason we crashed in the middle
-   * of the upload and left them there.
-   * If any are found, we move them to the destination given.
-   * @param root The root path to consider.
-   * @param destination The destination path to move any recovered files to.
-   * @throws IOException
+   * A handler that defines what to do with blobs whose upload was
+   * interrupted.
    */
-  public void recoverFilesWithDanglingTempData(Path root, Path destination) throws IOException {
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Recovering files with dangling temp data in " + root);
+  private abstract class DanglingFileHandler {
+    abstract void handleFile(FileMetadata file, FileMetadata tempFile)
+      throws IOException;
+  }
+
+  /**
+   * Handler implementation for just deleting dangling files and cleaning
+   * them up.
+   */
+  private class DanglingFileDeleter extends DanglingFileHandler {
+    @Override
+    void handleFile(FileMetadata file, FileMetadata tempFile)
+        throws IOException {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Deleting dangling file " + file.getKey());
+      }
+      store.delete(file.getKey());
+      store.delete(tempFile.getKey());
     }
+  }
+
+  /**
+   * Handler implementation for just moving dangling files to recovery
+   * location (/lost+found).
+   */
+  private class DanglingFileRecoverer extends DanglingFileHandler {
+    private final Path destination;
+
+    DanglingFileRecoverer(Path destination) {
+      this.destination = destination;
+    }
+
+    @Override
+    void handleFile(FileMetadata file, FileMetadata tempFile)
+        throws IOException {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Recovering " + file.getKey());
+      }
+      // Move to the final destination
+      String finalDestinationKey =
+          pathToKey(new Path(destination, file.getKey()));
+      store.rename(tempFile.getKey(), finalDestinationKey);
+      if (!finalDestinationKey.equals(file.getKey())) {
+        // Delete the empty link file now that we've restored it.
+        store.delete(file.getKey());
+      }
+    }
+  }
+
+  /**
+   * Implements recover and delete (-move and -delete) behaviors for
+   * handling dangling files (blobs whose upload was interrupted).
+   * @param root The root path to check from.
+   * @param handler The handler that deals with dangling files.
+   */
+  private void handleFilesWithDanglingTempData(Path root,
+      DanglingFileHandler handler) throws IOException {
     // Calculate the cut-off for when to consider a blob to be dangling.
     long cutoffForDangling = new Date().getTime() -
         getConf().getInt(AZURE_TEMP_EXPIRY_PROPERTY_NAME,
@@ -1410,23 +1457,48 @@ public class NativeAzureFileSystem extends FileSystem {
             if (linkMetadata != null &&
                 linkMetadata.getLastModified() >= cutoffForDangling) {
               // Found one!
-              if (LOG.isDebugEnabled()) {
-                LOG.debug("Recovering " + file.getKey());
-              }
-              // Move to the final destination
-              String finalDestinationKey =
-                  pathToKey(new Path(destination, file.getKey()));
-              store.rename(linkMetadata.getKey(), finalDestinationKey);
-              if (!finalDestinationKey.equals(file.getKey())) {
-                // Delete the empty link file now that we've restored it.
-                store.delete(file.getKey());
-              }
+              handler.handleFile(file, linkMetadata);
             }
           }
         }
       }
       priorLastKey = listing.getPriorLastKey();
     } while (priorLastKey != null);
+  }
+
+  /**
+   * Looks under the given root path for any blob that are left "dangling",
+   * meaning that they are place-holder blobs that we created while we upload
+   * the data to a temporary blob, but for some reason we crashed in the middle
+   * of the upload and left them there.
+   * If any are found, we move them to the destination given.
+   * @param root The root path to consider.
+   * @param destination The destination path to move any recovered files to.
+   * @throws IOException
+   */
+  public void recoverFilesWithDanglingTempData(Path root, Path destination) throws IOException {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Recovering files with dangling temp data in " + root);
+    }
+    handleFilesWithDanglingTempData(root,
+        new DanglingFileRecoverer(destination));
+  }
+
+  /**
+   * Looks under the given root path for any blob that are left "dangling",
+   * meaning that they are place-holder blobs that we created while we upload
+   * the data to a temporary blob, but for some reason we crashed in the middle
+   * of the upload and left them there.
+   * If any are found, we delete them.
+   * @param root The root path to consider.
+   * @param destination The destination path to move any recovered files to.
+   * @throws IOException
+   */
+  public void deleteFilesWithDanglingTempData(Path root) throws IOException {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Deleting files with dangling temp data in " + root);
+    }
+    handleFilesWithDanglingTempData(root, new DanglingFileDeleter());
   }
 
   /**

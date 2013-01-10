@@ -54,7 +54,20 @@ public class TestAsvFsck extends TestCase {
     assertEquals(0, fileStatus.getLen());
     assertEquals(1, getNumTempBlobs());
 
-    // Run AsvFsck -recover to recover the file.
+    // Run AsvFsck -move to recover the file.
+    runFsck("-move");
+
+    // Now we should the see the file in lost+found with the data there.
+    fileStatus = fs.getFileStatus(new Path("/lost+found",
+        danglingFile.getName()));
+    assertNotNull(fileStatus);
+    assertEquals(3, fileStatus.getLen());
+    assertEquals(0, getNumTempBlobs());
+    // But not in its original location
+    assertFalse(fs.exists(danglingFile));
+  }
+
+  private void runFsck(String command) throws Exception {
     Configuration conf = fs.getConf();
     // Set the dangling cutoff to zero, so every temp blob is considered
     // dangling.
@@ -64,16 +77,32 @@ public class TestAsvFsck extends TestCase {
     fsck.run(new String[]
         {
           AzureBlobStorageTestAccount.MOCK_ASV_URI,
-          "-move"
+          command
         });
+  }
 
-    // Now we should the see the file in lost+found with the data there.
-    fileStatus = fs.getFileStatus(new Path("/lost+found",
-        danglingFile.getName()));
+  /**
+   * Tests that we delete dangling files properly
+   */
+  public void testDelete() throws Exception {
+    Path danglingFile = new Path("/crashedInTheMiddle");
+
+    // Create a file and leave it dangling and try to delete it.
+    FSDataOutputStream stream = fs.create(danglingFile);
+    stream.write(new byte[] { 1, 2, 3 });
+    stream.flush();
+
+    // Now we should still only see a zero-byte file in this place
+    FileStatus fileStatus = fs.getFileStatus(danglingFile);
     assertNotNull(fileStatus);
-    assertEquals(3, fileStatus.getLen());
+    assertEquals(0, fileStatus.getLen());
+    assertEquals(1, getNumTempBlobs());
+
+    // Run AsvFsck -delete to delete the file.
+    runFsck("-delete");
+
+    // Now we should see no trace of the file.
     assertEquals(0, getNumTempBlobs());
-    // But not in its original location
     assertFalse(fs.exists(danglingFile));
   }
 }
