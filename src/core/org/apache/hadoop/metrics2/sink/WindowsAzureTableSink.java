@@ -80,12 +80,20 @@ import com.microsoft.windowsazure.services.table.client.*;
  * 		namenode.sink.dfsinstance.accountname=azure_storage_account_name_here
  * 		namenode.sink.dfsinstance.accesskey=azure_storage_account_key_here
  * 		namenode.sink.dfsinstance.sas=azure_storage_account_sharedaccesskey_here
+ *      namenode.sink.dfsnamenode.azureTable=dfsnamenode_table
+ *      namenode.sink.dfsnamenode.azureDeploymentId=azure_deployment_id
+ *      namenode.sink.dfsnamenode.azureRole=azure_role
+ *      namenode.sink.dfsnamenode.azureRoleInstance=azure_role_instance
  */
 public class WindowsAzureTableSink implements MetricsSink {
 
 	private static final String STORAGE_ACCOUNT_KEY = "accountname";
 	private static final String STORAGE_ACCESSKEY_KEY = "accesskey";
 	private static final String STORAGE_SAS_KEY = "sas";
+	private static final String AZURE_TABLENAME_KEY = "azureTable";
+	private static final String AZURE_DEPLOYMENTID_KEY = "azureDeploymentId";
+	private static final String AZURE_ROLENAME_KEY = "azureRole";
+	private static final String AZURE_ROLEINSTANCENAME_KEY = "azureRoleInstance";
 	
 	private CloudStorageAccount storageAccount;
 	
@@ -104,12 +112,18 @@ public class WindowsAzureTableSink implements MetricsSink {
 	private Boolean createMetricsTables = false;
 	private Boolean useSas = false;
 	private String storageAccountName;
+	private String tableName;
 	
 	@Override
 	public void init(SubsetConfiguration conf) {
 		logger.info("Entering init");
 		
 		storageAccountName = conf.getString(STORAGE_ACCOUNT_KEY);
+		deploymentId = conf.getString(AZURE_DEPLOYMENTID_KEY);
+		roleName = conf.getString(AZURE_ROLENAME_KEY);
+		roleInstanceName = conf.getString(AZURE_ROLEINSTANCENAME_KEY);
+		tableName = conf.getString(AZURE_TABLENAME_KEY);
+		
 		String storageAccountKey = conf.getString(STORAGE_ACCESSKEY_KEY);
 		String storageAccountSas = conf.getString(STORAGE_SAS_KEY);
 		
@@ -143,13 +157,6 @@ public class WindowsAzureTableSink implements MetricsSink {
 			logger.error("Invalid URI. Details: " + uriSyntaxException.getMessage());
 		}
 		
-		// Capture deployment id, role instance, role name if they are set as environment variables
-		// The Java SDK RoleEnvironment class does not seem to work for some reason.
-		// Set the DeploymentId + RoleInstanceId as the partition key
-		deploymentId = System.getenv("HADOOP_METRICS2_DEPLOYMENT_ID");
-		roleName = System.getenv("HADOOP_METRICS2_ROLE");
-		roleInstanceName = System.getenv("HADOOP_METRICS2_ROLEINSTANCE");
-		
 		logDeploymentIdWithMetrics = (deploymentId != null && !deploymentId.isEmpty() && 
 										roleName != null && !roleName.isEmpty() && 
 										roleInstanceName != null && !roleInstanceName.isEmpty());
@@ -160,8 +167,11 @@ public class WindowsAzureTableSink implements MetricsSink {
 		SimpleDateFormat formatter = new SimpleDateFormat( "yyyyMM" );  
 		String yearMonthSuffix = formatter.format( new java.util.Date() ); 
 		
-		// Note: Azure Tables can only contain alpha-numeric values
-		String tableName = record.context().toUpperCase() + record.name();
+		if (StringUtils.isEmpty(tableName)) {
+			// Note: Azure Tables can only contain alpha-numeric values
+			// assume table name is context + record if it is not specified in the property
+			tableName = record.context().toUpperCase() + record.name();
+		}
 		
 		String partitionKey;
 		
@@ -255,7 +265,7 @@ public class WindowsAzureTableSink implements MetricsSink {
 			StorageCredentials credentials = storageAccount.getCredentials();
 			tableClient = new CloudTableClient(tableBaseUri, credentials);
 			
-			logger.debug("Endpoint = " + tableBaseUri);
+			logger.debug(String.format("Endpoint = %s. Table = %s",tableBaseUri, tableName));
 		}
 		
 		CloudTable table = tableClient.getTableReference(tableName);
