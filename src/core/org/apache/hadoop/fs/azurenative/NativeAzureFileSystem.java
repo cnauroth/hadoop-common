@@ -870,9 +870,15 @@ public class NativeAzureFileSystem extends FileSystem {
       throw new IOException("File already exists:" + f);
     }
 
+    Path absolutePath = makeAbsolute(f);
+    Path parentFolder = absolutePath.getParent();
+    if (parentFolder != null) {
+      // Make sure that the parent folder exists.
+      mkdirs(parentFolder, permission);
+    }
+
     // Open the output blob stream based on the encoded key.
     //
-    Path absolutePath = makeAbsolute(f);
     String key = pathToKey(absolutePath);
     String keyEncoded = encodeKey(key);
 
@@ -1187,26 +1193,31 @@ public class NativeAzureFileSystem extends FileSystem {
 
   @Override
   public boolean mkdirs(Path f, FsPermission permission) throws IOException {
-
     if (LOG.isDebugEnabled()){
       LOG.debug("Creating directory: " + f.toString());
     }
 
     Path absolutePath = makeAbsolute(f);
+    PermissionStatus permissionStatus = createPermissionStatus(permission);
 
+    ArrayList<String> keysToCreateAsFolder = new ArrayList<String>();
     // Check that there is no file in the parent chain of the given path.
     for (Path current = absolutePath, parent = current.getParent();
         parent != null; // Stop when you get to the root
         current = parent, parent = current.getParent()) {
-      FileMetadata currentMetadata = store.retrieveMetadata(pathToKey(current));
+      String currentKey = pathToKey(current);
+      FileMetadata currentMetadata = store.retrieveMetadata(currentKey);
       if (currentMetadata != null && !currentMetadata.isDir()) {
         throw new IOException("Cannot create directory " + f + " because " +
             current + " is an existing file.");
+      } else if (currentMetadata == null) {
+        keysToCreateAsFolder.add(currentKey);
       }
     }
 
-    String key = pathToKey(absolutePath);
-    store.storeEmptyFolder(key, createPermissionStatus(permission));
+    for (String currentKey : keysToCreateAsFolder) {
+      store.storeEmptyFolder(currentKey, permissionStatus);
+    }
     instrumentation.directoryCreated();
 
     // otherwise throws exception
@@ -1311,10 +1322,10 @@ public class NativeAzureFileSystem extends FileSystem {
         // Rename all the files in the folder.
         //
         for (FileMetadata file : listing.getFiles()) {
-          // Rename all non-directory entries under the folder to point to the
+          // Rename all materialized entries under the folder to point to the
           // final destination.
           //
-          if (!file.isDir()) {
+          if (file.getBlobMaterialization() == BlobMaterialization.Explicit) {
             String srcName = file.getKey();
             String suffix  = srcName.substring(srcKey.length());
             String dstName = dstKey + suffix;  
