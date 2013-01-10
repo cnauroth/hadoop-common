@@ -22,6 +22,7 @@ import java.io.*;
 import java.net.URI;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -77,7 +78,7 @@ public class NativeAzureFileSystem extends FileSystem {
   private static final int AZURE_LIST_ALL = -1;
   private static final int AZURE_UNBOUNDED_DEPTH = -1;
 
-  private static final long MAX_AZURE_BLOCK_SIZE = 64 * 1024 * 1024L;
+  private static final long MAX_AZURE_BLOCK_SIZE = 512 * 1024 * 1024L;
 
   private static int DEFAULT_MAX_RETRIES = 4;
   private static int DEFAULT_SLEEP_TIME_SECONDS = 10;
@@ -668,6 +669,8 @@ public class NativeAzureFileSystem extends FileSystem {
   private long blockSize = MAX_AZURE_BLOCK_SIZE;
   private AzureFileSystemInstrumentation instrumentation;
   private static boolean suppressRetryPolicy = false;
+  // A counter to create unique (within-process) names for my metrics sources.
+  private static AtomicInteger metricsSourceNameCounter = new AtomicInteger();
 
   public NativeAzureFileSystem() {
     // set store in initialize()
@@ -693,6 +696,27 @@ public class NativeAzureFileSystem extends FileSystem {
     suppressRetryPolicy = false;
   }
 
+  /**
+   * Creates a new metrics source name that's unique within this process.
+   */
+  static String newMetricsSourceName() {
+    int number = metricsSourceNameCounter.incrementAndGet();
+    final String baseName = "AzureFileSystemMetrics";
+    if (number == 1) { // No need for a suffix for the first one
+      return baseName;
+    } else {
+      return baseName + number;
+    }
+  }
+
+  /**
+   * Resets the global metrics source name counter - only used for
+   * unit testing.
+   */
+  static void resetMetricsSourceNameCounter() {
+    metricsSourceNameCounter.set(0);
+  }
+
   @Override
   public void initialize(URI uri, Configuration conf)
       throws IOException, IllegalArgumentException {
@@ -704,7 +728,7 @@ public class NativeAzureFileSystem extends FileSystem {
 
     // Make sure the metrics system is available before interacting with Azure
     AzureFileSystemMetricsSystem.fileSystemStarted();
-    String sourceName = "AzureFileSystemMetrics",
+    String sourceName = newMetricsSourceName(),
         sourceDesc = "Azure Storage Volume File System metrics";
     instrumentation = DefaultMetricsSystem.INSTANCE.register(sourceName,
         sourceDesc, new AzureFileSystemInstrumentation(conf));
