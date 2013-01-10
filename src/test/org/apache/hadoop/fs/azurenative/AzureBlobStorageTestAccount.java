@@ -190,8 +190,11 @@ public final class AzureBlobStorageTestAccount {
         containerName + ASV_AUTHORITY_DELIMITER + accountName);
   }
 
-
   public static AzureBlobStorageTestAccount create() throws Exception {
+    return create("");
+  }
+
+  public static AzureBlobStorageTestAccount create(String containerNameSuffix) throws Exception {
     int sinkIdentifier = sinkIdentifierCounter.incrementAndGet();
     saveMetricsConfigFile(sinkIdentifier);
     FileSystem fs = null;
@@ -203,8 +206,8 @@ public final class AzureBlobStorageTestAccount {
       return null;
     }
     fs = new NativeAzureFileSystem();
-    String containerName = String.format("asvtests-%s-%tQ",
-        System.getProperty("user.name"), new Date());
+    String containerName = String.format("asvtests-%s-%tQ%s",
+        System.getProperty("user.name"), new Date(), containerNameSuffix);
     String connectionString = conf.get(CONNECTION_STRING_PROPERTY_NAME);
     CloudStorageAccount account = CloudStorageAccount.parse(connectionString);
     container = account.createCloudBlobClient().getContainerReference(containerName);
