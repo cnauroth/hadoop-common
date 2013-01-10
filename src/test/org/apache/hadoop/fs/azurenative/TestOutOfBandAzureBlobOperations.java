@@ -106,4 +106,12 @@ public class TestOutOfBandAzureBlobOperations extends TestCase {
     assertNotNull(newStatus);
     assertEquals(newPermission, newStatus.getPermission());
   }
+
+  public void testSetOwnerOnImplicitFolder() throws Exception {
+    createEmptyBlobOutOfBand("root/b");
+    fs.setOwner(new Path("/root"), "newOwner", null);
+    FileStatus newStatus = fs.getFileStatus(new Path("/root"));
+    assertNotNull(newStatus);
+    assertEquals("newOwner", newStatus.getOwner());
+  }
 }

@@ -273,6 +273,9 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     FileStatus newStatus = fs.getFileStatus(newFile);
     assertNotNull(newStatus);
     assertEquals(newPermission, newStatus.getPermission());
+    assertEquals("supergroup", newStatus.getGroup());
+    assertEquals(UserGroupInformation.getCurrentUser().getShortUserName(),
+        newStatus.getOwner());
     assertEquals(1, newStatus.getLen());
   }
 
@@ -296,6 +299,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     FileStatus newStatus = fs.getFileStatus(newFile);
     assertNotNull(newStatus);
     assertEquals("newUser", newStatus.getOwner());
+    assertEquals("supergroup", newStatus.getGroup());
     assertEquals(1, newStatus.getLen());
     fs.setOwner(newFile, null, "newGroup");
     newStatus = fs.getFileStatus(newFile);
