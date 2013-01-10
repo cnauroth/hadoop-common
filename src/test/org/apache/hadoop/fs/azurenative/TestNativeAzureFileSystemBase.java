@@ -270,6 +270,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
       fs.open(dir).close();
       assertTrue("Should've thrown", false);
     } catch (FileNotFoundException ex) {
+      assertEquals("/x is a directory not a file.", ex.getMessage());
     }
   }
 
