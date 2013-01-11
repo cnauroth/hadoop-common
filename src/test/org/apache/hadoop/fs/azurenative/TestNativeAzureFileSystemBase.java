@@ -274,6 +274,18 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     }
   }
 
+  public void testCreatingFileOverDirectory() throws Exception {
+    Path dir = new Path("/x");
+    assertTrue(fs.mkdirs(dir));
+    try {
+      fs.create(dir).close();
+      assertTrue("Should've thrown", false);
+    } catch (IOException ex) {
+      assertEquals("Cannot create file /x; already exists as a directory.",
+          ex.getMessage());
+    }
+  }
+
   public void testSetPermissionOnFile() throws Exception {
     Path newFile = new Path("testPermission");
     OutputStream output = fs.create(newFile);

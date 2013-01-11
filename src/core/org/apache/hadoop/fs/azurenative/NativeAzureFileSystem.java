@@ -864,13 +864,19 @@ public class NativeAzureFileSystem extends FileSystem {
       LOG.debug("Creating file: " + f.toString());
     }
 
-    // Only check for existence (requires a web request) if we're not
-    // overwriting.
-    if (!overwrite && exists(f)) {
-      throw new IOException("File already exists:" + f);
+    Path absolutePath = makeAbsolute(f);
+    String key = pathToKey(absolutePath);
+
+    FileMetadata existingMetadata = store.retrieveMetadata(key);
+    if (existingMetadata != null) {
+      if (existingMetadata.isDir()) {
+        throw new IOException("Cannot create file "+ f + "; already exists as a directory.");
+      }
+      if (!overwrite) {
+        throw new IOException("File already exists:" + f);
+      }
     }
 
-    Path absolutePath = makeAbsolute(f);
     Path parentFolder = absolutePath.getParent();
     if (parentFolder != null) {
       // Make sure that the parent folder exists.
@@ -879,7 +885,6 @@ public class NativeAzureFileSystem extends FileSystem {
 
     // Open the output blob stream based on the encoded key.
     //
-    String key = pathToKey(absolutePath);
     String keyEncoded = encodeKey(key);
 
     PermissionStatus permissionStatus = createPermissionStatus(permission);
