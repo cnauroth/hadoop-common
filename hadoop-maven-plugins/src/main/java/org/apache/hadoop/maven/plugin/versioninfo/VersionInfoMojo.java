@@ -32,6 +32,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
@@ -269,11 +270,22 @@ public class VersionInfoMojo extends AbstractMojo {
 
   private String computeMD5() throws Exception {
     List<File> files = FileSetUtils.convertFileSetToFiles(source);
-    Collections.sort(files);
+    // File order of MD5 calculation is significant.  Sorting is done on
+    // unix-format names, case-folded, in order to get a platform-independent
+    // sort and calculate the same MD5 on all platforms.
+    Collections.sort(files, new Comparator<File>() {
+      @Override
+      public int compare(File lhs, File rhs) {
+        return normalizePath(lhs).compareTo(normalizePath(rhs));
+      }
+
+      private String normalizePath(File file) {
+        return file.getPath().toUpperCase().replaceAll("\\\\", "/");
+      }
+    });
     byte[] md5 = computeMD5(files);
     String md5str = byteArrayToString(md5);
     getLog().info("Computed MD5: " + md5str);
     return md5str;
   }
-
 }

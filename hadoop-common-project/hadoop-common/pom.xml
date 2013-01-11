@@ -272,9 +272,10 @@
             </goals>
             <configuration>
               <source>
-                <directory>${basedir}/src/main/java</directory>
+                <directory>${basedir}/src/main</directory>
                 <includes>
-                  <include>**/*.java</include>
+                  <include>java/**/*.java</include>
+                  <include>proto/**/*.proto</include>
                 </includes>
               </source>
             </configuration>
