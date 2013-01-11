@@ -297,6 +297,11 @@ Trunk (Unreleased)
     HDFS-4261. Fix bugs in Balaner causing infinite loop and
     TestBalancerWithNodeGroup timeing out.  (Junping Du via szetszwo)
 
+    HDFS-4382. Fix typo MAX_NOT_CHANGED_INTERATIONS. (Ted Yu via suresh)
+
+    HDFS-4328. TestLargeBlock#testLargeBlockSize is timing out. (Chris Nauroth
+    via atm)
+
 Release 2.0.3-alpha - Unreleased 
 
   INCOMPATIBLE CHANGES
@@ -306,6 +311,9 @@ Release 2.0.3-alpha - Unreleased
 
     HDFS-4362. GetDelegationTokenResponseProto does not handle null token.
     (suresh)
+
+    HDFS-4367. GetDataEncryptionKeyResponseProto does not handle null
+    response. (suresh)
 
   NEW FEATURES
 
@@ -466,6 +474,17 @@ Release 2.0.3-alpha - Unreleased
 
     HDFS-4035. LightWeightGSet and LightWeightHashSet increment a
     volatile without synchronization. (eli)
+    
+    HDFS-4032. Specify the charset explicitly rather than rely on the
+    default. (eli)
+
+    HDFS-4363. Combine PBHelper and HdfsProtoUtil and remove redundant
+    methods. (suresh)
+
+    HDFS-4377. Some trivial DN comment cleanup. (eli)
+
+    HDFS-4381. Document fsimage format details in FSImageFormat class javadoc.
+    (Jing Zhao via suresh)
 
   OPTIMIZATIONS
 
@@ -675,6 +694,9 @@ Release 2.0.3-alpha - Unreleased
 
     HDFS-3970. Fix bug causing rollback of HDFS upgrade to result in bad
     VERSION file. (Vinay and Andrew Wang via atm)
+
+    HDFS-4306. PBHelper.convertLocatedBlock miss convert BlockToken. (Binglin
+    Chang via atm)
 
   BREAKDOWN OF HDFS-3077 SUBTASKS
 
