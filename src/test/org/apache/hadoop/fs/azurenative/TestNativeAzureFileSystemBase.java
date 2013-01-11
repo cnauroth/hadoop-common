@@ -259,6 +259,9 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
 
   public void testUriEncoding() throws Exception {
     fs.create(new Path("p/t%5Fe")).close();
+    FileStatus[] listing = fs.listStatus(new Path("p"));
+    assertEquals(1, listing.length);
+    assertEquals("t%5Fe", listing[0].getPath().getName());
     assertTrue(fs.rename(new Path("p"), new Path("q")));
     assertTrue(fs.delete(new Path("q"), true));
   }

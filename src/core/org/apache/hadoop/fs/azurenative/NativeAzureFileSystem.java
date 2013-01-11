@@ -790,7 +790,7 @@ public class NativeAzureFileSystem extends FileSystem {
     // path from the path object.
     //
     URI tmpUri = path.toUri();
-    String pathUri = tmpUri.getRawPath();
+    String pathUri = tmpUri.getPath();
 
     // The scheme and authority is valid. If the path does not exist add a "/"
     // separator to list the root of the container.
@@ -807,7 +807,7 @@ public class NativeAzureFileSystem extends FileSystem {
     }
 
     String key = null;
-    key = newPath.toUri().getRawPath();
+    key = newPath.toUri().getPath();
     if (key.length() == 1) {
       return key;
     } else {
