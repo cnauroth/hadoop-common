@@ -177,7 +177,12 @@ public class MockStorageInterface extends StorageInterface {
       ArrayList<ListBlobItem> ret = new ArrayList<ListBlobItem>();
       String fullPrefix = prefix == null ?
           uri.toString() :
-          uri.toString() + prefix;
+          new URI(
+              uri.getScheme(),
+              uri.getAuthority(),
+              uri.getPath() + prefix,
+              uri.getQuery(),
+              uri.getFragment()).toString();
       boolean includeMetadata = listingDetails.contains(BlobListingDetails.METADATA);
       HashSet<String> addedDirectories = new HashSet<String>();
       for (InMemoryBlockBlobStore.ListBlobEntry current : backingStore.listBlobs(

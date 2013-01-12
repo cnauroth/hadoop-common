@@ -266,6 +266,23 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     assertTrue(fs.delete(new Path("q"), true));
   }
 
+  public void testUriEncodingMoreComplexCharacters() throws Exception {
+    // Create a file name with URI reserved characters, plus the percent
+    String fileName = "!#$'()*;=[]%";
+    String directoryName = "*;=[]%!#$'()";
+    fs.create(new Path(directoryName, fileName)).close();
+    FileStatus[] listing = fs.listStatus(new Path(directoryName));
+    assertEquals(1, listing.length);
+    assertEquals(fileName, listing[0].getPath().getName());
+    FileStatus status = fs.getFileStatus(new Path(directoryName, fileName));
+    assertEquals(fileName, status.getPath().getName());
+    InputStream stream = fs.open(new Path(directoryName, fileName));
+    assertNotNull(stream);
+    stream.close();
+    assertTrue(fs.delete(new Path(directoryName, fileName), true));
+    assertTrue(fs.delete(new Path(directoryName), true));
+  }
+
   public void testReadingDirectoryAsFile() throws Exception {
     Path dir = new Path("/x");
     assertTrue(fs.mkdirs(dir));
