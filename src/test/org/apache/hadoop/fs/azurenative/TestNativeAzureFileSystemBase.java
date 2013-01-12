@@ -1,6 +1,7 @@
 package org.apache.hadoop.fs.azurenative;
 
 import java.io.*;
+import java.util.*;
 
 import junit.framework.*;
 
@@ -359,6 +360,30 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     assertNotNull(newStatus);
     assertEquals("newUser", newStatus.getOwner());
     assertTrue(newStatus.isDir());
+  }
+
+  public void testModifiedTimeForFile() throws Exception {
+    Path testFile = new Path("testFile");
+    fs.create(testFile).close();
+    testModifiedTime(testFile);
+  }
+
+  public void testModifiedTimeForFolder() throws Exception {
+    Path testFolder = new Path("testFolder");
+    assertTrue(fs.mkdirs(testFolder));
+    testModifiedTime(testFolder);
+  }
+
+  private void testModifiedTime(Path testPath) throws Exception {
+    Calendar utc = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    long currentUtcTime = utc.getTime().getTime();
+    FileStatus fileStatus = fs.getFileStatus(testPath);
+    final long errorMargin = 10 * 1000; // Give it +/-10 seconds
+    assertTrue("Modification time " +
+        new Date(fileStatus.getModificationTime()) + " is not close to now: " +
+        utc.getTime(),
+        fileStatus.getModificationTime() > (currentUtcTime - errorMargin) &&
+        fileStatus.getModificationTime() < (currentUtcTime + errorMargin));
   }
 
   private void createEmptyFile(Path testFile, FsPermission permission)

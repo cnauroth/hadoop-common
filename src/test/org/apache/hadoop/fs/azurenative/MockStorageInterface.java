@@ -225,7 +225,8 @@ public class MockStorageInterface extends StorageInterface {
       if (backingStore.exists(uri.toString())) {
         byte[] content = backingStore.getContent(uri.toString());
         properties.setLength(content.length);
-        properties.setLastModified(new Date());
+        properties.setLastModified(
+            Calendar.getInstance(TimeZone.getTimeZone("UTC")).getTime());
         if (getMetadata) {
           metadata = backingStore.getMetadata(uri.toString());
         }
