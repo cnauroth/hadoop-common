@@ -20,6 +20,9 @@ import org.apache.hadoop.maven.plugin.util.FileSetUtils;
 import org.apache.maven.model.FileSet;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 
 import java.io.File;
@@ -37,57 +40,40 @@ import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
 
-
 /**
- * @goal version-info
- * @phase initialize
+ * VersionInfoMojo calculates information about the current version of the
+ * codebase and exports the information as properties for further use in a Maven
+ * build.  The version information includes build time, SCM URI, SCM branch, SCM
+ * commit, and an MD5 checksum of the contents of the files in the codebase.
  */
+@Mojo(name="version-info", defaultPhase=LifecyclePhase.INITIALIZE)
 public class VersionInfoMojo extends AbstractMojo {
 
-  /**
-   * @parameter default-value="${project}"
-   */
+  @Parameter(defaultValue="${project}")
   private MavenProject project;
 
-  /**
-   * @parameter
-   * @required
-   */
+  @Parameter(required=true)
   private FileSet source;
 
-  /**
-   * @parameter default-value="version-info.build.time"
-   */
+  @Parameter(defaultValue="version-info.build.time")
   private String buildTimeProperty;
 
-  /**
-   * @parameter default-value="version-info.source.md5"
-   */
+  @Parameter(defaultValue="version-info.source.md5")
   private String md5Property;
 
-  /**
-   * @parameter default-value="version-info.scm.uri"
-   */
+  @Parameter(defaultValue="version-info.scm.uri")
   private String scmUriProperty;
 
-  /**
-   * @parameter default-value="version-info.scm.branch"
-   */
+  @Parameter(defaultValue="version-info.scm.branch")
   private String scmBranchProperty;
 
-  /**
-   * @parameter default-value="version-info.scm.commit"
-   */
+  @Parameter(defaultValue="version-info.scm.commit")
   private String scmCommitProperty;
 
-  /**
-   * @parameter default-value="git"
-   */
+  @Parameter(defaultValue="git")
   private String gitCommand;
 
-  /**
-   * @parameter default-value="svn"
-   */
+  @Parameter(defaultValue="svn")
   private String svnCommand;
 
   private enum SCM {NONE, SVN, GIT}
