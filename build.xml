@@ -1821,7 +1821,8 @@
   <!-- ================================================================== -->
   <!-- Make release zip                                                   -->
   <!-- ================================================================== -->
-  <target name="zip" depends="package" description="Make multi-platform release zip, both source and binary">
+  <target name="zip" depends="package, do-zip" description="Make multi-platform release zip, both source and binary"/>
+  <target name="do-zip" description="Only zips, and expects the package to be already run">
     <!-- build source tarball -->
     <macro_zip param.destfile="${build.dir}/${final.name}.zip">
       <param.listofitems>
