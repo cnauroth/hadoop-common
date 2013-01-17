@@ -1294,9 +1294,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       for (ListBlobItem blobItem : objects) {
         if (blobItem instanceof CloudBlockBlobWrapper) {
           LOG.debug(
-              "Found blob as a directory-using this file under it to infer its properties" +
+              "Found blob as a directory-using this file under it to infer its properties " +
                   blobItem.getUri());
 
+          blob = (CloudBlockBlobWrapper)blobItem;
           // The key specifies a directory. Create a FileMetadata object which specifies
           // as such.
           //
@@ -1307,7 +1308,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           // TODO: using polymorphism to distinguish the two.
           //
           return new FileMetadata(key, properties.getLastModified().getTime(),
-              getPermissionStatus((CloudBlockBlobWrapper)blobItem),
+              getPermissionStatus(blob),
               BlobMaterialization.Implicit);
         }
       }

@@ -216,14 +216,13 @@ public class MockStorageInterface extends StorageInterface {
         int length) {
       this.uri = uri;
       this.metadata = metadata;
-      properties = new BlobProperties();
-      properties.setLength(length);
-      properties.setLastModified(new Date());
+      refreshProperties(false);
     }
 
     private void refreshProperties(boolean getMetadata) {
       if (backingStore.exists(uri.toString())) {
         byte[] content = backingStore.getContent(uri.toString());
+        properties = new BlobProperties();
         properties.setLength(content.length);
         properties.setLastModified(
             Calendar.getInstance(TimeZone.getTimeZone("UTC")).getTime());

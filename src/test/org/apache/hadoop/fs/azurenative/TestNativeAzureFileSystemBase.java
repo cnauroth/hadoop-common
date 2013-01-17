@@ -374,6 +374,15 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     testModifiedTime(testFolder);
   }
 
+  public void testListSlash() throws Exception {
+    Path testFolder = new Path("/testFolder");
+    Path testFile = new Path(testFolder, "testFile");
+    assertTrue(fs.mkdirs(testFolder));
+    assertTrue(fs.createNewFile(testFile));
+    FileStatus status = fs.getFileStatus(new Path("/testFolder/."));
+    assertNotNull(status);
+  }
+
   private void testModifiedTime(Path testPath) throws Exception {
     Calendar utc = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     long currentUtcTime = utc.getTime().getTime();
