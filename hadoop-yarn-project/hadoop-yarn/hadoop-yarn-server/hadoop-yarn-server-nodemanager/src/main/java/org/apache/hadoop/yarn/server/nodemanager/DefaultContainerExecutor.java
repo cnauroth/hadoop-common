@@ -168,7 +168,7 @@ public class DefaultContainerExecutor extends ContainerExecutor {
 
       // Setup command to run
       String[] command = Shell.getRunCommand(
-        sb.getWrapperScriptPath().toUri().getPath().toString(), containerIdStr);
+        sb.getWrapperScriptPath().toString(), containerIdStr);
 
       LOG.info("launchContainer: " + Arrays.toString(command));
       shExec = new ShellCommandExecutor(
@@ -277,7 +277,7 @@ public class DefaultContainerExecutor extends ContainerExecutor {
         ".tmp");
       pout.println("@move /Y " + normalizedPidFile + ".tmp " +
         normalizedPidFile);
-      pout.println("@call " + launchDst.toUri().getPath().toString());
+      pout.println("@call " + launchDst.toString());
     }
   }
 

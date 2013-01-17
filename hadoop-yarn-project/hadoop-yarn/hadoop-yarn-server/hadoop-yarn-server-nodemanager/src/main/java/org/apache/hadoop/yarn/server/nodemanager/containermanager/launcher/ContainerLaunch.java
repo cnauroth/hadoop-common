@@ -27,6 +27,7 @@ import java.io.File;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileContext;
+import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.LocalDirAllocator;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IOUtils;
@@ -132,7 +134,7 @@ public class ContainerLaunch implements Callable<Integer> {
       for (String str : command) {
         // TODO: Should we instead work via symlinks without this grammar?
         newCmds.add(str.replace(ApplicationConstants.LOG_DIR_EXPANSION_VAR,
-            containerLogDir.toUri().getPath()));
+            containerLogDir.toString()));
       }
       launchContext.setCommands(newCmds);
 
@@ -143,7 +145,7 @@ public class ContainerLaunch implements Callable<Integer> {
         entry.setValue(
             value.replace(
                 ApplicationConstants.LOG_DIR_EXPANSION_VAR,
-                containerLogDir.toUri().getPath())
+                containerLogDir.toString())
             );
       }
       // /////////////////////////// End of variable expansion
@@ -531,7 +533,7 @@ public class ContainerLaunch implements Callable<Integer> {
   }
   
   public void sanitizeEnv(Map<String, String> environment, 
-      Path pwd, List<Path> appDirs) {
+      Path pwd, List<Path> appDirs) throws IOException {
     /**
      * Non-modifiable environment variables
      */
@@ -563,6 +565,22 @@ public class ContainerLaunch implements Callable<Integer> {
 
     if (!Shell.WINDOWS) {
       environment.put("JVM_PID", "$$");
+    }
+
+    if (Shell.WINDOWS) {
+      // On Windows, the maximum command line length is 8191 characters.  The
+      // classpath may be longer than this.  To work around this limitation,
+      // create a small intermediate jar with a manifest that contains the full
+      // classpath.  Then, reference this jar when setting the CLASSPATH
+      // environment variable.
+      String classPathEntries = environment.get(Environment.CLASSPATH.name());
+      List<String> classPathEntryList = Arrays.asList(classPathEntries.split(
+        File.pathSeparator));
+      File classPathJar = File.createTempFile("classpath-", ".jar",
+        new File(pwd.toString()).getParentFile());
+      FileUtil.createJarWithClassPath(classPathJar, classPathEntryList);
+      environment.put(Environment.CLASSPATH.name(),
+        classPathJar.getCanonicalPath());
     }
 
     /**

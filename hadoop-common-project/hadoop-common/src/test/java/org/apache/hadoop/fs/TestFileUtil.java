@@ -24,9 +24,13 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.jar.Attributes;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -657,5 +661,46 @@ public class TestFileUtil {
 
     doUntarAndVerify(new File(tarGzFileName), untarDir);
     doUntarAndVerify(new File(tarFileName), untarDir);
+  }
+
+  @Test
+  public void testCreateJarWithClassPath() throws IOException {
+    // setup
+    Assert.assertFalse(tmp.exists());
+    Assert.assertTrue(tmp.mkdirs());
+
+    // create classpath jar
+    File classPathJar = new File(tmp, "classpath.jar");
+    Assert.assertFalse(classPathJar.exists());
+    List<String> classPaths = Arrays.asList("cp1.jar", "cp2.jar", "cp3.jar");
+    FileUtil.createJarWithClassPath(classPathJar, classPaths);
+
+    // verify classpath by reading manifest from jar file
+    JarFile jarFile = null;
+    try {
+      jarFile = new JarFile(classPathJar);
+      Manifest jarManifest = jarFile.getManifest();
+      Assert.assertNotNull(jarManifest);
+      Attributes mainAttributes = jarManifest.getMainAttributes();
+      Assert.assertNotNull(mainAttributes);
+      Assert.assertTrue(mainAttributes.containsKey(Attributes.Name.CLASS_PATH));
+      String classPathAttr = mainAttributes.getValue(Attributes.Name.CLASS_PATH);
+      Assert.assertNotNull(classPathAttr);
+      List<String> expectedClassPaths = new ArrayList<String>(classPaths.size());
+      for (String classPath: classPaths) {
+        expectedClassPaths.add(new File(classPath).toURI().toString());
+      }
+      List<String> actualClassPaths = Arrays.asList(classPathAttr.split(" "));
+      Assert.assertEquals(expectedClassPaths, actualClassPaths);
+    } finally {
+      if (jarFile != null) {
+        try {
+          jarFile.close();
+        } catch (IOException e) {
+          LOG.warn(
+            "exception closing jarFile: " + classPathJar.getAbsolutePath(), e);
+        }
+      }
+    }
   }
 }
