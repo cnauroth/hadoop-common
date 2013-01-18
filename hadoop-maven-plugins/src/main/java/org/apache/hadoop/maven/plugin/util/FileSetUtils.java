@@ -22,8 +22,19 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * FileSetUtils contains helper methods for mojo implementations that need to
+ * work with a Maven FileSet.
+ */
 public class FileSetUtils {
 
+  /**
+   * Returns a string containing every element of the given list, with each
+   * element separated by a comma.
+   * 
+   * @param list List of all elements
+   * @return String containing every element, comma-separated
+   */
   private static String getCommaSeparatedList(List list) {
     StringBuilder buffer = new StringBuilder();
     String separator = "";
@@ -34,6 +45,13 @@ public class FileSetUtils {
     return buffer.toString();
   }
 
+  /**
+   * Converts a Maven FileSet to a list of File objects.
+   * 
+   * @param source FileSet to convert
+   * @return List<File> containing every element of the FileSet as a File
+   * @throws IOException if an I/O error occurs while trying to find the files
+   */
   @SuppressWarnings("unchecked")
   public static List<File> convertFileSetToFiles(FileSet source) throws IOException {
     String includes = getCommaSeparatedList(source.getIncludes());
