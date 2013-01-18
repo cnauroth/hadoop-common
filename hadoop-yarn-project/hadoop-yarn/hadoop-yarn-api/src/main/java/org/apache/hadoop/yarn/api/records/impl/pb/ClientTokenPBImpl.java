@@ -19,16 +19,15 @@
 package org.apache.hadoop.yarn.api.records.impl.pb;
 
 import org.apache.hadoop.security.proto.SecurityProtos.TokenProto;
-import org.apache.hadoop.yarn.api.records.DelegationToken;
+import org.apache.hadoop.yarn.api.records.ClientToken;
 
-public class DelegationTokenPBImpl extends TokenPBImpl implements
-    DelegationToken {
+public class ClientTokenPBImpl extends TokenPBImpl implements ClientToken {
 
-  public DelegationTokenPBImpl() {
+  public ClientTokenPBImpl() {
     super();
   }
 
-  public DelegationTokenPBImpl(TokenProto p) {
+  public ClientTokenPBImpl(TokenProto p) {
     super(p);
   }
 }

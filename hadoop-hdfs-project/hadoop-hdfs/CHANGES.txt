@@ -309,6 +309,11 @@ Release 2.0.3-alpha - Unreleased
     HDFS-4367. GetDataEncryptionKeyResponseProto does not handle null
     response. (suresh)
 
+    HDFS-4364. GetLinkTargetResponseProto does not handle null path. (suresh)
+
+    HDFS-4369. GetBlockKeysResponseProto does not handle null response.
+    (suresh)
+
   NEW FEATURES
 
     HDFS-2656. Add libwebhdfs, a pure C client based on WebHDFS.
@@ -479,6 +484,15 @@ Release 2.0.3-alpha - Unreleased
 
     HDFS-4381. Document fsimage format details in FSImageFormat class javadoc.
     (Jing Zhao via suresh)
+
+    HDFS-4375. Use token request messages defined in hadoop common.
+    (suresh)
+
+    HDFS-4392. Use NetUtils#getFreeSocketPort in MiniDFSCluster.
+    (Andrew Purtell via suresh)
+
+    HDFS-4393. Make empty request and responses in protocol translators can be
+    static final members. (Brandon Li via suresh)
 
   OPTIMIZATIONS
 
@@ -705,6 +719,9 @@ Release 2.0.3-alpha - Unreleased
 
     HDFS-1245. Pluggable block id generation. (shv)
 
+    HDFS-4415. HostnameFilter should handle hostname resolution failures and
+    continue processing. (Robert Kanter via atm)
+
   BREAKDOWN OF HDFS-3077 SUBTASKS
 
     HDFS-3077. Quorum-based protocol for reading and writing edit logs.
@@ -807,8 +824,11 @@ Release 2.0.3-alpha - Unreleased
     HDFS-4017. Unclosed FileInputStream in GetJournalEditServlet
     (Chao Shi via todd)
 
-    HDFS-4351.  In BlockPlacementPolicyDefault.chooseTarget(..), numOfReplicas
+    HDFS-4351. In BlockPlacementPolicyDefault.chooseTarget(..), numOfReplicas
     needs to be updated when avoiding stale nodes.  (Andrew Wang via szetszwo)
+
+    HDFS-4399. Fix RAT warnings by excluding images sub-dir in docs. (Thomas
+    Graves via acmurthy) 
 
 Release 2.0.2-alpha - 2012-09-07 
 
@@ -2187,6 +2207,18 @@ Release 2.0.0-alpha - 05-23-2012
     
     HDFS-3039. Address findbugs and javadoc warnings on branch. (todd via atm)
 
+Release 0.23.7 - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+  OPTIMIZATIONS
+
+  BUG FIXES
+
 Release 0.23.6 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -2206,7 +2238,7 @@ Release 0.23.6 - UNRELEASED
 
     HDFS-4385. Maven RAT plugin is not checking all source files (tgraves)
 
-Release 0.23.5 - UNRELEASED
+Release 0.23.5 - 2012-11-28
 
   INCOMPATIBLE CHANGES
 

@@ -16,19 +16,24 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.yarn.api.records.impl.pb;
+package org.apache.hadoop.yarn.api.records;
 
-import org.apache.hadoop.security.proto.SecurityProtos.TokenProto;
-import org.apache.hadoop.yarn.api.records.DelegationToken;
+import org.apache.hadoop.classification.InterfaceAudience.Public;
+import org.apache.hadoop.classification.InterfaceStability.Stable;
 
-public class DelegationTokenPBImpl extends TokenPBImpl implements
-    DelegationToken {
-
-  public DelegationTokenPBImpl() {
-    super();
-  }
-
-  public DelegationTokenPBImpl(TokenProto p) {
-    super(p);
-  }
-}
+/**
+ * <p>
+ * <code>ClientToken</code> is the security token used by the AMs to verify
+ * authenticity of any <code>client</code>.
+ * </p>
+ * 
+ * <p>
+ * The <code>ResourceManager</code>, provides a secure token (via
+ * {@link ApplicationReport#getClientToken()}) which is verified by the
+ * ApplicationMaster when the client directly talks to an AM.
+ * </p>
+ * 
+ */
+@Public
+@Stable
+public interface ClientToken extends Token {}
