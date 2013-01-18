@@ -45,6 +45,13 @@
   </dependencies>
 
   <build>
+    <!--
+    Include all files in src/main/resources.  By default, do not apply property
+    substitution (filtering=false), but do apply property substitution to
+    yarn-version-info.properties (filtering=true).  This will substitute the
+    version information correctly, but prevent Maven from altering other files
+    like yarn-default.xml.
+    -->
     <resources>
       <resource>
         <directory>${basedir}/src/main/resources</directory>
