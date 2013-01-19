@@ -605,9 +605,13 @@ public class ContainerLaunch implements Callable<Integer> {
           FileStatus[] wildcardJars = FileContext.getLocalFSFileContext()
               .util().globStatus(globPath);
           if (wildcardJars != null) {
+            LOG.info("cn wildcardJars is non-null for globPath = " + globPath);
             for (FileStatus wildcardJar: wildcardJars) {
               classPathEntryList.add(wildcardJar.getPath().toString());
+              LOG.info(String.format("cn, classPathEntry = [%s], wildcardJar = [%s]", classPathEntry, wildcardJar.getPath().toString()));
             }
+          } else {
+            LOG.info("cn wildcardJars is null for globPath = " + globPath);
           }
         }
         else {
