@@ -32,13 +32,16 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.StringTokenizer;
+import java.util.regex.Matcher;
 
 import com.google.common.net.InetAddresses;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.net.NetUtils;
+import org.apache.hadoop.util.Shell;
 
 /**
  * General string utils
@@ -814,5 +817,31 @@ public class StringUtils {
       sb.append(org.apache.commons.lang.StringUtils.capitalize(word));
 
     return sb.toString();
+  }
+
+  /**
+   * Substitutes occurrences of environment variables in the input string with
+   * the values supplied in the environment and returns the result.  Substitution
+   * occurs by iterating through all variables defined in the environment and
+   * performing the substitution for each one.  No substitution is performed on
+   * variables in the input string that do not have corresponding values defined
+   * in the environment.
+   * 
+   * This method is platform-aware.  On Windows, it will substitute tokens of the
+   * form %VAR_NAME%.  Otherwise, it will substitute tokens of the form
+   * $VAR_NAME.
+   * 
+   * @param input String input
+   * @return String input with substitution of environment variable values
+   */
+  public static String substituteEnvVars(String input) {
+    String substituted = input;
+    for (Map.Entry<String, String> envEntry: System.getenv().entrySet()) {
+      String envVar = Shell.WINDOWS ? "%" + envEntry.getKey() + "%" :
+        "$" + envEntry.getKey();
+      substituted = substituted.replaceAll(envVar, Matcher.quoteReplacement(
+        envEntry.getValue()));
+    }
+    return substituted;
   }
 }

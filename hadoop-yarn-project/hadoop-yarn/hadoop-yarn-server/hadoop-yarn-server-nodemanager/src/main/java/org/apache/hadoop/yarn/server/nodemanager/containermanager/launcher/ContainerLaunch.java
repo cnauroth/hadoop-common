@@ -39,6 +39,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileContext;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.LocalDirAllocator;
 import org.apache.hadoop.fs.Path;
@@ -574,8 +575,46 @@ public class ContainerLaunch implements Callable<Integer> {
       // classpath.  Then, reference this jar when setting the CLASSPATH
       // environment variable.
       String classPathEntries = environment.get(Environment.CLASSPATH.name());
-      List<String> classPathEntryList = Arrays.asList(classPathEntries.split(
-        File.pathSeparator));
+      List<String> classPathEntryList = new ArrayList<String>();
+      for (String classPathEntry: classPathEntries.split(File.pathSeparator)) {
+          /*
+        String replacedClassPathEntry = classPathEntry
+          .replaceAll("%PWD%", java.util.regex.Matcher.quoteReplacement(pwd.toString()))
+          .replaceAll("%HADOOP_CONF_DIR%", java.util.regex.Matcher.quoteReplacement(System.getenv("HADOOP_CONF_DIR")))
+          .replaceAll("%HADOOP_COMMON_HOME%", java.util.regex.Matcher.quoteReplacement(System.getenv("HADOOP_COMMON_HOME")))
+          .replaceAll("%HADOOP_HDFS_HOME%", java.util.regex.Matcher.quoteReplacement(System.getenv("HADOOP_HDFS_HOME")))
+          .replaceAll("%HADOOP_MAPRED_HOME%", java.util.regex.Matcher.quoteReplacement(System.getenv("HADOOP_MAPRED_HOME")))
+          .replaceAll("%HADOOP_YARN_HOME%", java.util.regex.Matcher.quoteReplacement(System.getenv("HADOOP_YARN_HOME")));
+          */
+
+        String replacedClassPathEntry = StringUtils.substituteEnvVars(
+          classPathEntry);
+        if (replacedClassPathEntry.endsWith("*")) {
+            /*
+          FileStatus[] wildcardJars = FileContext.getLocalFSFileContext()
+            .util().globStatus(new Path(replacedClassPathEntry),
+              new PathFilter() {
+                @Override
+                public boolean accept(Path path) {
+                  String pathName = path.getName();
+                  return pathName.endsWith(".jar") || pathName.endsWith(".JAR");
+                }
+              });
+            */
+          Path globPath = new Path(replacedClassPathEntry).suffix("{.jar,.JAR}");
+          FileStatus[] wildcardJars = FileContext.getLocalFSFileContext()
+              .util().globStatus(globPath);
+          if (wildcardJars != null) {
+            for (FileStatus wildcardJar: wildcardJars) {
+              classPathEntryList.add(wildcardJar.getPath().toString());
+            }
+          }
+        }
+        else {
+          classPathEntryList.add(replacedClassPathEntry);
+          LOG.info(String.format("cn, classPathEntry = [%s], replacedClassPathEntry = [%s]", classPathEntry, replacedClassPathEntry));
+        }
+      }
       File classPathJar = File.createTempFile("classpath-", ".jar",
         new File(pwd.toString()).getParentFile());
       FileUtil.createJarWithClassPath(classPathJar, classPathEntryList);
