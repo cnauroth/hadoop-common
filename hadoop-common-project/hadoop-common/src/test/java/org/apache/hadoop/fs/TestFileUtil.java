@@ -24,6 +24,7 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -664,7 +665,7 @@ public class TestFileUtil {
   }
 
   @Test
-  public void testCreateJarWithClassPath() throws IOException {
+  public void testCreateJarWithClassPath() throws Exception {
     // setup
     Assert.assertFalse(tmp.exists());
     Assert.assertTrue(tmp.mkdirs());
@@ -672,7 +673,8 @@ public class TestFileUtil {
     // create classpath jar
     File classPathJar = new File(tmp, "classpath.jar");
     Assert.assertFalse(classPathJar.exists());
-    List<String> classPaths = Arrays.asList("cp1.jar", "cp2.jar", "cp3.jar");
+    List<URI> classPaths = Arrays.asList(new URI("file://cp1.jar"),
+      new URI("file://cp2.jar"), new URI("cp3.jar"));
     FileUtil.createJarWithClassPath(classPathJar, classPaths);
 
     // verify classpath by reading manifest from jar file
@@ -687,8 +689,8 @@ public class TestFileUtil {
       String classPathAttr = mainAttributes.getValue(Attributes.Name.CLASS_PATH);
       Assert.assertNotNull(classPathAttr);
       List<String> expectedClassPaths = new ArrayList<String>(classPaths.size());
-      for (String classPath: classPaths) {
-        expectedClassPaths.add(new File(classPath).toURI().toString());
+      for (URI classPath: classPaths) {
+        expectedClassPaths.add(classPath.toString());
       }
       List<String> actualClassPaths = Arrays.asList(classPathAttr.split(" "));
       Assert.assertEquals(expectedClassPaths, actualClassPaths);

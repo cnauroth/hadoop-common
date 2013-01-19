@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.io.File;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -575,7 +576,7 @@ public class ContainerLaunch implements Callable<Integer> {
       // classpath.  Then, reference this jar when setting the CLASSPATH
       // environment variable.
       String classPathEntries = environment.get(Environment.CLASSPATH.name());
-      List<String> classPathEntryList = new ArrayList<String>();
+      List<URI> classPathEntryList = new ArrayList<URI>();
       for (String classPathEntry: classPathEntries.split(File.pathSeparator)) {
           /*
         String replacedClassPathEntry = classPathEntry
@@ -607,16 +608,16 @@ public class ContainerLaunch implements Callable<Integer> {
           if (wildcardJars != null) {
             LOG.info("cn wildcardJars is non-null for globPath = " + globPath);
             for (FileStatus wildcardJar: wildcardJars) {
-              classPathEntryList.add(wildcardJar.getPath().toString());
-              LOG.info(String.format("cn, classPathEntry = [%s], wildcardJar = [%s]", classPathEntry, wildcardJar.getPath().toString()));
+              classPathEntryList.add(wildcardJar.getPath().toUri());
+              LOG.info(String.format("cn, classPathEntry = [%s], wildcardJar = [%s]", classPathEntry, wildcardJar.getPath().toUri().toURL().toExternalForm()));
             }
           } else {
             LOG.info("cn wildcardJars is null for globPath = " + globPath);
           }
         }
         else {
-          classPathEntryList.add(replacedClassPathEntry);
-          LOG.info(String.format("cn, classPathEntry = [%s], replacedClassPathEntry = [%s]", classPathEntry, replacedClassPathEntry));
+          classPathEntryList.add(new File(replacedClassPathEntry).toURI());
+          LOG.info(String.format("cn, classPathEntry = [%s], replacedClassPathEntry = [%s]", classPathEntry, new File(replacedClassPathEntry).toURI().toURL().toExternalForm()));
         }
       }
       File classPathJar = File.createTempFile("classpath-", ".jar",

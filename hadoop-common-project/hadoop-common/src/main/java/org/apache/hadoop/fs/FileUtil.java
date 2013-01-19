@@ -19,7 +19,7 @@
 package org.apache.hadoop.fs;
 
 import java.io.*;
-import java.net.URL;
+import java.net.URI;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
@@ -956,14 +956,13 @@ public class FileUtil {
    * @param classPaths entries to be added in the manifest of the created Jar 
    * @return jarFile created with classpath entries
    */
-  public static File createJarWithClassPath(File jarFile, List<String> classPaths) 
+  public static File createJarWithClassPath(File jarFile, List<URI> classPaths) 
       throws IOException {
     StringBuffer jarClsPath = new StringBuffer();
 
     // Append all entries in classpath list to the Jar
-    for (String clsEntry : classPaths) {
-      URL fileUrl = new URL(new File(clsEntry).toURI().toString());
-      jarClsPath.append(fileUrl.toExternalForm());
+    for (URI clsEntry : classPaths) {
+      jarClsPath.append(clsEntry.toURL().toExternalForm());
       jarClsPath.append(" ");
     }
 
