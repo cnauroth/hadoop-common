@@ -587,6 +587,7 @@ public class ContainerLaunch implements Callable<Integer> {
       }
       File classPathJar = File.createTempFile("classpath-", ".jar",
         new File(pwd.toString()));
+      LOG.info("cn creating classpath jar at: " + classPathJar + ", canonical path " + classPathJar.getCanonicalPath());
       FileUtil.createJarWithClassPath(classPathJar, classPathEntries);
       environment.put(Environment.CLASSPATH.name(),
         classPathJar.getCanonicalPath());
