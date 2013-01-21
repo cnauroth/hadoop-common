@@ -820,6 +820,22 @@ public class StringUtils {
   }
 
   /**
+   * Matches a template string against a pattern, replaces matched tokens with
+   * the supplied replacements, and returns the result.  The regular expression
+   * must use a capturing group.  The value of the first capturing group is used
+   * to look up the replacement.  If no replacement is found for the token, then
+   * it is replaced with the empty string.
+   * 
+   * For example, assume template is "%foo%_%bar%_%baz%", pattern is "%(.*?)%",
+   * and replacements contains 2 entries, mapping "foo" to "zoo" and "baz" to
+   * "zaz". The result returned would be "zoo__zaz".
+   * 
+   * @param template String template to receive replacements
+   * @param pattern Pattern to match for identifying tokens, must use a capturing
+   *   group
+   * @param replacements Map<String, String> mapping tokens identified by the
+   *   capturing group to their replacement values
+   * @return String template with replacements
    */
   public static String replaceTokens(String template, Pattern pattern,
       Map<String, String> replacements) {

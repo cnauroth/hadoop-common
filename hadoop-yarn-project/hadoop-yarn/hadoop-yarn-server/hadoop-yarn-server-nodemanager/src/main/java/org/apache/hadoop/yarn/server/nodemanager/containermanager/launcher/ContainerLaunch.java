@@ -35,6 +35,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
+import org.apache.commons.collections.map.CaseInsensitiveMap;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -573,12 +574,16 @@ public class ContainerLaunch implements Callable<Integer> {
       // classpath may be longer than this.  To work around this limitation,
       // create a small intermediate jar with a manifest that contains the full
       // classpath.  Then, reference this jar when setting the CLASSPATH
-      // environment variable.
+      // environment variable.  Environment variable evaluation is not supported
+      // within a jar manifest, so expand environment variables here.
+      // Environment variables are case-insensitive on Windows.
+      Map<String, String> caseInsensitiveEnv = new CaseInsensitiveMap(
+        System.getenv());
       String[] classPathEntries = environment.get(Environment.CLASSPATH.name())
         .split(File.pathSeparator);
       for (int i = 0; i < classPathEntries.length; ++i) {
         classPathEntries[i] = StringUtils.replaceTokens(classPathEntries[i],
-          WIN_ENV_VAR_PATTERN, System.getenv());
+          WIN_ENV_VAR_PATTERN, caseInsensitiveEnv);
       }
       File classPathJar = File.createTempFile("classpath-", ".jar",
         new File(pwd.toString()).getParentFile());
