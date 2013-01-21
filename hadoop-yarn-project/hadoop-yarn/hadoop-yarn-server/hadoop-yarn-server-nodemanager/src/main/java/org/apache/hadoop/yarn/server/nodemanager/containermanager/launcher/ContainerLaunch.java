@@ -586,7 +586,7 @@ public class ContainerLaunch implements Callable<Integer> {
         classPathEntries[i] = StringUtils.replaceTokens(classPathEntries[i],
           WIN_ENV_VAR_PATTERN, caseInsensitiveEnv);
       }
-      LOG.info("cn attempting to create temp file at " + new File(pwd.toString()) + ", canonical path = " + new File(pwd.toString()).getCanonicalPath());
+      LOG.info("cn attempting to create temp file at " + new File(pwd.toString()) + ", canonical path = " + new File(pwd.toString()).getCanonicalPath() + ", exists = " + new File(pwd.toString()).exists() + ", isDirectory = " + new File(pwd.toString()).isDirectory());
       File classPathJar = File.createTempFile("classpath-", ".jar",
         new File(pwd.toString()));
       LOG.info("cn creating classpath jar at: " + classPathJar + ", canonical path " + classPathJar.getCanonicalPath());
