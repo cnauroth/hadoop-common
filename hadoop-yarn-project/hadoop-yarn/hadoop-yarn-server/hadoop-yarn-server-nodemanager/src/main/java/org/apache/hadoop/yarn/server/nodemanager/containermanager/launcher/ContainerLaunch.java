@@ -577,6 +577,7 @@ public class ContainerLaunch implements Callable<Integer> {
       // environment variable.  Environment variable evaluation is not supported
       // within a jar manifest, so expand environment variables here.
       // Environment variables are case-insensitive on Windows.
+      @SuppressWarnings("unchecked")
       Map<String, String> caseInsensitiveEnv = new CaseInsensitiveMap(
         System.getenv());
       String[] classPathEntries = environment.get(Environment.CLASSPATH.name())
