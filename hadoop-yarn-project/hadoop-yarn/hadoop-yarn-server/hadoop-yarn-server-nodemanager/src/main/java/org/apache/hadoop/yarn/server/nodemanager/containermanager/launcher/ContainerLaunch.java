@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -76,6 +77,7 @@ public class ContainerLaunch implements Callable<Integer> {
   public static final String FINAL_CONTAINER_TOKENS_FILE = "container_tokens";
 
   private static final String PID_FILE_NAME_FMT = "%s.pid";
+  private static final Pattern WIN_ENV_VAR_PATTERN = Pattern.compile("%(.*?)%");
 
   private final Dispatcher dispatcher;
   private final ContainerExecutor exec;
@@ -574,6 +576,10 @@ public class ContainerLaunch implements Callable<Integer> {
       // environment variable.
       String[] classPathEntries = environment.get(Environment.CLASSPATH.name())
         .split(File.pathSeparator);
+      for (int i = 0; i < classPathEntries.length; ++i) {
+        classPathEntries[i] = StringUtils.replaceTokens(classPathEntries[i],
+          WIN_ENV_VAR_PATTERN, System.getenv());
+      }
       File classPathJar = File.createTempFile("classpath-", ".jar",
         new File(pwd.toString()).getParentFile());
       FileUtil.createJarWithClassPath(classPathJar, classPathEntries);

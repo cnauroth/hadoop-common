@@ -969,12 +969,9 @@ public class FileUtil {
     List<String> classPathEntryList = new ArrayList<String>(
       classPathEntries.length);
     for (String classPathEntry: classPathEntries) {
-      String substitutedClassPathEntry = StringUtils.substituteEnvVars(
-        classPathEntry);
-      if (substitutedClassPathEntry.endsWith("*")) {
+      if (classPathEntry.endsWith("*")) {
         // Append all jars that match the wildcard
-        Path globPath = new Path(substitutedClassPathEntry)
-          .suffix("{.jar,.JAR}");
+        Path globPath = new Path(classPathEntry).suffix("{.jar,.JAR}");
         FileStatus[] wildcardJars = FileContext.getLocalFSFileContext()
           .util().globStatus(globPath);
         if (wildcardJars != null) {
@@ -986,8 +983,8 @@ public class FileUtil {
       }
       else {
         // Append just this jar
-        classPathEntryList.add(new File(substitutedClassPathEntry).toURI()
-          .toURL().toExternalForm());
+        classPathEntryList.add(new File(classPathEntry).toURI().toURL()
+          .toExternalForm());
       }
     }
     String jarClassPath = StringUtils.join(" ", classPathEntryList);
