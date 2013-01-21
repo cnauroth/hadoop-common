@@ -19,7 +19,6 @@
 package org.apache.hadoop.fs;
 
 import java.io.*;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
@@ -955,6 +954,10 @@ public class FileUtil {
    * Create a jar file at the given path, containing a manifest with a classpath
    * that references all specified entries.
    * 
+   * Specifying the classpath in a jar manifest does not support wildcards, so
+   * this method expands wildcards internally.  Any classpath entry that ends
+   * with * is translated to all files at that path with extension .jar or .JAR.
+   * 
    * @param jarFile File file to create with classpath entries in its manifest
    * @param classPathEntries String[] entries to be added in the manifest of
    *   the created jar
@@ -969,7 +972,9 @@ public class FileUtil {
       String substitutedClassPathEntry = StringUtils.substituteEnvVars(
         classPathEntry);
       if (substitutedClassPathEntry.endsWith("*")) {
-        Path globPath = new Path(substitutedClassPathEntry).suffix("{.jar,.JAR}");
+        // Append all jars that match the wildcard
+        Path globPath = new Path(substitutedClassPathEntry)
+          .suffix("{.jar,.JAR}");
         FileStatus[] wildcardJars = FileContext.getLocalFSFileContext()
           .util().globStatus(globPath);
         if (wildcardJars != null) {
@@ -980,6 +985,7 @@ public class FileUtil {
         }
       }
       else {
+        // Append just this jar
         classPathEntryList.add(new File(substitutedClassPathEntry).toURI()
           .toURL().toExternalForm());
       }
