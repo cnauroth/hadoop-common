@@ -586,7 +586,7 @@ public class ContainerLaunch implements Callable<Integer> {
           WIN_ENV_VAR_PATTERN, caseInsensitiveEnv);
       }
       File classPathJar = File.createTempFile("classpath-", ".jar",
-        new File(pwd.toString()).getParentFile());
+        new File(pwd.toString()));
       FileUtil.createJarWithClassPath(classPathJar, classPathEntries);
       environment.put(Environment.CLASSPATH.name(),
         classPathJar.getCanonicalPath());
