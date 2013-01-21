@@ -20,6 +20,7 @@ package org.apache.hadoop.fs;
 
 import java.io.*;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
@@ -951,34 +952,57 @@ public class FileUtil {
   }  
   
   /**
-   * Create a JAR file under at the given path, referencing all entries in the classpath list.
-   * @param jarFile file to create with classpath entries in its manifest
-   * @param classPaths entries to be added in the manifest of the created Jar 
-   * @return jarFile created with classpath entries
+   * Create a jar file at the given path, containing a manifest with a classpath
+   * that references all specified entries.
+   * 
+   * @param jarFile File file to create with classpath entries in its manifest
+   * @param classPathEntries String[] entries to be added in the manifest of
+   *   the created jar
+   * @throws IOException if there is an I/O error while writing the jar file
    */
-  public static File createJarWithClassPath(File jarFile, List<URI> classPaths) 
-      throws IOException {
-    StringBuffer jarClsPath = new StringBuffer();
-
-    // Append all entries in classpath list to the Jar
-    for (URI clsEntry : classPaths) {
-      jarClsPath.append(clsEntry.toURL().toExternalForm());
-      jarClsPath.append(" ");
+  public static void createJarWithClassPath(File jarFile,
+      String[] classPathEntries) throws IOException {
+    // Append all entries
+    List<String> classPathEntryList = new ArrayList<String>(
+      classPathEntries.length);
+    for (String classPathEntry: classPathEntries) {
+      String substitutedClassPathEntry = StringUtils.substituteEnvVars(
+        classPathEntry);
+      if (substitutedClassPathEntry.endsWith("*")) {
+        Path globPath = new Path(substitutedClassPathEntry).suffix("{.jar,.JAR}");
+        FileStatus[] wildcardJars = FileContext.getLocalFSFileContext()
+          .util().globStatus(globPath);
+        if (wildcardJars != null) {
+          for (FileStatus wildcardJar: wildcardJars) {
+            classPathEntryList.add(wildcardJar.getPath().toUri().toURL()
+              .toExternalForm());
+          }
+        }
+      }
+      else {
+        classPathEntryList.add(new File(substitutedClassPathEntry).toURI()
+          .toURL().toExternalForm());
+      }
     }
+    String jarClassPath = StringUtils.join(" ", classPathEntryList);
 
     // Create the manifest
     Manifest jarManifest = new Manifest();
     jarManifest.getMainAttributes().putValue(
         Attributes.Name.MANIFEST_VERSION.toString(), "1.0");
-    
     jarManifest.getMainAttributes().putValue(
-        Attributes.Name.CLASS_PATH.toString(), jarClsPath.toString().trim());
+        Attributes.Name.CLASS_PATH.toString(), jarClassPath);
 
     // Write the manifest to output JAR file
-    JarOutputStream jarStream = new JarOutputStream(
-        new FileOutputStream(jarFile), jarManifest);
-    
-    jarStream.close();
-    return jarFile;
+    FileOutputStream fos = null;
+    BufferedOutputStream bos = null;
+    JarOutputStream jos = null;
+    try {
+      fos = new FileOutputStream(jarFile);
+      bos = new BufferedOutputStream(fos);
+      jos = new JarOutputStream(bos, jarManifest);
+    } finally {
+      IOUtils.cleanup(LOG, jos, bos, fos);
+    }
   }
 }

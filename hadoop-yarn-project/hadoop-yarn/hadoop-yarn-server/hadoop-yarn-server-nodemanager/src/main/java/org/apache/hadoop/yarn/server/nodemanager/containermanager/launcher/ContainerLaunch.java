@@ -26,7 +26,6 @@ import java.io.IOException;
 import java.io.File;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -575,54 +574,11 @@ public class ContainerLaunch implements Callable<Integer> {
       // create a small intermediate jar with a manifest that contains the full
       // classpath.  Then, reference this jar when setting the CLASSPATH
       // environment variable.
-      String classPathEntries = environment.get(Environment.CLASSPATH.name());
-      List<URI> classPathEntryList = new ArrayList<URI>();
-      for (String classPathEntry: classPathEntries.split(File.pathSeparator)) {
-          /*
-        String replacedClassPathEntry = classPathEntry
-          .replaceAll("%PWD%", java.util.regex.Matcher.quoteReplacement(pwd.toString()))
-          .replaceAll("%HADOOP_CONF_DIR%", java.util.regex.Matcher.quoteReplacement(System.getenv("HADOOP_CONF_DIR")))
-          .replaceAll("%HADOOP_COMMON_HOME%", java.util.regex.Matcher.quoteReplacement(System.getenv("HADOOP_COMMON_HOME")))
-          .replaceAll("%HADOOP_HDFS_HOME%", java.util.regex.Matcher.quoteReplacement(System.getenv("HADOOP_HDFS_HOME")))
-          .replaceAll("%HADOOP_MAPRED_HOME%", java.util.regex.Matcher.quoteReplacement(System.getenv("HADOOP_MAPRED_HOME")))
-          .replaceAll("%HADOOP_YARN_HOME%", java.util.regex.Matcher.quoteReplacement(System.getenv("HADOOP_YARN_HOME")));
-          */
-
-        String replacedClassPathEntry = StringUtils.substituteEnvVars(
-          classPathEntry);
-        if (replacedClassPathEntry.endsWith("*")) {
-            /*
-          FileStatus[] wildcardJars = FileContext.getLocalFSFileContext()
-            .util().globStatus(new Path(replacedClassPathEntry),
-              new PathFilter() {
-                @Override
-                public boolean accept(Path path) {
-                  String pathName = path.getName();
-                  return pathName.endsWith(".jar") || pathName.endsWith(".JAR");
-                }
-              });
-            */
-          Path globPath = new Path(replacedClassPathEntry).suffix("{.jar,.JAR}");
-          FileStatus[] wildcardJars = FileContext.getLocalFSFileContext()
-              .util().globStatus(globPath);
-          if (wildcardJars != null) {
-            LOG.info("cn wildcardJars is non-null for globPath = " + globPath);
-            for (FileStatus wildcardJar: wildcardJars) {
-              classPathEntryList.add(wildcardJar.getPath().toUri());
-              LOG.info(String.format("cn, classPathEntry = [%s], wildcardJar = [%s]", classPathEntry, wildcardJar.getPath().toUri().toURL().toExternalForm()));
-            }
-          } else {
-            LOG.info("cn wildcardJars is null for globPath = " + globPath);
-          }
-        }
-        else {
-          classPathEntryList.add(new File(replacedClassPathEntry).toURI());
-          LOG.info(String.format("cn, classPathEntry = [%s], replacedClassPathEntry = [%s]", classPathEntry, new File(replacedClassPathEntry).toURI().toURL().toExternalForm()));
-        }
-      }
+      String[] classPathEntries = environment.get(Environment.CLASSPATH.name())
+        .split(File.pathSeparator);
       File classPathJar = File.createTempFile("classpath-", ".jar",
         new File(pwd.toString()).getParentFile());
-      FileUtil.createJarWithClassPath(classPathJar, classPathEntryList);
+      FileUtil.createJarWithClassPath(classPathJar, classPathEntries);
       environment.put(Environment.CLASSPATH.name(),
         classPathJar.getCanonicalPath());
     }

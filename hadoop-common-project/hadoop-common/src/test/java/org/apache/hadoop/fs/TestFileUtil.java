@@ -24,7 +24,6 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -673,8 +672,7 @@ public class TestFileUtil {
     // create classpath jar
     File classPathJar = new File(tmp, "classpath.jar");
     Assert.assertFalse(classPathJar.exists());
-    List<URI> classPaths = Arrays.asList(new URI("file://cp1.jar"),
-      new URI("file://cp2.jar"), new URI("cp3.jar"));
+    String[] classPaths = { "cp1.jar", "cp2.jar", "cp3.jar" };
     FileUtil.createJarWithClassPath(classPathJar, classPaths);
 
     // verify classpath by reading manifest from jar file
@@ -688,10 +686,7 @@ public class TestFileUtil {
       Assert.assertTrue(mainAttributes.containsKey(Attributes.Name.CLASS_PATH));
       String classPathAttr = mainAttributes.getValue(Attributes.Name.CLASS_PATH);
       Assert.assertNotNull(classPathAttr);
-      List<String> expectedClassPaths = new ArrayList<String>(classPaths.size());
-      for (URI classPath: classPaths) {
-        expectedClassPaths.add(classPath.toString());
-      }
+      List<String> expectedClassPaths = Arrays.asList(classPaths);
       List<String> actualClassPaths = Arrays.asList(classPathAttr.split(" "));
       Assert.assertEquals(expectedClassPaths, actualClassPaths);
     } finally {
