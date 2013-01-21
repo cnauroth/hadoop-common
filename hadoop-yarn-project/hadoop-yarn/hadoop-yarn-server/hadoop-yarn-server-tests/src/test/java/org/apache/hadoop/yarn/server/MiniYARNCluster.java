@@ -96,10 +96,11 @@ public class MiniYARNCluster extends CompositeService {
     } 
 
     if (Shell.WINDOWS) {
-      // The test working directory can exceed the maximum path length of Windows
-      // (260 characters).  To work around this, create a symlink in temporary
-      // storage with a much shorter path, targeting the full path to the test
-      // working directory.  Then, use the symlink as the test working directory.
+      // The test working directory can exceed the maximum path length supported
+      // by some Windows APIs and cmd.exe (260 characters).  To work around this,
+      // create a symlink in temporary storage with a much shorter path,
+      // targeting the full path to the test working directory.  Then, use the
+      // symlink as the test working directory.
       String targetPath = targetWorkDir.getAbsolutePath();
       File link = new File(System.getProperty("java.io.tmpdir"),
         String.valueOf(System.currentTimeMillis()));
