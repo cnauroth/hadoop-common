@@ -570,6 +570,7 @@ public class ContainerLaunch implements Callable<Integer> {
     }
 
     if (Shell.WINDOWS) {
+      try {
       // On Windows, the maximum command line length is 8191 characters.  The
       // classpath may be longer than this.  To work around this limitation,
       // create a small intermediate jar with a manifest that contains the full
@@ -585,12 +586,14 @@ public class ContainerLaunch implements Callable<Integer> {
         classPathEntries[i] = StringUtils.replaceTokens(classPathEntries[i],
           WIN_ENV_VAR_PATTERN, caseInsensitiveEnv);
       }
+      LOG.info("cn attempting to create temp file at " + new File(pwd.toString()) + ", canonical path = " + new File(pwd.toString()).getCanonicalPath());
       File classPathJar = File.createTempFile("classpath-", ".jar",
         new File(pwd.toString()));
       LOG.info("cn creating classpath jar at: " + classPathJar + ", canonical path " + classPathJar.getCanonicalPath());
       FileUtil.createJarWithClassPath(classPathJar, classPathEntries);
       environment.put(Environment.CLASSPATH.name(),
         classPathJar.getCanonicalPath());
+      } catch (Throwable t) { LOG.warn("cn exception", t); }
     }
 
     /**
