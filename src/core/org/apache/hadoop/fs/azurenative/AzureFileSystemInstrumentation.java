@@ -33,7 +33,7 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
       "asv_average_block_upload_latency_ms";
   static final String ASV_DOWNLOAD_LATENCY =
       "asv_average_block_download_latency_ms";
-  static final String ASV_USER_ERRORS = "asv_user_errors";
+  static final String ASV_CLIENT_ERRORS = "asv_client_errors";
   static final String ASV_SERVER_ERRORS = "asv_server_errors";
 
   /**
@@ -102,10 +102,10 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
           "Total number of raw bytes (including overhead) downloaded from Azure" +
           " Storage.",
           0L);
-  private final MetricMutableCounterLong userErrors =
+  private final MetricMutableCounterLong clientErrors =
       registry.newCounter(
-          ASV_USER_ERRORS,
-          "Total number of user-caused errors by ASV.",
+          ASV_CLIENT_ERRORS,
+          "Total number of client-side errors by ASV (excluding 404).",
           0L);
   private final MetricMutableCounterLong serverErrors =
       registry.newCounter(
@@ -287,10 +287,10 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
   }
 
   /**
-   * Indicate that we just encountered a user-caused error.
+   * Indicate that we just encountered a client-side error.
    */
-  public void userErrorEncountered() {
-    userErrors.incr();
+  public void clientErrorEncountered() {
+    clientErrors.incr();
   }
 
   /**

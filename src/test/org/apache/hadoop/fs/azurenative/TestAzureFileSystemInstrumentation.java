@@ -288,8 +288,8 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     assertNoErrors();
   }
 
-  public void testUserErrorMetrics() throws Exception {
-    String directoryName = "metricsTestDirectory_UserError";
+  public void testClientErrorMetrics() throws Exception {
+    String directoryName = "metricsTestDirectory_ClientError";
     Path directoryPath = new Path("/" + directoryName);
     assertTrue(fs.mkdirs(directoryPath));
     String leaseID = testAccount.acquireShortLease(directoryName);
@@ -301,7 +301,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
         assertTrue("Unexpected exception: " + ex,
             ex.getMessage().contains("lease"));
       }
-      assertEquals(1, getLongCounterValue(getInstrumentation(), ASV_USER_ERRORS));
+      assertEquals(1, getLongCounterValue(getInstrumentation(), ASV_CLIENT_ERRORS));
       assertEquals(0, getLongCounterValue(getInstrumentation(), ASV_SERVER_ERRORS));
     } finally {
       testAccount.releaseLease(leaseID, directoryName);
@@ -345,7 +345,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
   }
 
   private void assertNoErrors() {
-    assertEquals(0, getLongCounterValue(getInstrumentation(), ASV_USER_ERRORS));
+    assertEquals(0, getLongCounterValue(getInstrumentation(), ASV_CLIENT_ERRORS));
     assertEquals(0, getLongCounterValue(getInstrumentation(), ASV_SERVER_ERRORS));
   }
 

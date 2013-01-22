@@ -39,27 +39,18 @@ public class ErrorMetricUpdater extends StorageEvent<ResponseReceivedEvent> {
   @Override
   public void eventOccurred(ResponseReceivedEvent eventArg) {
     RequestResult currentResult = operationContext.getLastResult();
-    switch (currentResult.getStatusCode()) {
-    case HTTP_OK:
-    case HTTP_ACCEPTED:
-    case HTTP_CREATED:
-    case HTTP_PARTIAL:
-      // Success!
-      break;
-    case HTTP_NOT_FOUND:
-      // Not success, but very common (e.g. every check for exists()
-      // generates it). Just ignore.
-      break;
-    case HTTP_INTERNAL_ERROR:
-    case HTTP_UNAVAILABLE:
-      // Either Azure Storage bug or (more likely) throttling.
+    int statusCode = currentResult.getStatusCode();
+    // Check if it's a client-side error: a 4xx status
+    // We exclude 404 because it happens frequently during the normal
+    // course of operation (each call to exists() would generate that
+    // if it's not found).
+    if (statusCode >= 400 && statusCode < 500 &&
+        statusCode != HTTP_NOT_FOUND) {
+      instrumentation.clientErrorEncountered();
+    } else if (statusCode >= 500) {
+      // It's a server error: a 5xx status. Could be an Azure Storage
+      // bug or (more likely) throttling.
       instrumentation.serverErrorEncountered();
-      break;
-    default:
-      // Assume it's one of the many possible errors caused by user actions
-      // e.g. 403 for authentication failed, 409/412 for lease violations, ...
-      instrumentation.userErrorEncountered();
-      break;
     }
   }
 }
