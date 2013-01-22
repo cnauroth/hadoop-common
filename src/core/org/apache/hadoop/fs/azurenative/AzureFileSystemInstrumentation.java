@@ -33,6 +33,8 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
       "asv_average_block_upload_latency_ms";
   static final String ASV_DOWNLOAD_LATENCY =
       "asv_average_block_download_latency_ms";
+  static final String ASV_USER_ERRORS = "asv_user_errors";
+  static final String ASV_SERVER_ERRORS = "asv_server_errors";
 
   /**
    * Config key for how big the rolling window size for latency metrics should
@@ -99,6 +101,16 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
           ASV_RAW_BYTES_DOWNLOADED,
           "Total number of raw bytes (including overhead) downloaded from Azure" +
           " Storage.",
+          0L);
+  private final MetricMutableCounterLong userErrors =
+      registry.newCounter(
+          ASV_USER_ERRORS,
+          "Total number of user-caused errors by ASV.",
+          0L);
+  private final MetricMutableCounterLong serverErrors =
+      registry.newCounter(
+          ASV_SERVER_ERRORS,
+          "Total number of server-caused errors by ASV.",
           0L);
   private final MetricMutableGaugeLong averageBlockUploadLatencyMs;
   private final MetricMutableGaugeLong averageBlockDownloadLatencyMs;
@@ -265,6 +277,20 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
    */
   public void blockDownloaded(long latency) {
     currentBlockDownloadLatency.addPoint(latency);
+  }
+
+  /**
+   * Indicate that we just encountered a user-caused error.
+   */
+  public void userErrorEncountered() {
+    userErrors.incr();
+  }
+
+  /**
+   * Indicate that we just encountered a server-caused error.
+   */
+  public void serverErrorEncountered() {
+    serverErrors.incr();
   }
 
   @Override

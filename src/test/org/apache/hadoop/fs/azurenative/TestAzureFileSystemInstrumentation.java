@@ -4,6 +4,7 @@ import java.io.*;
 import java.util.*;
 
 import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.azure.AzureException;
 import org.apache.hadoop.metrics2.*;
 import org.apache.hadoop.metrics2.lib.*;
 
@@ -85,6 +86,8 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     // List the root contents
     assertEquals(1, fs.listStatus(new Path("/")).length);    
     base = assertWebResponsesEquals(base, 1);
+
+    assertNoErrors();
   }
 
   private BandwidthGaugeUpdater getBandwidthGaugeUpdater() {
@@ -199,6 +202,8 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
         " the case since the test overestimates the latency by looking at " +
         " end-to-end time instead of just block download time.",
         downloadLatency <= expectedLatency);
+
+    assertNoErrors();
   }
 
   public void testMetricsOnFileRename() throws Exception {
@@ -219,6 +224,8 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     // Varies: at the time of writing this code it takes 7 requests/responses.
     logOpResponseCount("Renaming a file", base);
     base = assertWebResponsesInRange(base, 2, 15);
+
+    assertNoErrors();
   }
 
   public void testMetricsOnFileExistsDelete() throws Exception {
@@ -250,6 +257,8 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     logOpResponseCount("Deleting a file", base);
     base = assertWebResponsesInRange(base, 1, 4);
     assertEquals(1, getLongCounterValue(getInstrumentation(), ASV_FILES_DELETED));
+
+    assertNoErrors();
   }
 
   public void testMetricsOnDirRename() throws Exception {
@@ -273,6 +282,28 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     // to rename the directory with one file. Check for range 1-20 for now.
     logOpResponseCount("Renaming a directory", base);
     base = assertWebResponsesInRange(base, 1, 20);
+
+    assertNoErrors();
+  }
+
+  public void testUserErrorMetrics() throws Exception {
+    String directoryName = "metricsTestDirectory_UserError";
+    Path directoryPath = new Path("/" + directoryName);
+    assertTrue(fs.mkdirs(directoryPath));
+    String leaseID = testAccount.acquireShortLease(directoryName);
+    try {
+      try {
+        fs.delete(directoryPath, true);
+        assertTrue("Should've thrown.", false);
+      } catch (AzureException ex) {
+        assertTrue("Unexpected exception: " + ex,
+            ex.getMessage().contains("lease"));
+      }
+      assertEquals(1, getLongCounterValue(getInstrumentation(), ASV_USER_ERRORS));
+      assertEquals(0, getLongCounterValue(getInstrumentation(), ASV_SERVER_ERRORS));
+    } finally {
+      testAccount.releaseLease(leaseID, directoryName);
+    }
   }
 
   private void logOpResponseCount(String opName, long base) {
@@ -309,6 +340,11 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
   private long assertWebResponsesEquals(long base, long expected) {
     assertCounter(ASV_WEB_RESPONSES, base + expected, getMyMetrics());
     return base + expected;
+  }
+
+  private void assertNoErrors() {
+    assertEquals(0, getLongCounterValue(getInstrumentation(), ASV_USER_ERRORS));
+    assertEquals(0, getLongCounterValue(getInstrumentation(), ASV_SERVER_ERRORS));
   }
 
   /**
