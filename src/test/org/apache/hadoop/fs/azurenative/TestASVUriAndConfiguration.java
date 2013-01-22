@@ -1,14 +1,11 @@
 package org.apache.hadoop.fs.azurenative;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.Date;
+import java.io.*;
+import java.util.*;
 
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.azure.AzureException;
 
 
@@ -34,11 +31,14 @@ public class TestASVUriAndConfiguration extends TestCase {
     }
   }
 
-  private boolean validateIOStreams (Path filePath) throws IOException {
-
+  private boolean validateIOStreams(Path filePath) throws IOException {
     // Capture the file system from the test account.
     //
     FileSystem fs = testAccount.getFileSystem();
+    return validateIOStreams(fs, filePath);
+  }
+
+  private boolean validateIOStreams(FileSystem fs, Path filePath) throws IOException {
 
     // Create and write a file
     //
@@ -48,15 +48,17 @@ public class TestASVUriAndConfiguration extends TestCase {
 
     // Return true if the the count is equivalent to the file size.
     //
-    return (FILE_SIZE == readInputStream (filePath));
+    return (FILE_SIZE == readInputStream(fs, filePath));
   }
 
-  private int readInputStream (Path filePath) throws IOException {
-
+  private int readInputStream(Path filePath) throws IOException {
     // Capture the file system from the test account.
     //
     FileSystem fs = testAccount.getFileSystem();
+    return readInputStream(fs, filePath);
+  }
 
+  private int readInputStream(FileSystem fs, Path filePath) throws IOException {
     // Read the file
     //
     InputStream inputStream = fs.open(filePath);
@@ -88,11 +90,11 @@ public class TestASVUriAndConfiguration extends TestCase {
 
     // Create test account with anonymous credentials
     //
-    testAccount = AzureBlobStorageTestAccount.createAnonymous("testAsv.txt",  FILE_SIZE);
+    testAccount = AzureBlobStorageTestAccount.createAnonymous("testAsv.txt", FILE_SIZE);
 
     // Read the file from the public folder using anonymous credentials.
     //
-    assertEquals(FILE_SIZE, readInputStream(new Path ("/testAsv.txt")));
+    assertEquals(FILE_SIZE, readInputStream(new Path("/testAsv.txt")));
   }
 
   public void testConnectToRoot() throws Exception {
@@ -111,7 +113,7 @@ public class TestASVUriAndConfiguration extends TestCase {
 
     // Read the file from the default container.
     //
-    assertEquals(FILE_SIZE, readInputStream(new Path (PATH_DELIMITER + inblobName)));
+    assertEquals(FILE_SIZE, readInputStream(new Path(PATH_DELIMITER + inblobName)));
 
     try {
       // Capture file system.
@@ -131,6 +133,53 @@ public class TestASVUriAndConfiguration extends TestCase {
       String errMsg =
           String.format ("Expected AzureException but got %s instead.", e);
       assertTrue(errMsg, false);
+    }
+  }
+
+  /**
+   * Creates a file and writes a single byte with the given value in it.
+   */
+  private static void writeSingleByte(FileSystem fs, Path testFile, int toWrite)
+      throws Exception {
+    OutputStream outputStream = fs.create(testFile);
+    outputStream.write(toWrite);
+    outputStream.close();
+  }
+
+  /**
+   * Reads the file given and makes sure that it's a single-byte file with
+   * the given value in it.
+   */
+  private static void assertSingleByteValue(FileSystem fs, Path testFile,
+      int expectedValue) throws Exception {
+    InputStream inputStream = fs.open(testFile);
+    int byteRead = inputStream.read();
+    assertTrue("File unexpectedly empty: " + testFile, byteRead >= 0);
+    assertTrue("File has more than a single byte: " + testFile,
+        inputStream.read() < 0);
+    inputStream.close();
+    assertEquals("Unxpected content in: " + testFile,
+        expectedValue, byteRead);
+  }
+
+  public void testMultipleContainers() throws Exception {
+    AzureBlobStorageTestAccount
+      firstAccount = AzureBlobStorageTestAccount.create("first"),
+      secondAccount = AzureBlobStorageTestAccount.create("second");
+    try {
+      FileSystem firstFs = firstAccount.getFileSystem(),
+          secondFs = secondAccount.getFileSystem();
+      Path testFile = new Path("/testAsv");
+      assertTrue(validateIOStreams(firstFs, testFile));
+      assertTrue(validateIOStreams(secondFs, testFile));
+      // Make sure that we're really dealing with two file systems here.
+      writeSingleByte(firstFs, testFile, 5);
+      writeSingleByte(secondFs, testFile, 7);
+      assertSingleByteValue(firstFs, testFile, 5);
+      assertSingleByteValue(secondFs, testFile, 7);
+    } finally {
+      firstAccount.cleanup();
+      secondAccount.cleanup();
     }
   }
 }

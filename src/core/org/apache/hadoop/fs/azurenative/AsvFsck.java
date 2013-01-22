@@ -35,6 +35,7 @@ public class AsvFsck extends Configured implements Tool {
     }
     Path pathToCheck = null;
     boolean doRecover = false;
+    boolean doDelete = false;
     for (String arg : args) {
       if (!arg.startsWith("-")) {
         if (pathToCheck != null) {
@@ -45,7 +46,14 @@ public class AsvFsck extends Configured implements Tool {
         pathToCheck = new Path(arg);
       } else if (arg.equals("-move")) {
         doRecover = true;
+      } else if (arg.equals("-delete")) {
+        doDelete = true;
       }
+    }
+    if (doRecover && doDelete) {
+      System.err.println(
+          "Conflicting options: can't specify both -move and -delete.");
+      return 1;
     }
     if (pathToCheck == null) {
       pathToCheck = new Path("/"); // Check everything.
@@ -64,15 +72,19 @@ public class AsvFsck extends Configured implements Tool {
     NativeAzureFileSystem asvFs = (NativeAzureFileSystem)fs;
     if (doRecover) {
       asvFs.recoverFilesWithDanglingTempData(pathToCheck, new Path(lostAndFound));
+    } else if (doDelete) {
+      asvFs.deleteFilesWithDanglingTempData(pathToCheck);
     }
     return 0;
   }
 
   private static void printUsage() {
-    System.out.println("Usage: AsvFSck [<path>] [-move]");
+    System.out.println("Usage: AsvFSck [<path>] [-move | -delete]");
     System.out.println("\t<path>\tstart checking from this path");
     System.out.println("\t-move\tmove any files whose upload was interrupted" +
     		" mid-stream to " + lostAndFound);
+    System.out.println("\t-delete\tdelete any files whose upload was interrupted" +
+        " mid-stream");
     ToolRunner.printGenericCommandUsage(System.out);
   }
 

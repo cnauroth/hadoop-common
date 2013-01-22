@@ -21,7 +21,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.URI;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.PrivilegedAction;
@@ -33,7 +32,6 @@ import java.util.Iterator;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.server.common.HdfsConstants;
 import org.apache.hadoop.hdfs.server.common.InconsistentFSStateException;
@@ -410,11 +408,10 @@ public class SecondaryNameNode implements Runnable {
    * Returns the Jetty server that the Namenode is listening on.
    */
   private String getInfoServer() throws IOException {
-    URI fsName = FileSystem.getDefaultUri(conf);
-    if (!"hdfs".equals(fsName.getScheme())) {
+    String infoAddr = NameNode.getInfoServer(conf);
+    if (infoAddr == null) {
       throw new IOException("This is not a DFS");
     }
-    String infoAddr = NameNode.getInfoServer(conf);
     LOG.debug("infoAddr = " + infoAddr);
     return infoAddr;
   }

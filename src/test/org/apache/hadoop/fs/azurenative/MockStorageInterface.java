@@ -93,7 +93,7 @@ public class MockStorageInterface extends StorageInterface {
   @Override
   public CloudBlockBlobWrapper getBlockBlobReference(String blobAddressUri)
       throws URISyntaxException, StorageException {
-    return new MockCloudBlockBlobWrapper(new URI(blobAddressUri), false);
+    return new MockCloudBlockBlobWrapper(new URI(blobAddressUri), null, 0);
   }
 
   class MockCloudBlobContainerWrapper extends CloudBlobContainerWrapper {
@@ -177,22 +177,28 @@ public class MockStorageInterface extends StorageInterface {
       ArrayList<ListBlobItem> ret = new ArrayList<ListBlobItem>();
       String fullPrefix = prefix == null ?
           uri.toString() :
-          uri.toString() + prefix;
+          new URI(
+              uri.getScheme(),
+              uri.getAuthority(),
+              uri.getPath() + prefix,
+              uri.getQuery(),
+              uri.getFragment()).toString();
+      boolean includeMetadata = listingDetails.contains(BlobListingDetails.METADATA);
       HashSet<String> addedDirectories = new HashSet<String>();
-      for (String current : backingStore.getKeys()) {
-        if (current.startsWith(fullPrefix)) {
-          int indexOfSlash = current.indexOf('/', fullPrefix.length());
-          if (useFlatBlobListing || indexOfSlash < 0) {
-            ret.add(new MockCloudBlockBlobWrapper(
-                new URI(current),
-                listingDetails.contains(BlobListingDetails.METADATA)));
-          } else {
-            String directoryName = current.substring(0, indexOfSlash);
-            if (!addedDirectories.contains(directoryName)) {
-              addedDirectories.add(current);
-              ret.add(new MockCloudBlobDirectoryWrapper(new URI(
-                  directoryName + "/")));
-            }
+      for (InMemoryBlockBlobStore.ListBlobEntry current : backingStore.listBlobs(
+          fullPrefix, includeMetadata)) {
+        int indexOfSlash = current.getKey().indexOf('/', fullPrefix.length());
+        if (useFlatBlobListing || indexOfSlash < 0) {
+          ret.add(new MockCloudBlockBlobWrapper(
+              new URI(current.getKey()),
+              current.getMetadata(),
+              current.getContentLength()));
+        } else {
+          String directoryName = current.getKey().substring(0, indexOfSlash);
+          if (!addedDirectories.contains(directoryName)) {
+            addedDirectories.add(current.getKey());
+            ret.add(new MockCloudBlobDirectoryWrapper(new URI(
+                directoryName + "/")));
           }
         }
       }
@@ -205,10 +211,12 @@ public class MockStorageInterface extends StorageInterface {
     private HashMap<String, String> metadata =
         new HashMap<String, String>();
     private BlobProperties properties;
-    
-    public MockCloudBlockBlobWrapper(URI uri, boolean getMetadata) {
+
+    public MockCloudBlockBlobWrapper(URI uri, HashMap<String, String> metadata,
+        int length) {
       this.uri = uri;
-      refreshProperties(getMetadata);
+      this.metadata = metadata;
+      refreshProperties(false);
     }
 
     private void refreshProperties(boolean getMetadata) {
@@ -216,7 +224,8 @@ public class MockStorageInterface extends StorageInterface {
         byte[] content = backingStore.getContent(uri.toString());
         properties = new BlobProperties();
         properties.setLength(content.length);
-        properties.setLastModified(new Date());
+        properties.setLastModified(
+            Calendar.getInstance(TimeZone.getTimeZone("UTC")).getTime());
         if (getMetadata) {
           metadata = backingStore.getMetadata(uri.toString());
         }
@@ -297,6 +306,13 @@ public class MockStorageInterface extends StorageInterface {
       backingStore.setContent(uri.toString(), allContent.toByteArray(),
           metadata);
       refreshProperties(false);
+    }
+
+    @Override
+    public void uploadMetadata(OperationContext opContext)
+        throws StorageException {
+      backingStore.setContent(uri.toString(),
+          backingStore.getContent(uri.toString()), metadata);
     }
   }
 }

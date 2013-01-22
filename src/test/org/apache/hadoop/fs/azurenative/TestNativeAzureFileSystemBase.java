@@ -1,10 +1,7 @@
 package org.apache.hadoop.fs.azurenative;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.BufferedWriter;
-import java.io.OutputStreamWriter;
+import java.io.*;
+import java.util.*;
 
 import junit.framework.*;
 
@@ -263,8 +260,139 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
 
   public void testUriEncoding() throws Exception {
     fs.create(new Path("p/t%5Fe")).close();
+    FileStatus[] listing = fs.listStatus(new Path("p"));
+    assertEquals(1, listing.length);
+    assertEquals("t%5Fe", listing[0].getPath().getName());
     assertTrue(fs.rename(new Path("p"), new Path("q")));
     assertTrue(fs.delete(new Path("q"), true));
+  }
+
+  public void testUriEncodingMoreComplexCharacters() throws Exception {
+    // Create a file name with URI reserved characters, plus the percent
+    String fileName = "!#$'()*;=[]%";
+    String directoryName = "*;=[]%!#$'()";
+    fs.create(new Path(directoryName, fileName)).close();
+    FileStatus[] listing = fs.listStatus(new Path(directoryName));
+    assertEquals(1, listing.length);
+    assertEquals(fileName, listing[0].getPath().getName());
+    FileStatus status = fs.getFileStatus(new Path(directoryName, fileName));
+    assertEquals(fileName, status.getPath().getName());
+    InputStream stream = fs.open(new Path(directoryName, fileName));
+    assertNotNull(stream);
+    stream.close();
+    assertTrue(fs.delete(new Path(directoryName, fileName), true));
+    assertTrue(fs.delete(new Path(directoryName), true));
+  }
+
+  public void testReadingDirectoryAsFile() throws Exception {
+    Path dir = new Path("/x");
+    assertTrue(fs.mkdirs(dir));
+    try {
+      fs.open(dir).close();
+      assertTrue("Should've thrown", false);
+    } catch (FileNotFoundException ex) {
+      assertEquals("/x is a directory not a file.", ex.getMessage());
+    }
+  }
+
+  public void testCreatingFileOverDirectory() throws Exception {
+    Path dir = new Path("/x");
+    assertTrue(fs.mkdirs(dir));
+    try {
+      fs.create(dir).close();
+      assertTrue("Should've thrown", false);
+    } catch (IOException ex) {
+      assertEquals("Cannot create file /x; already exists as a directory.",
+          ex.getMessage());
+    }
+  }
+
+  public void testSetPermissionOnFile() throws Exception {
+    Path newFile = new Path("testPermission");
+    OutputStream output = fs.create(newFile);
+    output.write(13);
+    output.close();
+    FsPermission newPermission = new FsPermission((short)0700);
+    fs.setPermission(newFile, newPermission);
+    FileStatus newStatus = fs.getFileStatus(newFile);
+    assertNotNull(newStatus);
+    assertEquals(newPermission, newStatus.getPermission());
+    assertEquals("supergroup", newStatus.getGroup());
+    assertEquals(UserGroupInformation.getCurrentUser().getShortUserName(),
+        newStatus.getOwner());
+    assertEquals(1, newStatus.getLen());
+  }
+
+  public void testSetPermissionOnFolder() throws Exception {
+    Path newFolder = new Path("testPermission");
+    assertTrue(fs.mkdirs(newFolder));
+    FsPermission newPermission = new FsPermission((short)0600);
+    fs.setPermission(newFolder, newPermission);
+    FileStatus newStatus = fs.getFileStatus(newFolder);
+    assertNotNull(newStatus);
+    assertEquals(newPermission, newStatus.getPermission());
+    assertTrue(newStatus.isDir());
+  }
+
+  public void testSetOwnerOnFile() throws Exception {
+    Path newFile = new Path("testOwner");
+    OutputStream output = fs.create(newFile);
+    output.write(13);
+    output.close();
+    fs.setOwner(newFile, "newUser", null);
+    FileStatus newStatus = fs.getFileStatus(newFile);
+    assertNotNull(newStatus);
+    assertEquals("newUser", newStatus.getOwner());
+    assertEquals("supergroup", newStatus.getGroup());
+    assertEquals(1, newStatus.getLen());
+    fs.setOwner(newFile, null, "newGroup");
+    newStatus = fs.getFileStatus(newFile);
+    assertNotNull(newStatus);
+    assertEquals("newUser", newStatus.getOwner());
+    assertEquals("newGroup", newStatus.getGroup());
+  }
+
+  public void testSetOwnerOnFolder() throws Exception {
+    Path newFolder = new Path("testOwner");
+    assertTrue(fs.mkdirs(newFolder));
+    fs.setOwner(newFolder, "newUser", null);
+    FileStatus newStatus = fs.getFileStatus(newFolder);
+    assertNotNull(newStatus);
+    assertEquals("newUser", newStatus.getOwner());
+    assertTrue(newStatus.isDir());
+  }
+
+  public void testModifiedTimeForFile() throws Exception {
+    Path testFile = new Path("testFile");
+    fs.create(testFile).close();
+    testModifiedTime(testFile);
+  }
+
+  public void testModifiedTimeForFolder() throws Exception {
+    Path testFolder = new Path("testFolder");
+    assertTrue(fs.mkdirs(testFolder));
+    testModifiedTime(testFolder);
+  }
+
+  public void testListSlash() throws Exception {
+    Path testFolder = new Path("/testFolder");
+    Path testFile = new Path(testFolder, "testFile");
+    assertTrue(fs.mkdirs(testFolder));
+    assertTrue(fs.createNewFile(testFile));
+    FileStatus status = fs.getFileStatus(new Path("/testFolder/."));
+    assertNotNull(status);
+  }
+
+  private void testModifiedTime(Path testPath) throws Exception {
+    Calendar utc = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    long currentUtcTime = utc.getTime().getTime();
+    FileStatus fileStatus = fs.getFileStatus(testPath);
+    final long errorMargin = 10 * 1000; // Give it +/-10 seconds
+    assertTrue("Modification time " +
+        new Date(fileStatus.getModificationTime()) + " is not close to now: " +
+        utc.getTime(),
+        fileStatus.getModificationTime() > (currentUtcTime - errorMargin) &&
+        fileStatus.getModificationTime() < (currentUtcTime + errorMargin));
   }
 
   private void createEmptyFile(Path testFile, FsPermission permission)

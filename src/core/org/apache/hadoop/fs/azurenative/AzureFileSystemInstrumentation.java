@@ -120,13 +120,13 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
       5; // seconds
   private final RollingWindowAverage currentBlockUploadLatency;
   private final RollingWindowAverage currentBlockDownloadLatency;
-  private UUID fileSystemId;
+  private UUID fileSystemInstanceId;
 
   public AzureFileSystemInstrumentation(Configuration conf) {
-    fileSystemId = UUID.randomUUID();
+    fileSystemInstanceId = UUID.randomUUID();
     registry.tag("asvFileSystemId",
         "A unique identifier for the file ",
-        fileSystemId.toString());
+        fileSystemInstanceId.toString());
     final int rollingWindowSizeInSeconds =
         conf.getInt(KEY_ROLLING_WINDOW_SIZE,
             DEFAULT_LATENCY_ROLLING_AVERAGE_WINDOW);
@@ -148,6 +148,13 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
         new RollingWindowAverage(rollingWindowSizeInSeconds * 1000);
     currentBlockDownloadLatency =
         new RollingWindowAverage(rollingWindowSizeInSeconds * 1000);
+  }
+
+  /**
+   * The unique identifier for this file system in the metrics.
+   */
+  public UUID getFileSystemInstanceId() {
+    return fileSystemInstanceId;
   }
 
   /**

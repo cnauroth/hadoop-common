@@ -49,11 +49,11 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   // Constants local to this class.
   //
   private static final String KEY_ACCOUNT_KEY_PREFIX = "fs.azure.account.key.";
-  private static final String KEY_CONCURRENT_CONNECTION_VALUE_IN = "fs.azure.concurrentConnection.in";
-  private static final String KEY_CONCURRENT_CONNECTION_VALUE_OUT = "fs.azure.concurrentConnection.out";
-  private static final String KEY_STREAM_MIN_READ_SIZE = "fs.azure.stream.min.read.size";
+  private static final String KEY_CONCURRENT_CONNECTION_VALUE_OUT =
+      "fs.azure.concurrentRequestCount.out";
+  private static final String KEY_STREAM_MIN_READ_SIZE = "fs.azure.read.request.size";
   private static final String KEY_STORAGE_CONNECTION_TIMEOUT = "fs.azure.storage.timeout";
-  private static final String KEY_WRITE_BLOCK_SIZE = "fs.azure.write.block.size";
+  private static final String KEY_WRITE_BLOCK_SIZE = "fs.azure.write.request.size";
 
   private static final String PERMISSION_METADATA_KEY = "asv_permission";
   private static final String IS_FOLDER_METADATA_KEY = "asv_isfolder";
@@ -78,14 +78,12 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   //
   private static final int DEFAULT_WRITE_BLOCK_SIZE = 4194304;
 
-  // DEFAULT concurrency for writes and reads.
+  // DEFAULT concurrency for writes.
   //
-  private static final int DEFAULT_CONCURRENT_READS = 4;
   private static final int DEFAULT_CONCURRENT_WRITES = 8;
 
   private URI sessionUri;
   private Configuration sessionConfiguration;
-  private int concurrentReads = DEFAULT_CONCURRENT_READS;
   private int concurrentWrites = DEFAULT_CONCURRENT_WRITES;
   private boolean isAnonymousCredentials = false;
   private AzureFileSystemInstrumentation instrumentation;
@@ -453,10 +451,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // the read/write property.
     //
     int cpuCores = 2 * Runtime.getRuntime().availableProcessors();
-
-    concurrentReads = sessionConfiguration.getInt(
-        KEY_CONCURRENT_CONNECTION_VALUE_IN,
-        Math.min(cpuCores, DEFAULT_CONCURRENT_READS));
 
     concurrentWrites = sessionConfiguration.getInt(
         KEY_CONCURRENT_CONNECTION_VALUE_OUT,
@@ -1240,8 +1234,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //
       if (key.equals("/")) {
         // The key refers to root directory of container.
+        // Set the modification time for root to zero.
         //
-        return new FileMetadata(key, defaultPermissionNoBlobMetadata(), BlobMaterialization.Implicit);
+        return new FileMetadata(key, 0,
+            defaultPermissionNoBlobMetadata(), BlobMaterialization.Implicit);
       }
 
       CloudBlockBlobWrapper blob = getBlobReference(key);
@@ -1260,17 +1256,18 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         // properties.
         //
         blob.downloadAttributes(getInstrumentedContext());
+        BlobProperties properties = blob.getProperties();
 
         if (retrieveFolderAttribute(blob)) {
           if (LOG.isDebugEnabled()) {
             LOG.debug(key + " is a folder blob.");
           }
-          return new FileMetadata(key, getPermissionStatus(blob), BlobMaterialization.Explicit);
+          return new FileMetadata(key, properties.getLastModified().getTime(),
+              getPermissionStatus(blob), BlobMaterialization.Explicit);
         } else {
           if (LOG.isDebugEnabled()) {
             LOG.debug(key + " is a normal blob.");
           }
-          BlobProperties properties = blob.getProperties();
 
           return new FileMetadata(
               key, // Always return denormalized key with metadata.
@@ -1298,17 +1295,21 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       for (ListBlobItem blobItem : objects) {
         if (blobItem instanceof CloudBlockBlobWrapper) {
           LOG.debug(
-              "Found blob as a directory-using this file under it to infer its properties" +
+              "Found blob as a directory-using this file under it to infer its properties " +
                   blobItem.getUri());
 
+          blob = (CloudBlockBlobWrapper)blobItem;
           // The key specifies a directory. Create a FileMetadata object which specifies
           // as such.
           //
+          BlobProperties properties = blob.getProperties();
+
           // TODO: Maybe there a directory metadata class which extends the file metadata
           // TODO: class or an explicit parameter indicating it is a directory rather than
           // TODO: using polymorphism to distinguish the two.
           //
-          return new FileMetadata(key, getPermissionStatus((CloudBlockBlobWrapper)blobItem),
+          return new FileMetadata(key, properties.getLastModified().getTime(),
+              getPermissionStatus(blob),
               BlobMaterialization.Implicit);
         }
       }
@@ -1339,10 +1340,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Get blob reference and open the input buffer stream.
       //
       CloudBlockBlobWrapper blob = getBlobReference(key);
-      BlobRequestOptions options = new BlobRequestOptions();
-      options.setConcurrentRequestCount(concurrentReads);
       BufferedInputStream inBufStream = new BufferedInputStream(
-          blob.openInputStream(options, getInstrumentedContext()));
+          blob.openInputStream(null, getInstrumentedContext()));
 
       // Return a data input stream.
       //
@@ -1371,12 +1370,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Get blob reference and open the input buffer stream.
       //
       CloudBlockBlobWrapper blob = getBlobReference(key);
-      BlobRequestOptions options = new BlobRequestOptions();
-      options.setConcurrentRequestCount(concurrentReads);
 
       // Open input stream and seek to the start offset.
       //
-      InputStream in = blob.openInputStream(options, getInstrumentedContext());
+      InputStream in = blob.openInputStream(null, getInstrumentedContext());
 
       // Create a data input stream.
       //
@@ -1466,7 +1463,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
           FileMetadata metadata;
           if (retrieveFolderAttribute(blob)) {
-            metadata = new FileMetadata(blobKey, getPermissionStatus(blob),
+            metadata = new FileMetadata(blobKey,
+                properties.getLastModified().getTime(),
+                getPermissionStatus(blob),
                 BlobMaterialization.Explicit);
           } else {
             metadata = new FileMetadata(
@@ -1500,8 +1499,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           //
           // TODO: Something smarter should be done about permissions. Maybe
           // TODO: inherit the permissions of the first non-directory blob.
+          // TODO: Also, getting a proper value for last-modified is tricky.
           //
-          FileMetadata directoryMetadata = new FileMetadata(dirKey, defaultPermissionNoBlobMetadata(),
+          FileMetadata directoryMetadata = new FileMetadata(dirKey, 0,
+              defaultPermissionNoBlobMetadata(),
               BlobMaterialization.Implicit);
 
           // Add the directory metadata to the list only if it's not already there.
@@ -1611,7 +1612,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
           FileMetadata metadata;
           if (retrieveFolderAttribute(blob)) {
-            metadata = new FileMetadata(blobKey, getPermissionStatus(blob),
+            metadata = new FileMetadata(blobKey,
+                properties.getLastModified().getTime(),
+                getPermissionStatus(blob),
                 BlobMaterialization.Explicit);
           } else {
             metadata = new FileMetadata(
@@ -1663,8 +1666,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
               //
               // TODO: Something smarter should be done about permissions. Maybe
               // TODO: inherit the permissions of the first non-directory blob.
+              // TODO: Also, getting a proper value for last-modified is tricky.
               //
               FileMetadata directoryMetadata = new FileMetadata(dirKey,
+                  0,
                   defaultPermissionNoBlobMetadata(),
                   BlobMaterialization.Implicit);
 
@@ -1760,6 +1765,21 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     }
   }
 
+  /**
+   * Changes the permission status on the given key.
+   */
+  @Override
+  public void changePermissionStatus(String key, PermissionStatus newPermission)
+      throws AzureException {
+    try {
+      CloudBlockBlobWrapper blob = getBlobReference(key);
+      blob.downloadAttributes(getInstrumentedContext());
+      storePermissionStatus(blob, newPermission);
+      blob.uploadMetadata(getInstrumentedContext());
+    } catch (Exception e) {
+      throw new AzureException(e);
+    }
+  }
 
   @Override
   public void purge(String prefix) throws IOException {

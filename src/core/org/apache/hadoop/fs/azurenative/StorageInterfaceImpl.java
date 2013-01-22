@@ -275,5 +275,11 @@ class StorageInterfaceImpl extends StorageInterface {
         StorageException {
       return blob.getParent();
     }
+
+    @Override
+    public void uploadMetadata(OperationContext opContext)
+        throws StorageException {
+      blob.uploadMetadata(null, null, opContext);
+    }
   }
 }

@@ -54,16 +54,19 @@ class FileMetadata {
   /**
    * Constructs a FileMetadata object for a directory.
    * @param key The key (path) to the directory.
+   * @param lastModified The last modified date
+   *                     (milliseconds since January 1, 1970 UTC.)
    * @param permissionStatus The permission for the directory.
    * @param blobMaterialization Whether this is an implicit (no real blob
    *                            backing it) or explicit directory.
    */
-  public FileMetadata(String key, PermissionStatus permissionStatus,
+  public FileMetadata(String key, long lastModified,
+      PermissionStatus permissionStatus,
       BlobMaterialization blobMaterialization) {
     this.key = key;
     this.isDir = true;
     this.length = 0;
-    this.lastModified = 0;
+    this.lastModified = lastModified;
     this.permissionStatus = permissionStatus;
     this.blobMaterialization = blobMaterialization;
   }

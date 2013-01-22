@@ -4,6 +4,7 @@ import java.util.*;
 
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.azure.AzureException;
+import org.apache.hadoop.fs.permission.*;
 
 import junit.framework.*;
 
@@ -95,5 +96,49 @@ public class TestOutOfBandAzureBlobOperations extends TestCase {
           " which is also a file. Can't resolve.",
           e.getMessage());
     }
+  }
+
+  private static enum DeepCreateTestVariation {
+    File,
+    Folder
+  };
+
+  /**
+   * Tests that when we create the file (or folder) x/y/z, we also
+   * create explicit folder blobs for x and x/y
+   */
+  public void testCreatingDeepFileCreatesExplicitFolder() throws Exception {
+    for (DeepCreateTestVariation variation: DeepCreateTestVariation.values()) {
+      switch (variation) {
+      case File:
+        assertTrue(fs.createNewFile(new Path("/x/y/z")));
+        break;
+      case Folder:
+        assertTrue(fs.mkdirs(new Path("/x/y/z")));
+        break;
+      }
+      assertTrue(backingStore.exists(
+          AzureBlobStorageTestAccount.toMockUri("x")));
+      assertTrue(backingStore.exists(
+          AzureBlobStorageTestAccount.toMockUri("x/y")));
+      fs.delete(new Path("/x"), true);
+    }
+  }
+
+  public void testSetPermissionOnImplicitFolder() throws Exception {
+    createEmptyBlobOutOfBand("root/b");
+    FsPermission newPermission = new FsPermission((short)0600);
+    fs.setPermission(new Path("/root"), newPermission);
+    FileStatus newStatus = fs.getFileStatus(new Path("/root"));
+    assertNotNull(newStatus);
+    assertEquals(newPermission, newStatus.getPermission());
+  }
+
+  public void testSetOwnerOnImplicitFolder() throws Exception {
+    createEmptyBlobOutOfBand("root/b");
+    fs.setOwner(new Path("/root"), "newOwner", null);
+    FileStatus newStatus = fs.getFileStatus(new Path("/root"));
+    assertNotNull(newStatus);
+    assertEquals("newOwner", newStatus.getOwner());
   }
 }

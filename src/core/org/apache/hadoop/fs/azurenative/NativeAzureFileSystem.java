@@ -22,6 +22,7 @@ import java.io.*;
 import java.net.URI;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -77,7 +78,7 @@ public class NativeAzureFileSystem extends FileSystem {
   private static final int AZURE_LIST_ALL = -1;
   private static final int AZURE_UNBOUNDED_DEPTH = -1;
 
-  private static final long MAX_AZURE_BLOCK_SIZE = 64 * 1024 * 1024L;
+  private static final long MAX_AZURE_BLOCK_SIZE = 512 * 1024 * 1024L;
 
   private static int DEFAULT_MAX_RETRIES = 4;
   private static int DEFAULT_SLEEP_TIME_SECONDS = 10;
@@ -668,6 +669,8 @@ public class NativeAzureFileSystem extends FileSystem {
   private long blockSize = MAX_AZURE_BLOCK_SIZE;
   private AzureFileSystemInstrumentation instrumentation;
   private static boolean suppressRetryPolicy = false;
+  // A counter to create unique (within-process) names for my metrics sources.
+  private static AtomicInteger metricsSourceNameCounter = new AtomicInteger();
 
   public NativeAzureFileSystem() {
     // set store in initialize()
@@ -693,6 +696,27 @@ public class NativeAzureFileSystem extends FileSystem {
     suppressRetryPolicy = false;
   }
 
+  /**
+   * Creates a new metrics source name that's unique within this process.
+   */
+  static String newMetricsSourceName() {
+    int number = metricsSourceNameCounter.incrementAndGet();
+    final String baseName = "AzureFileSystemMetrics";
+    if (number == 1) { // No need for a suffix for the first one
+      return baseName;
+    } else {
+      return baseName + number;
+    }
+  }
+
+  /**
+   * Resets the global metrics source name counter - only used for
+   * unit testing.
+   */
+  static void resetMetricsSourceNameCounter() {
+    metricsSourceNameCounter.set(0);
+  }
+
   @Override
   public void initialize(URI uri, Configuration conf)
       throws IOException, IllegalArgumentException {
@@ -704,7 +728,7 @@ public class NativeAzureFileSystem extends FileSystem {
 
     // Make sure the metrics system is available before interacting with Azure
     AzureFileSystemMetricsSystem.fileSystemStarted();
-    String sourceName = "AzureFileSystemMetrics",
+    String sourceName = newMetricsSourceName(),
         sourceDesc = "Azure Storage Volume File System metrics";
     instrumentation = DefaultMetricsSystem.INSTANCE.register(sourceName,
         sourceDesc, new AzureFileSystemInstrumentation(conf));
@@ -766,7 +790,7 @@ public class NativeAzureFileSystem extends FileSystem {
     // path from the path object.
     //
     URI tmpUri = path.toUri();
-    String pathUri = tmpUri.getRawPath();
+    String pathUri = tmpUri.getPath();
 
     // The scheme and authority is valid. If the path does not exist add a "/"
     // separator to list the root of the container.
@@ -783,7 +807,7 @@ public class NativeAzureFileSystem extends FileSystem {
     }
 
     String key = null;
-    key = newPath.toUri().getRawPath();
+    key = newPath.toUri().getPath();
     if (key.length() == 1) {
       return key;
     } else {
@@ -840,16 +864,27 @@ public class NativeAzureFileSystem extends FileSystem {
       LOG.debug("Creating file: " + f.toString());
     }
 
-    // Only check for existence (requires a web request) if we're not
-    // overwriting.
-    if (!overwrite && exists(f)) {
-      throw new IOException("File already exists:" + f);
+    Path absolutePath = makeAbsolute(f);
+    String key = pathToKey(absolutePath);
+
+    FileMetadata existingMetadata = store.retrieveMetadata(key);
+    if (existingMetadata != null) {
+      if (existingMetadata.isDir()) {
+        throw new IOException("Cannot create file "+ f + "; already exists as a directory.");
+      }
+      if (!overwrite) {
+        throw new IOException("File already exists:" + f);
+      }
+    }
+
+    Path parentFolder = absolutePath.getParent();
+    if (parentFolder != null) {
+      // Make sure that the parent folder exists.
+      mkdirs(parentFolder, permission);
     }
 
     // Open the output blob stream based on the encoded key.
     //
-    Path absolutePath = makeAbsolute(f);
-    String key = pathToKey(absolutePath);
     String keyEncoded = encodeKey(key);
 
     PermissionStatus permissionStatus = createPermissionStatus(permission);
@@ -1163,26 +1198,31 @@ public class NativeAzureFileSystem extends FileSystem {
 
   @Override
   public boolean mkdirs(Path f, FsPermission permission) throws IOException {
-
     if (LOG.isDebugEnabled()){
       LOG.debug("Creating directory: " + f.toString());
     }
 
     Path absolutePath = makeAbsolute(f);
+    PermissionStatus permissionStatus = createPermissionStatus(permission);
 
+    ArrayList<String> keysToCreateAsFolder = new ArrayList<String>();
     // Check that there is no file in the parent chain of the given path.
     for (Path current = absolutePath, parent = current.getParent();
         parent != null; // Stop when you get to the root
         current = parent, parent = current.getParent()) {
-      FileMetadata currentMetadata = store.retrieveMetadata(pathToKey(current));
+      String currentKey = pathToKey(current);
+      FileMetadata currentMetadata = store.retrieveMetadata(currentKey);
       if (currentMetadata != null && !currentMetadata.isDir()) {
         throw new IOException("Cannot create directory " + f + " because " +
             current + " is an existing file.");
+      } else if (currentMetadata == null) {
+        keysToCreateAsFolder.add(currentKey);
       }
     }
 
-    String key = pathToKey(absolutePath);
-    store.storeEmptyFolder(key, createPermissionStatus(permission));
+    for (String currentKey : keysToCreateAsFolder) {
+      store.storeEmptyFolder(currentKey, permissionStatus);
+    }
     instrumentation.directoryCreated();
 
     // otherwise throws exception
@@ -1195,11 +1235,15 @@ public class NativeAzureFileSystem extends FileSystem {
       LOG.debug("Opening file: " + f.toString());
     }
 
-    if (!exists(f)) {
-      throw new FileNotFoundException(f.toString());
-    }
     Path absolutePath = makeAbsolute(f);
     String key = pathToKey(absolutePath);
+    FileMetadata meta = store.retrieveMetadata(key);
+    if (meta == null) {
+      throw new FileNotFoundException(f.toString());
+    }
+    if (meta.isDir()) {
+      throw new FileNotFoundException(f.toString() + " is a directory not a file.");
+    }
 
     return new FSDataInputStream(new BufferedFSInputStream(
         new NativeAzureFsInputStream(store.retrieve(key), key), bufferSize));
@@ -1283,10 +1327,10 @@ public class NativeAzureFileSystem extends FileSystem {
         // Rename all the files in the folder.
         //
         for (FileMetadata file : listing.getFiles()) {
-          // Rename all non-directory entries under the folder to point to the
+          // Rename all materialized entries under the folder to point to the
           // final destination.
           //
-          if (!file.isDir()) {
+          if (file.getBlobMaterialization() == BlobMaterialization.Explicit) {
             String srcName = file.getKey();
             String suffix  = srcName.substring(srcKey.length());
             String dstName = dstKey + suffix;  
@@ -1322,6 +1366,49 @@ public class NativeAzureFileSystem extends FileSystem {
   }
 
   @Override
+  public void setPermission(Path p, FsPermission permission) throws IOException {
+    Path absolutePath = makeAbsolute(p);
+    String key = pathToKey(absolutePath);
+    FileMetadata metadata = store.retrieveMetadata(key);
+    if (metadata == null) {
+      throw new FileNotFoundException("File doesn't exist: " + p);
+    }
+    if (metadata.getBlobMaterialization() == BlobMaterialization.Implicit) {
+      // It's an implicit folder, need to materialize it.
+      store.storeEmptyFolder(key, createPermissionStatus(permission));
+    } else if (!metadata.getPermissionStatus().getPermission().
+        equals(permission)) {
+      store.changePermissionStatus(key, new PermissionStatus(
+          metadata.getPermissionStatus().getUserName(),
+          metadata.getPermissionStatus().getGroupName(),
+          permission));
+    }
+  }
+
+  @Override
+  public void setOwner(Path p, String username, String groupname)
+      throws IOException {
+    Path absolutePath = makeAbsolute(p);
+    String key = pathToKey(absolutePath);
+    FileMetadata metadata = store.retrieveMetadata(key);
+    if (metadata == null) {
+      throw new FileNotFoundException("File doesn't exist: " + p);
+    }
+    PermissionStatus newPermissionStatus = new PermissionStatus(
+        username == null ?
+            metadata.getPermissionStatus().getUserName() : username,
+        groupname == null ?
+            metadata.getPermissionStatus().getGroupName() : groupname,
+        metadata.getPermissionStatus().getPermission());
+    if (metadata.getBlobMaterialization() == BlobMaterialization.Implicit) {
+      // It's an implicit folder, need to materialize it.
+      store.storeEmptyFolder(key, newPermissionStatus);
+    } else {
+      store.changePermissionStatus(key, newPermissionStatus);
+    }
+  }
+
+  @Override
   public void close() throws IOException {
     // Call the base close() to close any resources there.
     super.close();
@@ -1335,19 +1422,66 @@ public class NativeAzureFileSystem extends FileSystem {
   }
 
   /**
-   * Looks under the given root path for any blob that are left "dangling",
-   * meaning that they are place-holder blobs that we created while we upload
-   * the data to a temporary blob, but for some reason we crashed in the middle
-   * of the upload and left them there.
-   * If any are found, we move them to the destination given.
-   * @param root The root path to consider.
-   * @param destination The destination path to move any recovered files to.
-   * @throws IOException
+   * A handler that defines what to do with blobs whose upload was
+   * interrupted.
    */
-  public void recoverFilesWithDanglingTempData(Path root, Path destination) throws IOException {
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Recovering files with dangling temp data in " + root);
+  private abstract class DanglingFileHandler {
+    abstract void handleFile(FileMetadata file, FileMetadata tempFile)
+      throws IOException;
+  }
+
+  /**
+   * Handler implementation for just deleting dangling files and cleaning
+   * them up.
+   */
+  private class DanglingFileDeleter extends DanglingFileHandler {
+    @Override
+    void handleFile(FileMetadata file, FileMetadata tempFile)
+        throws IOException {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Deleting dangling file " + file.getKey());
+      }
+      store.delete(file.getKey());
+      store.delete(tempFile.getKey());
     }
+  }
+
+  /**
+   * Handler implementation for just moving dangling files to recovery
+   * location (/lost+found).
+   */
+  private class DanglingFileRecoverer extends DanglingFileHandler {
+    private final Path destination;
+
+    DanglingFileRecoverer(Path destination) {
+      this.destination = destination;
+    }
+
+    @Override
+    void handleFile(FileMetadata file, FileMetadata tempFile)
+        throws IOException {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Recovering " + file.getKey());
+      }
+      // Move to the final destination
+      String finalDestinationKey =
+          pathToKey(new Path(destination, file.getKey()));
+      store.rename(tempFile.getKey(), finalDestinationKey);
+      if (!finalDestinationKey.equals(file.getKey())) {
+        // Delete the empty link file now that we've restored it.
+        store.delete(file.getKey());
+      }
+    }
+  }
+
+  /**
+   * Implements recover and delete (-move and -delete) behaviors for
+   * handling dangling files (blobs whose upload was interrupted).
+   * @param root The root path to check from.
+   * @param handler The handler that deals with dangling files.
+   */
+  private void handleFilesWithDanglingTempData(Path root,
+      DanglingFileHandler handler) throws IOException {
     // Calculate the cut-off for when to consider a blob to be dangling.
     long cutoffForDangling = new Date().getTime() -
         getConf().getInt(AZURE_TEMP_EXPIRY_PROPERTY_NAME,
@@ -1371,23 +1505,48 @@ public class NativeAzureFileSystem extends FileSystem {
             if (linkMetadata != null &&
                 linkMetadata.getLastModified() >= cutoffForDangling) {
               // Found one!
-              if (LOG.isDebugEnabled()) {
-                LOG.debug("Recovering " + file.getKey());
-              }
-              // Move to the final destination
-              String finalDestinationKey =
-                  pathToKey(new Path(destination, file.getKey()));
-              store.rename(linkMetadata.getKey(), finalDestinationKey);
-              if (!finalDestinationKey.equals(file.getKey())) {
-                // Delete the empty link file now that we've restored it.
-                store.delete(file.getKey());
-              }
+              handler.handleFile(file, linkMetadata);
             }
           }
         }
       }
       priorLastKey = listing.getPriorLastKey();
     } while (priorLastKey != null);
+  }
+
+  /**
+   * Looks under the given root path for any blob that are left "dangling",
+   * meaning that they are place-holder blobs that we created while we upload
+   * the data to a temporary blob, but for some reason we crashed in the middle
+   * of the upload and left them there.
+   * If any are found, we move them to the destination given.
+   * @param root The root path to consider.
+   * @param destination The destination path to move any recovered files to.
+   * @throws IOException
+   */
+  public void recoverFilesWithDanglingTempData(Path root, Path destination) throws IOException {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Recovering files with dangling temp data in " + root);
+    }
+    handleFilesWithDanglingTempData(root,
+        new DanglingFileRecoverer(destination));
+  }
+
+  /**
+   * Looks under the given root path for any blob that are left "dangling",
+   * meaning that they are place-holder blobs that we created while we upload
+   * the data to a temporary blob, but for some reason we crashed in the middle
+   * of the upload and left them there.
+   * If any are found, we delete them.
+   * @param root The root path to consider.
+   * @param destination The destination path to move any recovered files to.
+   * @throws IOException
+   */
+  public void deleteFilesWithDanglingTempData(Path root) throws IOException {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Deleting files with dangling temp data in " + root);
+    }
+    handleFilesWithDanglingTempData(root, new DanglingFileDeleter());
   }
 
   /**
