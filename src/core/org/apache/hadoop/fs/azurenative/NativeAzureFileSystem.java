@@ -103,6 +103,13 @@ public class NativeAzureFileSystem extends FileSystem {
   // 4MB buffers.
   private static final int DEFAULT_OUTPUT_STREAM_BUFFERSIZE = 4 * 1024 * 1024;
 
+  /**
+   * A umask to apply universally to remove execute permission on files/folders
+   * (similar to what DFS does).
+   */
+  private static final FsPermission UMASK =
+      FsPermission.createImmutable((short)0111);
+
   private class NativeAzureFsInputStream extends FSInputStream {
     private InputStream in;
     private final String key;
@@ -887,7 +894,9 @@ public class NativeAzureFileSystem extends FileSystem {
     //
     String keyEncoded = encodeKey(key);
 
-    PermissionStatus permissionStatus = createPermissionStatus(permission);
+    // Mask the permission first
+    FsPermission masked = applyUMask(permission);
+    PermissionStatus permissionStatus = createPermissionStatus(masked);
 
     // First create a blob at the real key, pointing back to the temporary file
     // This accomplishes a few things:
@@ -1179,6 +1188,10 @@ public class NativeAzureFileSystem extends FileSystem {
         path.makeQualified(this));
   }
 
+  private FsPermission applyUMask(FsPermission permission) {
+    return new FsPermission(permission).applyUMask(UMASK);
+  }
+
   /**
    * Creates the PermissionStatus object to use for the given permission,
    * based on the current user in context.
@@ -1372,6 +1385,10 @@ public class NativeAzureFileSystem extends FileSystem {
     FileMetadata metadata = store.retrieveMetadata(key);
     if (metadata == null) {
       throw new FileNotFoundException("File doesn't exist: " + p);
+    }
+    if (!metadata.isDir()) {
+      // Mask permissions for files
+      permission = applyUMask(permission);
     }
     if (metadata.getBlobMaterialization() == BlobMaterialization.Implicit) {
       // It's an implicit folder, need to materialize it.
