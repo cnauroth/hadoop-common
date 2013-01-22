@@ -60,8 +60,8 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     FileStatus status = fs.getFileStatus(testFile);
     assertNotNull(status);
     // By default, files should be have masked permissions
-    // that grant all rights except execute to everyone
-    assertEquals(new FsPermission((short)0666), status.getPermission());
+    // that grant RW to user, and R to group/other
+    assertEquals(new FsPermission((short)0644), status.getPermission());
     assertEquals("Testing", readString(testFile));
     fs.delete(testFile, true);
   }
@@ -71,6 +71,12 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     assertFalse(fs.exists(testFolder));
     assertTrue(fs.mkdirs(testFolder));
     assertTrue(fs.exists(testFolder));
+    FileStatus status = fs.getFileStatus(testFolder);
+    assertNotNull(status);
+    assertTrue(status.isDir());
+    // By default, directories should be have masked permissions
+    // that grant RWX to user, and RX to group/other
+    assertEquals(new FsPermission((short)0755), status.getPermission());
     Path innerFile = new Path(testFolder, "innerFile");
     assertTrue(fs.createNewFile(innerFile));
     assertTrue(fs.exists(innerFile));

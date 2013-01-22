@@ -107,7 +107,7 @@ public class NativeAzureFileSystem extends FileSystem {
    * A umask to apply universally to remove execute permission on files/folders
    * (similar to what DFS does).
    */
-  private static final FsPermission UMASK =
+  private static final FsPermission UNIVERSAL_FILE_UMASK =
       FsPermission.createImmutable((short)0111);
 
   private class NativeAzureFsInputStream extends FSInputStream {
@@ -894,8 +894,8 @@ public class NativeAzureFileSystem extends FileSystem {
     //
     String keyEncoded = encodeKey(key);
 
-    // Mask the permission first
-    FsPermission masked = applyUMask(permission);
+    // Mask the permission first (with the default permission mask as well).
+    FsPermission masked = applyUMask(permission, UMaskApplyMode.NewFile);
     PermissionStatus permissionStatus = createPermissionStatus(masked);
 
     // First create a blob at the real key, pointing back to the temporary file
@@ -1188,8 +1188,36 @@ public class NativeAzureFileSystem extends FileSystem {
         path.makeQualified(this));
   }
 
-  private FsPermission applyUMask(FsPermission permission) {
-    return new FsPermission(permission).applyUMask(UMASK);
+  private static enum UMaskApplyMode {
+    NewFile,
+    NewDirectory,
+    ChangeExistingFile,
+    ChangeExistingDirectory,
+  }
+
+  /**
+   * Applies the applicable UMASK's on the given permission.
+   * @param permission The permission to mask.
+   * @param applyDefaultUmask Whether to also apply the default umask.
+   * @return The masked persmission.
+   */
+  private FsPermission applyUMask(final FsPermission permission,
+      final UMaskApplyMode applyMode) {
+    FsPermission newPermission = new FsPermission(permission);
+    // First apply the default umask - this applies for new files or
+    // directories.
+    if (applyMode == UMaskApplyMode.NewFile ||
+        applyMode == UMaskApplyMode.NewDirectory) {
+      newPermission = newPermission.applyUMask(
+          FsPermission.getUMask(getConf()));
+    }
+    // Then apply the universal umask for files, which always applies for
+    // files.
+    if (applyMode == UMaskApplyMode.NewFile ||
+        applyMode == UMaskApplyMode.ChangeExistingFile) {
+      newPermission = newPermission.applyUMask(UNIVERSAL_FILE_UMASK);
+    }
+    return newPermission;
   }
 
   /**
@@ -1216,7 +1244,8 @@ public class NativeAzureFileSystem extends FileSystem {
     }
 
     Path absolutePath = makeAbsolute(f);
-    PermissionStatus permissionStatus = createPermissionStatus(permission);
+    PermissionStatus permissionStatus = createPermissionStatus(
+        applyUMask(permission, UMaskApplyMode.NewDirectory));
 
     ArrayList<String> keysToCreateAsFolder = new ArrayList<String>();
     // Check that there is no file in the parent chain of the given path.
@@ -1386,10 +1415,9 @@ public class NativeAzureFileSystem extends FileSystem {
     if (metadata == null) {
       throw new FileNotFoundException("File doesn't exist: " + p);
     }
-    if (!metadata.isDir()) {
-      // Mask permissions for files
-      permission = applyUMask(permission);
-    }
+    permission = applyUMask(permission,
+        metadata.isDir() ? UMaskApplyMode.ChangeExistingDirectory :
+                           UMaskApplyMode.ChangeExistingFile);
     if (metadata.getBlobMaterialization() == BlobMaterialization.Implicit) {
       // It's an implicit folder, need to materialize it.
       store.storeEmptyFolder(key, createPermissionStatus(permission));
