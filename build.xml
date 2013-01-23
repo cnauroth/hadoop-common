@@ -690,15 +690,15 @@
     <mkdir dir="${build.native.win}/src/org/apache/hadoop/io/compress/zlib"/>
     <mkdir dir="${build.native.win}/src/org/apache/hadoop/io/nativeio"/>
 
-  	<javah
-  	  classpath="${build.classes}"
-  	  destdir="${build.native.win}/src/org/apache/hadoop/io/compress/zlib"
+    <javah
+      classpath="${build.classes}"
+      destdir="${build.native.win}/src/org/apache/hadoop/io/compress/zlib"
       force="yes"
-  	  verbose="yes"
-  	  >
-  	  <class name="org.apache.hadoop.io.compress.zlib.ZlibCompressor" />
+      verbose="yes"
+      >
+      <class name="org.apache.hadoop.io.compress.zlib.ZlibCompressor" />
       <class name="org.apache.hadoop.io.compress.zlib.ZlibDecompressor" />
-  	</javah>
+    </javah>
 
     <javah
       classpath="${build.classes}"
@@ -718,7 +718,7 @@
     <copy file="${build.native.win}/hadoop.dll" todir="${build.native}/lib"/>
   </target>
 
-  <target name="create-native-configure">
+  <target name="create-native-configure" unless="windows">
     <exec executable="autoreconf" dir="${native.src.dir}" searchpath="yes" 
           failonerror="yes">
        <arg value="-if"/>

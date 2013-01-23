@@ -816,7 +816,7 @@ abstract class TaskRunner extends Thread {
         link = path + "\\" + link;
       }
       else
-        link = workDir.toString() + Path.SEPARATOR + link;
+        link = workDir.toString() + File.separator + link;
       File flink = new File(link);
       if (!flink.exists()) {
         LOG.info(String.format("Creating symlink: %s <- %s", target, link));

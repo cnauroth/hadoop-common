@@ -260,6 +260,11 @@ void ChownUsage(LPCWSTR program)
 {
   fwprintf(stdout, L"\
 Usage: %s [OWNER][:[GROUP]] [FILE]\n\
-Change the owner and/or group of the FILE to OWNER and/or GROUP.\n",
+Change the owner and/or group of the FILE to OWNER and/or GROUP.\n\
+\n\
+Note:\n\
+On Linux, if a colon but no group name follows the user name, the group of\n\
+the files is changed to that user\'s login group. Windows has no concept of\n\
+a user's login group. So we do not change the group owner in this case.\n",
 program);
 }
