@@ -25,6 +25,7 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -754,7 +755,11 @@ public class TestFileUtil {
       Assert.assertTrue(mainAttributes.containsKey(Attributes.Name.CLASS_PATH));
       String classPathAttr = mainAttributes.getValue(Attributes.Name.CLASS_PATH);
       Assert.assertNotNull(classPathAttr);
-      List<String> expectedClassPaths = Arrays.asList(classPaths);
+      List<String> expectedClassPaths = new ArrayList<String>(classPaths.length);
+      for (String classPath: classPaths) {
+        expectedClassPaths.add(new File(classPath).toURI().toURL()
+          .toExternalForm());
+      }
       List<String> actualClassPaths = Arrays.asList(classPathAttr.split(" "));
       Assert.assertEquals(expectedClassPaths, actualClassPaths);
     } finally {
