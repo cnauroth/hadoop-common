@@ -41,19 +41,11 @@ abstract public class Shell {
   
   public static final Log LOG = LogFactory.getLog(Shell.class);
 
-  private static boolean IS_JAVA7_OR_ABOVE =
-      System.getProperty("java.version").substring(0, 3).compareTo("1.7") >= 0;
 
-  public static boolean isJava7OrAbove() {
-    return IS_JAVA7_OR_ABOVE;
-  }
-
-
-  /** Centralized logic to discover and validate the sanity of the Hadoop 
-   *  home directory. Returns either NULL or a directory that exists and 
-   *  was specified via either -Dhadoop.home.dir or the HADOOP_HOME ENV 
-   *  variable.  This does a lot of work so it should only be called 
-   *  privately for initialization once per process.
+  /** Centralized logic to discover and validate the sanity of the Hadoop home directory.
+   *  Returns either NULL or a directory that exists and was specified via either
+   *  -Dhadoop.home.dir or the HADOOP_HOME ENV variable.  This does a lot of work
+   *  so it should only be called privately for initialization once per process.
    **/
   private static String checkHadoopHome() {
 
@@ -66,9 +58,10 @@ abstract public class Shell {
     }
 
     try {
+
        // couldn't find either setting for hadoop's home directory
        if (home == null) {
-         throw new IOException("HADOOP_HOME or hadoop.home.dir are not set.");
+         throw new IOException("Neither HADOOP_HOME, nor hadoop.home.dir are set.");
        }
 
        if (home.startsWith("\"") && home.endsWith("\"")) {
@@ -78,8 +71,7 @@ abstract public class Shell {
        // check that the home setting is actually a directory that exists
        File homedir = new File(home);
        if (!homedir.isAbsolute() || !homedir.exists() || !homedir.isDirectory()) {
-         throw new IOException("Hadoop home directory " + homedir
-           + " does not exist, is not a directory, or is not an absolute path.");
+         throw new IOException("Hadoop home directory "+homedir+" does not exist, is not a directory, or is not an absolute path.");
        }
 
        home = homedir.getCanonicalPath();
@@ -92,6 +84,12 @@ abstract public class Shell {
     return home;
   }
   private static String HADOOP_HOME_DIR = checkHadoopHome();
+  private static boolean IS_JAVA7_OR_ABOVE =
+      System.getProperty("java.version").substring(0, 3).compareTo("1.7") >= 0;
+
+  public static boolean isJava7OrAbove() {
+    return IS_JAVA7_OR_ABOVE;
+  }
 
   // Public getter, throws an exception if HADOOP_HOME failed validation
   // checks and is being referenced downstream.
@@ -103,24 +101,22 @@ abstract public class Shell {
     return HADOOP_HOME_DIR;
   }
 
-  /** fully qualify the path to a binary that should be in a known hadoop 
-   *  bin location. This is primarily useful for disambiguating call-outs 
-   *  to executable sub-components of Hadoop to avoid clashes with other 
-   *  executables that may be in the path.  Caveat:  this call doesn't 
-   *  just format the path to the bin directory.  It also checks for file 
-   *  existence of the composed path. The output of this call should be 
-   *  cached by callers.
+  /** fully qualify the path to a binary that should be in a known hadoop bin location.
+   *  This is primarily useful for disambiguating call-outs to executable sub-components
+   *  of Hadoop to avoid clashes with other executables that may be in the path.
+   *  
+   *  Caveat:  this call doesn't just format the path to the bin directory.  It also checks
+   *  for file existence of the composed path.  
+   *  The output of this call should be cached by callers.
    * */
-  public static final String getQualifiedBinPath(String executable) 
-  throws IOException {
+  public static final String getQualifiedBinPath(String executable) throws IOException {
     // construct hadoop bin path to the specified executable
     String fullExeName = HADOOP_HOME_DIR + File.separator + "bin" 
-      + File.separator + executable;
+	                + File.separator + executable;
 
     File exeFile = new File(fullExeName);
     if (!exeFile.exists()) {
-      throw new IOException("Could not locate executable " + fullExeName
-        + " in the Hadoop binaries.");
+      throw new IOException("Could not locate executable "+fullExeName+" in the Hadoop binaries.");
     }
 
     return exeFile.getCanonicalPath();
@@ -133,10 +129,14 @@ abstract public class Shell {
   public static final boolean LINUX
                 = System.getProperty("os.name").startsWith("Linux");
 
+  /** Token separator regex used to parse Shell tool outputs */
+  public static final String TOKEN_SEPARATOR_REGEX
+                = WINDOWS ? "[|\n\r]" : "[ \t\n\r\f]";
+
   /* Set flag for aiding Windows porting temporarily for branch-1-win*/
   // TODO - this needs to be fixed
   public static final boolean DISABLEWINDOWS_TEMPORARILY = WINDOWS; 
-  
+
   /** a Windows utility to emulate Unix commands */
   public static final String WINUTILS = getWinUtilsPath();
 
@@ -147,9 +147,8 @@ abstract public class Shell {
       if (WINDOWS) {
         winUtilsPath = getQualifiedBinPath("winutils.exe");
       }
-    } catch (IOException ioe) {
-       LOG.error("Failed to locate the winutils binary in the hadoop binary path",
-         ioe);
+    }catch (IOException ioe) {
+       LOG.error("Failed to locate the native winutils binary in the hadoop binary path ", ioe);
     }
 
     return winUtilsPath;
@@ -160,9 +159,6 @@ abstract public class Shell {
 
   /** Windows CreateProcess synchronization object */
   public static final Object WindowsProcessLaunchLock = new Object();
-
-  /** a Unix command to set the change user's groups list */
-  public static final String SET_GROUP_COMMAND = "chgrp";
 
   /** Return a command to get the current user's groups list */
   public static String[] getGroupsCommand() {
@@ -201,12 +197,6 @@ abstract public class Shell {
     }
   }
 
-  /** Return a regular expression string that match environment variables */
-  public static String getEnvironmentVariableRegex() {
-    return (WINDOWS) ? "%([A-Za-z_][A-Za-z0-9_]*?)%" :
-      "\\$([A-Za-z_][A-Za-z0-9_]*)";
-  }
-
   /** Return a command to set owner */
   public static String[] getSetOwnerCommand(String owner) {
     return (WINDOWS) ? new String[] { WINUTILS, "chown", "\"" + owner + "\"" }
@@ -218,7 +208,7 @@ abstract public class Shell {
     return WINDOWS ? new String[] { WINUTILS, "symlink", link, target }
                    : new String[] { "ln", "-s", target, link };
   }
-  
+
   /** Return a command to execute the given command in OS shell.
    *  On Windows, the passed in groupId can be used to launch
    *  and associate the given groupId in a process group. On
@@ -312,10 +302,6 @@ abstract public class Shell {
     return getUlimitMemoryCommand(memoryLimit);
   }
 
-  /** Token separator regex used to parse Shell tool outputs */
-  public static final String TOKEN_SEPARATOR_REGEX
-                = WINDOWS ? "[|\n\r]" : "[ \t\n\r\f]";
-
   private long    interval;   // refresh interval in msec
   private long    lastTime;   // last time the command was performed
   private Map<String, String> environment; // env for the command execution
@@ -375,7 +361,7 @@ abstract public class Shell {
     if (dir != null) {
       builder.directory(this.dir);
     }
-    
+
     if (Shell.WINDOWS) {
       synchronized (WindowsProcessLaunchLock) {
         // To workaround the race condition issue with child processes
@@ -472,7 +458,7 @@ abstract public class Shell {
 
   /** return an array containing the command name & its parameters */ 
   protected abstract String[] getExecString();
-  
+
   /** Parse the execution result */
   protected abstract void parseExecResult(BufferedReader lines)
   throws IOException;
@@ -546,7 +532,7 @@ abstract public class Shell {
      *            environment is not modified.
      * @param timeout Specifies the time in milliseconds, after which the
      *                command will be killed and the status marked as timedout.
-     *                If 0, the command will not be timed out. 
+     *                If 0, the command will not be timed out.
      */
     public ShellCommandExecutor(String[] execString, File dir, 
         Map<String, String> env, long timeout) {

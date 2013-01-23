@@ -762,8 +762,6 @@ class MapTask extends Task {
 
       input.initialize(split, mapperContext);
       mapper.run(mapperContext);
-      input.close();
-      output.close(mapperContext);
     } catch (NoSuchMethodException e) {
       throw new IOException("Can't find Context constructor", e);
     } catch (InstantiationException e) {
@@ -772,6 +770,11 @@ class MapTask extends Task {
       throw new IOException("Can't invoke Context constructor", e);
     } catch (IllegalAccessException e) {
       throw new IOException("Can't invoke Context constructor", e);
+    } finally {
+      if (input!=null)
+        input.close();
+      if (output!=null)
+        output.close(mapperContext);
     }
   }
 

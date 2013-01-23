@@ -462,7 +462,8 @@ public class TestCombineFileInputFormat extends TestCase{
     // returns true if the specified path matches the prefix stored
     // in this TestFilter.
     public boolean accept(Path path) {
-      if (path.toString().indexOf(p.toString()) == 0) {
+      Path uriPath = new Path(path.toUri().getPath());
+      if (uriPath.toString().indexOf(p.toString()) == 0) {
         return true;
       }
       return false;

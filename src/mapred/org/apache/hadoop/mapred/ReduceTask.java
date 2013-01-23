@@ -647,8 +647,11 @@ class ReduceTask extends Task {
                                                trackedRW, committer,
                                                reporter, comparator, keyClass,
                                                valueClass);
+    try {
     reducer.run(reducerContext);
+    } finally {
     trackedRW.close(reducerContext);
+  }
   }
 
   private static enum CopyOutputErrorType {

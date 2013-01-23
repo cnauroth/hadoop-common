@@ -71,19 +71,8 @@ Branch-hadoop-1-win (branched from branch-1 at r1293509 on 2012-02-24 17:46:42)
     HADOOP-8544 Move an assertion location in 'winutils chmod'.
     (Chuan Liu via sanjay)
 
-    MAPREDUCE-4598. Add support for NodeHealthCheck script for Windows.
-    (Bikas Saha via acmurthy)
-
-    MAPREDUCE-4510. Fix needless check/logging of getconf in Windows.
-    (Bikas Saha via acmurthy)
-
-    HADOOP-8453. Added unit tests for winutils. (Chuan Liu via acmurthy)
-
-    MAPREDUCE-4374. Completed support for configurable environment for child
-    map/reduce tasks. (Chuan Liu via acmurthy)
-
-    HADOOP-8734. Modify LocalJobRunner to support private distributed cache.
-    (Ivan Mitic via vinodkv)
+    MAPREDUCE-4598. Add support for NodeHealthCheck script for Windows. (Bikas
+    Saha via acmurthy)
 
     HDFS-3564. Improve BlockPlacementPolicy interface and change
     BlockPlacementPolicyDefault to make it more extendible.  (Sumadhur Reddy
@@ -118,6 +107,25 @@ Branch-hadoop-1-win (branched from branch-1 at r1293509 on 2012-02-24 17:46:42)
 
     HDFS-3833. TestDFSShell fails on windows due to concurrent file 
     read/write. (Brandon Li via suresh)
+    
+    HADOOP-8836. UGI should throw exception in case winutils.exe cannot be
+    loaded. (Bikas Saha via suresh)
+
+    MAPREDUCE-4567. WindowsResourceCalculatorPlugin has NPE.
+    (Bikas Saha via suresh)
+
+    HADOOP-8879. TestUserGroupInformation fails on Windows when run as
+    Administrator. (Bikas Saha via suresh)
+
+    HADOOP-8911. CRLF characters in source and text files.
+    (Raja Aluri via suresh)
+
+    HADOOP-8912. Add .gitattributes file to prevent CRLF and LF mismatches 
+    for source and text files. (Raja Aluri via suresh)
+
+    HADOOP-4093. Fix a bug that AzureBlockPlacementPolicy#chooseTarget only
+    returns one DN when replication factor is greater than 3.  (Jing Zhao via
+    szetszwo)
 
     HADOOP-8664. hadoop streaming job need the full path to commands even 
     when they are in the path. (Bikas Saha via suresh)
@@ -135,31 +143,11 @@ Branch-hadoop-1-win (branched from branch-1 at r1293509 on 2012-02-24 17:46:42)
     and TestLinuxTaskControllerLaunchArgs to not fail on Windows. (Ivan Mitic via
     vinodkv)
 
-    HADOOP-8694. Add support for windows native symbolic links.
-    (Chuan Liu via suresh)
-    
-    HADOOP-8836. UGI should throw exception in case winutils.exe cannot be
-    loaded. (Bikas Saha via suresh)
-
-    MAPREDUCE-4657. WindowsResourceCalculatorPlugin has NPE.
-    (Bikas Saha via suresh)
-
-    HADOOP-8879. TestUserGroupInformation fails on Windows when run as
-    Administrator. (Bikas Saha via suresh)
-
     HADOOP-8880. Missing jersey jars as dependency in the pom causes 
     hive tests to fail. (gkesavan via suresh)
 
     HADOOP-8903. support HADOOP_USER_CLASSPATH_FIRST in windows hadoop cmd.
     (Thejas Nair via suresh)
-
-    HADOOP-8908. Refactor winutil.exe related code. (Chuan Liu via suresh)
-
-    HADOOP-8911. CRLF characters in source and text files.
-    (Raja Aluri via suresh)
-
-    HADOOP-8912. Add .gitattributes file to prevent CRLF and LF mismatches 
-    for source and text files. (Raja Aluri via suresh)
 
     HADOOP-8868. FileUtil#chmod should normalize the path before calling 
     into shell APIs. (Ivan Mitic via suresh)
@@ -176,22 +164,6 @@ Branch-hadoop-1-win (branched from branch-1 at r1293509 on 2012-02-24 17:46:42)
     HDFS-4065. TestDFSShell.testGet sporadically fails attempting to corrupt 
     block files due to race condition. (Chris Nauroth via suresh)
 
-    HADOOP-8899. Classpath exceeds maximum Windows command limit.
-    (Ahmed El Baz via suresh)
-
-    HADOOP-8763. Implement set-group-owner for Windows correctly. (Chuan Liu via
-    vinodkv)
-
-    HADOOP-8902. Enable Gridmix v1 & v2 benchmarks on Windows platform.
-    (Mike Liddell via suresh)
-
-    HADOOP-8564. Port and extend Hadoop native libraries for Windows to address
-    datanode concurrent reading and writing issue. (Chuan Liu via suresh)
-
-    HADOOP-4093. Fix a bug that AzureBlockPlacementPolicy#chooseTarget only
-    returns one DN when replication factor is greater than 3.  (Jing Zhao via
-    szetszwo)
-
     HADOOP-8907. Provide means to look for zlib1.dll next to hadoop.dll 
     on Windows. (Ivan Mitic via suresh)
 
@@ -203,8 +175,6 @@ Branch-hadoop-1-win (branched from branch-1 at r1293509 on 2012-02-24 17:46:42)
 
     HADOOP-8420. Hadoop Common creating package-info.java must not depend on sh.
     (Bikas Saha via suresh)
-
-    HADOOP-8972. Move winutils tests from bat to Java. (Ivan Mitic via suresh)
 
     HADOOP-8983. Minor fixes to windows batch scripts to accept alternate 
     config directory location. (Ramya Bharathi Nimmagadda via suresh)
@@ -218,9 +188,6 @@ Branch-hadoop-1-win (branched from branch-1 at r1293509 on 2012-02-24 17:46:42)
     HADOOP-9026. Hadoop.cmd fails to initialize if user's %path% variable has
     parenthesis. (Ivan Mitic via suresh)
 
-    HADOOP-9027. Build fails on Windows without sh/sed/echo in the path.
-    (Ivan Mitic via suresh)
-
     HADOOP-8847. Change untar to use Java API on Windows instead of spawning
     tar process. (Bikas Saha via suresh)
 
@@ -232,20 +199,11 @@ Branch-hadoop-1-win (branched from branch-1 at r1293509 on 2012-02-24 17:46:42)
     HADOOP-9062. hadoop-env.cmd overwrites the value of *_OPTS set before
     install. (Ganeshan Iyer via suresh)
 
-    HADOOP-9074. Hadoop install scripts for Windows. (Steve Maine,
-    Ramya Nimmagadda, Chuan Liu, Brad Sarsfield and Ivan Mitic via suresh)
-
     HADOOP-9110. HADOOP-9110. winutils ls off-by-one error indexing MONTHS array
     can cause access violation. (Chris Nauroth via suresh)
 
     HADOOP-9102. winutils task isAlive does not return a non-zero exit code if
     the requested task is not alive. (Chris Nauroth via suresh)
-
-    HADOOP-9061. Java6+Windows does not work well with symlinks.
-    (Ivan Mitic via suresh)
-
-    HADOOP-8645. HADOOP_HOME and -Dhadoop.home (from hadoop wrapper script) are
-    not uniformly handled. (John Gordon via suresh)
 
     HADOOP-9185. TestFileCreation.testFsClose should clean up on exit.
     (Arpit Agarwal via suresh)
@@ -299,6 +257,11 @@ Branch-hadoop-1-win (branched from branch-1 at r1293509 on 2012-02-24 17:46:42)
     HADOOP-7096. Allow setting of end-of-record delimiter for TextInputFormat
     (Ahmed Radwan, backported by suresh)
 
+    HDFS-496. Backport: Use PureJavaCrc32 in HDFS.  (Brandon Li via szetszwo)
+
+    MAPREDUCE-782. Use PureJavaCrc32 in mapreduce spills.
+    (Todd Lipcon, backport by Brandon Li via sseth)
+
     HDFS-3942. Backport HDFS-3495 and HDFS-4234: Update Balancer to support new
     NetworkTopology with NodeGroup and use generic code for choosing datanode
     in Balancer.  (Junping Du via szetszwo)
@@ -337,6 +300,3 @@ Branch-hadoop-1-win (branched from branch-1 at r1293509 on 2012-02-24 17:46:42)
 
     HADOOP-9191. TestAccessControlList and TestJobHistoryConfig fail with
     JDK7. (Arpit Agarwal via suresh)
-
-    HADOOP-9177. Address issues that reported by static code analysis on
-    winutils. (Ivan Mitic via suresh)

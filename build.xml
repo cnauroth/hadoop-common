@@ -33,7 +33,7 @@
   <property name="version" value="1.1.0-SNAPSHOT"/>
   <property name="final.name" value="${name}-${version}"/>
   <property name="test.final.name" value="${name}-test-${version}"/>
-  <property name="year" value="2009"/>
+  <property name="year" value="2012"/>
   <property name="package.release" value="1"/>
   
   <property name="core.final.name" value="${name}-core-${version}"/>
@@ -84,10 +84,17 @@
   <property name="build.anttasks" value="${build.dir}/ant"/>
   <property name="build.librecordio" value="${build.dir}/librecordio"/>
   <!-- convert spaces to _ so that mac os doesn't break things -->
-  <script language="javascript">
-    var before = project.getProperty("os.name");
-    project.setProperty("nonspace.os", before.replaceAll(" ", "_"));
-  </script>
+  <!-- Hack. to temporarily fix https://hwxmonarch.atlassian.net/browse/HADOOP-325 -->
+  <condition property="nonspace.os" value="windows">
+    <os family="windows" />
+  </condition>
+  <condition property="nonspace.os" value="mac">
+    <os family="mac" />
+  </condition>
+  <condition property="nonspace.os" value="unix">
+    <os family="unix" />
+  </condition>
+
   <condition property="build.platform"
     value="${env.OS}-${os.arch}-${sun.arch.data.model}"
     else="${nonspace.os}-${os.arch}-${sun.arch.data.model}">
@@ -243,6 +250,8 @@
 
   <!-- IVY properteis set here -->
   <property name="ivy.dir" location="ivy" />
+  <!-- loglevel take values like default|download-only|quiet -->
+  <property name="loglevel" value="quiet"/>
   <loadproperties srcfile="${ivy.dir}/libraries.properties"/>
   <property name="mvnrepo" value="http://repo2.maven.org/maven2"/>
   <property name="asfrepo" value="https://repository.apache.org"/> 
@@ -438,12 +447,14 @@
     <mkdir dir="${test.build.testjar}"/>
     <mkdir dir="${test.build.testshell}"/>
     <mkdir dir="${test.build.extraconf}"/>
+    <!-- Unnecessary edit of checked-in files
     <tempfile property="touch.temp.file" destDir="${java.io.tmpdir}"/>
     <touch millis="0" file="${touch.temp.file}">
       <fileset dir="${conf.dir}" includes="**/*.template"/>
       <fileset dir="${contrib.dir}" includes="**/*.template"/>
     </touch>
     <delete file="${touch.temp.file}"/>
+    -->
     <!-- copy all of the jsp and static files -->
     <copy todir="${build.webapps}">
       <fileset dir="${src.webapps}">
@@ -456,7 +467,7 @@
       <mapper type="glob" from="*.template" to="*"/>
     </copy>
 
-    <copy todir="${contrib.dir}" verbose="true">
+    <copy todir="${contrib.dir}" verbose="true" filtering="true">
       <fileset dir="${contrib.dir}" includes="**/*.template"/>
       <mapper type="glob" from="*.template" to="*"/>
     </copy>
@@ -654,8 +665,6 @@
     <exec dir="${build.servicehost}" executable="${msbuild.cmd}" failonerror="true">
       <arg line="${servicehost.src.dir}/HadoopServiceHost.sln /target:clean;build /p:Platform=&quot;Any CPU&quot; /p:Configuration=Release;OutDir=${build.servicehost}/"/>
     </exec>
-
-    <copy file="${build.servicehost}/hadoopservicehost.exe" todir="${basedir}/bin"/>
   </target>
 
   <target name="compile-ms-winutils-debug" if="windows">
@@ -1630,7 +1639,7 @@
   <!-- ================================================================== -->
   <!--                                                                    -->
   <!-- ================================================================== -->
-  <target name="package" depends="compile, jar, javadoc, docs, api-report, examples, tools-jar, jar-test, ant-tasks, package-librecordio"
+  <target name="package" depends="compile, jar, api-report, examples, tools-jar, jar-test, ant-tasks, package-librecordio"
 	  description="assembles multi-platform artifacts for distribution">
     <delete dir="${dist.dir}"/>
     <mkdir dir="${dist.dir}"/>
@@ -1812,7 +1821,8 @@
   <!-- ================================================================== -->
   <!-- Make release zip                                                   -->
   <!-- ================================================================== -->
-  <target name="zip" depends="package" description="Make multi-platform release zip, both source and binary">
+  <target name="zip" depends="package, do-zip" description="Make multi-platform release zip, both source and binary"/>
+  <target name="do-zip" description="Only zips, and expects the package to be already run">
     <!-- build source tarball -->
     <macro_zip param.destfile="${build.dir}/${final.name}.zip">
       <param.listofitems>
@@ -2138,6 +2148,10 @@
     </copy>
     <delete dir="${package.buildroot}" quiet="true" verbose="false"/>
   </target>
+  
+  <!-- Keep the old ms-package target in place until we can gracefull deprecate it.
+       This target should be removed prior to submission to Apache -->
+  <target name="ms-package" depends="winpkg"/>
 
   <target name="winpkg" depends="zip,just-winpkg" />
   <target name="just-winpkg" description="Make a package for Windows">
@@ -2233,10 +2247,12 @@
         <exclude name="**/*.sln"/>
         <exclude name="**/*.vcxproj"/>
         <exclude name="**/*.vcxproj.user"/>
+        <exclude name="**/*.bat"/>
       </fileset>
     </delete>
     <delete failonerror="false">
       <dirset dir="${winutils.src.dir}" includes="**/*"/>
+        <exclude name="tests"/>
     </delete>
   </target>
 
@@ -2706,78 +2722,78 @@
   </target>
 
   <target name="ivy-resolve" depends="ivy-init">
-    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings"/>
+    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" log="${loglevel}" />
   </target>
 
   <target name="ivy-resolve-javadoc" depends="ivy-init">
-    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="javadoc"/>
+    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="javadoc" log="${loglevel}"/>
   </target>
 
   <target name="ivy-resolve-releaseaudit" depends="ivy-init">
-    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="releaseaudit"/>
+    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="releaseaudit" log="${loglevel}"/>
   </target>
 
   <target name="ivy-resolve-test" depends="ivy-init">
-    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="test" />
+    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="test"  log="${loglevel}"/>
   </target>
 
   <target name="ivy-resolve-common" depends="ivy-init">
-    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="common" />
+    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="common"  log="${loglevel}"/>
   </target>
 
   <target name="ivy-resolve-jdiff" depends="ivy-init">
-    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="jdiff" />
+    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="jdiff"  log="${loglevel}"/>
   </target>
 
   <target name="ivy-resolve-checkstyle" depends="ivy-init">
-    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="checkstyle"/>
+    <ivy:resolve settingsRef="${ant.project.name}.ivy.settings" conf="checkstyle" log="${loglevel}"/>
   </target>
 
   <target name="ivy-retrieve" depends="ivy-resolve"
     description="Retrieve Ivy-managed artifacts">
     <ivy:retrieve settingsRef="${ant.project.name}.ivy.settings"
-      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}"/>
+      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}" log="${loglevel}"/>
   </target>
 
   <target name="ivy-retrieve-checkstyle" depends="ivy-resolve-checkstyle"
     description="Retrieve Ivy-managed artifacts for the checkstyle configurations">
     <ivy:retrieve settingsRef="${ant.project.name}.ivy.settings"
-      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}"/>
+      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}" log="${loglevel}"/>
     <ivy:cachepath pathid="checkstyle-classpath" conf="checkstyle"/>
   </target>
 
   <target name="ivy-retrieve-jdiff" depends="ivy-resolve-jdiff"
     description="Retrieve Ivy-managed artifacts for the javadoc configurations">
     <ivy:retrieve settingsRef="${ant.project.name}.ivy.settings"
-      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}"/>
+      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}" log="${loglevel}"/>
     <ivy:cachepath pathid="jdiff-classpath" conf="jdiff"/>
   </target>
 
   <target name="ivy-retrieve-javadoc" depends="ivy-resolve-javadoc"
     description="Retrieve Ivy-managed artifacts for the javadoc configurations">
     <ivy:retrieve settingsRef="${ant.project.name}.ivy.settings"
-      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}"/>
+      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}" log="${loglevel}"/>
     <ivy:cachepath pathid="javadoc-classpath" conf="javadoc"/>
   </target>
 
   <target name="ivy-retrieve-test" depends="ivy-resolve-test"
     description="Retrieve Ivy-managed artifacts for the test configurations">
     <ivy:retrieve settingsRef="${ant.project.name}.ivy.settings"
-      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}"/>
+      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}" log="${loglevel}"/>
     <ivy:cachepath pathid="ivy-test.classpath" conf="test"/>
   </target>
 
   <target name="ivy-retrieve-common" depends="ivy-resolve-common"
     description="Retrieve Ivy-managed artifacts for the compile configurations">
     <ivy:retrieve settingsRef="${ant.project.name}.ivy.settings"
-      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}"/>
+      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}" log="${loglevel}"/>
     <ivy:cachepath pathid="ivy-common.classpath" conf="common"/>
   </target>
 
   <target name="ivy-retrieve-releaseaudit" depends="ivy-resolve-releaseaudit"
     description="Retrieve Ivy-managed artifacts for the compile configurations">
     <ivy:retrieve settingsRef="${ant.project.name}.ivy.settings"
-      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}" />
+      pattern="${build.ivy.lib.dir}/${ivy.artifact.retrieve.pattern}"  log="${loglevel}"/>
     <ivy:cachepath pathid="releaseaudit-classpath" conf="releaseaudit"/>
     <available classname="${rat.reporting.classname}" 
       classpathref="releaseaudit-classpath" property="rat.present" value="true"/>
@@ -3014,7 +3030,7 @@
   </target>
 
   <!-- taskcontroller targets -->
-  <target name="task-controller" depends="init" unless="windows">
+  <target name="task-controller" depends="init" unless="windows" >
     <exec executable="autoreconf" 
           dir="${c++.task-controller.src}"
           searchpath="yes" failonerror="yes">
@@ -3050,8 +3066,7 @@
 
   <target name="jsvc" >
     <mkdir dir="${jsvc.build.dir}" />
-    <get src="${jsvc.location}" dest="${jsvc.build.dir}/${jsvc.dest.name}" />
-
+    <get src="${jsvc.location}" dest="${jsvc.build.dir}/${jsvc.dest.name}"/>
     <untar compression="gzip" src="${jsvc.build.dir}/${jsvc.dest.name}" dest="${jsvc.build.dir}" />
 
     <copy file="${jsvc.build.dir}/jsvc" toFile="${jsvc.install.dir}/jsvc.${os.arch}" verbose="true" />
@@ -3061,3 +3076,4 @@
  </target>
 
 </project>
+

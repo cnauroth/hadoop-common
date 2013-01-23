@@ -77,13 +77,14 @@ class LinuxTaskController extends TaskController {
 
     String defaultTaskController = null;
     try {
-      defaultTaskController = Shell.getQualifiedBinPath("task-controller");
+      defaultTaskController = 
+              Shell.getQualifiedBinPath("task-controller");
     } catch (IOException ioe) {
-      LOG.warn("Could not locate the default native taskcontroller"+ioe);
+       LOG.warn("Could not locate the default native taskcontroller binary in the hadoop binary path "+ioe);
     }
 
     taskControllerExe = conf.get(TASK_CONTROLLER_EXEC_KEY, 
-                                 defaultTaskController);       
+                                 defaultTaskController);
   }
 
   public LinuxTaskController() {
