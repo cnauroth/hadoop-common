@@ -1065,16 +1065,15 @@ public class FileUtil {
       if (classPathEntry.endsWith("*")) {
         // Append all jars that match the wildcard
         Path globPath = new Path(classPathEntry).suffix("{.jar,.JAR}");
-        FileStatus[] wildcardJars = FileContext.getLocalFSFileContext()
-          .util().globStatus(globPath);
+        FileStatus[] wildcardJars = FileContext.getLocalFSFileContext().util()
+          .globStatus(globPath);
         if (wildcardJars != null) {
           for (FileStatus wildcardJar: wildcardJars) {
             classPathEntryList.add(wildcardJar.getPath().toUri().toURL()
               .toExternalForm());
           }
         }
-      }
-      else {
+      } else {
         // Append just this jar
         classPathEntryList.add(new File(classPathEntry).toURI().toURL()
           .toExternalForm());

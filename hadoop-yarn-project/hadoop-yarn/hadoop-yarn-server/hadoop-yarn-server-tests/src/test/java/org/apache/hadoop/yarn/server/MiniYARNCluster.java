@@ -126,8 +126,7 @@ public class MiniYARNCluster extends CompositeService {
       }
 
       this.testWorkDir = link;
-    }
-    else {
+    } else {
       this.testWorkDir = targetWorkDir;
     }
 
