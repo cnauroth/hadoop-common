@@ -57,13 +57,12 @@ public class StringUtils {
   public static final int SHUTDOWN_HOOK_PRIORITY = 0;
 
   /**
-   * Shell environment variables: $ followed by 1 letter or _ followed by
-   * multiple letters, numbers, or underscores, terminated by any character that
-   * is not a letter, number, or underscore.  The group captures the environment
-   * variable name without the leading $.
+   * Shell environment variables: $ followed by one letter or _ followed by
+   * multiple letters, numbers, or underscores.  The group captures the
+   * environment variable name without the leading $.
    */
   public static final Pattern SHELL_ENV_VAR_PATTERN =
-    Pattern.compile("\\$([A-Za-z_]{1}[A-Za-z0-9_]*?)[^A-Za-z0-9_]");
+    Pattern.compile("\\$([A-Za-z_]{1}[A-Za-z0-9_]*)");
 
   /**
    * Windows environment variables: surrounded by %.  The group captures the

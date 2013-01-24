@@ -300,13 +300,31 @@ public class TestStringUtils extends UnitTestcaseTimeLimit {
 
   @Test
   public void testReplaceTokensShellEnvVars() {
-    // TODO
+    Pattern pattern = StringUtils.SHELL_ENV_VAR_PATTERN;
+    Map<String, String> replacements = new HashMap<String, String>();
+    replacements.put("FOO", "one");
+    replacements.put("BAZ", "two");
+    replacements.put("NUMBERS123", "one-two-three");
+    replacements.put("UNDER_SCORES", "___");
+
+    assertEquals("one", StringUtils.replaceTokens("$FOO", pattern,
+      replacements));
+    assertEquals("two", StringUtils.replaceTokens("$BAZ", pattern,
+      replacements));
+    assertEquals("", StringUtils.replaceTokens("$BAR", pattern, replacements));
+    assertEquals("", StringUtils.replaceTokens("", pattern, replacements));
+    assertEquals("one-two-three", StringUtils.replaceTokens("$NUMBERS123",
+      pattern, replacements));
+    assertEquals("___", StringUtils.replaceTokens("$UNDER_SCORES", pattern,
+      replacements));
+    assertEquals("//one//two//", StringUtils.replaceTokens("//$FOO/$BAR/$BAZ//",
+      pattern, replacements));
   }
 
   @Test
   public void testReplaceTokensWinEnvVars() {
     Pattern pattern = StringUtils.WIN_ENV_VAR_PATTERN;
-    Map<String, String> replacements = new HashMap<String, String>(2);
+    Map<String, String> replacements = new HashMap<String, String>();
     replacements.put("foo", "zoo");
     replacements.put("baz", "zaz");
 
