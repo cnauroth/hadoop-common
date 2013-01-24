@@ -743,7 +743,7 @@ public class TestFileUtil {
     String[] classPaths = { "cp1.jar", "cp2.jar", "cp3.jar" };
     String inputClassPath = StringUtils.join(File.pathSeparator, classPaths);
     String classPathJar = FileUtil.createJarWithClassPath(inputClassPath,
-      new Path(tmp.toURI()));
+      new Path(tmp.getCanonicalPath()));
 
     // verify classpath by reading manifest from jar file
     JarFile jarFile = null;
