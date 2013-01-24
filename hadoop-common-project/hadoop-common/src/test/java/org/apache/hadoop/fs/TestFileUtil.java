@@ -37,6 +37,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.util.Shell;
+import org.apache.hadoop.util.StringUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
@@ -739,10 +740,10 @@ public class TestFileUtil {
     Assert.assertTrue(tmp.mkdirs());
 
     // create classpath jar
-    File classPathJar = new File(tmp, "classpath.jar");
-    Assert.assertFalse(classPathJar.exists());
     String[] classPaths = { "cp1.jar", "cp2.jar", "cp3.jar" };
-    FileUtil.createJarWithClassPath(classPathJar, classPaths);
+    String inputClassPath = StringUtils.join(File.pathSeparator, classPaths);
+    String classPathJar = FileUtil.createJarWithClassPath(inputClassPath,
+      new Path(tmp.toURI()));
 
     // verify classpath by reading manifest from jar file
     JarFile jarFile = null;
@@ -767,8 +768,7 @@ public class TestFileUtil {
         try {
           jarFile.close();
         } catch (IOException e) {
-          LOG.warn(
-            "exception closing jarFile: " + classPathJar.getAbsolutePath(), e);
+          LOG.warn("exception closing jarFile: " + classPathJar, e);
         }
       }
     }

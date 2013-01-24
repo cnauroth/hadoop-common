@@ -42,6 +42,7 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.net.NetUtils;
+import org.apache.hadoop.util.Shell;
 
 /**
  * General string utils
@@ -54,6 +55,28 @@ public class StringUtils {
    * Priority of the StringUtils shutdown hook.
    */
   public static final int SHUTDOWN_HOOK_PRIORITY = 0;
+
+  /**
+   * Shell environment variables: $ followed by 1 letter or _ followed by
+   * multiple letters, numbers, or underscores, terminated by any character that
+   * is not a letter, number, or underscore.  The group captures the environment
+   * variable name without the leading $.
+   */
+  public static final Pattern SHELL_ENV_VAR_PATTERN =
+    Pattern.compile("\\$([A-Za-z_]{1}[A-Za-z0-9_]*?)[^A-Za-z0-9_]");
+
+  /**
+   * Windows environment variables: surrounded by %.  The group captures the
+   * environment variable name without the leading and trailing %.
+   */
+  public static final Pattern WIN_ENV_VAR_PATTERN = Pattern.compile("%(.*?)%");
+
+  /**
+   * Regular expression that matches and captures environment variable names
+   * according to platform-specific rules.
+   */
+  public static final Pattern ENV_VAR_PATTERN = Shell.WINDOWS ?
+    WIN_ENV_VAR_PATTERN : SHELL_ENV_VAR_PATTERN;
 
   private static final DecimalFormat decimalFormat;
   static {

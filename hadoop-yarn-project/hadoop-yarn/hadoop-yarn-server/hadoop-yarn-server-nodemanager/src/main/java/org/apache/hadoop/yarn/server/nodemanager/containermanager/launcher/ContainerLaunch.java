@@ -33,9 +33,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Pattern;
 
-import org.apache.commons.collections.map.CaseInsensitiveMap;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -78,7 +76,6 @@ public class ContainerLaunch implements Callable<Integer> {
   public static final String FINAL_CONTAINER_TOKENS_FILE = "container_tokens";
 
   private static final String PID_FILE_NAME_FMT = "%s.pid";
-  private static final Pattern WIN_ENV_VAR_PATTERN = Pattern.compile("%(.*?)%");
 
   private final Dispatcher dispatcher;
   private final ContainerExecutor exec;
@@ -569,30 +566,12 @@ public class ContainerLaunch implements Callable<Integer> {
       environment.put("JVM_PID", "$$");
     }
 
+    // TODO: Remove Windows check and use this approach on all platforms after
+    // additional testing.
     if (Shell.WINDOWS) {
-      // On Windows, the maximum command line length is 8191 characters.  The
-      // classpath may be longer than this.  To work around this limitation,
-      // create a small intermediate jar with a manifest that contains the full
-      // classpath.  Then, reference this jar when setting the CLASSPATH
-      // environment variable.  Environment variable evaluation is not supported
-      // within a jar manifest, so expand environment variables here.
-      // Environment variables are case-insensitive on Windows.
-      @SuppressWarnings("unchecked")
-      Map<String, String> caseInsensitiveEnv = new CaseInsensitiveMap(
-        System.getenv());
-      String[] classPathEntries = environment.get(Environment.CLASSPATH.name())
-        .split(File.pathSeparator);
-      for (int i = 0; i < classPathEntries.length; ++i) {
-        classPathEntries[i] = StringUtils.replaceTokens(classPathEntries[i],
-          WIN_ENV_VAR_PATTERN, caseInsensitiveEnv);
-      }
-      File containerWorkDir = new File(pwd.toString());
-      containerWorkDir.mkdirs();
-      File classPathJar = File.createTempFile("classpath-", ".jar",
-        containerWorkDir);
-      FileUtil.createJarWithClassPath(classPathJar, classPathEntries);
+      String inputClassPath = environment.get(Environment.CLASSPATH.name());
       environment.put(Environment.CLASSPATH.name(),
-        classPathJar.getCanonicalPath());
+          FileUtil.createJarWithClassPath(inputClassPath, pwd));
     }
 
     /**

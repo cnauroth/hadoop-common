@@ -299,8 +299,13 @@ public class TestStringUtils extends UnitTestcaseTimeLimit {
   }
 
   @Test
-  public void testReplaceTokens() {
-    Pattern pattern = Pattern.compile("%(.*?)%");
+  public void testReplaceTokensShellEnvVars() {
+    // TODO
+  }
+
+  @Test
+  public void testReplaceTokensWinEnvVars() {
+    Pattern pattern = StringUtils.WIN_ENV_VAR_PATTERN;
     Map<String, String> replacements = new HashMap<String, String>(2);
     replacements.put("foo", "zoo");
     replacements.put("baz", "zaz");
