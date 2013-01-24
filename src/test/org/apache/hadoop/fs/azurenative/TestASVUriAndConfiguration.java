@@ -1,6 +1,7 @@
 package org.apache.hadoop.fs.azurenative;
 
 import java.io.*;
+import java.net.URI;
 import java.util.*;
 
 
@@ -95,6 +96,36 @@ public class TestASVUriAndConfiguration extends TestCase {
     // Read the file from the public folder using anonymous credentials.
     //
     assertEquals(FILE_SIZE, readInputStream(new Path("/testAsv.txt")));
+  }
+
+  /**
+   * Tests that we can connect to fully qualified accounts outside
+   * of blob.core.windows.net
+   */
+  public void testConnectToFullyQualifiedAccountMock() throws Exception {
+    Configuration conf = new Configuration();
+    AzureBlobStorageTestAccount.setMockAccountKey(conf,
+        "mockAccount.mock.authority.net");
+    AzureNativeFileSystemStore store = new AzureNativeFileSystemStore();
+    MockStorageInterface mockStorage = new MockStorageInterface();
+    store.setAzureStorageInteractionLayer(mockStorage);
+    NativeAzureFileSystem fs = new NativeAzureFileSystem(store);
+    fs.initialize(new URI(
+        "asv://mockContainer@mockAccount.mock.authority.net"),
+        conf);
+    fs.createNewFile(new Path("/x"));
+    assertTrue(mockStorage.getBackingStore().exists(
+        "http://mockAccount.mock.authority.net/mockContainer/x"));
+  }
+
+  /**
+   * Tests that we can connect to fully qualified accounts outside
+   * of blob.core.windows.net
+   */
+  public void testConnectToFullyQualifiedAccountLive() throws Exception {
+    testAccount =
+        AzureBlobStorageTestAccount.create("", true);
+    assertTrue(validateIOStreams(new Path("/testFile")));
   }
 
   public void testConnectToRoot() throws Exception {

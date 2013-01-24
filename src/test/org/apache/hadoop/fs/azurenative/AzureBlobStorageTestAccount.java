@@ -168,7 +168,16 @@ public final class AzureBlobStorageTestAccount {
    * @param conf The configuration.
    */
   public static void setMockAccountKey(Configuration conf) {
-    conf.set(ACCOUNT_KEY_PROPERTY_NAME + MOCK_ACCOUNT_NAME,
+    setMockAccountKey(conf, MOCK_ACCOUNT_NAME);
+  }
+
+  /**
+   * Sets the mock account key in the given configuration.
+   * @param conf The configuration.
+   */
+  public static void setMockAccountKey(Configuration conf,
+      String accountName) {
+    conf.set(ACCOUNT_KEY_PROPERTY_NAME + accountName,
         Base64.encode(new byte[] {1, 2, 3}));
   }
 
@@ -187,7 +196,13 @@ public final class AzureBlobStorageTestAccount {
     return create("");
   }
 
-  public static AzureBlobStorageTestAccount create(String containerNameSuffix) throws Exception {
+  public static AzureBlobStorageTestAccount create(String containerNameSuffix)
+      throws Exception {
+    return create(containerNameSuffix, false);
+  }
+  
+  public static AzureBlobStorageTestAccount create(String containerNameSuffix,
+      boolean useQualifiedAccountName) throws Exception {
     saveMetricsConfigFile();
     NativeAzureFileSystem fs = null;
     CloudBlobContainer container = null;
@@ -206,6 +221,9 @@ public final class AzureBlobStorageTestAccount {
     container.create();
     String accountUrl = account.getBlobEndpoint().getAuthority();
     String accountName = accountUrl.substring(0, accountUrl.indexOf('.'));
+    if (useQualifiedAccountName) {
+      accountName += ".blob.core.windows.net";
+    }
 
     // Set the account key base on whether the account is authenticated or is an anonymous
     // public account.
