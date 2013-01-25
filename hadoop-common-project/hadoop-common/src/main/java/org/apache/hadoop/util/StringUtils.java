@@ -850,7 +850,7 @@ public class StringUtils {
    * 
    * For example, assume template is "%foo%_%bar%_%baz%", pattern is "%(.*?)%",
    * and replacements contains 2 entries, mapping "foo" to "zoo" and "baz" to
-   * "zaz". The result returned would be "zoo__zaz".
+   * "zaz".  The result returned would be "zoo__zaz".
    * 
    * @param template String template to receive replacements
    * @param pattern Pattern to match for identifying tokens, must use a capturing
