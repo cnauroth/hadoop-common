@@ -156,9 +156,9 @@ public class DefaultContainerExecutor extends ContainerExecutor {
         sb.getWrapperScriptPath().toString().length() > WIN_MAX_PATH) {
       throw new IOException(String.format(
         "Cannot launch container using script at path %s, because it exceeds " +
-        "the maximum supported path length of %d.  Consider configuring " +
-        "shorter directories in %s.", sb.getWrapperScriptPath(), WIN_MAX_PATH,
-        YarnConfiguration.NM_LOCAL_DIRS));
+        "the maximum supported path length of %d characters.  Consider " +
+        "configuring shorter directories in %s.", sb.getWrapperScriptPath(),
+        WIN_MAX_PATH, YarnConfiguration.NM_LOCAL_DIRS));
     }
 
     Path pidFile = getPidFilePath(containerId);
