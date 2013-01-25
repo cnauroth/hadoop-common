@@ -754,7 +754,7 @@ public class TestFileUtil {
     Assert.assertTrue(new File(tmp, "README").createNewFile());
 
     // create classpath jar
-    String wildcardPath = new File(tmp, "*").getCanonicalPath();
+    String wildcardPath = tmp.getCanonicalPath() + File.separator + "*";
     List<String> classPaths = Arrays.asList("cp1.jar", "cp2.jar", wildcardPath,
       "cp3.jar");
     String inputClassPath = StringUtils.join(File.pathSeparator, classPaths);
@@ -772,7 +772,7 @@ public class TestFileUtil {
       Assert.assertTrue(mainAttributes.containsKey(Attributes.Name.CLASS_PATH));
       String classPathAttr = mainAttributes.getValue(Attributes.Name.CLASS_PATH);
       Assert.assertNotNull(classPathAttr);
-      List<String> expectedClassPaths = new ArrayList<String>(classPaths.size());
+      List<String> expectedClassPaths = new ArrayList<String>();
       for (String classPath: classPaths) {
         if (!wildcardPath.equals(classPath)) {
           expectedClassPaths.add(new File(classPath).toURI().toURL()
