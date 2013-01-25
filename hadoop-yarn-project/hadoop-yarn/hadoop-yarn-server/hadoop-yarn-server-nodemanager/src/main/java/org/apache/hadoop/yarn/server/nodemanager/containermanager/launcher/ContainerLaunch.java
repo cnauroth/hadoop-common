@@ -567,7 +567,7 @@ public class ContainerLaunch implements Callable<Integer> {
     }
 
     // TODO: Remove Windows check and use this approach on all platforms after
-    // additional testing.
+    // additional testing.  See YARN-358.
     if (Shell.WINDOWS) {
       String inputClassPath = environment.get(Environment.CLASSPATH.name());
       environment.put(Environment.CLASSPATH.name(),
