@@ -251,6 +251,7 @@ public class MiniDFSCluster {
     }
     
     int replication = conf.getInt("dfs.replication", 3);
+    System.out.println("cn replication = " + replication + ", numDataNodes = " + numDataNodes + ", dfs.replication = " + Math.min(replication, numDataNodes));
     conf.setInt("dfs.replication", Math.min(replication, numDataNodes));
     int safemodeExtension = conf.getInt("dfs.safemode.extension.testing", 0);
     conf.setInt("dfs.safemode.extension", safemodeExtension);

@@ -840,6 +840,8 @@ public class FSImage extends Storage {
     else // latestNameCheckpointTime == latestEditsCheckpointTime
       needToSave |= (loadFSEdits(latestEditsSD, recovery) > 0);
     
+    // update the counts.
+    FSNamesystem.getFSNamesystem().dir.updateCountForINodeWithQuota();    
     return needToSave;
   }
 
@@ -1029,8 +1031,6 @@ public class FSImage extends Storage {
       numEdits += FSEditLog.loadFSEdits(edits, editsTolerationLength, recovery);
       edits.close();
     }
-    // update the counts.
-    FSNamesystem.getFSNamesystem().dir.updateCountForINodeWithQuota();    
     return numEdits;
   }
 
@@ -1112,6 +1112,7 @@ public class FSImage extends Storage {
       }
     }
 
+    // need test to simulate fail right here
     // -NOTE-
     // If NN has image-only and edits-only storage directories and fails here 
     // the image will have the latest namespace state.
