@@ -1112,7 +1112,6 @@ public class FSImage extends Storage {
       }
     }
 
-    // need test to simulate fail right here
     // -NOTE-
     // If NN has image-only and edits-only storage directories and fails here 
     // the image will have the latest namespace state.

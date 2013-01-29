@@ -24,14 +24,17 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.server.namenode.FSImage.NameNodeDirType;
 import org.apache.hadoop.hdfs.server.namenode.FSImage.NameNodeFile;
+import org.apache.hadoop.io.IOUtils;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
 /**
@@ -39,26 +42,27 @@ import org.junit.Test;
  * directories.
  */
 public class TestNameNodeCorruptionRecovery {
+
+  private static final Log LOG = LogFactory.getLog(
+    TestNameNodeCorruptionRecovery.class);
   
   private MiniDFSCluster cluster;
   
-  @Before
-  public void setUpCluster() throws IOException {
-      //cluster = new MiniDFSCluster(new Configuration(), 0, true, null);
-      //cluster.waitActive();
-  }
-  
   @After
   public void tearDownCluster() {
-      //cluster.shutdown();
+    if (cluster != null) {
+      cluster.shutdown();
+    }
   }
 
   /**
    * Test that a corrupted fstime file in a single storage directory does not
    * prevent the NN from starting up.
    */
-  //@Test
-  public void footestFsTimeFileCorrupt() throws IOException, InterruptedException {
+  @Test
+  public void testFsTimeFileCorrupt() throws IOException, InterruptedException {
+    cluster = new MiniDFSCluster(new Configuration(), 0, true, null);
+    cluster.waitActive();
     assertEquals(cluster.getNameDirs().size(), 2);
     // Get the first fstime file and truncate it.
     truncateStorageDirFile(cluster, NameNodeFile.TIME, 0);
@@ -66,43 +70,85 @@ public class TestNameNodeCorruptionRecovery {
     cluster.restartNameNode();
   }
 
+  /**
+   * Tests that a cluster's image is not damaged if checkpoint fails after
+   * writing checkpoint time to the image directory but before writing checkpoint
+   * time to the edits directory.  This is a very rare failure scenario that can
+   * only occur if the the namenode is configured with separate directories for
+   * image and edits.  This test simulates the failure by forcing the fstime file
+   * for edits to contain 0, so that it appears the checkpoint time for edits is
+   * less than the checkpoint time for image.
+   */
   @Test
-  public void testEditFsTimeLessThanImageFsTime() throws Exception {
-    MiniDFSCluster cluster2 = null;
+  public void testEditsFsTimeLessThanImageFsTime() throws Exception {
+    // Create a cluster with separate directories for image and edits.
+    Configuration conf = new Configuration();
+    File testDir = new File(System.getProperty("test.build.data",
+      "build/test/data"), "dfs/");
+    //conf.set("dfs.name.dir", new File(testDir, "name").getPath());
+    //conf.set("dfs.name.edits.dir", new File(testDir, "edits").getPath());
+    conf.set(DFSConfigKeys.DFS_NAMENODE_NAME_DIR_KEY,
+      new File(testDir, "name").getPath());
+    conf.set(DFSConfigKeys.DFS_NAMENODE_EDITS_DIR_KEY,
+      new File(testDir, "edits").getPath());
+    cluster = new MiniDFSCluster(0, conf, 1, true, false, true, null, null, null,
+      null);
+    cluster.waitActive();
+
+    // Create several files to generate some edits.
+    createFile("one");
+    createFile("two");
+    createFile("three");
+    assertTrue(checkFileExists("one"));
+    assertTrue(checkFileExists("two"));
+    assertTrue(checkFileExists("three"));
+
+    // Restart to force a checkpoint.
+    cluster.restartNameNode();
+
+    // Shutdown so that we can safely modify the fstime file.
+    File[] editsFsTime = cluster.getNameNode().getFSImage().getFileNames(
+      NameNodeFile.TIME, NameNodeDirType.EDITS);
+    assertTrue("expected exactly one edits directory containg fstime file",
+      editsFsTime.length == 1);
+    cluster.shutdown();
+
+    // Write 0 into the fstime file for the edits directory.
+    FileOutputStream fos = null;
+    DataOutputStream dos = null;
     try {
-      Configuration conf = new Configuration();
-      File base_dir = new File(System.getProperty("test.build.data", "build/test/data"), "dfs/");
-      conf.set("dfs.name.dir", new File(base_dir, "name").getPath());
-      conf.set("dfs.name.edits.dir", new File(base_dir, "edits").getPath());
-      cluster2 = new MiniDFSCluster(0, conf, 1, true, false, true, null, null, null, null);
-      cluster2.waitActive();
-
-      FileSystem fileSys = cluster2.getFileSystem();
-      fileSys.create(new Path("one")).close();
-      fileSys.create(new Path("two")).close();
-      fileSys.create(new Path("three")).close();
-
-      cluster2.restartNameNode();
-
-      File[] editsFsTime = cluster2.getNameNode().getFSImage().getFileNames(NameNodeFile.TIME, NameNodeDirType.EDITS);
-      cluster2.shutdown();
-      DataOutputStream dos = new DataOutputStream(new FileOutputStream(editsFsTime[0]));
-      dos.writeLong(0L);
-      dos.close();
-
-      cluster2 = new MiniDFSCluster(0, conf, 1, false, false, true, null, null, null, null);
-      cluster2.waitActive();
-
-      cluster2.restartNameNode();
-      fileSys = cluster2.getFileSystem();
-      assertTrue(fileSys.exists(new Path("one")));
-      assertTrue(fileSys.exists(new Path("two")));
-      assertTrue(fileSys.exists(new Path("three")));
+      fos = new FileOutputStream(editsFsTime[0]);
+      dos = new DataOutputStream(fos);
+      dos.writeLong(0);
     } finally {
-      if (cluster2 != null) {
-        cluster2.shutdown();
-      }
+      IOUtils.cleanup(LOG, dos, fos);
     }
+
+    // Restart to force another checkpoint, which should discard the old edits.
+    cluster = new MiniDFSCluster(0, conf, 1, false, false, true, null, null,
+      null, null);
+    cluster.waitActive();
+
+    // Restart one more time.  If all of the prior checkpoints worked correctly,
+    // then we expect to load the image successfully and find the files.
+    cluster.restartNameNode();
+    assertTrue(checkFileExists("one"));
+    assertTrue(checkFileExists("two"));
+    assertTrue(checkFileExists("three"));
+  }
+
+  /**
+   * TODO
+   */
+  private boolean checkFileExists(String file) throws IOException {
+    return cluster.getFileSystem().exists(new Path(file));
+  }
+
+  /**
+   * TODO
+   */
+  private void createFile(String file) throws IOException {
+    cluster.getFileSystem().create(new Path(file)).close();
   }
 
   private static void truncateStorageDirFile(MiniDFSCluster cluster,
