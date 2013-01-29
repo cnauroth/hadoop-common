@@ -138,14 +138,21 @@ public class TestNameNodeCorruptionRecovery {
   }
 
   /**
-   * TODO
+   * Checks that a file exists in the cluster.
+   * 
+   * @param file String name of file to check
+   * @return boolean true if file exists
+   * @throws IOException thrown if there is an I/O error
    */
   private boolean checkFileExists(String file) throws IOException {
     return cluster.getFileSystem().exists(new Path(file));
   }
 
   /**
-   * TODO
+   * Creates a new, empty file in the cluster.
+   * 
+   * @param file String name of file to create
+   * @throws IOException thrown if there is an I/O error
    */
   private void createFile(String file) throws IOException {
     cluster.getFileSystem().create(new Path(file)).close();
