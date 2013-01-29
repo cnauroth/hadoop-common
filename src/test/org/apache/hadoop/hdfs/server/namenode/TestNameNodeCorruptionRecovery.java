@@ -73,10 +73,10 @@ public class TestNameNodeCorruptionRecovery {
    * Tests that a cluster's image is not damaged if checkpoint fails after
    * writing checkpoint time to the image directory but before writing checkpoint
    * time to the edits directory.  This is a very rare failure scenario that can
-   * only occur if the the namenode is configured with separate directories for
-   * image and edits.  This test simulates the failure by forcing the fstime file
-   * for edits to contain 0, so that it appears the checkpoint time for edits is
-   * less than the checkpoint time for image.
+   * only occur if the namenode is configured with separate directories for image
+   * and edits.  This test simulates the failure by forcing the fstime file for
+   * edits to contain 0, so that it appears the checkpoint time for edits is less
+   * than the checkpoint time for image.
    */
   @Test
   public void testEditsFsTimeLessThanImageFsTime() throws Exception {
