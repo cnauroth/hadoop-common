@@ -28,7 +28,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.server.namenode.FSImage.NameNodeDirType;
 import org.apache.hadoop.hdfs.server.namenode.FSImage.NameNodeFile;
@@ -84,10 +83,8 @@ public class TestNameNodeCorruptionRecovery {
     Configuration conf = new Configuration();
     File testDir = new File(System.getProperty("test.build.data",
       "build/test/data"), "dfs/");
-    conf.set(DFSConfigKeys.DFS_NAMENODE_NAME_DIR_KEY,
-      new File(testDir, "name").getPath());
-    conf.set(DFSConfigKeys.DFS_NAMENODE_EDITS_DIR_KEY,
-      new File(testDir, "edits").getPath());
+    conf.set("dfs.name.dir", new File(testDir, "name").getPath());
+    conf.set("dfs.name.edits.dir", new File(testDir, "edits").getPath());
     cluster = new MiniDFSCluster(0, conf, 1, true, false, true, null, null, null,
       null);
     cluster.waitActive();
