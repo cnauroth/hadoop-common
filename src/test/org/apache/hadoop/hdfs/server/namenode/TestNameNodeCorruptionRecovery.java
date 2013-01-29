@@ -103,7 +103,7 @@ public class TestNameNodeCorruptionRecovery {
     // Shutdown so that we can safely modify the fstime file.
     File[] editsFsTime = cluster.getNameNode().getFSImage().getFileNames(
       NameNodeFile.TIME, NameNodeDirType.EDITS);
-    assertTrue("expected exactly one edits directory containg fstime file",
+    assertTrue("expected exactly one edits directory containing fstime file",
       editsFsTime.length == 1);
     cluster.shutdown();
 
