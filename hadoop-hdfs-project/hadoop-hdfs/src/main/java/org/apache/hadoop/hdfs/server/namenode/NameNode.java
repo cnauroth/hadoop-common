@@ -251,6 +251,7 @@ public class NameNode {
   private List<ServicePlugin> plugins;
   
   private NameNodeRpcServer rpcServer;
+  private final NameNodeStartupProgress startupProgress;
   
   /** Format a new filesystem.  Destroys any filesystem that may already
    * exist at this location.  **/
@@ -397,7 +398,7 @@ public class NameNode {
   }
 
   protected void loadNamesystem(Configuration conf) throws IOException {
-    this.namesystem = FSNamesystem.loadFromDisk(conf);
+    this.namesystem = FSNamesystem.loadFromDisk(conf, startupProgress);
   }
 
   NamenodeRegistration getRegistration() {
@@ -431,6 +432,7 @@ public class NameNode {
     loginAsNameNodeUser(conf);
 
     NameNode.initMetrics(conf, this.getRole());
+    startHttpServer(conf);
     loadNamesystem(conf);
 
     rpcServer = createRpcServer(conf);
@@ -479,7 +481,6 @@ public class NameNode {
   /** Start the services common to active and standby states */
   private void startCommonServices(Configuration conf) throws IOException {
     namesystem.startCommonServices(conf, haContext);
-    startHttpServer(conf);
     rpcServer.start();
     plugins = conf.getInstances(DFS_NAMENODE_PLUGINS_KEY,
         ServicePlugin.class);
@@ -601,6 +602,8 @@ public class NameNode {
     state = createHAState();
     this.allowStaleStandbyReads = HAUtil.shouldAllowStandbyReads(conf);
     this.haContext = createHAContext();
+    this.startupProgress = new NameNodeStartupProgress();
+    this.startupProgress.state = NameNodeStartupState.INITIALIZED;
     try {
       initializeGenericKeys(conf, nsId, namenodeId);
       initialize(conf);

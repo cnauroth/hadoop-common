@@ -378,6 +378,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
   private final boolean haEnabled;
     
   private INodeId inodeId;
+
+  private final NameNodeStartupProgress startupProgress;
   
   /**
    * Set the last allocated inode id when fsimage or editlog is loaded. 
@@ -434,10 +436,17 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
    */
   public static FSNamesystem loadFromDisk(Configuration conf)
       throws IOException {
+
+    return loadFromDisk(conf, null);
+  }
+
+  public static FSNamesystem loadFromDisk(Configuration conf,
+      NameNodeStartupProgress startupProgress) throws IOException {
     Collection<URI> namespaceDirs = FSNamesystem.getNamespaceDirs(conf);
     List<URI> namespaceEditsDirs = 
       FSNamesystem.getNamespaceEditsDirs(conf);
-    return loadFromDisk(conf, namespaceDirs, namespaceEditsDirs);
+    return loadFromDisk(conf, namespaceDirs, namespaceEditsDirs,
+      startupProgress);
   }
 
   /**
@@ -455,6 +464,13 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       Collection<URI> namespaceDirs, List<URI> namespaceEditsDirs)
       throws IOException {
 
+    return loadFromDisk(conf, namespaceDirs, namespaceEditsDirs, null);
+  }
+
+  public static FSNamesystem loadFromDisk(Configuration conf,
+      Collection<URI> namespaceDirs, List<URI> namespaceEditsDirs,
+      NameNodeStartupProgress startupProgress) throws IOException {
+
     if (namespaceDirs.size() == 1) {
       LOG.warn("Only one image storage directory ("
           + DFS_NAMENODE_NAME_DIR_KEY + ") configured. Beware of dataloss"
@@ -467,7 +483,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     }
 
     FSImage fsImage = new FSImage(conf, namespaceDirs, namespaceEditsDirs);
-    FSNamesystem namesystem = new FSNamesystem(conf, fsImage);
+    FSNamesystem namesystem = new FSNamesystem(conf, fsImage, startupProgress);
     StartupOption startOpt = NameNode.getStartupOption(conf);
     if (startOpt == StartupOption.RECOVER) {
       namesystem.setSafeMode(SafeModeAction.SAFEMODE_ENTER);
@@ -497,6 +513,12 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
    * @throws IOException on bad configuration
    */
   FSNamesystem(Configuration conf, FSImage fsImage) throws IOException {
+    this(conf, fsImage, null);
+  }
+
+  FSNamesystem(Configuration conf, FSImage fsImage,
+      NameNodeStartupProgress startupProgress) throws IOException {
+
     try {
       resourceRecheckInterval = conf.getLong(
           DFS_NAMENODE_RESOURCE_CHECK_INTERVAL_KEY,
@@ -579,6 +601,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       this.auditLoggers = initAuditLoggers(conf);
       this.isDefaultAuditLogger = auditLoggers.size() == 1 &&
         auditLoggers.get(0) instanceof DefaultAuditLogger;
+      this.startupProgress = startupProgress;
     } catch(IOException e) {
       LOG.error(getClass().getSimpleName() + " initialization failed.", e);
       close();
