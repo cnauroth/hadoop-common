@@ -1,4 +1,8 @@
-﻿# Licensed to the Apache Software Foundation (ASF) under one or more
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+
+# Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
 # The ASF licenses this file to You under the Apache License, Version 2.0
@@ -13,8 +17,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "winutils", "winutils.vcxproj", "{D94B3BD7-39CC-47A0-AE9A-353FDE506F33}"
 	ProjectSection(ProjectDependencies) = postProject
 		{12131AA7-902E-4A6D-9CE3-043261D22A12} = {12131AA7-902E-4A6D-9CE3-043261D22A12}
