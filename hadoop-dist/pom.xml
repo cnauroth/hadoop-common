@@ -151,7 +151,7 @@
                         fi
                       }
 
-                      run tar czf hadoop-${project.version}.tar.gz hadoop-${project.version}
+                      run tar cf - hadoop-${project.version} | gzip > hadoop-${project.version}.tar.gz
                       echo
                       echo "Hadoop dist tar available at: ${project.build.directory}/hadoop-${project.version}.tar.gz"
                       echo

@@ -189,7 +189,7 @@
                     BUILD_DIR=`cygpath --unix '${project.build.directory}'`
                   fi
                   cd $BUILD_DIR
-                  tar czf ${project.artifactId}-${project.version}.tar.gz ${project.artifactId}-${project.version}
+                  tar cf - ${project.artifactId}-${project.version} | gzip > ${project.artifactId}-${project.version}.tar.gz
                 </echo>
                 <exec executable="sh" dir="${project.build.directory}" failonerror="true">
                   <arg line="./dist-maketar.sh"/>
