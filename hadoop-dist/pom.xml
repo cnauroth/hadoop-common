@@ -107,7 +107,7 @@
                         fi
                       }
 
-                      ROOT=`cd ${basedir}/..;pwd`
+                      ROOT=`cd ../..;pwd`
                       echo
                       echo "Current directory `pwd`"
                       echo
