@@ -1092,12 +1092,6 @@ public class HarFileSystem extends FilterFileSystem {
             line.clear();
           }
         }
-        try {
-          // close the archive index
-          aIn.close();
-        } catch(IOException io) {
-          // do nothing just a read.
-        }
       } finally {
         IOUtils.cleanup(LOG, aIn);
       }
