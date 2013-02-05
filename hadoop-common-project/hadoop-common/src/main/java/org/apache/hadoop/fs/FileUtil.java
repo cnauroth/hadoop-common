@@ -643,8 +643,6 @@ public class FileUtil {
     untarCommand.append("cd '");
     untarCommand.append(FileUtil.makeShellPath(untarDir)); 
     untarCommand.append("' ; ");
-
-    // Force the archive path as local on Windows as it can have a colon
     untarCommand.append("tar -xf ");
 
     if (gzipped) {
@@ -1056,7 +1054,13 @@ public class FileUtil {
         StringUtils.ENV_VAR_PATTERN, env);
     }
     File workingDir = new File(pwd.toString());
-    workingDir.mkdirs();
+    if (!workingDir.mkdirs()) {
+      // If mkdirs returns false because the working directory already exists,
+      // then this is acceptable.  If it returns false due to some other I/O
+      // error, then this method will fail later with an IOException while saving
+      // the jar.
+      LOG.debug("mkdirs false for " + workingDir + ", execution will continue");
+    }
 
     // Append all entries
     List<String> classPathEntryList = new ArrayList<String>(
