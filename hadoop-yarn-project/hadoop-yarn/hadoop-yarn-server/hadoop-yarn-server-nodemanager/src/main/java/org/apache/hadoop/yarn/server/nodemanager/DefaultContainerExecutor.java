@@ -180,8 +180,8 @@ public class DefaultContainerExecutor extends ContainerExecutor {
           ContainerExecutor.TASK_LAUNCH_SCRIPT_PERMISSION);
 
       // Setup command to run
-      String[] command = Shell.getRunCommand(
-        sb.getWrapperScriptPath().toString(), containerIdStr);
+      String[] command = getRunCommand(sb.getWrapperScriptPath().toString(),
+        containerIdStr);
 
       LOG.info("launchContainer: " + Arrays.toString(command));
       shExec = new ShellCommandExecutor(
@@ -324,8 +324,7 @@ public class DefaultContainerExecutor extends ContainerExecutor {
    */
   private boolean containerIsAlive(String pid) throws IOException {
     try {
-      new ShellCommandExecutor(Shell.getCheckProcessIsAliveCommand(pid))
-        .execute();
+      new ShellCommandExecutor(getCheckProcessIsAliveCommand(pid)).execute();
       // successful execution means process is alive
       return true;
     }
@@ -343,7 +342,7 @@ public class DefaultContainerExecutor extends ContainerExecutor {
    * (for logging).
    */
   private void killContainer(String pid, Signal signal) throws IOException {
-    new ShellCommandExecutor(Shell.getSignalKillCommand(signal.getValue(), pid))
+    new ShellCommandExecutor(getSignalKillCommand(signal.getValue(), pid))
       .execute();
   }
 
