@@ -53,13 +53,13 @@ public class TestListFiles {
   private static Path FILE3;
 
   static {
-    setTestPaths(getTestDir());
+    setTestPaths(new Path(
+      System.getProperty("test.build.data", "build/test/data/work-dir/localfs"),
+      "main_"));
   }
 
   protected static Path getTestDir() {
-    return new Path(
-      System.getProperty("test.build.data","build/test/data/work-dir/localfs"),
-      "main_");
+    return TEST_DIR;
   }
 
   /**
