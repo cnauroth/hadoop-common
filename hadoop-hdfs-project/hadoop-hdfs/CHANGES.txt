@@ -296,7 +296,22 @@ Trunk (Unreleased)
 
     HDFS-4382. Fix typo MAX_NOT_CHANGED_INTERATIONS. (Ted Yu via suresh)
 
-Release 2.0.3-alpha - Unreleased 
+    HDFS-4340. Update addBlock() to inculde inode id as additional argument.
+    (Brandon Li via suresh)
+
+Release 2.0.4-beta - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+  OPTIMIZATIONS
+
+  BUG FIXES
+
+Release 2.0.3-alpha - 2013-02-06
 
   INCOMPATIBLE CHANGES
 
@@ -761,6 +776,9 @@ Release 2.0.3-alpha - Unreleased
 
     HDFS-4344. dfshealth.jsp throws NumberFormatException when
     dfs.hosts/dfs.hosts.exclude includes port number. (Andy Isaacson via atm)
+
+    HDFS-4468.  Use the new StringUtils methods added by HADOOP-9252 and fix
+    TestHDFSCLI and TestQuota. (szetszwo)
 
   BREAKDOWN OF HDFS-3077 SUBTASKS
 
