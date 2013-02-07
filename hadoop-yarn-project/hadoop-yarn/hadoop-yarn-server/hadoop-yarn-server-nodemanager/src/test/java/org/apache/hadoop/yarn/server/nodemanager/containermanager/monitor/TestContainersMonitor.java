@@ -267,8 +267,8 @@ public class TestContainersMonitor extends BaseContainerManagerTest {
     String expectedMsgPattern =
         "Container \\[pid=" + pid + ",containerID=" + cId
             + "\\] is running beyond virtual memory limits. Current usage: "
-            + "[0-9.]+m?b of [0-9.]+m?b physical memory used; "
-            + "[0-9.]+m?b of [0-9.]+m?b virtual memory used. "
+            + "[0-9.]+ ?[KkMmGgTtPpEe]?b of [0-9.]+ ?[KkMmGgTtPpEe]?b physical memory used; "
+            + "[0-9.]+ ?[KkMmGgTtPpEe]?b of [0-9.]+ ?[KkMmGgTtPpEe]?b virtual memory used. "
             + "Killing container.\nDump of the process-tree for "
             + cId + " :\n";
     Pattern pat = Pattern.compile(expectedMsgPattern);
