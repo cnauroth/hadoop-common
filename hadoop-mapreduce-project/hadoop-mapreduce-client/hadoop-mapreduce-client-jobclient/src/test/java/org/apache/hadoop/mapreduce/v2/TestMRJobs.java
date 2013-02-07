@@ -105,6 +105,8 @@ public class TestMRJobs {
   private static Path TEST_ROOT_DIR = new Path("target",
       TestMRJobs.class.getName() + "-tmpDir").makeQualified(localFs);
   static Path APP_JAR = new Path(TEST_ROOT_DIR, "MRAppJar.jar");
+  private static final String OUTPUT_ROOT_DIR = "/tmp/" +
+    TestMRJobs.class.getSimpleName();
 
   @BeforeClass
   public static void setup() throws IOException {
@@ -228,8 +230,7 @@ public class TestMRJobs {
     mrCluster.getConfig().set(RandomTextWriterJob.TOTAL_BYTES, "3072");
     mrCluster.getConfig().set(RandomTextWriterJob.BYTES_PER_MAP, "1024");
     Job job = randomWriterJob.createJob(mrCluster.getConfig());
-    Path outputDir =
-        new Path("/tmp/" + getClass().getSimpleName(), "random-output");
+    Path outputDir = new Path(OUTPUT_ROOT_DIR, "random-output");
     FileOutputFormat.setOutputPath(job, outputDir);
     job.setSpeculativeExecution(false);
     job.addFileToClassPath(APP_JAR); // The AppMaster jar itself.
@@ -344,8 +345,8 @@ public class TestMRJobs {
     job.setMapperClass(FailingMapper.class);
     job.setNumReduceTasks(0);
     
-    FileOutputFormat.setOutputPath(job,
-        new Path("/tmp/" + getClass().getSimpleName(), "failmapper-output"));
+    FileOutputFormat.setOutputPath(job, new Path(OUTPUT_ROOT_DIR,
+      "failmapper-output"));
     job.addFileToClassPath(APP_JAR); // The AppMaster jar itself.
     job.submit();
     String trackingUrl = job.getTrackingURL();
