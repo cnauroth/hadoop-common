@@ -494,7 +494,7 @@ public class ContainersMonitorImpl extends AbstractService implements
     private String formatUsageString(long currentVmemUsage, long vmemLimit,
         long currentPmemUsage, long pmemLimit) {
       return String.format("%sB of %sB physical memory used; " +
-          "%sb of %sb virtual memory used",
+          "%sB of %sB virtual memory used",
           TraditionalBinaryPrefix.long2String(currentPmemUsage, "", 1),
           TraditionalBinaryPrefix.long2String(pmemLimit, "", 1),
           TraditionalBinaryPrefix.long2String(currentVmemUsage, "", 1),
