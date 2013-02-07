@@ -65,7 +65,7 @@ public class TestMapProgress extends TestCase {
   static {
     String root = new File(System.getProperty("test.build.data", "/tmp"))
       .getAbsolutePath();
-    TEST_ROOT_DIR = new Path(root, "mapPahseprogress").toString();
+    TEST_ROOT_DIR = new Path(root, "mapPhaseprogress").toString();
   }
 
   static class FakeUmbilical implements TaskUmbilicalProtocol {
