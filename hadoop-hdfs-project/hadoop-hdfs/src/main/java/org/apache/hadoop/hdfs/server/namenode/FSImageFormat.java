@@ -220,6 +220,9 @@ class FSImageFormat {
         namesystem.resetLastInodeIdWithoutChecking(INodeId.LAST_RESERVED_ID); 
         // load all inodes
         LOG.info("Number of files = " + numFiles);
+        if (namesystem.startupProgress != null) {
+          namesystem.startupProgress.totalInodes = numFiles;
+        }
         if (LayoutVersion.supports(Feature.FSIMAGE_NAME_OPTIMIZATION,
             imgVersion)) {
           loadLocalNameINodes(numFiles, in);
@@ -424,6 +427,9 @@ class FSImageFormat {
     
     PermissionStatus permissions = PermissionStatus.read(in);
 
+    if (namesystem.startupProgress != null) {
+      ++namesystem.startupProgress.loadedInodes;
+    }
     return INode.newINode(inodeId, permissions, blocks, symlink, replication,
         modificationTime, atime, nsQuota, dsQuota, blockSize);
   }
@@ -438,6 +444,9 @@ class FSImageFormat {
       for (int i = 0; i < size; i++) {
         INodeFileUnderConstruction cons =
           FSImageSerialization.readINodeUnderConstruction(in);
+        if (namesystem.startupProgress != null) {
+          ++namesystem.startupProgress.loadedInodes;
+        }
 
         // verify that file exists in namespace
         String path = cons.getLocalName();

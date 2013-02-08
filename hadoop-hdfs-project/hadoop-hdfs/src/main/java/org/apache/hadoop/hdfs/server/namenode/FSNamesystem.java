@@ -379,7 +379,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     
   private INodeId inodeId;
 
-  private final NameNodeStartupProgress startupProgress;
+  final NameNodeStartupProgress startupProgress;
   
   /**
    * Set the last allocated inode id when fsimage or editlog is loaded. 
@@ -482,7 +482,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
           + " due to lack of redundant storage directories!");
     }
 
-    FSImage fsImage = new FSImage(conf, namespaceDirs, namespaceEditsDirs);
+    FSImage fsImage = new FSImage(conf, namespaceDirs, namespaceEditsDirs,
+      startupProgress);
     FSNamesystem namesystem = new FSNamesystem(conf, fsImage, startupProgress);
     StartupOption startOpt = NameNode.getStartupOption(conf);
     if (startOpt == StartupOption.RECOVER) {
@@ -652,6 +653,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
 
       startOpt = StartupOption.REGULAR;
     }
+    startupProgress.state = NameNodeStartupState.LOADING_FSIMAGE;
     boolean success = false;
     writeLock();
     try {

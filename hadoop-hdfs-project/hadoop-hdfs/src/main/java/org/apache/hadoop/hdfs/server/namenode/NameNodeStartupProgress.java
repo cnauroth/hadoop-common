@@ -22,5 +22,7 @@ import org.apache.hadoop.classification.InterfaceAudience;
 @InterfaceAudience.Private
 class NameNodeStartupProgress {
 
-  public NameNodeStartupState state;
+  public long loadedInodes;
+  public NameNodeStartupState state = NameNodeStartupState.INITIALIZED;
+  public long totalInodes;
 }

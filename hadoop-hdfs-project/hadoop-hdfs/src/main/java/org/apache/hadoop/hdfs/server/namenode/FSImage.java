@@ -94,6 +94,7 @@ public class FSImage implements Closeable {
 
   protected NNStorageRetentionManager archivalManager;
   protected IdGenerator blockIdGenerator;
+  NameNodeStartupProgress startupProgress;
 
   /**
    * Construct an FSImage
@@ -120,6 +121,11 @@ public class FSImage implements Closeable {
                     Collection<URI> imageDirs,
                     List<URI> editsDirs)
       throws IOException {
+    this(conf, imageDirs, editsDirs, null);
+  }
+
+  FSImage(Configuration conf, Collection<URI> imageDirs, List<URI> editsDirs,
+      NameNodeStartupProgress startupProgress) throws IOException {
     this.conf = conf;
 
     storage = new NNStorage(conf, imageDirs, editsDirs);
@@ -131,6 +137,7 @@ public class FSImage implements Closeable {
     this.editLog = new FSEditLog(conf, storage, editsDirs);
     
     archivalManager = new NNStorageRetentionManager(conf, storage, editLog);
+    this.startupProgress = startupProgress;
   }
  
   void format(FSNamesystem fsn, String clusterId) throws IOException {
