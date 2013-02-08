@@ -229,9 +229,19 @@ public class WindowsAzureTableSink implements MetricsSink {
 		try {
 			tableClient.execute(tableName, insertMetricOperation);
 		} catch (StorageException storageException) {
-			logger.error(String.format("tableClient.execute failed. Details: %s, %s", 
+			String message = storageException.getMessage();
+			boolean skipLogging = false;
+			if (message != null && message.contains("Conflict")) {
+				// Skip logging the conflict error message since we know that it
+				// can happen by design. Check HADOOP-404 for details.
+				skipLogging = true;
+			}
+
+			if (!skipLogging) {
+				logger.error(String.format("tableClient.execute failed. Details: %s, %s", 
 					storageException.getMessage(), storageException));
-			
+			}
+
 			return;
 		}
 	}
