@@ -201,10 +201,9 @@ public class WindowsAzureTableSink implements MetricsSink {
 			metrics2KeyValuePairs.put(metric.name(), metric.value().toString());
 		}
 		
-		// The choice of row key means that two records of the same context from the same node 
-		// can't be written at the same time. But this does not happen 
+		// Using a guid as the rowkey to guarantee uniqueness
 		AzureTableMetrics2Entity metrics2Entity = 
-				new AzureTableMetrics2Entity(partitionKey, String.valueOf(record.timestamp()));
+				new AzureTableMetrics2Entity(partitionKey, UUID.randomUUID().toString());
 		
 		metrics2Entity.setMetrics2KeyValuePairs(metrics2KeyValuePairs);
 		
