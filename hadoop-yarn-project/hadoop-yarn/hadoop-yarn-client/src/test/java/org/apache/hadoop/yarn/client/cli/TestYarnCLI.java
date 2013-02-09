@@ -115,16 +115,17 @@ public class TestYarnCLI {
     assertEquals(0, result);
     verify(client).getApplicationList();
 
-    StringBuffer appsReportStrBuf = new StringBuffer();
-    appsReportStrBuf.append("Total Applications:1\n");
-    appsReportStrBuf
-        .append("                Application-Id\t    Application-Name"
-            + "\t      User\t     Queue\t             State\t       "
-            + "Final-State\t                       Tracking-URL\n");
-    appsReportStrBuf.append("         application_1234_0005\t             "
+    String appsReport = StringUtils.join(System.getProperty("line.separator"),
+      Arrays.asList(
+        "Total Applications:1",
+        "                Application-Id\t    Application-Name"
+        + "\t      User\t     Queue\t             State\t       "
+        + "Final-State\t                       Tracking-URL",
+        "         application_1234_0005\t             "
         + "appname\t      user\t     queue\t          FINISHED\t         "
-        + "SUCCEEDED\t                                N/A\n");
-    Assert.assertEquals(appsReportStrBuf.toString(), sysOutStream.toString());
+        + "SUCCEEDED\t                                N/A",
+        "")); // for final line separator
+    Assert.assertEquals(appsReport.toString(), sysOutStream.toString());
     verify(sysOut, times(1)).write(any(byte[].class), anyInt(), anyInt());
   }
 
