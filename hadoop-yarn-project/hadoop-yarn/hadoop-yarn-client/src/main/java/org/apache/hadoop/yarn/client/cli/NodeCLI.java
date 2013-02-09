@@ -144,10 +144,10 @@ public class NodeCLI extends YarnCLI {
     }
 
     if (nodeReport == null) {
-      nodeReportStr.println("Could not find the node report for node id : "
+      nodeReportStr.print("Could not find the node report for node id : "
           + nodeIdStr);
     }
-    pw.close();
+    nodeReportStr.close();
     sysout.println(baos.toString("UTF-8"));
   }
 }
