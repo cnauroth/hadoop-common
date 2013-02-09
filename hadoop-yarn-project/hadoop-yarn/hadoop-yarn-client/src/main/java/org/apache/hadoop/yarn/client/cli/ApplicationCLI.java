@@ -131,34 +131,34 @@ public class ApplicationCLI extends YarnCLI {
     ApplicationReport appReport = client.getApplicationReport(ConverterUtils
         .toApplicationId(applicationId));
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    PrintWriter pw = new PrintWriter(baos);
+    PrintWriter appReportStr = new PrintWriter(baos);
     if (appReport != null) {
-      pw.println("Application Report : ");
-      pw.print("\tApplication-Id : ");
-      pw.println(appReport.getApplicationId());
-      pw.print("\tApplication-Name : ");
-      pw.println(appReport.getName());
-      pw.print("\tUser : ");
-      pw.println(appReport.getUser());
-      pw.print("\tQueue : ");
-      pw.println(appReport.getQueue());
-      pw.print("\tStart-Time : ");
-      pw.println(appReport.getStartTime());
-      pw.print("\tFinish-Time : ");
-      pw.println(appReport.getFinishTime());
-      pw.print("\tState : ");
-      pw.println(appReport.getYarnApplicationState());
-      pw.print("\tFinal-State : ");
-      pw.println(appReport.getFinalApplicationStatus());
-      pw.print("\tTracking-URL : ");
-      pw.println(appReport.getOriginalTrackingUrl());
-      pw.print("\tDiagnostics : ");
-      pw.print(appReport.getDiagnostics());
+      appReportStr.println("Application Report : ");
+      appReportStr.print("\tApplication-Id : ");
+      appReportStr.println(appReport.getApplicationId());
+      appReportStr.print("\tApplication-Name : ");
+      appReportStr.println(appReport.getName());
+      appReportStr.print("\tUser : ");
+      appReportStr.println(appReport.getUser());
+      appReportStr.print("\tQueue : ");
+      appReportStr.println(appReport.getQueue());
+      appReportStr.print("\tStart-Time : ");
+      appReportStr.println(appReport.getStartTime());
+      appReportStr.print("\tFinish-Time : ");
+      appReportStr.println(appReport.getFinishTime());
+      appReportStr.print("\tState : ");
+      appReportStr.println(appReport.getYarnApplicationState());
+      appReportStr.print("\tFinal-State : ");
+      appReportStr.println(appReport.getFinalApplicationStatus());
+      appReportStr.print("\tTracking-URL : ");
+      appReportStr.println(appReport.getOriginalTrackingUrl());
+      appReportStr.print("\tDiagnostics : ");
+      appReportStr.print(appReport.getDiagnostics());
     } else {
-      pw.print("Application with id '" + applicationId
+      appReportStr.print("Application with id '" + applicationId
           + "' doesn't exist in RM.");
     }
-    pw.close();
+    appReportStr.close();
     sysout.println(baos.toString("UTF-8"));
   }
 
