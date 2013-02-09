@@ -30,10 +30,12 @@ import static org.mockito.Mockito.when;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import junit.framework.Assert;
 
+import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
@@ -79,12 +81,20 @@ public class TestYarnCLI {
     int result = cli.run(new String[] { "-status", applicationId.toString() });
     assertEquals(0, result);
     verify(client).getApplicationReport(applicationId);
-    String appReportStr = "Application Report : \n\t"
-        + "Application-Id : application_1234_0005\n\t"
-        + "Application-Name : appname\n\tUser : user\n\t"
-        + "Queue : queue\n\tStart-Time : 0\n\tFinish-Time : 0\n\t"
-        + "State : FINISHED\n\tFinal-State : SUCCEEDED\n\t"
-        + "Tracking-URL : N/A\n\tDiagnostics : diagnostics\n";
+    String appReportStr = StringUtils.join(System.getProperty("line.separator"),
+      Arrays.asList(
+        "Application Report : ",
+        "\tApplication-Id : application_1234_0005",
+        "\tApplication-Name : appname",
+        "\tUser : user",
+        "\tQueue : queue",
+        "\tStart-Time : 0",
+        "\tFinish-Time : 0",
+        "\tState : FINISHED",
+        "\tFinal-State : SUCCEEDED",
+        "\tTracking-URL : N/A",
+        "\tDiagnostics : diagnostics",
+        "")); // for final line separator
     Assert.assertEquals(appReportStr, sysOutStream.toString());
     verify(sysOut, times(1)).println(isA(String.class));
   }

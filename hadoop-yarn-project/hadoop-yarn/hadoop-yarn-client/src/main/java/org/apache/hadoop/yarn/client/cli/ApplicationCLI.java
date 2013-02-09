@@ -17,6 +17,8 @@
  */
 package org.apache.hadoop.yarn.client.cli;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
 
@@ -31,7 +33,9 @@ import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 
 public class ApplicationCLI extends YarnCLI {
-  private static final String APPLICATIONS_PATTERN = "%30s\t%20s\t%10s\t%10s\t%18s\t%18s\t%35s\n";
+  private static final String APPLICATIONS_PATTERN =
+    "%30s\t%20s\t%10s\t%10s\t%18s\t%18s\t%35s" +
+    System.getProperty("line.separator");
 
   public static void main(String[] args) throws Exception {
     ApplicationCLI cli = new ApplicationCLI();
@@ -123,37 +127,39 @@ public class ApplicationCLI extends YarnCLI {
    * @throws YarnRemoteException
    */
   private void printApplicationReport(String applicationId)
-      throws YarnRemoteException {
+      throws YarnRemoteException, IOException {
     ApplicationReport appReport = client.getApplicationReport(ConverterUtils
         .toApplicationId(applicationId));
-    StringBuffer appReportStr = new StringBuffer();
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    PrintWriter pw = new PrintWriter(baos);
     if (appReport != null) {
-      appReportStr.append("Application Report : ");
-      appReportStr.append("\n\tApplication-Id : ");
-      appReportStr.append(appReport.getApplicationId());
-      appReportStr.append("\n\tApplication-Name : ");
-      appReportStr.append(appReport.getName());
-      appReportStr.append("\n\tUser : ");
-      appReportStr.append(appReport.getUser());
-      appReportStr.append("\n\tQueue : ");
-      appReportStr.append(appReport.getQueue());
-      appReportStr.append("\n\tStart-Time : ");
-      appReportStr.append(appReport.getStartTime());
-      appReportStr.append("\n\tFinish-Time : ");
-      appReportStr.append(appReport.getFinishTime());
-      appReportStr.append("\n\tState : ");
-      appReportStr.append(appReport.getYarnApplicationState());
-      appReportStr.append("\n\tFinal-State : ");
-      appReportStr.append(appReport.getFinalApplicationStatus());
-      appReportStr.append("\n\tTracking-URL : ");
-      appReportStr.append(appReport.getOriginalTrackingUrl());
-      appReportStr.append("\n\tDiagnostics : ");
-      appReportStr.append(appReport.getDiagnostics());
+      pw.println("Application Report : ");
+      pw.print("\tApplication-Id : ");
+      pw.println(appReport.getApplicationId());
+      pw.print("\tApplication-Name : ");
+      pw.println(appReport.getName());
+      pw.print("\tUser : ");
+      pw.println(appReport.getUser());
+      pw.print("\tQueue : ");
+      pw.println(appReport.getQueue());
+      pw.print("\tStart-Time : ");
+      pw.println(appReport.getStartTime());
+      pw.print("\tFinish-Time : ");
+      pw.println(appReport.getFinishTime());
+      pw.print("\tState : ");
+      pw.println(appReport.getYarnApplicationState());
+      pw.print("\tFinal-State : ");
+      pw.println(appReport.getFinalApplicationStatus());
+      pw.print("\tTracking-URL : ");
+      pw.println(appReport.getOriginalTrackingUrl());
+      pw.print("\tDiagnostics : ");
+      pw.print(appReport.getDiagnostics());
     } else {
-      appReportStr.append("Application with id '" + applicationId
+      pw.print("Application with id '" + applicationId
           + "' doesn't exist in RM.");
     }
-    sysout.println(appReportStr.toString());
+    pw.close();
+    sysout.println(baos.toString("UTF-8"));
   }
 
 }
