@@ -53,6 +53,9 @@ import org.junit.Test;
 
 public class TestYarnCLI {
 
+  private static final String LINE_SEPARATOR =
+    System.getProperty("line.separator");
+
   private YarnClient client = mock(YarnClient.class);
   ByteArrayOutputStream sysOutStream;
   private PrintStream sysOut;
@@ -81,20 +84,19 @@ public class TestYarnCLI {
     int result = cli.run(new String[] { "-status", applicationId.toString() });
     assertEquals(0, result);
     verify(client).getApplicationReport(applicationId);
-    String appReportStr = StringUtils.join(System.getProperty("line.separator"),
-      Arrays.asList(
-        "Application Report : ",
-        "\tApplication-Id : application_1234_0005",
-        "\tApplication-Name : appname",
-        "\tUser : user",
-        "\tQueue : queue",
-        "\tStart-Time : 0",
-        "\tFinish-Time : 0",
-        "\tState : FINISHED",
-        "\tFinal-State : SUCCEEDED",
-        "\tTracking-URL : N/A",
-        "\tDiagnostics : diagnostics",
-        "")); // for final line separator
+    String appReportStr = StringUtils.join(LINE_SEPARATOR, Arrays.asList(
+      "Application Report : ",
+      "\tApplication-Id : application_1234_0005",
+      "\tApplication-Name : appname",
+      "\tUser : user",
+      "\tQueue : queue",
+      "\tStart-Time : 0",
+      "\tFinish-Time : 0",
+      "\tState : FINISHED",
+      "\tFinal-State : SUCCEEDED",
+      "\tTracking-URL : N/A",
+      "\tDiagnostics : diagnostics",
+      "")); // for final line separator
     Assert.assertEquals(appReportStr, sysOutStream.toString());
     verify(sysOut, times(1)).println(isA(String.class));
   }
@@ -115,16 +117,15 @@ public class TestYarnCLI {
     assertEquals(0, result);
     verify(client).getApplicationList();
 
-    String appsReport = StringUtils.join(System.getProperty("line.separator"),
-      Arrays.asList(
-        "Total Applications:1",
-        "                Application-Id\t    Application-Name"
-        + "\t      User\t     Queue\t             State\t       "
-        + "Final-State\t                       Tracking-URL",
-        "         application_1234_0005\t             "
-        + "appname\t      user\t     queue\t          FINISHED\t         "
-        + "SUCCEEDED\t                                N/A",
-        "")); // for final line separator
+    String appsReport = StringUtils.join(LINE_SEPARATOR, Arrays.asList(
+      "Total Applications:1",
+      "                Application-Id\t    Application-Name"
+      + "\t      User\t     Queue\t             State\t       "
+      + "Final-State\t                       Tracking-URL",
+      "         application_1234_0005\t             "
+      + "appname\t      user\t     queue\t          FINISHED\t         "
+      + "SUCCEEDED\t                                N/A",
+      "")); // for final line separator
     Assert.assertEquals(appsReport.toString(), sysOutStream.toString());
     verify(sysOut, times(1)).write(any(byte[].class), anyInt(), anyInt());
   }
@@ -148,18 +149,17 @@ public class TestYarnCLI {
     int result = cli.run(new String[] { "-list" });
     assertEquals(0, result);
     verify(client).getNodeReports();
-    String nodesReport = StringUtils.join(System.getProperty("line.separator"),
-      Arrays.asList(
-        "Total Nodes:3",
-        "         Node-Id\tNode-State\tNode-Http-Address\t"
-        + "Health-Status(isNodeHealthy)\tRunning-Containers",
-        "         host0:0\t   RUNNING\t       host1:8888"
-        + "\t                     false\t                 0",
-        "         host1:0\t   RUNNING\t       host1:8888"
-        + "\t                     false\t                 0",
-        "         host2:0\t   RUNNING\t       host1:8888"
-        + "\t                     false\t                 0",
-        "")); // for final line separator
+    String nodesReport = StringUtils.join(LINE_SEPARATOR, Arrays.asList(
+      "Total Nodes:3",
+      "         Node-Id\tNode-State\tNode-Http-Address\t"
+      + "Health-Status(isNodeHealthy)\tRunning-Containers",
+      "         host0:0\t   RUNNING\t       host1:8888"
+      + "\t                     false\t                 0",
+      "         host1:0\t   RUNNING\t       host1:8888"
+      + "\t                     false\t                 0",
+      "         host2:0\t   RUNNING\t       host1:8888"
+      + "\t                     false\t                 0",
+      "")); // for final line separator
     Assert.assertEquals(nodesReport, sysOutStream.toString());
     verify(sysOut, times(1)).write(any(byte[].class), anyInt(), anyInt());
   }
@@ -175,20 +175,19 @@ public class TestYarnCLI {
     int result = cli.run(new String[] { "-status", nodeId.toString() });
     assertEquals(0, result);
     verify(client).getNodeReports();
-    String nodeStatus = StringUtils.join(System.getProperty("line.separator"),
-      Arrays.asList(
-        "Node Report : ",
-        "\tNode-Id : host0:0",
-        "\tRack : rack1",
-        "\tNode-State : RUNNING",
-        "\tNode-Http-Address : host1:8888",
-        "\tHealth-Status(isNodeHealthy) : false",
-        "\tLast-Last-Health-Update : 0",
-        "\tHealth-Report : null",
-        "\tContainers : 0",
-        "\tMemory-Used : 0M",
-        "\tMemory-Capacity : 0",
-        "")); // for final line separator
+    String nodeStatus = StringUtils.join(LINE_SEPARATOR, Arrays.asList(
+      "Node Report : ",
+      "\tNode-Id : host0:0",
+      "\tRack : rack1",
+      "\tNode-State : RUNNING",
+      "\tNode-Http-Address : host1:8888",
+      "\tHealth-Status(isNodeHealthy) : false",
+      "\tLast-Last-Health-Update : 0",
+      "\tHealth-Report : null",
+      "\tContainers : 0",
+      "\tMemory-Used : 0M",
+      "\tMemory-Capacity : 0",
+      "")); // for final line separator
     verify(sysOut, times(1)).println(isA(String.class));
     verify(sysOut).println(nodeStatus);
   }
