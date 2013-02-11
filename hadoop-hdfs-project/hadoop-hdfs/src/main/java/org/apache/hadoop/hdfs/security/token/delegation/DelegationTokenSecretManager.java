@@ -31,6 +31,8 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.server.namenode.NameNode.OperationCategory;
+import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress;
+import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupState;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.ipc.StandbyException;
 import org.apache.hadoop.security.Credentials;
@@ -267,12 +269,23 @@ public class DelegationTokenSecretManager
    */
   private synchronized void loadCurrentTokens(DataInputStream in)
       throws IOException {
+    NameNodeStartupProgress startupProgress =
+      namesystem.getNameNodeStartupProgress();
+    if (startupProgress != null) {
+      startupProgress.state = NameNodeStartupState.LOADING_DELEGATION_TOKENS;
+    }
     int numberOfTokens = in.readInt();
+    if (startupProgress != null) {
+      startupProgress.totalDelegationTokens = numberOfTokens;
+    }
     for (int i = 0; i < numberOfTokens; i++) {
       DelegationTokenIdentifier id = new DelegationTokenIdentifier();
       id.readFields(in);
       long expiryTime = in.readLong();
       addPersistedDelegationToken(id, expiryTime);
+      if (startupProgress != null) {
+        ++startupProgress.loadedDelegationTokens;
+      }
     }
   }
 
@@ -281,12 +294,24 @@ public class DelegationTokenSecretManager
    * @param in
    * @throws IOException
    */
-  private synchronized void loadAllKeys(DataInputStream in) throws IOException {
+  private synchronized void loadAllKeys(DataInputStream in) throws IOException {    
+    NameNodeStartupProgress startupProgress =
+      namesystem.getNameNodeStartupProgress();
+    if (startupProgress != null) {
+      startupProgress.state = NameNodeStartupState.LOADING_DELEGATION_KEYS;
+    }
     int numberOfKeys = in.readInt();
+    if (startupProgress != null) {
+      startupProgress.totalDelegationKeys = numberOfKeys;
+    }
+
     for (int i = 0; i < numberOfKeys; i++) {
       DelegationKey value = new DelegationKey();
       value.readFields(in);
       addKey(value);
+      if (startupProgress != null) {
+        ++startupProgress.loadedDelegationKeys;
+      }
     }
   }
 

@@ -82,6 +82,11 @@ public class FSEditLogLoader {
    */
   long loadFSEdits(EditLogInputStream edits, long expectedStartingTxId,
       MetaRecoveryContext recovery) throws IOException {
+    NameNodeStartupProgress startupProgress =
+      fsNamesys.getNameNodeStartupProgress();
+    if (startupProgress != null) {
+      startupProgress.state = NameNodeStartupState.LOADING_EDITS;
+    }
     fsNamesys.writeLock();
     try {
       long startTime = now();
@@ -119,6 +124,11 @@ public class FSEditLogLoader {
     long numEdits = 0;
     long lastTxId = in.getLastTxId();
     long numTxns = (lastTxId - expectedStartingTxId) + 1;
+    NameNodeStartupProgress startupProgress =
+      fsNamesys.getNameNodeStartupProgress();
+    if (startupProgress != null) {
+      startupProgress.totalEditOps = numTxns;
+    }
     long lastLogTime = now();
     long lastInodeId = fsNamesys.getLastInodeId();
     
@@ -621,6 +631,11 @@ public class FSEditLogLoader {
       opCounts.put(opCode, holder);
     } else {
       holder.held++;
+    }
+    NameNodeStartupProgress startupProgress =
+      fsNamesys.getNameNodeStartupProgress();
+    if (startupProgress != null) {
+      ++startupProgress.loadedEditOps;
     }
   }
 

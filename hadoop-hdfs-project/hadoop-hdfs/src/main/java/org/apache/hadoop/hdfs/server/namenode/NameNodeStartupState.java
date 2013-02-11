@@ -20,7 +20,7 @@ package org.apache.hadoop.hdfs.server.namenode;
 import org.apache.hadoop.classification.InterfaceAudience;
 
 @InterfaceAudience.Private
-enum NameNodeStartupState {
+public enum NameNodeStartupState {
   INITIALIZED,
   LOADING_FSIMAGE,
   LOADING_EDITS,
@@ -28,5 +28,9 @@ enum NameNodeStartupState {
   LOADING_DELEGATION_TOKENS,
   CHECKPOINTING,
   SAFEMODE,
-  COMPLETE
+  COMPLETE;
+
+  public boolean isNowOrAfter(NameNodeStartupState other) {
+    return ordinal() >= other.ordinal();
+  }
 }

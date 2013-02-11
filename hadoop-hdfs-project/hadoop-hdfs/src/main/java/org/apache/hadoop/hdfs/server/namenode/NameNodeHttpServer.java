@@ -148,9 +148,6 @@ public class NameNodeHttpServer {
         .getPort());
     }
     httpServer.setAttribute(NAMENODE_ATTRIBUTE_KEY, nn);
-    httpServer.setAttribute(NAMENODE_ADDRESS_ATTRIBUTE_KEY,
-        NetUtils.getConnectAddress(nn.getNameNodeAddress()));
-    httpServer.setAttribute(FSIMAGE_ATTRIBUTE_KEY, nn.getFSImage());
     httpServer.setAttribute(JspHelper.CURRENT_CONF, conf);
     setupServlets(httpServer, conf);
     httpServer.start();
@@ -166,6 +163,15 @@ public class NameNodeHttpServer {
 
   public InetSocketAddress getHttpAddress() {
     return httpAddress;
+  }
+
+  public void setFSImage(FSImage fsImage) {
+    httpServer.setAttribute(FSIMAGE_ATTRIBUTE_KEY, fsImage);
+  }
+
+  public void setNameNodeAddress(InetSocketAddress nameNodeAddress) {
+    httpServer.setAttribute(NAMENODE_ADDRESS_ATTRIBUTE_KEY,
+        NetUtils.getConnectAddress(nameNodeAddress));
   }
 
   private static void setupServlets(HttpServer httpServer, Configuration conf) {

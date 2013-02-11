@@ -422,6 +422,10 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
   LeaseManager getLeaseManager() {
     return leaseManager;
   }
+
+  public NameNodeStartupProgress getNameNodeStartupProgress() {
+    return startupProgress;
+  }
   
   /**
 
@@ -4107,6 +4111,11 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       assert hasWriteLock();
       if (needEnter()) {
         enter();
+        if (startupProgress != null &&
+            startupProgress.state != NameNodeStartupState.COMPLETE) {
+
+          startupProgress.state = NameNodeStartupState.SAFEMODE;
+        }
         // check if we are ready to initialize replication queues
         if (canInitializeReplQueues() && !isPopulatingReplQueues()) {
           initializeReplQueues();
@@ -4360,6 +4369,9 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       } else {
         // leave safe mode and stop the monitor
         leaveSafeMode();
+        if (startupProgress != null) {
+          startupProgress.state = NameNodeStartupState.COMPLETE;
+        }
       }
       smmthread = null;
     }
