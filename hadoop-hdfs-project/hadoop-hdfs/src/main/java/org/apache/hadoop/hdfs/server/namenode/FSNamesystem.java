@@ -663,7 +663,10 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     try {
       // We shouldn't be calling saveNamespace if we've come up in standby state.
       MetaRecoveryContext recovery = startOpt.createRecoveryContext();
-      if (fsImage.recoverTransitionRead(startOpt, this, recovery) && !haEnabled) {
+      boolean needToSave =
+        fsImage.recoverTransitionRead(startOpt, this, recovery) && !haEnabled;
+      startupProgress.state = NameNodeStartupState.CHECKPOINTING;
+      if (needToSave) {
         fsImage.saveNamespace(this);
       }
       // This will start a new log segment and write to the seen_txid file, so
