@@ -19,6 +19,7 @@ package org.apache.hadoop.hdfs.server.namenode;
 
 import static org.apache.hadoop.hdfs.DFSUtil.percent2String;
 import static org.apache.hadoop.hdfs.server.namenode.NameNodeStartupState.*;
+import static org.apache.hadoop.util.Time.monotonicNow;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
@@ -409,32 +410,54 @@ class NamenodeJspHelper {
     }
 
     void generateStartupProgress(JspWriter out, NameNode nn) throws IOException {
-      FormattedWriter fout = new FormattedWriter(out);
-      fout.println("<h3>Startup Progress</h3>");
       NameNodeStartupProgress startupProgress = nn.startupProgress;
       NameNodeStartupState startupState = startupProgress.state;
-      fout.println("<div>State: %s</div>", startupProgress.state);
+
+      FormattedWriter fout = new FormattedWriter(out);
+      fout.println("<h3>Startup Progress</h3>");
+      fout.println("<div>Current State: %s</div>", startupState);
+      fout.println("<table>");
+      fout.println("<tr>");
+      fout.println("<td>%s</td>", startupState);
+      fout.println("</tr>");
+      fout.println("<tr>");
+      fout.println("<th>Step</th>");
+      fout.println("<th>Count</th>");
+      fout.println("<th>Completion</th>");
+      fout.println("<th>Elapsed Time</th>");
+      fout.println("</tr>");
 
       if (startupState.isNowOrAfter(LOADING_FSIMAGE)) {
-        fout.println("<div>loaded %d/%d inodes</div>",
-          startupProgress.loadedInodes, startupProgress.totalInodes);
+        printStartupProgressItem(fout, "loading fsimage inodes",
+          startupProgress.totalInodes, startupProgress.loadedInodes,
+          startupProgress.getLoadingFsImagePercentComplete(),
+          startupProgress.finishLoadingFsImage,
+          startupProgress.startLoadingFsImage);
       }
 
       if (startupState.isNowOrAfter(LOADING_EDITS)) {
-        fout.println("<div>loaded %d/%d edit ops</div>",
-          startupProgress.loadedEditOps, startupProgress.totalEditOps);
+        printStartupProgressItem(fout, "loading edits ops",
+          startupProgress.totalEditOps, startupProgress.loadedEditOps,
+          startupProgress.getLoadingEditsPercentComplete(),
+          startupProgress.finishLoadingEdits, startupProgress.startLoadingEdits);
       }
 
       if (startupState.isNowOrAfter(LOADING_DELEGATION_KEYS)) {
-        fout.println("<div>loaded %d/%d delegation keys</div>",
+        printStartupProgressItem(fout, "loading delegation keys",
+          startupProgress.totalDelegationKeys,
           startupProgress.loadedDelegationKeys,
-          startupProgress.totalDelegationKeys);
+          startupProgress.getLoadingDelegationKeysPercentComplete(),
+          startupProgress.finishLoadingDelegationKeys,
+          startupProgress.startLoadingDelegationKeys);
       }
 
       if (startupState.isNowOrAfter(LOADING_DELEGATION_TOKENS)) {
-        fout.println("<div>loaded %d/%d delegation tokens</div>",
+        printStartupProgressItem(fout, "loading delegation tokens",
+          startupProgress.totalDelegationTokens,
           startupProgress.loadedDelegationTokens,
-          startupProgress.totalDelegationTokens);
+          startupProgress.getLoadingDelegationTokensPercentComplete(),
+          startupProgress.finishLoadingDelegationTokens,
+          startupProgress.startLoadingDelegationTokens);
       }
 
       if (startupState.isNowOrAfter(CHECKPOINTING)) {
@@ -445,6 +468,29 @@ class NamenodeJspHelper {
 
       if (startupState.isNowOrAfter(COMPLETE)) {
       }
+      fout.println("</table>");
+    }
+
+    private void printStartupProgressItem(FormattedWriter fout, String step,
+        long total, long count, float percent, long finishTime, long startTime)
+        throws IOException {
+
+      fout.println("<tr>");
+      fout.println("<td>%s</td>", step);
+      fout.println("<td>%d/%d</td>", count, total);
+      fout.println("<td>%s</td>", StringUtils.formatPercent(percent, 2));
+      fout.println("<td>%s</td>", formatStartupTimeDiff(finishTime, startTime));
+      fout.println("</tr>");
+    }
+
+    private String formatStartupTimeDiff(long finishTime, long startTime) {
+      if (finishTime == Long.MIN_VALUE && startTime == Long.MIN_VALUE) {
+        return "";
+      }
+      if (finishTime == Long.MIN_VALUE) {
+        return StringUtils.formatTimeDiff(monotonicNow(), startTime);
+      }
+      return StringUtils.formatTimeDiff(finishTime, startTime);
     }
 
     private static class FormattedWriter {
