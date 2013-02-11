@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hdfs.server.namenode;
 
+import static org.apache.hadoop.util.Time.monotonicNow;
 import static org.apache.hadoop.util.Time.now;
 
 import java.io.FilterInputStream;
@@ -90,8 +91,14 @@ public class FSEditLogLoader {
     fsNamesys.writeLock();
     try {
       long startTime = now();
+      if (startupProgress != null) {
+        startupProgress.startLoadingEdits = monotonicNow();
+      }
       long numEdits = loadEditRecords(edits, false, 
                                  expectedStartingTxId, recovery);
+      if (startupProgress != null) {
+        startupProgress.finishLoadingEdits = monotonicNow();
+      }
       FSImage.LOG.info("Edits file " + edits.getName() 
           + " of size " + edits.length() + " edits # " + numEdits 
           + " loaded in " + (now()-startTime)/1000 + " seconds");

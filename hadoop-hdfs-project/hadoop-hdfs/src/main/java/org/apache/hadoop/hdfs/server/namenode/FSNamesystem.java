@@ -70,6 +70,7 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_REPLICATION_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_REPLICATION_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_SUPPORT_APPEND_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_SUPPORT_APPEND_KEY;
+import static org.apache.hadoop.util.Time.monotonicNow;
 import static org.apache.hadoop.util.Time.now;
 
 import java.io.BufferedWriter;
@@ -663,7 +664,11 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     try {
       // We shouldn't be calling saveNamespace if we've come up in standby state.
       MetaRecoveryContext recovery = startOpt.createRecoveryContext();
-      if (fsImage.recoverTransitionRead(startOpt, this, recovery) && !haEnabled) {
+      boolean needToSave =
+        fsImage.recoverTransitionRead(startOpt, this, recovery) && !haEnabled;
+      startupProgress.state = NameNodeStartupState.CHECKPOINTING;
+      startupProgress.startCheckpointing = monotonicNow();
+      if (needToSave) {
         fsImage.saveNamespace(this);
       }
       // This will start a new log segment and write to the seen_txid file, so
@@ -672,6 +677,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
         fsImage.openEditLogForWrite();
       }
       
+      startupProgress.finishCheckpointing = monotonicNow();
       success = true;
     } finally {
       if (!success) {
@@ -4127,6 +4133,11 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       if (!isOn() ||                           // safe mode is off
           extension <= 0 || threshold <= 0) {  // don't need to wait
         this.leave(); // leave safe mode
+        if (startupProgress != null &&
+            startupProgress.state != NameNodeStartupState.COMPLETE) {
+
+          startupProgress.state = NameNodeStartupState.SAFEMODE;
+        }
         return;
       }
       if (reached > 0) {  // threshold has already been reached before

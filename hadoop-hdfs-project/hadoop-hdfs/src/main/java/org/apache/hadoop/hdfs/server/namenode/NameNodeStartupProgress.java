@@ -19,16 +19,48 @@ package org.apache.hadoop.hdfs.server.namenode;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 
+import java.math.BigDecimal;
+
 @InterfaceAudience.Private
 public class NameNodeStartupProgress {
 
+  public long finishCheckpointing = Long.MIN_VALUE;
+  public long finishLoadingDelegationKeys = Long.MIN_VALUE;
+  public long finishLoadingDelegationTokens = Long.MIN_VALUE;
+  public long finishLoadingEdits = Long.MIN_VALUE;
+  public long finishLoadingFsImage = Long.MIN_VALUE;
   public long loadedDelegationKeys;
   public long loadedDelegationTokens;
   public long loadedEditOps;
   public long loadedInodes;
+  public long startCheckpointing = Long.MIN_VALUE;
+  public long startLoadingDelegationKeys = Long.MIN_VALUE;
+  public long startLoadingDelegationTokens = Long.MIN_VALUE;
+  public long startLoadingEdits = Long.MIN_VALUE;
+  public long startLoadingFsImage = Long.MIN_VALUE;
   public NameNodeStartupState state = NameNodeStartupState.INITIALIZED;
   public long totalDelegationKeys;
   public long totalDelegationTokens;
   public long totalEditOps;
   public long totalInodes;
+
+  public float getLoadingFsImagePercentComplete() {
+    return getPercentComplete(loadedInodes, totalInodes);
+  }
+
+  public float getLoadingEditsPercentComplete() {
+    return getPercentComplete(loadedEditOps, totalEditOps);
+  }
+
+  public float getLoadingDelegationKeysPercentComplete() {
+    return getPercentComplete(loadedDelegationKeys, totalDelegationKeys);
+  }
+
+  public float getLoadingDelegationTokensPercentComplete() {
+    return getPercentComplete(loadedDelegationTokens, totalDelegationTokens);
+  }
+
+  private static float getPercentComplete(long count, long total) {
+    return total > 0 ? 1.0f * count / total : 0.0f;
+  }
 }

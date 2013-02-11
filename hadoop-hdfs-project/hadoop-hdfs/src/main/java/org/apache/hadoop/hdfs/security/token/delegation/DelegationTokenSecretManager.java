@@ -18,6 +18,8 @@
 
 package org.apache.hadoop.hdfs.security.token.delegation;
 
+import static org.apache.hadoop.util.Time.monotonicNow;
+
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -273,6 +275,7 @@ public class DelegationTokenSecretManager
       namesystem.getNameNodeStartupProgress();
     if (startupProgress != null) {
       startupProgress.state = NameNodeStartupState.LOADING_DELEGATION_TOKENS;
+      startupProgress.startLoadingDelegationTokens = monotonicNow();
     }
     int numberOfTokens = in.readInt();
     if (startupProgress != null) {
@@ -287,6 +290,9 @@ public class DelegationTokenSecretManager
         ++startupProgress.loadedDelegationTokens;
       }
     }
+    if (startupProgress != null) {
+      startupProgress.finishLoadingDelegationTokens = monotonicNow();
+    }
   }
 
   /**
@@ -299,6 +305,7 @@ public class DelegationTokenSecretManager
       namesystem.getNameNodeStartupProgress();
     if (startupProgress != null) {
       startupProgress.state = NameNodeStartupState.LOADING_DELEGATION_KEYS;
+      startupProgress.startLoadingDelegationKeys = monotonicNow();
     }
     int numberOfKeys = in.readInt();
     if (startupProgress != null) {
@@ -312,6 +319,9 @@ public class DelegationTokenSecretManager
       if (startupProgress != null) {
         ++startupProgress.loadedDelegationKeys;
       }
+    }
+    if (startupProgress != null) {
+      startupProgress.finishLoadingDelegationKeys = monotonicNow();
     }
   }
 

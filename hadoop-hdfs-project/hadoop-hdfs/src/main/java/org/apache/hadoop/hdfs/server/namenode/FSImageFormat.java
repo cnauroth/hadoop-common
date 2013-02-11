@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hdfs.server.namenode;
 
+import static org.apache.hadoop.util.Time.monotonicNow;
 import static org.apache.hadoop.util.Time.now;
 
 import java.io.DataInputStream;
@@ -171,6 +172,9 @@ class FSImageFormat {
       assert curFile != null : "curFile is null";
 
       long startTime = now();
+      if (namesystem.startupProgress != null) {
+        namesystem.startupProgress.startLoadingFsImage = monotonicNow();
+      }
 
       //
       // Load in bits
@@ -243,7 +247,10 @@ class FSImageFormat {
 
       imgDigest = new MD5Hash(digester.digest());
       loaded = true;
-      
+
+      if (namesystem.startupProgress != null) {
+        namesystem.startupProgress.finishLoadingFsImage = monotonicNow();
+      }
       LOG.info("Image file of size " + curFile.length() + " loaded in " 
           + (now() - startTime)/1000 + " seconds.");
     }
