@@ -79,7 +79,7 @@ class NamenodeJspHelper {
   }
 
   static String getSafeModeText(FSNamesystem fsn) {
-    if (!fsn.isInSafeMode())
+    if (fsn == null || !fsn.isInSafeMode())
       return "";
     return "Safe mode is ON. <em>" + fsn.getSafeModeTip() + "</em><br>";
   }
@@ -97,6 +97,10 @@ class NamenodeJspHelper {
   }
 
   static String getInodeLimitText(FSNamesystem fsn) {
+    if (fsn == null) {
+      return "";
+    }
+
     long inodes = fsn.dir.totalInodes();
     long blocks = fsn.getBlocksTotal();
     long maxobjects = fsn.getMaxObjects();
@@ -136,15 +140,21 @@ class NamenodeJspHelper {
 
   /** Return a table containing version information. */
   static String getVersionTable(FSNamesystem fsn) {
-    return "<div class='dfstable'><table>"
-        + "\n  <tr><td class='col1'>Started:</td><td>" + fsn.getStartTime()
-        + "</td></tr>\n" + "\n  <tr><td class='col1'>Version:</td><td>"
-        + VersionInfo.getVersion() + ", " + VersionInfo.getRevision()
-        + "</td></tr>\n" + "\n  <tr><td class='col1'>Compiled:</td><td>" + VersionInfo.getDate()
-        + " by " + VersionInfo.getUser() + " from " + VersionInfo.getBranch()
-        + "</td></tr>\n  <tr><td class='col1'>Cluster ID:</td><td>" + fsn.getClusterId()
-        + "</td></tr>\n  <tr><td class='col1'>Block Pool ID:</td><td>" + fsn.getBlockPoolId()
-        + "</td></tr>\n</table></div>";
+    StringBuilder sb = new StringBuilder();
+    sb.append("<div class='dfstable'><table>");
+    if (fsn != null) {
+      sb.append("\n  <tr><td class='col1'>Started:</td><td>" + fsn.getStartTime());
+    }
+    sb.append("</td></tr>\n" + "\n  <tr><td class='col1'>Version:</td><td>");
+    sb.append(VersionInfo.getVersion() + ", " + VersionInfo.getRevision());
+    sb.append("</td></tr>\n" + "\n  <tr><td class='col1'>Compiled:</td><td>" + VersionInfo.getDate());
+    sb.append(" by " + VersionInfo.getUser() + " from " + VersionInfo.getBranch());
+    if (fsn != null) {
+      sb.append("</td></tr>\n  <tr><td class='col1'>Cluster ID:</td><td>" + fsn.getClusterId());
+      sb.append("</td></tr>\n  <tr><td class='col1'>Block Pool ID:</td><td>" + fsn.getBlockPoolId());
+    }
+    sb.append("</td></tr>\n</table></div>");
+    return sb.toString();
   }
 
   /**
@@ -152,6 +162,10 @@ class NamenodeJspHelper {
    * @return a warning if files are corrupt, otherwise return an empty string.
    */
   static String getCorruptFilesWarning(FSNamesystem fsn) {
+    if (fsn == null) {
+      return "";
+    }
+
     long missingBlocks = fsn.getMissingBlocksCount();
     if (missingBlocks > 0) {
       StringBuilder result = new StringBuilder();
@@ -199,6 +213,9 @@ class NamenodeJspHelper {
     void generateConfReport(JspWriter out, NameNode nn,
         HttpServletRequest request) throws IOException {
       FSNamesystem fsn = nn.getNamesystem();
+      if (fsn == null) {
+        return;
+      }
       FSImage fsImage = fsn.getFSImage();
       List<Storage.StorageDirectory> removedStorageDirs 
         = fsImage.getStorage().getRemovedStorageDirs();
@@ -236,6 +253,9 @@ class NamenodeJspHelper {
      */
     void generateJournalReport(JspWriter out, NameNode nn,
         HttpServletRequest request) throws IOException {
+      if (nn.getNamesystem() == null) {
+        return;
+      }
       FSEditLog log = nn.getFSImage().getEditLog();
       Preconditions.checkArgument(log != null, "no edit log set in %s", nn);
       
@@ -279,6 +299,9 @@ class NamenodeJspHelper {
     void generateHealthReport(JspWriter out, NameNode nn,
         HttpServletRequest request) throws IOException {
       FSNamesystem fsn = nn.getNamesystem();
+      if (fsn == null) {
+        return;
+      }
       final DatanodeManager dm = fsn.getBlockManager().getDatanodeManager();
       final List<DatanodeDescriptor> live = new ArrayList<DatanodeDescriptor>();
       final List<DatanodeDescriptor> dead = new ArrayList<DatanodeDescriptor>();
@@ -414,12 +437,8 @@ class NamenodeJspHelper {
       NameNodeStartupState startupState = startupProgress.state;
 
       FormattedWriter fout = new FormattedWriter(out);
-      fout.println("<h3>Startup Progress</h3>");
       fout.println("<div>Current State: %s</div>", startupState);
       fout.println("<table>");
-      fout.println("<tr>");
-      fout.println("<td>%s</td>", startupState);
-      fout.println("</tr>");
       fout.println("<tr>");
       fout.println("<th>Step</th>");
       fout.println("<th>Count</th>");

@@ -34,7 +34,8 @@
   boolean isActive = (nnHAState == HAServiceState.ACTIVE);
   String namenodeRole = nn.getRole().toString();
   String namenodeState = nnHAState.toString();
-  String namenodeLabel = nn.getNameNodeAddressHostPortString();
+  String namenodeLabel = nn.getRpcServer() != null ?
+    nn.getNameNodeAddressHostPortString() : "";
 %>
 
 <!DOCTYPE html>
@@ -53,6 +54,8 @@
 <b><a href="/logs/"><%=namenodeRole%> Logs</a></b>
 
 <hr>
+<h3>Startup Progress</h3>
+<% healthjsp.generateStartupProgress(out, nn); %>
 <h3>Cluster Summary</h3>
 <b> <%= NamenodeJspHelper.getSecurityModeText()%> </b>
 <b> <%= NamenodeJspHelper.getSafeModeText(fsn)%> </b>
@@ -60,7 +63,6 @@
 <%= NamenodeJspHelper.getCorruptFilesWarning(fsn)%>
 
 <% healthjsp.generateHealthReport(out, nn, request); %>
-<% healthjsp.generateStartupProgress(out, nn); %>
 <% healthjsp.generateJournalReport(out, nn, request); %>
 <hr/>
 <% healthjsp.generateConfReport(out, nn, request); %>
