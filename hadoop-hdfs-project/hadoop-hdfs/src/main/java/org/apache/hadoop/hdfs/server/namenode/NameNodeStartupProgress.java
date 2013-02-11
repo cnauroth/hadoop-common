@@ -19,6 +19,8 @@ package org.apache.hadoop.hdfs.server.namenode;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 
+import java.math.BigDecimal;
+
 @InterfaceAudience.Private
 public class NameNodeStartupProgress {
 
@@ -31,4 +33,24 @@ public class NameNodeStartupProgress {
   public long totalDelegationTokens;
   public long totalEditOps;
   public long totalInodes;
+
+  public float getLoadingFsImagePercentComplete() {
+    return getPercentComplete(loadedInodes, totalInodes);
+  }
+
+  public float getLoadingEditsPercentComplete() {
+    return getPercentComplete(loadedEditOps, totalEditOps);
+  }
+
+  public float getLoadingDelegationKeysPercentComplete() {
+    return getPercentComplete(loadedDelegationKeys, totalDelegationKeys);
+  }
+
+  public float getLoadingDelegationTokensPercentComplete() {
+    return getPercentComplete(loadedDelegationTokens, totalDelegationTokens);
+  }
+
+  private static float getPercentComplete(long count, long total) {
+    return total > 0 ? 1.0f * count / total : 0.0f;
+  }
 }
