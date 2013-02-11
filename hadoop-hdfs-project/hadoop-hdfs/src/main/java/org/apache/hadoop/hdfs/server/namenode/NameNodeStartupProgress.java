@@ -24,10 +24,20 @@ import java.math.BigDecimal;
 @InterfaceAudience.Private
 public class NameNodeStartupProgress {
 
+  public long finishCheckpointing = Long.MIN_VALUE;
+  public long finishLoadingDelegationKeys = Long.MIN_VALUE;
+  public long finishLoadingDelegationTokens = Long.MIN_VALUE;
+  public long finishLoadingEdits = Long.MIN_VALUE;
+  public long finishLoadingFsImage = Long.MIN_VALUE;
   public long loadedDelegationKeys;
   public long loadedDelegationTokens;
   public long loadedEditOps;
   public long loadedInodes;
+  public long startCheckpointing = Long.MIN_VALUE;
+  public long startLoadingDelegationKeys = Long.MIN_VALUE;
+  public long startLoadingDelegationTokens = Long.MIN_VALUE;
+  public long startLoadingEdits = Long.MIN_VALUE;
+  public long startLoadingFsImage = Long.MIN_VALUE;
   public NameNodeStartupState state = NameNodeStartupState.INITIALIZED;
   public long totalDelegationKeys;
   public long totalDelegationTokens;

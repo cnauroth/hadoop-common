@@ -70,6 +70,7 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_REPLICATION_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_REPLICATION_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_SUPPORT_APPEND_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_SUPPORT_APPEND_KEY;
+import static org.apache.hadoop.util.Time.monotonicNow;
 import static org.apache.hadoop.util.Time.now;
 
 import java.io.BufferedWriter;
@@ -666,6 +667,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       boolean needToSave =
         fsImage.recoverTransitionRead(startOpt, this, recovery) && !haEnabled;
       startupProgress.state = NameNodeStartupState.CHECKPOINTING;
+      startupProgress.startCheckpointing = monotonicNow();
       if (needToSave) {
         fsImage.saveNamespace(this);
       }
@@ -675,6 +677,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
         fsImage.openEditLogForWrite();
       }
       
+      startupProgress.finishCheckpointing = monotonicNow();
       success = true;
     } finally {
       if (!success) {
