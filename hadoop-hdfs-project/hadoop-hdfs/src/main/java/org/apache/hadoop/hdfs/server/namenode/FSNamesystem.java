@@ -4127,6 +4127,11 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       if (!isOn() ||                           // safe mode is off
           extension <= 0 || threshold <= 0) {  // don't need to wait
         this.leave(); // leave safe mode
+        if (startupProgress != null &&
+            startupProgress.state != NameNodeStartupState.COMPLETE) {
+
+          startupProgress.state = NameNodeStartupState.SAFEMODE;
+        }
         return;
       }
       if (reached > 0) {  // threshold has already been reached before
