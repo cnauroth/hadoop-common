@@ -20,9 +20,15 @@ package org.apache.hadoop.hdfs.server.namenode;
 import org.apache.hadoop.classification.InterfaceAudience;
 
 @InterfaceAudience.Private
-class NameNodeStartupProgress {
+public class NameNodeStartupProgress {
 
+  public long loadedDelegationKeys;
+  public long loadedDelegationTokens;
+  public long loadedEditOps;
   public long loadedInodes;
   public NameNodeStartupState state = NameNodeStartupState.INITIALIZED;
+  public long totalDelegationKeys;
+  public long totalDelegationTokens;
+  public long totalEditOps;
   public long totalInodes;
 }

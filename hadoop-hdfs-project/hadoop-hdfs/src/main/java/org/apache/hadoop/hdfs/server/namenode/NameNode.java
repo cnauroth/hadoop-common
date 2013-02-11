@@ -251,7 +251,7 @@ public class NameNode {
   private List<ServicePlugin> plugins;
   
   private NameNodeRpcServer rpcServer;
-  private final NameNodeStartupProgress startupProgress;
+  NameNodeStartupProgress startupProgress;
   
   /** Format a new filesystem.  Destroys any filesystem that may already
    * exist at this location.  **/
@@ -436,6 +436,8 @@ public class NameNode {
     loadNamesystem(conf);
 
     rpcServer = createRpcServer(conf);
+    httpServer.setNameNodeAddress(getNameNodeAddress());
+    httpServer.setFSImage(getFSImage());
     
     try {
       validateConfigurationSettings(conf);
