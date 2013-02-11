@@ -60,6 +60,7 @@
 <%= NamenodeJspHelper.getCorruptFilesWarning(fsn)%>
 
 <% healthjsp.generateHealthReport(out, nn, request); %>
+<% healthjsp.generateStartupProgress(out, nn); %>
 <% healthjsp.generateJournalReport(out, nn, request); %>
 <hr/>
 <% healthjsp.generateConfReport(out, nn, request); %>

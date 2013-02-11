@@ -18,6 +18,7 @@
 package org.apache.hadoop.hdfs.server.namenode;
 
 import static org.apache.hadoop.hdfs.DFSUtil.percent2String;
+import static org.apache.hadoop.hdfs.server.namenode.NameNodeStartupState.*;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
@@ -31,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
@@ -402,6 +404,57 @@ class NamenodeJspHelper {
 
       if (live.isEmpty() && dead.isEmpty()) {
         out.print("There are no datanodes in the cluster.");
+      }
+    }
+
+    void generateStartupProgress(JspWriter out, NameNode nn) throws IOException {
+      FormattedWriter fout = new FormattedWriter(out);
+      fout.println("<h3>Startup Progress</h3>");
+      NameNodeStartupProgress startupProgress = nn.startupProgress;
+      NameNodeStartupState startupState = startupProgress.state;
+      fout.println("<div>State: %s</div>", startupProgress.state);
+
+      if (startupState.isNowOrAfter(LOADING_FSIMAGE)) {
+        fout.println("<div>loaded %d/%d inodes</div>",
+          startupProgress.loadedInodes, startupProgress.totalInodes);
+      }
+
+      if (startupState.isNowOrAfter(LOADING_EDITS)) {
+        fout.println("<div>loaded %d/%d edit ops</div>",
+          startupProgress.loadedEditOps, startupProgress.totalEditOps);
+      }
+
+      if (startupState.isNowOrAfter(LOADING_DELEGATION_KEYS)) {
+        fout.println("<div>loaded %d/%d delegation keys</div>",
+          startupProgress.loadedDelegationKeys,
+          startupProgress.totalDelegationKeys);
+      }
+
+      if (startupState.isNowOrAfter(LOADING_DELEGATION_TOKENS)) {
+        fout.println("<div>loaded %d/%d delegation tokens</div>",
+          startupProgress.loadedDelegationTokens,
+          startupProgress.totalDelegationTokens);
+      }
+
+      if (startupState.isNowOrAfter(CHECKPOINTING)) {
+      }
+
+      if (startupState.isNowOrAfter(SAFEMODE)) {
+      }
+
+      if (startupState.isNowOrAfter(COMPLETE)) {
+      }
+    }
+
+    private static class FormattedWriter {
+      private final JspWriter out;
+
+      FormattedWriter(JspWriter out) {
+        this.out = out;
+      }
+
+      void println(String format, Object... args) throws IOException {
+        out.println(String.format(Locale.US, format, args));
       }
     }
   }
