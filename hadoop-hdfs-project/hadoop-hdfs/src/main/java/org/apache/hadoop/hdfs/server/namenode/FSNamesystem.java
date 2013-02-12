@@ -502,8 +502,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     checkConfiguration(conf);
     FSImage fsImage = new FSImage(conf,
         FSNamesystem.getNamespaceDirs(conf),
-        FSNamesystem.getNamespaceEditsDirs(conf));
-    FSNamesystem namesystem = new FSNamesystem(conf, fsImage);
+        FSNamesystem.getNamespaceEditsDirs(conf), startupProgress);
+    FSNamesystem namesystem = new FSNamesystem(conf, fsImage, startupProgress);
     StartupOption startOpt = NameNode.getStartupOption(conf);
     if (startOpt == StartupOption.RECOVER) {
       namesystem.setSafeMode(SafeModeAction.SAFEMODE_ENTER);
