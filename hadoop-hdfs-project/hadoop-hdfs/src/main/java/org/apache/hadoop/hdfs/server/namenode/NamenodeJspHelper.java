@@ -433,7 +433,8 @@ class NamenodeJspHelper {
     }
 
     void generateStartupProgress(JspWriter out, NameNode nn) throws IOException {
-      NameNodeStartupProgress startupProgress = nn.startupProgress;
+      NameNodeStartupProgress startupProgress =
+        NameNode.getNameNodeStartupProgress();
       NameNodeStartupState startupState = startupProgress.state;
 
       FormattedWriter fout = new FormattedWriter(out);
