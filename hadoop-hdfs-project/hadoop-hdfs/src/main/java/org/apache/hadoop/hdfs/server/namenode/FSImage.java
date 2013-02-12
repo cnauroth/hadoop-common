@@ -96,7 +96,6 @@ public class FSImage implements Closeable {
 
   protected NNStorageRetentionManager archivalManager;
   protected IdGenerator blockIdGenerator;
-  NameNodeStartupProgress startupProgress;
 
   /**
    * Construct an FSImage
@@ -123,11 +122,6 @@ public class FSImage implements Closeable {
                     Collection<URI> imageDirs,
                     List<URI> editsDirs)
       throws IOException {
-    this(conf, imageDirs, editsDirs, null);
-  }
-
-  FSImage(Configuration conf, Collection<URI> imageDirs, List<URI> editsDirs,
-      NameNodeStartupProgress startupProgress) throws IOException {
     this.conf = conf;
 
     storage = new NNStorage(conf, imageDirs, editsDirs);
@@ -139,7 +133,6 @@ public class FSImage implements Closeable {
     this.editLog = new FSEditLog(conf, storage, editsDirs);
     
     archivalManager = new NNStorageRetentionManager(conf, storage, editLog);
-    this.startupProgress = startupProgress;
   }
  
   void format(FSNamesystem fsn, String clusterId) throws IOException {
@@ -699,17 +692,14 @@ public class FSImage implements Closeable {
   public long loadEdits(Iterable<EditLogInputStream> editStreams,
       FSNamesystem target, MetaRecoveryContext recovery) throws IOException {
     LOG.debug("About to load edits:\n  " + Joiner.on("\n  ").join(editStreams));
-    if (startupProgress != null) {
-      startupProgress.state = NameNodeStartupState.LOADING_EDITS;
-      startupProgress.startLoadingEdits = monotonicNow();
-    }
+    NameNode.getNameNodeStartupProgress().state =
+      NameNodeStartupState.LOADING_EDITS;
+    NameNode.getNameNodeStartupProgress().startLoadingEdits = monotonicNow();
     long totalEditOps = 0;
     for (EditLogInputStream editIn: editStreams) {
       totalEditOps = editIn.getLastTxId() - lastAppliedTxId;
     }
-    if (startupProgress != null) {
-      startupProgress.totalEditOps = totalEditOps;
-    }
+    NameNode.getNameNodeStartupProgress().totalEditOps = totalEditOps;
     
     long prevLastAppliedTxId = lastAppliedTxId;  
     try {    
@@ -736,9 +726,7 @@ public class FSImage implements Closeable {
       // update the counts
       target.dir.updateCountForINodeWithQuota();   
     }
-    if (startupProgress != null) {
-      startupProgress.finishLoadingEdits = monotonicNow();
-    }
+    NameNode.getNameNodeStartupProgress().finishLoadingEdits = monotonicNow();
     return lastAppliedTxId - prevLastAppliedTxId;
   }
 

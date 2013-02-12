@@ -252,7 +252,6 @@ public class NameNode {
   private List<ServicePlugin> plugins;
   
   private NameNodeRpcServer rpcServer;
-  NameNodeStartupProgress startupProgress;
   
   /** Format a new filesystem.  Destroys any filesystem that may already
    * exist at this location.  **/
@@ -261,6 +260,7 @@ public class NameNode {
   }
 
   static NameNodeMetrics metrics;
+  static NameNodeStartupProgress startupProgress;
 
   /** Return the {@link FSNamesystem} object.
    * @return {@link FSNamesystem} object.
@@ -275,12 +275,18 @@ public class NameNode {
   
   static void initMetrics(Configuration conf, NamenodeRole role) {
     metrics = NameNodeMetrics.create(conf, role);
+    startupProgress = new NameNodeStartupProgress();
+    startupProgress.state = NameNodeStartupState.INITIALIZED;
   }
 
   public static NameNodeMetrics getNameNodeMetrics() {
     return metrics;
   }
-  
+
+  public static NameNodeStartupProgress getNameNodeStartupProgress() {
+    return startupProgress;
+  }
+
   public static InetSocketAddress getAddress(String address) {
     return NetUtils.createSocketAddr(address, DEFAULT_PORT);
   }
@@ -399,7 +405,7 @@ public class NameNode {
   }
 
   protected void loadNamesystem(Configuration conf) throws IOException {
-    this.namesystem = FSNamesystem.loadFromDisk(conf, startupProgress);
+    this.namesystem = FSNamesystem.loadFromDisk(conf);
   }
 
   NamenodeRegistration getRegistration() {
@@ -605,8 +611,6 @@ public class NameNode {
     state = createHAState();
     this.allowStaleStandbyReads = HAUtil.shouldAllowStandbyReads(conf);
     this.haContext = createHAContext();
-    this.startupProgress = new NameNodeStartupProgress();
-    this.startupProgress.state = NameNodeStartupState.INITIALIZED;
     try {
       initializeGenericKeys(conf, nsId, namenodeId);
       initialize(conf);

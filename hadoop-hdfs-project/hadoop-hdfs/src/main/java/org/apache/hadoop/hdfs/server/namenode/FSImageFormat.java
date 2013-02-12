@@ -172,9 +172,7 @@ class FSImageFormat {
       assert curFile != null : "curFile is null";
 
       long startTime = now();
-      if (namesystem.startupProgress != null) {
-        namesystem.startupProgress.startLoadingFsImage = monotonicNow();
-      }
+      NameNode.getNameNodeStartupProgress().startLoadingFsImage = monotonicNow();
 
       //
       // Load in bits
@@ -224,9 +222,7 @@ class FSImageFormat {
         namesystem.resetLastInodeIdWithoutChecking(INodeId.LAST_RESERVED_ID); 
         // load all inodes
         LOG.info("Number of files = " + numFiles);
-        if (namesystem.startupProgress != null) {
-          namesystem.startupProgress.totalInodes = numFiles;
-        }
+        NameNode.getNameNodeStartupProgress().totalInodes = numFiles;
         if (LayoutVersion.supports(Feature.FSIMAGE_NAME_OPTIMIZATION,
             imgVersion)) {
           loadLocalNameINodes(numFiles, in);
@@ -248,9 +244,8 @@ class FSImageFormat {
       imgDigest = new MD5Hash(digester.digest());
       loaded = true;
 
-      if (namesystem.startupProgress != null) {
-        namesystem.startupProgress.finishLoadingFsImage = monotonicNow();
-      }
+      NameNode.getNameNodeStartupProgress().finishLoadingFsImage =
+        monotonicNow();
       LOG.info("Image file of size " + curFile.length() + " loaded in " 
           + (now() - startTime)/1000 + " seconds.");
     }
@@ -434,9 +429,7 @@ class FSImageFormat {
     
     PermissionStatus permissions = PermissionStatus.read(in);
 
-    if (namesystem.startupProgress != null) {
-      ++namesystem.startupProgress.loadedInodes;
-    }
+    ++NameNode.getNameNodeStartupProgress().loadedInodes;
     return INode.newINode(inodeId, permissions, blocks, symlink, replication,
         modificationTime, atime, nsQuota, dsQuota, blockSize);
   }
@@ -451,9 +444,7 @@ class FSImageFormat {
       for (int i = 0; i < size; i++) {
         INodeFileUnderConstruction cons =
           FSImageSerialization.readINodeUnderConstruction(in);
-        if (namesystem.startupProgress != null) {
-          ++namesystem.startupProgress.loadedInodes;
-        }
+        ++NameNode.getNameNodeStartupProgress().loadedInodes;
 
         // verify that file exists in namespace
         String path = cons.getLocalName();

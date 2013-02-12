@@ -622,11 +622,7 @@ public class FSEditLogLoader {
     } else {
       holder.held++;
     }
-    NameNodeStartupProgress startupProgress =
-      fsNamesys.getNameNodeStartupProgress();
-    if (startupProgress != null) {
-      ++startupProgress.loadedEditOps;
-    }
+    ++NameNode.getNameNodeStartupProgress().loadedEditOps;
   }
 
   /**
