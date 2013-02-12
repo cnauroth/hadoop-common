@@ -272,27 +272,19 @@ public class DelegationTokenSecretManager
   private synchronized void loadCurrentTokens(DataInputStream in)
       throws IOException {
     NameNodeStartupProgress startupProgress =
-      namesystem.getNameNodeStartupProgress();
-    if (startupProgress != null) {
-      startupProgress.state = NameNodeStartupState.LOADING_DELEGATION_TOKENS;
-      startupProgress.startLoadingDelegationTokens = monotonicNow();
-    }
+      NameNode.getNameNodeStartupProgress();
+    startupProgress.state = NameNodeStartupState.LOADING_DELEGATION_TOKENS;
+    startupProgress.startLoadingDelegationTokens = monotonicNow();
     int numberOfTokens = in.readInt();
-    if (startupProgress != null) {
-      startupProgress.totalDelegationTokens = numberOfTokens;
-    }
+    startupProgress.totalDelegationTokens = numberOfTokens;
     for (int i = 0; i < numberOfTokens; i++) {
       DelegationTokenIdentifier id = new DelegationTokenIdentifier();
       id.readFields(in);
       long expiryTime = in.readLong();
       addPersistedDelegationToken(id, expiryTime);
-      if (startupProgress != null) {
-        ++startupProgress.loadedDelegationTokens;
-      }
+      ++startupProgress.loadedDelegationTokens;
     }
-    if (startupProgress != null) {
-      startupProgress.finishLoadingDelegationTokens = monotonicNow();
-    }
+    startupProgress.finishLoadingDelegationTokens = monotonicNow();
   }
 
   /**
@@ -302,27 +294,19 @@ public class DelegationTokenSecretManager
    */
   private synchronized void loadAllKeys(DataInputStream in) throws IOException {    
     NameNodeStartupProgress startupProgress =
-      namesystem.getNameNodeStartupProgress();
-    if (startupProgress != null) {
-      startupProgress.state = NameNodeStartupState.LOADING_DELEGATION_KEYS;
-      startupProgress.startLoadingDelegationKeys = monotonicNow();
-    }
+      NameNode.getNameNodeStartupProgress();
+    startupProgress.state = NameNodeStartupState.LOADING_DELEGATION_KEYS;
+    startupProgress.startLoadingDelegationKeys = monotonicNow();
     int numberOfKeys = in.readInt();
-    if (startupProgress != null) {
-      startupProgress.totalDelegationKeys = numberOfKeys;
-    }
+    startupProgress.totalDelegationKeys = numberOfKeys;
 
     for (int i = 0; i < numberOfKeys; i++) {
       DelegationKey value = new DelegationKey();
       value.readFields(in);
       addKey(value);
-      if (startupProgress != null) {
-        ++startupProgress.loadedDelegationKeys;
-      }
+      ++startupProgress.loadedDelegationKeys;
     }
-    if (startupProgress != null) {
-      startupProgress.finishLoadingDelegationKeys = monotonicNow();
-    }
+    startupProgress.finishLoadingDelegationKeys = monotonicNow();
   }
 
   /**
