@@ -18,7 +18,7 @@
 package org.apache.hadoop.hdfs.server.namenode;
 
 import static org.apache.hadoop.hdfs.DFSUtil.percent2String;
-import static org.apache.hadoop.hdfs.server.namenode.NameNodeStartupState.*;
+import static org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Step.*;
 import static org.apache.hadoop.util.Time.monotonicNow;
 
 import java.io.IOException;
@@ -55,6 +55,7 @@ import org.apache.hadoop.hdfs.server.common.JspHelper;
 import org.apache.hadoop.hdfs.server.common.Storage;
 import org.apache.hadoop.hdfs.server.common.Storage.StorageDirectory;
 import org.apache.hadoop.hdfs.server.namenode.JournalSet.JournalAndStream;
+import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Step;
 import org.apache.hadoop.hdfs.server.protocol.NamenodeProtocols;
 import org.apache.hadoop.http.HttpConfig;
 import org.apache.hadoop.io.Text;
@@ -433,12 +434,10 @@ class NamenodeJspHelper {
     }
 
     void generateStartupProgress(JspWriter out, NameNode nn) throws IOException {
-      NameNodeStartupProgress startupProgress =
-        NameNode.getNameNodeStartupProgress();
-      NameNodeStartupState startupState = startupProgress.state;
-
+      NameNodeStartupProgress startupProgress = NameNode.getStartupProgress();
+      Step currentStep = startupProgress.getStep();
       FormattedWriter fout = new FormattedWriter(out);
-      fout.println("<div>Current State: %s</div>", startupState);
+      fout.println("<div>Current Step: %s</div>", currentStep);
       fout.println("<table>");
       fout.println("<tr>");
       fout.println("<th>Step</th>");
@@ -446,71 +445,27 @@ class NamenodeJspHelper {
       fout.println("<th>Completion</th>");
       fout.println("<th>Elapsed Time</th>");
       fout.println("</tr>");
-
-      if (startupState.isNowOrAfter(LOADING_FSIMAGE)) {
-        printStartupProgressItem(fout, "loading fsimage inodes",
-          startupProgress.totalInodes, startupProgress.loadedInodes,
-          startupProgress.getLoadingFsImagePercentComplete(),
-          startupProgress.finishLoadingFsImage,
-          startupProgress.startLoadingFsImage);
-      }
-
-      if (startupState.isNowOrAfter(LOADING_EDITS)) {
-        printStartupProgressItem(fout, "loading edits ops",
-          startupProgress.totalEditOps, startupProgress.loadedEditOps,
-          startupProgress.getLoadingEditsPercentComplete(),
-          startupProgress.finishLoadingEdits, startupProgress.startLoadingEdits);
-      }
-
-      if (startupState.isNowOrAfter(LOADING_DELEGATION_KEYS)) {
-        printStartupProgressItem(fout, "loading delegation keys",
-          startupProgress.totalDelegationKeys,
-          startupProgress.loadedDelegationKeys,
-          startupProgress.getLoadingDelegationKeysPercentComplete(),
-          startupProgress.finishLoadingDelegationKeys,
-          startupProgress.startLoadingDelegationKeys);
-      }
-
-      if (startupState.isNowOrAfter(LOADING_DELEGATION_TOKENS)) {
-        printStartupProgressItem(fout, "loading delegation tokens",
-          startupProgress.totalDelegationTokens,
-          startupProgress.loadedDelegationTokens,
-          startupProgress.getLoadingDelegationTokensPercentComplete(),
-          startupProgress.finishLoadingDelegationTokens,
-          startupProgress.startLoadingDelegationTokens);
-      }
-
-      if (startupState.isNowOrAfter(CHECKPOINTING)) {
-      }
-
-      if (startupState.isNowOrAfter(SAFEMODE)) {
-      }
-
-      if (startupState.isNowOrAfter(COMPLETE)) {
+      for (Step step: NameNodeStartupProgress.getVisibleSteps()) {
+        if (currentStep.isNowOrAfter(step)) {
+          printStartupProgressItem(fout, step.toString(),
+            startupProgress.getTotal(step), startupProgress.getCount(step),
+            startupProgress.getPercentComplete(step),
+            startupProgress.getElapsedTime(step));
+        }
       }
       fout.println("</table>");
     }
 
     private void printStartupProgressItem(FormattedWriter fout, String step,
-        long total, long count, float percent, long finishTime, long startTime)
+        long total, long count, float percent, long elapsedTime)
         throws IOException {
 
       fout.println("<tr>");
       fout.println("<td>%s</td>", step);
       fout.println("<td>%d/%d</td>", count, total);
       fout.println("<td>%s</td>", StringUtils.formatPercent(percent, 2));
-      fout.println("<td>%s</td>", formatStartupTimeDiff(finishTime, startTime));
+      fout.println("<td>%s</td>", StringUtils.formatTime(elapsedTime));
       fout.println("</tr>");
-    }
-
-    private String formatStartupTimeDiff(long finishTime, long startTime) {
-      if (finishTime == Long.MIN_VALUE && startTime == Long.MIN_VALUE) {
-        return "";
-      }
-      if (finishTime == Long.MIN_VALUE) {
-        return StringUtils.formatTimeDiff(monotonicNow(), startTime);
-      }
-      return StringUtils.formatTimeDiff(finishTime, startTime);
     }
 
     private static class FormattedWriter {
