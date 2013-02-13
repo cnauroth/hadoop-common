@@ -17,50 +17,187 @@
  */
 package org.apache.hadoop.hdfs.server.namenode;
 
-import org.apache.hadoop.classification.InterfaceAudience;
+import static org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Step.*;
+import static org.apache.hadoop.util.Time.monotonicNow;
 
-import java.math.BigDecimal;
+import java.util.EnumMap;
+import java.util.EnumSet;
+
+import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.metrics2.annotation.Metric;
+import org.apache.hadoop.metrics2.annotation.Metrics;
+import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 
 @InterfaceAudience.Private
+@Metrics(name="NameNodeStartupProgress", about="NameNode startup progress",
+  context="dfs")
 public class NameNodeStartupProgress {
 
-  public long finishCheckpointing = Long.MIN_VALUE;
-  public long finishLoadingDelegationKeys = Long.MIN_VALUE;
-  public long finishLoadingDelegationTokens = Long.MIN_VALUE;
-  public long finishLoadingEdits = Long.MIN_VALUE;
-  public long finishLoadingFsImage = Long.MIN_VALUE;
-  public long loadedDelegationKeys;
-  public long loadedDelegationTokens;
-  public long loadedEditOps;
-  public long loadedInodes;
-  public long startCheckpointing = Long.MIN_VALUE;
-  public long startLoadingDelegationKeys = Long.MIN_VALUE;
-  public long startLoadingDelegationTokens = Long.MIN_VALUE;
-  public long startLoadingEdits = Long.MIN_VALUE;
-  public long startLoadingFsImage = Long.MIN_VALUE;
-  public NameNodeStartupState state = NameNodeStartupState.INITIALIZED;
-  public long totalDelegationKeys;
-  public long totalDelegationTokens;
-  public long totalEditOps;
-  public long totalInodes;
+  public enum Step {
+    INITIALIZED,
+    LOADING_FSIMAGE,
+    LOADING_EDITS,
+    LOADING_DELEGATION_KEYS,
+    LOADING_DELEGATION_TOKENS,
+    CHECKPOINTING,
+    SAFEMODE,
+    COMPLETE;
 
-  public float getLoadingFsImagePercentComplete() {
-    return getPercentComplete(loadedInodes, totalInodes);
+    public boolean isNowOrAfter(Step other) {
+      return ordinal() >= other.ordinal();
+    }
   }
 
-  public float getLoadingEditsPercentComplete() {
-    return getPercentComplete(loadedEditOps, totalEditOps);
+  private static EnumSet<Step> VISIBLE_STEPS = EnumSet.range(LOADING_FSIMAGE,
+    SAFEMODE);
+
+  private EnumMap<Step, Long> begin = new EnumMap<Step, Long>(Step.class);
+  private EnumMap<Step, Long> count = new EnumMap<Step, Long>(Step.class);
+  private Step currentStep;
+  private EnumMap<Step, Long> end = new EnumMap<Step, Long>(Step.class);
+  private EnumMap<Step, Long> total = new EnumMap<Step, Long>(Step.class);
+
+  public static NameNodeStartupProgress create() {
+    NameNodeStartupProgress startupProgress = new NameNodeStartupProgress();
+    DefaultMetricsSystem.instance().register(startupProgress);
+    return startupProgress;
   }
 
-  public float getLoadingDelegationKeysPercentComplete() {
-    return getPercentComplete(loadedDelegationKeys, totalDelegationKeys);
+  public static Iterable<Step> getVisibleSteps() {
+    return VISIBLE_STEPS;
   }
 
-  public float getLoadingDelegationTokensPercentComplete() {
-    return getPercentComplete(loadedDelegationTokens, totalDelegationTokens);
+  public long getCount(Step step) {
+    return getValue(count, step);
   }
 
-  private static float getPercentComplete(long count, long total) {
-    return total > 0 ? 1.0f * count / total : 0.0f;
+  @Metric public String getCurrentStep() {
+    return currentStep.toString();
+  }
+
+  public long getElapsedTime(Step step) {
+    Long stepBegin = begin.get(step);
+    Long stepEnd = end.get(step);
+    if (stepBegin != null && stepEnd != null) {
+      return stepEnd - stepBegin;
+    } else if (stepBegin != null) {
+      return monotonicNow() - stepBegin;
+    } else {
+      return 0;
+    }
+  }
+
+  @Metric public long getLoadedDelegationKeys() {
+    return getCount(LOADING_DELEGATION_KEYS);
+  }
+
+  @Metric public long getLoadedDelegationTokens() {
+    return getCount(LOADING_DELEGATION_TOKENS);
+  }
+
+  @Metric public long getLoadedEditOps() {
+    return getCount(LOADING_EDITS);
+  }
+
+  @Metric public long getLoadedInodes() {
+    return getCount(LOADING_FSIMAGE);
+  }
+
+  @Metric public long getLoadingDelegationKeysElapsedTime() {
+    return getElapsedTime(LOADING_DELEGATION_KEYS);
+  }
+
+  @Metric public float getLoadingDelegationKeysPercentComplete() {
+    return getPercentComplete(LOADING_DELEGATION_KEYS);
+  }
+
+  @Metric public long getLoadingDelegationTokensElapsedTime() {
+    return getElapsedTime(LOADING_DELEGATION_TOKENS);
+  }
+
+  @Metric public float getLoadingDelegationTokensPercentComplete() {
+    return getPercentComplete(LOADING_DELEGATION_TOKENS);
+  }
+
+  @Metric public long getLoadingEditsElapsedTime() {
+    return getElapsedTime(LOADING_EDITS);
+  }
+
+  @Metric public float getLoadingEditsPercentComplete() {
+    return getPercentComplete(LOADING_EDITS);
+  }
+
+  @Metric public long getLoadingFsImageElapsedTime() {
+    return getElapsedTime(LOADING_FSIMAGE);
+  }
+
+  @Metric public float getLoadingFsImagePercentComplete() {
+    return getPercentComplete(LOADING_FSIMAGE);
+  }
+
+  public float getPercentComplete(Step step) {
+    if (step.ordinal() < currentStep.ordinal()) {
+      return 1.0f;
+    } else {
+      long stepTotal = getValue(total, step);
+      long stepCount = getValue(count, step);
+      return stepTotal > 0 ? 1.0f * stepCount / stepTotal : 0.0f;
+    }
+  }
+
+  public Step getStep() {
+    return currentStep;
+  }
+
+  public long getTotal(Step step) {
+    return getValue(total, step);
+  }
+
+  @Metric public long getTotalDelegationKeys() {
+    return getTotal(LOADING_DELEGATION_KEYS);
+  }
+
+  @Metric public long getTotalDelegationTokens() {
+    return getTotal(LOADING_DELEGATION_TOKENS);
+  }
+
+  @Metric public long getTotalEditOps() {
+    return getTotal(LOADING_EDITS);
+  }
+
+  @Metric public long getTotalInodes() {
+    return getTotal(LOADING_FSIMAGE);
+  }
+
+  public void goToStep(Step next) {
+    long now = monotonicNow();
+    if (VISIBLE_STEPS.contains(currentStep)) {
+      end.put(currentStep, now);
+    }
+    if (VISIBLE_STEPS.contains(next)) {
+      begin.put(next, now);
+    }
+    currentStep = next;
+  }
+
+  public void incrementCount(Step step) {
+    Long stepCount = count.get(step);
+    if (stepCount == null) {
+      stepCount = 0L;
+    }
+    count.put(step, stepCount + 1);
+  }
+
+  public void setTotal(Step step, long stepTotal) {
+    total.put(step, stepTotal);
+  }
+
+  private NameNodeStartupProgress() {
+    goToStep(INITIALIZED);
+  }
+
+  private static long getValue(EnumMap<Step, Long> map, Step step) {
+    Long stepValue = map.get(step);
+    return stepValue != null ? stepValue : 0;
   }
 }

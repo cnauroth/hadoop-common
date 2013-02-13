@@ -58,6 +58,7 @@ import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.TimesOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.UpdateBlocksOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.UpdateMasterKeyOp;
 import org.apache.hadoop.hdfs.server.namenode.LeaseManager.Lease;
+import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Step;
 import org.apache.hadoop.hdfs.util.Holder;
 
 import com.google.common.base.Joiner;
@@ -622,7 +623,7 @@ public class FSEditLogLoader {
     } else {
       holder.held++;
     }
-    ++NameNode.getNameNodeStartupProgress().loadedEditOps;
+    NameNode.getStartupProgress().incrementCount(Step.LOADING_EDITS);
   }
 
   /**

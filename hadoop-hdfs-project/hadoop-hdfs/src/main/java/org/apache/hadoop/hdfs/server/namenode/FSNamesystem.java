@@ -170,6 +170,7 @@ import org.apache.hadoop.hdfs.server.namenode.INode.BlocksMapUpdateInfo;
 import org.apache.hadoop.hdfs.server.namenode.INodeDirectory.INodesInPath;
 import org.apache.hadoop.hdfs.server.namenode.LeaseManager.Lease;
 import org.apache.hadoop.hdfs.server.namenode.NameNode.OperationCategory;
+import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Step;
 import org.apache.hadoop.hdfs.server.namenode.ha.EditLogTailer;
 import org.apache.hadoop.hdfs.server.namenode.ha.HAContext;
 import org.apache.hadoop.hdfs.server.namenode.ha.HAState;
@@ -653,8 +654,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
 
       startOpt = StartupOption.REGULAR;
     }
-    NameNode.getNameNodeStartupProgress().state =
-      NameNodeStartupState.LOADING_FSIMAGE;
+    NameNode.getStartupProgress().goToStep(Step.LOADING_FSIMAGE);
     boolean success = false;
     writeLock();
     try {
@@ -662,9 +662,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       MetaRecoveryContext recovery = startOpt.createRecoveryContext();
       boolean needToSave =
         fsImage.recoverTransitionRead(startOpt, this, recovery) && !haEnabled;
-      NameNode.getNameNodeStartupProgress().state =
-        NameNodeStartupState.CHECKPOINTING;
-      NameNode.getNameNodeStartupProgress().startCheckpointing = monotonicNow();
+      NameNode.getStartupProgress().goToStep(Step.CHECKPOINTING);
       if (needToSave) {
         fsImage.saveNamespace(this);
       }
@@ -674,7 +672,6 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
         fsImage.openEditLogForWrite();
       }
       
-      NameNode.getNameNodeStartupProgress().finishCheckpointing = monotonicNow();
       success = true;
     } finally {
       if (!success) {
@@ -4115,11 +4112,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       assert hasWriteLock();
       if (needEnter()) {
         enter();
-        if (NameNode.getNameNodeStartupProgress().state !=
-            NameNodeStartupState.COMPLETE) {
-
-          NameNode.getNameNodeStartupProgress().state =
-            NameNodeStartupState.SAFEMODE;
+        if (NameNode.getStartupProgress().getStep() != Step.COMPLETE) {
+          NameNode.getStartupProgress().goToStep(Step.SAFEMODE);
         }
         // check if we are ready to initialize replication queues
         if (canInitializeReplQueues() && !isPopulatingReplQueues()) {
@@ -4132,11 +4126,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       if (!isOn() ||                           // safe mode is off
           extension <= 0 || threshold <= 0) {  // don't need to wait
         this.leave(); // leave safe mode
-        if (NameNode.getNameNodeStartupProgress().state !=
-              NameNodeStartupState.COMPLETE) {
-
-          NameNode.getNameNodeStartupProgress().state =
-            NameNodeStartupState.SAFEMODE;
+        if (NameNode.getStartupProgress().getStep() != Step.COMPLETE) {
+          NameNode.getStartupProgress().goToStep(Step.SAFEMODE);
         }
         return;
       }
@@ -4380,8 +4371,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       } else {
         // leave safe mode and stop the monitor
         leaveSafeMode();
-        NameNode.getNameNodeStartupProgress().state =
-          NameNodeStartupState.COMPLETE;
+        NameNode.getStartupProgress().goToStep(Step.COMPLETE);
       }
       smmthread = null;
     }
