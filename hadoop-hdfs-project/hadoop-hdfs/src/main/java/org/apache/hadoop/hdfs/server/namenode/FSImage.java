@@ -53,6 +53,7 @@ import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.StartupOption;
 
 import org.apache.hadoop.hdfs.server.namenode.NNStorage.NameNodeDirType;
 import org.apache.hadoop.hdfs.server.namenode.NNStorage.NameNodeFile;
+import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Step;
 import org.apache.hadoop.hdfs.server.protocol.CheckpointCommand;
 import org.apache.hadoop.hdfs.server.protocol.NamenodeCommand;
 import org.apache.hadoop.hdfs.server.protocol.NamenodeProtocol;
@@ -692,14 +693,12 @@ public class FSImage implements Closeable {
   public long loadEdits(Iterable<EditLogInputStream> editStreams,
       FSNamesystem target, MetaRecoveryContext recovery) throws IOException {
     LOG.debug("About to load edits:\n  " + Joiner.on("\n  ").join(editStreams));
-    NameNode.getNameNodeStartupProgress().state =
-      NameNodeStartupState.LOADING_EDITS;
-    NameNode.getNameNodeStartupProgress().startLoadingEdits = monotonicNow();
+    NameNode.getStartupProgress().goToStep(Step.LOADING_EDITS);
     long totalEditOps = 0;
     for (EditLogInputStream editIn: editStreams) {
       totalEditOps = editIn.getLastTxId() - lastAppliedTxId;
     }
-    NameNode.getNameNodeStartupProgress().totalEditOps = totalEditOps;
+    NameNode.getStartupProgress().setTotal(Step.LOADING_EDITS, totalEditOps);
     
     long prevLastAppliedTxId = lastAppliedTxId;  
     try {    
@@ -726,7 +725,6 @@ public class FSImage implements Closeable {
       // update the counts
       target.dir.updateCountForINodeWithQuota();   
     }
-    NameNode.getNameNodeStartupProgress().finishLoadingEdits = monotonicNow();
     return lastAppliedTxId - prevLastAppliedTxId;
   }
 
