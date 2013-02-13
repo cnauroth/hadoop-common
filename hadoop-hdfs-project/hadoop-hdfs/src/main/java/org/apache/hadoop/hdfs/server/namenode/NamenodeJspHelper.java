@@ -18,8 +18,6 @@
 package org.apache.hadoop.hdfs.server.namenode;
 
 import static org.apache.hadoop.hdfs.DFSUtil.percent2String;
-import static org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Step.*;
-import static org.apache.hadoop.util.Time.monotonicNow;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
@@ -34,7 +32,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
@@ -476,7 +473,7 @@ class NamenodeJspHelper {
       }
 
       void println(String format, Object... args) throws IOException {
-        out.println(String.format(Locale.US, format, args));
+        out.println(StringUtils.format(format, args));
       }
     }
   }

@@ -17,8 +17,6 @@
  */
 package org.apache.hadoop.hdfs.server.namenode;
 
-import static org.apache.hadoop.util.Time.monotonicNow;
-
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -693,11 +691,11 @@ public class FSImage implements Closeable {
   public long loadEdits(Iterable<EditLogInputStream> editStreams,
       FSNamesystem target, MetaRecoveryContext recovery) throws IOException {
     LOG.debug("About to load edits:\n  " + Joiner.on("\n  ").join(editStreams));
-    NameNode.getStartupProgress().goToStep(Step.LOADING_EDITS);
     long totalEditOps = 0;
     for (EditLogInputStream editIn: editStreams) {
       totalEditOps = editIn.getLastTxId() - lastAppliedTxId;
     }
+    NameNode.getStartupProgress().goToStep(Step.LOADING_EDITS);
     NameNode.getStartupProgress().setTotal(Step.LOADING_EDITS, totalEditOps);
     
     long prevLastAppliedTxId = lastAppliedTxId;  
