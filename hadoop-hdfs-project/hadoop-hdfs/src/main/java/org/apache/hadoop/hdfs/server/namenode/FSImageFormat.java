@@ -46,6 +46,7 @@ import org.apache.hadoop.hdfs.protocol.LayoutVersion.Feature;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockManager;
 import org.apache.hadoop.hdfs.server.common.InconsistentFSStateException;
+import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Step;
 import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.io.Text;
 
@@ -172,7 +173,6 @@ class FSImageFormat {
       assert curFile != null : "curFile is null";
 
       long startTime = now();
-      NameNode.getNameNodeStartupProgress().startLoadingFsImage = monotonicNow();
 
       //
       // Load in bits
@@ -222,7 +222,7 @@ class FSImageFormat {
         namesystem.resetLastInodeIdWithoutChecking(INodeId.LAST_RESERVED_ID); 
         // load all inodes
         LOG.info("Number of files = " + numFiles);
-        NameNode.getNameNodeStartupProgress().totalInodes = numFiles;
+        NameNode.getStartupProgress().setTotal(Step.LOADING_FSIMAGE, numFiles);
         if (LayoutVersion.supports(Feature.FSIMAGE_NAME_OPTIMIZATION,
             imgVersion)) {
           loadLocalNameINodes(numFiles, in);
@@ -244,8 +244,6 @@ class FSImageFormat {
       imgDigest = new MD5Hash(digester.digest());
       loaded = true;
 
-      NameNode.getNameNodeStartupProgress().finishLoadingFsImage =
-        monotonicNow();
       LOG.info("Image file of size " + curFile.length() + " loaded in " 
           + (now() - startTime)/1000 + " seconds.");
     }
@@ -429,7 +427,7 @@ class FSImageFormat {
     
     PermissionStatus permissions = PermissionStatus.read(in);
 
-    ++NameNode.getNameNodeStartupProgress().loadedInodes;
+    NameNode.getStartupProgress().incrementCount(Step.LOADING_FSIMAGE);
     return INode.newINode(inodeId, permissions, blocks, symlink, replication,
         modificationTime, atime, nsQuota, dsQuota, blockSize);
   }
@@ -444,7 +442,7 @@ class FSImageFormat {
       for (int i = 0; i < size; i++) {
         INodeFileUnderConstruction cons =
           FSImageSerialization.readINodeUnderConstruction(in);
-        ++NameNode.getNameNodeStartupProgress().loadedInodes;
+        NameNode.getStartupProgress().incrementCount(Step.LOADING_FSIMAGE);
 
         // verify that file exists in namespace
         String path = cons.getLocalName();

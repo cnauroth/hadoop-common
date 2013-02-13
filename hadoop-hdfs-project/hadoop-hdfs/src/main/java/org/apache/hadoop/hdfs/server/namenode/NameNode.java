@@ -260,7 +260,8 @@ public class NameNode {
   }
 
   static NameNodeMetrics metrics;
-  static NameNodeStartupProgress startupProgress;
+  private static final NameNodeStartupProgress startupProgress =
+    NameNodeStartupProgress.create();
 
   /** Return the {@link FSNamesystem} object.
    * @return {@link FSNamesystem} object.
@@ -275,15 +276,13 @@ public class NameNode {
   
   static void initMetrics(Configuration conf, NamenodeRole role) {
     metrics = NameNodeMetrics.create(conf, role);
-    startupProgress = new NameNodeStartupProgress();
-    startupProgress.state = NameNodeStartupState.INITIALIZED;
   }
 
   public static NameNodeMetrics getNameNodeMetrics() {
     return metrics;
   }
 
-  public static NameNodeStartupProgress getNameNodeStartupProgress() {
+  public static NameNodeStartupProgress getStartupProgress() {
     return startupProgress;
   }
 
