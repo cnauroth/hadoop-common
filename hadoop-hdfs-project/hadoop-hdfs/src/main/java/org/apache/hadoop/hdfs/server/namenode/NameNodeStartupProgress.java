@@ -17,11 +17,14 @@
  */
 package org.apache.hadoop.hdfs.server.namenode;
 
-import static org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Step.*;
+import static org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Phase.*;
 import static org.apache.hadoop.util.Time.monotonicNow;
 
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.metrics2.annotation.Metric;
@@ -33,7 +36,7 @@ import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
   context="dfs")
 public class NameNodeStartupProgress {
 
-  public enum Step {
+  public enum Phase {
     INITIALIZED,
     LOADING_FSIMAGE,
     LOADING_EDITS,
@@ -43,19 +46,32 @@ public class NameNodeStartupProgress {
     SAFEMODE,
     COMPLETE;
 
-    public boolean isNowOrAfter(Step other) {
+    public boolean isNowOrAfter(Phase other) {
       return ordinal() >= other.ordinal();
     }
   }
 
-  private static EnumSet<Step> VISIBLE_STEPS = EnumSet.range(LOADING_FSIMAGE,
+  private static EnumSet<Phase> VISIBLE_PHASES = EnumSet.range(LOADING_FSIMAGE,
     SAFEMODE);
 
-  private EnumMap<Step, Long> begin = new EnumMap<Step, Long>(Step.class);
-  private EnumMap<Step, Long> count = new EnumMap<Step, Long>(Step.class);
-  private Step currentStep;
-  private EnumMap<Step, Long> end = new EnumMap<Step, Long>(Step.class);
-  private EnumMap<Step, Long> total = new EnumMap<Step, Long>(Step.class);
+  private EnumMap<Phase, Long> phaseBeginTime =
+    new EnumMap<Phase, Long>(Phase.class);
+  private EnumMap<Phase, Long> phaseEndTime =
+    new EnumMap<Phase, Long>(Phase.class);
+  private EnumMap<Phase, Long> phaseTotal =
+    new EnumMap<Phase, Long>(Phase.class);
+
+  private EnumMap<Phase, Map<String, Long>> stepBeginTime =
+    new EnumMap<Phase, Map<String, Long>>(Phase.class);
+  private EnumMap<Phase, Map<String, Long>> stepCount =
+    new EnumMap<Phase, Map<String, Long>>(Phase.class);
+  private EnumMap<Phase, Map<String, Long>> stepEndTime =
+    new EnumMap<Phase, Map<String, Long>>(Phase.class);
+  private EnumMap<Phase, Map<String, Long>> stepTotal =
+    new EnumMap<Phase, Map<String, Long>>(Phase.class);
+
+  private Phase currentPhase;
+  private String currentPhaseTag;
 
   public static NameNodeStartupProgress create() {
     NameNodeStartupProgress startupProgress = new NameNodeStartupProgress();
@@ -63,30 +79,158 @@ public class NameNodeStartupProgress {
     return startupProgress;
   }
 
-  public static Iterable<Step> getVisibleSteps() {
-    return VISIBLE_STEPS;
+  public static Iterable<Phase> getVisiblePhases() {
+    return VISIBLE_PHASES;
   }
 
-  public long getCount(Step step) {
-    return getValue(count, step);
+  public void beginPhase(Phase phase) {
+    if (VISIBLE_PHASES.contains(phase)) {
+      phaseBeginTime.put(phase, monotonicNow());
+      stepBeginTime.put(phase, new LinkedHashMap<String, Long>());
+      stepCount.put(phase, new LinkedHashMap<String, Long>());
+      stepEndTime.put(phase, new LinkedHashMap<String, Long>());
+      stepTotal.put(phase, new LinkedHashMap<String, Long>());
+    }
+    currentPhase = phase;
   }
 
-  @Metric public String getCurrentStep() {
-    return currentStep.toString();
+  public void beginStep(Phase phase, String step) {
+    if (VISIBLE_PHASES.contains(phase)) {
+      stepBeginTime.get(phase).put(step, monotonicNow());
+    }
   }
 
-  public long getElapsedTime(Step step) {
-    Long stepBegin = begin.get(step);
-    Long stepEnd = end.get(step);
-    if (stepBegin != null && stepEnd != null) {
-      return stepEnd - stepBegin;
-    } else if (stepBegin != null) {
-      return monotonicNow() - stepBegin;
+  public void endPhase(Phase phase) {
+    if (VISIBLE_PHASES.contains(phase)) {
+      phaseEndTime.put(phase, monotonicNow());
+    }
+  }
+
+  public void endStep(Phase phase, String step) {
+    if (VISIBLE_PHASES.contains(phase)) {
+      stepEndTime.get(phase).put(step, monotonicNow());
+    }
+  }
+
+  public long getCount(Phase phase) {
+    long count = 0;
+    Map<String, Long> stepsInPhase = stepCount.get(phase);
+    if (stepsInPhase != null) {
+      for (long stepCount: stepsInPhase.values()) {
+        count += stepCount;
+      }
+    }
+    return count;
+  }
+
+  public long getCount(Phase phase, String step) {
+    Map<String, Long> stepsInPhase = stepCount.get(phase);
+    Long count = stepsInPhase != null ? stepsInPhase.get(step) : null;
+    return count != null ? count : 0;
+  }
+
+  @Metric public String getCurrentPhase() {
+    return currentPhase.toString();
+  }
+
+  public long getElapsedTime(Phase phase) {
+    Long begin = phaseBeginTime.get(phase);
+    Long end = phaseEndTime.get(phase);
+    if (begin != null && end != null) {
+      return end - begin;
+    } else if (begin != null) {
+      return monotonicNow() - begin;
     } else {
       return 0;
     }
   }
 
+  public long getElapsedTime(Phase phase, String step) {
+    Map<String, Long> stepBeginTimesInPhase = stepBeginTime.get(phase);
+    Long begin = stepBeginTimesInPhase != null ? stepBeginTimesInPhase.get(step) : null;
+    Map<String, Long> stepEndTimesInPhase = stepEndTime.get(phase);
+    Long end = stepEndTimesInPhase != null ? stepEndTimesInPhase.get(step) : null;
+    if (begin != null && end != null) {
+      return end - begin;
+    } else if (begin != null) {
+      return monotonicNow() - begin;
+    } else {
+      return 0;
+    }
+  }
+
+  public float getPercentComplete(Phase phase) {
+    if (phase.ordinal() < currentPhase.ordinal()) {
+      return 1.0f;
+    } else {
+      long total = getTotal(phase);
+      long count = 0;
+      for (String step: getSteps(phase)) {
+        count += getCount(phase, step);
+      }
+      return total > 0 ? 1.0f * count / total : 0.0f;
+    }
+  }
+
+  public float getPercentComplete(Phase phase, String step) {
+    if (phase.ordinal() < currentPhase.ordinal()) {
+      return 1.0f;
+    } else {
+      long total = getTotal(phase, step);
+      long count = getCount(phase, step);
+      return total > 0 ? 1.0f * count / total : 0.0f;
+    }
+  }
+
+  public Phase getPhase() {
+    return currentPhase;
+  }
+
+  public Iterable<String> getSteps(Phase phase) {
+    Map<String, Long> stepsInPhase = stepBeginTime.get(phase);
+    return stepsInPhase != null ? stepsInPhase.keySet() :
+      Collections.<String>emptyList();
+  }
+
+  public long getTotal(Phase phase) {
+    Long total = phaseTotal.get(phase);
+    return total != null ? total : 0;
+  }
+
+  public long getTotal(Phase phase, String step) {
+    Map<String, Long> stepsInPhase = stepTotal.get(phase);
+    Long total = stepsInPhase.get(step);
+    return total != null ? total : 0;
+  }
+
+  public void incrementCount(Phase phase, String step) {
+    Map<String, Long> stepsInPhase = stepCount.get(phase);
+    Long count = stepsInPhase.get(step);
+    if (count == null) {
+      count = 0L;
+    }
+    stepsInPhase.put(step, count + 1);
+  }
+
+  public void setTotal(Phase phase, long total) {
+    phaseTotal.put(phase, total);
+  }
+
+  public void setTotal(Phase phase, String step, long total) {
+    Map<String, Long> stepsInPhase = stepTotal.get(phase);
+    stepsInPhase.put(step, total);
+  }
+
+  private NameNodeStartupProgress() {
+    beginPhase(INITIALIZED);
+  }
+
+  private static long getValue(EnumMap<Phase, Long> map, Phase step) {
+    Long stepValue = map.get(step);
+    return stepValue != null ? stepValue : 0;
+  }
+
+  // TODO: everything below this line in a separate class
   @Metric public long getLoadedDelegationKeys() {
     return getCount(LOADING_DELEGATION_KEYS);
   }
@@ -135,24 +279,6 @@ public class NameNodeStartupProgress {
     return getPercentComplete(LOADING_FSIMAGE);
   }
 
-  public float getPercentComplete(Step step) {
-    if (step.ordinal() < currentStep.ordinal()) {
-      return 1.0f;
-    } else {
-      long stepTotal = getValue(total, step);
-      long stepCount = getValue(count, step);
-      return stepTotal > 0 ? 1.0f * stepCount / stepTotal : 0.0f;
-    }
-  }
-
-  public Step getStep() {
-    return currentStep;
-  }
-
-  public long getTotal(Step step) {
-    return getValue(total, step);
-  }
-
   @Metric public long getTotalDelegationKeys() {
     return getTotal(LOADING_DELEGATION_KEYS);
   }
@@ -167,37 +293,5 @@ public class NameNodeStartupProgress {
 
   @Metric public long getTotalInodes() {
     return getTotal(LOADING_FSIMAGE);
-  }
-
-  public void goToStep(Step next) {
-    long now = monotonicNow();
-    if (VISIBLE_STEPS.contains(currentStep)) {
-      end.put(currentStep, now);
-    }
-    if (VISIBLE_STEPS.contains(next)) {
-      begin.put(next, now);
-    }
-    currentStep = next;
-  }
-
-  public void incrementCount(Step step) {
-    Long stepCount = count.get(step);
-    if (stepCount == null) {
-      stepCount = 0L;
-    }
-    count.put(step, stepCount + 1);
-  }
-
-  public void setTotal(Step step, long stepTotal) {
-    total.put(step, stepTotal);
-  }
-
-  private NameNodeStartupProgress() {
-    goToStep(INITIALIZED);
-  }
-
-  private static long getValue(EnumMap<Step, Long> map, Step step) {
-    Long stepValue = map.get(step);
-    return stepValue != null ? stepValue : 0;
   }
 }

@@ -52,7 +52,7 @@ import org.apache.hadoop.hdfs.server.common.JspHelper;
 import org.apache.hadoop.hdfs.server.common.Storage;
 import org.apache.hadoop.hdfs.server.common.Storage.StorageDirectory;
 import org.apache.hadoop.hdfs.server.namenode.JournalSet.JournalAndStream;
-import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Step;
+import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Phase;
 import org.apache.hadoop.hdfs.server.protocol.NamenodeProtocols;
 import org.apache.hadoop.http.HttpConfig;
 import org.apache.hadoop.io.Text;
@@ -432,22 +432,30 @@ class NamenodeJspHelper {
 
     void generateStartupProgress(JspWriter out, NameNode nn) throws IOException {
       NameNodeStartupProgress startupProgress = NameNode.getStartupProgress();
-      Step currentStep = startupProgress.getStep();
+      Phase currentPhase = startupProgress.getPhase();
       FormattedWriter fout = new FormattedWriter(out);
-      fout.println("<div>Current Step: %s</div>", currentStep);
+      fout.println("<div>Current Phase: %s</div>", currentPhase);
       fout.println("<table>");
       fout.println("<tr>");
-      fout.println("<th>Step</th>");
+      fout.println("<th>Phase</th>");
       fout.println("<th>Count</th>");
       fout.println("<th>Completion</th>");
       fout.println("<th>Elapsed Time</th>");
       fout.println("</tr>");
-      for (Step step: NameNodeStartupProgress.getVisibleSteps()) {
-        if (currentStep.isNowOrAfter(step)) {
-          printStartupProgressItem(fout, step.toString(),
-            startupProgress.getTotal(step), startupProgress.getCount(step),
-            startupProgress.getPercentComplete(step),
-            startupProgress.getElapsedTime(step));
+      for (Phase phase: NameNodeStartupProgress.getVisiblePhases()) {
+        if (currentPhase.isNowOrAfter(phase)) {
+          printStartupProgressItem(fout, phase.toString(),
+            startupProgress.getTotal(phase),
+            startupProgress.getCount(phase),
+            startupProgress.getPercentComplete(phase),
+            startupProgress.getElapsedTime(phase));
+          for (String step: startupProgress.getSteps(phase)) {
+            printStartupProgressItem(fout, phase.toString() + " " + step,
+              startupProgress.getTotal(phase, step),
+              startupProgress.getCount(phase, step),
+              startupProgress.getPercentComplete(phase, step),
+              startupProgress.getElapsedTime(phase, step));
+          }
         }
       }
       fout.println("</table>");

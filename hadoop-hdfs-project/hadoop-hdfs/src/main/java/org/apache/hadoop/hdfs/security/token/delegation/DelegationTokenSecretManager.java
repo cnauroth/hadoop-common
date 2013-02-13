@@ -34,7 +34,7 @@ import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.server.namenode.NameNode.OperationCategory;
 import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress;
-import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Step;
+import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Phase;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.ipc.StandbyException;
 import org.apache.hadoop.security.Credentials;
@@ -272,16 +272,21 @@ public class DelegationTokenSecretManager
   private synchronized void loadCurrentTokens(DataInputStream in)
       throws IOException {
     NameNodeStartupProgress startupProgress = NameNode.getStartupProgress();
-    startupProgress.goToStep(Step.LOADING_DELEGATION_TOKENS);
+    startupProgress.beginPhase(Phase.LOADING_DELEGATION_TOKENS);
+    startupProgress.beginStep(Phase.LOADING_DELEGATION_TOKENS, "TODO");
     int numberOfTokens = in.readInt();
-    startupProgress.setTotal(Step.LOADING_DELEGATION_TOKENS, numberOfTokens);
+    startupProgress.setTotal(Phase.LOADING_DELEGATION_TOKENS, numberOfTokens);
+    startupProgress.setTotal(Phase.LOADING_DELEGATION_TOKENS, "TODO",
+      numberOfTokens);
     for (int i = 0; i < numberOfTokens; i++) {
       DelegationTokenIdentifier id = new DelegationTokenIdentifier();
       id.readFields(in);
       long expiryTime = in.readLong();
       addPersistedDelegationToken(id, expiryTime);
-      startupProgress.incrementCount(Step.LOADING_DELEGATION_TOKENS);
+      startupProgress.incrementCount(Phase.LOADING_DELEGATION_TOKENS, "TODO");
     }
+    startupProgress.endStep(Phase.LOADING_DELEGATION_TOKENS, "TODO");
+    startupProgress.endPhase(Phase.LOADING_DELEGATION_TOKENS);
   }
 
   /**
@@ -291,16 +296,20 @@ public class DelegationTokenSecretManager
    */
   private synchronized void loadAllKeys(DataInputStream in) throws IOException {    
     NameNodeStartupProgress startupProgress = NameNode.getStartupProgress();
-    startupProgress.goToStep(Step.LOADING_DELEGATION_KEYS);
+    startupProgress.beginPhase(Phase.LOADING_DELEGATION_KEYS);
+    startupProgress.beginStep(Phase.LOADING_DELEGATION_KEYS, "TODO");
     int numberOfKeys = in.readInt();
-    startupProgress.setTotal(Step.LOADING_DELEGATION_KEYS, numberOfKeys);
-
+    startupProgress.setTotal(Phase.LOADING_DELEGATION_KEYS, numberOfKeys);
+    startupProgress.setTotal(Phase.LOADING_DELEGATION_KEYS, "TODO",
+      numberOfKeys);
     for (int i = 0; i < numberOfKeys; i++) {
       DelegationKey value = new DelegationKey();
       value.readFields(in);
       addKey(value);
-      startupProgress.incrementCount(Step.LOADING_DELEGATION_KEYS);
+      startupProgress.incrementCount(Phase.LOADING_DELEGATION_KEYS, "TODO");
     }
+    startupProgress.endStep(Phase.LOADING_DELEGATION_KEYS, "TODO");
+    startupProgress.endPhase(Phase.LOADING_DELEGATION_KEYS);
   }
 
   /**

@@ -169,7 +169,7 @@ import org.apache.hadoop.hdfs.server.namenode.INode.BlocksMapUpdateInfo;
 import org.apache.hadoop.hdfs.server.namenode.INodeDirectory.INodesInPath;
 import org.apache.hadoop.hdfs.server.namenode.LeaseManager.Lease;
 import org.apache.hadoop.hdfs.server.namenode.NameNode.OperationCategory;
-import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Step;
+import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Phase;
 import org.apache.hadoop.hdfs.server.namenode.ha.EditLogTailer;
 import org.apache.hadoop.hdfs.server.namenode.ha.HAContext;
 import org.apache.hadoop.hdfs.server.namenode.ha.HAState;
@@ -653,7 +653,6 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
 
       startOpt = StartupOption.REGULAR;
     }
-    NameNode.getStartupProgress().goToStep(Step.LOADING_FSIMAGE);
     boolean success = false;
     writeLock();
     try {
@@ -661,7 +660,6 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       MetaRecoveryContext recovery = startOpt.createRecoveryContext();
       boolean needToSave =
         fsImage.recoverTransitionRead(startOpt, this, recovery) && !haEnabled;
-      NameNode.getStartupProgress().goToStep(Step.CHECKPOINTING);
       if (needToSave) {
         fsImage.saveNamespace(this);
       }
@@ -4111,8 +4109,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       assert hasWriteLock();
       if (needEnter()) {
         enter();
-        if (NameNode.getStartupProgress().getStep() != Step.COMPLETE) {
-          NameNode.getStartupProgress().goToStep(Step.SAFEMODE);
+        if (NameNode.getStartupProgress().getPhase() != Phase.COMPLETE) {
+          NameNode.getStartupProgress().beginPhase(Phase.SAFEMODE);
         }
         // check if we are ready to initialize replication queues
         if (canInitializeReplQueues() && !isPopulatingReplQueues()) {
@@ -4125,8 +4123,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       if (!isOn() ||                           // safe mode is off
           extension <= 0 || threshold <= 0) {  // don't need to wait
         this.leave(); // leave safe mode
-        if (NameNode.getStartupProgress().getStep() != Step.COMPLETE) {
-          NameNode.getStartupProgress().goToStep(Step.SAFEMODE);
+        if (NameNode.getStartupProgress().getPhase() != Phase.COMPLETE) {
+          NameNode.getStartupProgress().beginPhase(Phase.SAFEMODE);
         }
         return;
       }
@@ -4370,7 +4368,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       } else {
         // leave safe mode and stop the monitor
         leaveSafeMode();
-        NameNode.getStartupProgress().goToStep(Step.COMPLETE);
+        NameNode.getStartupProgress().beginPhase(Phase.COMPLETE);
       }
       smmthread = null;
     }

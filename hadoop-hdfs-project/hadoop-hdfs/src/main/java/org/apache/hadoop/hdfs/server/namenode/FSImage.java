@@ -51,7 +51,7 @@ import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.StartupOption;
 
 import org.apache.hadoop.hdfs.server.namenode.NNStorage.NameNodeDirType;
 import org.apache.hadoop.hdfs.server.namenode.NNStorage.NameNodeFile;
-import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Step;
+import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Phase;
 import org.apache.hadoop.hdfs.server.protocol.CheckpointCommand;
 import org.apache.hadoop.hdfs.server.protocol.NamenodeCommand;
 import org.apache.hadoop.hdfs.server.protocol.NamenodeProtocol;
@@ -584,6 +584,7 @@ public class FSImage implements Closeable {
    */
   boolean loadFSImage(FSNamesystem target, MetaRecoveryContext recovery)
       throws IOException {
+    NameNode.getStartupProgress().beginPhase(Phase.LOADING_FSIMAGE);
     FSImageStorageInspector inspector = storage.readAndInspectDirs();
     
     isUpgradeFinalized = inspector.isUpgradeFinalized();
@@ -650,6 +651,7 @@ public class FSImage implements Closeable {
     needToSave |= needsResaveBasedOnStaleCheckpoint(imageFile.getFile(),
                                                     txnsAdvanced);
     editLog.setNextTxId(lastAppliedTxId + 1);
+    NameNode.getStartupProgress().endPhase(Phase.LOADING_FSIMAGE);
     return needToSave;
   }
 
@@ -691,12 +693,13 @@ public class FSImage implements Closeable {
   public long loadEdits(Iterable<EditLogInputStream> editStreams,
       FSNamesystem target, MetaRecoveryContext recovery) throws IOException {
     LOG.debug("About to load edits:\n  " + Joiner.on("\n  ").join(editStreams));
+    NameNode.getStartupProgress().beginPhase(Phase.LOADING_EDITS);
     long totalEditOps = 0;
+    // TODO: use EditLogInputStream#name as metric tag here?
     for (EditLogInputStream editIn: editStreams) {
       totalEditOps = editIn.getLastTxId() - lastAppliedTxId;
     }
-    NameNode.getStartupProgress().goToStep(Step.LOADING_EDITS);
-    NameNode.getStartupProgress().setTotal(Step.LOADING_EDITS, totalEditOps);
+    NameNode.getStartupProgress().setTotal(Phase.LOADING_EDITS, totalEditOps);
     
     long prevLastAppliedTxId = lastAppliedTxId;  
     try {    
@@ -723,6 +726,7 @@ public class FSImage implements Closeable {
       // update the counts
       target.dir.updateCountForINodeWithQuota();   
     }
+    NameNode.getStartupProgress().endPhase(Phase.LOADING_EDITS);
     return lastAppliedTxId - prevLastAppliedTxId;
   }
 
@@ -776,6 +780,8 @@ public class FSImage implements Closeable {
    */
   void saveFSImage(SaveNamespaceContext context, StorageDirectory sd)
       throws IOException {
+    String sdPath = sd.getRoot().getCanonicalPath();
+    NameNode.getStartupProgress().beginStep(Phase.CHECKPOINTING, sdPath);
     long txid = context.getTxId();
     File newFile = NNStorage.getStorageFile(sd, NameNodeFile.IMAGE_NEW, txid);
     File dstFile = NNStorage.getStorageFile(sd, NameNodeFile.IMAGE, txid);
@@ -786,6 +792,7 @@ public class FSImage implements Closeable {
     
     MD5FileUtils.saveMD5File(dstFile, saver.getSavedDigest());
     storage.setMostRecentCheckpointInfo(txid, Time.now());
+    NameNode.getStartupProgress().endStep(Phase.CHECKPOINTING, sdPath);
   }
 
   /**
@@ -892,6 +899,7 @@ public class FSImage implements Closeable {
   protected synchronized void saveFSImageInAllDirs(FSNamesystem source, long txid,
       Canceler canceler)
       throws IOException {    
+    NameNode.getStartupProgress().beginPhase(Phase.CHECKPOINTING);
     if (storage.getNumStorageDirs(NameNodeDirType.IMAGE) == 0) {
       throw new IOException("No image directories available!");
     }
@@ -937,6 +945,7 @@ public class FSImage implements Closeable {
       ctx.markComplete();
       ctx = null;
     }
+    NameNode.getStartupProgress().endPhase(Phase.CHECKPOINTING);
   }
 
   /**

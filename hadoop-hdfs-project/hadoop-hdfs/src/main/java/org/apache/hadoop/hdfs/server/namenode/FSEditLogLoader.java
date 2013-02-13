@@ -58,7 +58,7 @@ import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.TimesOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.UpdateBlocksOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.UpdateMasterKeyOp;
 import org.apache.hadoop.hdfs.server.namenode.LeaseManager.Lease;
-import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Step;
+import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Phase;
 import org.apache.hadoop.hdfs.util.Holder;
 
 import com.google.common.base.Joiner;
@@ -83,6 +83,7 @@ public class FSEditLogLoader {
    */
   long loadFSEdits(EditLogInputStream edits, long expectedStartingTxId,
       MetaRecoveryContext recovery) throws IOException {
+    NameNode.getStartupProgress().beginStep(Phase.LOADING_EDITS, edits.getName());
     fsNamesys.writeLock();
     try {
       long startTime = now();
@@ -91,6 +92,7 @@ public class FSEditLogLoader {
       FSImage.LOG.info("Edits file " + edits.getName() 
           + " of size " + edits.length() + " edits # " + numEdits 
           + " loaded in " + (now()-startTime)/1000 + " seconds");
+      NameNode.getStartupProgress().endStep(Phase.LOADING_EDITS, edits.getName());
       return numEdits;
     } finally {
       edits.close();
@@ -120,6 +122,8 @@ public class FSEditLogLoader {
     long numEdits = 0;
     long lastTxId = in.getLastTxId();
     long numTxns = (lastTxId - expectedStartingTxId) + 1;
+    NameNode.getStartupProgress().setTotal(Phase.LOADING_EDITS, in.getName(),
+      numTxns);
     long lastLogTime = now();
     long lastInodeId = fsNamesys.getLastInodeId();
     
@@ -180,7 +184,7 @@ public class FSEditLogLoader {
           }
           // Now that the operation has been successfully decoded and
           // applied, update our bookkeeping.
-          incrOpCount(op.opCode, opCounts);
+          incrOpCount(op.opCode, opCounts, in);
           if (op.hasTransactionId()) {
             lastAppliedTxId = op.getTransactionId();
             expectedTxId = lastAppliedTxId + 1;
@@ -615,7 +619,8 @@ public class FSEditLogLoader {
   }
 
   private void incrOpCount(FSEditLogOpCodes opCode,
-      EnumMap<FSEditLogOpCodes, Holder<Integer>> opCounts) {
+      EnumMap<FSEditLogOpCodes, Holder<Integer>> opCounts,
+      EditLogInputStream in) {
     Holder<Integer> holder = opCounts.get(opCode);
     if (holder == null) {
       holder = new Holder<Integer>(1);
@@ -623,7 +628,8 @@ public class FSEditLogLoader {
     } else {
       holder.held++;
     }
-    NameNode.getStartupProgress().incrementCount(Step.LOADING_EDITS);
+    NameNode.getStartupProgress().incrementCount(Phase.LOADING_EDITS,
+      in.getName());
   }
 
   /**

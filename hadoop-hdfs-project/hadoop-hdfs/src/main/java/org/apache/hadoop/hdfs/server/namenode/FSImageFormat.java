@@ -45,7 +45,7 @@ import org.apache.hadoop.hdfs.protocol.LayoutVersion.Feature;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockManager;
 import org.apache.hadoop.hdfs.server.common.InconsistentFSStateException;
-import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Step;
+import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Phase;
 import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.io.Text;
 
@@ -171,6 +171,9 @@ class FSImageFormat {
       checkNotLoaded();
       assert curFile != null : "curFile is null";
 
+      String curFilePath = curFile.getCanonicalPath();
+      NameNode.getStartupProgress().beginStep(Phase.LOADING_FSIMAGE,
+        curFilePath);
       long startTime = now();
 
       //
@@ -221,15 +224,17 @@ class FSImageFormat {
         namesystem.resetLastInodeIdWithoutChecking(INodeId.LAST_RESERVED_ID); 
         // load all inodes
         LOG.info("Number of files = " + numFiles);
-        NameNode.getStartupProgress().setTotal(Step.LOADING_FSIMAGE, numFiles);
+        NameNode.getStartupProgress().setTotal(Phase.LOADING_FSIMAGE, numFiles);
+        NameNode.getStartupProgress().setTotal(Phase.LOADING_FSIMAGE, curFilePath,
+          numFiles);
         if (LayoutVersion.supports(Feature.FSIMAGE_NAME_OPTIMIZATION,
             imgVersion)) {
-          loadLocalNameINodes(numFiles, in);
+          loadLocalNameINodes(numFiles, in, curFilePath);
         } else {
-          loadFullNameINodes(numFiles, in);
+          loadFullNameINodes(numFiles, in, curFilePath);
         }
 
-        loadFilesUnderConstruction(in);
+        loadFilesUnderConstruction(in, curFilePath);
 
         loadSecretManagerState(in);
 
@@ -243,6 +248,7 @@ class FSImageFormat {
       imgDigest = new MD5Hash(digester.digest());
       loaded = true;
       
+      NameNode.getStartupProgress().endStep(Phase.LOADING_FSIMAGE, curFilePath);
       LOG.info("Image file of size " + curFile.length() + " loaded in " 
           + (now() - startTime)/1000 + " seconds.");
     }
@@ -266,7 +272,7 @@ class FSImageFormat {
    * @param in image input stream
    * @throws IOException
    */  
-   private void loadLocalNameINodes(long numFiles, DataInputStream in) 
+   private void loadLocalNameINodes(long numFiles, DataInputStream in, String curFilePath)
    throws IOException {
      assert LayoutVersion.supports(Feature.FSIMAGE_NAME_OPTIMIZATION,
          getLayoutVersion());
@@ -276,14 +282,14 @@ class FSImageFormat {
      if( in.readShort() != 0) {
        throw new IOException("First node is not root");
      }   
-     INode root = loadINode(in);
+     INode root = loadINode(in, curFilePath);
      // update the root's attributes
      updateRootAttr(root);
      numFiles--;
 
      // load rest of the nodes directory by directory
      while (numFiles > 0) {
-       numFiles -= loadDirectory(in);
+       numFiles -= loadDirectory(in, curFilePath);
      }
      if (numFiles != 0) {
        throw new IOException("Read unexpect number of files: " + -numFiles);
@@ -297,7 +303,8 @@ class FSImageFormat {
     * @return number of child inodes read
     * @throws IOException
     */
-   private int loadDirectory(DataInputStream in) throws IOException {
+   private int loadDirectory(DataInputStream in, String curFilePath)
+       throws IOException {
      String parentPath = FSImageSerialization.readString(in);
      FSDirectory fsDir = namesystem.dir;
      final INodeDirectory parent = INodeDirectory.valueOf(
@@ -308,7 +315,7 @@ class FSImageFormat {
        // load single inode
        byte[] localName = new byte[in.readShort()];
        in.readFully(localName); // read local name
-       INode newNode = loadINode(in); // read rest of inode
+       INode newNode = loadINode(in, curFilePath); // read rest of inode
 
        // add to parent
        newNode.setLocalName(localName);
@@ -325,14 +332,14 @@ class FSImageFormat {
    * @throws IOException if any error occurs
    */
   private void loadFullNameINodes(long numFiles,
-      DataInputStream in) throws IOException {
+      DataInputStream in, String curFilePath) throws IOException {
     byte[][] pathComponents;
     byte[][] parentPath = {{}};      
     FSDirectory fsDir = namesystem.dir;
     INodeDirectory parentINode = fsDir.rootDir;
     for (long i = 0; i < numFiles; i++) {
       pathComponents = FSImageSerialization.readPathComponents(in);
-      INode newNode = loadINode(in);
+      INode newNode = loadINode(in, curFilePath);
 
       if (isRoot(pathComponents)) { // it is the root
         // update the root's attributes
@@ -380,7 +387,7 @@ class FSImageFormat {
    * @param in data input stream from which image is read
    * @return an inode
    */
-  private INode loadINode(DataInputStream in)
+  private INode loadINode(DataInputStream in, String curFilePath)
       throws IOException {
     long modificationTime = 0;
     long atime = 0;
@@ -426,13 +433,14 @@ class FSImageFormat {
     
     PermissionStatus permissions = PermissionStatus.read(in);
 
-    NameNode.getStartupProgress().incrementCount(Step.LOADING_FSIMAGE);
+    NameNode.getStartupProgress().incrementCount(Phase.LOADING_FSIMAGE,
+      curFilePath);
     return INode.newINode(inodeId, permissions, blocks, symlink, replication,
         modificationTime, atime, nsQuota, dsQuota, blockSize);
   }
 
-    private void loadFilesUnderConstruction(DataInputStream in)
-    throws IOException {
+    private void loadFilesUnderConstruction(DataInputStream in,
+        String curFilePath) throws IOException {
       FSDirectory fsDir = namesystem.dir;
       int size = in.readInt();
 
@@ -441,7 +449,8 @@ class FSImageFormat {
       for (int i = 0; i < size; i++) {
         INodeFileUnderConstruction cons =
           FSImageSerialization.readINodeUnderConstruction(in);
-        NameNode.getStartupProgress().incrementCount(Step.LOADING_FSIMAGE);
+        NameNode.getStartupProgress().incrementCount(Phase.LOADING_FSIMAGE,
+          curFilePath);
 
         // verify that file exists in namespace
         String path = cons.getLocalName();
