@@ -27,13 +27,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.metrics2.annotation.Metric;
-import org.apache.hadoop.metrics2.annotation.Metrics;
-import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 
 @InterfaceAudience.Private
-@Metrics(name="NameNodeStartupProgress", about="NameNode startup progress",
-  context="dfs")
 public class NameNodeStartupProgress {
 
   public enum Phase {
@@ -73,10 +68,8 @@ public class NameNodeStartupProgress {
   private Phase currentPhase;
   private String currentPhaseTag;
 
-  public static NameNodeStartupProgress create() {
-    NameNodeStartupProgress startupProgress = new NameNodeStartupProgress();
-    DefaultMetricsSystem.instance().register(startupProgress);
-    return startupProgress;
+  public NameNodeStartupProgress() {
+    beginPhase(INITIALIZED);
   }
 
   public static Iterable<Phase> getVisiblePhases() {
@@ -129,8 +122,8 @@ public class NameNodeStartupProgress {
     return count != null ? count : 0;
   }
 
-  @Metric public String getCurrentPhase() {
-    return currentPhase.toString();
+  public Phase getCurrentPhase() {
+    return currentPhase;
   }
 
   public long getElapsedTime(Phase phase) {
@@ -182,10 +175,6 @@ public class NameNodeStartupProgress {
     }
   }
 
-  public Phase getPhase() {
-    return currentPhase;
-  }
-
   public Iterable<String> getSteps(Phase phase) {
     Map<String, Long> stepsInPhase = stepBeginTime.get(phase);
     return stepsInPhase != null ? stepsInPhase.keySet() :
@@ -219,79 +208,5 @@ public class NameNodeStartupProgress {
   public void setTotal(Phase phase, String step, long total) {
     Map<String, Long> stepsInPhase = stepTotal.get(phase);
     stepsInPhase.put(step, total);
-  }
-
-  private NameNodeStartupProgress() {
-    beginPhase(INITIALIZED);
-  }
-
-  private static long getValue(EnumMap<Phase, Long> map, Phase step) {
-    Long stepValue = map.get(step);
-    return stepValue != null ? stepValue : 0;
-  }
-
-  // TODO: everything below this line in a separate class
-  @Metric public long getLoadedDelegationKeys() {
-    return getCount(LOADING_DELEGATION_KEYS);
-  }
-
-  @Metric public long getLoadedDelegationTokens() {
-    return getCount(LOADING_DELEGATION_TOKENS);
-  }
-
-  @Metric public long getLoadedEditOps() {
-    return getCount(LOADING_EDITS);
-  }
-
-  @Metric public long getLoadedInodes() {
-    return getCount(LOADING_FSIMAGE);
-  }
-
-  @Metric public long getLoadingDelegationKeysElapsedTime() {
-    return getElapsedTime(LOADING_DELEGATION_KEYS);
-  }
-
-  @Metric public float getLoadingDelegationKeysPercentComplete() {
-    return getPercentComplete(LOADING_DELEGATION_KEYS);
-  }
-
-  @Metric public long getLoadingDelegationTokensElapsedTime() {
-    return getElapsedTime(LOADING_DELEGATION_TOKENS);
-  }
-
-  @Metric public float getLoadingDelegationTokensPercentComplete() {
-    return getPercentComplete(LOADING_DELEGATION_TOKENS);
-  }
-
-  @Metric public long getLoadingEditsElapsedTime() {
-    return getElapsedTime(LOADING_EDITS);
-  }
-
-  @Metric public float getLoadingEditsPercentComplete() {
-    return getPercentComplete(LOADING_EDITS);
-  }
-
-  @Metric public long getLoadingFsImageElapsedTime() {
-    return getElapsedTime(LOADING_FSIMAGE);
-  }
-
-  @Metric public float getLoadingFsImagePercentComplete() {
-    return getPercentComplete(LOADING_FSIMAGE);
-  }
-
-  @Metric public long getTotalDelegationKeys() {
-    return getTotal(LOADING_DELEGATION_KEYS);
-  }
-
-  @Metric public long getTotalDelegationTokens() {
-    return getTotal(LOADING_DELEGATION_TOKENS);
-  }
-
-  @Metric public long getTotalEditOps() {
-    return getTotal(LOADING_EDITS);
-  }
-
-  @Metric public long getTotalInodes() {
-    return getTotal(LOADING_FSIMAGE);
   }
 }

@@ -432,7 +432,7 @@ class NamenodeJspHelper {
 
     void generateStartupProgress(JspWriter out, NameNode nn) throws IOException {
       NameNodeStartupProgress startupProgress = NameNode.getStartupProgress();
-      Phase currentPhase = startupProgress.getPhase();
+      Phase currentPhase = startupProgress.getCurrentPhase();
       FormattedWriter fout = new FormattedWriter(out);
       fout.println("<div>Current Phase: %s</div>", currentPhase);
       fout.println("<table>");

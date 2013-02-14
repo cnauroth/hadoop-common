@@ -4109,7 +4109,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       assert hasWriteLock();
       if (needEnter()) {
         enter();
-        if (NameNode.getStartupProgress().getPhase() != Phase.COMPLETE) {
+        if (NameNode.getStartupProgress().getCurrentPhase() != Phase.COMPLETE) {
           NameNode.getStartupProgress().beginPhase(Phase.SAFEMODE);
         }
         // check if we are ready to initialize replication queues
@@ -4123,7 +4123,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       if (!isOn() ||                           // safe mode is off
           extension <= 0 || threshold <= 0) {  // don't need to wait
         this.leave(); // leave safe mode
-        if (NameNode.getStartupProgress().getPhase() != Phase.COMPLETE) {
+        if (NameNode.getStartupProgress().getCurrentPhase() != Phase.COMPLETE) {
           NameNode.getStartupProgress().beginPhase(Phase.SAFEMODE);
         }
         return;
