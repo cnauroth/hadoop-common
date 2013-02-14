@@ -275,7 +275,6 @@ public class DelegationTokenSecretManager
     startupProgress.beginPhase(Phase.LOADING_DELEGATION_TOKENS);
     startupProgress.beginStep(Phase.LOADING_DELEGATION_TOKENS, "TODO");
     int numberOfTokens = in.readInt();
-    startupProgress.setTotal(Phase.LOADING_DELEGATION_TOKENS, numberOfTokens);
     startupProgress.setTotal(Phase.LOADING_DELEGATION_TOKENS, "TODO",
       numberOfTokens);
     for (int i = 0; i < numberOfTokens; i++) {
@@ -299,7 +298,6 @@ public class DelegationTokenSecretManager
     startupProgress.beginPhase(Phase.LOADING_DELEGATION_KEYS);
     startupProgress.beginStep(Phase.LOADING_DELEGATION_KEYS, "TODO");
     int numberOfKeys = in.readInt();
-    startupProgress.setTotal(Phase.LOADING_DELEGATION_KEYS, numberOfKeys);
     startupProgress.setTotal(Phase.LOADING_DELEGATION_KEYS, "TODO",
       numberOfKeys);
     for (int i = 0; i < numberOfKeys; i++) {

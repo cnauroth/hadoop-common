@@ -49,8 +49,6 @@ public class NameNodeStartupProgress {
     new EnumMap<Phase, Long>(Phase.class);
   private EnumMap<Phase, Long> phaseEndTime =
     new EnumMap<Phase, Long>(Phase.class);
-  private EnumMap<Phase, Long> phaseTotal =
-    new EnumMap<Phase, Long>(Phase.class);
 
   private EnumMap<Phase, Map<String, Long>> stepBeginTime =
     new EnumMap<Phase, Map<String, Long>>(Phase.class);
@@ -178,8 +176,14 @@ public class NameNodeStartupProgress {
   }
 
   public long getTotal(Phase phase) {
-    Long total = phaseTotal.get(phase);
-    return total != null ? total : 0;
+    long total = 0;
+    Map<String, Long> stepsInPhase = stepTotal.get(phase);
+    if (stepsInPhase != null) {
+      for (long stepTotal: stepsInPhase.values()) {
+        total += stepTotal;
+      }
+    }
+    return total;
   }
 
   public long getTotal(Phase phase, String step) {
@@ -195,10 +199,6 @@ public class NameNodeStartupProgress {
       count = 0L;
     }
     stepsInPhase.put(step, count + 1);
-  }
-
-  public void setTotal(Phase phase, long total) {
-    phaseTotal.put(phase, total);
   }
 
   public void setTotal(Phase phase, String step, long total) {

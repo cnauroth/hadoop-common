@@ -171,7 +171,7 @@ class FSImageFormat {
       checkNotLoaded();
       assert curFile != null : "curFile is null";
 
-      String curFilePath = curFile.getCanonicalPath();
+      String curFilePath = curFile.getAbsolutePath();
       NameNode.getStartupProgress().beginStep(Phase.LOADING_FSIMAGE,
         curFilePath);
       long startTime = now();
@@ -224,7 +224,6 @@ class FSImageFormat {
         namesystem.resetLastInodeIdWithoutChecking(INodeId.LAST_RESERVED_ID); 
         // load all inodes
         LOG.info("Number of files = " + numFiles);
-        NameNode.getStartupProgress().setTotal(Phase.LOADING_FSIMAGE, numFiles);
         NameNode.getStartupProgress().setTotal(Phase.LOADING_FSIMAGE, curFilePath,
           numFiles);
         if (LayoutVersion.supports(Feature.FSIMAGE_NAME_OPTIMIZATION,
@@ -559,6 +558,10 @@ class FSImageFormat {
 
       final FSNamesystem sourceNamesystem = context.getSourceNamesystem();
       FSDirectory fsDir = sourceNamesystem.dir;
+      String sdPath = newFile.getParentFile().getParentFile()
+        .getAbsolutePath();
+      NameNode.getStartupProgress().setTotal(Phase.CHECKPOINTING, sdPath,
+        fsDir.rootDir.numItemsInTree());
       long startTime = now();
       //
       // Write out data
@@ -589,9 +592,9 @@ class FSImageFormat {
         byte[] byteStore = new byte[4*HdfsConstants.MAX_PATH_LENGTH];
         ByteBuffer strbuf = ByteBuffer.wrap(byteStore);
         // save the root
-        FSImageSerialization.saveINode2Image(fsDir.rootDir, out);
+        saveINode2Image(fsDir.rootDir, out, sdPath);
         // save the rest of the nodes
-        saveImage(strbuf, fsDir.rootDir, out);
+        saveImage(strbuf, fsDir.rootDir, out, sdPath);
         // save files under construction
         sourceNamesystem.saveFilesUnderConstruction(out);
         context.checkCancelled();
@@ -620,7 +623,8 @@ class FSImageFormat {
      */
     private void saveImage(ByteBuffer currentDirName,
                                   INodeDirectory current,
-                                  DataOutputStream out) throws IOException {
+                                  DataOutputStream out,
+                                  String sdPath) throws IOException {
       final List<INode> children = current.getChildrenList();
       if (children.isEmpty())
         return;
@@ -637,7 +641,7 @@ class FSImageFormat {
       int i = 0;
       for(INode child : children) {
         // print all children first
-        FSImageSerialization.saveINode2Image(child, out);
+        saveINode2Image(child, out, sdPath);
         if (i++ % 50 == 0) {
           context.checkCancelled();
         }
@@ -646,9 +650,15 @@ class FSImageFormat {
         if(!child.isDirectory())
           continue;
         currentDirName.put(PATH_SEPARATOR).put(child.getLocalNameBytes());
-        saveImage(currentDirName, (INodeDirectory)child, out);
+        saveImage(currentDirName, (INodeDirectory)child, out, sdPath);
         currentDirName.position(prefixLen);
       }
+    }
+
+    private void saveINode2Image(INode inode, DataOutputStream out,
+        String sdPath) throws IOException {
+      FSImageSerialization.saveINode2Image(inode, out);
+      NameNode.getStartupProgress().incrementCount(Phase.CHECKPOINTING, sdPath);
     }
   }
 }
