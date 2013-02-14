@@ -40,10 +40,6 @@ public class NameNodeStartupProgress {
     CHECKPOINTING,
     SAFEMODE,
     COMPLETE;
-
-    public boolean isNowOrAfter(Phase other) {
-      return ordinal() >= other.ordinal();
-    }
   }
 
   private static EnumSet<Phase> VISIBLE_PHASES = EnumSet.range(LOADING_FSIMAGE,

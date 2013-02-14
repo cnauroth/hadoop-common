@@ -443,19 +443,17 @@ class NamenodeJspHelper {
       fout.println("<th>Elapsed Time</th>");
       fout.println("</tr>");
       for (Phase phase: NameNodeStartupProgress.getVisiblePhases()) {
-        if (currentPhase.isNowOrAfter(phase)) {
-          printStartupProgressItem(fout, phase.toString(),
-            startupProgress.getTotal(phase),
-            startupProgress.getCount(phase),
-            startupProgress.getPercentComplete(phase),
-            startupProgress.getElapsedTime(phase));
-          for (String step: startupProgress.getSteps(phase)) {
-            printStartupProgressItem(fout, phase.toString() + " " + step,
-              startupProgress.getTotal(phase, step),
-              startupProgress.getCount(phase, step),
-              startupProgress.getPercentComplete(phase, step),
-              startupProgress.getElapsedTime(phase, step));
-          }
+        printStartupProgressItem(fout, phase.toString(),
+          startupProgress.getTotal(phase),
+          startupProgress.getCount(phase),
+          startupProgress.getPercentComplete(phase),
+          startupProgress.getElapsedTime(phase));
+        for (String step: startupProgress.getSteps(phase)) {
+          printStartupProgressItem(fout, phase.toString() + " " + step,
+            startupProgress.getTotal(phase, step),
+            startupProgress.getCount(phase, step),
+            startupProgress.getPercentComplete(phase, step),
+            startupProgress.getElapsedTime(phase, step));
         }
       }
       fout.println("</table>");
@@ -465,7 +463,6 @@ class NamenodeJspHelper {
         long total, long count, float percent, long elapsedTime)
         throws IOException {
 
-      fout.println("<tr>");
       fout.println("<td>%s</td>", step);
       fout.println("<td>%d/%d</td>", count, total);
       fout.println("<td>%s</td>", StringUtils.formatPercent(percent, 2));
