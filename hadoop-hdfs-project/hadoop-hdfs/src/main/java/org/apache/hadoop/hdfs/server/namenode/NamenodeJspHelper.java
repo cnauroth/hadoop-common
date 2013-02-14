@@ -434,7 +434,7 @@ class NamenodeJspHelper {
       NameNodeStartupProgress startupProgress = NameNode.getStartupProgress();
       Phase currentPhase = startupProgress.getCurrentPhase();
       FormattedWriter fout = new FormattedWriter(out);
-      fout.println("<div>Current Phase: %s</div>", currentPhase);
+      fout.println("<div id=\"startupprogress\">");
       fout.println("<table>");
       fout.println("<tr>");
       fout.println("<th>Phase</th>");
@@ -443,31 +443,45 @@ class NamenodeJspHelper {
       fout.println("<th>Elapsed Time</th>");
       fout.println("</tr>");
       for (Phase phase: NameNodeStartupProgress.getVisiblePhases()) {
+        final String timeClass;
+        if (phase.compareTo(currentPhase) < 0) {
+          timeClass = "prior";
+        } else if (phase.compareTo(currentPhase) == 0) {
+          timeClass = "current";
+        } else {
+          timeClass = "later";
+        }
+
+        fout.println("<tr class=\"phase %s\">", timeClass);
         printStartupProgressItem(fout, phase.toString(),
           startupProgress.getTotal(phase),
           startupProgress.getCount(phase),
           startupProgress.getPercentComplete(phase),
           startupProgress.getElapsedTime(phase));
+        fout.println("</tr>");
+
         for (String step: startupProgress.getSteps(phase)) {
-          printStartupProgressItem(fout, phase.toString() + " " + step,
+          fout.println("<tr class=\"step %s\">", timeClass);
+          printStartupProgressItem(fout, step,
             startupProgress.getTotal(phase, step),
             startupProgress.getCount(phase, step),
             startupProgress.getPercentComplete(phase, step),
             startupProgress.getElapsedTime(phase, step));
+          fout.println("</tr>");
         }
       }
       fout.println("</table>");
+      fout.println("</div>");
     }
 
     private void printStartupProgressItem(FormattedWriter fout, String step,
         long total, long count, float percent, long elapsedTime)
         throws IOException {
 
-      fout.println("<td>%s</td>", step);
+      fout.println("<td class=\"startupdesc\">%s</td>", step);
       fout.println("<td>%d/%d</td>", count, total);
       fout.println("<td>%s</td>", StringUtils.formatPercent(percent, 2));
       fout.println("<td>%s</td>", StringUtils.formatTime(elapsedTime));
-      fout.println("</tr>");
     }
 
     private static class FormattedWriter {
