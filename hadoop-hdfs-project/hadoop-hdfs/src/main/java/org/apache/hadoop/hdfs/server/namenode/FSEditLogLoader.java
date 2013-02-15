@@ -58,7 +58,7 @@ import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.TimesOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.UpdateBlocksOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.UpdateMasterKeyOp;
 import org.apache.hadoop.hdfs.server.namenode.LeaseManager.Lease;
-import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
 import org.apache.hadoop.hdfs.util.Holder;
 
 import com.google.common.base.Joiner;
@@ -83,8 +83,9 @@ public class FSEditLogLoader {
    */
   long loadFSEdits(EditLogInputStream edits, long expectedStartingTxId,
       MetaRecoveryContext recovery) throws IOException {
+    StartupProgress prog = NameNode.getStartupProgress();
     String step = "Loading edit ops from " + edits.getName();
-    NameNode.getStartupProgress().beginStep(Phase.LOADING_EDITS, step);
+    prog.beginStep(Phase.LOADING_EDITS, step);
     fsNamesys.writeLock();
     try {
       long startTime = now();
@@ -93,11 +94,11 @@ public class FSEditLogLoader {
       FSImage.LOG.info("Edits file " + edits.getName() 
           + " of size " + edits.length() + " edits # " + numEdits 
           + " loaded in " + (now()-startTime)/1000 + " seconds");
-      NameNode.getStartupProgress().endStep(Phase.LOADING_EDITS, step);
       return numEdits;
     } finally {
       edits.close();
       fsNamesys.writeUnlock();
+      prog.endStep(Phase.LOADING_EDITS, step);
     }
   }
 

@@ -52,7 +52,7 @@ import org.apache.hadoop.hdfs.server.common.JspHelper;
 import org.apache.hadoop.hdfs.server.common.Storage;
 import org.apache.hadoop.hdfs.server.common.Storage.StorageDirectory;
 import org.apache.hadoop.hdfs.server.namenode.JournalSet.JournalAndStream;
-import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
 import org.apache.hadoop.hdfs.server.protocol.NamenodeProtocols;
 import org.apache.hadoop.http.HttpConfig;
 import org.apache.hadoop.io.Text;
@@ -431,8 +431,8 @@ class NamenodeJspHelper {
     }
 
     void generateStartupProgress(JspWriter out, NameNode nn) throws IOException {
-      NameNodeStartupProgress startupProgress = NameNode.getStartupProgress();
-      Phase currentPhase = startupProgress.getCurrentPhase();
+      StartupProgress prog = NameNode.getStartupProgress();
+      Phase currentPhase = prog.getCurrentPhase();
       FormattedWriter fout = new FormattedWriter(out);
       fout.println("<div id=\"startupprogress\">");
       fout.println("<table>");
@@ -442,7 +442,7 @@ class NamenodeJspHelper {
       fout.println("<th>Completion</th>");
       fout.println("<th>Elapsed Time</th>");
       fout.println("</tr>");
-      for (Phase phase: NameNodeStartupProgress.getVisiblePhases()) {
+      for (Phase phase: StartupProgress.getVisiblePhases()) {
         final String timeClass;
         if (phase.compareTo(currentPhase) < 0) {
           timeClass = "prior";
@@ -454,19 +454,19 @@ class NamenodeJspHelper {
 
         fout.println("<tr class=\"phase %s\">", timeClass);
         printStartupProgressItem(fout, phase.getDescription(),
-          startupProgress.getTotal(phase),
-          startupProgress.getCount(phase),
-          startupProgress.getPercentComplete(phase),
-          startupProgress.getElapsedTime(phase));
+          prog.getTotal(phase),
+          prog.getCount(phase),
+          prog.getPercentComplete(phase),
+          prog.getElapsedTime(phase));
         fout.println("</tr>");
 
-        for (String step: startupProgress.getSteps(phase)) {
+        for (String step: prog.getSteps(phase)) {
           fout.println("<tr class=\"step %s\">", timeClass);
           printStartupProgressItem(fout, step,
-            startupProgress.getTotal(phase, step),
-            startupProgress.getCount(phase, step),
-            startupProgress.getPercentComplete(phase, step),
-            startupProgress.getElapsedTime(phase, step));
+            prog.getTotal(phase, step),
+            prog.getCount(phase, step),
+            prog.getPercentComplete(phase, step),
+            prog.getElapsedTime(phase, step));
           fout.println("</tr>");
         }
       }

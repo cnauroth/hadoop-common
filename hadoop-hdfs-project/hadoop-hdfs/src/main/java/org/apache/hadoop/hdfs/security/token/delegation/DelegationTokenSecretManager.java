@@ -31,8 +31,8 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.server.namenode.NameNode.OperationCategory;
-import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress;
-import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.ipc.StandbyException;
 import org.apache.hadoop.security.Credentials;
@@ -240,7 +240,7 @@ public class DelegationTokenSecretManager
    */
   private synchronized void saveCurrentTokens(DataOutputStream out,
       String curFilePath) throws IOException {
-    NameNodeStartupProgress startupProgress = NameNode.getStartupProgress();
+    StartupProgress startupProgress = NameNode.getStartupProgress();
     String step = "Saving delegation tokens to " + curFilePath;
     startupProgress.beginStep(Phase.SAVING_CHECKPOINT, step);
     startupProgress.setTotal(Phase.SAVING_CHECKPOINT, step,
@@ -263,19 +263,18 @@ public class DelegationTokenSecretManager
    */
   private synchronized void saveAllKeys(DataOutputStream out, String curFilePath)
       throws IOException {
-    NameNodeStartupProgress startupProgress = NameNode.getStartupProgress();
+    StartupProgress prog = NameNode.getStartupProgress();
     String step = "Saving delegation keys to " + curFilePath;
-    startupProgress.beginStep(Phase.SAVING_CHECKPOINT, step);
-    startupProgress.setTotal(Phase.SAVING_CHECKPOINT, step,
-      currentTokens.size());
+    prog.beginStep(Phase.SAVING_CHECKPOINT, step);
+    prog.setTotal(Phase.SAVING_CHECKPOINT, step, currentTokens.size());
     out.writeInt(allKeys.size());
     Iterator<Integer> iter = allKeys.keySet().iterator();
     while (iter.hasNext()) {
       Integer key = iter.next();
       allKeys.get(key).write(out);
-      startupProgress.incrementCount(Phase.SAVING_CHECKPOINT, step);
+      prog.incrementCount(Phase.SAVING_CHECKPOINT, step);
     }
-    startupProgress.endStep(Phase.SAVING_CHECKPOINT, step);
+    prog.endStep(Phase.SAVING_CHECKPOINT, step);
   }
   
   /**
@@ -283,19 +282,19 @@ public class DelegationTokenSecretManager
    */
   private synchronized void loadCurrentTokens(DataInputStream in,
       String curFilePath) throws IOException {
-    NameNodeStartupProgress startupProgress = NameNode.getStartupProgress();
+    StartupProgress prog = NameNode.getStartupProgress();
     String step = "Loading delegation tokens from " + curFilePath;
-    startupProgress.beginStep(Phase.LOADING_FSIMAGE, step);
+    prog.beginStep(Phase.LOADING_FSIMAGE, step);
     int numberOfTokens = in.readInt();
-    startupProgress.setTotal(Phase.LOADING_FSIMAGE, step, numberOfTokens);
+    prog.setTotal(Phase.LOADING_FSIMAGE, step, numberOfTokens);
     for (int i = 0; i < numberOfTokens; i++) {
       DelegationTokenIdentifier id = new DelegationTokenIdentifier();
       id.readFields(in);
       long expiryTime = in.readLong();
       addPersistedDelegationToken(id, expiryTime);
-      startupProgress.incrementCount(Phase.LOADING_FSIMAGE, step);
+      prog.incrementCount(Phase.LOADING_FSIMAGE, step);
     }
-    startupProgress.endStep(Phase.LOADING_FSIMAGE, step);
+    prog.endStep(Phase.LOADING_FSIMAGE, step);
   }
 
   /**
@@ -305,18 +304,18 @@ public class DelegationTokenSecretManager
    */
   private synchronized void loadAllKeys(DataInputStream in, String curFilePath)
       throws IOException {    
-    NameNodeStartupProgress startupProgress = NameNode.getStartupProgress();
+    StartupProgress prog = NameNode.getStartupProgress();
     String step = "Loading delegation keys from " + curFilePath;
-    startupProgress.beginStep(Phase.LOADING_FSIMAGE, step);
+    prog.beginStep(Phase.LOADING_FSIMAGE, step);
     int numberOfKeys = in.readInt();
-    startupProgress.setTotal(Phase.LOADING_FSIMAGE, step, numberOfKeys);
+    prog.setTotal(Phase.LOADING_FSIMAGE, step, numberOfKeys);
     for (int i = 0; i < numberOfKeys; i++) {
       DelegationKey value = new DelegationKey();
       value.readFields(in);
       addKey(value);
-      startupProgress.incrementCount(Phase.LOADING_FSIMAGE, step);
+      prog.incrementCount(Phase.LOADING_FSIMAGE, step);
     }
-    startupProgress.endStep(Phase.LOADING_FSIMAGE, step);
+    prog.endStep(Phase.LOADING_FSIMAGE, step);
   }
 
   /**

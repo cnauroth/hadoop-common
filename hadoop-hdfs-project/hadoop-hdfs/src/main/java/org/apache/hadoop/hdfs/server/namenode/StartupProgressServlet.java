@@ -21,7 +21,7 @@ import java.io.IOException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
 import org.znerd.xmlenc.XMLOutputter;
 
 @SuppressWarnings("serial")
@@ -38,16 +38,16 @@ public class StartupProgressServlet extends DfsServlet {
   @Override
   protected void doGet(HttpServletRequest req, HttpServletResponse resp)
       throws IOException {
-    NameNodeStartupProgress prog = NameNode.getStartupProgress();
+    StartupProgress prog = NameNode.getStartupProgress();
     XMLOutputter xml = new XMLOutputter(resp.getWriter(), "UTF-8");
     xml.declaration();
 
     try {
       resp.setContentType("application/xml; charset=UTF-8");
-      xml.startTag("NameNodeStartupProgress");
+      xml.startTag("StartupProgress");
       xml.attribute("currentPhase", prog.getCurrentPhase().getName());
 
-      for (Phase phase: NameNodeStartupProgress.getVisiblePhases()) {
+      for (Phase phase: StartupProgress.getVisiblePhases()) {
         xml.startTag("Phase");
         xml.attribute(NAME, phase.getName());
         attribute(xml, COUNT, prog.getCount(phase));

@@ -169,7 +169,7 @@ import org.apache.hadoop.hdfs.server.namenode.INode.BlocksMapUpdateInfo;
 import org.apache.hadoop.hdfs.server.namenode.INodeDirectory.INodesInPath;
 import org.apache.hadoop.hdfs.server.namenode.LeaseManager.Lease;
 import org.apache.hadoop.hdfs.server.namenode.NameNode.OperationCategory;
-import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
 import org.apache.hadoop.hdfs.server.namenode.ha.EditLogTailer;
 import org.apache.hadoop.hdfs.server.namenode.ha.HAContext;
 import org.apache.hadoop.hdfs.server.namenode.ha.HAState;
@@ -4109,8 +4109,9 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       assert hasWriteLock();
       if (needEnter()) {
         enter();
-        if (NameNode.getStartupProgress().getCurrentPhase() != Phase.COMPLETE) {
-          NameNode.getStartupProgress().beginPhase(Phase.SAFEMODE);
+        StartupProgress prog = NameNode.getStartupProgress();
+        if (prog.getCurrentPhase() != Phase.COMPLETE) {
+          prog.beginPhase(Phase.SAFEMODE);
         }
         // check if we are ready to initialize replication queues
         if (canInitializeReplQueues() && !isPopulatingReplQueues()) {
@@ -4123,8 +4124,9 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       if (!isOn() ||                           // safe mode is off
           extension <= 0 || threshold <= 0) {  // don't need to wait
         this.leave(); // leave safe mode
-        if (NameNode.getStartupProgress().getCurrentPhase() != Phase.COMPLETE) {
-          NameNode.getStartupProgress().beginPhase(Phase.SAFEMODE);
+        StartupProgress prog = NameNode.getStartupProgress();
+        if (prog.getCurrentPhase() != Phase.COMPLETE) {
+          prog.beginPhase(Phase.SAFEMODE);
         }
         return;
       }

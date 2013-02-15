@@ -18,7 +18,7 @@
 package org.apache.hadoop.hdfs.server.namenode;
 
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
 import org.apache.hadoop.metrics2.MetricsCollector;
 import org.apache.hadoop.metrics2.MetricsInfo;
 import org.apache.hadoop.metrics2.MetricsRecordBuilder;
@@ -26,15 +26,14 @@ import org.apache.hadoop.metrics2.MetricsSource;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 
 @InterfaceAudience.Private
-public class NameNodeStartupProgressMetrics implements MetricsSource {
+public class StartupProgressMetrics implements MetricsSource {
 
   private static final MetricsInfo STARTUP_PROGRESS_METRICS_INFO =
-    createMetricsInfo("NameNodeStartupProgress", "NameNode startup progress");
+    createMetricsInfo("StartupProgress", "NameNode startup progress");
 
-  private final NameNodeStartupProgress startupProgress;
+  private final StartupProgress startupProgress;
 
-  public NameNodeStartupProgressMetrics(
-      NameNodeStartupProgress startupProgress) {
+  public StartupProgressMetrics(StartupProgress startupProgress) {
     this.startupProgress = startupProgress;
     DefaultMetricsSystem.instance().register(
       STARTUP_PROGRESS_METRICS_INFO.name(),

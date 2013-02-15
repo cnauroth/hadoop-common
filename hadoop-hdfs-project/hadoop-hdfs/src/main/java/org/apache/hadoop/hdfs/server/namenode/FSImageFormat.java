@@ -45,7 +45,7 @@ import org.apache.hadoop.hdfs.protocol.LayoutVersion.Feature;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockManager;
 import org.apache.hadoop.hdfs.server.common.InconsistentFSStateException;
-import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
 import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.io.Text;
 
@@ -172,8 +172,9 @@ class FSImageFormat {
       assert curFile != null : "curFile is null";
 
       String curFilePath = curFile.getAbsolutePath();
+      StartupProgress prog = NameNode.getStartupProgress();
       String step = "Loading inodes from " + curFilePath;
-      NameNode.getStartupProgress().beginStep(Phase.LOADING_FSIMAGE, step);
+      prog.beginStep(Phase.LOADING_FSIMAGE, step);
       long startTime = now();
 
       //
@@ -224,8 +225,7 @@ class FSImageFormat {
         namesystem.resetLastInodeIdWithoutChecking(INodeId.LAST_RESERVED_ID); 
         // load all inodes
         LOG.info("Number of files = " + numFiles);
-        NameNode.getStartupProgress().setTotal(Phase.LOADING_FSIMAGE, step,
-          numFiles);
+        prog.setTotal(Phase.LOADING_FSIMAGE, step, numFiles);
         if (LayoutVersion.supports(Feature.FSIMAGE_NAME_OPTIMIZATION,
             imgVersion)) {
           loadLocalNameINodes(numFiles, in, step);
@@ -234,7 +234,7 @@ class FSImageFormat {
         }
 
         loadFilesUnderConstruction(in, step);
-        NameNode.getStartupProgress().endStep(Phase.LOADING_FSIMAGE, step);
+        prog.endStep(Phase.LOADING_FSIMAGE, step);
 
         loadSecretManagerState(in, curFilePath);
 
@@ -559,9 +559,10 @@ class FSImageFormat {
       FSDirectory fsDir = sourceNamesystem.dir;
       String sdPath = newFile.getParentFile().getParentFile()
         .getAbsolutePath();
+      StartupProgress prog = NameNode.getStartupProgress();
       String step = "Saving inodes to " + sdPath;
-      NameNode.getStartupProgress().beginStep(Phase.SAVING_CHECKPOINT, step);
-      NameNode.getStartupProgress().setTotal(Phase.SAVING_CHECKPOINT, step,
+      prog.beginStep(Phase.SAVING_CHECKPOINT, step);
+      prog.setTotal(Phase.SAVING_CHECKPOINT, step,
         fsDir.rootDir.numItemsInTree());
       long startTime = now();
       //
@@ -599,7 +600,7 @@ class FSImageFormat {
         // save files under construction
         sourceNamesystem.saveFilesUnderConstruction(out);
         context.checkCancelled();
-        NameNode.getStartupProgress().endStep(Phase.SAVING_CHECKPOINT, step);
+        prog.endStep(Phase.SAVING_CHECKPOINT, step);
         sourceNamesystem.saveSecretManagerState(out, sdPath);
         strbuf = null;
         context.checkCancelled();

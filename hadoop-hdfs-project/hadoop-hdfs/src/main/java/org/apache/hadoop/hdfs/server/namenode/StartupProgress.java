@@ -17,7 +17,7 @@
  */
 package org.apache.hadoop.hdfs.server.namenode;
 
-import static org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Phase.*;
+import static org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase.*;
 import static org.apache.hadoop.util.Time.monotonicNow;
 
 import java.util.Collections;
@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.hadoop.classification.InterfaceAudience;
 
 @InterfaceAudience.Private
-public class NameNodeStartupProgress {
+public class StartupProgress {
 
   public enum Phase {
     INITIALIZED("Initialized", "Initialized"),
@@ -73,7 +73,7 @@ public class NameNodeStartupProgress {
   private Phase currentPhase;
   private String currentPhaseTag;
 
-  public NameNodeStartupProgress() {
+  public StartupProgress() {
     beginPhase(INITIALIZED);
   }
 

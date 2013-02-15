@@ -260,10 +260,9 @@ public class NameNode {
   }
 
   static NameNodeMetrics metrics;
-  private static final NameNodeStartupProgress startupProgress =
-    new NameNodeStartupProgress();
-  private static final NameNodeStartupProgressMetrics startupMetrics =
-    new NameNodeStartupProgressMetrics(startupProgress);
+  private static final StartupProgress startupProgress = new StartupProgress();
+  private static final StartupProgressMetrics startupMetrics =
+    new StartupProgressMetrics(startupProgress);
 
   /** Return the {@link FSNamesystem} object.
    * @return {@link FSNamesystem} object.
@@ -284,7 +283,7 @@ public class NameNode {
     return metrics;
   }
 
-  public static NameNodeStartupProgress getStartupProgress() {
+  public static StartupProgress getStartupProgress() {
     return startupProgress;
   }
 
