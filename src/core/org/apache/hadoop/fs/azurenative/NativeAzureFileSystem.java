@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.BufferedFSInputStream;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -82,6 +83,10 @@ public class NativeAzureFileSystem extends FileSystem {
 
   private static int DEFAULT_MAX_RETRIES = 4;
   private static int DEFAULT_SLEEP_TIME_SECONDS = 10;
+
+  static final String AZURE_MAX_DISTINCT_BLOCK_LOCATIONS =
+      "fs.azure.max.distinct.block.locations";
+  private static final int DEFAULT_MAX_DISTINCT_BLOCK_LOCATIONS = 5000;
 
   /**
    * The configuration property that determines which group owns files created
@@ -1350,6 +1355,47 @@ public class NativeAzureFileSystem extends FileSystem {
       LOG.debug("Renamed " + src + " to " + dst + " successfully.");
     }
     return true;
+  }
+
+  /**
+   * Return an array containing hostnames, offset and size of
+   * portions of the given file. For ASV we'll just lie and give
+   * fake hosts to make sure we get many splits in MR jobs.
+   */
+  @Override
+  public BlockLocation[] getFileBlockLocations(FileStatus file,
+      long start, long len) throws IOException {
+    if (file == null) {
+      return null;
+    }
+
+    if ( (start < 0) || (len < 0) ) {
+      throw new IllegalArgumentException("Invalid start or len parameter");
+    }
+
+    if (file.getLen() < start) {
+      return new BlockLocation[0];
+    }
+    String[] name = { "azureblobstore" };
+    long requestedLength = file.getLen() - start;
+    long blockSize = file.getBlockSize();
+    if (blockSize == 0) {
+      blockSize = 1;
+    }
+    int numberOfLocations = (int)(requestedLength / blockSize) +
+        ((requestedLength % blockSize == 0) ? 0 : 1);
+    BlockLocation[] locations = new BlockLocation[numberOfLocations];
+    int numDistinctBlockLocations = getConf().getInt(
+        AZURE_MAX_DISTINCT_BLOCK_LOCATIONS,
+        DEFAULT_MAX_DISTINCT_BLOCK_LOCATIONS);
+    for (int i = 0; i < locations.length; i++) {
+      long currentOffset = start + (i * blockSize);
+      long currentLength = Math.min(blockSize, start + len - currentOffset);
+      String[] host = { "azureblobstore" + (i % numDistinctBlockLocations) };
+      locations[i] = new BlockLocation(name, host, currentOffset,
+          currentLength);
+    }
+    return locations;
   }
 
   /**

@@ -150,8 +150,11 @@ public final class AzureBlobStorageTestAccount {
   }
 
   public static AzureBlobStorageTestAccount createMock() throws Exception {
+    return createMock(new Configuration());
+  }
+
+  public static AzureBlobStorageTestAccount createMock(Configuration conf) throws Exception {
     saveMetricsConfigFile();
-    Configuration conf = new Configuration();
     AzureNativeFileSystemStore store = new AzureNativeFileSystemStore();
     MockStorageInterface mockStorage = new MockStorageInterface();
     store.setAzureStorageInteractionLayer(mockStorage);
