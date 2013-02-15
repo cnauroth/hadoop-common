@@ -453,7 +453,7 @@ class NamenodeJspHelper {
         }
 
         fout.println("<tr class=\"phase %s\">", timeClass);
-        printStartupProgressItem(fout, phase.toString(),
+        printStartupProgressItem(fout, phase.getDescription(),
           startupProgress.getTotal(phase),
           startupProgress.getCount(phase),
           startupProgress.getPercentComplete(phase),

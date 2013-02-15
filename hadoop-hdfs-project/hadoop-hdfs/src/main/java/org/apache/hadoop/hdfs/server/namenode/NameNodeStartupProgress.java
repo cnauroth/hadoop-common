@@ -32,16 +32,36 @@ import org.apache.hadoop.classification.InterfaceAudience;
 public class NameNodeStartupProgress {
 
   public enum Phase {
-    INITIALIZED,
-    LOADING_FSIMAGE_INODES,
-    LOADING_FSIMAGE_DELEGATION_KEYS,
-    LOADING_FSIMAGE_DELEGATION_TOKENS,
-    LOADING_EDITS,
-    SAVING_CHECKPOINT_INODES,
-    SAVING_CHECKPOINT_DELEGATION_KEYS,
-    SAVING_CHECKPOINT_DELEGATION_TOKENS,
-    SAFEMODE,
-    COMPLETE;
+    INITIALIZED("Initialized", "Initialized"),
+    LOADING_FSIMAGE_INODES("LoadingFsImageInodes", "Loading fsimage inodes"),
+    LOADING_FSIMAGE_DELEGATION_KEYS("LoadingFsImageDelegationKeys",
+      "Loading fsimage delegation keys"),
+    LOADING_FSIMAGE_DELEGATION_TOKENS("LoadingFsImageDelegationTokens",
+      "Loading fsimage delegation tokens"),
+    LOADING_EDITS("LoadingEdits", "Loading edits ops"),
+    SAVING_CHECKPOINT_INODES("SavingCheckpointInodes",
+      "Saving checkpoint inodes"),
+    SAVING_CHECKPOINT_DELEGATION_KEYS("SavingCheckpointDelegationKeys",
+      "Saving checkpoint delegation keys"),
+    SAVING_CHECKPOINT_DELEGATION_TOKENS("SavingCheckpointDelegationTokens",
+      "Saving checkpoint delegation tokens"),
+    SAFEMODE("SafeMode", "Safe mode"),
+    COMPLETE("Complete", "Complete");
+
+    final String name, description;
+
+    private Phase(String name, String description) {
+      this.name = name;
+      this.description = description;
+    }
+
+    public String getDescription() {
+      return description;
+    }
+
+    public String getName() {
+      return name;
+    }
   }
 
   private static EnumSet<Phase> VISIBLE_PHASES = EnumSet.range(
