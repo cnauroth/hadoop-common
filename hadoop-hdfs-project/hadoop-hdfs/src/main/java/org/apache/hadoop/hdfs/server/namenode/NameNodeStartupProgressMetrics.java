@@ -55,6 +55,8 @@ public class NameNodeStartupProgressMetrics implements MetricsSource {
         startupProgress.getElapsedTime(phase));
       addCounter(builder, phase, "Total", " total",
         startupProgress.getTotal(phase));
+      addGauge(builder, phase, "PercentComplete", " percent complete",
+        startupProgress.getPercentComplete(phase));
     }
   }
 
@@ -63,6 +65,13 @@ public class NameNodeStartupProgressMetrics implements MetricsSource {
     MetricsInfo metricsInfo = createMetricsInfo(phase.getName() + nameSuffix,
       phase.getDescription() + descSuffix);
     builder.addCounter(metricsInfo, value);
+  }
+
+  private static void addGauge(MetricsRecordBuilder builder, Phase phase,
+      String nameSuffix, String descSuffix, float value) {
+    MetricsInfo metricsInfo = createMetricsInfo(phase.getName() + nameSuffix,
+      phase.getDescription() + descSuffix);
+    builder.addGauge(metricsInfo, value);
   }
 
   private static MetricsInfo createMetricsInfo(final String name,
