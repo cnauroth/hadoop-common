@@ -243,11 +243,10 @@ public class DelegationTokenSecretManager
   private synchronized void saveCurrentTokens(DataOutputStream out,
       String curFilePath) throws IOException {
     NameNodeStartupProgress startupProgress = NameNode.getStartupProgress();
-    startupProgress.beginPhase(Phase.SAVING_CHECKPOINT_DELEGATION_TOKENS);
-    startupProgress.beginStep(Phase.SAVING_CHECKPOINT_DELEGATION_TOKENS,
-      curFilePath);
-    startupProgress.setTotal(Phase.SAVING_CHECKPOINT_DELEGATION_TOKENS,
-      curFilePath, currentTokens.size());
+    String step = "Saving delegation tokens to " + curFilePath;
+    startupProgress.beginStep(Phase.SAVING_CHECKPOINT, step);
+    startupProgress.setTotal(Phase.SAVING_CHECKPOINT, step,
+      currentTokens.size());
     out.writeInt(currentTokens.size());
     Iterator<DelegationTokenIdentifier> iter = currentTokens.keySet()
         .iterator();
@@ -256,12 +255,9 @@ public class DelegationTokenSecretManager
       id.write(out);
       DelegationTokenInformation info = currentTokens.get(id);
       out.writeLong(info.getRenewDate());
-      startupProgress.incrementCount(Phase.SAVING_CHECKPOINT_DELEGATION_TOKENS,
-        curFilePath);
+      startupProgress.incrementCount(Phase.SAVING_CHECKPOINT, step);
     }
-    startupProgress.endStep(Phase.SAVING_CHECKPOINT_DELEGATION_TOKENS,
-      curFilePath);
-    startupProgress.endPhase(Phase.SAVING_CHECKPOINT_DELEGATION_TOKENS);
+    startupProgress.endStep(Phase.SAVING_CHECKPOINT, step);
   }
   
   /*
@@ -270,20 +266,18 @@ public class DelegationTokenSecretManager
   private synchronized void saveAllKeys(DataOutputStream out, String curFilePath)
       throws IOException {
     NameNodeStartupProgress startupProgress = NameNode.getStartupProgress();
-    startupProgress.beginPhase(Phase.SAVING_CHECKPOINT_DELEGATION_KEYS);
-    startupProgress.beginStep(Phase.SAVING_CHECKPOINT_DELEGATION_KEYS,
-      curFilePath);
-    startupProgress.setTotal(Phase.SAVING_CHECKPOINT_DELEGATION_KEYS,
-      curFilePath, currentTokens.size());
+    String step = "Saving delegation keys to " + curFilePath;
+    startupProgress.beginStep(Phase.SAVING_CHECKPOINT, step);
+    startupProgress.setTotal(Phase.SAVING_CHECKPOINT, step,
+      currentTokens.size());
     out.writeInt(allKeys.size());
     Iterator<Integer> iter = allKeys.keySet().iterator();
     while (iter.hasNext()) {
       Integer key = iter.next();
       allKeys.get(key).write(out);
+      startupProgress.incrementCount(Phase.SAVING_CHECKPOINT, step);
     }
-    startupProgress.endStep(Phase.SAVING_CHECKPOINT_DELEGATION_KEYS,
-      curFilePath);
-    startupProgress.endPhase(Phase.SAVING_CHECKPOINT_DELEGATION_KEYS);
+    startupProgress.endStep(Phase.SAVING_CHECKPOINT, step);
   }
   
   /**
@@ -292,23 +286,18 @@ public class DelegationTokenSecretManager
   private synchronized void loadCurrentTokens(DataInputStream in,
       String curFilePath) throws IOException {
     NameNodeStartupProgress startupProgress = NameNode.getStartupProgress();
-    startupProgress.beginPhase(Phase.LOADING_FSIMAGE_DELEGATION_TOKENS);
-    startupProgress.beginStep(Phase.LOADING_FSIMAGE_DELEGATION_TOKENS,
-      curFilePath);
+    String step = "Loading delegation tokens from " + curFilePath;
+    startupProgress.beginStep(Phase.LOADING_FSIMAGE, step);
     int numberOfTokens = in.readInt();
-    startupProgress.setTotal(Phase.LOADING_FSIMAGE_DELEGATION_TOKENS,
-      curFilePath, numberOfTokens);
+    startupProgress.setTotal(Phase.LOADING_FSIMAGE, step, numberOfTokens);
     for (int i = 0; i < numberOfTokens; i++) {
       DelegationTokenIdentifier id = new DelegationTokenIdentifier();
       id.readFields(in);
       long expiryTime = in.readLong();
       addPersistedDelegationToken(id, expiryTime);
-      startupProgress.incrementCount(Phase.LOADING_FSIMAGE_DELEGATION_TOKENS,
-        curFilePath);
+      startupProgress.incrementCount(Phase.LOADING_FSIMAGE, step);
     }
-    startupProgress.endStep(Phase.LOADING_FSIMAGE_DELEGATION_TOKENS,
-      curFilePath);
-    startupProgress.endPhase(Phase.LOADING_FSIMAGE_DELEGATION_TOKENS);
+    startupProgress.endStep(Phase.LOADING_FSIMAGE, step);
   }
 
   /**
@@ -319,21 +308,17 @@ public class DelegationTokenSecretManager
   private synchronized void loadAllKeys(DataInputStream in, String curFilePath)
       throws IOException {    
     NameNodeStartupProgress startupProgress = NameNode.getStartupProgress();
-    startupProgress.beginPhase(Phase.LOADING_FSIMAGE_DELEGATION_KEYS);
-    startupProgress.beginStep(Phase.LOADING_FSIMAGE_DELEGATION_KEYS,
-      curFilePath);
+    String step = "Loading delegation keys from " + curFilePath;
+    startupProgress.beginStep(Phase.LOADING_FSIMAGE, step);
     int numberOfKeys = in.readInt();
-    startupProgress.setTotal(Phase.LOADING_FSIMAGE_DELEGATION_KEYS, curFilePath,
-      numberOfKeys);
+    startupProgress.setTotal(Phase.LOADING_FSIMAGE, step, numberOfKeys);
     for (int i = 0; i < numberOfKeys; i++) {
       DelegationKey value = new DelegationKey();
       value.readFields(in);
       addKey(value);
-      startupProgress.incrementCount(Phase.LOADING_FSIMAGE_DELEGATION_KEYS,
-        curFilePath);
+      startupProgress.incrementCount(Phase.LOADING_FSIMAGE, step);
     }
-    startupProgress.endStep(Phase.LOADING_FSIMAGE_DELEGATION_KEYS, curFilePath);
-    startupProgress.endPhase(Phase.LOADING_FSIMAGE_DELEGATION_KEYS);
+    startupProgress.endStep(Phase.LOADING_FSIMAGE, step);
   }
 
   /**

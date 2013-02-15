@@ -584,7 +584,7 @@ public class FSImage implements Closeable {
    */
   boolean loadFSImage(FSNamesystem target, MetaRecoveryContext recovery)
       throws IOException {
-    NameNode.getStartupProgress().beginPhase(Phase.LOADING_FSIMAGE_INODES);
+    NameNode.getStartupProgress().beginPhase(Phase.LOADING_FSIMAGE);
     FSImageStorageInspector inspector = storage.readAndInspectDirs();
     
     isUpgradeFinalized = inspector.isUpgradeFinalized();
@@ -651,7 +651,7 @@ public class FSImage implements Closeable {
     needToSave |= needsResaveBasedOnStaleCheckpoint(imageFile.getFile(),
                                                     txnsAdvanced);
     editLog.setNextTxId(lastAppliedTxId + 1);
-    NameNode.getStartupProgress().endPhase(Phase.LOADING_FSIMAGE_INODES);
+    NameNode.getStartupProgress().endPhase(Phase.LOADING_FSIMAGE);
     return needToSave;
   }
 
@@ -780,8 +780,6 @@ public class FSImage implements Closeable {
   void saveFSImage(SaveNamespaceContext context, StorageDirectory sd)
       throws IOException {
     String sdPath = sd.getRoot().getAbsolutePath();
-    NameNode.getStartupProgress().beginStep(Phase.SAVING_CHECKPOINT_INODES,
-      sdPath);
     long txid = context.getTxId();
     File newFile = NNStorage.getStorageFile(sd, NameNodeFile.IMAGE_NEW, txid);
     File dstFile = NNStorage.getStorageFile(sd, NameNodeFile.IMAGE, txid);
@@ -792,8 +790,6 @@ public class FSImage implements Closeable {
     
     MD5FileUtils.saveMD5File(dstFile, saver.getSavedDigest());
     storage.setMostRecentCheckpointInfo(txid, Time.now());
-    NameNode.getStartupProgress().endStep(Phase.SAVING_CHECKPOINT_INODES,
-      sdPath);
   }
 
   /**
@@ -900,7 +896,7 @@ public class FSImage implements Closeable {
   protected synchronized void saveFSImageInAllDirs(FSNamesystem source, long txid,
       Canceler canceler)
       throws IOException {    
-    NameNode.getStartupProgress().beginPhase(Phase.SAVING_CHECKPOINT_INODES);
+    NameNode.getStartupProgress().beginPhase(Phase.SAVING_CHECKPOINT);
     if (storage.getNumStorageDirs(NameNodeDirType.IMAGE) == 0) {
       throw new IOException("No image directories available!");
     }
@@ -946,7 +942,7 @@ public class FSImage implements Closeable {
       ctx.markComplete();
       ctx = null;
     }
-    NameNode.getStartupProgress().endPhase(Phase.SAVING_CHECKPOINT_INODES);
+    NameNode.getStartupProgress().endPhase(Phase.SAVING_CHECKPOINT);
   }
 
   /**

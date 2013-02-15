@@ -33,18 +33,9 @@ public class NameNodeStartupProgress {
 
   public enum Phase {
     INITIALIZED("Initialized", "Initialized"),
-    LOADING_FSIMAGE_INODES("LoadingFsImageInodes", "Loading fsimage inodes"),
-    LOADING_FSIMAGE_DELEGATION_KEYS("LoadingFsImageDelegationKeys",
-      "Loading fsimage delegation keys"),
-    LOADING_FSIMAGE_DELEGATION_TOKENS("LoadingFsImageDelegationTokens",
-      "Loading fsimage delegation tokens"),
-    LOADING_EDITS("LoadingEdits", "Loading edits ops"),
-    SAVING_CHECKPOINT_INODES("SavingCheckpointInodes",
-      "Saving checkpoint inodes"),
-    SAVING_CHECKPOINT_DELEGATION_KEYS("SavingCheckpointDelegationKeys",
-      "Saving checkpoint delegation keys"),
-    SAVING_CHECKPOINT_DELEGATION_TOKENS("SavingCheckpointDelegationTokens",
-      "Saving checkpoint delegation tokens"),
+    LOADING_FSIMAGE("LoadingFsImage", "Loading fsimage"),
+    LOADING_EDITS("LoadingEdits", "Loading edits"),
+    SAVING_CHECKPOINT("SavingCheckpoint", "Saving checkpoint"),
     SAFEMODE("SafeMode", "Safe mode"),
     COMPLETE("Complete", "Complete");
 
@@ -64,8 +55,8 @@ public class NameNodeStartupProgress {
     }
   }
 
-  private static EnumSet<Phase> VISIBLE_PHASES = EnumSet.range(
-    LOADING_FSIMAGE_INODES, SAFEMODE);
+  private static EnumSet<Phase> VISIBLE_PHASES = EnumSet.range(LOADING_FSIMAGE,
+    SAFEMODE);
 
   private Map<Phase, Long> phaseBeginTime = new ConcurrentHashMap<Phase, Long>();
   private Map<Phase, Long> phaseEndTime = new ConcurrentHashMap<Phase, Long>();
