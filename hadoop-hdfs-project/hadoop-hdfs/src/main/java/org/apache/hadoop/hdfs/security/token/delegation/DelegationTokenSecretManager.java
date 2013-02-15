@@ -18,8 +18,6 @@
 
 package org.apache.hadoop.hdfs.security.token.delegation;
 
-import static org.apache.hadoop.util.Time.monotonicNow;
-
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
