@@ -17,91 +17,66 @@
  */
 package org.apache.hadoop.hdfs.server.namenode;
 
-import static org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Phase.*;
-
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.metrics2.annotation.Metric;
-import org.apache.hadoop.metrics2.annotation.Metrics;
+import org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Phase;
+import org.apache.hadoop.metrics2.MetricsCollector;
+import org.apache.hadoop.metrics2.MetricsInfo;
+import org.apache.hadoop.metrics2.MetricsRecordBuilder;
+import org.apache.hadoop.metrics2.MetricsSource;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 
 @InterfaceAudience.Private
-@Metrics(name="NameNodeStartupProgress", about="NameNode startup progress",
-  context="dfs")
-public class NameNodeStartupProgressMetrics {
+public class NameNodeStartupProgressMetrics implements MetricsSource {
+
+  private static final MetricsInfo STARTUP_PROGRESS_METRICS_INFO =
+    createMetricsInfo("NameNodeStartupProgress", "NameNode startup progress");
 
   private final NameNodeStartupProgress startupProgress;
 
   public NameNodeStartupProgressMetrics(
       NameNodeStartupProgress startupProgress) {
     this.startupProgress = startupProgress;
-    DefaultMetricsSystem.instance().register(this);
+    DefaultMetricsSystem.instance().register(
+      STARTUP_PROGRESS_METRICS_INFO.name(),
+      STARTUP_PROGRESS_METRICS_INFO.description(), this);
   }
 
-  @Metric public String getCurrentPhase() {
-    return String.valueOf(startupProgress.getCurrentPhase());
+  @Override
+  public void getMetrics(MetricsCollector collector, boolean all) {
+    MetricsRecordBuilder builder = collector.addRecord(
+      STARTUP_PROGRESS_METRICS_INFO);
+    builder.tag(createMetricsInfo("CurrentPhase", "Current phase"),
+      startupProgress.getCurrentPhase().getName());
+
+    for (Phase phase: startupProgress.getVisiblePhases()) {
+      addCounter(builder, phase, "Count", " count",
+        startupProgress.getCount(phase));
+      addCounter(builder, phase, "ElapsedTime", " elapsed time",
+        startupProgress.getElapsedTime(phase));
+      addCounter(builder, phase, "Total", " total",
+        startupProgress.getTotal(phase));
+    }
   }
 
-  @Metric public long getLoadedDelegationKeys() {
-    return startupProgress.getCount(LOADING_FSIMAGE_DELEGATION_KEYS);
+  private static void addCounter(MetricsRecordBuilder builder, Phase phase,
+      String nameSuffix, String descSuffix, long value) {
+    MetricsInfo metricsInfo = createMetricsInfo(phase.getName() + nameSuffix,
+      phase.getDescription() + descSuffix);
+    builder.addCounter(metricsInfo, value);
   }
 
-  @Metric public long getLoadedDelegationTokens() {
-    return startupProgress.getCount(LOADING_FSIMAGE_DELEGATION_TOKENS);
-  }
+  private static MetricsInfo createMetricsInfo(final String name,
+      final String desc) {
+    return new MetricsInfo() {
+      @Override
+      public String name() {
+        return name;
+      }
 
-  @Metric public long getLoadedEditOps() {
-    return startupProgress.getCount(LOADING_EDITS);
-  }
-
-  @Metric public long getLoadedInodes() {
-    return startupProgress.getCount(LOADING_FSIMAGE_INODES);
-  }
-
-  @Metric public long getLoadingDelegationKeysElapsedTime() {
-    return startupProgress.getElapsedTime(LOADING_FSIMAGE_DELEGATION_KEYS);
-  }
-
-  @Metric public float getLoadingDelegationKeysPercentComplete() {
-    return startupProgress.getPercentComplete(LOADING_FSIMAGE_DELEGATION_KEYS);
-  }
-
-  @Metric public long getLoadingDelegationTokensElapsedTime() {
-    return startupProgress.getElapsedTime(LOADING_FSIMAGE_DELEGATION_TOKENS);
-  }
-
-  @Metric public float getLoadingDelegationTokensPercentComplete() {
-    return startupProgress.getPercentComplete(LOADING_FSIMAGE_DELEGATION_TOKENS);
-  }
-
-  @Metric public long getLoadingEditsElapsedTime() {
-    return startupProgress.getElapsedTime(LOADING_EDITS);
-  }
-
-  @Metric public float getLoadingEditsPercentComplete() {
-    return startupProgress.getPercentComplete(LOADING_EDITS);
-  }
-
-  @Metric public long getLoadingFsImageElapsedTime() {
-    return startupProgress.getElapsedTime(LOADING_FSIMAGE_INODES);
-  }
-
-  @Metric public float getLoadingFsImagePercentComplete() {
-    return startupProgress.getPercentComplete(LOADING_FSIMAGE_INODES);
-  }
-
-  @Metric public long getTotalDelegationKeys() {
-    return startupProgress.getTotal(LOADING_FSIMAGE_DELEGATION_KEYS);
-  }
-
-  @Metric public long getTotalDelegationTokens() {
-    return startupProgress.getTotal(LOADING_FSIMAGE_DELEGATION_TOKENS);
-  }
-
-  @Metric public long getTotalEditOps() {
-    return startupProgress.getTotal(LOADING_EDITS);
-  }
-
-  @Metric public long getTotalInodes() {
-    return startupProgress.getTotal(LOADING_FSIMAGE_INODES);
+      @Override
+      public String description() {
+        return desc;
+      }
+    };
   }
 }
