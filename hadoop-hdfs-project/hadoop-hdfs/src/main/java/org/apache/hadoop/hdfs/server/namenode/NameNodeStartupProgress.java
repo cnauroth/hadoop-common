@@ -22,8 +22,8 @@ import static org.apache.hadoop.util.Time.monotonicNow;
 
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -191,7 +191,7 @@ public class NameNodeStartupProgress {
 
   public Iterable<String> getSteps(Phase phase) {
     Map<String, Long> stepsInPhase = stepBeginTime.get(phase);
-    return stepsInPhase != null ? stepsInPhase.keySet() :
+    return stepsInPhase != null ? new TreeSet(stepsInPhase.keySet()) :
       Collections.<String>emptyList();
   }
 
