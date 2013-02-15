@@ -5340,15 +5340,17 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
   /**
    * @param out save state of the secret manager
    */
-  void saveSecretManagerState(DataOutputStream out) throws IOException {
-    dtSecretManager.saveSecretManagerState(out);
+  void saveSecretManagerState(DataOutputStream out, String sdPath)
+      throws IOException {
+    dtSecretManager.saveSecretManagerState(out, sdPath);
   }
 
   /**
    * @param in load the state of secret manager from input stream
    */
-  void loadSecretManagerState(DataInputStream in) throws IOException {
-    dtSecretManager.loadSecretManagerState(in);
+  void loadSecretManagerState(DataInputStream in, String curFilePath)
+      throws IOException {
+    dtSecretManager.loadSecretManagerState(in, curFilePath);
   }
 
   /**

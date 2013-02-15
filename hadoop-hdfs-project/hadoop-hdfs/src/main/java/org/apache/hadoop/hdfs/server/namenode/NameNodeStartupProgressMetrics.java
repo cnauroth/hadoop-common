@@ -42,11 +42,11 @@ public class NameNodeStartupProgressMetrics {
   }
 
   @Metric public long getLoadedDelegationKeys() {
-    return startupProgress.getCount(LOADING_DELEGATION_KEYS);
+    return startupProgress.getCount(LOADING_FSIMAGE_DELEGATION_KEYS);
   }
 
   @Metric public long getLoadedDelegationTokens() {
-    return startupProgress.getCount(LOADING_DELEGATION_TOKENS);
+    return startupProgress.getCount(LOADING_FSIMAGE_DELEGATION_TOKENS);
   }
 
   @Metric public long getLoadedEditOps() {
@@ -54,23 +54,23 @@ public class NameNodeStartupProgressMetrics {
   }
 
   @Metric public long getLoadedInodes() {
-    return startupProgress.getCount(LOADING_FSIMAGE);
+    return startupProgress.getCount(LOADING_FSIMAGE_INODES);
   }
 
   @Metric public long getLoadingDelegationKeysElapsedTime() {
-    return startupProgress.getElapsedTime(LOADING_DELEGATION_KEYS);
+    return startupProgress.getElapsedTime(LOADING_FSIMAGE_DELEGATION_KEYS);
   }
 
   @Metric public float getLoadingDelegationKeysPercentComplete() {
-    return startupProgress.getPercentComplete(LOADING_DELEGATION_KEYS);
+    return startupProgress.getPercentComplete(LOADING_FSIMAGE_DELEGATION_KEYS);
   }
 
   @Metric public long getLoadingDelegationTokensElapsedTime() {
-    return startupProgress.getElapsedTime(LOADING_DELEGATION_TOKENS);
+    return startupProgress.getElapsedTime(LOADING_FSIMAGE_DELEGATION_TOKENS);
   }
 
   @Metric public float getLoadingDelegationTokensPercentComplete() {
-    return startupProgress.getPercentComplete(LOADING_DELEGATION_TOKENS);
+    return startupProgress.getPercentComplete(LOADING_FSIMAGE_DELEGATION_TOKENS);
   }
 
   @Metric public long getLoadingEditsElapsedTime() {
@@ -82,19 +82,19 @@ public class NameNodeStartupProgressMetrics {
   }
 
   @Metric public long getLoadingFsImageElapsedTime() {
-    return startupProgress.getElapsedTime(LOADING_FSIMAGE);
+    return startupProgress.getElapsedTime(LOADING_FSIMAGE_INODES);
   }
 
   @Metric public float getLoadingFsImagePercentComplete() {
-    return startupProgress.getPercentComplete(LOADING_FSIMAGE);
+    return startupProgress.getPercentComplete(LOADING_FSIMAGE_INODES);
   }
 
   @Metric public long getTotalDelegationKeys() {
-    return startupProgress.getTotal(LOADING_DELEGATION_KEYS);
+    return startupProgress.getTotal(LOADING_FSIMAGE_DELEGATION_KEYS);
   }
 
   @Metric public long getTotalDelegationTokens() {
-    return startupProgress.getTotal(LOADING_DELEGATION_TOKENS);
+    return startupProgress.getTotal(LOADING_FSIMAGE_DELEGATION_TOKENS);
   }
 
   @Metric public long getTotalEditOps() {
@@ -102,6 +102,6 @@ public class NameNodeStartupProgressMetrics {
   }
 
   @Metric public long getTotalInodes() {
-    return startupProgress.getTotal(LOADING_FSIMAGE);
+    return startupProgress.getTotal(LOADING_FSIMAGE_INODES);
   }
 }

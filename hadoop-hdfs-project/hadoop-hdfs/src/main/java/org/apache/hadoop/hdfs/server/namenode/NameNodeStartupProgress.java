@@ -33,17 +33,19 @@ public class NameNodeStartupProgress {
 
   public enum Phase {
     INITIALIZED,
-    LOADING_FSIMAGE,
+    LOADING_FSIMAGE_INODES,
+    LOADING_FSIMAGE_DELEGATION_KEYS,
+    LOADING_FSIMAGE_DELEGATION_TOKENS,
     LOADING_EDITS,
-    LOADING_DELEGATION_KEYS,
-    LOADING_DELEGATION_TOKENS,
-    CHECKPOINTING,
+    SAVING_CHECKPOINT_INODES,
+    SAVING_CHECKPOINT_DELEGATION_KEYS,
+    SAVING_CHECKPOINT_DELEGATION_TOKENS,
     SAFEMODE,
     COMPLETE;
   }
 
-  private static EnumSet<Phase> VISIBLE_PHASES = EnumSet.range(LOADING_FSIMAGE,
-    SAFEMODE);
+  private static EnumSet<Phase> VISIBLE_PHASES = EnumSet.range(
+    LOADING_FSIMAGE_INODES, SAFEMODE);
 
   private Map<Phase, Long> phaseBeginTime = new ConcurrentHashMap<Phase, Long>();
   private Map<Phase, Long> phaseEndTime = new ConcurrentHashMap<Phase, Long>();

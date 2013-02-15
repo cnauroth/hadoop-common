@@ -113,17 +113,17 @@ public class DelegationTokenSecretManager
    * @param in input stream to read fsimage
    * @throws IOException
    */
-  public synchronized void loadSecretManagerState(DataInputStream in)
-      throws IOException {
+  public synchronized void loadSecretManagerState(DataInputStream in,
+      String curFilePath) throws IOException {
     if (running) {
       // a safety check
       throw new IOException(
           "Can't load state from image in a running SecretManager.");
     }
     currentId = in.readInt();
-    loadAllKeys(in);
+    loadAllKeys(in, curFilePath);
     delegationTokenSequenceNumber = in.readInt();
-    loadCurrentTokens(in);
+    loadCurrentTokens(in, curFilePath);
   }
   
   /**
@@ -132,12 +132,12 @@ public class DelegationTokenSecretManager
    * @param out Output stream for writing into fsimage.
    * @throws IOException
    */
-  public synchronized void saveSecretManagerState(DataOutputStream out)
-      throws IOException {
+  public synchronized void saveSecretManagerState(DataOutputStream out,
+      String curFilePath) throws IOException {
     out.writeInt(currentId);
-    saveAllKeys(out);
+    saveAllKeys(out, curFilePath);
     out.writeInt(delegationTokenSequenceNumber);
-    saveCurrentTokens(out);
+    saveCurrentTokens(out, curFilePath);
   }
   
   /**
@@ -240,8 +240,14 @@ public class DelegationTokenSecretManager
   /**
    * Private helper methods to save delegation keys and tokens in fsimage
    */
-  private synchronized void saveCurrentTokens(DataOutputStream out)
-      throws IOException {
+  private synchronized void saveCurrentTokens(DataOutputStream out,
+      String curFilePath) throws IOException {
+    NameNodeStartupProgress startupProgress = NameNode.getStartupProgress();
+    startupProgress.beginPhase(Phase.SAVING_CHECKPOINT_DELEGATION_TOKENS);
+    startupProgress.beginStep(Phase.SAVING_CHECKPOINT_DELEGATION_TOKENS,
+      curFilePath);
+    startupProgress.setTotal(Phase.SAVING_CHECKPOINT_DELEGATION_TOKENS,
+      curFilePath, currentTokens.size());
     out.writeInt(currentTokens.size());
     Iterator<DelegationTokenIdentifier> iter = currentTokens.keySet()
         .iterator();
@@ -250,42 +256,59 @@ public class DelegationTokenSecretManager
       id.write(out);
       DelegationTokenInformation info = currentTokens.get(id);
       out.writeLong(info.getRenewDate());
+      startupProgress.incrementCount(Phase.SAVING_CHECKPOINT_DELEGATION_TOKENS,
+        curFilePath);
     }
+    startupProgress.endStep(Phase.SAVING_CHECKPOINT_DELEGATION_TOKENS,
+      curFilePath);
+    startupProgress.endPhase(Phase.SAVING_CHECKPOINT_DELEGATION_TOKENS);
   }
   
   /*
    * Save the current state of allKeys
    */
-  private synchronized void saveAllKeys(DataOutputStream out)
+  private synchronized void saveAllKeys(DataOutputStream out, String curFilePath)
       throws IOException {
+    NameNodeStartupProgress startupProgress = NameNode.getStartupProgress();
+    startupProgress.beginPhase(Phase.SAVING_CHECKPOINT_DELEGATION_KEYS);
+    startupProgress.beginStep(Phase.SAVING_CHECKPOINT_DELEGATION_KEYS,
+      curFilePath);
+    startupProgress.setTotal(Phase.SAVING_CHECKPOINT_DELEGATION_KEYS,
+      curFilePath, currentTokens.size());
     out.writeInt(allKeys.size());
     Iterator<Integer> iter = allKeys.keySet().iterator();
     while (iter.hasNext()) {
       Integer key = iter.next();
       allKeys.get(key).write(out);
     }
+    startupProgress.endStep(Phase.SAVING_CHECKPOINT_DELEGATION_KEYS,
+      curFilePath);
+    startupProgress.endPhase(Phase.SAVING_CHECKPOINT_DELEGATION_KEYS);
   }
   
   /**
    * Private helper methods to load Delegation tokens from fsimage
    */
-  private synchronized void loadCurrentTokens(DataInputStream in)
-      throws IOException {
+  private synchronized void loadCurrentTokens(DataInputStream in,
+      String curFilePath) throws IOException {
     NameNodeStartupProgress startupProgress = NameNode.getStartupProgress();
-    startupProgress.beginPhase(Phase.LOADING_DELEGATION_TOKENS);
-    startupProgress.beginStep(Phase.LOADING_DELEGATION_TOKENS, "TODO");
+    startupProgress.beginPhase(Phase.LOADING_FSIMAGE_DELEGATION_TOKENS);
+    startupProgress.beginStep(Phase.LOADING_FSIMAGE_DELEGATION_TOKENS,
+      curFilePath);
     int numberOfTokens = in.readInt();
-    startupProgress.setTotal(Phase.LOADING_DELEGATION_TOKENS, "TODO",
-      numberOfTokens);
+    startupProgress.setTotal(Phase.LOADING_FSIMAGE_DELEGATION_TOKENS,
+      curFilePath, numberOfTokens);
     for (int i = 0; i < numberOfTokens; i++) {
       DelegationTokenIdentifier id = new DelegationTokenIdentifier();
       id.readFields(in);
       long expiryTime = in.readLong();
       addPersistedDelegationToken(id, expiryTime);
-      startupProgress.incrementCount(Phase.LOADING_DELEGATION_TOKENS, "TODO");
+      startupProgress.incrementCount(Phase.LOADING_FSIMAGE_DELEGATION_TOKENS,
+        curFilePath);
     }
-    startupProgress.endStep(Phase.LOADING_DELEGATION_TOKENS, "TODO");
-    startupProgress.endPhase(Phase.LOADING_DELEGATION_TOKENS);
+    startupProgress.endStep(Phase.LOADING_FSIMAGE_DELEGATION_TOKENS,
+      curFilePath);
+    startupProgress.endPhase(Phase.LOADING_FSIMAGE_DELEGATION_TOKENS);
   }
 
   /**
@@ -293,21 +316,24 @@ public class DelegationTokenSecretManager
    * @param in
    * @throws IOException
    */
-  private synchronized void loadAllKeys(DataInputStream in) throws IOException {    
+  private synchronized void loadAllKeys(DataInputStream in, String curFilePath)
+      throws IOException {    
     NameNodeStartupProgress startupProgress = NameNode.getStartupProgress();
-    startupProgress.beginPhase(Phase.LOADING_DELEGATION_KEYS);
-    startupProgress.beginStep(Phase.LOADING_DELEGATION_KEYS, "TODO");
+    startupProgress.beginPhase(Phase.LOADING_FSIMAGE_DELEGATION_KEYS);
+    startupProgress.beginStep(Phase.LOADING_FSIMAGE_DELEGATION_KEYS,
+      curFilePath);
     int numberOfKeys = in.readInt();
-    startupProgress.setTotal(Phase.LOADING_DELEGATION_KEYS, "TODO",
+    startupProgress.setTotal(Phase.LOADING_FSIMAGE_DELEGATION_KEYS, curFilePath,
       numberOfKeys);
     for (int i = 0; i < numberOfKeys; i++) {
       DelegationKey value = new DelegationKey();
       value.readFields(in);
       addKey(value);
-      startupProgress.incrementCount(Phase.LOADING_DELEGATION_KEYS, "TODO");
+      startupProgress.incrementCount(Phase.LOADING_FSIMAGE_DELEGATION_KEYS,
+        curFilePath);
     }
-    startupProgress.endStep(Phase.LOADING_DELEGATION_KEYS, "TODO");
-    startupProgress.endPhase(Phase.LOADING_DELEGATION_KEYS);
+    startupProgress.endStep(Phase.LOADING_FSIMAGE_DELEGATION_KEYS, curFilePath);
+    startupProgress.endPhase(Phase.LOADING_FSIMAGE_DELEGATION_KEYS);
   }
 
   /**
