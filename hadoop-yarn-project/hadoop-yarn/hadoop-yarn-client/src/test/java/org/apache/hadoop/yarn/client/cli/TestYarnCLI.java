@@ -52,9 +52,6 @@ import org.junit.Test;
 
 public class TestYarnCLI {
 
-  private static final String LINE_SEPARATOR =
-    System.getProperty("line.separator");
-
   private YarnClient client = mock(YarnClient.class);
   ByteArrayOutputStream sysOutStream;
   private PrintStream sysOut;
