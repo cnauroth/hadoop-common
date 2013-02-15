@@ -21,10 +21,10 @@ import static org.apache.hadoop.hdfs.server.namenode.NameNodeStartupProgress.Pha
 import static org.apache.hadoop.util.Time.monotonicNow;
 
 import java.util.Collections;
-import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 
@@ -45,19 +45,17 @@ public class NameNodeStartupProgress {
   private static EnumSet<Phase> VISIBLE_PHASES = EnumSet.range(LOADING_FSIMAGE,
     SAFEMODE);
 
-  private EnumMap<Phase, Long> phaseBeginTime =
-    new EnumMap<Phase, Long>(Phase.class);
-  private EnumMap<Phase, Long> phaseEndTime =
-    new EnumMap<Phase, Long>(Phase.class);
+  private Map<Phase, Long> phaseBeginTime = new ConcurrentHashMap<Phase, Long>();
+  private Map<Phase, Long> phaseEndTime = new ConcurrentHashMap<Phase, Long>();
 
-  private EnumMap<Phase, Map<String, Long>> stepBeginTime =
-    new EnumMap<Phase, Map<String, Long>>(Phase.class);
-  private EnumMap<Phase, Map<String, Long>> stepCount =
-    new EnumMap<Phase, Map<String, Long>>(Phase.class);
-  private EnumMap<Phase, Map<String, Long>> stepEndTime =
-    new EnumMap<Phase, Map<String, Long>>(Phase.class);
-  private EnumMap<Phase, Map<String, Long>> stepTotal =
-    new EnumMap<Phase, Map<String, Long>>(Phase.class);
+  private Map<Phase, Map<String, Long>> stepBeginTime =
+    new ConcurrentHashMap<Phase, Map<String, Long>>();
+  private Map<Phase, Map<String, Long>> stepCount =
+    new ConcurrentHashMap<Phase, Map<String, Long>>();
+  private Map<Phase, Map<String, Long>> stepEndTime =
+    new ConcurrentHashMap<Phase, Map<String, Long>>();
+  private Map<Phase, Map<String, Long>> stepTotal =
+    new ConcurrentHashMap<Phase, Map<String, Long>>();
 
   private Phase currentPhase;
   private String currentPhaseTag;
@@ -73,10 +71,10 @@ public class NameNodeStartupProgress {
   public void beginPhase(Phase phase) {
     if (VISIBLE_PHASES.contains(phase)) {
       phaseBeginTime.put(phase, monotonicNow());
-      stepBeginTime.put(phase, new LinkedHashMap<String, Long>());
-      stepCount.put(phase, new LinkedHashMap<String, Long>());
-      stepEndTime.put(phase, new LinkedHashMap<String, Long>());
-      stepTotal.put(phase, new LinkedHashMap<String, Long>());
+      stepBeginTime.put(phase, new ConcurrentHashMap<String, Long>());
+      stepCount.put(phase, new ConcurrentHashMap<String, Long>());
+      stepEndTime.put(phase, new ConcurrentHashMap<String, Long>());
+      stepTotal.put(phase, new ConcurrentHashMap<String, Long>());
     }
     currentPhase = phase;
   }
