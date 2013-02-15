@@ -29,13 +29,12 @@ import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import junit.framework.Assert;
 
-import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
@@ -84,19 +83,21 @@ public class TestYarnCLI {
     int result = cli.run(new String[] { "-status", applicationId.toString() });
     assertEquals(0, result);
     verify(client).getApplicationReport(applicationId);
-    String appReportStr = StringUtils.join(LINE_SEPARATOR, Arrays.asList(
-      "Application Report : ",
-      "\tApplication-Id : application_1234_0005",
-      "\tApplication-Name : appname",
-      "\tUser : user",
-      "\tQueue : queue",
-      "\tStart-Time : 0",
-      "\tFinish-Time : 0",
-      "\tState : FINISHED",
-      "\tFinal-State : SUCCEEDED",
-      "\tTracking-URL : N/A",
-      "\tDiagnostics : diagnostics",
-      "")); // for final line separator
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    PrintWriter pw = new PrintWriter(baos);
+    pw.println("Application Report : ");
+    pw.println("\tApplication-Id : application_1234_0005");
+    pw.println("\tApplication-Name : appname");
+    pw.println("\tUser : user");
+    pw.println("\tQueue : queue");
+    pw.println("\tStart-Time : 0");
+    pw.println("\tFinish-Time : 0");
+    pw.println("\tState : FINISHED");
+    pw.println("\tFinal-State : SUCCEEDED");
+    pw.println("\tTracking-URL : N/A");
+    pw.println("\tDiagnostics : diagnostics");
+    pw.close();
+    String appReportStr = baos.toString("UTF-8");
     Assert.assertEquals(appReportStr, sysOutStream.toString());
     verify(sysOut, times(1)).println(isA(String.class));
   }
@@ -117,15 +118,17 @@ public class TestYarnCLI {
     assertEquals(0, result);
     verify(client).getApplicationList();
 
-    String appsReportStr = StringUtils.join(LINE_SEPARATOR, Arrays.asList(
-      "Total Applications:1",
-      "                Application-Id\t    Application-Name"
-      + "\t      User\t     Queue\t             State\t       "
-      + "Final-State\t                       Tracking-URL",
-      "         application_1234_0005\t             "
-      + "appname\t      user\t     queue\t          FINISHED\t         "
-      + "SUCCEEDED\t                                N/A",
-      "")); // for final line separator
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    PrintWriter pw = new PrintWriter(baos);
+    pw.println("Total Applications:1");
+    pw.print("                Application-Id\t    Application-Name");
+    pw.print("\t      User\t     Queue\t             State\t       ");
+    pw.println("Final-State\t                       Tracking-URL");
+    pw.print("         application_1234_0005\t             ");
+    pw.print("appname\t      user\t     queue\t          FINISHED\t         ");
+    pw.println("SUCCEEDED\t                                N/A");
+    pw.close();
+    String appsReportStr = baos.toString("UTF-8");
     Assert.assertEquals(appsReportStr, sysOutStream.toString());
     verify(sysOut, times(1)).write(any(byte[].class), anyInt(), anyInt());
   }
@@ -149,17 +152,19 @@ public class TestYarnCLI {
     int result = cli.run(new String[] { "-list" });
     assertEquals(0, result);
     verify(client).getNodeReports();
-    String nodesReportStr = StringUtils.join(LINE_SEPARATOR, Arrays.asList(
-      "Total Nodes:3",
-      "         Node-Id\tNode-State\tNode-Http-Address\t"
-      + "Health-Status(isNodeHealthy)\tRunning-Containers",
-      "         host0:0\t   RUNNING\t       host1:8888"
-      + "\t                     false\t                 0",
-      "         host1:0\t   RUNNING\t       host1:8888"
-      + "\t                     false\t                 0",
-      "         host2:0\t   RUNNING\t       host1:8888"
-      + "\t                     false\t                 0",
-      "")); // for final line separator
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    PrintWriter pw = new PrintWriter(baos);
+    pw.println("Total Nodes:3");
+    pw.print("         Node-Id\tNode-State\tNode-Http-Address\t");
+    pw.println("Health-Status(isNodeHealthy)\tRunning-Containers");
+    pw.print("         host0:0\t   RUNNING\t       host1:8888");
+    pw.println("\t                     false\t                 0");
+    pw.print("         host1:0\t   RUNNING\t       host1:8888");
+    pw.println("\t                     false\t                 0");
+    pw.print("         host2:0\t   RUNNING\t       host1:8888");
+    pw.println("\t                     false\t                 0");
+    pw.close();
+    String nodesReportStr = baos.toString("UTF-8");
     Assert.assertEquals(nodesReportStr, sysOutStream.toString());
     verify(sysOut, times(1)).write(any(byte[].class), anyInt(), anyInt());
   }
@@ -175,19 +180,21 @@ public class TestYarnCLI {
     int result = cli.run(new String[] { "-status", nodeId.toString() });
     assertEquals(0, result);
     verify(client).getNodeReports();
-    String nodeStatusStr = StringUtils.join(LINE_SEPARATOR, Arrays.asList(
-      "Node Report : ",
-      "\tNode-Id : host0:0",
-      "\tRack : rack1",
-      "\tNode-State : RUNNING",
-      "\tNode-Http-Address : host1:8888",
-      "\tHealth-Status(isNodeHealthy) : false",
-      "\tLast-Last-Health-Update : 0",
-      "\tHealth-Report : null",
-      "\tContainers : 0",
-      "\tMemory-Used : 0M",
-      "\tMemory-Capacity : 0",
-      "")); // for final line separator
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    PrintWriter pw = new PrintWriter(baos);
+    pw.println("Node Report : ");
+    pw.println("\tNode-Id : host0:0");
+    pw.println("\tRack : rack1");
+    pw.println("\tNode-State : RUNNING");
+    pw.println("\tNode-Http-Address : host1:8888");
+    pw.println("\tHealth-Status(isNodeHealthy) : false");
+    pw.println("\tLast-Last-Health-Update : 0");
+    pw.println("\tHealth-Report : null");
+    pw.println("\tContainers : 0");
+    pw.println("\tMemory-Used : 0M");
+    pw.println("\tMemory-Capacity : 0");
+    pw.close();
+    String nodeStatusStr = baos.toString("UTF-8");
     verify(sysOut, times(1)).println(isA(String.class));
     verify(sysOut).println(nodeStatusStr);
   }

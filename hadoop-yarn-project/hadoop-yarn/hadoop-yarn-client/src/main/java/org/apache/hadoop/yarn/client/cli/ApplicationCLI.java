@@ -130,6 +130,7 @@ public class ApplicationCLI extends YarnCLI {
       throws YarnRemoteException, IOException {
     ApplicationReport appReport = client.getApplicationReport(ConverterUtils
         .toApplicationId(applicationId));
+    // Use PrintWriter.println, which uses correct platform line ending.
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     PrintWriter appReportStr = new PrintWriter(baos);
     if (appReport != null) {

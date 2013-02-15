@@ -108,6 +108,7 @@ public class NodeCLI extends YarnCLI {
       IOException {
     NodeId nodeId = ConverterUtils.toNodeId(nodeIdStr);
     List<NodeReport> nodesReport = client.getNodeReports();
+    // Use PrintWriter.println, which uses correct platform line ending.
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     PrintWriter nodeReportStr = new PrintWriter(baos);
     NodeReport nodeReport = null;
