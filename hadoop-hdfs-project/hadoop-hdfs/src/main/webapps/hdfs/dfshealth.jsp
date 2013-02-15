@@ -35,17 +35,25 @@
   String namenodeRole = nn.getRole().toString();
   String namenodeState = nnHAState.toString();
   String namenodeLabel = nn.getRpcServer() != null ?
-    nn.getNameNodeAddressHostPortString() : "";
+    nn.getNameNodeAddressHostPortString() : null;
 %>
 
 <!DOCTYPE html>
 <html>
 <head>
 <link rel="stylesheet" type="text/css" href="/static/hadoop.css">
+<% if (namenodeLabel != null) { %>
 <title>Hadoop <%=namenodeRole%>&nbsp;<%=namenodeLabel%></title>
+<% } else { %>
+<title>Hadoop <%=namenodeRole%></title>
+<% } %>
 </head>    
 <body>
+<% if (namenodeLabel != null) { %>
 <h1><%=namenodeRole%> '<%=namenodeLabel%>' (<%=namenodeState%>)</h1>
+<% } else { %>
+<h1><%=namenodeRole%> (<%=namenodeState%>)</h1>
+<% } %>
 <%= NamenodeJspHelper.getVersionTable(fsn) %>
 <br />
 <% if (isActive) { %> 
