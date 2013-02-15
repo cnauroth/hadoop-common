@@ -113,7 +113,7 @@ function Main( $scriptDir )
         "fs.checkpoint.dir" = "$ENV:HDFS_DATA_DIR\2nn";
         "fs.checkpoint.edits.dir" = "$ENV:HDFS_DATA_DIR\2nn";
         "hadoop.proxyuser.$shortUsername.groups" = "HadoopUsers";
-        "hadoop.proxyuser.$shortUsername.hosts" = "localhost" }
+        "hadoop.proxyuser.$shortUsername.hosts" = "*" }
 
     ###
     ### Configure HDFS
