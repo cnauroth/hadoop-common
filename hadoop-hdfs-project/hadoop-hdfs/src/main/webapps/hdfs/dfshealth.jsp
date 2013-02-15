@@ -62,8 +62,6 @@
 <b><a href="/logs/"><%=namenodeRole%> Logs</a></b>
 
 <hr>
-<h3>Startup Progress</h3>
-<% healthjsp.generateStartupProgress(out, nn); %>
 <h3>Cluster Summary</h3>
 <b> <%= NamenodeJspHelper.getSecurityModeText()%> </b>
 <b> <%= NamenodeJspHelper.getSafeModeText(fsn)%> </b>
@@ -75,6 +73,8 @@
 <hr/>
 <% healthjsp.generateConfReport(out, nn, request); %>
 <hr>
+<h3>Startup Progress</h3>
+<% healthjsp.generateStartupProgress(out, nn); %>
 <%
 out.println(ServletUtil.htmlFooter());
 %>
