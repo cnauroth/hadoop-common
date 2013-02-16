@@ -697,7 +697,6 @@ public class FSImage implements Closeable {
     StartupProgress prog = NameNode.getStartupProgress();
     prog.beginPhase(Phase.LOADING_EDITS);
     long totalEditOps = 0;
-    // TODO: use EditLogInputStream#name as metric tag here?
     for (EditLogInputStream editIn: editStreams) {
       totalEditOps = editIn.getLastTxId() - lastAppliedTxId;
     }
@@ -781,7 +780,6 @@ public class FSImage implements Closeable {
    */
   void saveFSImage(SaveNamespaceContext context, StorageDirectory sd)
       throws IOException {
-    String sdPath = sd.getRoot().getAbsolutePath();
     long txid = context.getTxId();
     File newFile = NNStorage.getStorageFile(sd, NameNodeFile.IMAGE_NEW, txid);
     File dstFile = NNStorage.getStorageFile(sd, NameNodeFile.IMAGE, txid);

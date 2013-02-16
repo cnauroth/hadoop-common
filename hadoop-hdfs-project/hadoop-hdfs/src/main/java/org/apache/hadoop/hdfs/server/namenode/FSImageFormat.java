@@ -557,8 +557,7 @@ class FSImageFormat {
 
       final FSNamesystem sourceNamesystem = context.getSourceNamesystem();
       FSDirectory fsDir = sourceNamesystem.dir;
-      String sdPath = newFile.getParentFile().getParentFile()
-        .getAbsolutePath();
+      String sdPath = newFile.getParentFile().getParentFile().getAbsolutePath();
       StartupProgress prog = NameNode.getStartupProgress();
       String step = "Saving inodes to " + sdPath;
       prog.beginStep(Phase.SAVING_CHECKPOINT, step);
