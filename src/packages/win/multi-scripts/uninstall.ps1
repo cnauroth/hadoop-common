@@ -25,7 +25,7 @@ function Main
 
     if ( -not (Test-Path ENV:HDFS_DATA_DIR))
     {
-        $ENV:HDFS_DATA_DIR = Join-Path "$ENV:HADOOP_NODE_INSTALL_ROOT" "HDFS"
+        $ENV:HDFS_DATA_DIR = Join-Path "$ENV:HADOOP_NODE_INSTALL_ROOT" "hdfs"
     }
     
     ###
