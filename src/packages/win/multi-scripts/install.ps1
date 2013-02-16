@@ -109,24 +109,24 @@ function Main( $scriptDir )
     ###
     ### Configure Core HDFS Mapred
     ###    
-    Configure "Core" $NodeInstallRoot $serviceCredential @{
         "fs.checkpoint.dir" = "$ENV:HDFS_DATA_DIR\2nn";
         "fs.checkpoint.edits.dir" = "$ENV:HDFS_DATA_DIR\2nn";
+    Configure "core" $NodeInstallRoot $serviceCredential @{
         "hadoop.proxyuser.$shortUsername.groups" = "HadoopUsers";
         "hadoop.proxyuser.$shortUsername.hosts" = "*" }
 
     ###
     ### Configure HDFS
     ###
-    Configure "Hdfs" $NodeInstallRoot $serviceCredential @{
         "dfs.name.dir" = "$ENV:HDFS_DATA_DIR\nn";
         "dfs.data.dir" = "$ENV:HDFS_DATA_DIR\dn" }
+    Configure "hdfs" $NodeInstallRoot $serviceCredential @{
 
     ###
     ### Configure MapRed
     ###
-    Configure "MapReduce" $NodeInstallRoot $serviceCredential @{
         "mapred.local.dir" = "$ENV:HDFS_DATA_DIR\mapred\local" }
+    Configure "mapreduce" $NodeInstallRoot $serviceCredential @{
 
     ###
     ### Check the nn, dn, snn and mapred directories
