@@ -86,7 +86,8 @@ public class NativeAzureFileSystem extends FileSystem {
 
   static final String AZURE_MAX_DISTINCT_BLOCK_LOCATIONS =
       "fs.azure.max.distinct.block.locations";
-  private static final int DEFAULT_MAX_DISTINCT_BLOCK_LOCATIONS = 5000;
+  private static final int DEFAULT_MAX_DISTINCT_BLOCK_LOCATIONS = 1000;
+  static final String AZURE_BLOCK_LOCATION_HOST_NAME_PREFIX = "azureblobstore";
 
   /**
    * The configuration property that determines which group owns files created
@@ -1376,7 +1377,7 @@ public class NativeAzureFileSystem extends FileSystem {
     if (file.getLen() < start) {
       return new BlockLocation[0];
     }
-    String[] name = { "azureblobstore" };
+    String[] name = { AZURE_BLOCK_LOCATION_HOST_NAME_PREFIX };
     long requestedLength = file.getLen() - start;
     long blockSize = file.getBlockSize();
     if (blockSize == 0) {
@@ -1391,7 +1392,8 @@ public class NativeAzureFileSystem extends FileSystem {
     for (int i = 0; i < locations.length; i++) {
       long currentOffset = start + (i * blockSize);
       long currentLength = Math.min(blockSize, start + len - currentOffset);
-      String[] host = { "azureblobstore" + (i % numDistinctBlockLocations) };
+      String[] host = { AZURE_BLOCK_LOCATION_HOST_NAME_PREFIX +
+          (i % numDistinctBlockLocations) };
       locations[i] = new BlockLocation(name, host, currentOffset,
           currentLength);
     }
