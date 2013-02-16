@@ -737,6 +737,19 @@ function ProcessAliasConfigOptions(
             if ( $key -eq "hdfs_namenode_host" )
             {
                 $result.Add("fs.default.name",  "hdfs://localhost:8020".Replace("localhost", $configs[$key]))
+            }
+            else
+            {
+                $result.Add($key, $configs[$key])
+            }
+        }
+    }
+    elseif ( $component -eq "hdfs" )
+    {
+        foreach( $key in empty-null $configs.Keys )
+        {
+            if ( $key -eq "hdfs_namenode_host" )
+            {
                 $result.Add("dfs.http.address", "localhost:50070".Replace("localhost", $configs[$key]))
                 $result.Add("dfs.https.address", "localhost:50470".Replace("localhost", $configs[$key]))
             }
@@ -744,7 +757,17 @@ function ProcessAliasConfigOptions(
             {
                 $result.Add("dfs.secondary.http.address", "localhost:50090".Replace("localhost", $configs[$key]))
             }
-            elseif ( $key -eq "mapreduce_jobtracker_host" )
+            else
+            {
+                $result.Add($key, $configs[$key])
+            }
+        }
+    }
+    elseif ( $component -eq "mapreduce" )
+    {
+        foreach( $key in empty-null $configs.Keys )
+        {
+            if ( $key -eq "mapreduce_jobtracker_host" )
             {
                 $result.Add("mapred.job.tracker", "localhost:50300".Replace("localhost", $configs[$key]))
                 $result.Add("mapred.job.tracker.http.address", "localhost:50030".Replace("localhost", $configs[$key]))
