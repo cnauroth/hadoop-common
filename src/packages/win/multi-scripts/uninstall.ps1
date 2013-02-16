@@ -39,8 +39,16 @@ function Main
     ### Cleanup any remaining content under HDFS data dir
     ###
     Write-Log "Removing HDFS_DATA_DIR `"$ENV:HDFS_DATA_DIR`""
-    $cmd = "rd /s /q `"$ENV:HDFS_DATA_DIR`""
-    Invoke-Cmd $cmd
+    $forceclean = ( (-not (Test-Path ENV:DESTROY_DATA)) -or ($ENV:DESTROY_DATA -eq "yes") )
+    foreach ($folder in ${ENV:HDFS_DATA_DIR}.Split(","))
+    {
+        $folder = $folder.Trim()
+        if ( ($folder -ne $null) -and (($forceclean -eq $true) -or (-not (Test-Path "$folder\*"))) )
+        {
+            $cmd = "rd /s /q `"$folder`""
+            Invoke-Cmd $cmd
+        }
+    }
     
     Write-Log "Uninstall of Hadoop Core, HDFS, MapRed completed successfully"
 }
