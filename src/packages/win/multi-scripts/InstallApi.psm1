@@ -81,10 +81,16 @@ function GiveFullPermissions(
     $folder,
     [String]
     [Parameter( Position=1, Mandatory=$true )]
-    $username)
+    $username,
+    [bool]
+    [Parameter( Position=2, Mandatory=$false )]
+    $recursive = $false)
 {
     Write-Log "Giving user/group `"$username`" full permissions to `"$folder`""
     $cmd = "icacls `"$folder`" /grant ${username}:(OI)(CI)F"
+    if ($recursive) {
+        $cmd += " /T"
+    }
     Invoke-CmdChk $cmd
 }
 

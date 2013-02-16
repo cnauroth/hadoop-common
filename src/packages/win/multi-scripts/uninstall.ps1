@@ -43,10 +43,20 @@ function Main
     foreach ($folder in ${ENV:HDFS_DATA_DIR}.Split(","))
     {
         $folder = $folder.Trim()
-        if ( ($folder -ne $null) -and (($forceclean -eq $true) -or (-not (Test-Path "$folder\*"))) )
+        if ($folder -ne $null)
         {
-            $cmd = "rd /s /q `"$folder`""
-            Invoke-Cmd $cmd
+            if ( ($forceclean -eq $true) -or (-not (Test-Path "$folder\*")) )
+            {
+                $cmd = "rd /s /q `"$folder`""
+                Invoke-Cmd $cmd
+            }
+            else
+            {
+                if (Test-Path "$folder\*")
+                {
+                    GiveFullPermissions $folder $ENV:USERNAME $true
+                }
+            }
         }
     }
     
