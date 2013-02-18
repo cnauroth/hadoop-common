@@ -1379,8 +1379,10 @@ public class NativeAzureFileSystem extends FileSystem {
     }
     String[] name = { AZURE_BLOCK_LOCATION_HOST_NAME_PREFIX };
     long blockSize = file.getBlockSize();
-    if (blockSize == 0) {
-      blockSize = 1;
+    if (blockSize <= 0) {
+      throw new IllegalArgumentException(
+          "The block size for the given file is not a positive number: " +
+          blockSize);
     }
     int numberOfLocations = (int)(len / blockSize) +
         ((len % blockSize == 0) ? 0 : 1);

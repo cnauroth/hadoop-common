@@ -65,6 +65,16 @@ public class TestNativeAzureFileSystemBlockLocations extends TestCase {
     assertEquals(45, locations[3].getOffset());
   }
 
+  public void testBlockLocationsOutOfRangeSubsetOfFile() throws Exception {
+    BlockLocation[] locations = getBlockLocationsOutput(205, 10, 1000, 300, 10);
+    assertEquals(0, locations.length);
+  }
+
+  public void testBlockLocationsEmptySubsetOfFile() throws Exception {
+    BlockLocation[] locations = getBlockLocationsOutput(205, 10, 1000, 0, 0);
+    assertEquals(0, locations.length);
+  }
+
   private static BlockLocation[] getBlockLocationsOutput(int fileSize,
       int blockSize, int maxDistinctBlockLocations,
       long start, long len) throws Exception {
