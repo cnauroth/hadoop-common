@@ -1378,13 +1378,12 @@ public class NativeAzureFileSystem extends FileSystem {
       return new BlockLocation[0];
     }
     String[] name = { AZURE_BLOCK_LOCATION_HOST_NAME_PREFIX };
-    long requestedLength = file.getLen() - start;
     long blockSize = file.getBlockSize();
     if (blockSize == 0) {
       blockSize = 1;
     }
-    int numberOfLocations = (int)(requestedLength / blockSize) +
-        ((requestedLength % blockSize == 0) ? 0 : 1);
+    int numberOfLocations = (int)(len / blockSize) +
+        ((len % blockSize == 0) ? 0 : 1);
     BlockLocation[] locations = new BlockLocation[numberOfLocations];
     int numDistinctBlockLocations = getConf().getInt(
         AZURE_MAX_DISTINCT_BLOCK_LOCATIONS,

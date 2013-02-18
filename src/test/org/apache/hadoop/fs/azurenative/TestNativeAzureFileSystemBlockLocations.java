@@ -56,6 +56,15 @@ public class TestNativeAzureFileSystemBlockLocations extends TestCase {
     assertEquals("azureblobstore0", locations[5].getHosts()[0]);
   }
 
+  public void testBlockLocationsSubsetOfFile() throws Exception {
+    BlockLocation[] locations = getBlockLocationsOutput(205, 10, 1000, 15, 35);
+    assertEquals(4, locations.length);
+    assertEquals(10, locations[0].getLength());
+    assertEquals(15, locations[0].getOffset());
+    assertEquals(5, locations[3].getLength());
+    assertEquals(45, locations[3].getOffset());
+  }
+
   private static BlockLocation[] getBlockLocationsOutput(int fileSize,
       int blockSize, int maxDistinctBlockLocations,
       long start, long len) throws Exception {
