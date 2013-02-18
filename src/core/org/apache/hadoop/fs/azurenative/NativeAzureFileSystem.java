@@ -84,11 +84,6 @@ public class NativeAzureFileSystem extends FileSystem {
   private static int DEFAULT_MAX_RETRIES = 4;
   private static int DEFAULT_SLEEP_TIME_SECONDS = 10;
 
-  static final String AZURE_MAX_DISTINCT_BLOCK_LOCATIONS =
-      "fs.azure.max.distinct.block.locations";
-  private static final int DEFAULT_MAX_DISTINCT_BLOCK_LOCATIONS = 1000;
-  static final String AZURE_BLOCK_LOCATION_HOST_NAME_PREFIX = "azureblobstore";
-
   /**
    * The configuration property that determines which group owns files created
    * in ASV.
@@ -1377,7 +1372,9 @@ public class NativeAzureFileSystem extends FileSystem {
     if (file.getLen() < start) {
       return new BlockLocation[0];
     }
-    String[] name = { AZURE_BLOCK_LOCATION_HOST_NAME_PREFIX };
+    final String localhost = "localhost";
+    final String[] name = { localhost };
+    final String[] host = { localhost };
     long blockSize = file.getBlockSize();
     if (blockSize <= 0) {
       throw new IllegalArgumentException(
@@ -1387,14 +1384,9 @@ public class NativeAzureFileSystem extends FileSystem {
     int numberOfLocations = (int)(len / blockSize) +
         ((len % blockSize == 0) ? 0 : 1);
     BlockLocation[] locations = new BlockLocation[numberOfLocations];
-    int numDistinctBlockLocations = getConf().getInt(
-        AZURE_MAX_DISTINCT_BLOCK_LOCATIONS,
-        DEFAULT_MAX_DISTINCT_BLOCK_LOCATIONS);
     for (int i = 0; i < locations.length; i++) {
       long currentOffset = start + (i * blockSize);
       long currentLength = Math.min(blockSize, start + len - currentOffset);
-      String[] host = { AZURE_BLOCK_LOCATION_HOST_NAME_PREFIX +
-          (i % numDistinctBlockLocations) };
       locations[i] = new BlockLocation(name, host, currentOffset,
           currentLength);
     }
