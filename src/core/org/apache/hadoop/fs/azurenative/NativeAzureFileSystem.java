@@ -104,6 +104,11 @@ public class NativeAzureFileSystem extends FileSystem {
   // 4MB buffers.
   private static final int DEFAULT_OUTPUT_STREAM_BUFFERSIZE = 4 * 1024 * 1024;
 
+  static final String AZURE_BLOCK_LOCATION_HOST_PROPERTY_NAME =
+      "fs.azure.block.location.impersonatedhost";
+  private static final String AZURE_BLOCK_LOCATION_HOST_DEFAULT =
+      "localhost";
+
   private class NativeAzureFsInputStream extends FSInputStream {
     private InputStream in;
     private final String key;
@@ -1372,9 +1377,11 @@ public class NativeAzureFileSystem extends FileSystem {
     if (file.getLen() < start) {
       return new BlockLocation[0];
     }
-    final String localhost = "localhost";
-    final String[] name = { localhost };
-    final String[] host = { localhost };
+    final String blobLocationHost = getConf().get(
+        AZURE_BLOCK_LOCATION_HOST_PROPERTY_NAME,
+        AZURE_BLOCK_LOCATION_HOST_DEFAULT);
+    final String[] name = { blobLocationHost };
+    final String[] host = { blobLocationHost };
     long blockSize = file.getBlockSize();
     if (blockSize <= 0) {
       throw new IllegalArgumentException(

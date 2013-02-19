@@ -66,11 +66,28 @@ public class TestNativeAzureFileSystemBlockLocations extends TestCase {
     assertEquals(0, locations.length);
   }
 
+  public void testBlockLocationsDifferentLocationHost() throws Exception {
+    BlockLocation[] locations = getBlockLocationsOutput(100, 10, 0, 100,
+        "myblobhost");
+    assertEquals(10, locations.length);
+    assertEquals("myblobhost", locations[0].getHosts()[0]);
+  }
+
   private static BlockLocation[] getBlockLocationsOutput(int fileSize,
       int blockSize, long start, long len) throws Exception {
+    return getBlockLocationsOutput(fileSize, blockSize, start, len, null);
+  }
+
+  private static BlockLocation[] getBlockLocationsOutput(int fileSize,
+      int blockSize, long start, long len,
+      String blockLocationHost) throws Exception {
     Configuration conf  = new Configuration();
     conf.set(NativeAzureFileSystem.AZURE_BLOCK_SIZE_PROPERTY_NAME,
         "" + blockSize);
+    if (blockLocationHost != null) {
+      conf.set(NativeAzureFileSystem.AZURE_BLOCK_LOCATION_HOST_PROPERTY_NAME,
+          blockLocationHost);
+    }
     AzureBlobStorageTestAccount testAccount =
         AzureBlobStorageTestAccount.createMock(conf);
     FileSystem fs = testAccount.getFileSystem();
