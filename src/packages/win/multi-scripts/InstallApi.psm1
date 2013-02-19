@@ -172,31 +172,6 @@ function DataDirectoriesDelete-Chk(
     }
 }
 
-### Function to append a sub-path to a list of paths
-function Get-AppendedPath(
-    [String]
-    [Parameter( Position=0, Mandatory=$true )]
-    $pathList,
-    [String]
-    [Parameter( Position=1, Mandatory=$true )]
-    $subPath,
-    [String]
-    [Parameter( Position=2, Mandatory=$false )]
-    $delimiter = ",")
-{
-    $newPath = @()
-    foreach ($path in $pathList.Split($delimiter))
-    {
-        $path = $path.Trim()
-        if ($path -ne $null)
-        {
-            $apath = Join-Path $path $subPath
-            $newPath = $newPath + $apath
-        }
-    }
-    return ($newPath -Join $delimiter)
-}
-
 ###############################################################################
 ###
 ### If no data is to be preserved clean the data directories
@@ -1296,7 +1271,6 @@ Export-ModuleMember -Function StartService
 Export-ModuleMember -Function StopService
 Export-ModuleMember -Function FormatNamenode
 Export-ModuleMember -Function CheckDataDirectories
-Export-ModuleMember -Function Get-AppendedPath
 
 ###
 ### Private API (exposed for test only)

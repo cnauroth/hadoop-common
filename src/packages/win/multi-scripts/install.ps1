@@ -84,7 +84,7 @@ function Main( $scriptDir )
     ###
     if( -not (Test-Path ENV:HDFS_DATA_DIR))
     {
-        $ENV:HDFS_DATA_DIR = Join-Path "$ENV:HADOOP_NODE_INSTALL_ROOT" "hdfs"
+        $ENV:HDFS_DATA_DIR = Join-Path "$ENV:HADOOP_NODE_INSTALL_ROOT" "HDFS"
     }
 
     ###
@@ -109,24 +109,24 @@ function Main( $scriptDir )
     ###
     ### Configure Core HDFS Mapred
     ###    
+        "fs.checkpoint.dir" = "$ENV:HDFS_DATA_DIR\2nn";
+        "fs.checkpoint.edits.dir" = "$ENV:HDFS_DATA_DIR\2nn";
     Configure "core" $NodeInstallRoot $serviceCredential @{
-        "fs.checkpoint.dir" = Get-AppendedPath $ENV:HDFS_DATA_DIR "snn";
-        "fs.checkpoint.edits.dir" = Get-AppendedPath $ENV:HDFS_DATA_DIR "snn";
         "hadoop.proxyuser.$shortUsername.groups" = "HadoopUsers";
         "hadoop.proxyuser.$shortUsername.hosts" = "*" }
 
     ###
     ### Configure HDFS
     ###
+        "dfs.name.dir" = "$ENV:HDFS_DATA_DIR\nn";
+        "dfs.data.dir" = "$ENV:HDFS_DATA_DIR\dn" }
     Configure "hdfs" $NodeInstallRoot $serviceCredential @{
-        "dfs.name.dir" = Get-AppendedPath $ENV:HDFS_DATA_DIR "nn";
-        "dfs.data.dir" = Get-AppendedPath $ENV:HDFS_DATA_DIR "dn" }
 
     ###
     ### Configure MapRed
     ###
+        "mapred.local.dir" = "$ENV:HDFS_DATA_DIR\mapred\local" }
     Configure "mapreduce" $NodeInstallRoot $serviceCredential @{
-        "mapred.local.dir" = Get-AppendedPath $ENV:HDFS_DATA_DIR "mapred\local" }
 
     ###
     ### Check the nn, dn, snn and mapred directories
