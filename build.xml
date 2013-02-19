@@ -67,7 +67,6 @@
   <property name="tools.src" value="${basedir}/src/tools"/>
   <property name="winutils.src.dir" value="${basedir}/src/winutils"/>
   <property name="wininstaller.root.dir" value="${basedir}/src/packages/win"/>
-  <property name="wininstaller.scripts.dir.name" value="scripts"/>
   <property name="servicehost.src.dir" value="${basedir}/src/packages/win/HadoopServiceHost"/>
 
   <property name="package.prefix" value="/usr"/>
@@ -1360,7 +1359,7 @@
       <env key="HADOOP_NODE_INSTALL_ROOT" value="${test.wininstaller.dir}/TestHadoop"/>
       <env key="WINPKG_LOG" value="${test.wininstaller.dir}/TEST-test-ms-win-installer.log"/>
       <env key="UNZIP_CMD" value="unzip.exe -o @SRC -d @DEST"/>
-      <arg line="${test.wininstaller.dir}/${wininstaller.scripts.dir.name}/TestInstallApi.ps1"/>
+      <arg line="${test.wininstaller.dir}/scripts/TestInstallApi.ps1"/>
     </exec>
   </target>
 
@@ -2158,7 +2157,7 @@
   <target name="just-winpkg" description="Make a package for Windows">
     <copy file="${build.dir}/${final.name}.zip" todir="${package.buildroot}/resources"/>
     <copy todir="${package.buildroot}/scripts">
-        <fileset dir="${src.dir}/packages/win/${wininstaller.scripts.dir.name}">
+      <fileset dir="${src.dir}/packages/win/scripts">
         <include name="**" />
       </fileset>
       <filterchain>
