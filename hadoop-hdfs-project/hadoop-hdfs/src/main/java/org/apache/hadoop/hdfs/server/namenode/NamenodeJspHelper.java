@@ -53,6 +53,7 @@ import org.apache.hadoop.hdfs.server.common.Storage;
 import org.apache.hadoop.hdfs.server.common.Storage.StorageDirectory;
 import org.apache.hadoop.hdfs.server.namenode.JournalSet.JournalAndStream;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Status;
 import org.apache.hadoop.hdfs.server.protocol.NamenodeProtocols;
 import org.apache.hadoop.http.HttpConfig;
 import org.apache.hadoop.io.Text;
@@ -432,7 +433,6 @@ class NamenodeJspHelper {
 
     void generateStartupProgress(JspWriter out, NameNode nn) throws IOException {
       StartupProgress prog = NameNode.getStartupProgress();
-      Phase currentPhase = prog.getCurrentPhase();
       FormattedWriter fout = new FormattedWriter(out);
       fout.println("<div id=\"startupprogress\">");
       fout.println("<table>");
@@ -443,12 +443,13 @@ class NamenodeJspHelper {
       fout.println("</tr>");
       for (Phase phase: StartupProgress.getVisiblePhases()) {
         final String timeClass;
-        if (phase.compareTo(currentPhase) < 0) {
-          timeClass = "prior";
-        } else if (phase.compareTo(currentPhase) == 0) {
+        Status status = prog.getStatus(phase);
+        if (status == Status.PENDING) {
+          timeClass = "later";
+        } else if (status == Status.RUNNING) {
           timeClass = "current";
         } else {
-          timeClass = "later";
+          timeClass = "prior";
         }
 
         fout.println("<tr class=\"phase %s\">", timeClass);
@@ -473,8 +474,8 @@ class NamenodeJspHelper {
       fout.println("<td class=\"startupdesc\">%s</td>", phaseDesc);
       fout.println("<td>%s</td>", StringUtils.formatPercent(
         prog.getPercentComplete(phase), 2));
-      fout.println("<td>%s</td>", StringUtils.formatTime(
-        prog.getElapsedTime(phase)));
+      fout.println("<td>%s</td>", prog.getStatus(phase) == Status.PENDING ? "" :
+        StringUtils.formatTime(prog.getElapsedTime(phase)));
     }
 
     private void printStep(FormattedWriter fout, StartupProgress prog,
@@ -483,8 +484,8 @@ class NamenodeJspHelper {
         prog.getCount(phase, step), prog.getTotal(phase, step));
       fout.println("<td>%s</td>", StringUtils.formatPercent(
         prog.getPercentComplete(phase), 2));
-      fout.println("<td>%s</td>", StringUtils.formatTime(
-        prog.getElapsedTime(phase)));
+      fout.println("<td>%s</td>", prog.getStatus(phase) == Status.PENDING ? "" :
+        StringUtils.formatTime(prog.getElapsedTime(phase)));
     }
 
     private static class FormattedWriter {

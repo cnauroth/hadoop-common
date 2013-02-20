@@ -55,6 +55,12 @@ public class StartupProgress {
     }
   }
 
+  public enum Status {
+    PENDING,
+    RUNNING,
+    COMPLETE
+  }
+
   private static EnumSet<Phase> VISIBLE_PHASES = EnumSet.range(LOADING_FSIMAGE,
     SAFEMODE);
 
@@ -70,8 +76,6 @@ public class StartupProgress {
     new ConcurrentHashMap<Phase, Map<String, Long>>();
   private Map<Phase, Map<String, Long>> stepTotal =
     new ConcurrentHashMap<Phase, Map<String, Long>>();
-
-  private Phase currentPhase;
 
   public StartupProgress() {
     beginPhase(INITIALIZED);
@@ -89,7 +93,6 @@ public class StartupProgress {
       stepEndTime.put(phase, new ConcurrentHashMap<String, Long>());
       stepTotal.put(phase, new ConcurrentHashMap<String, Long>());
     }
-    currentPhase = phase;
   }
 
   public void beginPhase(Phase phase, String tag) {
@@ -132,10 +135,6 @@ public class StartupProgress {
     return count != null ? count : 0;
   }
 
-  public Phase getCurrentPhase() {
-    return currentPhase;
-  }
-
   public long getElapsedTime(Phase phase) {
     Long begin = phaseBeginTime.get(phase);
     Long end = phaseEndTime.get(phase);
@@ -163,7 +162,7 @@ public class StartupProgress {
   }
 
   public float getPercentComplete(Phase phase) {
-    if (phase.ordinal() < currentPhase.ordinal()) {
+    if (getStatus(phase) == Status.COMPLETE) {
       return 1.0f;
     } else {
       long total = getTotal(phase);
@@ -176,7 +175,7 @@ public class StartupProgress {
   }
 
   public float getPercentComplete(Phase phase, String step) {
-    if (phase.ordinal() < currentPhase.ordinal()) {
+    if (getStatus(phase) == Status.COMPLETE) {
       return 1.0f;
     } else {
       long total = getTotal(phase, step);
@@ -193,6 +192,16 @@ public class StartupProgress {
     Map<String, Long> stepsInPhase = stepBeginTime.get(phase);
     return stepsInPhase != null ? new TreeSet(stepsInPhase.keySet()) :
       Collections.<String>emptyList();
+  }
+
+  public Status getStatus(Phase phase) {
+    if (phaseBeginTime.get(phase) == null) {
+      return Status.PENDING;
+    } else if (phaseEndTime.get(phase) == null) {
+      return Status.RUNNING;
+    } else {
+      return Status.COMPLETE;
+    }
   }
 
   public long getTotal(Phase phase) {

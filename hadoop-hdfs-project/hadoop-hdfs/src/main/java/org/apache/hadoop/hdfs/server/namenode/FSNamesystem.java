@@ -170,6 +170,7 @@ import org.apache.hadoop.hdfs.server.namenode.INodeDirectory.INodesInPath;
 import org.apache.hadoop.hdfs.server.namenode.LeaseManager.Lease;
 import org.apache.hadoop.hdfs.server.namenode.NameNode.OperationCategory;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Status;
 import org.apache.hadoop.hdfs.server.namenode.ha.EditLogTailer;
 import org.apache.hadoop.hdfs.server.namenode.ha.HAContext;
 import org.apache.hadoop.hdfs.server.namenode.ha.HAState;
@@ -4110,7 +4111,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       if (needEnter()) {
         enter();
         StartupProgress prog = NameNode.getStartupProgress();
-        if (prog.getCurrentPhase() != Phase.COMPLETE) {
+        if (prog.getStatus(Phase.COMPLETE) != Status.RUNNING) {
           prog.beginPhase(Phase.SAFEMODE);
         }
         // check if we are ready to initialize replication queues
@@ -4125,7 +4126,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
           extension <= 0 || threshold <= 0) {  // don't need to wait
         this.leave(); // leave safe mode
         StartupProgress prog = NameNode.getStartupProgress();
-        if (prog.getCurrentPhase() != Phase.COMPLETE) {
+        if (prog.getStatus(Phase.COMPLETE) != Status.RUNNING) {
           prog.beginPhase(Phase.SAFEMODE);
         }
         return;

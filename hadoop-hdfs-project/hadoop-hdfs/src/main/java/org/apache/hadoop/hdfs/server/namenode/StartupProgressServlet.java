@@ -45,7 +45,6 @@ public class StartupProgressServlet extends DfsServlet {
     try {
       resp.setContentType("application/xml; charset=UTF-8");
       xml.startTag("StartupProgress");
-      xml.attribute("currentPhase", prog.getCurrentPhase().getName());
 
       for (Phase phase: StartupProgress.getVisiblePhases()) {
         xml.startTag("Phase");

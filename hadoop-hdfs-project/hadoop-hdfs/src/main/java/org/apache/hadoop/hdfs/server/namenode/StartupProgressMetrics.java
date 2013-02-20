@@ -44,8 +44,6 @@ public class StartupProgressMetrics implements MetricsSource {
   public void getMetrics(MetricsCollector collector, boolean all) {
     MetricsRecordBuilder builder = collector.addRecord(
       STARTUP_PROGRESS_METRICS_INFO);
-    builder.tag(createMetricsInfo("CurrentPhase", "Current phase"),
-      startupProgress.getCurrentPhase().getName());
 
     for (Phase phase: startupProgress.getVisiblePhases()) {
       addCounter(builder, phase, "Count", " count",
