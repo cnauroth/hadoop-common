@@ -65,6 +65,7 @@ import org.apache.hadoop.util.Time;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DFSUtil;
 import org.apache.hadoop.hdfs.HAUtil;
+import org.apache.hadoop.util.StringUtils;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -584,14 +585,17 @@ public class FSImage implements Closeable {
    */
   boolean loadFSImage(FSNamesystem target, MetaRecoveryContext recovery)
       throws IOException {
-    StartupProgress prog = NameNode.getStartupProgress();
-    prog.beginPhase(Phase.LOADING_FSIMAGE);
     FSImageStorageInspector inspector = storage.readAndInspectDirs();
     
     isUpgradeFinalized = inspector.isUpgradeFinalized();
  
     FSImageStorageInspector.FSImageFile imageFile 
       = inspector.getLatestImage();   
+    StartupProgress prog = NameNode.getStartupProgress();
+    File tagFile = imageFile.getFile();
+    String phaseTag = String.format("%s (%s)", tagFile.getAbsolutePath(),
+      StringUtils.byteDesc(tagFile.length()));
+    prog.beginPhase(Phase.LOADING_FSIMAGE, phaseTag);
     boolean needToSave = inspector.needToSave();
 
     Iterable<EditLogInputStream> editStreams = null;

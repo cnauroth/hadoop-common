@@ -453,19 +453,18 @@ class NamenodeJspHelper {
         }
 
         fout.println("<tr class=\"phase %s\">", timeClass);
-        printStartupProgressItem(fout, phase.getDescription(),
-          prog.getTotal(phase),
-          prog.getCount(phase),
-          prog.getPercentComplete(phase),
+        String phaseDesc = prog.getPhaseTag(phase) != null ?
+          phase.getDescription() + " " + prog.getPhaseTag(phase) :
+          phase.getDescription();
+        printStartupProgressItem(fout, phaseDesc, prog.getTotal(phase),
+          prog.getCount(phase), prog.getPercentComplete(phase),
           prog.getElapsedTime(phase));
         fout.println("</tr>");
 
         for (String step: prog.getSteps(phase)) {
           fout.println("<tr class=\"step %s\">", timeClass);
-          printStartupProgressItem(fout, step,
-            prog.getTotal(phase, step),
-            prog.getCount(phase, step),
-            prog.getPercentComplete(phase, step),
+          printStartupProgressItem(fout, step, prog.getTotal(phase, step),
+            prog.getCount(phase, step), prog.getPercentComplete(phase, step),
             prog.getElapsedTime(phase, step));
           fout.println("</tr>");
         }

@@ -60,6 +60,7 @@ public class StartupProgress {
 
   private Map<Phase, Long> phaseBeginTime = new ConcurrentHashMap<Phase, Long>();
   private Map<Phase, Long> phaseEndTime = new ConcurrentHashMap<Phase, Long>();
+  private Map<Phase, String> phaseTag = new ConcurrentHashMap<Phase, String>();
 
   private Map<Phase, Map<String, Long>> stepBeginTime =
     new ConcurrentHashMap<Phase, Map<String, Long>>();
@@ -71,7 +72,6 @@ public class StartupProgress {
     new ConcurrentHashMap<Phase, Map<String, Long>>();
 
   private Phase currentPhase;
-  private String currentPhaseTag;
 
   public StartupProgress() {
     beginPhase(INITIALIZED);
@@ -90,6 +90,11 @@ public class StartupProgress {
       stepTotal.put(phase, new ConcurrentHashMap<String, Long>());
     }
     currentPhase = phase;
+  }
+
+  public void beginPhase(Phase phase, String tag) {
+    beginPhase(phase);
+    phaseTag.put(phase, tag);
   }
 
   public void beginStep(Phase phase, String step) {
@@ -178,6 +183,10 @@ public class StartupProgress {
       long count = getCount(phase, step);
       return total > 0 ? 1.0f * count / total : 0.0f;
     }
+  }
+
+  public String getPhaseTag(Phase phase) {
+    return phaseTag.get(phase);
   }
 
   public Iterable<String> getSteps(Phase phase) {

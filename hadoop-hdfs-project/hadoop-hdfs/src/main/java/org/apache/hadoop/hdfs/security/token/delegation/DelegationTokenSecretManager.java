@@ -283,7 +283,7 @@ public class DelegationTokenSecretManager
   private synchronized void loadCurrentTokens(DataInputStream in,
       String curFilePath) throws IOException {
     StartupProgress prog = NameNode.getStartupProgress();
-    String step = "Loading delegation tokens from " + curFilePath;
+    String step = "delegation tokens";
     prog.beginStep(Phase.LOADING_FSIMAGE, step);
     int numberOfTokens = in.readInt();
     prog.setTotal(Phase.LOADING_FSIMAGE, step, numberOfTokens);
@@ -305,7 +305,7 @@ public class DelegationTokenSecretManager
   private synchronized void loadAllKeys(DataInputStream in, String curFilePath)
       throws IOException {    
     StartupProgress prog = NameNode.getStartupProgress();
-    String step = "Loading delegation keys from " + curFilePath;
+    String step = "delegation keys";
     prog.beginStep(Phase.LOADING_FSIMAGE, step);
     int numberOfKeys = in.readInt();
     prog.setTotal(Phase.LOADING_FSIMAGE, step, numberOfKeys);

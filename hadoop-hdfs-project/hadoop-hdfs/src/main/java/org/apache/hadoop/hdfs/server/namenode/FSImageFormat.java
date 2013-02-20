@@ -173,7 +173,7 @@ class FSImageFormat {
 
       String curFilePath = curFile.getAbsolutePath();
       StartupProgress prog = NameNode.getStartupProgress();
-      String step = "Loading inodes from " + curFilePath;
+      String step = "inodes";
       prog.beginStep(Phase.LOADING_FSIMAGE, step);
       long startTime = now();
 
