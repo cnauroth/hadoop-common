@@ -241,7 +241,7 @@ public class DelegationTokenSecretManager
   private synchronized void saveCurrentTokens(DataOutputStream out,
       String curFilePath) throws IOException {
     StartupProgress startupProgress = NameNode.getStartupProgress();
-    String step = "Saving delegation tokens to " + curFilePath;
+    String step = curFilePath + " delegation tokens";
     startupProgress.beginStep(Phase.SAVING_CHECKPOINT, step);
     startupProgress.setTotal(Phase.SAVING_CHECKPOINT, step,
       currentTokens.size());
@@ -264,7 +264,7 @@ public class DelegationTokenSecretManager
   private synchronized void saveAllKeys(DataOutputStream out, String curFilePath)
       throws IOException {
     StartupProgress prog = NameNode.getStartupProgress();
-    String step = "Saving delegation keys to " + curFilePath;
+    String step = curFilePath + " delegation keys";
     prog.beginStep(Phase.SAVING_CHECKPOINT, step);
     prog.setTotal(Phase.SAVING_CHECKPOINT, step, currentTokens.size());
     out.writeInt(allKeys.size());
