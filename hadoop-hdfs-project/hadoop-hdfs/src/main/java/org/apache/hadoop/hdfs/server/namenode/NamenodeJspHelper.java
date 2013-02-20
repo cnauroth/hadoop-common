@@ -438,7 +438,6 @@ class NamenodeJspHelper {
       fout.println("<table>");
       fout.println("<tr>");
       fout.println("<th>Phase</th>");
-      fout.println("<th>Count</th>");
       fout.println("<th>Completion</th>");
       fout.println("<th>Elapsed Time</th>");
       fout.println("</tr>");
@@ -477,8 +476,7 @@ class NamenodeJspHelper {
         long total, long count, float percent, long elapsedTime)
         throws IOException {
 
-      fout.println("<td class=\"startupdesc\">%s</td>", step);
-      fout.println("<td>%d/%d</td>", count, total);
+      fout.println("<td class=\"startupdesc\">%s (%d/%d)</td>", step, count, total);
       fout.println("<td>%s</td>", StringUtils.formatPercent(percent, 2));
       fout.println("<td>%s</td>", StringUtils.formatTime(elapsedTime));
     }
