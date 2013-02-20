@@ -452,19 +452,12 @@ class NamenodeJspHelper {
         }
 
         fout.println("<tr class=\"phase %s\">", timeClass);
-        String phaseDesc = prog.getPhaseTag(phase) != null ?
-          phase.getDescription() + " " + prog.getPhaseTag(phase) :
-          phase.getDescription();
-        printStartupProgressItem(fout, phaseDesc, prog.getTotal(phase),
-          prog.getCount(phase), prog.getPercentComplete(phase),
-          prog.getElapsedTime(phase));
+        printPhase(fout, prog, phase);
         fout.println("</tr>");
 
         for (String step: prog.getSteps(phase)) {
           fout.println("<tr class=\"step %s\">", timeClass);
-          printStartupProgressItem(fout, step, prog.getTotal(phase, step),
-            prog.getCount(phase, step), prog.getPercentComplete(phase, step),
-            prog.getElapsedTime(phase, step));
+          printStep(fout, prog, phase, step);
           fout.println("</tr>");
         }
       }
@@ -472,13 +465,26 @@ class NamenodeJspHelper {
       fout.println("</div>");
     }
 
-    private void printStartupProgressItem(FormattedWriter fout, String step,
-        long total, long count, float percent, long elapsedTime)
-        throws IOException {
+    private void printPhase(FormattedWriter fout, StartupProgress prog,
+        Phase phase) throws IOException {
+      String phaseDesc = prog.getPhaseTag(phase) != null ?
+        phase.getDescription() + " " + prog.getPhaseTag(phase) :
+        phase.getDescription();
+      fout.println("<td class=\"startupdesc\">%s</td>", phaseDesc);
+      fout.println("<td>%s</td>", StringUtils.formatPercent(
+        prog.getPercentComplete(phase), 2));
+      fout.println("<td>%s</td>", StringUtils.formatTime(
+        prog.getElapsedTime(phase)));
+    }
 
-      fout.println("<td class=\"startupdesc\">%s (%d/%d)</td>", step, count, total);
-      fout.println("<td>%s</td>", StringUtils.formatPercent(percent, 2));
-      fout.println("<td>%s</td>", StringUtils.formatTime(elapsedTime));
+    private void printStep(FormattedWriter fout, StartupProgress prog,
+        Phase phase, String step) throws IOException {
+      fout.println("<td class=\"startupdesc\">%s (%d/%d)</td>", step,
+        prog.getCount(phase, step), prog.getTotal(phase, step));
+      fout.println("<td>%s</td>", StringUtils.formatPercent(
+        prog.getPercentComplete(phase), 2));
+      fout.println("<td>%s</td>", StringUtils.formatTime(
+        prog.getElapsedTime(phase)));
     }
 
     private static class FormattedWriter {
