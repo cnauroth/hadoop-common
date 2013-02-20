@@ -593,7 +593,7 @@ public class FSImage implements Closeable {
       = inspector.getLatestImage();   
     StartupProgress prog = NameNode.getStartupProgress();
     File tagFile = imageFile.getFile();
-    String phaseTag = String.format("%s (%s)", tagFile.getAbsolutePath(),
+    String phaseTag = StringUtils.format("%s (%s)", tagFile.getAbsolutePath(),
       StringUtils.byteDesc(tagFile.length()));
     prog.beginPhase(Phase.LOADING_FSIMAGE, phaseTag);
     boolean needToSave = inspector.needToSave();
