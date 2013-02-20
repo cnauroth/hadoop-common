@@ -60,6 +60,7 @@ import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.UpdateMasterKeyOp;
 import org.apache.hadoop.hdfs.server.namenode.LeaseManager.Lease;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
 import org.apache.hadoop.hdfs.util.Holder;
+import org.apache.hadoop.util.StringUtils;
 
 import com.google.common.base.Joiner;
 
@@ -84,7 +85,8 @@ public class FSEditLogLoader {
   long loadFSEdits(EditLogInputStream edits, long expectedStartingTxId,
       MetaRecoveryContext recovery) throws IOException {
     StartupProgress prog = NameNode.getStartupProgress();
-    String step = "Loading edit ops from " + edits.getName();
+    String step = StringUtils.format("%s (%s)", edits.getName(),
+      StringUtils.byteDesc(edits.length()));
     prog.beginStep(Phase.LOADING_EDITS, step);
     fsNamesys.writeLock();
     try {
@@ -124,7 +126,8 @@ public class FSEditLogLoader {
     long numEdits = 0;
     long lastTxId = in.getLastTxId();
     long numTxns = (lastTxId - expectedStartingTxId) + 1;
-    String step = "Loading edit ops from " + in.getName();
+    String step = StringUtils.format("%s (%s)", in.getName(),
+      StringUtils.byteDesc(in.length()));
     NameNode.getStartupProgress().setTotal(Phase.LOADING_EDITS, step, numTxns);
     long lastLogTime = now();
     long lastInodeId = fsNamesys.getLastInodeId();
