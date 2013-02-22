@@ -11,13 +11,14 @@ import org.apache.hadoop.fs.*;
 import org.apache.hadoop.metrics2.*;
 
 import com.microsoft.windowsazure.services.blob.client.*;
-import com.microsoft.windowsazure.services.core.storage.CloudStorageAccount;
+import com.microsoft.windowsazure.services.core.storage.*;
 import com.microsoft.windowsazure.services.core.storage.utils.Base64;
 
 public final class AzureBlobStorageTestAccount {
 
-  private static final String CONNECTION_STRING_PROPERTY_NAME = "fs.azure.storageConnectionString";
   private static final String ACCOUNT_KEY_PROPERTY_NAME = "fs.azure.account.key.";
+  private static final String TEST_CONFIGURATION_FILE_NAME = "azure-test.xml";
+  private static final String TEST_ACCOUNT_NAME_PROPERTY_NAME = "fs.azure.test.account.name";
   public static final String MOCK_ACCOUNT_NAME = "mockAccount";
   public static final String MOCK_CONTAINER_NAME = "mockContainer";
   public static final String  ASV_AUTHORITY_DELIMITER = "@";
@@ -126,19 +127,6 @@ public final class AzureBlobStorageTestAccount {
     return false;
   }
 
-  private static boolean hasConnectionString(Configuration conf) {
-    if (conf.get(CONNECTION_STRING_PROPERTY_NAME) != null) {
-      return true;
-    }
-    if (System.getenv(CONNECTION_STRING_PROPERTY_NAME) != null) {
-      conf.set(CONNECTION_STRING_PROPERTY_NAME,
-          System.getenv(CONNECTION_STRING_PROPERTY_NAME));
-      return true;
-    }
-
-    return false;
-  }
-
   private static void saveMetricsConfigFile() {
     if (!metricsConfigSaved) {
       new org.apache.hadoop.metrics2.impl.ConfigBuilder()
@@ -204,53 +192,66 @@ public final class AzureBlobStorageTestAccount {
     return create(containerNameSuffix, false);
   }
   
+  static CloudStorageAccount createStorageAccount(String accountName,
+      Configuration conf, boolean allowAnonymous) throws URISyntaxException {
+    String accountKey = AzureNativeFileSystemStore.
+        getAccountKeyFromConfiguration(accountName, conf);
+    StorageCredentials credentials;
+    if (accountKey == null && allowAnonymous) {
+      credentials = StorageCredentialsAnonymous.ANONYMOUS;
+    } else {
+      credentials = new StorageCredentialsAccountAndKey(accountName,
+          accountKey);
+    }
+    if (credentials == null) {
+      return null;
+    } else {
+      return new CloudStorageAccount(credentials);
+    }
+  }
+
+  private static Configuration createTestConfiguration() {
+    Configuration conf = new Configuration();
+    conf.addResource(TEST_CONFIGURATION_FILE_NAME);
+    return conf;
+  }
+
+  static CloudStorageAccount createTestAccount(Configuration conf)
+      throws URISyntaxException {
+    String testAccountName = conf.get(TEST_ACCOUNT_NAME_PROPERTY_NAME);
+    if (testAccountName == null) {
+      System.out
+        .println("Skipping live Azure test because of missing connection string.");
+      return null;
+    }
+    return createStorageAccount(testAccountName, conf, false);
+  }
+
   public static AzureBlobStorageTestAccount create(String containerNameSuffix,
       boolean useQualifiedAccountName) throws Exception {
     saveMetricsConfigFile();
     NativeAzureFileSystem fs = null;
     CloudBlobContainer container = null;
-    Configuration conf = new Configuration();
-    if (!hasConnectionString(conf)) {
-      System.out
-      .println("Skipping live Azure test because of missing connection string.");
+    Configuration conf = createTestConfiguration();
+    CloudStorageAccount account = createTestAccount(conf);
+    if (account == null) {
       return null;
     }
     fs = new NativeAzureFileSystem();
     String containerName = String.format("asvtests-%s-%tQ%s",
         System.getProperty("user.name"), new Date(), containerNameSuffix);
-    String connectionString = conf.get(CONNECTION_STRING_PROPERTY_NAME);
-    CloudStorageAccount account = CloudStorageAccount.parse(connectionString);
     container = account.createCloudBlobClient().getContainerReference(containerName);
     container.create();
     String accountUrl = account.getBlobEndpoint().getAuthority();
     String accountName = accountUrl.substring(0, accountUrl.indexOf('.'));
     if (useQualifiedAccountName) {
+      // Change the account name to be fully qualified,
+      // and make sure to store the same key under the qualified account.
+      String key = AzureNativeFileSystemStore.getAccountKeyFromConfiguration(
+          accountName, conf);
       accountName += ".blob.core.windows.net";
+      conf.set(ACCOUNT_KEY_PROPERTY_NAME + accountName, key);
     }
-
-    // Set the account key base on whether the account is authenticated or is an anonymous
-    // public account.
-    //
-    conf.set(CONNECTION_STRING_PROPERTY_NAME + "." + accountName, connectionString);
-    String accountKey = null;
-
-    // Capture the account key from the connection string.
-    //
-    accountKey = getAccountKey (connectionString);
-
-    // Check if connection string is configured with or without an account key.
-    //
-    if (null == accountKey){
-      // Connection string not configured with an account key.
-      //
-      final String errMsg = 
-          String.format("Account key not configured in connection string: '%s'.", connectionString);
-      throw new Exception (errMsg);
-    }
-
-    // Set the account key property.
-    //
-    conf.set(ACCOUNT_KEY_PROPERTY_NAME + accountName, accountKey);
 
     // Set account URI and initialize Azure file system.
     //
@@ -271,28 +272,6 @@ public final class AzureBlobStorageTestAccount {
             System.getProperty("user.name"),
             new Date());
     return containerName;
-  }
-
-  private static String getAccountKey(String connectionString)
-      throws Exception {
-    String acctKey = null;
-
-    // Split name value pairs by splitting on the ';' character
-    //
-    final String[] valuePairs =  connectionString.split(";");
-    for (String str : valuePairs) {
-      // Split on the equals sign to get the key/value pair.
-      //
-      String [] pair = str.split("\\=", 2);
-      if (pair[0].toLowerCase().equals("AccountKey".toLowerCase())) {
-        acctKey = pair[1];
-        break;
-      }
-    }
-
-    // Return to caller with the account name.
-    //
-    return acctKey;
   }
 
   public static void primePublicContainer(CloudBlobClient blobClient, String accountName,
@@ -350,23 +329,16 @@ public final class AzureBlobStorageTestAccount {
 
     NativeAzureFileSystem fs = null;
     CloudBlobContainer container = null;
-    Configuration conf = new Configuration();
-
-    // Check for the existence of a connection string.
-    //
-    if (!hasConnectionString(conf))
-    {
-      // Skip test because of missing connection string.
-      //
-      System.out.println (
-          "Skipping live Azure test because of missing connection string.");
-    }
+    Configuration conf = createTestConfiguration(),
+        noTestAccountConf = new Configuration();
 
     // Set up a session with the cloud blob client to generate SAS and check the
     // existence of a container and capture the container object.
     //
-    String connectionString = conf.get(CONNECTION_STRING_PROPERTY_NAME);
-    CloudStorageAccount account = CloudStorageAccount.parse(connectionString);
+    CloudStorageAccount account = createTestAccount(conf);
+    if (account == null) {
+      return null;
+    }
     CloudBlobClient blobClient = account.createCloudBlobClient();
 
     // Capture the account URL and the account name.
@@ -380,7 +352,7 @@ public final class AzureBlobStorageTestAccount {
 
     // Set up public container with the specified blob name.
     //
-    primePublicContainer (blobClient, accountName, containerName, blobName, fileSize);
+    primePublicContainer(blobClient, accountName, containerName, blobName, fileSize);
 
     // Capture the blob container object. It should exist after generating the 
     // shared access signature.
@@ -399,7 +371,7 @@ public final class AzureBlobStorageTestAccount {
     // Initialize the Native Azure file system with anonymous credentials.
     //
     fs = new NativeAzureFileSystem();
-    fs.initialize(accountUri, conf);
+    fs.initialize(accountUri, noTestAccountConf);
 
     // Create test account initializing the appropriate member variables.
     //
@@ -444,23 +416,15 @@ public final class AzureBlobStorageTestAccount {
 
     NativeAzureFileSystem fs = null;
     CloudBlobContainer container = null;
-    Configuration conf = new Configuration();
-
-    // Check for the existence of a connection string.
-    //
-    if (!hasConnectionString(conf))
-    {
-      // Skip test because of missing connection string.
-      //
-      System.out.println (
-          "Skipping live Azure test because of missing connection string.");
-    }
+    Configuration conf = createTestConfiguration();
 
     // Set up a session with the cloud blob client to generate SAS and check the
     // existence of a container and capture the container object.
     //
-    String connectionString = conf.get(CONNECTION_STRING_PROPERTY_NAME);
-    CloudStorageAccount account = CloudStorageAccount.parse(connectionString);
+    CloudStorageAccount account = createTestAccount(conf);
+    if (account == null) {
+      return null;
+    }
     CloudBlobClient blobClient = account.createCloudBlobClient();
 
     // Capture the account URL and the account name.
@@ -482,27 +446,6 @@ public final class AzureBlobStorageTestAccount {
           String.format ("Container '%s' expected but not found while creating SAS account.");
       throw new Exception (errMsg);
     }
-
-    // Set the account key base on whether the account is authenticated or is an anonymous
-    // public account.
-    //
-    conf.set(CONNECTION_STRING_PROPERTY_NAME + "." + accountName, connectionString);
-    String accountKey = null;
-
-    // Capture the account key.
-    //
-    accountKey = getAccountKey(connectionString);
-    if (null == accountKey){
-      // Connection string not configured with an account key.
-      //
-      final String errMsg = 
-          String.format("Account key not configured in connection string: '%s'.", connectionString);
-      throw new Exception (errMsg);
-    }
-
-    // Set the account key property name to test the precedence of SAS over account keys.
-    //
-    conf.set(ACCOUNT_KEY_PROPERTY_NAME + accountName, accountKey);
 
     // Set the account URI without a container name.
     //

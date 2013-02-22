@@ -593,6 +593,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     configureAzureStorageSession();
   }
 
+  static String getAccountKeyFromConfiguration(String accountName, Configuration conf) {
+    return conf.get(KEY_ACCOUNT_KEY_PREFIX + accountName);
+  }
+
   /**
    * Establish a session with Azure blob storage based on the target URI. The
    * method determines whether or not the URI target contains an explicit
@@ -657,7 +661,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
       // Check whether the account is configured with an account key.
       //
-      String propertyValue = sessionConfiguration.get(KEY_ACCOUNT_KEY_PREFIX + accountName);
+      String propertyValue = getAccountKeyFromConfiguration(accountName,
+          sessionConfiguration);
       if (null != propertyValue) {
 
         // Account key was found. Create the Azure storage session using the account
