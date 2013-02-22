@@ -728,6 +728,11 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       checkAvailableResources();
       assert safeMode != null &&
         !safeMode.isPopulatingReplQueues();
+      StartupProgress prog = NameNode.getStartupProgress();
+      String step = "awaiting reported blocks";
+      prog.beginPhase(Phase.SAFEMODE);
+      prog.beginStep(Phase.SAFEMODE, step);
+      prog.setTotal(Phase.SAFEMODE, step, getCompleteBlocksTotal());
       setBlockTotal();
       blockManager.activate(conf);
     } finally {
@@ -4068,6 +4073,14 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
           + blockManager.numOfUnderReplicatedBlocks() + " blocks");
 
       startSecretManagerIfNecessary();
+
+      // If startup has not yet completed, end safemode phase.
+      StartupProgress prog = NameNode.getStartupProgress();
+      if (prog.getStatus(Phase.COMPLETE) == Status.PENDING) {
+        prog.endStep(Phase.SAFEMODE, "awaiting reported blocks");
+        prog.endPhase(Phase.SAFEMODE);
+        prog.beginPhase(Phase.COMPLETE);
+      }
     }
 
     /**
@@ -4129,10 +4142,6 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       assert hasWriteLock();
       if (needEnter()) {
         enter();
-        StartupProgress prog = NameNode.getStartupProgress();
-        if (prog.getStatus(Phase.COMPLETE) != Status.RUNNING) {
-          prog.beginPhase(Phase.SAFEMODE);
-        }
         // check if we are ready to initialize replication queues
         if (canInitializeReplQueues() && !isPopulatingReplQueues()) {
           initializeReplQueues();
@@ -4144,10 +4153,6 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       if (!isOn() ||                           // safe mode is off
           extension <= 0 || threshold <= 0) {  // don't need to wait
         this.leave(); // leave safe mode
-        StartupProgress prog = NameNode.getStartupProgress();
-        if (prog.getStatus(Phase.COMPLETE) != Status.RUNNING) {
-          prog.beginPhase(Phase.SAFEMODE);
-        }
         return;
       }
       if (reached > 0) {  // threshold has already been reached before
@@ -4193,6 +4198,12 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     private synchronized void incrementSafeBlockCount(short replication) {
       if (replication == safeReplication) {
         this.blockSafe++;
+
+        // Report startup progress only if we haven't completed startup yet.
+        StartupProgress prog = NameNode.getStartupProgress();
+        if (prog.getStatus(Phase.COMPLETE) == Status.PENDING) {
+          prog.incrementCount(Phase.SAFEMODE, "awaiting reported blocks");
+        }
         checkMode();
       }
     }
@@ -4390,7 +4401,6 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       } else {
         // leave safe mode and stop the monitor
         leaveSafeMode();
-        NameNode.getStartupProgress().beginPhase(Phase.COMPLETE);
       }
       smmthread = null;
     }
