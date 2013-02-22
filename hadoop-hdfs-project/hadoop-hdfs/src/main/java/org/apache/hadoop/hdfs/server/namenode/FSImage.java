@@ -652,11 +652,11 @@ public class FSImage implements Closeable {
       FSEditLog.closeAllStreams(editStreams);
       throw new IOException("Failed to load image from " + imageFile, ioe);
     }
+    prog.endPhase(Phase.LOADING_FSIMAGE);
     long txnsAdvanced = loadEdits(editStreams, target, recovery);
     needToSave |= needsResaveBasedOnStaleCheckpoint(imageFile.getFile(),
                                                     txnsAdvanced);
     editLog.setNextTxId(lastAppliedTxId + 1);
-    prog.endPhase(Phase.LOADING_FSIMAGE);
     return needToSave;
   }
 
@@ -900,8 +900,6 @@ public class FSImage implements Closeable {
   protected synchronized void saveFSImageInAllDirs(FSNamesystem source, long txid,
       Canceler canceler)
       throws IOException {    
-    StartupProgress prog = NameNode.getStartupProgress();
-    prog.beginPhase(Phase.SAVING_CHECKPOINT);
     if (storage.getNumStorageDirs(NameNodeDirType.IMAGE) == 0) {
       throw new IOException("No image directories available!");
     }
@@ -947,7 +945,6 @@ public class FSImage implements Closeable {
       ctx.markComplete();
       ctx = null;
     }
-    prog.endPhase(Phase.SAVING_CHECKPOINT);
   }
 
   /**
