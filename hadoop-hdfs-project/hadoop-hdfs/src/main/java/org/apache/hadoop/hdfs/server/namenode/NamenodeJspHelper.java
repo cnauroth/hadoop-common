@@ -435,6 +435,10 @@ class NamenodeJspHelper {
       StartupProgress prog = NameNode.getStartupProgress();
       FormattedWriter fout = new FormattedWriter(out);
       fout.println("<div id=\"startupprogress\">");
+      fout.println("<div><span>Elapsed Time:</span> %s</div>",
+        StringUtils.formatTime(prog.getElapsedTime()));
+      fout.println("<div><span>Percent Complete:</span> %s</div>",
+        StringUtils.formatPercent(prog.getPercentComplete(), 2));
       fout.println("<table>");
       fout.println("<tr>");
       fout.println("<th>Phase</th>");

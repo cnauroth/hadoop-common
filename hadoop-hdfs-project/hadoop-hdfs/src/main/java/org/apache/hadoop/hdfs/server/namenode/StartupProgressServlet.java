@@ -18,7 +18,6 @@ package org.apache.hadoop.hdfs.server.namenode;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -72,8 +71,10 @@ public class StartupProgressServlet extends DfsServlet {
       phases.add(phaseMap);
     }
 
-    Map<String, Object> respMap =
-      Collections.<String, Object>singletonMap(PHASES, phases);
+    Map<String, Object> respMap = new LinkedHashMap<String, Object>();
+    respMap.put(ELAPSED_TIME, prog.getElapsedTime());
+    respMap.put(PERCENT_COMPLETE, prog.getPercentComplete());
+    respMap.put(PHASES, phases);
     resp.getWriter().println(JSON.toString(respMap));
   }
 }

@@ -184,3 +184,7 @@ div.security {
 .step .startupdesc {
   text-indent: 20px;
 }
+
+#startupprogress span {
+  font-weight: bold;
+}

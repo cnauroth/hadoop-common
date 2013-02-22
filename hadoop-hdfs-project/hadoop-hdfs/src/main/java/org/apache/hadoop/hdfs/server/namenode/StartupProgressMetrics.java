@@ -45,6 +45,11 @@ public class StartupProgressMetrics implements MetricsSource {
     MetricsRecordBuilder builder = collector.addRecord(
       STARTUP_PROGRESS_METRICS_INFO);
 
+    builder.addCounter(createMetricsInfo("ElapsedTime", "overall elapsed time"),
+      startupProgress.getElapsedTime());
+    builder.addGauge(createMetricsInfo("PercentComplete",
+      "overall percent complete"), startupProgress.getPercentComplete());
+
     for (Phase phase: startupProgress.getVisiblePhases()) {
       addCounter(builder, phase, "Count", " count",
         startupProgress.getCount(phase));

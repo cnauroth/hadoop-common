@@ -135,6 +135,18 @@ public class StartupProgress {
     return count != null ? count : 0;
   }
 
+  public long getElapsedTime() {
+    Long begin = phaseBeginTime.get(Phase.LOADING_FSIMAGE);
+    Long end = phaseEndTime.get(Phase.SAFEMODE);
+    if (begin != null && end != null) {
+      return end - begin;
+    } else if (begin != null) {
+      return monotonicNow() - begin;
+    } else {
+      return 0;
+    }
+  }
+
   public long getElapsedTime(Phase phase) {
     Long begin = phaseBeginTime.get(phase);
     Long end = phaseEndTime.get(phase);
@@ -158,6 +170,20 @@ public class StartupProgress {
       return monotonicNow() - begin;
     } else {
       return 0;
+    }
+  }
+
+  public float getPercentComplete() {
+    if (getStatus(Phase.COMPLETE) == Status.RUNNING) {
+      return 1.0f;
+    } else {
+      float total = 0.0f;
+      int count = 0;
+      for (Phase phase: VISIBLE_PHASES) {
+        ++count;
+        total += getPercentComplete(phase);
+      }
+      return Math.max(0.0f, Math.min(1.0f, total / count));
     }
   }
 
