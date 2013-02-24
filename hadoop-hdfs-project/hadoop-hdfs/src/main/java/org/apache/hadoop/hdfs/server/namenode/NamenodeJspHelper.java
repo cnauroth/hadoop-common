@@ -432,7 +432,7 @@ class NamenodeJspHelper {
     }
 
     void generateStartupProgress(JspWriter out, NameNode nn) throws IOException {
-      StartupProgress prog = NameNode.getStartupProgress();
+      StartupProgress.View prog = NameNode.getStartupProgress().createView();
       FormattedWriter fout = new FormattedWriter(out);
       fout.println("<div id=\"startupprogress\">");
       fout.println("<div><span>Elapsed Time:</span> %s</div>",
@@ -470,7 +470,7 @@ class NamenodeJspHelper {
       fout.println("</div>");
     }
 
-    private void printPhase(FormattedWriter fout, StartupProgress prog,
+    private void printPhase(FormattedWriter fout, StartupProgress.View prog,
         Phase phase) throws IOException {
       String phaseDesc = prog.getPhaseTag(phase) != null ?
         phase.getDescription() + " " + prog.getPhaseTag(phase) :
@@ -482,7 +482,7 @@ class NamenodeJspHelper {
         StringUtils.formatTime(prog.getElapsedTime(phase)));
     }
 
-    private void printStep(FormattedWriter fout, StartupProgress prog,
+    private void printStep(FormattedWriter fout, StartupProgress.View prog,
         Phase phase, String step) throws IOException {
       fout.println("<td class=\"startupdesc\">%s (%d/%d)</td>", step,
         prog.getCount(phase, step), prog.getTotal(phase, step));

@@ -45,7 +45,7 @@ public class StartupProgressServlet extends DfsServlet {
   @Override
   protected void doGet(HttpServletRequest req, HttpServletResponse resp)
       throws IOException {
-    StartupProgress prog = NameNode.getStartupProgress();
+    StartupProgress.View prog = NameNode.getStartupProgress().createView();
     resp.setContentType("application/json; charset=UTF-8");
     List<Map<String, Object>> phases = new ArrayList<Map<String, Object>>();
 

@@ -42,23 +42,22 @@ public class StartupProgressMetrics implements MetricsSource {
 
   @Override
   public void getMetrics(MetricsCollector collector, boolean all) {
+    StartupProgress.View prog = startupProgress.createView();
     MetricsRecordBuilder builder = collector.addRecord(
       STARTUP_PROGRESS_METRICS_INFO);
 
     builder.addCounter(createMetricsInfo("ElapsedTime", "overall elapsed time"),
-      startupProgress.getElapsedTime());
+      prog.getElapsedTime());
     builder.addGauge(createMetricsInfo("PercentComplete",
-      "overall percent complete"), startupProgress.getPercentComplete());
+      "overall percent complete"), prog.getPercentComplete());
 
-    for (Phase phase: startupProgress.getVisiblePhases()) {
-      addCounter(builder, phase, "Count", " count",
-        startupProgress.getCount(phase));
+    for (Phase phase: StartupProgress.getVisiblePhases()) {
+      addCounter(builder, phase, "Count", " count", prog.getCount(phase));
       addCounter(builder, phase, "ElapsedTime", " elapsed time",
-        startupProgress.getElapsedTime(phase));
-      addCounter(builder, phase, "Total", " total",
-        startupProgress.getTotal(phase));
+        prog.getElapsedTime(phase));
+      addCounter(builder, phase, "Total", " total", prog.getTotal(phase));
       addGauge(builder, phase, "PercentComplete", " percent complete",
-        startupProgress.getPercentComplete(phase));
+        prog.getPercentComplete(phase));
     }
   }
 
