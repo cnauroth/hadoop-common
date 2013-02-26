@@ -166,15 +166,6 @@ public class StartupProgress {
     steps.put(phase, StartupProgress.<Step, StepTracking>newConcurrentMap());
   }
 
-    // TODO: reconsider as setters for file and size (symmetry)
-  public void beginPhase(Phase phase, String file, long size) {
-    PhaseTracking tracking = phases.get(phase);
-    tracking.beginTime = monotonicNow();
-    tracking.file = file;
-    tracking.size = size;
-    steps.put(phase, StartupProgress.<Step, StepTracking>newConcurrentMap());
-  }
-
   public void beginStep(Phase phase, Step step) {
     StepTracking tracking = new StepTracking();
     tracking.beginTime = monotonicNow();
@@ -209,6 +200,14 @@ public class StartupProgress {
       count = 0L;
     }
     tracking.count = count + 1;
+  }
+
+  public void setFile(Phase phase, String file) {
+    phases.get(phase).file = file;
+  }
+
+  public void setSize(Phase phase, long size) {
+    phases.get(phase).size = size;
   }
 
   public void setTotal(Phase phase, Step step, long total) {
