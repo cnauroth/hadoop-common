@@ -25,6 +25,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.lang.builder.CompareToBuilder;
@@ -83,7 +84,10 @@ public class StartupProgress {
   }
 
   public static class Step implements Comparable<Step> {
+    private static final AtomicInteger SEQUENCE = new AtomicInteger();
+
     private final String file;
+    private final int sequenceNumber;
     private final Long size;
     private final StepType type;
 
@@ -102,7 +106,7 @@ public class StartupProgress {
     @Override
     public int compareTo(Step other) {
       return new CompareToBuilder().append(file, other.file)
-        .append(size, other.size).append(type, other.type).toComparison();
+        .append(sequenceNumber, other.sequenceNumber).toComparison();
     }
 
     @Override
@@ -135,6 +139,7 @@ public class StartupProgress {
 
     private Step(String file, Long size, StepType type) {
       this.file = file;
+      this.sequenceNumber = SEQUENCE.incrementAndGet();
       this.size = size;
       this.type = type;
     }
@@ -157,6 +162,7 @@ public class StartupProgress {
     Long beginTime;
     Long count;
     Long endTime;
+    int sequenceNumber;
     Long total;
   }
 
