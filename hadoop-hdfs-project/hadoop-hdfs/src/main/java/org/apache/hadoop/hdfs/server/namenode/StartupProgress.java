@@ -172,10 +172,6 @@ public class StartupProgress {
   private static EnumSet<Phase> VISIBLE_PHASES = EnumSet.range(LOADING_FSIMAGE,
     SAFEMODE);
 
-  public static Iterable<Phase> getVisiblePhases() {
-    return VISIBLE_PHASES;
-  }
-
   public StartupProgress() {
     for (Phase phase: VISIBLE_PHASES) {
       phases.put(phase, new PhaseTracking());
@@ -292,7 +288,7 @@ public class StartupProgress {
       } else {
         float total = 0.0f;
         int count = 0;
-        for (Phase phase: VISIBLE_PHASES) {
+        for (Phase phase: viewPhases.keySet()) {
           ++count;
           total += getPercentComplete(phase);
         }
@@ -321,6 +317,10 @@ public class StartupProgress {
         long count = getCount(phase, step);
         return total > 0 ? 1.0f * count / total : 0.0f;
       }
+    }
+
+    public Iterable<Phase> getPhases() {
+      return VISIBLE_PHASES;
     }
 
     public Iterable<Step> getSteps(Phase phase) {

@@ -51,7 +51,7 @@ public class StartupProgressServlet extends DfsServlet {
     StartupProgress.View prog = NameNode.getStartupProgress().createView();
     List<Map<String, Object>> phases = new ArrayList<Map<String, Object>>();
 
-    for (Phase phase: StartupProgress.getVisiblePhases()) {
+    for (Phase phase: prog.getPhases()) {
       Map<String, Object> phaseMap = new LinkedHashMap<String, Object>();
       phaseMap.put(NAME, phase.getName());
       phaseMap.put(STATUS, prog.getStatus(phase));

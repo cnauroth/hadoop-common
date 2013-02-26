@@ -447,7 +447,7 @@ class NamenodeJspHelper {
       fout.println("<th>Completion</th>");
       fout.println("<th>Elapsed Time</th>");
       fout.println("</tr>");
-      for (Phase phase: StartupProgress.getVisiblePhases()) {
+      for (Phase phase: prog.getPhases()) {
         final String timeClass;
         Status status = prog.getStatus(phase);
         if (status == Status.PENDING) {
