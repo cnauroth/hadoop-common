@@ -504,7 +504,7 @@ class NamenodeJspHelper {
       }
       StepType type = step.getType();
       if (type != null) {
-        stepLine.append(" ").append(type);
+        stepLine.append(" ").append(type.getDescription());
       }
 
       fout.println("<td class=\"startupdesc\">%s (%d/%d)</td>",

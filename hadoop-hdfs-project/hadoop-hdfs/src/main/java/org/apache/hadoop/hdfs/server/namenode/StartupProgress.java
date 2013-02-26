@@ -43,7 +43,7 @@ public class StartupProgress {
     SAFEMODE("SafeMode", "Safe mode"),
     COMPLETE("Complete", "Complete");
 
-    final String name, description;
+    private final String name, description;
 
     private Phase(String name, String description) {
       this.name = name;
@@ -60,10 +60,26 @@ public class StartupProgress {
   }
 
   public enum StepType {
-    AWAITING_REPORTED_BLOCKS,
-    DELEGATION_KEYS,
-    DELEGATION_TOKENS,
-    INODES;
+    AWAITING_REPORTED_BLOCKS("AwaitingReportedBlocks",
+      "awaiting reported blocks"),
+    DELEGATION_KEYS("DelegationKeys", "delegation keys"),
+    DELEGATION_TOKENS("DelegationTokens", "delegation tokens"),
+    INODES("Inodes", "inodes");
+
+    private final String name, description;
+
+    private StepType(String name, String description) {
+      this.name = name;
+      this.description = description;
+    }
+
+    public String getDescription() {
+      return description;
+    }
+
+    public String getName() {
+      return name;
+    }
   }
 
   public static class Step implements Comparable<Step> {

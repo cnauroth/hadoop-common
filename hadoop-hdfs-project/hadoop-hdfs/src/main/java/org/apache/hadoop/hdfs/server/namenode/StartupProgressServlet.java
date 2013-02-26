@@ -27,6 +27,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Step;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.StepType;
 import org.mortbay.util.ajax.JSON;
 
 @SuppressWarnings("serial")
@@ -40,7 +41,6 @@ public class StartupProgressServlet extends DfsServlet {
   private static final String STATUS = "status";
   private static final String STEPS = "steps";
   private static final String TOTAL = "total";
-  private static final String TYPE = "type";
 
   public static final String PATH_SPEC = "/startupProgress";
 
@@ -61,7 +61,9 @@ public class StartupProgressServlet extends DfsServlet {
 
       for (Step step: prog.getSteps(phase)) {
         Map<String, Object> stepMap = new LinkedHashMap<String, Object>();
-        stepMap.put(TYPE, step.getType());
+        StepType type = step.getType();
+        String name = type != null ? type.getName() : null;
+        stepMap.put(NAME, name);
         stepMap.put(COUNT, prog.getCount(phase, step));
         stepMap.put(TOTAL, prog.getTotal(phase, step));
         stepMap.put(PERCENT_COMPLETE, prog.getPercentComplete(phase, step));
