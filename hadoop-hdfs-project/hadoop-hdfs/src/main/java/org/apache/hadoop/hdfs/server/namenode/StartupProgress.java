@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import org.apache.commons.lang.builder.CompareToBuilder;
 import org.apache.commons.lang.builder.EqualsBuilder;
@@ -37,7 +38,6 @@ import org.apache.hadoop.classification.InterfaceAudience;
 public class StartupProgress {
 
   public enum Phase {
-    INITIALIZED("Initialized", "Initialized"),
     LOADING_FSIMAGE("LoadingFsImage", "Loading fsimage"),
     LOADING_EDITS("LoadingEdits", "Loading edits"),
     SAVING_CHECKPOINT("SavingCheckpoint", "Saving checkpoint"),
@@ -156,6 +156,8 @@ public class StartupProgress {
     Long endTime;
     String file;
     Long size;
+    ConcurrentMap<Step, StepTracking> steps =
+      new ConcurrentHashMap<Step, StepTracking>();
   }
 
   private static class StepTracking {
@@ -166,28 +168,24 @@ public class StartupProgress {
     Long total;
   }
 
-  private Map<Phase, PhaseTracking> phases = newConcurrentMap();
-  private Map<Phase, Map<Step, StepTracking>> steps = newConcurrentMap();
+  private Map<Phase, PhaseTracking> phases =
+    new ConcurrentHashMap<Phase, PhaseTracking>();
 
   private static EnumSet<Phase> VISIBLE_PHASES = EnumSet.range(LOADING_FSIMAGE,
     SAFEMODE);
 
   public StartupProgress() {
-    for (Phase phase: VISIBLE_PHASES) {
+    for (Phase phase: EnumSet.allOf(Phase.class)) {
       phases.put(phase, new PhaseTracking());
-      steps.put(phase, StartupProgress.<Step, StepTracking>newConcurrentMap());
     }
   }
 
   public void beginPhase(Phase phase) {
     phases.get(phase).beginTime = monotonicNow();
-    steps.put(phase, StartupProgress.<Step, StepTracking>newConcurrentMap());
   }
 
   public void beginStep(Phase phase, Step step) {
-    StepTracking tracking = new StepTracking();
-    tracking.beginTime = monotonicNow();
-    steps.get(phase).put(step, tracking);
+    lazyInitStep(phase, step).beginTime = monotonicNow();
   }
 
   public void endPhase(Phase phase) {
@@ -195,7 +193,7 @@ public class StartupProgress {
   }
 
   public void endStep(Phase phase, Step step) {
-    steps.get(phase).get(step).endTime = monotonicNow();
+    lazyInitStep(phase, step).endTime = monotonicNow();
   }
 
   public Status getStatus(Phase phase) {
@@ -211,8 +209,7 @@ public class StartupProgress {
 
   // TODO: optimize by exposing counter directly
   public void incrementCount(Phase phase, Step step) {
-    Map<Step, StepTracking> stepsInPhase = steps.get(phase);
-    StepTracking tracking = stepsInPhase.get(step);
+    StepTracking tracking = lazyInitStep(phase, step);
     Long count = tracking.count;
     if (count == null) {
       count = 0L;
@@ -229,32 +226,26 @@ public class StartupProgress {
   }
 
   public void setTotal(Phase phase, Step step, long total) {
-    steps.get(phase).get(step).total = total;
+    lazyInitStep(phase, step).total = total;
   }
 
   public View createView() {
     return new View(this);
   }
 
-  private static <K, V> Map<K, V> newConcurrentMap() {
-    return new ConcurrentHashMap<K, V>();
-  }
-
   public static class View {
     private final Map<Phase, PhaseTracking> viewPhases;
-    private final Map<Phase, Map<Step, StepTracking>> viewSteps;
 
     public long getCount(Phase phase) {
       long sum = 0;
-      for (Step step: viewSteps.get(phase).keySet()) {
+      for (Step step: getSteps(phase)) {
         sum += getCount(phase, step);
       }
       return sum;
     }
 
     public long getCount(Phase phase, Step step) {
-      Map<Step, StepTracking> stepsInPhase = viewSteps.get(phase);
-      StepTracking tracking = stepsInPhase != null ? stepsInPhase.get(step) : null;
+      StepTracking tracking = getStepTracking(phase, step);
       return tracking.count != null ? tracking.count : 0;
     }
 
@@ -270,9 +261,7 @@ public class StartupProgress {
     }
 
     public long getElapsedTime(Phase phase, Step step) {
-      Map<Step, StepTracking> stepsInPhase = viewSteps.get(phase);
-      StepTracking tracking = stepsInPhase != null ? stepsInPhase.get(step) :
-        null;
+      StepTracking tracking = getStepTracking(phase, step);
       Long begin = tracking != null ? tracking.beginTime : null;
       Long end = tracking != null ? tracking.endTime : null;
       return getElapsedTime(begin, end);
@@ -324,9 +313,7 @@ public class StartupProgress {
     }
 
     public Iterable<Step> getSteps(Phase phase) {
-      Map<Step, StepTracking> stepsInPhase = viewSteps.get(phase);
-      return stepsInPhase != null ? new TreeSet(stepsInPhase.keySet()) :
-        Collections.<Step>emptyList();
+      return new TreeSet(viewPhases.get(phase).steps.keySet());
     }
 
     public Long getSize(Phase phase) {
@@ -334,8 +321,9 @@ public class StartupProgress {
     }
 
     public Status getStatus(Phase phase) {
+        System.out.println(viewPhases);
       PhaseTracking tracking = viewPhases.get(phase);
-      if (tracking == null || tracking.beginTime == null) {
+      if (tracking.beginTime == null) {
         return Status.PENDING;
       } else if (tracking.endTime == null) {
         return Status.RUNNING;
@@ -346,27 +334,21 @@ public class StartupProgress {
 
     public long getTotal(Phase phase) {
       long sum = 0;
-      Map<Step, StepTracking> stepsInPhase = viewSteps.get(phase);
-      if (stepsInPhase != null) {
-        for (StepTracking tracking: stepsInPhase.values()) {
-          if (tracking.total != null) {
-            sum += tracking.total;
-          }
+      for (StepTracking tracking: viewPhases.get(phase).steps.values()) {
+        if (tracking.total != null) {
+          sum += tracking.total;
         }
       }
       return sum;
     }
 
     public long getTotal(Phase phase, Step step) {
-      Map<Step, StepTracking> stepsInPhase = viewSteps.get(phase);
-      StepTracking tracking = stepsInPhase != null ? stepsInPhase.get(step) :
-        null;
+      StepTracking tracking = getStepTracking(phase, step);
       return tracking != null ? tracking.total : 0;
     }
 
     private View(StartupProgress prog) {
       viewPhases = copyMap(prog.phases);
-      viewSteps = copyMap(prog.steps);
     }
 
     private <K, V> Map<K, V> copyMap(Map<K, V> source) {
@@ -382,5 +364,20 @@ public class StartupProgress {
         return 0;
       }
     }
+
+    private StepTracking getStepTracking(Phase phase, Step step) {
+      PhaseTracking phaseTracking = viewPhases.get(phase);
+      Map<Step, StepTracking> steps = phaseTracking != null ?
+        phaseTracking.steps : null;
+      return steps != null ? steps.get(step) : null;
+    }
+  }
+
+  private StepTracking lazyInitStep(Phase phase, Step step) {
+    ConcurrentMap<Step, StepTracking> steps = phases.get(phase).steps;
+    if (!steps.containsKey(step)) {
+      steps.putIfAbsent(step, new StepTracking());
+    }
+    return steps.get(step);
   }
 }
