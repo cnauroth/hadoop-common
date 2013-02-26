@@ -151,21 +151,45 @@ public class StartupProgress {
     COMPLETE
   }
 
-  private static class PhaseTracking {
+  private static class PhaseTracking implements Cloneable {
     Long beginTime;
     Long endTime;
     String file;
     Long size;
     ConcurrentMap<Step, StepTracking> steps =
       new ConcurrentHashMap<Step, StepTracking>();
+
+    @Override
+    public PhaseTracking clone() {
+      PhaseTracking clone = new PhaseTracking();
+      clone.beginTime = beginTime;
+      clone.endTime = endTime;
+      clone.file = file;
+      clone.size = size;
+      for (Map.Entry<Step, StepTracking> entry: steps.entrySet()) {
+        clone.steps.put(entry.getKey(), entry.getValue().clone());
+      }
+      return clone;
+    }
   }
 
-  private static class StepTracking {
+  private static class StepTracking implements Cloneable {
     Long beginTime;
     Long count;
     Long endTime;
     int sequenceNumber;
     Long total;
+
+    @Override
+    public StepTracking clone() {
+      StepTracking clone = new StepTracking();
+      clone.beginTime = beginTime;
+      clone.count = count;
+      clone.endTime = endTime;
+      clone.sequenceNumber = sequenceNumber;
+      clone.total = total;
+      return clone;
+    }
   }
 
   private Map<Phase, PhaseTracking> phases =
@@ -321,7 +345,6 @@ public class StartupProgress {
     }
 
     public Status getStatus(Phase phase) {
-        System.out.println(viewPhases);
       PhaseTracking tracking = viewPhases.get(phase);
       if (tracking.beginTime == null) {
         return Status.PENDING;
@@ -348,11 +371,10 @@ public class StartupProgress {
     }
 
     private View(StartupProgress prog) {
-      viewPhases = copyMap(prog.phases);
-    }
-
-    private <K, V> Map<K, V> copyMap(Map<K, V> source) {
-      return new HashMap<K, V>(source);
+      viewPhases = new HashMap<Phase, PhaseTracking>();
+      for (Map.Entry<Phase, PhaseTracking> entry: prog.phases.entrySet()) {
+        viewPhases.put(entry.getKey(), entry.getValue().clone());
+      }
     }
 
     private long getElapsedTime(Long begin, Long end) {
