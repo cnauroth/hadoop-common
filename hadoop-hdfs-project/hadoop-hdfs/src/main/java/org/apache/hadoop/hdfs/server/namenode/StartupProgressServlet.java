@@ -26,6 +26,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Step;
 import org.mortbay.util.ajax.JSON;
 
 @SuppressWarnings("serial")
@@ -39,14 +40,15 @@ public class StartupProgressServlet extends DfsServlet {
   private static final String STATUS = "status";
   private static final String STEPS = "steps";
   private static final String TOTAL = "total";
+  private static final String TYPE = "type";
 
   public static final String PATH_SPEC = "/startupProgress";
 
   @Override
   protected void doGet(HttpServletRequest req, HttpServletResponse resp)
       throws IOException {
-    StartupProgress.View prog = NameNode.getStartupProgress().createView();
     resp.setContentType("application/json; charset=UTF-8");
+    StartupProgress.View prog = NameNode.getStartupProgress().createView();
     List<Map<String, Object>> phases = new ArrayList<Map<String, Object>>();
 
     for (Phase phase: StartupProgress.getVisiblePhases()) {
@@ -57,9 +59,9 @@ public class StartupProgressServlet extends DfsServlet {
       phaseMap.put(ELAPSED_TIME, prog.getElapsedTime(phase));
       List<Map<String, Object>> steps = new ArrayList<Map<String, Object>>();
 
-      for (String step: prog.getSteps(phase)) {
+      for (Step step: prog.getSteps(phase)) {
         Map<String, Object> stepMap = new LinkedHashMap<String, Object>();
-        stepMap.put(NAME, step);
+        stepMap.put(TYPE, step.getType());
         stepMap.put(COUNT, prog.getCount(phase, step));
         stepMap.put(TOTAL, prog.getTotal(phase, step));
         stepMap.put(PERCENT_COMPLETE, prog.getPercentComplete(phase, step));

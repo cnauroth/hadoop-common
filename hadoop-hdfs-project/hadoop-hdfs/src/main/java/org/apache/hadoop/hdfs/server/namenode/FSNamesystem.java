@@ -171,6 +171,8 @@ import org.apache.hadoop.hdfs.server.namenode.LeaseManager.Lease;
 import org.apache.hadoop.hdfs.server.namenode.NameNode.OperationCategory;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Status;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Step;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.StepType;
 import org.apache.hadoop.hdfs.server.namenode.ha.EditLogTailer;
 import org.apache.hadoop.hdfs.server.namenode.ha.HAContext;
 import org.apache.hadoop.hdfs.server.namenode.ha.HAState;
@@ -729,8 +731,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       assert safeMode != null &&
         !safeMode.isPopulatingReplQueues();
       StartupProgress prog = NameNode.getStartupProgress();
-      String step = "awaiting reported blocks";
       prog.beginPhase(Phase.SAFEMODE);
+      Step step = new Step(StepType.AWAITING_REPORTED_BLOCKS);
       prog.beginStep(Phase.SAFEMODE, step);
       prog.setTotal(Phase.SAFEMODE, step, getCompleteBlocksTotal());
       setBlockTotal();
@@ -4077,7 +4079,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       // If startup has not yet completed, end safemode phase.
       StartupProgress prog = NameNode.getStartupProgress();
       if (prog.getStatus(Phase.COMPLETE) == Status.PENDING) {
-        prog.endStep(Phase.SAFEMODE, "awaiting reported blocks");
+        prog.endStep(Phase.SAFEMODE, new Step(
+          StepType.AWAITING_REPORTED_BLOCKS));
         prog.endPhase(Phase.SAFEMODE);
         prog.beginPhase(Phase.COMPLETE);
       }
@@ -4202,7 +4205,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
         // Report startup progress only if we haven't completed startup yet.
         StartupProgress prog = NameNode.getStartupProgress();
         if (prog.getStatus(Phase.COMPLETE) == Status.PENDING) {
-          prog.incrementCount(Phase.SAFEMODE, "awaiting reported blocks");
+          prog.incrementCount(Phase.SAFEMODE,
+            new Step(StepType.AWAITING_REPORTED_BLOCKS));
         }
         checkMode();
       }
@@ -5381,9 +5385,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
   /**
    * @param in load the state of secret manager from input stream
    */
-  void loadSecretManagerState(DataInputStream in, String curFilePath)
-      throws IOException {
-    dtSecretManager.loadSecretManagerState(in, curFilePath);
+  void loadSecretManagerState(DataInputStream in) throws IOException {
+    dtSecretManager.loadSecretManagerState(in);
   }
 
   /**

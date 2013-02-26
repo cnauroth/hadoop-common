@@ -592,10 +592,9 @@ public class FSImage implements Closeable {
     FSImageStorageInspector.FSImageFile imageFile 
       = inspector.getLatestImage();   
     StartupProgress prog = NameNode.getStartupProgress();
-    File tagFile = imageFile.getFile();
-    String phaseTag = StringUtils.format("%s (%s)", tagFile.getAbsolutePath(),
-      StringUtils.byteDesc(tagFile.length()));
-    prog.beginPhase(Phase.LOADING_FSIMAGE, phaseTag);
+    File phaseFile = imageFile.getFile();
+    prog.beginPhase(Phase.LOADING_FSIMAGE, phaseFile.getAbsolutePath(),
+      phaseFile.length());
     boolean needToSave = inspector.needToSave();
 
     Iterable<EditLogInputStream> editStreams = null;

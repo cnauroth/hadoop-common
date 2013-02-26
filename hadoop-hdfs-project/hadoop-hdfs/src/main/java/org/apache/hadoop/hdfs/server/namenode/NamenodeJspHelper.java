@@ -54,6 +54,8 @@ import org.apache.hadoop.hdfs.server.common.Storage.StorageDirectory;
 import org.apache.hadoop.hdfs.server.namenode.JournalSet.JournalAndStream;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Status;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Step;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.StepType;
 import org.apache.hadoop.hdfs.server.protocol.NamenodeProtocols;
 import org.apache.hadoop.http.HttpConfig;
 import org.apache.hadoop.io.Text;
@@ -460,7 +462,7 @@ class NamenodeJspHelper {
         printPhase(fout, prog, phase);
         fout.println("</tr>");
 
-        for (String step: prog.getSteps(phase)) {
+        for (Step step: prog.getSteps(phase)) {
           fout.println("<tr class=\"step %s\">", timeClass);
           printStep(fout, prog, phase, step);
           fout.println("</tr>");
@@ -472,10 +474,17 @@ class NamenodeJspHelper {
 
     private void printPhase(FormattedWriter fout, StartupProgress.View prog,
         Phase phase) throws IOException {
-      String phaseDesc = prog.getPhaseTag(phase) != null ?
-        phase.getDescription() + " " + prog.getPhaseTag(phase) :
-        phase.getDescription();
-      fout.println("<td class=\"startupdesc\">%s</td>", phaseDesc);
+      StringBuilder phaseLine = new StringBuilder();
+      phaseLine.append(phase.getDescription());
+      String file = prog.getFile(phase);
+      if (file != null) {
+        phaseLine.append(" ").append(file);
+      }
+      Long size = prog.getSize(phase);
+      if (size != null) {
+        phaseLine.append(" (").append(StringUtils.byteDesc(size)).append(")");
+      }
+      fout.println("<td class=\"startupdesc\">%s</td>", phaseLine.toString());
       fout.println("<td>%s</td>", StringUtils.formatPercent(
         prog.getPercentComplete(phase), 2));
       fout.println("<td>%s</td>", prog.getStatus(phase) == Status.PENDING ? "" :
@@ -483,9 +492,24 @@ class NamenodeJspHelper {
     }
 
     private void printStep(FormattedWriter fout, StartupProgress.View prog,
-        Phase phase, String step) throws IOException {
-      fout.println("<td class=\"startupdesc\">%s (%d/%d)</td>", step,
-        prog.getCount(phase, step), prog.getTotal(phase, step));
+        Phase phase, Step step) throws IOException {
+      StringBuilder stepLine = new StringBuilder();
+      String file = step.getFile();
+      if (file != null) {
+        stepLine.append(file);
+      }
+      Long size = step.getSize();
+      if (size != null) {
+        stepLine.append(" (").append(StringUtils.byteDesc(size)).append(")");
+      }
+      StepType type = step.getType();
+      if (type != null) {
+        stepLine.append(" ").append(type);
+      }
+
+      fout.println("<td class=\"startupdesc\">%s (%d/%d)</td>",
+        stepLine.toString(), prog.getCount(phase, step),
+        prog.getTotal(phase, step));
       fout.println("<td>%s</td>", StringUtils.formatPercent(
         prog.getPercentComplete(phase), 2));
       fout.println("<td>%s</td>", prog.getStatus(phase) == Status.PENDING ? "" :

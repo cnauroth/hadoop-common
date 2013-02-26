@@ -33,6 +33,8 @@ import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.server.namenode.NameNode.OperationCategory;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Step;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.StepType;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.ipc.StandbyException;
 import org.apache.hadoop.security.Credentials;
@@ -111,17 +113,17 @@ public class DelegationTokenSecretManager
    * @param in input stream to read fsimage
    * @throws IOException
    */
-  public synchronized void loadSecretManagerState(DataInputStream in,
-      String curFilePath) throws IOException {
+  public synchronized void loadSecretManagerState(DataInputStream in)
+      throws IOException {
     if (running) {
       // a safety check
       throw new IOException(
           "Can't load state from image in a running SecretManager.");
     }
     currentId = in.readInt();
-    loadAllKeys(in, curFilePath);
+    loadAllKeys(in);
     delegationTokenSequenceNumber = in.readInt();
-    loadCurrentTokens(in, curFilePath);
+    loadCurrentTokens(in);
   }
   
   /**
@@ -131,11 +133,11 @@ public class DelegationTokenSecretManager
    * @throws IOException
    */
   public synchronized void saveSecretManagerState(DataOutputStream out,
-      String curFilePath) throws IOException {
+      String sdPath) throws IOException {
     out.writeInt(currentId);
-    saveAllKeys(out, curFilePath);
+    saveAllKeys(out, sdPath);
     out.writeInt(delegationTokenSequenceNumber);
-    saveCurrentTokens(out, curFilePath);
+    saveCurrentTokens(out, sdPath);
   }
   
   /**
@@ -239,9 +241,9 @@ public class DelegationTokenSecretManager
    * Private helper methods to save delegation keys and tokens in fsimage
    */
   private synchronized void saveCurrentTokens(DataOutputStream out,
-      String curFilePath) throws IOException {
+      String sdPath) throws IOException {
     StartupProgress startupProgress = NameNode.getStartupProgress();
-    String step = curFilePath + " delegation tokens";
+    Step step = new Step(StepType.DELEGATION_TOKENS, sdPath);
     startupProgress.beginStep(Phase.SAVING_CHECKPOINT, step);
     startupProgress.setTotal(Phase.SAVING_CHECKPOINT, step,
       currentTokens.size());
@@ -261,10 +263,10 @@ public class DelegationTokenSecretManager
   /*
    * Save the current state of allKeys
    */
-  private synchronized void saveAllKeys(DataOutputStream out, String curFilePath)
+  private synchronized void saveAllKeys(DataOutputStream out, String sdPath)
       throws IOException {
     StartupProgress prog = NameNode.getStartupProgress();
-    String step = curFilePath + " delegation keys";
+    Step step = new Step(StepType.DELEGATION_KEYS, sdPath);
     prog.beginStep(Phase.SAVING_CHECKPOINT, step);
     prog.setTotal(Phase.SAVING_CHECKPOINT, step, currentTokens.size());
     out.writeInt(allKeys.size());
@@ -280,10 +282,10 @@ public class DelegationTokenSecretManager
   /**
    * Private helper methods to load Delegation tokens from fsimage
    */
-  private synchronized void loadCurrentTokens(DataInputStream in,
-      String curFilePath) throws IOException {
+  private synchronized void loadCurrentTokens(DataInputStream in)
+      throws IOException {
     StartupProgress prog = NameNode.getStartupProgress();
-    String step = "delegation tokens";
+    Step step = new Step(StepType.DELEGATION_TOKENS);
     prog.beginStep(Phase.LOADING_FSIMAGE, step);
     int numberOfTokens = in.readInt();
     prog.setTotal(Phase.LOADING_FSIMAGE, step, numberOfTokens);
@@ -302,10 +304,9 @@ public class DelegationTokenSecretManager
    * @param in
    * @throws IOException
    */
-  private synchronized void loadAllKeys(DataInputStream in, String curFilePath)
-      throws IOException {    
+  private synchronized void loadAllKeys(DataInputStream in) throws IOException {
     StartupProgress prog = NameNode.getStartupProgress();
-    String step = "delegation keys";
+    Step step = new Step(StepType.DELEGATION_KEYS);
     prog.beginStep(Phase.LOADING_FSIMAGE, step);
     int numberOfKeys = in.readInt();
     prog.setTotal(Phase.LOADING_FSIMAGE, step, numberOfKeys);

@@ -27,6 +27,9 @@ import java.util.Map;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.apache.commons.lang.builder.CompareToBuilder;
+import org.apache.commons.lang.builder.EqualsBuilder;
+import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.hadoop.classification.InterfaceAudience;
 
 @InterfaceAudience.Private
@@ -56,135 +59,210 @@ public class StartupProgress {
     }
   }
 
+  public enum StepType {
+    AWAITING_REPORTED_BLOCKS,
+    DELEGATION_KEYS,
+    DELEGATION_TOKENS,
+    INODES;
+  }
+
+  public static class Step implements Comparable<Step> {
+    private final String file;
+    private final Long size;
+    private final StepType type;
+
+    public Step(StepType type) {
+      this(null, null, type);
+    }
+
+    public Step(String file, long size) {
+      this(file, size, null);
+    }
+
+    public Step(StepType type, String file) {
+      this(file, null, type);
+    }
+
+    @Override
+    public int compareTo(Step other) {
+      return new CompareToBuilder().append(file, other.file)
+        .append(size, other.size).append(type, other.type).toComparison();
+    }
+
+    @Override
+    public boolean equals(Object otherObj) {
+      if (otherObj == null || otherObj.getClass() != getClass()) {
+        return false;
+      }
+      Step other = (Step)otherObj;
+      return new EqualsBuilder().append(this.file, other.file)
+        .append(this.size, other.size).append(this.type, other.type).isEquals();
+    }
+
+    public String getFile() {
+      return file;
+    }
+
+    public Long getSize() {
+      return size;
+    }
+
+    public StepType getType() {
+      return type;
+    }
+
+    @Override
+    public int hashCode() {
+      return new HashCodeBuilder().append(file).append(size).append(type)
+        .toHashCode();
+    }
+
+    private Step(String file, Long size, StepType type) {
+      this.file = file;
+      this.size = size;
+      this.type = type;
+    }
+  }
+
   public enum Status {
     PENDING,
     RUNNING,
     COMPLETE
   }
 
+  private static class PhaseTracking {
+    Long beginTime;
+    Long endTime;
+    String file;
+    Long size;
+  }
+
+  private static class StepTracking {
+    Long beginTime;
+    Long count;
+    Long endTime;
+    Long total;
+  }
+
+  private Map<Phase, PhaseTracking> phases = newConcurrentMap();
+  private Map<Phase, Map<Step, StepTracking>> steps = newConcurrentMap();
+
   private static EnumSet<Phase> VISIBLE_PHASES = EnumSet.range(LOADING_FSIMAGE,
     SAFEMODE);
-
-  private Map<Phase, Long> phaseBeginTime = newConcurrentMap();
-  private Map<Phase, Long> phaseEndTime = newConcurrentMap();
-  private Map<Phase, String> phaseTag = newConcurrentMap();
-  private Map<Phase, Map<String, Long>> stepBeginTime = newConcurrentMap();
-  private Map<Phase, Map<String, Long>> stepCount = newConcurrentMap();
-  private Map<Phase, Map<String, Long>> stepEndTime = newConcurrentMap();
-  private Map<Phase, Map<String, Long>> stepTotal = newConcurrentMap();
-
-  public StartupProgress() {
-    beginPhase(INITIALIZED);
-  }
 
   public static Iterable<Phase> getVisiblePhases() {
     return VISIBLE_PHASES;
   }
 
+  public StartupProgress() {
+    for (Phase phase: VISIBLE_PHASES) {
+      phases.put(phase, new PhaseTracking());
+      steps.put(phase, StartupProgress.<Step, StepTracking>newConcurrentMap());
+    }
+  }
+
   public void beginPhase(Phase phase) {
-    if (VISIBLE_PHASES.contains(phase)) {
-      phaseBeginTime.put(phase, monotonicNow());
-      stepBeginTime.put(phase, new ConcurrentHashMap<String, Long>());
-      stepCount.put(phase, new ConcurrentHashMap<String, Long>());
-      stepEndTime.put(phase, new ConcurrentHashMap<String, Long>());
-      stepTotal.put(phase, new ConcurrentHashMap<String, Long>());
-    }
+    phases.get(phase).beginTime = monotonicNow();
+    steps.put(phase, StartupProgress.<Step, StepTracking>newConcurrentMap());
   }
 
-  public void beginPhase(Phase phase, String tag) {
-    beginPhase(phase);
-    phaseTag.put(phase, tag);
+    // TODO: reconsider as setters for file and size (symmetry)
+  public void beginPhase(Phase phase, String file, long size) {
+    PhaseTracking tracking = phases.get(phase);
+    tracking.beginTime = monotonicNow();
+    tracking.file = file;
+    tracking.size = size;
+    steps.put(phase, StartupProgress.<Step, StepTracking>newConcurrentMap());
   }
 
-  public void beginStep(Phase phase, String step) {
-    if (VISIBLE_PHASES.contains(phase)) {
-       stepBeginTime.get(phase).put(step, monotonicNow());
-    }
+  public void beginStep(Phase phase, Step step) {
+    StepTracking tracking = new StepTracking();
+    tracking.beginTime = monotonicNow();
+    steps.get(phase).put(step, tracking);
   }
 
   public void endPhase(Phase phase) {
-    if (VISIBLE_PHASES.contains(phase)) {
-      phaseEndTime.put(phase, monotonicNow());
-    }
+    phases.get(phase).endTime = monotonicNow();
   }
 
-  public void endStep(Phase phase, String step) {
-    if (VISIBLE_PHASES.contains(phase)) {
-      stepEndTime.get(phase).put(step, monotonicNow());
-    }
+  public void endStep(Phase phase, Step step) {
+    steps.get(phase).get(step).endTime = monotonicNow();
   }
 
   public Status getStatus(Phase phase) {
-    if (phaseBeginTime.get(phase) == null) {
+    PhaseTracking tracking = phases.get(phase);
+    if (tracking.beginTime == null) {
       return Status.PENDING;
-    } else if (phaseEndTime.get(phase) == null) {
+    } else if (tracking.endTime == null) {
       return Status.RUNNING;
     } else {
       return Status.COMPLETE;
     }
   }
 
-  public void incrementCount(Phase phase, String step) {
-    Map<String, Long> stepsInPhase = stepCount.get(phase);
-    Long count = stepsInPhase.get(step);
+  // TODO: optimize by exposing counter directly
+  public void incrementCount(Phase phase, Step step) {
+    Map<Step, StepTracking> stepsInPhase = steps.get(phase);
+    StepTracking tracking = stepsInPhase.get(step);
+    Long count = tracking.count;
     if (count == null) {
       count = 0L;
     }
-    stepsInPhase.put(step, count + 1);
+    tracking.count = count + 1;
   }
 
-  public void setTotal(Phase phase, String step, long total) {
-    Map<String, Long> stepsInPhase = stepTotal.get(phase);
-    stepsInPhase.put(step, total);
+  public void setTotal(Phase phase, Step step, long total) {
+    steps.get(phase).get(step).total = total;
   }
 
   public View createView() {
     return new View(this);
   }
 
-  private <K, V> Map<K, V> newConcurrentMap() {
+  private static <K, V> Map<K, V> newConcurrentMap() {
     return new ConcurrentHashMap<K, V>();
   }
 
   public static class View {
-    private final Map<Phase, Long> viewPhaseBeginTime;
-    private final Map<Phase, Long> viewPhaseEndTime;
-    private final Map<Phase, String> viewPhaseTag;
-    private final Map<Phase, Map<String, Long>> viewStepBeginTime;
-    private final Map<Phase, Map<String, Long>> viewStepCount;
-    private final Map<Phase, Map<String, Long>> viewStepEndTime;
-    private final Map<Phase, Map<String, Long>> viewStepTotal;
+    private final Map<Phase, PhaseTracking> viewPhases;
+    private final Map<Phase, Map<Step, StepTracking>> viewSteps;
 
     public long getCount(Phase phase) {
-      return sumValues(viewStepCount.get(phase));
+      long sum = 0;
+      for (Step step: viewSteps.get(phase).keySet()) {
+        sum += getCount(phase, step);
+      }
+      return sum;
     }
 
-    public long getCount(Phase phase, String step) {
-      Map<String, Long> stepsInPhase = viewStepCount.get(phase);
-      Long count = stepsInPhase != null ? stepsInPhase.get(step) : null;
-      return count != null ? count : 0;
+    public long getCount(Phase phase, Step step) {
+      Map<Step, StepTracking> stepsInPhase = viewSteps.get(phase);
+      StepTracking tracking = stepsInPhase != null ? stepsInPhase.get(step) : null;
+      return tracking.count != null ? tracking.count : 0;
     }
 
     public long getElapsedTime() {
-      Long begin = viewPhaseBeginTime.get(Phase.LOADING_FSIMAGE);
-      Long end = viewPhaseEndTime.get(Phase.SAFEMODE);
+      Long begin = viewPhases.get(Phase.LOADING_FSIMAGE).beginTime;
+      Long end = viewPhases.get(Phase.SAFEMODE).endTime;
       return getElapsedTime(begin, end);
     }
 
     public long getElapsedTime(Phase phase) {
-      Long begin = viewPhaseBeginTime.get(phase);
-      Long end = viewPhaseEndTime.get(phase);
+      PhaseTracking tracking = viewPhases.get(phase);
+      return getElapsedTime(tracking.beginTime, tracking.endTime);
+    }
+
+    public long getElapsedTime(Phase phase, Step step) {
+      Map<Step, StepTracking> stepsInPhase = viewSteps.get(phase);
+      StepTracking tracking = stepsInPhase != null ? stepsInPhase.get(step) :
+        null;
+      Long begin = tracking != null ? tracking.beginTime : null;
+      Long end = tracking != null ? tracking.endTime : null;
       return getElapsedTime(begin, end);
     }
 
-    public long getElapsedTime(Phase phase, String step) {
-      Map<String, Long> stepBeginTimesInPhase = viewStepBeginTime.get(phase);
-      Long begin = stepBeginTimesInPhase != null ?
-        stepBeginTimesInPhase.get(step) : null;
-      Map<String, Long> stepEndTimesInPhase = viewStepEndTime.get(phase);
-      Long end = stepEndTimesInPhase != null ? stepEndTimesInPhase.get(step) :
-        null;
-      return getElapsedTime(begin, end);
+    public String getFile(Phase phase) {
+      return viewPhases.get(phase).file;
     }
 
     public float getPercentComplete() {
@@ -207,14 +285,14 @@ public class StartupProgress {
       } else {
         long total = getTotal(phase);
         long count = 0;
-        for (String step: getSteps(phase)) {
+        for (Step step: getSteps(phase)) {
           count += getCount(phase, step);
         }
         return total > 0 ? 1.0f * count / total : 0.0f;
       }
     }
 
-    public float getPercentComplete(Phase phase, String step) {
+    public float getPercentComplete(Phase phase, Step step) {
       if (getStatus(phase) == Status.COMPLETE) {
         return 1.0f;
       } else {
@@ -224,20 +302,21 @@ public class StartupProgress {
       }
     }
 
-    public String getPhaseTag(Phase phase) {
-      return viewPhaseTag.get(phase);
+    public Iterable<Step> getSteps(Phase phase) {
+      Map<Step, StepTracking> stepsInPhase = viewSteps.get(phase);
+      return stepsInPhase != null ? new TreeSet(stepsInPhase.keySet()) :
+        Collections.<Step>emptyList();
     }
 
-    public Iterable<String> getSteps(Phase phase) {
-      Map<String, Long> stepsInPhase = viewStepBeginTime.get(phase);
-      return stepsInPhase != null ? new TreeSet(stepsInPhase.keySet()) :
-        Collections.<String>emptyList();
+    public Long getSize(Phase phase) {
+      return viewPhases.get(phase).size;
     }
 
     public Status getStatus(Phase phase) {
-      if (viewPhaseBeginTime.get(phase) == null) {
+      PhaseTracking tracking = viewPhases.get(phase);
+      if (tracking == null || tracking.beginTime == null) {
         return Status.PENDING;
-      } else if (viewPhaseEndTime.get(phase) == null) {
+      } else if (tracking.endTime == null) {
         return Status.RUNNING;
       } else {
         return Status.COMPLETE;
@@ -245,23 +324,28 @@ public class StartupProgress {
     }
 
     public long getTotal(Phase phase) {
-      return sumValues(viewStepTotal.get(phase));
+      long sum = 0;
+      Map<Step, StepTracking> stepsInPhase = viewSteps.get(phase);
+      if (stepsInPhase != null) {
+        for (StepTracking tracking: stepsInPhase.values()) {
+          if (tracking.total != null) {
+            sum += tracking.total;
+          }
+        }
+      }
+      return sum;
     }
 
-    public long getTotal(Phase phase, String step) {
-      Map<String, Long> stepsInPhase = viewStepTotal.get(phase);
-      Long total = stepsInPhase.get(step);
-      return total != null ? total : 0;
+    public long getTotal(Phase phase, Step step) {
+      Map<Step, StepTracking> stepsInPhase = viewSteps.get(phase);
+      StepTracking tracking = stepsInPhase != null ? stepsInPhase.get(step) :
+        null;
+      return tracking != null ? tracking.total : 0;
     }
 
     private View(StartupProgress prog) {
-      viewPhaseBeginTime = copyMap(prog.phaseBeginTime);
-      viewPhaseEndTime = copyMap(prog.phaseEndTime);
-      viewPhaseTag = copyMap(prog.phaseTag);
-      viewStepBeginTime = copyMap(prog.stepBeginTime);
-      viewStepCount = copyMap(prog.stepCount);
-      viewStepEndTime = copyMap(prog.stepEndTime);
-      viewStepTotal = copyMap(prog.stepTotal);
+      viewPhases = copyMap(prog.phases);
+      viewSteps = copyMap(prog.steps);
     }
 
     private <K, V> Map<K, V> copyMap(Map<K, V> source) {
@@ -276,18 +360,6 @@ public class StartupProgress {
       } else {
         return 0;
       }
-    }
-
-    private long sumValues(Map<String, Long> map) {
-      long sum = 0;
-      if (map != null) {
-        for (Long value: map.values()) {
-          if (value != null) {
-            sum += value;
-          }
-        }
-      }
-      return sum;
     }
   }
 }
