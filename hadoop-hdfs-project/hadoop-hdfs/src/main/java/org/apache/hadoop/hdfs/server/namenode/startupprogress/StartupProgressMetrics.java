@@ -15,10 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdfs.server.namenode;
+package org.apache.hadoop.hdfs.server.namenode.startupprogress;
 
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgressView;
 import org.apache.hadoop.metrics2.MetricsCollector;
 import org.apache.hadoop.metrics2.MetricsInfo;
 import org.apache.hadoop.metrics2.MetricsRecordBuilder;
@@ -42,7 +43,7 @@ public class StartupProgressMetrics implements MetricsSource {
 
   @Override
   public void getMetrics(MetricsCollector collector, boolean all) {
-    StartupProgress.View prog = startupProgress.createView();
+    StartupProgressView prog = startupProgress.createView();
     MetricsRecordBuilder builder = collector.addRecord(
       STARTUP_PROGRESS_METRICS_INFO);
 

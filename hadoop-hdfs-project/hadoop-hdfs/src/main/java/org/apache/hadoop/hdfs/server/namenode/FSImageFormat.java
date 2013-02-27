@@ -45,10 +45,11 @@ import org.apache.hadoop.hdfs.protocol.LayoutVersion.Feature;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockManager;
 import org.apache.hadoop.hdfs.server.common.InconsistentFSStateException;
-import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Counter;
-import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
-import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Step;
-import org.apache.hadoop.hdfs.server.namenode.StartupProgress.StepType;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgress;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgress.Counter;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.Step;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.StepType;
 import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.io.Text;
 

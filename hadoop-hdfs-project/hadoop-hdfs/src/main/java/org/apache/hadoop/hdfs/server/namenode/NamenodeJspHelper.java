@@ -52,10 +52,11 @@ import org.apache.hadoop.hdfs.server.common.JspHelper;
 import org.apache.hadoop.hdfs.server.common.Storage;
 import org.apache.hadoop.hdfs.server.common.Storage.StorageDirectory;
 import org.apache.hadoop.hdfs.server.namenode.JournalSet.JournalAndStream;
-import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
-import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Status;
-import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Step;
-import org.apache.hadoop.hdfs.server.namenode.StartupProgress.StepType;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgressView;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.Status;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.Step;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.StepType;
 import org.apache.hadoop.hdfs.server.protocol.NamenodeProtocols;
 import org.apache.hadoop.http.HttpConfig;
 import org.apache.hadoop.io.Text;
@@ -434,7 +435,7 @@ class NamenodeJspHelper {
     }
 
     void generateStartupProgress(JspWriter out, NameNode nn) throws IOException {
-      StartupProgress.View prog = NameNode.getStartupProgress().createView();
+      StartupProgressView prog = NameNode.getStartupProgress().createView();
       FormattedWriter fout = new FormattedWriter(out);
       fout.println("<div id=\"startupprogress\">");
       fout.println("<div><span>Elapsed Time:</span> %s</div>",
@@ -472,7 +473,7 @@ class NamenodeJspHelper {
       fout.println("</div>");
     }
 
-    private void printPhase(FormattedWriter fout, StartupProgress.View prog,
+    private void printPhase(FormattedWriter fout, StartupProgressView prog,
         Phase phase) throws IOException {
       StringBuilder phaseLine = new StringBuilder();
       phaseLine.append(phase.getDescription());
@@ -491,7 +492,7 @@ class NamenodeJspHelper {
         StringUtils.formatTime(prog.getElapsedTime(phase)));
     }
 
-    private void printStep(FormattedWriter fout, StartupProgress.View prog,
+    private void printStep(FormattedWriter fout, StartupProgressView prog,
         Phase phase, Step step) throws IOException {
       StringBuilder stepLine = new StringBuilder();
       String file = step.getFile();

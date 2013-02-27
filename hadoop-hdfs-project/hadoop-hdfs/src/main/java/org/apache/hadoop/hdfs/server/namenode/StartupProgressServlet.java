@@ -25,9 +25,10 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
-import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Step;
-import org.apache.hadoop.hdfs.server.namenode.StartupProgress.StepType;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgressView;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.Step;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.StepType;
 import org.mortbay.util.ajax.JSON;
 
 @SuppressWarnings("serial")
@@ -48,7 +49,7 @@ public class StartupProgressServlet extends DfsServlet {
   protected void doGet(HttpServletRequest req, HttpServletResponse resp)
       throws IOException {
     resp.setContentType("application/json; charset=UTF-8");
-    StartupProgress.View prog = NameNode.getStartupProgress().createView();
+    StartupProgressView prog = NameNode.getStartupProgress().createView();
     List<Map<String, Object>> phases = new ArrayList<Map<String, Object>>();
 
     for (Phase phase: prog.getPhases()) {
