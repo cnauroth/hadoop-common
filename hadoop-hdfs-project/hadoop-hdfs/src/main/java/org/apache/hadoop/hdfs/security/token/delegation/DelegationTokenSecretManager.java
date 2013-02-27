@@ -32,6 +32,7 @@ import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.server.namenode.NameNode.OperationCategory;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Counter;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Step;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.StepType;
@@ -242,11 +243,11 @@ public class DelegationTokenSecretManager
    */
   private synchronized void saveCurrentTokens(DataOutputStream out,
       String sdPath) throws IOException {
-    StartupProgress startupProgress = NameNode.getStartupProgress();
+    StartupProgress prog = NameNode.getStartupProgress();
     Step step = new Step(StepType.DELEGATION_TOKENS, sdPath);
-    startupProgress.beginStep(Phase.SAVING_CHECKPOINT, step);
-    startupProgress.setTotal(Phase.SAVING_CHECKPOINT, step,
-      currentTokens.size());
+    prog.beginStep(Phase.SAVING_CHECKPOINT, step);
+    prog.setTotal(Phase.SAVING_CHECKPOINT, step, currentTokens.size());
+    Counter counter = prog.getCounter(Phase.SAVING_CHECKPOINT, step);
     out.writeInt(currentTokens.size());
     Iterator<DelegationTokenIdentifier> iter = currentTokens.keySet()
         .iterator();
@@ -255,9 +256,9 @@ public class DelegationTokenSecretManager
       id.write(out);
       DelegationTokenInformation info = currentTokens.get(id);
       out.writeLong(info.getRenewDate());
-      startupProgress.incrementCount(Phase.SAVING_CHECKPOINT, step);
+      counter.increment();
     }
-    startupProgress.endStep(Phase.SAVING_CHECKPOINT, step);
+    prog.endStep(Phase.SAVING_CHECKPOINT, step);
   }
   
   /*
@@ -269,12 +270,13 @@ public class DelegationTokenSecretManager
     Step step = new Step(StepType.DELEGATION_KEYS, sdPath);
     prog.beginStep(Phase.SAVING_CHECKPOINT, step);
     prog.setTotal(Phase.SAVING_CHECKPOINT, step, currentTokens.size());
+    Counter counter = prog.getCounter(Phase.SAVING_CHECKPOINT, step);
     out.writeInt(allKeys.size());
     Iterator<Integer> iter = allKeys.keySet().iterator();
     while (iter.hasNext()) {
       Integer key = iter.next();
       allKeys.get(key).write(out);
-      prog.incrementCount(Phase.SAVING_CHECKPOINT, step);
+      counter.increment();
     }
     prog.endStep(Phase.SAVING_CHECKPOINT, step);
   }
@@ -289,12 +291,13 @@ public class DelegationTokenSecretManager
     prog.beginStep(Phase.LOADING_FSIMAGE, step);
     int numberOfTokens = in.readInt();
     prog.setTotal(Phase.LOADING_FSIMAGE, step, numberOfTokens);
+    Counter counter = prog.getCounter(Phase.LOADING_FSIMAGE, step);
     for (int i = 0; i < numberOfTokens; i++) {
       DelegationTokenIdentifier id = new DelegationTokenIdentifier();
       id.readFields(in);
       long expiryTime = in.readLong();
       addPersistedDelegationToken(id, expiryTime);
-      prog.incrementCount(Phase.LOADING_FSIMAGE, step);
+      counter.increment();
     }
     prog.endStep(Phase.LOADING_FSIMAGE, step);
   }
@@ -310,11 +313,12 @@ public class DelegationTokenSecretManager
     prog.beginStep(Phase.LOADING_FSIMAGE, step);
     int numberOfKeys = in.readInt();
     prog.setTotal(Phase.LOADING_FSIMAGE, step, numberOfKeys);
+    Counter counter = prog.getCounter(Phase.LOADING_FSIMAGE, step);
     for (int i = 0; i < numberOfKeys; i++) {
       DelegationKey value = new DelegationKey();
       value.readFields(in);
       addKey(value);
-      prog.incrementCount(Phase.LOADING_FSIMAGE, step);
+      counter.increment();
     }
     prog.endStep(Phase.LOADING_FSIMAGE, step);
   }

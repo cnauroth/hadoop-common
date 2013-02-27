@@ -45,6 +45,7 @@ import org.apache.hadoop.hdfs.protocol.LayoutVersion.Feature;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockManager;
 import org.apache.hadoop.hdfs.server.common.InconsistentFSStateException;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Counter;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Step;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.StepType;
@@ -227,14 +228,15 @@ class FSImageFormat {
         // load all inodes
         LOG.info("Number of files = " + numFiles);
         prog.setTotal(Phase.LOADING_FSIMAGE, step, numFiles);
+        Counter counter = prog.getCounter(Phase.LOADING_FSIMAGE, step);
         if (LayoutVersion.supports(Feature.FSIMAGE_NAME_OPTIMIZATION,
             imgVersion)) {
-          loadLocalNameINodes(numFiles, in, step);
+          loadLocalNameINodes(numFiles, in, step, counter);
         } else {
-          loadFullNameINodes(numFiles, in, step);
+          loadFullNameINodes(numFiles, in, step, counter);
         }
 
-        loadFilesUnderConstruction(in, step);
+        loadFilesUnderConstruction(in, step, counter);
         prog.endStep(Phase.LOADING_FSIMAGE, step);
 
         loadSecretManagerState(in);
@@ -272,8 +274,8 @@ class FSImageFormat {
    * @param in image input stream
    * @throws IOException
    */  
-   private void loadLocalNameINodes(long numFiles, DataInputStream in, Step step)
-   throws IOException {
+   private void loadLocalNameINodes(long numFiles, DataInputStream in, Step step,
+       Counter counter) throws IOException {
      assert LayoutVersion.supports(Feature.FSIMAGE_NAME_OPTIMIZATION,
          getLayoutVersion());
      assert numFiles > 0;
@@ -282,14 +284,14 @@ class FSImageFormat {
      if( in.readShort() != 0) {
        throw new IOException("First node is not root");
      }   
-     INode root = loadINode(in, step);
+     INode root = loadINode(in, step, counter);
      // update the root's attributes
      updateRootAttr(root);
      numFiles--;
 
      // load rest of the nodes directory by directory
      while (numFiles > 0) {
-       numFiles -= loadDirectory(in, step);
+       numFiles -= loadDirectory(in, step, counter);
      }
      if (numFiles != 0) {
        throw new IOException("Read unexpect number of files: " + -numFiles);
@@ -303,7 +305,7 @@ class FSImageFormat {
     * @return number of child inodes read
     * @throws IOException
     */
-   private int loadDirectory(DataInputStream in, Step step)
+   private int loadDirectory(DataInputStream in, Step step, Counter counter)
        throws IOException {
      String parentPath = FSImageSerialization.readString(in);
      FSDirectory fsDir = namesystem.dir;
@@ -315,7 +317,7 @@ class FSImageFormat {
        // load single inode
        byte[] localName = new byte[in.readShort()];
        in.readFully(localName); // read local name
-       INode newNode = loadINode(in, step); // read rest of inode
+       INode newNode = loadINode(in, step, counter); // read rest of inode
 
        // add to parent
        newNode.setLocalName(localName);
@@ -332,14 +334,14 @@ class FSImageFormat {
    * @throws IOException if any error occurs
    */
   private void loadFullNameINodes(long numFiles,
-      DataInputStream in, Step step) throws IOException {
+      DataInputStream in, Step step, Counter counter) throws IOException {
     byte[][] pathComponents;
     byte[][] parentPath = {{}};      
     FSDirectory fsDir = namesystem.dir;
     INodeDirectory parentINode = fsDir.rootDir;
     for (long i = 0; i < numFiles; i++) {
       pathComponents = FSImageSerialization.readPathComponents(in);
-      INode newNode = loadINode(in, step);
+      INode newNode = loadINode(in, step, counter);
 
       if (isRoot(pathComponents)) { // it is the root
         // update the root's attributes
@@ -387,7 +389,7 @@ class FSImageFormat {
    * @param in data input stream from which image is read
    * @return an inode
    */
-  private INode loadINode(DataInputStream in, Step step)
+  private INode loadINode(DataInputStream in, Step step, Counter counter)
       throws IOException {
     long modificationTime = 0;
     long atime = 0;
@@ -433,13 +435,13 @@ class FSImageFormat {
     
     PermissionStatus permissions = PermissionStatus.read(in);
 
-    NameNode.getStartupProgress().incrementCount(Phase.LOADING_FSIMAGE, step);
+    counter.increment();
     return INode.newINode(inodeId, permissions, blocks, symlink, replication,
         modificationTime, atime, nsQuota, dsQuota, blockSize);
   }
 
-    private void loadFilesUnderConstruction(DataInputStream in, Step step)
-        throws IOException {
+    private void loadFilesUnderConstruction(DataInputStream in, Step step,
+        Counter counter) throws IOException {
       FSDirectory fsDir = namesystem.dir;
       int size = in.readInt();
 
@@ -448,8 +450,7 @@ class FSImageFormat {
       for (int i = 0; i < size; i++) {
         INodeFileUnderConstruction cons =
           FSImageSerialization.readINodeUnderConstruction(in);
-        NameNode.getStartupProgress().incrementCount(Phase.LOADING_FSIMAGE,
-          step);
+        counter.increment();
 
         // verify that file exists in namespace
         String path = cons.getLocalName();
@@ -563,6 +564,7 @@ class FSImageFormat {
       prog.beginStep(Phase.SAVING_CHECKPOINT, step);
       prog.setTotal(Phase.SAVING_CHECKPOINT, step,
         fsDir.rootDir.numItemsInTree());
+      Counter counter = prog.getCounter(Phase.SAVING_CHECKPOINT, step);
       long startTime = now();
       //
       // Write out data
@@ -593,9 +595,9 @@ class FSImageFormat {
         byte[] byteStore = new byte[4*HdfsConstants.MAX_PATH_LENGTH];
         ByteBuffer strbuf = ByteBuffer.wrap(byteStore);
         // save the root
-        saveINode2Image(fsDir.rootDir, out, step);
+        saveINode2Image(fsDir.rootDir, out, step, counter);
         // save the rest of the nodes
-        saveImage(strbuf, fsDir.rootDir, out, step);
+        saveImage(strbuf, fsDir.rootDir, out, step, counter);
         // save files under construction
         sourceNamesystem.saveFilesUnderConstruction(out);
         context.checkCancelled();
@@ -626,7 +628,8 @@ class FSImageFormat {
     private void saveImage(ByteBuffer currentDirName,
                                   INodeDirectory current,
                                   DataOutputStream out,
-                                  Step step) throws IOException {
+                                  Step step, Counter counter)
+        throws IOException {
       final List<INode> children = current.getChildrenList();
       if (children.isEmpty())
         return;
@@ -643,7 +646,7 @@ class FSImageFormat {
       int i = 0;
       for(INode child : children) {
         // print all children first
-        saveINode2Image(child, out, step);
+        saveINode2Image(child, out, step, counter);
         if (i++ % 50 == 0) {
           context.checkCancelled();
         }
@@ -652,16 +655,15 @@ class FSImageFormat {
         if(!child.isDirectory())
           continue;
         currentDirName.put(PATH_SEPARATOR).put(child.getLocalNameBytes());
-        saveImage(currentDirName, (INodeDirectory)child, out, step);
+        saveImage(currentDirName, (INodeDirectory)child, out, step, counter);
         currentDirName.position(prefixLen);
       }
     }
 
     private void saveINode2Image(INode inode, DataOutputStream out,
-        Step step) throws IOException {
+        Step step, Counter counter) throws IOException {
       FSImageSerialization.saveINode2Image(inode, out);
-      NameNode.getStartupProgress().incrementCount(Phase.SAVING_CHECKPOINT,
-        step);
+      counter.increment();
     }
   }
 }

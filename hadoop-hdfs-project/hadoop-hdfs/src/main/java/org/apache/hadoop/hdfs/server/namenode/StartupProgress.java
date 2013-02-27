@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -151,6 +152,10 @@ public class StartupProgress {
     COMPLETE
   }
 
+  public interface Counter {
+    void increment();
+  }
+
   private static class PhaseTracking implements Cloneable {
     Long beginTime;
     Long endTime;
@@ -175,7 +180,7 @@ public class StartupProgress {
 
   private static class StepTracking implements Cloneable {
     Long beginTime;
-    Long count;
+    AtomicLong count = new AtomicLong();
     Long endTime;
     int sequenceNumber;
     Long total;
@@ -184,7 +189,7 @@ public class StartupProgress {
     public StepTracking clone() {
       StepTracking clone = new StepTracking();
       clone.beginTime = beginTime;
-      clone.count = count;
+      clone.count = new AtomicLong(count.get());
       clone.endTime = endTime;
       clone.sequenceNumber = sequenceNumber;
       clone.total = total;
@@ -231,14 +236,14 @@ public class StartupProgress {
     }
   }
 
-  // TODO: optimize by exposing counter directly
-  public void incrementCount(Phase phase, Step step) {
-    StepTracking tracking = lazyInitStep(phase, step);
-    Long count = tracking.count;
-    if (count == null) {
-      count = 0L;
-    }
-    tracking.count = count + 1;
+  public Counter getCounter(Phase phase, Step step) {
+    final StepTracking tracking = lazyInitStep(phase, step);
+    return new Counter() {
+      @Override
+      public void increment() {
+        tracking.count.incrementAndGet();
+      }
+    };
   }
 
   public void setFile(Phase phase, String file) {
@@ -270,7 +275,7 @@ public class StartupProgress {
 
     public long getCount(Phase phase, Step step) {
       StepTracking tracking = getStepTracking(phase, step);
-      return tracking.count != null ? tracking.count : 0;
+      return tracking != null ? tracking.count.get() : 0;
     }
 
     public long getElapsedTime() {
@@ -367,7 +372,8 @@ public class StartupProgress {
 
     public long getTotal(Phase phase, Step step) {
       StepTracking tracking = getStepTracking(phase, step);
-      return tracking != null ? tracking.total : 0;
+      Long total = tracking != null ? tracking.total : null;
+      return total != null ? total : 0;
     }
 
     private View(StartupProgress prog) {

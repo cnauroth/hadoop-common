@@ -169,6 +169,7 @@ import org.apache.hadoop.hdfs.server.namenode.INode.BlocksMapUpdateInfo;
 import org.apache.hadoop.hdfs.server.namenode.INodeDirectory.INodesInPath;
 import org.apache.hadoop.hdfs.server.namenode.LeaseManager.Lease;
 import org.apache.hadoop.hdfs.server.namenode.NameNode.OperationCategory;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Counter;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Status;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Step;
@@ -3956,6 +3957,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     private boolean resourcesLow = false;
     /** Should safemode adjust its block totals as blocks come in */
     private boolean shouldIncrementallyTrackBlocks = false;
+    /** counter for tracking startup progress of reported blocks */
+    private Counter awaitingReportedBlocksCounter;
     
     /**
      * Creates SafeModeInfo when the name node enters
@@ -4205,9 +4208,13 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
         // Report startup progress only if we haven't completed startup yet.
         StartupProgress prog = NameNode.getStartupProgress();
         if (prog.getStatus(Phase.COMPLETE) == Status.PENDING) {
-          prog.incrementCount(Phase.SAFEMODE,
-            new Step(StepType.AWAITING_REPORTED_BLOCKS));
+          if (this.awaitingReportedBlocksCounter == null) {
+            this.awaitingReportedBlocksCounter = prog.getCounter(Phase.SAFEMODE,
+              new Step(StepType.AWAITING_REPORTED_BLOCKS));
+          }
+          this.awaitingReportedBlocksCounter.increment();
         }
+
         checkMode();
       }
     }

@@ -58,6 +58,7 @@ import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.TimesOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.UpdateBlocksOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.UpdateMasterKeyOp;
 import org.apache.hadoop.hdfs.server.namenode.LeaseManager.Lease;
+import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Counter;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Phase;
 import org.apache.hadoop.hdfs.server.namenode.StartupProgress.Step;
 import org.apache.hadoop.hdfs.util.Holder;
@@ -126,8 +127,10 @@ public class FSEditLogLoader {
     long numEdits = 0;
     long lastTxId = in.getLastTxId();
     long numTxns = (lastTxId - expectedStartingTxId) + 1;
+    StartupProgress prog = NameNode.getStartupProgress();
     Step step = new Step(in.getName(), in.length());
-    NameNode.getStartupProgress().setTotal(Phase.LOADING_EDITS, step, numTxns);
+    prog.setTotal(Phase.LOADING_EDITS, step, numTxns);
+    Counter counter = prog.getCounter(Phase.LOADING_EDITS, step);
     long lastLogTime = now();
     long lastInodeId = fsNamesys.getLastInodeId();
     
@@ -188,7 +191,7 @@ public class FSEditLogLoader {
           }
           // Now that the operation has been successfully decoded and
           // applied, update our bookkeeping.
-          incrOpCount(op.opCode, opCounts, step);
+          incrOpCount(op.opCode, opCounts, step, counter);
           if (op.hasTransactionId()) {
             lastAppliedTxId = op.getTransactionId();
             expectedTxId = lastAppliedTxId + 1;
@@ -623,7 +626,8 @@ public class FSEditLogLoader {
   }
 
   private void incrOpCount(FSEditLogOpCodes opCode,
-      EnumMap<FSEditLogOpCodes, Holder<Integer>> opCounts, Step step) {
+      EnumMap<FSEditLogOpCodes, Holder<Integer>> opCounts, Step step,
+      Counter counter) {
     Holder<Integer> holder = opCounts.get(opCode);
     if (holder == null) {
       holder = new Holder<Integer>(1);
@@ -631,7 +635,7 @@ public class FSEditLogLoader {
     } else {
       holder.held++;
     }
-    NameNode.getStartupProgress().incrementCount(Phase.LOADING_EDITS, step);
+    counter.increment();
   }
 
   /**
