@@ -305,12 +305,14 @@ public class StartupProgress {
         return 1.0f;
       } else {
         float total = 0.0f;
-        int count = 0;
+        int numPhases = 0;
         for (Phase phase: viewPhases.keySet()) {
-          ++count;
-          total += getPercentComplete(phase);
+          if (VISIBLE_PHASES.contains(phase)) {
+            ++numPhases;
+            total += getPercentComplete(phase);
+          }
         }
-        return Math.max(0.0f, Math.min(1.0f, total / count));
+        return getBoundedPercent(total / numPhases);
       }
     }
 
@@ -323,7 +325,7 @@ public class StartupProgress {
         for (Step step: getSteps(phase)) {
           count += getCount(phase, step);
         }
-        return total > 0 ? 1.0f * count / total : 0.0f;
+        return total > 0 ? getBoundedPercent(1.0f * count / total) : 0.0f;
       }
     }
 
@@ -333,7 +335,7 @@ public class StartupProgress {
       } else {
         long total = getTotal(phase, step);
         long count = getCount(phase, step);
-        return total > 0 ? 1.0f * count / total : 0.0f;
+        return total > 0 ? getBoundedPercent(1.0f * count / total) : 0.0f;
       }
     }
 
@@ -391,6 +393,10 @@ public class StartupProgress {
       } else {
         return 0;
       }
+    }
+
+    private float getBoundedPercent(float percent) {
+      return Math.max(0.0f, Math.min(1.0f, percent));
     }
 
     private StepTracking getStepTracking(Phase phase, Step step) {
