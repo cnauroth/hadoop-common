@@ -23,6 +23,8 @@ import static org.apache.hadoop.hdfs.server.namenode.startupprogress.StepType.*;
 import static org.junit.Assert.*;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.junit.Before;
@@ -42,13 +44,10 @@ public class TestStartupProgress {
     startupProgress.beginPhase(LOADING_FSIMAGE);
     Step loadingFsImageInodes = new Step(INODES);
     startupProgress.beginStep(LOADING_FSIMAGE, loadingFsImageInodes);
-    startupProgress.setTotal(LOADING_FSIMAGE, loadingFsImageInodes, 1000L);
     incrementCounter(LOADING_FSIMAGE, loadingFsImageInodes, 100L);
     startupProgress.endStep(LOADING_FSIMAGE, loadingFsImageInodes);
     Step loadingFsImageDelegationKeys = new Step(DELEGATION_KEYS);
     startupProgress.beginStep(LOADING_FSIMAGE, loadingFsImageDelegationKeys);
-    startupProgress.setTotal(LOADING_FSIMAGE, loadingFsImageDelegationKeys,
-      800L);
     incrementCounter(LOADING_FSIMAGE, loadingFsImageDelegationKeys, 200L);
     startupProgress.endStep(LOADING_FSIMAGE, loadingFsImageDelegationKeys);
     startupProgress.endPhase(LOADING_FSIMAGE);
@@ -56,7 +55,6 @@ public class TestStartupProgress {
     startupProgress.beginPhase(LOADING_EDITS);
     Step loadingEditsFile = new Step("file", 1000L);
     startupProgress.beginStep(LOADING_EDITS, loadingEditsFile);
-    startupProgress.setTotal(LOADING_EDITS, loadingEditsFile, 10000L);
     incrementCounter(LOADING_EDITS, loadingEditsFile, 5000L);
     startupProgress.endStep(LOADING_EDITS, loadingEditsFile);
     startupProgress.endPhase(LOADING_EDITS);
@@ -134,6 +132,7 @@ public class TestStartupProgress {
   @Test(timeout=10000)
   public void testInitialState() {
     StartupProgressView view = startupProgress.createView();
+    assertNotNull(view);
     assertEquals(0L, view.getElapsedTime());
     assertEquals(0.0f, view.getPercentComplete(), 0.001f);
     List<Phase> phases = new ArrayList<Phase>();
@@ -157,16 +156,9 @@ public class TestStartupProgress {
   }
 
   @Test(timeout=10000)
-  public void testMultiplePhasesAndSteps() {
-  }
-
-  @Test(timeout=10000)
   public void testPercentComplete() {
   }
 
-  /**
-   * Tests reporting of a phase's status.
-   */
   @Test(timeout=10000)
   public void testStatus() {
     startupProgress.beginPhase(LOADING_FSIMAGE);
@@ -180,17 +172,80 @@ public class TestStartupProgress {
   }
 
   @Test(timeout=10000)
-  public void testSteps() {
+  public void testStepSequence() {
+    // Test that steps are returned in the correct sort order (by file and then
+    // sequence number) by starting a few steps in a randomly shuffled order and
+    // then asserting that they are returned in the expected order.
+    Step[] expectedSteps = new Step[] {
+      new Step(INODES, "file1"),
+      new Step(DELEGATION_KEYS, "file1"),
+      new Step(INODES, "file2"),
+      new Step(DELEGATION_KEYS, "file2"),
+      new Step(INODES, "file3"),
+      new Step(DELEGATION_KEYS, "file3")
+    };
+
+    List<Step> shuffledSteps = new ArrayList<Step>(Arrays.asList(expectedSteps));
+    Collections.shuffle(shuffledSteps);
+
+    startupProgress.beginPhase(SAVING_CHECKPOINT);
+    for (Step step: shuffledSteps) {
+      startupProgress.beginStep(SAVING_CHECKPOINT, step);
+    }
+
+    List<Step> actualSteps = new ArrayList<Step>(expectedSteps.length);
+    StartupProgressView view = startupProgress.createView();
+    assertNotNull(view);
+    for (Step step: view.getSteps(SAVING_CHECKPOINT)) {
+      actualSteps.add(step);
+    }
+
+    assertArrayEquals(expectedSteps, actualSteps.toArray());
   }
 
   @Test(timeout=10000)
   public void testThreadSafety() {
+    // Test for thread safety by starting multiple threads that mutate the same
+    // StartupProgress instance in various ways.  We expect no internal
+    // corruption of data structures and no lost updates on counter increments.
   }
 
   @Test(timeout=10000)
   public void testTotal() {
+    startupProgress.beginPhase(LOADING_FSIMAGE);
+    Step loadingFsImageInodes = new Step(INODES);
+    startupProgress.beginStep(LOADING_FSIMAGE, loadingFsImageInodes);
+    startupProgress.setTotal(LOADING_FSIMAGE, loadingFsImageInodes, 1000L);
+    startupProgress.endStep(LOADING_FSIMAGE, loadingFsImageInodes);
+    Step loadingFsImageDelegationKeys = new Step(DELEGATION_KEYS);
+    startupProgress.beginStep(LOADING_FSIMAGE, loadingFsImageDelegationKeys);
+    startupProgress.setTotal(LOADING_FSIMAGE, loadingFsImageDelegationKeys,
+      800L);
+    startupProgress.endStep(LOADING_FSIMAGE, loadingFsImageDelegationKeys);
+    startupProgress.endPhase(LOADING_FSIMAGE);
+
+    startupProgress.beginPhase(LOADING_EDITS);
+    Step loadingEditsFile = new Step("file", 1000L);
+    startupProgress.beginStep(LOADING_EDITS, loadingEditsFile);
+    startupProgress.setTotal(LOADING_EDITS, loadingEditsFile, 10000L);
+    startupProgress.endStep(LOADING_EDITS, loadingEditsFile);
+    startupProgress.endPhase(LOADING_EDITS);
+
+    StartupProgressView view = startupProgress.createView();
+    assertNotNull(view);
+    assertEquals(1000L, view.getTotal(LOADING_FSIMAGE, loadingFsImageInodes));
+    assertEquals(800L, view.getTotal(LOADING_FSIMAGE,
+      loadingFsImageDelegationKeys));
+    assertEquals(10000L, view.getTotal(LOADING_EDITS, loadingEditsFile));
   }
 
+  /**
+   * Helper method to increment a counter a certain number of times.
+   * 
+   * @param phase Phase to increment
+   * @param step Step to increment
+   * @param delta long number of times to increment
+   */
   private void incrementCounter(Phase phase, Step step, long delta) {
     StartupProgress.Counter counter = startupProgress.getCounter(phase, step);
     for (long i = 0; i < delta; ++i) {
