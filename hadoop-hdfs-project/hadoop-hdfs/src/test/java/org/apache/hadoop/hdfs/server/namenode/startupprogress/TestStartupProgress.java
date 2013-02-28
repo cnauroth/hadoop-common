@@ -60,8 +60,6 @@ public class TestStartupProgress {
     Step loadingEditsFile = new Step("file", 1000L);
     startupProgress.beginStep(LOADING_EDITS, loadingEditsFile);
     incrementCounter(LOADING_EDITS, loadingEditsFile, 5000L);
-    startupProgress.endStep(LOADING_EDITS, loadingEditsFile);
-    startupProgress.endPhase(LOADING_EDITS);
 
     StartupProgressView view = startupProgress.createView();
     assertNotNull(view);
@@ -71,6 +69,17 @@ public class TestStartupProgress {
     assertEquals(5000L, view.getCount(LOADING_EDITS, loadingEditsFile));
     assertEquals(0L, view.getCount(SAVING_CHECKPOINT,
       new Step(StepType.INODES)));
+
+    // Increment a counter again and check that the existing view was not
+    // modified, but a new view shows the updated value.
+    incrementCounter(LOADING_EDITS, loadingEditsFile, 1000L);
+    startupProgress.endStep(LOADING_EDITS, loadingEditsFile);
+    startupProgress.endPhase(LOADING_EDITS);
+
+    assertEquals(5000L, view.getCount(LOADING_EDITS, loadingEditsFile));
+    view = startupProgress.createView();
+    assertNotNull(view);
+    assertEquals(6000L, view.getCount(LOADING_EDITS, loadingEditsFile));
   }
 
   @Test(timeout=10000)
