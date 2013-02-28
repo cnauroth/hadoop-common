@@ -26,6 +26,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -257,10 +261,68 @@ public class TestStartupProgress {
   }
 
   @Test(timeout=10000)
-  public void testThreadSafety() {
+  public void testThreadSafety() throws Exception {
     // Test for thread safety by starting multiple threads that mutate the same
     // StartupProgress instance in various ways.  We expect no internal
     // corruption of data structures and no lost updates on counter increments.
+    int numThreads = 100;
+
+    // Data tables used by each thread to determine values to pass to APIs.
+    final Phase[] phases = { LOADING_FSIMAGE, LOADING_FSIMAGE, LOADING_EDITS,
+      LOADING_EDITS };
+    final Step[] steps = new Step[] { new Step(INODES),
+      new Step(DELEGATION_KEYS), new Step(INODES), new Step(DELEGATION_KEYS) };
+    final String[] files = { "file1", "file1", "file2", "file2" };
+    final long[] sizes = { 1000L, 1000L, 2000L, 2000L };
+    final long[] totals = { 10000L, 20000L, 30000L, 40000L };
+
+    ExecutorService exec = Executors.newFixedThreadPool(numThreads);
+
+    try {
+      for (int i = 0; i < numThreads; ++i) {
+        final Phase phase = phases[i % phases.length];
+        final Step step = steps[i % steps.length];
+        final String file = files[i % files.length];
+        final long size = sizes[i % sizes.length];
+        final long total = totals[i % totals.length];
+
+        exec.submit(new Callable<Void>() {
+          @Override
+          public Void call() {
+            startupProgress.beginPhase(phase);
+            startupProgress.setFile(phase, file);
+            startupProgress.setSize(phase, size);
+            startupProgress.setTotal(phase, step, total);
+            incrementCounter(phase, step, 100L);
+            startupProgress.endStep(phase, step);
+            startupProgress.endPhase(phase);
+            return null;
+          }
+        });
+      }
+    } finally {
+      exec.shutdown();
+      assertTrue(exec.awaitTermination(10000L, TimeUnit.MILLISECONDS));
+    }
+
+    StartupProgressView view = startupProgress.createView();
+    assertNotNull(view);
+    assertEquals("file1", view.getFile(LOADING_FSIMAGE));
+    assertEquals(Long.valueOf(1000L), view.getSize(LOADING_FSIMAGE));
+    assertEquals(10000L, view.getTotal(LOADING_FSIMAGE, new Step(INODES)));
+    assertEquals(2500L, view.getCount(LOADING_FSIMAGE, new Step(INODES)));
+    assertEquals(20000L, view.getTotal(LOADING_FSIMAGE,
+      new Step(DELEGATION_KEYS)));
+    assertEquals(2500L, view.getCount(LOADING_FSIMAGE,
+      new Step(DELEGATION_KEYS)));
+
+    assertEquals("file2", view.getFile(LOADING_EDITS));
+    assertEquals(Long.valueOf(2000L), view.getSize(LOADING_EDITS));
+    assertEquals(30000L, view.getTotal(LOADING_EDITS, new Step(INODES)));
+    assertEquals(2500L, view.getCount(LOADING_EDITS, new Step(INODES)));
+    assertEquals(40000L, view.getTotal(LOADING_EDITS,
+      new Step(DELEGATION_KEYS)));
+    assertEquals(2500L, view.getCount(LOADING_EDITS, new Step(DELEGATION_KEYS)));
   }
 
   @Test(timeout=10000)
