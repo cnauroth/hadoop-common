@@ -21,12 +21,12 @@ package org.apache.hadoop.fs.azurenative;
 import java.io.*;
 import java.net.URI;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.BufferedFSInputStream;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -37,9 +37,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.permission.PermissionStatus;
 import org.apache.hadoop.fs.azure.AzureException;
-import org.apache.hadoop.io.retry.RetryPolicies;
-import org.apache.hadoop.io.retry.RetryPolicy;
-import org.apache.hadoop.io.retry.RetryProxy;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.Progressable;
@@ -69,9 +66,6 @@ public class NativeAzureFileSystem extends FileSystem {
   static final String PATH_DELIMITER = Path.SEPARATOR;
   static final String AZURE_TEMP_FOLDER = "_$azuretmpfolder$";
 
-  private static final String keyMaxRetries = "fs.azure.maxRetries";
-  private static final String keySleepTime = "fs.azure.sleepTimeSeconds";
-
   private static final int AZURE_MAX_FLUSH_RETRIES = 3;
   private static final int AZURE_MAX_READ_RETRIES = 3;
   private static final int AZURE_BACKOUT_TIME = 100;
@@ -79,9 +73,6 @@ public class NativeAzureFileSystem extends FileSystem {
   private static final int AZURE_UNBOUNDED_DEPTH = -1;
 
   private static final long MAX_AZURE_BLOCK_SIZE = 512 * 1024 * 1024L;
-
-  private static int DEFAULT_MAX_RETRIES = 4;
-  private static int DEFAULT_SLEEP_TIME_SECONDS = 10;
 
   /**
    * The configuration property that determines which group owns files created
@@ -109,6 +100,10 @@ public class NativeAzureFileSystem extends FileSystem {
    */
   private static final FsPermission UNIVERSAL_FILE_UMASK =
       FsPermission.createImmutable((short)0111);
+  static final String AZURE_BLOCK_LOCATION_HOST_PROPERTY_NAME =
+      "fs.azure.block.location.impersonatedhost";
+  private static final String AZURE_BLOCK_LOCATION_HOST_DEFAULT =
+      "localhost";
 
   private class NativeAzureFsInputStream extends FSInputStream {
     private InputStream in;
@@ -754,39 +749,8 @@ public class NativeAzureFileSystem extends FileSystem {
 
     if (suppressRetryPolicy) {
       actualStore.suppressRetryPolicy();
-      return actualStore;
     }
-
-    // TODO: Remove literals to improve portability and facilitate future
-    // TODO: future changes to constants.
-    // Get the base policy from the configuration file.
-    //
-    RetryPolicy basePolicy = RetryPolicies.retryUpToMaximumCountWithFixedSleep(
-        conf.getInt(keyMaxRetries, DEFAULT_MAX_RETRIES),
-        conf.getLong(keySleepTime, DEFAULT_SLEEP_TIME_SECONDS),
-        TimeUnit.SECONDS);
-
-    // Set up the exception policy map.
-    //
-    Map<Class<? extends Exception>, RetryPolicy> exceptionToPolicyMap =
-        new HashMap<Class<? extends Exception>, RetryPolicy>();
-
-    // Add base policies to the exception policy map.
-    //
-    exceptionToPolicyMap.put(IOException.class, basePolicy);
-    exceptionToPolicyMap.put(AzureException.class, basePolicy);
-
-    // Create a policy for the storeFile method by adding it to the method name
-    // to
-    // policy map.
-    //
-    RetryPolicy methodPolicy = RetryPolicies.retryByException(
-        RetryPolicies.TRY_ONCE_THEN_FAIL, exceptionToPolicyMap);
-    Map<String, RetryPolicy> methodNameToPolicyMap = new HashMap<String, RetryPolicy>();
-    methodNameToPolicyMap.put("storeFile", methodPolicy);
-
-    return (NativeFileSystemStore) RetryProxy.create(
-        NativeFileSystemStore.class, actualStore, methodNameToPolicyMap);
+    return actualStore;
   }
 
   // TODO: The logic for this method is confusing as to whether it strips the
@@ -1392,6 +1356,48 @@ public class NativeAzureFileSystem extends FileSystem {
       LOG.debug("Renamed " + src + " to " + dst + " successfully.");
     }
     return true;
+  }
+
+  /**
+   * Return an array containing hostnames, offset and size of
+   * portions of the given file. For ASV we'll just lie and give
+   * fake hosts to make sure we get many splits in MR jobs.
+   */
+  @Override
+  public BlockLocation[] getFileBlockLocations(FileStatus file,
+      long start, long len) throws IOException {
+    if (file == null) {
+      return null;
+    }
+
+    if ( (start < 0) || (len < 0) ) {
+      throw new IllegalArgumentException("Invalid start or len parameter");
+    }
+
+    if (file.getLen() < start) {
+      return new BlockLocation[0];
+    }
+    final String blobLocationHost = getConf().get(
+        AZURE_BLOCK_LOCATION_HOST_PROPERTY_NAME,
+        AZURE_BLOCK_LOCATION_HOST_DEFAULT);
+    final String[] name = { blobLocationHost };
+    final String[] host = { blobLocationHost };
+    long blockSize = file.getBlockSize();
+    if (blockSize <= 0) {
+      throw new IllegalArgumentException(
+          "The block size for the given file is not a positive number: " +
+          blockSize);
+    }
+    int numberOfLocations = (int)(len / blockSize) +
+        ((len % blockSize == 0) ? 0 : 1);
+    BlockLocation[] locations = new BlockLocation[numberOfLocations];
+    for (int i = 0; i < locations.length; i++) {
+      long currentOffset = start + (i * blockSize);
+      long currentLength = Math.min(blockSize, start + len - currentOffset);
+      locations[i] = new BlockLocation(name, host, currentOffset,
+          currentLength);
+    }
+    return locations;
   }
 
   /**

@@ -32,11 +32,12 @@ import org.apache.hadoop.metrics2.Metric;
 import org.apache.hadoop.metrics2.MetricsRecord;
 import org.apache.hadoop.metrics2.MetricsSink;
 import org.apache.hadoop.metrics2.MetricsTag;
-import org.apache.log4j.Logger;
 
 import com.microsoft.windowsazure.serviceruntime.RoleEnvironment;
 import com.microsoft.windowsazure.services.core.storage.*;
 import com.microsoft.windowsazure.services.table.client.*;
+import com.sun.org.apache.commons.logging.Log;
+import com.sun.org.apache.commons.logging.LogFactory;
 
 /**
  * This sink writes the metrics to a Windows Azure Table store. 
@@ -97,7 +98,7 @@ public class WindowsAzureTableSink implements MetricsSink {
 	
 	private CloudStorageAccount storageAccount;
 	
-	private static Logger logger = Logger.getLogger(WindowsAzureTableSink.class);
+	private static Log logger = LogFactory.getLog(WindowsAzureTableSink.class);
 	
 	/*
 	 * Contains a list of tables that are created on the Azure table store.
@@ -201,10 +202,9 @@ public class WindowsAzureTableSink implements MetricsSink {
 			metrics2KeyValuePairs.put(metric.name(), metric.value().toString());
 		}
 		
-		// The choice of row key means that two records of the same context from the same node 
-		// can't be written at the same time. But this does not happen 
+		// Using a guid as the rowkey to guarantee uniqueness
 		AzureTableMetrics2Entity metrics2Entity = 
-				new AzureTableMetrics2Entity(partitionKey, String.valueOf(record.timestamp()));
+				new AzureTableMetrics2Entity(partitionKey, UUID.randomUUID().toString());
 		
 		metrics2Entity.setMetrics2KeyValuePairs(metrics2KeyValuePairs);
 		
