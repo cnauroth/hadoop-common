@@ -145,11 +145,17 @@ Microsoft Windows SDK v7.1, Windows SDK 7.1 Command Prompt.)
 JAVA_HOME must be set, and the path must not contain spaces.  If the full path
 would contain spaces, then use the Windows short path instead.
 
-Set environment variable "Platform" to "x64" or "Win32", depending on whether
-you're running a 64-bit or 32-bit system:
-set Platform=x64
+You must set the Platform environment variable to either x64 or Win32 depending
+on whether you're running a 64-bit or 32-bit system.  Note that this is
+case-sensitive.  It must be "Platform", not "PLATFORM" or "platform".
+Environment variables on Windows are usually case-insensitive, but Maven treats
+them as case-sensitive.  Failure to set this environment variable correctly will
+cause msbuild to fail while building the native code in hadoop-common.
 
-Several tests requires that the user must have the Create Symbolic Links
+set Platform=x64 (when building on a 64-bit system)
+set Platform=Win32 (when building on a 32-bit system)
+
+Several tests require that the user must have the Create Symbolic Links
 privilege.
 
 All Maven goals are the same as described above, with the addition of profile
