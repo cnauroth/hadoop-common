@@ -1195,6 +1195,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private OperationContext getInstrumentedContext() {
     final OperationContext operationContext = new OperationContext();
     ResponseReceivedMetricUpdater.hook(operationContext, instrumentation, bandwidthGaugeUpdater);
+    ErrorMetricUpdater.hook(operationContext, instrumentation);
     return operationContext;
   }
 

@@ -57,6 +57,11 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     Path testFile = new Path("unit-test-file");
     writeString(testFile, "Testing");
     assertTrue(fs.exists(testFile));
+    FileStatus status = fs.getFileStatus(testFile);
+    assertNotNull(status);
+    // By default, files should be have masked permissions
+    // that grant RW to user, and R to group/other
+    assertEquals(new FsPermission((short)0644), status.getPermission());
     assertEquals("Testing", readString(testFile));
     fs.delete(testFile, true);
   }
@@ -66,6 +71,12 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     assertFalse(fs.exists(testFolder));
     assertTrue(fs.mkdirs(testFolder));
     assertTrue(fs.exists(testFolder));
+    FileStatus status = fs.getFileStatus(testFolder);
+    assertNotNull(status);
+    assertTrue(status.isDir());
+    // By default, directories should be have masked permissions
+    // that grant RWX to user, and RX to group/other
+    assertEquals(new FsPermission((short)0755), status.getPermission());
     Path innerFile = new Path(testFolder, "innerFile");
     assertTrue(fs.createNewFile(innerFile));
     assertTrue(fs.exists(innerFile));
@@ -316,7 +327,9 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     fs.setPermission(newFile, newPermission);
     FileStatus newStatus = fs.getFileStatus(newFile);
     assertNotNull(newStatus);
-    assertEquals(newPermission, newStatus.getPermission());
+    // We mask permissions to remove execute, so we should expect on RW
+    FsPermission expectedMaskedPermission = new FsPermission((short)0600);
+    assertEquals(expectedMaskedPermission, newStatus.getPermission());
     assertEquals("supergroup", newStatus.getGroup());
     assertEquals(UserGroupInformation.getCurrentUser().getShortUserName(),
         newStatus.getOwner());
