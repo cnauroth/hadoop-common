@@ -556,13 +556,11 @@ public class StreamJob implements Tool {
     String h = "UNDEF";
 
     try {
-       h = Shell.getHadoopHome();
+      h = Shell.getHadoopHome();
+    } catch (IOException e) {
+      LOG.warn("Missing required environment setting: HADOOP_HOME"
+        + " or hadoop.home.dir:" + e);
     }
-    catch (IOException e)
-    {
-      //fail("Missing required environment setting: HADOOP_HOME or hadoop.home.dir:"+e);
-    }
-
     return h;
   }
 

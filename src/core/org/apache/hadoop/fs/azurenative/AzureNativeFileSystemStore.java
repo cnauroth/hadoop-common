@@ -348,26 +348,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   /**
-   * Build an Azure storage connection string given an account name and the key.
-   * 
-   * @param accountName - account name associated with the Azure account.
-   * @param accountKey  -  Azure storage account key.
-   * @return connectionString - connection string build from account name and key
-   * @throws URISyntaxException 
-   * @throws AzureException 
-   */
-  private String buildAzureStorageConnectionString (final String accountName, 
-      final String accountKey) throws AzureException, URISyntaxException {
-    String connectionString = "DefaultEndpointsProtocol=" + getHTTPScheme() + ";" +
-        "AccountName=" + accountName + ";" +
-        "AccountKey=" + accountKey;
-
-    // Return to the caller with the connection string.
-    //
-    return connectionString;
-  }
-
-  /**
    * Get the appropriate return the appropriate scheme for communicating with
    * Azure depending on whether asv or asvs is specified in the target URI.
    * 
@@ -458,6 +438,24 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   /**
+   * Given the account name in the ASV URI, returns the full
+   * URI authority we should use. This adds the default
+   * .blob.core.windows.net if the account specified in the
+   * ASV URI is a simple unqualified name.
+   * @param accountName The account name in the ASV URI.
+   * @return The full authority to use in the HTTP(S) URI.
+   */
+  private static String getFullUriAuthority(String accountName) {
+    if (accountName.contains(".")) {
+      // Assume it's fully qualified already
+      return accountName;
+    } else {
+      // Default to the public Azure Storage URI's.
+      return accountName + ASV_URL_AUTHORITY;
+    }
+  }
+
+  /**
    * Connect to Azure storage using anonymous credentials.
    * 
    * @param uri - URI to target blob (R/O access to public blob)
@@ -474,8 +472,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     //
     String accountName = getAccountFromAuthority(uri);
     URI storageUri = new URI(getHTTPScheme() + ":" + PATH_DELIMITER + PATH_DELIMITER + 
-        accountName +
-        ASV_URL_AUTHORITY);
+        getFullUriAuthority(accountName));
 
     // Create the service client with anonymous credentials.
     //
@@ -532,23 +529,26 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       final String accountName, final String containerName, final String accountKey) 
           throws InvalidKeyException, StorageException, IOException, URISyntaxException {
 
-    // Build the connection string from the account name and the account key.
-    //
-    String connectionString = buildAzureStorageConnectionString(accountName, accountKey);
+    // If the account name is "acc.blob.core.windows.net", then the
+    // rawAccountName is just "acc"
+    String rawAccountName = accountName.split("\\.")[0];
+    StorageCredentials credentials =
+        new StorageCredentialsAccountAndKey(rawAccountName, accountKey);
+    String baseUriString = getHTTPScheme() + ":" + PATH_DELIMITER + PATH_DELIMITER +
+        getFullUriAuthority(accountName);
+    CloudStorageAccount account = new CloudStorageAccount(credentials,
+        new URI(baseUriString), null, null);
 
     // Capture storage account from the connection string in order to create
     // the blob client. The blob client will be used to retrieve the container
     // if it exists, otherwise a new container is created.
     //
-    account = CloudStorageAccount.parse(connectionString);
     storageInteractionLayer.createBlobClient(account);
     suppressRetryPolicyInClientIfNeeded();
 
     // Set the root directory.
     //
-    String containerUri = getHTTPScheme() + ":" + PATH_DELIMITER + PATH_DELIMITER +
-        accountName + 
-        ASV_URL_AUTHORITY +
+    String containerUri = baseUriString +
         PATH_DELIMITER +
         containerName;
     rootDirectory = storageInteractionLayer.getDirectoryReference(containerUri);
@@ -1004,19 +1004,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // Access is authenticated.
     //
     return true;
-  }
-
-  /**
-   * This private method determines whether or not to use absolute paths or
-   * the container reference depending on whether the original FileSystem
-   * object was constructed using the short- or long-form URI.
-   * 
-   * @returns boolean : true if the suffix of the authority is ASV_URL_AUTHORITY
-   */
-  public boolean useAbsolutePath() {
-    // Check that the suffix of the authority is ASV_URL_AUTHORITY
-    //
-    return sessionUri.getAuthority().toLowerCase().endsWith(ASV_URL_AUTHORITY);
   }
 
   /**

@@ -78,7 +78,7 @@ abstract class TaskRunner extends Thread {
   
   static final String HADOOP_WORK_DIR = "HADOOP_WORK_DIR";
   static final String HADOOP_HOME_DIR = "HADOOP_HOME";
-    
+  
   static final String MAPRED_ADMIN_USER_ENV =
     "mapreduce.admin.user.env";
 
@@ -514,12 +514,10 @@ abstract class TaskRunner extends Thread {
 
     // if temp directory path is not absolute, prepend it with workDir.
     if (!tmpDir.isAbsolute()) {
-      if (Shell.WINDOWS) {
+      if (Shell.WINDOWS)
         // trim leading and trailing quotes on Windows
-        String acmeDir = workDir.toString();
-        acmeDir = acmeDir.replaceAll("^\"|\"$", "");
-        tmpDir = new Path(acmeDir, tmp);
-      } else
+        tmpDir = new Path(workDir.toString().replaceAll("^\"|\"$", ""), tmp);
+      else
         tmpDir = new Path(workDir.toString(), tmp);
       if (createDir) {
         FileSystem localFs = FileSystem.getLocal(conf);
@@ -587,7 +585,11 @@ abstract class TaskRunner extends Thread {
     }
     env.put("LD_LIBRARY_PATH", ldLibraryPath.toString());
     env.put(HADOOP_WORK_DIR, workDir.toString());
+
     try {
+      // When launching tasks, the child may rely on HADOOP_HOME
+      // Make sure it is set even when home is set by 
+      // the -Dhadoop.home.dir flag.
       env.put(HADOOP_HOME_DIR, Shell.getHadoopHome());
     } catch (IOException ioe) {
       LOG.warn("Failed to propagate HADOOP_HOME_DIR to child ENV " + ioe);
@@ -644,11 +646,7 @@ abstract class TaskRunner extends Thread {
       for (String cEnv : childEnvs) {
         try {
           String[] parts = cEnv.split("="); // split on '='
-          Pattern p;
-          if (Shell.WINDOWS)
-            p = Pattern.compile("%([A-Za-z_][A-Za-z0-9_]*?)%");
-          else
-            p = Pattern.compile("\\$([A-Za-z_][A-Za-z0-9_]*)");
+          Pattern p = Pattern.compile(Shell.getEnvironmentVariableRegex());
           Matcher m = p.matcher(parts[1]);
           StringBuffer sb = new StringBuffer();
           while (m.find()) {
@@ -809,14 +807,11 @@ abstract class TaskRunner extends Thread {
   private static void symlink(File workDir, String target, String link)
       throws IOException {
     if (link != null) {
-      if (Shell.WINDOWS){
-        String path = workDir.toString();
-        // strip leading and trailing quotes
-        path = path.replaceAll("^\"|\"$", "");
-        link = path + "\\" + link;
-      }
+      if (Shell.WINDOWS)
+        // trim leading and trailing quotes on Windows
+        link = workDir.toString().replaceAll("^\"|\"$", "") + File.separator + link;
       else
-        link = workDir.toString() + Path.SEPARATOR + link;
+        link = workDir.toString() + File.separator + link;
       File flink = new File(link);
       if (!flink.exists()) {
         LOG.info(String.format("Creating symlink: %s <- %s", target, link));

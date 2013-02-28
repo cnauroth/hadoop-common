@@ -22,6 +22,11 @@
 ###   <username> and <password> represent account credentials used to run
 ###   Hadoop services as Windows services.
 ###
+### Account must have the following two privileges, otherwise
+### installation/runtime will fail.
+###   SeServiceLogonRight
+###   SeCreateSymbolicLinkPrivilege
+###
 ### By default, Hadoop is installed to "C:\Hadoop". To change this set
 ### HADOOP_NODE_INSTALL_ROOT environment variable to a location were
 ### you'd like Hadoop installed.
