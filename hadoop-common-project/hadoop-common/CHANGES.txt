@@ -392,6 +392,11 @@ Release 2.0.4-beta - UNRELEASED
     HADOOP-7487. DF should throw a more reasonable exception when mount cannot
     be determined. (Andrew Wang via atm)
 
+    HADOOP-8917. add LOCALE.US to toLowerCase in SecurityUtil.replacePattern.
+    (Arpit Gupta via suresh)
+
+    HADOOP-9342. Remove jline from distribution. (thw via tucu)
+
 Release 2.0.3-alpha - 2013-02-06 
 
   INCOMPATIBLE CHANGES
@@ -1378,6 +1383,9 @@ Release 0.23.7 - UNRELEASED
 
     HADOOP-9303. command manual dfsadmin missing entry for restoreFailedStorage
     option (Andy Isaacson via tgraves)
+
+    HADOOP-9339. IPC.Server incorrectly sets UGI auth type (Daryn Sharp via 
+    kihwal)
 
 Release 0.23.6 - UNRELEASED
 
