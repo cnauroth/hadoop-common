@@ -157,6 +157,59 @@ public class TestStartupProgress {
 
   @Test(timeout=10000)
   public void testPercentComplete() {
+    startupProgress.beginPhase(LOADING_FSIMAGE);
+    Step loadingFsImageInodes = new Step(INODES);
+    startupProgress.beginStep(LOADING_FSIMAGE, loadingFsImageInodes);
+    startupProgress.setTotal(LOADING_FSIMAGE, loadingFsImageInodes, 1000L);
+    incrementCounter(LOADING_FSIMAGE, loadingFsImageInodes, 100L);
+    Step loadingFsImageDelegationKeys = new Step(DELEGATION_KEYS);
+    startupProgress.beginStep(LOADING_FSIMAGE, loadingFsImageDelegationKeys);
+    startupProgress.setTotal(LOADING_FSIMAGE, loadingFsImageDelegationKeys,
+      800L);
+    incrementCounter(LOADING_FSIMAGE, loadingFsImageDelegationKeys, 200L);
+
+    startupProgress.beginPhase(LOADING_EDITS);
+    Step loadingEditsFile = new Step("file", 1000L);
+    startupProgress.beginStep(LOADING_EDITS, loadingEditsFile);
+    startupProgress.setTotal(LOADING_EDITS, loadingEditsFile, 10000L);
+    incrementCounter(LOADING_EDITS, loadingEditsFile, 5000L);
+
+    StartupProgressView view = startupProgress.createView();
+    assertNotNull(view);
+    assertEquals(0.167f, view.getPercentComplete(), 0.001f);
+    assertEquals(0.167f, view.getPercentComplete(LOADING_FSIMAGE), 0.001f);
+    assertEquals(0.10f, view.getPercentComplete(LOADING_FSIMAGE,
+      loadingFsImageInodes), 0.001f);
+    assertEquals(0.25f, view.getPercentComplete(LOADING_FSIMAGE,
+      loadingFsImageDelegationKeys), 0.001f);
+    assertEquals(0.5f, view.getPercentComplete(LOADING_EDITS), 0.001f);
+    assertEquals(0.5f, view.getPercentComplete(LOADING_EDITS, loadingEditsFile),
+      0.001f);
+    assertEquals(0.0f, view.getPercentComplete(SAVING_CHECKPOINT), 0.001f);
+    assertEquals(0.0f, view.getPercentComplete(SAVING_CHECKPOINT,
+      new Step(StepType.INODES)), 0.001f);
+
+    // End steps/phases, and confirm that they jump to 100% completion.
+    startupProgress.endStep(LOADING_FSIMAGE, loadingFsImageInodes);
+    startupProgress.endStep(LOADING_FSIMAGE, loadingFsImageDelegationKeys);
+    startupProgress.endPhase(LOADING_FSIMAGE);
+    startupProgress.endStep(LOADING_EDITS, loadingEditsFile);
+    startupProgress.endPhase(LOADING_EDITS);
+
+    view = startupProgress.createView();
+    assertNotNull(view);
+    assertEquals(0.5f, view.getPercentComplete(), 0.001f);
+    assertEquals(1.0f, view.getPercentComplete(LOADING_FSIMAGE), 0.001f);
+    assertEquals(1.0f, view.getPercentComplete(LOADING_FSIMAGE,
+      loadingFsImageInodes), 0.001f);
+    assertEquals(1.0f, view.getPercentComplete(LOADING_FSIMAGE,
+      loadingFsImageDelegationKeys), 0.001f);
+    assertEquals(1.0f, view.getPercentComplete(LOADING_EDITS), 0.001f);
+    assertEquals(1.0f, view.getPercentComplete(LOADING_EDITS, loadingEditsFile),
+      0.001f);
+    assertEquals(0.0f, view.getPercentComplete(SAVING_CHECKPOINT), 0.001f);
+    assertEquals(0.0f, view.getPercentComplete(SAVING_CHECKPOINT,
+      new Step(StepType.INODES)), 0.001f);
   }
 
   @Test(timeout=10000)
