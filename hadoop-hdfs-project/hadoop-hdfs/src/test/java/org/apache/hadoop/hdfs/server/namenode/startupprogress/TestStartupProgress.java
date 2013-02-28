@@ -268,13 +268,13 @@ public class TestStartupProgress {
     int numThreads = 100;
 
     // Data tables used by each thread to determine values to pass to APIs.
-    final Phase[] phases = { LOADING_FSIMAGE, LOADING_FSIMAGE, LOADING_EDITS,
+    Phase[] phases = { LOADING_FSIMAGE, LOADING_FSIMAGE, LOADING_EDITS,
       LOADING_EDITS };
-    final Step[] steps = new Step[] { new Step(INODES),
-      new Step(DELEGATION_KEYS), new Step(INODES), new Step(DELEGATION_KEYS) };
-    final String[] files = { "file1", "file1", "file2", "file2" };
-    final long[] sizes = { 1000L, 1000L, 2000L, 2000L };
-    final long[] totals = { 10000L, 20000L, 30000L, 40000L };
+    Step[] steps = new Step[] { new Step(INODES), new Step(DELEGATION_KEYS),
+      new Step(INODES), new Step(DELEGATION_KEYS) };
+    String[] files = { "file1", "file1", "file2", "file2" };
+    long[] sizes = { 1000L, 1000L, 2000L, 2000L };
+    long[] totals = { 10000L, 20000L, 30000L, 40000L };
 
     ExecutorService exec = Executors.newFixedThreadPool(numThreads);
 
