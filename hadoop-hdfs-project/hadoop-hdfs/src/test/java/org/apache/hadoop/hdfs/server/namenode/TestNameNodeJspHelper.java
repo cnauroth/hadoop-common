@@ -22,7 +22,6 @@ import static org.apache.hadoop.hdfs.server.namenode.startupprogress.Phase.*;
 import static org.mockito.Mockito.*;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -40,8 +39,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
+import org.mockito.ArgumentCaptor;
 
 public class TestNameNodeJspHelper {
 
@@ -94,15 +92,10 @@ public class TestNameNodeJspHelper {
     NamenodeJspHelper.HealthJsp jsp = new NamenodeJspHelper.HealthJsp();
     StartupProgress prog = NameNode.getStartupProgress();
     JspWriter out = mock(JspWriter.class);
-    final List<String> contents = new ArrayList<String>();
-    doAnswer(new Answer() {
-      @Override
-      public Object answer(InvocationOnMock invocation) {
-        contents.add((String)invocation.getArguments()[0]);
-        return null;
-      }
-    }).when(out).println(anyString());
     jsp.generateStartupProgress(out, prog);
+    ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+    verify(out, atLeastOnce()).println(captor.capture());
+    List<String> contents = captor.getAllValues();
 
     // Verify 100% overall completion and all phases mentioned in output.
     Assert.assertTrue(containsMatch(contents, "Elapsed Time\\:"));
