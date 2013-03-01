@@ -21,7 +21,6 @@ package org.apache.hadoop.fs.azurenative;
 import java.io.*;
 import java.net.URI;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.Log;
@@ -38,9 +37,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.permission.PermissionStatus;
 import org.apache.hadoop.fs.azure.AzureException;
-import org.apache.hadoop.io.retry.RetryPolicies;
-import org.apache.hadoop.io.retry.RetryPolicy;
-import org.apache.hadoop.io.retry.RetryProxy;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.Progressable;
@@ -70,9 +66,6 @@ public class NativeAzureFileSystem extends FileSystem {
   static final String PATH_DELIMITER = Path.SEPARATOR;
   static final String AZURE_TEMP_FOLDER = "_$azuretmpfolder$";
 
-  private static final String keyMaxRetries = "fs.azure.maxRetries";
-  private static final String keySleepTime = "fs.azure.sleepTimeSeconds";
-
   private static final int AZURE_MAX_FLUSH_RETRIES = 3;
   private static final int AZURE_MAX_READ_RETRIES = 3;
   private static final int AZURE_BACKOUT_TIME = 100;
@@ -80,9 +73,6 @@ public class NativeAzureFileSystem extends FileSystem {
   private static final int AZURE_UNBOUNDED_DEPTH = -1;
 
   private static final long MAX_AZURE_BLOCK_SIZE = 512 * 1024 * 1024L;
-
-  private static int DEFAULT_MAX_RETRIES = 4;
-  private static int DEFAULT_SLEEP_TIME_SECONDS = 10;
 
   /**
    * The configuration property that determines which group owns files created
@@ -104,6 +94,12 @@ public class NativeAzureFileSystem extends FileSystem {
   // 4MB buffers.
   private static final int DEFAULT_OUTPUT_STREAM_BUFFERSIZE = 4 * 1024 * 1024;
 
+  /**
+   * A umask to apply universally to remove execute permission on files/folders
+   * (similar to what DFS does).
+   */
+  private static final FsPermission UNIVERSAL_FILE_UMASK =
+      FsPermission.createImmutable((short)0111);
   static final String AZURE_BLOCK_LOCATION_HOST_PROPERTY_NAME =
       "fs.azure.block.location.impersonatedhost";
   private static final String AZURE_BLOCK_LOCATION_HOST_DEFAULT =
@@ -753,39 +749,8 @@ public class NativeAzureFileSystem extends FileSystem {
 
     if (suppressRetryPolicy) {
       actualStore.suppressRetryPolicy();
-      return actualStore;
     }
-
-    // TODO: Remove literals to improve portability and facilitate future
-    // TODO: future changes to constants.
-    // Get the base policy from the configuration file.
-    //
-    RetryPolicy basePolicy = RetryPolicies.retryUpToMaximumCountWithFixedSleep(
-        conf.getInt(keyMaxRetries, DEFAULT_MAX_RETRIES),
-        conf.getLong(keySleepTime, DEFAULT_SLEEP_TIME_SECONDS),
-        TimeUnit.SECONDS);
-
-    // Set up the exception policy map.
-    //
-    Map<Class<? extends Exception>, RetryPolicy> exceptionToPolicyMap =
-        new HashMap<Class<? extends Exception>, RetryPolicy>();
-
-    // Add base policies to the exception policy map.
-    //
-    exceptionToPolicyMap.put(IOException.class, basePolicy);
-    exceptionToPolicyMap.put(AzureException.class, basePolicy);
-
-    // Create a policy for the storeFile method by adding it to the method name
-    // to
-    // policy map.
-    //
-    RetryPolicy methodPolicy = RetryPolicies.retryByException(
-        RetryPolicies.TRY_ONCE_THEN_FAIL, exceptionToPolicyMap);
-    Map<String, RetryPolicy> methodNameToPolicyMap = new HashMap<String, RetryPolicy>();
-    methodNameToPolicyMap.put("storeFile", methodPolicy);
-
-    return (NativeFileSystemStore) RetryProxy.create(
-        NativeFileSystemStore.class, actualStore, methodNameToPolicyMap);
+    return actualStore;
   }
 
   // TODO: The logic for this method is confusing as to whether it strips the
@@ -893,7 +858,9 @@ public class NativeAzureFileSystem extends FileSystem {
     //
     String keyEncoded = encodeKey(key);
 
-    PermissionStatus permissionStatus = createPermissionStatus(permission);
+    // Mask the permission first (with the default permission mask as well).
+    FsPermission masked = applyUMask(permission, UMaskApplyMode.NewFile);
+    PermissionStatus permissionStatus = createPermissionStatus(masked);
 
     // First create a blob at the real key, pointing back to the temporary file
     // This accomplishes a few things:
@@ -1185,6 +1152,38 @@ public class NativeAzureFileSystem extends FileSystem {
         path.makeQualified(this));
   }
 
+  private static enum UMaskApplyMode {
+    NewFile,
+    NewDirectory,
+    ChangeExistingFile,
+    ChangeExistingDirectory,
+  }
+
+  /**
+   * Applies the applicable UMASK's on the given permission.
+   * @param permission The permission to mask.
+   * @param applyDefaultUmask Whether to also apply the default umask.
+   * @return The masked persmission.
+   */
+  private FsPermission applyUMask(final FsPermission permission,
+      final UMaskApplyMode applyMode) {
+    FsPermission newPermission = new FsPermission(permission);
+    // First apply the default umask - this applies for new files or
+    // directories.
+    if (applyMode == UMaskApplyMode.NewFile ||
+        applyMode == UMaskApplyMode.NewDirectory) {
+      newPermission = newPermission.applyUMask(
+          FsPermission.getUMask(getConf()));
+    }
+    // Then apply the universal umask for files, which always applies for
+    // files.
+    if (applyMode == UMaskApplyMode.NewFile ||
+        applyMode == UMaskApplyMode.ChangeExistingFile) {
+      newPermission = newPermission.applyUMask(UNIVERSAL_FILE_UMASK);
+    }
+    return newPermission;
+  }
+
   /**
    * Creates the PermissionStatus object to use for the given permission,
    * based on the current user in context.
@@ -1209,7 +1208,8 @@ public class NativeAzureFileSystem extends FileSystem {
     }
 
     Path absolutePath = makeAbsolute(f);
-    PermissionStatus permissionStatus = createPermissionStatus(permission);
+    PermissionStatus permissionStatus = createPermissionStatus(
+        applyUMask(permission, UMaskApplyMode.NewDirectory));
 
     ArrayList<String> keysToCreateAsFolder = new ArrayList<String>();
     // Check that there is no file in the parent chain of the given path.
@@ -1421,6 +1421,9 @@ public class NativeAzureFileSystem extends FileSystem {
     if (metadata == null) {
       throw new FileNotFoundException("File doesn't exist: " + p);
     }
+    permission = applyUMask(permission,
+        metadata.isDir() ? UMaskApplyMode.ChangeExistingDirectory :
+                           UMaskApplyMode.ChangeExistingFile);
     if (metadata.getBlobMaterialization() == BlobMaterialization.Implicit) {
       // It's an implicit folder, need to materialize it.
       store.storeEmptyFolder(key, createPermissionStatus(permission));

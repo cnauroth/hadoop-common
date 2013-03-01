@@ -133,6 +133,36 @@ public final class AzureBlobStorageTestAccount {
     return false;
   }
 
+  /**
+   * Gets the blob reference to the given blob key.
+   * @param blobKey The blob key (no initial slash).
+   * @return The blob reference.
+   */
+  public CloudBlockBlob getBlobReference(String blobKey)
+      throws Exception {
+    return container.getBlockBlobReference(String.format(
+        "%s/%s", container.getUri(), blobKey));
+  }
+
+  /**
+   * Acquires a short lease on the given blob in this test account.
+   * @param blobKey The key to the blob (no initial slash).
+   * @return The lease ID.
+   */
+  public String acquireShortLease(String blobKey) throws Exception {
+    return getBlobReference(blobKey).acquireLease(60, null);
+  }
+
+  /**
+   * Releases the lease on the container.
+   * @param leaseID The lease ID.
+   */
+  public void releaseLease(String leaseID, String blobKey) throws Exception {
+    AccessCondition accessCondition = new AccessCondition();
+    accessCondition.setLeaseID(leaseID);
+    getBlobReference(blobKey).releaseLease(accessCondition);
+  }
+
   private static void saveMetricsConfigFile() {
     if (!metricsConfigSaved) {
       new org.apache.hadoop.metrics2.impl.ConfigBuilder()

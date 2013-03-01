@@ -4,6 +4,7 @@ import java.io.*;
 import java.util.*;
 
 import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.azure.AzureException;
 import org.apache.hadoop.metrics2.*;
 import org.apache.hadoop.metrics2.lib.*;
 
@@ -87,6 +88,8 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     // List the root contents
     assertEquals(1, fs.listStatus(new Path("/")).length);    
     base = assertWebResponsesEquals(base, 1);
+
+    assertNoErrors();
   }
 
   private BandwidthGaugeUpdater getBandwidthGaugeUpdater() {
@@ -194,13 +197,81 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     expectedLatency = downloadDurationMs; // We're downloading less than a block.
     assertTrue("The download latency " + downloadLatency +
         " should be greater than zero now that I've just downloaded a file.",
-        uploadLatency > 0);
+        downloadLatency > 0);
     assertTrue("The download latency " + downloadLatency +
         " is more than the expected range of around " + expectedLatency +
         " milliseconds that the unit test observed. This should never be" +
         " the case since the test overestimates the latency by looking at " +
         " end-to-end time instead of just block download time.",
         downloadLatency <= expectedLatency);
+
+    assertNoErrors();
+  }
+
+  public void testMetricsOnBigFileCreateRead() throws Exception {
+    long base = getBaseWebResponses();
+
+    assertEquals(0, getCurrentBytesWritten(getInstrumentation()));
+
+    Path filePath = new Path("/metricsTest_webResponses");
+    final int FILE_SIZE = 100 * 1024 * 1024;
+
+    // Suppress auto-update of bandwidth metrics so we get
+    // to update them exactly when we want to.
+    getBandwidthGaugeUpdater().suppressAutoUpdate();
+
+    // Create a file
+    OutputStream outputStream = fs.create(filePath);
+    outputStream.write(new byte[FILE_SIZE]);
+    outputStream.close();
+
+    // The exact number of requests/responses that happen to create a file
+    // can vary  - at the time of writing this code it takes 3
+    // requests/responses for the 100 MB file, but that
+    // can very easily change in the future. Just assert that we do roughly
+    // more than 20 but less than 50.
+    logOpResponseCount("Creating a 100 MB file", base);
+    base = assertWebResponsesInRange(base, 20, 50);
+    getBandwidthGaugeUpdater().triggerUpdate(true);
+    long totalBytesWritten = getCurrentTotalBytesWritten(getInstrumentation());
+    assertTrue("The total bytes written  " + totalBytesWritten +
+        " is pretty far from the expected range of around " + FILE_SIZE +
+        " bytes plus a little overhead.",
+        totalBytesWritten >= FILE_SIZE && totalBytesWritten < (FILE_SIZE * 2));
+    long uploadRate = getLongGaugeValue(getInstrumentation(), ASV_UPLOAD_RATE);
+    System.out.println("Upload rate: " + uploadRate + " bytes/second.");
+    long uploadLatency = getLongGaugeValue(getInstrumentation(),
+        ASV_UPLOAD_LATENCY);
+    System.out.println("Upload latency: " + uploadLatency);
+    assertTrue("The upload latency " + uploadLatency +
+        " should be greater than zero now that I've just uploaded a file.",
+        uploadLatency > 0);
+
+    // Read the file
+    InputStream inputStream = fs.open(filePath);
+    int count = 0;
+    while (inputStream.read() >= 0) {
+      count++;
+    }
+    inputStream.close();
+    assertEquals(FILE_SIZE, count);
+
+    // Again, exact number varies. At the time of writing this code
+    // it takes 27 request/responses, so just assert a rough range between
+    // 20 and 40.
+    logOpResponseCount("Reading a 100 MB file", base);
+    base = assertWebResponsesInRange(base, 20, 40);
+    getBandwidthGaugeUpdater().triggerUpdate(false);
+    long totalBytesRead = getCurrentTotalBytesRead(getInstrumentation());
+    assertEquals(FILE_SIZE, totalBytesRead);
+    long downloadRate = getLongGaugeValue(getInstrumentation(), ASV_DOWNLOAD_RATE);
+    System.out.println("Download rate: " + downloadRate + " bytes/second.");
+    long downloadLatency = getLongGaugeValue(getInstrumentation(),
+        ASV_DOWNLOAD_LATENCY);
+    System.out.println("Download latency: " + downloadLatency);
+    assertTrue("The download latency " + downloadLatency +
+        " should be greater than zero now that I've just downloaded a file.",
+        downloadLatency > 0);
   }
 
   public void testMetricsOnFileRename() throws Exception {
@@ -221,6 +292,8 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     // Varies: at the time of writing this code it takes 7 requests/responses.
     logOpResponseCount("Renaming a file", base);
     base = assertWebResponsesInRange(base, 2, 15);
+
+    assertNoErrors();
   }
 
   public void testMetricsOnFileExistsDelete() throws Exception {
@@ -252,6 +325,8 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     logOpResponseCount("Deleting a file", base);
     base = assertWebResponsesInRange(base, 1, 4);
     assertEquals(1, getLongCounterValue(getInstrumentation(), ASV_FILES_DELETED));
+
+    assertNoErrors();
   }
 
   public void testMetricsOnDirRename() throws Exception {
@@ -275,6 +350,28 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     // to rename the directory with one file. Check for range 1-20 for now.
     logOpResponseCount("Renaming a directory", base);
     base = assertWebResponsesInRange(base, 1, 20);
+
+    assertNoErrors();
+  }
+
+  public void testClientErrorMetrics() throws Exception {
+    String directoryName = "metricsTestDirectory_ClientError";
+    Path directoryPath = new Path("/" + directoryName);
+    assertTrue(fs.mkdirs(directoryPath));
+    String leaseID = testAccount.acquireShortLease(directoryName);
+    try {
+      try {
+        fs.delete(directoryPath, true);
+        assertTrue("Should've thrown.", false);
+      } catch (AzureException ex) {
+        assertTrue("Unexpected exception: " + ex,
+            ex.getMessage().contains("lease"));
+      }
+      assertEquals(1, getLongCounterValue(getInstrumentation(), ASV_CLIENT_ERRORS));
+      assertEquals(0, getLongCounterValue(getInstrumentation(), ASV_SERVER_ERRORS));
+    } finally {
+      testAccount.releaseLease(leaseID, directoryName);
+    }
   }
 
   private void logOpResponseCount(String opName, long base) {
@@ -311,6 +408,11 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
   private long assertWebResponsesEquals(long base, long expected) {
     assertCounter(ASV_WEB_RESPONSES, base + expected, getMyMetrics());
     return base + expected;
+  }
+
+  private void assertNoErrors() {
+    assertEquals(0, getLongCounterValue(getInstrumentation(), ASV_CLIENT_ERRORS));
+    assertEquals(0, getLongCounterValue(getInstrumentation(), ASV_SERVER_ERRORS));
   }
 
   /**
