@@ -304,6 +304,21 @@ public class RMNodeImpl implements RMNode, EventHandler<RMNodeEvent> {
   };
 
   @Override
+  public void updateHeartbeatResponseForCleanup(HeartbeatResponse response) {
+    this.writeLock.lock();
+
+    try {
+      response.addAllContainersToCleanup(
+          new ArrayList<ContainerId>(this.containersToClean));
+      response.addAllApplicationsToCleanup(this.finishedApplications);
+      this.containersToClean.clear();
+      this.finishedApplications.clear();
+    } finally {
+      this.writeLock.unlock();
+    }
+  };
+
+  @Override
   public HeartbeatResponse getLastHeartBeatResponse() {
 
     this.readLock.lock();
@@ -498,6 +513,8 @@ public class RMNodeImpl implements RMNode, EventHandler<RMNodeEvent> {
           statusEvent.getNodeHealthStatus();
       rmNode.setNodeHealthStatus(remoteNodeHealthStatus);
       if (!remoteNodeHealthStatus.getIsNodeHealthy()) {
+        LOG.info("Node " + rmNode.nodeId + " reported UNHEALTHY with details: "
+            + remoteNodeHealthStatus.getHealthReport());
         rmNode.nodeUpdateQueue.clear();
         // Inform the scheduler
         rmNode.context.getDispatcher().getEventHandler().handle(
@@ -561,12 +578,6 @@ public class RMNodeImpl implements RMNode, EventHandler<RMNodeEvent> {
       
       rmNode.context.getDelegationTokenRenewer().updateKeepAliveApplications(
           statusEvent.getKeepAliveAppIds());
-
-      // HeartBeat processing from our end is done, as node pulls the following
-      // lists before sending status-updates. Clear data-structures
-      // TODO: These lists could go to the NM multiple times, or never.
-      rmNode.containersToClean.clear();
-      rmNode.finishedApplications.clear();
 
       return NodeState.RUNNING;
     }

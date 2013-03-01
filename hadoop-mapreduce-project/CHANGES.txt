@@ -198,6 +198,9 @@ Release 2.0.4-beta - UNRELEASED
     MAPREDUCE-4693. History server should include counters for failed tasks.
     (Xuan Gong via sseth)
 
+    MAPREDUCE-4896. mapred queue -info spits out ugly exception when queue does 
+    not exist. (sandyr via tucu)
+
 Release 2.0.3-alpha - 2013-02-06 
 
   INCOMPATIBLE CHANGES
@@ -747,6 +750,9 @@ Release 0.23.7 - UNRELEASED
     MAPREDUCE-5009. Killing the Task Attempt slated for commit does not clear
     the value from the Task commitAttempt member (Robert Parker via jeagles)
 
+    MAPREDUCE-4871. AM uses mapreduce.jobtracker.split.metainfo.maxsize but
+    mapred-default has mapreduce.job.split.metainfo.maxsize (Jason Lowe via
+    jeagles)
 
 Release 0.23.6 - UNRELEASED
 
