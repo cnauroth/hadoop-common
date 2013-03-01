@@ -103,7 +103,6 @@ public class TestNameNodeJspHelper {
       }
     }).when(out).println(anyString());
     jsp.generateStartupProgress(out, prog);
-    System.out.println("cn contents" + contents);
 
     // Verify 100% overall completion and all phases mentioned in output.
     Assert.assertTrue(containsMatch(contents, "Elapsed Time\\:"));
