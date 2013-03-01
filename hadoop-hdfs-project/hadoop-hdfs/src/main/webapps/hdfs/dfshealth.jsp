@@ -74,7 +74,7 @@
 <% healthjsp.generateConfReport(out, nn, request); %>
 <hr>
 <h3>Startup Progress</h3>
-<% healthjsp.generateStartupProgress(out, nn); %>
+<% healthjsp.generateStartupProgress(out, nn.getStartupProgress()); %>
 <%
 out.println(ServletUtil.htmlFooter());
 %>

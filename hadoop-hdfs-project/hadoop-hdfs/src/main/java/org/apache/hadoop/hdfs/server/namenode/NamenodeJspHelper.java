@@ -53,6 +53,7 @@ import org.apache.hadoop.hdfs.server.common.Storage;
 import org.apache.hadoop.hdfs.server.common.Storage.StorageDirectory;
 import org.apache.hadoop.hdfs.server.namenode.JournalSet.JournalAndStream;
 import org.apache.hadoop.hdfs.server.namenode.startupprogress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgress;
 import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgressView;
 import org.apache.hadoop.hdfs.server.namenode.startupprogress.Status;
 import org.apache.hadoop.hdfs.server.namenode.startupprogress.Step;
@@ -434,23 +435,24 @@ class NamenodeJspHelper {
       }
     }
 
-    void generateStartupProgress(JspWriter out, NameNode nn) throws IOException {
-      StartupProgressView prog = NameNode.getStartupProgress().createView();
+    void generateStartupProgress(JspWriter out, StartupProgress prog)
+        throws IOException {
+      StartupProgressView view = prog.createView();
       FormattedWriter fout = new FormattedWriter(out);
       fout.println("<div id=\"startupprogress\">");
       fout.println("<div><span>Elapsed Time:</span> %s</div>",
-        StringUtils.formatTime(prog.getElapsedTime()));
+        StringUtils.formatTime(view.getElapsedTime()));
       fout.println("<div><span>Percent Complete:</span> %s</div>",
-        StringUtils.formatPercent(prog.getPercentComplete(), 2));
+        StringUtils.formatPercent(view.getPercentComplete(), 2));
       fout.println("<table>");
       fout.println("<tr>");
       fout.println("<th>Phase</th>");
       fout.println("<th>Completion</th>");
       fout.println("<th>Elapsed Time</th>");
       fout.println("</tr>");
-      for (Phase phase: prog.getPhases()) {
+      for (Phase phase: view.getPhases()) {
         final String timeClass;
-        Status status = prog.getStatus(phase);
+        Status status = view.getStatus(phase);
         if (status == Status.PENDING) {
           timeClass = "later";
         } else if (status == Status.RUNNING) {
@@ -460,12 +462,12 @@ class NamenodeJspHelper {
         }
 
         fout.println("<tr class=\"phase %s\">", timeClass);
-        printPhase(fout, prog, phase);
+        printPhase(fout, view, phase);
         fout.println("</tr>");
 
-        for (Step step: prog.getSteps(phase)) {
+        for (Step step: view.getSteps(phase)) {
           fout.println("<tr class=\"step %s\">", timeClass);
-          printStep(fout, prog, phase, step);
+          printStep(fout, view, phase, step);
           fout.println("</tr>");
         }
       }
@@ -473,26 +475,26 @@ class NamenodeJspHelper {
       fout.println("</div>");
     }
 
-    private void printPhase(FormattedWriter fout, StartupProgressView prog,
+    private void printPhase(FormattedWriter fout, StartupProgressView view,
         Phase phase) throws IOException {
       StringBuilder phaseLine = new StringBuilder();
       phaseLine.append(phase.getDescription());
-      String file = prog.getFile(phase);
+      String file = view.getFile(phase);
       if (file != null) {
         phaseLine.append(" ").append(file);
       }
-      Long size = prog.getSize(phase);
+      Long size = view.getSize(phase);
       if (size != null) {
         phaseLine.append(" (").append(StringUtils.byteDesc(size)).append(")");
       }
       fout.println("<td class=\"startupdesc\">%s</td>", phaseLine.toString());
       fout.println("<td>%s</td>", StringUtils.formatPercent(
-        prog.getPercentComplete(phase), 2));
-      fout.println("<td>%s</td>", prog.getStatus(phase) == Status.PENDING ? "" :
-        StringUtils.formatTime(prog.getElapsedTime(phase)));
+        view.getPercentComplete(phase), 2));
+      fout.println("<td>%s</td>", view.getStatus(phase) == Status.PENDING ? "" :
+        StringUtils.formatTime(view.getElapsedTime(phase)));
     }
 
-    private void printStep(FormattedWriter fout, StartupProgressView prog,
+    private void printStep(FormattedWriter fout, StartupProgressView view,
         Phase phase, Step step) throws IOException {
       StringBuilder stepLine = new StringBuilder();
       String file = step.getFile();
@@ -509,12 +511,12 @@ class NamenodeJspHelper {
       }
 
       fout.println("<td class=\"startupdesc\">%s (%d/%d)</td>",
-        stepLine.toString(), prog.getCount(phase, step),
-        prog.getTotal(phase, step));
+        stepLine.toString(), view.getCount(phase, step),
+        view.getTotal(phase, step));
       fout.println("<td>%s</td>", StringUtils.formatPercent(
-        prog.getPercentComplete(phase), 2));
-      fout.println("<td>%s</td>", prog.getStatus(phase) == Status.PENDING ? "" :
-        StringUtils.formatTime(prog.getElapsedTime(phase)));
+        view.getPercentComplete(phase), 2));
+      fout.println("<td>%s</td>", view.getStatus(phase) == Status.PENDING ? "" :
+        StringUtils.formatTime(view.getElapsedTime(phase)));
     }
 
     private static class FormattedWriter {
