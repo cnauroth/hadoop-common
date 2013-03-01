@@ -26,7 +26,7 @@ public enum Phase {
   LOADING_EDITS("LoadingEdits", "Loading edits"),
   SAVING_CHECKPOINT("SavingCheckpoint", "Saving checkpoint"),
   SAFEMODE("SafeMode", "Safe mode"),
-  COMPLETE("Complete", "Complete");
+  STARTUP_COMPLETE("StartupComplete", "Startup complete");
 
   static EnumSet<Phase> VISIBLE_PHASES = EnumSet.range(LOADING_FSIMAGE,
     SAFEMODE);

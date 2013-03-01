@@ -136,7 +136,7 @@ public class TestStartupProgressMetrics {
     startupProgress.endStep(SAFEMODE, awaitingBlocks);
     startupProgress.endPhase(SAFEMODE);
 
-    startupProgress.beginPhase(COMPLETE);
+    startupProgress.beginPhase(STARTUP_COMPLETE);
 
     MetricsRecordBuilder builder = getMetrics(metrics, true);
     assertTrue(getLongCounter("ElapsedTime", builder) >= 0L);

@@ -237,7 +237,7 @@ public class TestStartupProgress {
     startupProgress.beginPhase(LOADING_EDITS);
     StartupProgressView view = startupProgress.createView();
     assertNotNull(view);
-    assertEquals(Status.COMPLETE, view.getStatus(LOADING_FSIMAGE));
+    assertEquals(COMPLETE, view.getStatus(LOADING_FSIMAGE));
     assertEquals(RUNNING, view.getStatus(LOADING_EDITS));
     assertEquals(PENDING, view.getStatus(SAVING_CHECKPOINT));
   }
