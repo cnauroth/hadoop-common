@@ -149,13 +149,15 @@ public class StartupProgressView {
   }
 
   private long getElapsedTime(Long begin, Long end) {
+    final long elapsed;
     if (begin != null && end != null) {
-      return end - begin;
+      elapsed = end - begin;
     } else if (begin != null) {
-      return Time.monotonicNow() - begin;
+      elapsed = Time.monotonicNow() - begin;
     } else {
-      return 0;
+      elapsed = 0;
     }
+    return Math.max(0, elapsed);
   }
 
   private StepTracking getStepTracking(Phase phase, Step step) {
