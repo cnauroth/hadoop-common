@@ -17,6 +17,8 @@
  */
 package org.apache.hadoop.hdfs.server.namenode.startupprogress;
 
+import static org.apache.hadoop.metrics2.lib.Interns.info;
+
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.hdfs.server.namenode.startupprogress.Phase;
 import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgressView;
@@ -30,7 +32,7 @@ import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 public class StartupProgressMetrics implements MetricsSource {
 
   private static final MetricsInfo STARTUP_PROGRESS_METRICS_INFO =
-    createMetricsInfo("StartupProgress", "NameNode startup progress");
+    info("StartupProgress", "NameNode startup progress");
 
   private final StartupProgress startupProgress;
 
@@ -47,10 +49,10 @@ public class StartupProgressMetrics implements MetricsSource {
     MetricsRecordBuilder builder = collector.addRecord(
       STARTUP_PROGRESS_METRICS_INFO);
 
-    builder.addCounter(createMetricsInfo("ElapsedTime", "overall elapsed time"),
+    builder.addCounter(info("ElapsedTime", "overall elapsed time"),
       prog.getElapsedTime());
-    builder.addGauge(createMetricsInfo("PercentComplete",
-      "overall percent complete"), prog.getPercentComplete());
+    builder.addGauge(info("PercentComplete", "overall percent complete"),
+      prog.getPercentComplete());
 
     for (Phase phase: prog.getPhases()) {
       addCounter(builder, phase, "Count", " count", prog.getCount(phase));
@@ -64,30 +66,15 @@ public class StartupProgressMetrics implements MetricsSource {
 
   private static void addCounter(MetricsRecordBuilder builder, Phase phase,
       String nameSuffix, String descSuffix, long value) {
-    MetricsInfo metricsInfo = createMetricsInfo(phase.getName() + nameSuffix,
+    MetricsInfo metricsInfo = info(phase.getName() + nameSuffix,
       phase.getDescription() + descSuffix);
     builder.addCounter(metricsInfo, value);
   }
 
   private static void addGauge(MetricsRecordBuilder builder, Phase phase,
       String nameSuffix, String descSuffix, float value) {
-    MetricsInfo metricsInfo = createMetricsInfo(phase.getName() + nameSuffix,
+    MetricsInfo metricsInfo = info(phase.getName() + nameSuffix,
       phase.getDescription() + descSuffix);
     builder.addGauge(metricsInfo, value);
-  }
-
-  private static MetricsInfo createMetricsInfo(final String name,
-      final String desc) {
-    return new MetricsInfo() {
-      @Override
-      public String name() {
-        return name;
-      }
-
-      @Override
-      public String description() {
-        return desc;
-      }
-    };
   }
 }
