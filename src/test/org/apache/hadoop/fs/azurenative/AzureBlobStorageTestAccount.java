@@ -14,6 +14,12 @@ import com.microsoft.windowsazure.services.blob.client.*;
 import com.microsoft.windowsazure.services.core.storage.*;
 import com.microsoft.windowsazure.services.core.storage.utils.Base64;
 
+/**
+ * Helper class to create ASV file systems backed by either a mock in-memory
+ * implementation or a real Azure Storage account.
+ * See RunningLiveAsvTests.txt for instructions on how to connect to a real
+ * Azure Storage account.
+ */
 public final class AzureBlobStorageTestAccount {
 
   private static final String ACCOUNT_KEY_PROPERTY_NAME = "fs.azure.account.key.";
@@ -221,7 +227,8 @@ public final class AzureBlobStorageTestAccount {
     String testAccountName = conf.get(TEST_ACCOUNT_NAME_PROPERTY_NAME);
     if (testAccountName == null) {
       System.out
-        .println("Skipping live Azure test because of missing connection string.");
+        .println("Skipping live Azure test because of missing test account." +
+                 " Please see RunningLiveAsvTests.txt for guidance.");
       return null;
     }
     return createStorageAccount(testAccountName, conf, false);

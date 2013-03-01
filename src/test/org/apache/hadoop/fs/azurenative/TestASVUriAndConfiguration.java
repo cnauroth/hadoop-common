@@ -81,6 +81,9 @@ public class TestASVUriAndConfiguration extends TestCase {
   public void testConnectUsingKey() throws Exception {
 
     testAccount = AzureBlobStorageTestAccount.create();
+    if (testAccount == null) {
+      return;
+    }
 
     // Validate input and output on the connection.
     //
@@ -92,6 +95,9 @@ public class TestASVUriAndConfiguration extends TestCase {
     // Create test account with anonymous credentials
     //
     testAccount = AzureBlobStorageTestAccount.createAnonymous("testAsv.txt", FILE_SIZE);
+    if (testAccount == null) {
+      return;
+    }
 
     // Read the file from the public folder using anonymous credentials.
     //
@@ -125,6 +131,9 @@ public class TestASVUriAndConfiguration extends TestCase {
   public void testConnectToFullyQualifiedAccountLive() throws Exception {
     testAccount =
         AzureBlobStorageTestAccount.create("", true);
+    if (testAccount == null) {
+      return;
+    }
     assertTrue(validateIOStreams(new Path("/testFile")));
   }
 
@@ -140,6 +149,9 @@ public class TestASVUriAndConfiguration extends TestCase {
     // Create test account with default root access.
     //
     testAccount = AzureBlobStorageTestAccount.createRoot(inblobName, FILE_SIZE);
+    if (testAccount == null) {
+      return;
+    }
 
 
     // Read the file from the default container.
@@ -197,6 +209,9 @@ public class TestASVUriAndConfiguration extends TestCase {
     AzureBlobStorageTestAccount
       firstAccount = AzureBlobStorageTestAccount.create("first"),
       secondAccount = AzureBlobStorageTestAccount.create("second");
+    if (firstAccount == null) {
+      return;
+    }
     try {
       FileSystem firstFs = firstAccount.getFileSystem(),
           secondFs = secondAccount.getFileSystem();
