@@ -709,7 +709,7 @@ public class FSImage implements Closeable {
     prog.beginPhase(Phase.LOADING_EDITS);
     long totalEditOps = 0;
     for (EditLogInputStream editIn: editStreams) {
-      totalEditOps = editIn.getLastTxId() - lastAppliedTxId;
+      totalEditOps += editIn.getLastTxId() - lastAppliedTxId;
     }
     
     long prevLastAppliedTxId = lastAppliedTxId;  
