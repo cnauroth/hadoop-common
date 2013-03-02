@@ -99,7 +99,5 @@ public class StartupProgressTestHelper {
     incrementCounter(prog, SAFEMODE, awaitingBlocks, 400L);
     prog.endStep(SAFEMODE, awaitingBlocks);
     prog.endPhase(SAFEMODE);
-
-    prog.beginPhase(STARTUP_COMPLETE);
   }
 }

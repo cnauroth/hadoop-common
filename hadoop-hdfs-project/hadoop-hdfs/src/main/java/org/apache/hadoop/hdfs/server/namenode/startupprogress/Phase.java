@@ -45,14 +45,7 @@ public enum Phase {
   /**
    * The namenode has entered safemode, awaiting block reports from data nodes.
    */
-  SAFEMODE("SafeMode", "Safe mode"),
-
-  /**
-   * The namenode has completed startup.  This is an artificial state used
-   * internally to indicate that startup has finished, but it is never seen by
-   * users.
-   */
-  STARTUP_COMPLETE("StartupComplete", "Startup complete");
+  SAFEMODE("SafeMode", "Safe mode");
 
   /**
    * Contains the set of all phases visible to users.

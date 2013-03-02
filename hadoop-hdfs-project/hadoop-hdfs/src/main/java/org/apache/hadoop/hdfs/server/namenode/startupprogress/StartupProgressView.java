@@ -126,7 +126,7 @@ public class StartupProgressView {
    * @return float percent complete
    */
   public float getPercentComplete() {
-    if (getStatus(Phase.STARTUP_COMPLETE) == Status.RUNNING) {
+    if (getStatus(Phase.SAFEMODE) == Status.COMPLETE) {
       return 1.0f;
     } else {
       float total = 0.0f;

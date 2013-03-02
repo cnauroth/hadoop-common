@@ -4089,11 +4089,10 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
 
       // If startup has not yet completed, end safemode phase.
       StartupProgress prog = NameNode.getStartupProgress();
-      if (prog.getStatus(Phase.STARTUP_COMPLETE) == Status.PENDING) {
+      if (prog.getStatus(Phase.SAFEMODE) != Status.COMPLETE) {
         prog.endStep(Phase.SAFEMODE, new Step(
           StepType.AWAITING_REPORTED_BLOCKS));
         prog.endPhase(Phase.SAFEMODE);
-        prog.beginPhase(Phase.STARTUP_COMPLETE);
       }
     }
 
@@ -4215,7 +4214,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
 
         // Report startup progress only if we haven't completed startup yet.
         StartupProgress prog = NameNode.getStartupProgress();
-        if (prog.getStatus(Phase.STARTUP_COMPLETE) == Status.PENDING) {
+        if (prog.getStatus(Phase.SAFEMODE) != Status.COMPLETE) {
           if (this.awaitingReportedBlocksCounter == null) {
             this.awaitingReportedBlocksCounter = prog.getCounter(Phase.SAFEMODE,
               new Step(StepType.AWAITING_REPORTED_BLOCKS));
