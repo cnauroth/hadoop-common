@@ -41,7 +41,16 @@ public class StartupProgressMetrics implements MetricsSource {
   private final StartupProgress startupProgress;
 
   /**
-   * Creates a new StartupProgressMetrics.
+   * Registers StartupProgressMetrics linked to the given StartupProgress.
+   * 
+   * @param prog StartupProgress to link
+   */
+  public static void register(StartupProgress prog) {
+    new StartupProgressMetrics(prog);
+  }
+
+  /**
+   * Creates a new StartupProgressMetrics registered with the metrics system.
    * 
    * @param startupProgress StartupProgress to link
    */
