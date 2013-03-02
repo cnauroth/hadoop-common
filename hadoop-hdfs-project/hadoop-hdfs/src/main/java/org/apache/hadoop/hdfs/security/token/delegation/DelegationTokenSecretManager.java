@@ -131,6 +131,7 @@ public class DelegationTokenSecretManager
    * Store the current state of the SecretManager for persistence
    * 
    * @param out Output stream for writing into fsimage.
+   * @param sdPath String storage directory path
    * @throws IOException
    */
   public synchronized void saveSecretManagerState(DataOutputStream out,

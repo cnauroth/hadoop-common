@@ -5391,6 +5391,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
   
   /**
    * @param out save state of the secret manager
+   * @param sdPath String storage directory path
    */
   void saveSecretManagerState(DataOutputStream out, String sdPath)
       throws IOException {

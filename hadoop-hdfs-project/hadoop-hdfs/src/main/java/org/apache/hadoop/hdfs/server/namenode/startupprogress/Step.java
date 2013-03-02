@@ -23,6 +23,9 @@ import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.hadoop.classification.InterfaceAudience;
 
+/**
+ * A step performed by the namenode during a {@link Phase} of startup.
+ */
 @InterfaceAudience.Private
 public class Step implements Comparable<Step> {
   private static final AtomicInteger SEQUENCE = new AtomicInteger();
@@ -32,18 +35,39 @@ public class Step implements Comparable<Step> {
   private final Long size;
   private final StepType type;
 
+  /**
+   * Creates a new Step.
+   * 
+   * @param type StepType type of step
+   */
   public Step(StepType type) {
     this(type, null, null);
   }
 
+  /**
+   * Creates a new Step.
+   */
   public Step(String file, long size) {
     this(null, file, size);
   }
 
+  /**
+   * Creates a new Step.
+   * 
+   * @param type StepType type of step
+   * @param file String file
+   */
   public Step(StepType type, String file) {
     this(type, file, null);
   }
 
+  /**
+   * Creates a new Step.
+   * 
+   * @param type StepType type of step
+   * @param file String file
+   * @param size Long size in bytes
+   */
   public Step(StepType type, String file, Long size) {
     this.file = file;
     this.sequenceNumber = SEQUENCE.incrementAndGet();
@@ -53,6 +77,10 @@ public class Step implements Comparable<Step> {
 
   @Override
   public int compareTo(Step other) {
+    // Sort steps by file and then sequentially within the file to achieve the
+    // desired order.  There is no concurrent map structure in the JDK that
+    // maintains insertion order, so instead we attach a sequence number to each
+    // step and sort on read.
     return new CompareToBuilder().append(file, other.file)
       .append(sequenceNumber, other.sequenceNumber).toComparison();
   }
@@ -67,14 +95,29 @@ public class Step implements Comparable<Step> {
       .append(this.size, other.size).append(this.type, other.type).isEquals();
   }
 
+  /**
+   * Returns the optional file name, possibly null.
+   * 
+   * @return String optional file name, possibly null
+   */
   public String getFile() {
     return file;
   }
 
+  /**
+   * Returns the optional size in bytes, possibly null.
+   * 
+   * @return Long optional size in bytes, possibly null
+   */
   public Long getSize() {
     return size;
   }
 
+  /**
+   * Returns the optional step type, possibly null.
+   * 
+   * @return StepType optional step type, possibly null
+   */
   public StepType getType() {
     return type;
   }

@@ -28,6 +28,10 @@ import org.apache.hadoop.metrics2.MetricsRecordBuilder;
 import org.apache.hadoop.metrics2.MetricsSource;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 
+/**
+ * Links {@link StartupProgress} to a {@link MetricsSource} to expose its
+ * information via JMX.
+ */
 @InterfaceAudience.Private
 public class StartupProgressMetrics implements MetricsSource {
 
@@ -36,6 +40,11 @@ public class StartupProgressMetrics implements MetricsSource {
 
   private final StartupProgress startupProgress;
 
+  /**
+   * Creates a new StartupProgressMetrics.
+   * 
+   * @param startupProgress StartupProgress to link
+   */
   public StartupProgressMetrics(StartupProgress startupProgress) {
     this.startupProgress = startupProgress;
     DefaultMetricsSystem.instance().register(
@@ -64,6 +73,16 @@ public class StartupProgressMetrics implements MetricsSource {
     }
   }
 
+  /**
+   * Adds a counter with a name built by using the specified phase's name as
+   * prefix and then appending the specified suffix.
+   * 
+   * @param builder MetricsRecordBuilder to receive counter
+   * @param phase Phase to add
+   * @param nameSuffix String suffix of metric name
+   * @param descSuffix String suffix of metric description
+   * @param value long counter value
+   */
   private static void addCounter(MetricsRecordBuilder builder, Phase phase,
       String nameSuffix, String descSuffix, long value) {
     MetricsInfo metricsInfo = info(phase.getName() + nameSuffix,
@@ -71,6 +90,16 @@ public class StartupProgressMetrics implements MetricsSource {
     builder.addCounter(metricsInfo, value);
   }
 
+  /**
+   * Adds a gauge with a name built by using the specified phase's name as prefix
+   * and then appending the specified suffix.
+   * 
+   * @param builder MetricsRecordBuilder to receive counter
+   * @param phase Phase to add
+   * @param nameSuffix String suffix of metric name
+   * @param descSuffix String suffix of metric description
+   * @param value float gauge value
+   */
   private static void addGauge(MetricsRecordBuilder builder, Phase phase,
       String nameSuffix, String descSuffix, float value) {
     MetricsInfo metricsInfo = info(phase.getName() + nameSuffix,

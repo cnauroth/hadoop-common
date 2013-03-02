@@ -285,6 +285,11 @@ public class NameNode {
     return metrics;
   }
 
+  /**
+   * Returns object used for reporting namenode startup progress.
+   * 
+   * @return StartupProgress for reporting namenode startup progress
+   */
   public static StartupProgress getStartupProgress() {
     return startupProgress;
   }
@@ -558,8 +563,8 @@ public class NameNode {
   
   private void startHttpServer(final Configuration conf) throws IOException {
     httpServer = new NameNodeHttpServer(conf, this, getHttpServerAddress(conf));
-    httpServer.setStartupProgress(startupProgress);
     httpServer.start();
+    httpServer.setStartupProgress(startupProgress);
     setHttpServerAddress(conf);
   }
   

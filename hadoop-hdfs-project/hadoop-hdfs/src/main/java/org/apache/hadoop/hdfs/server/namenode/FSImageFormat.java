@@ -273,6 +273,8 @@ class FSImageFormat {
    *   
    * @param numFiles number of files expected to be read
    * @param in image input stream
+   * @param step Step of namenode startup progress
+   * @param counter Counter to increment for namenode startup progress
    * @throws IOException
    */  
    private void loadLocalNameINodes(long numFiles, DataInputStream in, Step step,
@@ -303,6 +305,8 @@ class FSImageFormat {
     * Load all children of a directory
     * 
     * @param in
+    * @param step Step of namenode startup progress
+    * @param counter Counter to increment for namenode startup progress
     * @return number of child inodes read
     * @throws IOException
     */
@@ -332,6 +336,8 @@ class FSImageFormat {
    * 
    * @param numFiles total number of files to load
    * @param in data input stream
+   * @param step Step of namenode startup progress
+   * @param counter Counter to increment for namenode startup progress
    * @throws IOException if any error occurs
    */
   private void loadFullNameINodes(long numFiles,
@@ -388,6 +394,8 @@ class FSImageFormat {
    * load an inode from fsimage except for its name
    * 
    * @param in data input stream from which image is read
+   * @param step Step of namenode startup progress
+   * @param counter Counter to increment for namenode startup progress
    * @return an inode
    */
   private INode loadINode(DataInputStream in, Step step, Counter counter)
@@ -661,6 +669,15 @@ class FSImageFormat {
       }
     }
 
+    /**
+     * Saves inode and increments progress counter.
+     * 
+     * @param inode INode to save
+     * @param out DataOutputStream to receive inode
+     * @param step Step of namenode startup progress
+     * @param counter Counter to increment for namenode startup progress
+     * @throws IOException thrown if there is an I/O error
+     */
     private void saveINode2Image(INode inode, DataOutputStream out,
         Step step, Counter counter) throws IOException {
       FSImageSerialization.saveINode2Image(inode, out);

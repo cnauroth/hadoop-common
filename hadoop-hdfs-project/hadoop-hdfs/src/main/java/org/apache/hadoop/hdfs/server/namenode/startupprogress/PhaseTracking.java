@@ -22,6 +22,9 @@ import java.util.concurrent.ConcurrentMap;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 
+/**
+ * Internal data structure used to track progress of a {@link Phase}.
+ */
 @InterfaceAudience.Private
 class PhaseTracking implements Cloneable {
   Long beginTime;

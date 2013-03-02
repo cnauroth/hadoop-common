@@ -35,6 +35,10 @@ import org.mortbay.util.ajax.JSON;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 
+/**
+ * Servlet that provides a JSON representation of the namenode's current startup
+ * progress.
+ */
 @InterfaceAudience.Private
 @SuppressWarnings("serial")
 public class StartupProgressServlet extends DfsServlet {
@@ -94,6 +98,13 @@ public class StartupProgressServlet extends DfsServlet {
     resp.getWriter().println(JSON.toString(respMap));
   }
 
+  /**
+   * Puts an entry into a map only if the value is non-null.
+   * 
+   * @param map Map<String, Object> to put
+   * @param key String key to put
+   * @param value Object value to put
+   */
   private static void putIfNotNull(Map<String, Object> map, String key,
       Object value) {
     if (value != null) {

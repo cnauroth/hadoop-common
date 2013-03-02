@@ -20,6 +20,9 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 
+/**
+ * Internal data structure used to track progress of a {@link Step}.
+ */
 @InterfaceAudience.Private
 class StepTracking implements Cloneable {
   Long beginTime;

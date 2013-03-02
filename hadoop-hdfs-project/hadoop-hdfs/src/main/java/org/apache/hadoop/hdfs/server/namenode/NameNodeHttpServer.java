@@ -167,15 +167,30 @@ public class NameNodeHttpServer {
     return httpAddress;
   }
 
+  /**
+   * Sets fsimage for use by servlets.
+   * 
+   * @param fsImage FSImage to set
+   */
   public void setFSImage(FSImage fsImage) {
     httpServer.setAttribute(FSIMAGE_ATTRIBUTE_KEY, fsImage);
   }
 
+  /**
+   * Sets address of namenode for use by servlets.
+   * 
+   * @param nameNodeAddress InetSocketAddress to set
+   */
   public void setNameNodeAddress(InetSocketAddress nameNodeAddress) {
     httpServer.setAttribute(NAMENODE_ADDRESS_ATTRIBUTE_KEY,
         NetUtils.getConnectAddress(nameNodeAddress));
   }
 
+  /**
+   * Sets startup progress of namenode for use by servlets.
+   * 
+   * @param prog StartupProgress to set
+   */
   public void setStartupProgress(StartupProgress prog) {
     httpServer.setAttribute(STARTUP_PROGRESS_ATTRIBUTE_KEY, prog);
   }
@@ -224,6 +239,12 @@ public class NameNodeHttpServer {
         NAMENODE_ADDRESS_ATTRIBUTE_KEY);
   }
 
+  /**
+   * Returns StartupProgress associated with ServletContext.
+   * 
+   * @param context ServletContext to get
+   * @return StartupProgress associated with context
+   */
   public static StartupProgress getStartupProgressFromContext(
       ServletContext context) {
     return (StartupProgress)context.getAttribute(STARTUP_PROGRESS_ATTRIBUTE_KEY);
