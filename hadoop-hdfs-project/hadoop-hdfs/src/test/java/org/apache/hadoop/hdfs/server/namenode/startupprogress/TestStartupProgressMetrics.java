@@ -64,20 +64,7 @@ public class TestStartupProgressMetrics {
 
   @Test
   public void testRunningState() {
-    startupProgress.beginPhase(LOADING_FSIMAGE);
-    Step loadingFsImageInodes = new Step(INODES);
-    startupProgress.beginStep(LOADING_FSIMAGE, loadingFsImageInodes);
-    startupProgress.setTotal(LOADING_FSIMAGE, loadingFsImageInodes, 100L);
-    incrementCounter(startupProgress, LOADING_FSIMAGE, loadingFsImageInodes,
-      100L);
-    startupProgress.endStep(LOADING_FSIMAGE, loadingFsImageInodes);
-    startupProgress.endPhase(LOADING_FSIMAGE);
-
-    startupProgress.beginPhase(LOADING_EDITS);
-    Step loadingEditsFile = new Step("file", 1000L);
-    startupProgress.beginStep(LOADING_EDITS, loadingEditsFile);
-    startupProgress.setTotal(LOADING_EDITS, loadingEditsFile, 200L);
-    incrementCounter(startupProgress, LOADING_EDITS, loadingEditsFile, 100L);
+    setStartupProgressForRunningState(startupProgress);
 
     MetricsRecordBuilder builder = getMetrics(metrics, true);
     assertTrue(getLongCounter("ElapsedTime", builder) >= 0L);
@@ -102,41 +89,7 @@ public class TestStartupProgressMetrics {
 
   @Test
   public void testFinalState() {
-    startupProgress.beginPhase(LOADING_FSIMAGE);
-    Step loadingFsImageInodes = new Step(INODES);
-    startupProgress.beginStep(LOADING_FSIMAGE, loadingFsImageInodes);
-    startupProgress.setTotal(LOADING_FSIMAGE, loadingFsImageInodes, 100L);
-    incrementCounter(startupProgress, LOADING_FSIMAGE, loadingFsImageInodes,
-      100L);
-    startupProgress.endStep(LOADING_FSIMAGE, loadingFsImageInodes);
-    startupProgress.endPhase(LOADING_FSIMAGE);
-
-    startupProgress.beginPhase(LOADING_EDITS);
-    Step loadingEditsFile = new Step("file", 1000L);
-    startupProgress.beginStep(LOADING_EDITS, loadingEditsFile);
-    startupProgress.setTotal(LOADING_EDITS, loadingEditsFile, 200L);
-    incrementCounter(startupProgress, LOADING_EDITS, loadingEditsFile, 200L);
-    startupProgress.endStep(LOADING_EDITS, loadingEditsFile);
-    startupProgress.endPhase(LOADING_EDITS);
-
-    startupProgress.beginPhase(SAVING_CHECKPOINT);
-    Step savingCheckpointInodes = new Step(INODES);
-    startupProgress.beginStep(SAVING_CHECKPOINT, savingCheckpointInodes);
-    startupProgress.setTotal(SAVING_CHECKPOINT, savingCheckpointInodes, 300L);
-    incrementCounter(startupProgress, SAVING_CHECKPOINT, savingCheckpointInodes,
-      300L);
-    startupProgress.endStep(SAVING_CHECKPOINT, savingCheckpointInodes);
-    startupProgress.endPhase(SAVING_CHECKPOINT);
-
-    startupProgress.beginPhase(SAFEMODE);
-    Step awaitingBlocks = new Step(AWAITING_REPORTED_BLOCKS);
-    startupProgress.beginStep(SAFEMODE, awaitingBlocks);
-    startupProgress.setTotal(SAFEMODE, awaitingBlocks, 400L);
-    incrementCounter(startupProgress, SAFEMODE, awaitingBlocks, 400L);
-    startupProgress.endStep(SAFEMODE, awaitingBlocks);
-    startupProgress.endPhase(SAFEMODE);
-
-    startupProgress.beginPhase(STARTUP_COMPLETE);
+    setStartupProgressForFinalState(startupProgress);
 
     MetricsRecordBuilder builder = getMetrics(metrics, true);
     assertTrue(getLongCounter("ElapsedTime", builder) >= 0L);

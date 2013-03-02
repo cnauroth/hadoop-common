@@ -30,6 +30,7 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.server.common.JspHelper;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgress;
 import org.apache.hadoop.hdfs.server.namenode.web.resources.NamenodeWebHdfsMethods;
 import org.apache.hadoop.hdfs.web.AuthFilter;
 import org.apache.hadoop.hdfs.web.WebHdfsFileSystem;
@@ -55,6 +56,7 @@ public class NameNodeHttpServer {
   public static final String NAMENODE_ADDRESS_ATTRIBUTE_KEY = "name.node.address";
   public static final String FSIMAGE_ATTRIBUTE_KEY = "name.system.image";
   protected static final String NAMENODE_ATTRIBUTE_KEY = "name.node";
+  public static final String STARTUP_PROGRESS_ATTRIBUTE_KEY = "startup.progress";
   
   public NameNodeHttpServer(
       Configuration conf,
@@ -174,6 +176,10 @@ public class NameNodeHttpServer {
         NetUtils.getConnectAddress(nameNodeAddress));
   }
 
+  public void setStartupProgress(StartupProgress prog) {
+    httpServer.setAttribute(STARTUP_PROGRESS_ATTRIBUTE_KEY, prog);
+  }
+
   private static void setupServlets(HttpServer httpServer, Configuration conf) {
     httpServer.addInternalServlet("startupProgress",
         StartupProgressServlet.PATH_SPEC, StartupProgressServlet.class);
@@ -216,5 +222,10 @@ public class NameNodeHttpServer {
       ServletContext context) {
     return (InetSocketAddress)context.getAttribute(
         NAMENODE_ADDRESS_ATTRIBUTE_KEY);
+  }
+
+  public static StartupProgress getStartupProgressFromContext(
+      ServletContext context) {
+    return (StartupProgress)context.getAttribute(STARTUP_PROGRESS_ATTRIBUTE_KEY);
   }
 }
