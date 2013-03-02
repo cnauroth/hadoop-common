@@ -16,6 +16,7 @@
  */
 package org.apache.hadoop.hdfs.server.namenode.startupprogress;
 
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeSet;
@@ -132,10 +133,8 @@ public class StartupProgressView {
       float total = 0.0f;
       int numPhases = 0;
       for (Phase phase: phases.keySet()) {
-        if (Phase.VISIBLE_PHASES.contains(phase)) {
-          ++numPhases;
-          total += getPercentComplete(phase);
-        }
+        ++numPhases;
+        total += getPercentComplete(phase);
       }
       return getBoundedPercent(total / numPhases);
     }
@@ -185,7 +184,7 @@ public class StartupProgressView {
    * @return Iterable<Phase> containing all phases
    */
   public Iterable<Phase> getPhases() {
-    return Phase.VISIBLE_PHASES;
+    return EnumSet.allOf(Phase.class);
   }
 
   /**

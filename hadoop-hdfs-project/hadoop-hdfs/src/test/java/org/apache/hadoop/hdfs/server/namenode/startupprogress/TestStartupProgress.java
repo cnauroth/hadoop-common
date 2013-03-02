@@ -26,6 +26,7 @@ import static org.junit.Assert.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -168,7 +169,7 @@ public class TestStartupProgress {
       }
     }
 
-    assertArrayEquals(VISIBLE_PHASES.toArray(), phases.toArray());
+    assertArrayEquals(EnumSet.allOf(Phase.class).toArray(), phases.toArray());
   }
 
   @Test(timeout=10000)

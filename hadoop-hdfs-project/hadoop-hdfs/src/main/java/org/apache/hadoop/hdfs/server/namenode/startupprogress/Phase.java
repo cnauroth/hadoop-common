@@ -16,8 +16,6 @@
  */
 package org.apache.hadoop.hdfs.server.namenode.startupprogress;
 
-import java.util.EnumSet;
-
 import org.apache.hadoop.classification.InterfaceAudience;
 
 /**
@@ -46,12 +44,6 @@ public enum Phase {
    * The namenode has entered safemode, awaiting block reports from data nodes.
    */
   SAFEMODE("SafeMode", "Safe mode");
-
-  /**
-   * Contains the set of all phases visible to users.
-   */
-  static EnumSet<Phase> VISIBLE_PHASES = EnumSet.range(LOADING_FSIMAGE,
-    SAFEMODE);
 
   private final String name, description;
 
