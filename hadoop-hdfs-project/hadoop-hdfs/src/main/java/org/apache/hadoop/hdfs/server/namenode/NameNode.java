@@ -447,18 +447,29 @@ public class NameNode {
     loginAsNameNodeUser(conf);
 
     NameNode.initMetrics(conf, this.getRole());
-    startHttpServer(conf);
+
+    if (NamenodeRole.NAMENODE == role) {
+      startHttpServer(conf);
+      try {
+        validateConfigurationSettings(conf);
+      } catch (IOException e) {
+        LOG.fatal(e.toString());
+        throw e;
+      }
+    }
     loadNamesystem(conf);
 
     rpcServer = createRpcServer(conf);
-    httpServer.setNameNodeAddress(getNameNodeAddress());
-    httpServer.setFSImage(getFSImage());
-    
-    try {
-      validateConfigurationSettings(conf);
-    } catch (IOException e) {
-      LOG.fatal(e.toString());
-      throw e;
+    if (NamenodeRole.NAMENODE == role) {
+      httpServer.setNameNodeAddress(getNameNodeAddress());
+      httpServer.setFSImage(getFSImage());
+    } else {
+      try {
+        validateConfigurationSettings(conf);
+      } catch (IOException e) {
+        LOG.fatal(e.toString());
+        throw e;
+      }
     }
 
     startCommonServices(conf);
@@ -498,6 +509,11 @@ public class NameNode {
   /** Start the services common to active and standby states */
   private void startCommonServices(Configuration conf) throws IOException {
     namesystem.startCommonServices(conf, haContext);
+    if (NamenodeRole.NAMENODE != role) {
+      startHttpServer(conf);
+      httpServer.setNameNodeAddress(getNameNodeAddress());
+      httpServer.setFSImage(getFSImage());
+    }
     rpcServer.start();
     plugins = conf.getInstances(DFS_NAMENODE_PLUGINS_KEY,
         ServicePlugin.class);
