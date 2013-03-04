@@ -450,12 +450,7 @@ public class NameNode {
 
     if (NamenodeRole.NAMENODE == role) {
       startHttpServer(conf);
-      try {
-        validateConfigurationSettings(conf);
-      } catch (IOException e) {
-        LOG.fatal(e.toString());
-        throw e;
-      }
+      validateConfigurationSettingsOrAbort(conf);
     }
     loadNamesystem(conf);
 
@@ -464,12 +459,7 @@ public class NameNode {
       httpServer.setNameNodeAddress(getNameNodeAddress());
       httpServer.setFSImage(getFSImage());
     } else {
-      try {
-        validateConfigurationSettings(conf);
-      } catch (IOException e) {
-        LOG.fatal(e.toString());
-        throw e;
-      }
+      validateConfigurationSettingsOrAbort(conf);
     }
 
     startCommonServices(conf);
@@ -504,6 +494,23 @@ public class NameNode {
           "NameNode. Port: " + getRpcServerAddress(conf).getPort();
       throw new IOException(errMsg);
     } 
+  }
+
+  /**
+   * Validate NameNode configuration.  Log a fatal error and abort if
+   * configuration is invalid.
+   * 
+   * @param conf Configuration to validate
+   * @throws IOException thrown if conf is invalid
+   */
+  private void validateConfigurationSettingsOrAbort(Configuration conf)
+      throws IOException {
+    try {
+      validateConfigurationSettings(conf);
+    } catch (IOException e) {
+      LOG.fatal(e.toString());
+      throw e;
+    }
   }
 
   /** Start the services common to active and standby states */
