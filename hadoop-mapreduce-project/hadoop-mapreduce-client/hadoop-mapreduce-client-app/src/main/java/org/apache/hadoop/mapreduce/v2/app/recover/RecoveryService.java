@@ -21,9 +21,12 @@ package org.apache.hadoop.mapreduce.v2.app.recover;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -31,6 +34,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileContext;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapreduce.MRJobConfig;
 import org.apache.hadoop.mapreduce.OutputCommitter;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
@@ -49,6 +53,8 @@ import org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptState;
 import org.apache.hadoop.mapreduce.v2.api.records.TaskId;
 import org.apache.hadoop.mapreduce.v2.api.records.TaskState;
 import org.apache.hadoop.mapreduce.v2.app.ControlledClock;
+import org.apache.hadoop.mapreduce.v2.app.commit.CommitterTaskAbortEvent;
+import org.apache.hadoop.mapreduce.v2.app.commit.CommitterEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.event.JobDiagnosticsUpdateEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.JobEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.JobEventType;
@@ -66,8 +72,6 @@ import org.apache.hadoop.mapreduce.v2.app.launcher.ContainerLauncherEvent;
 import org.apache.hadoop.mapreduce.v2.app.launcher.ContainerRemoteLaunchEvent;
 import org.apache.hadoop.mapreduce.v2.app.rm.ContainerAllocator;
 import org.apache.hadoop.mapreduce.v2.app.rm.ContainerAllocatorEvent;
-import org.apache.hadoop.mapreduce.v2.app.taskclean.TaskCleaner;
-import org.apache.hadoop.mapreduce.v2.app.taskclean.TaskCleanupEvent;
 import org.apache.hadoop.mapreduce.v2.jobhistory.JobHistoryUtils;
 import org.apache.hadoop.mapreduce.v2.util.MRBuilderUtils;
 import org.apache.hadoop.yarn.Clock;
@@ -101,23 +105,25 @@ public class RecoveryService extends CompositeService implements Recovery {
 
   private final ApplicationAttemptId applicationAttemptId;
   private final OutputCommitter committer;
+  private final boolean newApiCommitter;
   private final Dispatcher dispatcher;
   private final ControlledClock clock;
 
   private JobInfo jobInfo = null;
   private final Map<TaskId, TaskInfo> completedTasks =
     new HashMap<TaskId, TaskInfo>();
-
+  
   private final List<TaskEvent> pendingTaskScheduleEvents =
     new ArrayList<TaskEvent>();
 
   private volatile boolean recoveryMode = false;
 
   public RecoveryService(ApplicationAttemptId applicationAttemptId, 
-      Clock clock, OutputCommitter committer) {
+      Clock clock, OutputCommitter committer, boolean newApiCommitter) {
     super("RecoveringDispatcher");
     this.applicationAttemptId = applicationAttemptId;
     this.committer = committer;
+    this.newApiCommitter = newApiCommitter;
     this.dispatcher = createRecoveryDispatcher();
     this.clock = new ControlledClock(clock);
       addService((Service) dispatcher);
@@ -178,32 +184,27 @@ public class RecoveryService extends CompositeService implements Recovery {
   }
 
   private void parse() throws IOException {
-    // TODO: parse history file based on startCount
-    String jobName = 
-        TypeConverter.fromYarn(applicationAttemptId.getApplicationId()).toString();
-    String jobhistoryDir = JobHistoryUtils.getConfiguredHistoryStagingDirPrefix(getConfig());
-    FSDataInputStream in = null;
-    Path historyFile = null;
-    Path histDirPath = FileContext.getFileContext(getConfig()).makeQualified(
-        new Path(jobhistoryDir));
-    FileContext fc = FileContext.getFileContext(histDirPath.toUri(),
-        getConfig());
-    //read the previous history file
-    historyFile = fc.makeQualified(JobHistoryUtils.getStagingJobHistoryFile(
-        histDirPath, jobName, (applicationAttemptId.getAttemptId() - 1)));  
-    LOG.info("History file is at " + historyFile);
-    in = fc.open(historyFile);
+    FSDataInputStream in =
+        getPreviousJobHistoryFileStream(getConfig(), applicationAttemptId);
     JobHistoryParser parser = new JobHistoryParser(in);
     jobInfo = parser.parse();
     Exception parseException = parser.getParseException();
     if (parseException != null) {
-      LOG.info("Got an error parsing job-history file " + historyFile + 
+      LOG.info("Got an error parsing job-history file" + 
           ", ignoring incomplete events.", parseException);
     }
     Map<org.apache.hadoop.mapreduce.TaskID, TaskInfo> taskInfos = jobInfo
         .getAllTasks();
     for (TaskInfo taskInfo : taskInfos.values()) {
       if (TaskState.SUCCEEDED.toString().equals(taskInfo.getTaskStatus())) {
+        Iterator<Entry<TaskAttemptID, TaskAttemptInfo>> taskAttemptIterator = 
+            taskInfo.getAllTaskAttempts().entrySet().iterator();
+        while (taskAttemptIterator.hasNext()) {
+          Map.Entry<TaskAttemptID, TaskAttemptInfo> currentEntry = taskAttemptIterator.next();
+          if (!jobInfo.getAllCompletedTaskAttempts().containsKey(currentEntry.getKey())) {
+            taskAttemptIterator.remove();
+          }
+        }
         completedTasks
             .put(TypeConverter.toYarn(taskInfo.getTaskId()), taskInfo);
         LOG.info("Read from history task "
@@ -212,6 +213,29 @@ public class RecoveryService extends CompositeService implements Recovery {
     }
     LOG.info("Read completed tasks from history "
         + completedTasks.size());
+  }
+
+  public static FSDataInputStream getPreviousJobHistoryFileStream(
+      Configuration conf, ApplicationAttemptId applicationAttemptId)
+      throws IOException {
+    FSDataInputStream in = null;
+    Path historyFile = null;
+    String jobId =
+        TypeConverter.fromYarn(applicationAttemptId.getApplicationId())
+          .toString();
+    String jobhistoryDir =
+        JobHistoryUtils.getConfiguredHistoryStagingDirPrefix(conf, jobId);
+    Path histDirPath =
+        FileContext.getFileContext(conf).makeQualified(new Path(jobhistoryDir));
+    LOG.info("Trying file " + histDirPath.toString());
+    FileContext fc = FileContext.getFileContext(histDirPath.toUri(), conf);
+    // read the previous history file
+    historyFile =
+        fc.makeQualified(JobHistoryUtils.getStagingJobHistoryFile(histDirPath,
+          jobId, (applicationAttemptId.getAttemptId() - 1)));
+    LOG.info("History file is at " + historyFile);
+    in = fc.open(historyFile);
+    return in;
   }
   
   protected Dispatcher createRecoveryDispatcher() {
@@ -331,8 +355,8 @@ public class RecoveryService extends CompositeService implements Recovery {
         return;
       }
 
-      else if (event.getType() == TaskCleaner.EventType.TASK_CLEAN) {
-        TaskAttemptId aId = ((TaskCleanupEvent) event).getAttemptID();
+      else if (event.getType() == CommitterEventType.TASK_ABORT) {
+        TaskAttemptId aId = ((CommitterTaskAbortEvent) event).getAttemptID();
         LOG.debug("TASK_CLEAN");
         actualHandler.handle(new TaskAttemptEvent(aId,
             TaskAttemptEventType.TA_CLEANUP_DONE));
@@ -352,8 +376,17 @@ public class RecoveryService extends CompositeService implements Recovery {
         switch (state) {
         case SUCCEEDED:
           //recover the task output
-          TaskAttemptContext taskContext = new TaskAttemptContextImpl(getConfig(),
-              attInfo.getAttemptId());
+          
+          // check the committer type and construct corresponding context
+          TaskAttemptContext taskContext = null;
+          if(newApiCommitter) {
+            taskContext = new TaskAttemptContextImpl(getConfig(),
+                attInfo.getAttemptId());
+          } else {
+            taskContext = new org.apache.hadoop.mapred.TaskAttemptContextImpl(new JobConf(getConfig()),
+                TypeConverter.fromYarn(aId));
+          }
+          
           try { 
             TaskType type = taskContext.getTaskAttemptID().getTaskID().getTaskType();
             int numReducers = taskContext.getConfiguration().getInt(MRJobConfig.NUM_REDUCES, 1); 

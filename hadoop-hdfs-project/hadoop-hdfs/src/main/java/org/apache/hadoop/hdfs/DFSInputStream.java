@@ -457,7 +457,7 @@ public class DFSInputStream extends FSInputStream implements ByteBufferReadable 
             buffersize, verifyChecksum, dfsClient.clientName);
         if(connectFailedOnce) {
           DFSClient.LOG.info("Successfully connected to " + targetAddr +
-                             " for block " + blk.getBlockId());
+                             " for " + blk);
         }
         return chosenNode;
       } catch (IOException ex) {
@@ -736,9 +736,9 @@ public class DFSInputStream extends FSInputStream implements ByteBufferReadable 
         }
         
         if (nodes == null || nodes.length == 0) {
-          DFSClient.LOG.info("No node available for block: " + blockInfo);
+          DFSClient.LOG.info("No node available for " + blockInfo);
         }
-        DFSClient.LOG.info("Could not obtain block " + block.getBlock()
+        DFSClient.LOG.info("Could not obtain " + block.getBlock()
             + " from any node: " + ie
             + ". Will get new block locations from namenode and retry...");
         try {
@@ -1075,6 +1075,9 @@ public class DFSInputStream extends FSInputStream implements ByteBufferReadable 
   public synchronized void seek(long targetPos) throws IOException {
     if (targetPos > getFileLength()) {
       throw new IOException("Cannot seek after EOF");
+    }
+    if (targetPos < 0) {
+      throw new IOException("Cannot seek to negative offset");
     }
     if (closed) {
       throw new IOException("Stream is closed!");

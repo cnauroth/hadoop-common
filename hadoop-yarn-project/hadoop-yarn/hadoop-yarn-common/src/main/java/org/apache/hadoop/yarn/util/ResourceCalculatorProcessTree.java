@@ -21,27 +21,36 @@ package org.apache.hadoop.yarn.util;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.util.ReflectionUtils;
+import java.lang.reflect.Constructor;
 
 /**
  * Interface class to obtain process resource usage
  *
  */
-public abstract class ResourceCalculatorProcessTree {
+public abstract class ResourceCalculatorProcessTree extends Configured {
   static final Log LOG = LogFactory
       .getLog(ResourceCalculatorProcessTree.class);
 
   /**
-   * Get the process-tree with latest state. If the root-process is not alive,
-   * an empty tree will be returned.
+   * Create process-tree instance with specified root process.
+   *
+   * Subclass must override this.
+   * @param root process-tree root-process
+   */
+  public ResourceCalculatorProcessTree(String root) {
+  }
+
+  /**
+   * Update the process-tree with latest state.
    *
    * Each call to this function should increment the age of the running
    * processes that already exist in the process tree. Age is used other API's
    * of the interface.
    *
-   * @return the process-tree with latest state.
    */
-  public abstract ResourceCalculatorProcessTree getProcessTree();
+  public abstract void updateProcessTree();
 
   /**
    * Get a dump of the process-tree.
@@ -122,21 +131,25 @@ public abstract class ResourceCalculatorProcessTree {
    *         is not available for this system.
    */
   public static ResourceCalculatorProcessTree getResourceCalculatorProcessTree(
-	  String pid, Class<? extends ResourceCalculatorProcessTree> clazz, Configuration conf) {
+    String pid, Class<? extends ResourceCalculatorProcessTree> clazz, Configuration conf) {
 
     if (clazz != null) {
-      return ReflectionUtils.newInstance(clazz, conf);
+      try {
+        Constructor <? extends ResourceCalculatorProcessTree> c = clazz.getConstructor(String.class);
+        ResourceCalculatorProcessTree rctree = c.newInstance(pid);
+        rctree.setConf(conf);
+        return rctree;
+      } catch(Exception e) {
+        throw new RuntimeException(e);
+      }
     }
 
     // No class given, try a os specific class
-    try {
-      String osName = System.getProperty("os.name");
-      if (osName.startsWith("Linux")) {
-        return new ProcfsBasedProcessTree(pid);
-      }
-    } catch (SecurityException se) {
-      // Failed to get Operating System name.
-      return null;
+    if (ProcfsBasedProcessTree.isAvailable()) {
+      return new ProcfsBasedProcessTree(pid);
+    }
+    if (WindowsBasedProcessTree.isAvailable()) {
+      return new WindowsBasedProcessTree(pid);
     }
 
     // Not supported on this system.

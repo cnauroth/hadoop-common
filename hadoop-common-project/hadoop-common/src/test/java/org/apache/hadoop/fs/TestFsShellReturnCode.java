@@ -123,18 +123,20 @@ public class TestFsShellReturnCode {
    */
   @Test
   public void testChmod() throws Exception {
+    Path p1 = new Path(TEST_ROOT_DIR, "testChmod/fileExists");
 
-    final String f1 = TEST_ROOT_DIR + "/" + "testChmod/fileExists";
-    final String f2 = TEST_ROOT_DIR + "/" + "testChmod/fileDoesNotExist";
-    final String f3 = TEST_ROOT_DIR + "/" + "testChmod/nonExistingfiles*";
+    final String f1 = p1.toUri().getPath();
+    final String f2 = new Path(TEST_ROOT_DIR, "testChmod/fileDoesNotExist")
+      .toUri().getPath();
+    final String f3 = new Path(TEST_ROOT_DIR, "testChmod/nonExistingfiles*")
+      .toUri().getPath();
 
-    Path p1 = new Path(f1);
+    final Path p4 = new Path(TEST_ROOT_DIR, "testChmod/file1");
+    final Path p5 = new Path(TEST_ROOT_DIR, "testChmod/file2");
+    final Path p6 = new Path(TEST_ROOT_DIR, "testChmod/file3");
 
-    final Path p4 = new Path(TEST_ROOT_DIR + "/" + "testChmod/file1");
-    final Path p5 = new Path(TEST_ROOT_DIR + "/" + "testChmod/file2");
-    final Path p6 = new Path(TEST_ROOT_DIR + "/" + "testChmod/file3");
-
-    final String f7 = TEST_ROOT_DIR + "/" + "testChmod/file*";
+    final String f7 = new Path(TEST_ROOT_DIR, "testChmod/file*").toUri()
+      .getPath();
 
     // create and write test file
     writeFile(fileSys, p1);
@@ -177,18 +179,21 @@ public class TestFsShellReturnCode {
    */
   @Test
   public void testChown() throws Exception {
+    Path p1 = new Path(TEST_ROOT_DIR, "testChown/fileExists");
 
-    final String f1 = TEST_ROOT_DIR + "/" + "testChown/fileExists";
-    final String f2 = TEST_ROOT_DIR + "/" + "testChown/fileDoesNotExist";
-    final String f3 = TEST_ROOT_DIR + "/" + "testChown/nonExistingfiles*";
+    final String f1 = p1.toUri().getPath();
+    final String f2 = new Path(TEST_ROOT_DIR, "testChown/fileDoesNotExist")
+      .toUri().getPath();
+    final String f3 = new Path(TEST_ROOT_DIR, "testChown/nonExistingfiles*")
+      .toUri().getPath();
 
-    Path p1 = new Path(f1);
 
-    final Path p4 = new Path(TEST_ROOT_DIR + "/" + "testChown/file1");
-    final Path p5 = new Path(TEST_ROOT_DIR + "/" + "testChown/file2");
-    final Path p6 = new Path(TEST_ROOT_DIR + "/" + "testChown/file3");
+    final Path p4 = new Path(TEST_ROOT_DIR, "testChown/file1");
+    final Path p5 = new Path(TEST_ROOT_DIR, "testChown/file2");
+    final Path p6 = new Path(TEST_ROOT_DIR, "testChown/file3");
 
-    final String f7 = TEST_ROOT_DIR + "/" + "testChown/file*";
+    final String f7 = new Path(TEST_ROOT_DIR, "testChown/file*").toUri()
+      .getPath();
 
     // create and write test file
     writeFile(fileSys, p1);
@@ -230,18 +235,20 @@ public class TestFsShellReturnCode {
    */
   @Test
   public void testChgrp() throws Exception {
+    Path p1 = new Path(TEST_ROOT_DIR, "testChgrp/fileExists");
 
-    final String f1 = TEST_ROOT_DIR + "/" + "testChgrp/fileExists";
-    final String f2 = TEST_ROOT_DIR + "/" + "testChgrp/fileDoesNotExist";
-    final String f3 = TEST_ROOT_DIR + "/" + "testChgrp/nonExistingfiles*";
+    final String f1 = p1.toUri().getPath();
+    final String f2 = new Path(TEST_ROOT_DIR, "testChgrp/fileDoesNotExist")
+      .toUri().getPath();
+    final String f3 = new Path(TEST_ROOT_DIR, "testChgrp/nonExistingfiles*")
+      .toUri().getPath();
 
-    Path p1 = new Path(f1);
+    final Path p4 = new Path(TEST_ROOT_DIR, "testChgrp/file1");
+    final Path p5 = new Path(TEST_ROOT_DIR, "testChgrp/file2");
+    final Path p6 = new Path(TEST_ROOT_DIR, "testChgrp/file3");
 
-    final Path p4 = new Path(TEST_ROOT_DIR + "/" + "testChgrp/file1");
-    final Path p5 = new Path(TEST_ROOT_DIR + "/" + "testChgrp/file2");
-    final Path p6 = new Path(TEST_ROOT_DIR + "/" + "testChgrp/file3");
-
-    final String f7 = TEST_ROOT_DIR + "/" + "testChgrp/file*";
+    final String f7 = new Path(TEST_ROOT_DIR, "testChgrp/file*").toUri()
+      .getPath();
 
     // create and write test file
     writeFile(fileSys, p1);
@@ -288,8 +295,8 @@ public class TestFsShellReturnCode {
       fileSys.mkdirs(tdir);
       String[] args = new String[3];
       args[0] = "-get";
-      args[1] = tdir+"/invalidSrc";
-      args[2] = tdir+"/invalidDst";
+      args[1] = new Path(tdir.toUri().getPath(), "/invalidSrc").toString();
+      args[2] = new Path(tdir.toUri().getPath(), "/invalidDst").toString();
       assertTrue("file exists", !fileSys.exists(new Path(args[1])));
       assertTrue("file exists", !fileSys.exists(new Path(args[2])));
       int run = shell.run(args);
@@ -303,6 +310,46 @@ public class TestFsShellReturnCode {
     }
   }
   
+  @Test
+  public void testRmWithNonexistentGlob() throws Exception {
+    Configuration conf = new Configuration();
+    FsShell shell = new FsShell();
+    shell.setConf(conf);
+    final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    final PrintStream err = new PrintStream(bytes);
+    final PrintStream oldErr = System.err;
+    System.setErr(err);
+    final String results;
+    try {
+      int exit = shell.run(new String[]{"-rm", "nomatch*"});
+      assertEquals(1, exit);
+      results = bytes.toString();
+      assertTrue(results.contains("rm: `nomatch*': No such file or directory"));
+    } finally {
+      IOUtils.closeStream(err);
+      System.setErr(oldErr);
+    }
+  }
+
+  @Test
+  public void testRmForceWithNonexistentGlob() throws Exception {
+    Configuration conf = new Configuration();
+    FsShell shell = new FsShell();
+    shell.setConf(conf);
+    final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    final PrintStream err = new PrintStream(bytes);
+    final PrintStream oldErr = System.err;
+    System.setErr(err);
+    try {
+      int exit = shell.run(new String[]{"-rm", "-f", "nomatch*"});
+      assertEquals(0, exit);
+      assertTrue(bytes.toString().isEmpty());
+    } finally {
+      IOUtils.closeStream(err);
+      System.setErr(oldErr);
+    }
+  }
+
   @Test
   public void testInvalidDefaultFS() throws Exception {
     // if default fs doesn't exist or is invalid, but the path provided in 

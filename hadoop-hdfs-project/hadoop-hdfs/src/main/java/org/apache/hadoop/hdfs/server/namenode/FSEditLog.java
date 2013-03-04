@@ -641,7 +641,7 @@ public class FSEditLog implements LogsPurgeable {
     buf.append(numTransactions);
     buf.append(" Total time for transactions(ms): ");
     buf.append(totalTimeTransactions);
-    buf.append("Number of transactions batched in Syncs: ");
+    buf.append(" Number of transactions batched in Syncs: ");
     buf.append(numTransactionsBatchedInSync);
     buf.append(" Number of syncs: ");
     buf.append(editLogStream.getNumSync());
@@ -878,6 +878,11 @@ public class FSEditLog implements LogsPurgeable {
     return journalSet;
   }
   
+  @VisibleForTesting
+  synchronized void setJournalSetForTesting(JournalSet js) {
+    this.journalSet = js;
+  }
+  
   /**
    * Used only by tests.
    */
@@ -900,7 +905,7 @@ public class FSEditLog implements LogsPurgeable {
    * in the new log.
    */
   synchronized long rollEditLog() throws IOException {
-    LOG.info("Rolling edit logs.");
+    LOG.info("Rolling edit logs");
     endCurrentLogSegment(true);
     
     long nextTxId = getLastWrittenTxId() + 1;
@@ -915,7 +920,7 @@ public class FSEditLog implements LogsPurgeable {
    */
   public synchronized void startLogSegment(long txid, 
       boolean abortCurrentLogSegment) throws IOException {
-    LOG.info("Namenode started a new log segment at txid " + txid);
+    LOG.info("Started a new log segment at txid " + txid);
     if (isSegmentOpen()) {
       if (getLastWrittenTxId() == txid - 1) {
         //In sync with the NN, so end and finalize the current segment`
@@ -1031,9 +1036,18 @@ public class FSEditLog implements LogsPurgeable {
 
   /**
    * Archive any log files that are older than the given txid.
+   * 
+   * If the edit log is not open for write, then this call returns with no
+   * effect.
    */
   @Override
   public synchronized void purgeLogsOlderThan(final long minTxIdToKeep) {
+    // Should not purge logs unless they are open for write.
+    // This prevents the SBN from purging logs on shared storage, for example.
+    if (!isOpenForWrite()) {
+      return;
+    }
+    
     assert curSegmentTxId == HdfsConstants.INVALID_TXID || // on format this is no-op
       minTxIdToKeep <= curSegmentTxId :
       "cannot purge logs older than txid " + minTxIdToKeep +

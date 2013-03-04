@@ -23,6 +23,7 @@ import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.util.ReflectionUtils;
+import org.apache.hadoop.util.Shell;
 
 /**
  * Plugin to calculate resource information on the system.
@@ -31,6 +32,18 @@ import org.apache.hadoop.util.ReflectionUtils;
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
 public abstract class ResourceCalculatorPlugin extends Configured {
+  
+  protected String processPid = null;
+
+  /**
+   * set the pid of the process for which <code>getProcResourceValues</code>
+   * will be invoked
+   * 
+   * @param pid
+   */
+  public void setProcessPid(String pid) {
+    processPid = pid;
+  }
 
   /**
    * Obtain the total size of the virtual memory present in the system.
@@ -91,48 +104,6 @@ public abstract class ResourceCalculatorPlugin extends Configured {
   public abstract float getCpuUsage();
 
   /**
-   * Obtain resource status used by current process tree.
-   */
-  @InterfaceAudience.Private
-  @InterfaceStability.Unstable
-  public abstract ProcResourceValues getProcResourceValues();
-
-  public static class ProcResourceValues {
-    private final long cumulativeCpuTime;
-    private final long physicalMemorySize;
-    private final long virtualMemorySize;
-    public ProcResourceValues(long cumulativeCpuTime, long physicalMemorySize,
-                              long virtualMemorySize) {
-      this.cumulativeCpuTime = cumulativeCpuTime;
-      this.physicalMemorySize = physicalMemorySize;
-      this.virtualMemorySize = virtualMemorySize;
-    }
-    /**
-     * Obtain the physical memory size used by current process tree.
-     * @return physical memory size in bytes.
-     */
-    public long getPhysicalMemorySize() {
-      return physicalMemorySize;
-    }
-
-    /**
-     * Obtain the virtual memory size used by a current process tree.
-     * @return virtual memory size in bytes.
-     */
-    public long getVirtualMemorySize() {
-      return virtualMemorySize;
-    }
-
-    /**
-     * Obtain the cumulative CPU time used by a current process tree.
-     * @return cumulative CPU time in milliseconds
-     */
-    public long getCumulativeCpuTime() {
-      return cumulativeCpuTime;
-    }
-  }
-
-  /**
    * Create the ResourceCalculatorPlugin from the class name and configure it. If
    * class name is null, this method will try and return a memory calculator
    * plugin available for this system.
@@ -151,9 +122,11 @@ public abstract class ResourceCalculatorPlugin extends Configured {
 
     // No class given, try a os specific class
     try {
-      String osName = System.getProperty("os.name");
-      if (osName.startsWith("Linux")) {
+      if (Shell.LINUX) {
         return new LinuxResourceCalculatorPlugin();
+      }
+      if (Shell.WINDOWS) {
+        return new WindowsResourceCalculatorPlugin();
       }
     } catch (SecurityException se) {
       // Failed to get Operating System name.

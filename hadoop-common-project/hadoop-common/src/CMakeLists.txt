@@ -67,6 +67,9 @@ macro(set_find_shared_library_version LVERS)
     IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
         # Mac OS uses .dylib
         SET(CMAKE_FIND_LIBRARY_SUFFIXES ".${LVERS}.dylib")
+    ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+        # FreeBSD has always .so installed.
+        SET(CMAKE_FIND_LIBRARY_SUFFIXES ".so")
     ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
         # Windows doesn't support finding shared libraries by version.
     ELSE()
@@ -87,7 +90,8 @@ find_package(ZLIB REQUIRED)
 SET(CMAKE_FIND_LIBRARY_SUFFIXES STORED_CMAKE_FIND_LIBRARY_SUFFIXES)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -Wall -O2")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_REENTRANT -D_FILE_OFFSET_BITS=64")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_REENTRANT -D_GNU_SOURCE")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64")
 set(D main/native/src/org/apache/hadoop)
 set(T main/native/src/test/org/apache/hadoop)
 
@@ -95,8 +99,10 @@ GET_FILENAME_COMPONENT(HADOOP_ZLIB_LIBRARY ${ZLIB_LIBRARIES} NAME)
 
 INCLUDE(CheckFunctionExists)
 INCLUDE(CheckCSourceCompiles)
+INCLUDE(CheckLibraryExists)
 CHECK_FUNCTION_EXISTS(sync_file_range HAVE_SYNC_FILE_RANGE)
 CHECK_FUNCTION_EXISTS(posix_fadvise HAVE_POSIX_FADVISE)
+CHECK_LIBRARY_EXISTS(dl dlopen "" NEED_LINK_DL)
 
 SET(STORED_CMAKE_FIND_LIBRARY_SUFFIXES CMAKE_FIND_LIBRARY_SUFFIXES)
 set_find_shared_library_version("1")
@@ -159,6 +165,9 @@ add_dual_library(hadoop
     ${D}/util/NativeCrc32.c
     ${D}/util/bulk_crc32.c
 )
+if (NEED_LINK_DL)
+   set(LIB_DL dl)
+endif (NEED_LINK_DL)
 
 IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     #
@@ -171,7 +180,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 ENDIF()
 
 target_link_dual_libraries(hadoop
-    dl
+    ${LIB_DL}
     ${JAVA_JVM_LIBRARY}
 )
 SET(LIBHADOOP_VERSION "1.0.0")

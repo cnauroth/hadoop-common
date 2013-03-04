@@ -152,7 +152,8 @@ public class TestEditLog {
 
       for (int i = 0; i < numTransactions; i++) {
         INodeFileUnderConstruction inode = new INodeFileUnderConstruction(
-                            p, replication, blockSize, 0, "", "", null);
+            namesystem.allocateNewInodeId(), p, replication, blockSize, 0, "",
+            "", null);
         editLog.logOpenFile("/filename" + (startIndex + i), inode);
         editLog.logCloseFile("/filename" + (startIndex + i), inode);
         editLog.logSync();
@@ -317,6 +318,11 @@ public class TestEditLog {
       // we should now be writing to edits_inprogress_3
       fsimage.rollEditLog();
     
+      // Remember the current lastInodeId and will reset it back to test
+      // loading editlog segments.The transactions in the following allocate new
+      // inode id to write to editlogs but doesn't create ionde in namespace
+      long originalLastInodeId = namesystem.getLastInodeId();
+      
       // Create threads and make them run transactions concurrently.
       Thread threadId[] = new Thread[NUM_THREADS];
       for (int i = 0; i < NUM_THREADS; i++) {
@@ -349,6 +355,7 @@ public class TestEditLog {
       // If there were any corruptions, it is likely that the reading in
       // of these transactions will throw an exception.
       //
+      namesystem.resetLastInodeIdWithoutChecking(originalLastInodeId);
       for (Iterator<StorageDirectory> it = 
               fsimage.getStorage().dirIterator(NameNodeDirType.EDITS); it.hasNext();) {
         FSEditLogLoader loader = new FSEditLogLoader(namesystem, 0);
@@ -447,7 +454,7 @@ public class TestEditLog {
 
       // Now ask to sync edit from B, which should sync both edits.
       doCallLogSync(threadB, editLog);
-      assertEquals("logSync from second thread should bump txid up to 2",
+      assertEquals("logSync from second thread should bump txid up to 3",
         3, editLog.getSyncTxId());
 
       // Now ask to sync edit from A, which was already batched in - thus
@@ -854,6 +861,11 @@ public class TestEditLog {
     public boolean isInProgress() {
       return true;
     }
+
+    @Override
+    public void setMaxOpSize(int maxOpSize) {
+      reader.setMaxOpSize(maxOpSize);
+    }
   }
 
   @Test
@@ -1209,22 +1221,19 @@ public class TestEditLog {
    *
    */
   static void validateNoCrash(byte garbage[]) throws IOException {
-    final String TEST_LOG_NAME = "test_edit_log";
+    final File TEST_LOG_NAME = new File(TEST_DIR, "test_edit_log");
 
     EditLogFileOutputStream elfos = null;
-    File file = null;
     EditLogFileInputStream elfis = null;
     try {
-      file = new File(TEST_LOG_NAME);
-      elfos = new EditLogFileOutputStream(file, 0);
+      elfos = new EditLogFileOutputStream(TEST_LOG_NAME, 0);
       elfos.create();
       elfos.writeRaw(garbage, 0, garbage.length);
       elfos.setReadyToFlush();
       elfos.flushAndSync(true);
       elfos.close();
       elfos = null;
-      file = new File(TEST_LOG_NAME);
-      elfis = new EditLogFileInputStream(file);
+      elfis = new EditLogFileInputStream(TEST_LOG_NAME);
 
       // verify that we can read everything without killing the JVM or
       // throwing an exception other than IOException

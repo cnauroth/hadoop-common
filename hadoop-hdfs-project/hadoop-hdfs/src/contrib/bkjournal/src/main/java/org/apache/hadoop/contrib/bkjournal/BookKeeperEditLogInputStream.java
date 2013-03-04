@@ -129,8 +129,9 @@ class BookKeeperEditLogInputStream extends EditLogInputStream {
   
   @Override
   public String getName() {
-    return String.format("BookKeeper[%s,first=%d,last=%d]", 
-        lh.toString(), firstTxId, lastTxId);
+    return String.format(
+        "BookKeeperLedger[ledgerId=%d,firstTxId=%d,lastTxId=%d]", lh.getId(),
+        firstTxId, lastTxId);
   }
 
   @Override
@@ -155,6 +156,16 @@ class BookKeeperEditLogInputStream extends EditLogInputStream {
       throw new IOException("Corrupt stream, expected txid "
           + (txId-1) + ", got " + op.getTransactionId());
     }
+  }
+
+  @Override
+  public String toString() {
+    return ("BookKeeperEditLogInputStream {" + this.getName() + "}");
+  }
+
+  @Override
+  public void setMaxOpSize(int maxOpSize) {
+    reader.setMaxOpSize(maxOpSize);
   }
 
   /**

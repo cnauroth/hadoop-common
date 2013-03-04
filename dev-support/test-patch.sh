@@ -323,7 +323,7 @@ checkAuthor () {
 }
 
 ###############################################################################
-### Check for tests in the patch
+### Check for tests and their timeout in the patch
 checkTests () {
   echo ""
   echo ""
@@ -357,7 +357,25 @@ checkTests () {
   JIRA_COMMENT="$JIRA_COMMENT
 
     {color:green}+1 tests included{color}.  The patch appears to include $testReferences new or modified test files."
-  return 0
+  echo ""
+  echo "======================================================================"
+  echo "======================================================================"
+  echo "    Checking if the tests have timeout assigned in this patch."
+  echo "======================================================================"
+  echo "======================================================================"
+  
+  nontimeoutTests=`cat $PATCH_DIR/patch | $AWK '{ printf "%s ", $0 }'  | $GREP --extended-regex --count '[ ]*\+[ ]*((@Test[\+ ]*[A-Za-z]+)|([\+ ]*@Test[ \+]*\([ \+]*\)[\ ]*\+?[ ]*[A-Za-z]+)|([\+ ]*@Test[\+ ]*\(exception[ \+]*=[ \+]*[A-Z.a-z0-9A-Z ]*\)))'`
+
+  if [[ $nontimeoutTests == 0 ]] ; then
+    JIRA_COMMENT="$JIRA_COMMENT
+
+    {color:green}+1 tests included appear to have a timeout.{color}"
+	return 0
+  fi
+  JIRA_COMMENT="$JIRA_COMMENT
+
+  {color:red}-1 one of tests included doesn't have a timeout.{color}"
+  return 1
 }
 
 cleanUpXml () {
@@ -710,7 +728,7 @@ runTests () {
           ordered_modules="$ordered_modules $module"
       fi
   done
-  if [ -n $hdfs_modules ]; then
+  if [ -n "$hdfs_modules" ]; then
       ordered_modules="$ordered_modules $hdfs_modules"
       if [[ $building_common -eq 0 ]]; then
           echo "  Building hadoop-common with -Pnative in order to provide \
@@ -980,12 +998,12 @@ fi
 (( RESULT = RESULT + $JAVAC_RET ))
 checkJavadocWarnings
 (( RESULT = RESULT + $? ))
-checkEclipseGeneration
-(( RESULT = RESULT + $? ))
 ### Checkstyle not implemented yet
 #checkStyle
 #(( RESULT = RESULT + $? ))
 buildAndInstall
+checkEclipseGeneration
+(( RESULT = RESULT + $? ))
 checkFindbugsWarnings
 (( RESULT = RESULT + $? ))
 checkReleaseAuditWarnings

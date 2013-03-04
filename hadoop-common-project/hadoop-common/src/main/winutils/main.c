@@ -77,9 +77,6 @@ int wmain(int argc, wchar_t* argv[])
 
 static void Usage(LPCWSTR program)
 {
-  //
-  // TODO: add more command line usages and examples for each command.
-  //
   fwprintf(stdout, L"Usage: %s [command] ...\n\
 Provide basic command line utilities for Hadoop on Windows.\n\n\
 The available commands and their usages are:\n\n", program);
@@ -110,10 +107,9 @@ The available commands and their usages are:\n\n", program);
 
   fwprintf(stdout, L"%-15s%s\n\n", L"systeminfo", L"System information.");
   SystemInfoUsage();
+  fwprintf(stdout, L"\n\n");
 
   fwprintf(stdout, L"%-15s%s\n\n", L"task", L"Task operations.");
   TaskUsage();
-  fwprintf(stdout, L"\n\n");
-
   fwprintf(stdout, L"\n\n");
 }

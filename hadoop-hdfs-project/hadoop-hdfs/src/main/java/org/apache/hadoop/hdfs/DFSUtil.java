@@ -80,6 +80,7 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.ToolRunner;
 
+import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
@@ -133,7 +134,7 @@ public class DFSUtil {
   /**
    * Comparator for sorting DataNodeInfo[] based on decommissioned/stale states.
    * Decommissioned/stale nodes are moved to the end of the array on sorting
-   * with this compartor.
+   * with this comparator.
    */ 
   @InterfaceAudience.Private 
   public static class DecomStaleComparator implements Comparator<DatanodeInfo> {
@@ -143,7 +144,7 @@ public class DFSUtil {
      * Constructor of DecomStaleComparator
      * 
      * @param interval
-     *          The time invertal for marking datanodes as stale is passed from
+     *          The time interval for marking datanodes as stale is passed from
      *          outside, since the interval may be changed dynamically
      */
     public DecomStaleComparator(long interval) {
@@ -222,36 +223,34 @@ public class DFSUtil {
    * Converts a string to a byte array using UTF8 encoding.
    */
   public static byte[] string2Bytes(String str) {
-    try {
-      return str.getBytes("UTF8");
-    } catch(UnsupportedEncodingException e) {
-      assert false : "UTF8 encoding is not supported ";
-    }
-    return null;
+    return str.getBytes(Charsets.UTF_8);
   }
 
   /**
    * Given a list of path components returns a path as a UTF8 String
    */
-  public static String byteArray2String(byte[][] pathComponents) {
+  public static String byteArray2PathString(byte[][] pathComponents) {
     if (pathComponents.length == 0)
       return "";
     if (pathComponents.length == 1 && pathComponents[0].length == 0) {
       return Path.SEPARATOR;
     }
-    try {
-      StringBuilder result = new StringBuilder();
-      for (int i = 0; i < pathComponents.length; i++) {
-        result.append(new String(pathComponents[i], "UTF-8"));
-        if (i < pathComponents.length - 1) {
-          result.append(Path.SEPARATOR_CHAR);
-        }
+    StringBuilder result = new StringBuilder();
+    for (int i = 0; i < pathComponents.length; i++) {
+      result.append(new String(pathComponents[i], Charsets.UTF_8));
+      if (i < pathComponents.length - 1) {
+        result.append(Path.SEPARATOR_CHAR);
       }
-      return result.toString();
-    } catch (UnsupportedEncodingException ex) {
-      assert false : "UTF8 encoding is not supported ";
     }
-    return null;
+    return result.toString();
+  }
+
+  /** Convert an object representing a path to a string. */
+  public static String path2String(final Object path) {
+    return path == null? null
+        : path instanceof String? (String)path
+        : path instanceof byte[][]? byteArray2PathString((byte[][])path)
+        : path.toString();
   }
 
   /**
@@ -767,6 +766,13 @@ public class DFSUtil {
     
     // Add the default URI if it is an HDFS URI.
     URI defaultUri = FileSystem.getDefaultUri(conf);
+    // checks if defaultUri is ip:port format
+    // and convert it to hostname:port format
+    if (defaultUri != null && (defaultUri.getPort() != -1)) {
+      defaultUri = createUri(defaultUri.getScheme(),
+          NetUtils.createSocketAddr(defaultUri.getHost(), 
+              defaultUri.getPort()));
+    }
     if (defaultUri != null &&
         HdfsConstants.HDFS_URI_SCHEME.equals(defaultUri.getScheme()) &&
         !nonPreferredUris.contains(defaultUri)) {
@@ -924,6 +930,11 @@ public class DFSUtil {
   /** Return remaining as percentage of capacity */
   public static float getPercentRemaining(long remaining, long capacity) {
     return capacity <= 0 ? 0 : (remaining * 100.0f)/capacity; 
+  }
+
+  /** Convert percentage to a string. */
+  public static String percent2String(double percentage) {
+    return StringUtils.format("%.2f%%", percentage);
   }
 
   /**

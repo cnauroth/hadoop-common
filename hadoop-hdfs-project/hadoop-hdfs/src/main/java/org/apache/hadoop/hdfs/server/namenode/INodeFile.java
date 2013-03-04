@@ -17,8 +17,8 @@
  */
 package org.apache.hadoop.hdfs.server.namenode;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.List;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.fs.permission.FsAction;
@@ -32,26 +32,73 @@ import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoUnderConstruction;
 /** I-node for closed file. */
 @InterfaceAudience.Private
 public class INodeFile extends INode implements BlockCollection {
+  /** Cast INode to INodeFile. */
+  public static INodeFile valueOf(INode inode, String path
+      ) throws FileNotFoundException {
+    if (inode == null) {
+      throw new FileNotFoundException("File does not exist: " + path);
+    }
+    if (!(inode instanceof INodeFile)) {
+      throw new FileNotFoundException("Path is not a file: " + path);
+    }
+    return (INodeFile)inode;
+  }
+
   static final FsPermission UMASK = FsPermission.createImmutable((short)0111);
 
-  //Number of bits for Block size
-  static final short BLOCKBITS = 48;
 
-  //Header mask 64-bit representation
-  //Format: [16 bits for replication][48 bits for PreferredBlockSize]
-  static final long HEADERMASK = 0xffffL << BLOCKBITS;
+  /** Format: [16 bits for replication][48 bits for PreferredBlockSize] */
+  private static class HeaderFormat {
+    /** Number of bits for Block size */
+    static final int BLOCKBITS = 48;
+    /** Header mask 64-bit representation */
+    static final long HEADERMASK = 0xffffL << BLOCKBITS;
+    static final long MAX_BLOCK_SIZE = ~HEADERMASK; 
+    
+    static short getReplication(long header) {
+      return (short) ((header & HEADERMASK) >> BLOCKBITS);
+    }
 
-  private long header;
+    static long combineReplication(long header, short replication) {
+      if (replication <= 0) {
+         throw new IllegalArgumentException(
+             "Unexpected value for the replication: " + replication);
+      }
+      return ((long)replication << BLOCKBITS) | (header & MAX_BLOCK_SIZE);
+    }
+    
+    static long getPreferredBlockSize(long header) {
+      return header & MAX_BLOCK_SIZE;
+    }
 
-  BlockInfo blocks[] = null;
+    static long combinePreferredBlockSize(long header, long blockSize) {
+      if (blockSize < 0) {
+         throw new IllegalArgumentException("Block size < 0: " + blockSize);
+      } else if (blockSize > MAX_BLOCK_SIZE) {
+        throw new IllegalArgumentException("Block size = " + blockSize
+            + " > MAX_BLOCK_SIZE = " + MAX_BLOCK_SIZE);
+     }
+      return (header & HEADERMASK) | (blockSize & MAX_BLOCK_SIZE);
+    }
+  }
 
-  INodeFile(PermissionStatus permissions, BlockInfo[] blklist,
-                      short replication, long modificationTime,
-                      long atime, long preferredBlockSize) {
-    super(permissions, modificationTime, atime);
-    this.setReplication(replication);
-    this.setPreferredBlockSize(preferredBlockSize);
-    blocks = blklist;
+  private long header = 0L;
+
+  private BlockInfo[] blocks;
+
+  INodeFile(long id, PermissionStatus permissions, BlockInfo[] blklist,
+      short replication, long modificationTime, long atime,
+      long preferredBlockSize) {
+    super(id, permissions, modificationTime, atime);
+    header = HeaderFormat.combineReplication(header, replication);
+    header = HeaderFormat.combinePreferredBlockSize(header, preferredBlockSize);
+    this.blocks = blklist;
+  }
+  
+  /** @return true unconditionally. */
+  @Override
+  public final boolean isFile() {
+    return true;
   }
 
   /**
@@ -64,33 +111,20 @@ public class INodeFile extends INode implements BlockCollection {
     super.setPermission(permission.applyUMask(UMASK));
   }
 
-  @Override
-  boolean isDirectory() {
-    return false;
-  }
-
   /** @return the replication factor of the file. */
   @Override
   public short getBlockReplication() {
-    return (short) ((header & HEADERMASK) >> BLOCKBITS);
+    return HeaderFormat.getReplication(header);
   }
 
   void setReplication(short replication) {
-    if(replication <= 0)
-       throw new IllegalArgumentException("Unexpected value for the replication");
-    header = ((long)replication << BLOCKBITS) | (header & ~HEADERMASK);
+    header = HeaderFormat.combineReplication(header, replication);
   }
 
   /** @return preferred block size (in bytes) of the file. */
   @Override
   public long getPreferredBlockSize() {
-    return header & ~HEADERMASK;
-  }
-
-  private void setPreferredBlockSize(long preferredBlkSize) {
-    if((preferredBlkSize < 0) || (preferredBlkSize > ~HEADERMASK ))
-       throw new IllegalArgumentException("Unexpected value for the block size");
-    header = (header & HEADERMASK) | (preferredBlkSize & ~HEADERMASK);
+    return HeaderFormat.getPreferredBlockSize(header);
   }
 
   /** @return the blocks of the file. */
@@ -116,7 +150,7 @@ public class INodeFile extends INode implements BlockCollection {
     for(BlockInfo bi: newlist) {
       bi.setBlockCollection(this);
     }
-    this.blocks = newlist;
+    setBlocks(newlist);
   }
   
   /**
@@ -124,14 +158,13 @@ public class INodeFile extends INode implements BlockCollection {
    */
   void addBlock(BlockInfo newblock) {
     if (this.blocks == null) {
-      this.blocks = new BlockInfo[1];
-      this.blocks[0] = newblock;
+      this.setBlocks(new BlockInfo[]{newblock});
     } else {
       int size = this.blocks.length;
       BlockInfo[] newlist = new BlockInfo[size + 1];
       System.arraycopy(this.blocks, 0, newlist, 0, size);
       newlist[size] = newblock;
-      this.blocks = newlist;
+      this.setBlocks(newlist);
     }
   }
 
@@ -140,16 +173,21 @@ public class INodeFile extends INode implements BlockCollection {
     this.blocks[idx] = blk;
   }
 
+  /** Set the blocks. */
+  public void setBlocks(BlockInfo[] blocks) {
+    this.blocks = blocks;
+  }
+
   @Override
-  int collectSubtreeBlocksAndClear(List<Block> v) {
+  int collectSubtreeBlocksAndClear(BlocksMapUpdateInfo info) {
     parent = null;
-    if(blocks != null && v != null) {
+    if(blocks != null && info != null) {
       for (BlockInfo blk : blocks) {
-        v.add(blk);
+        info.addDeleteBlock(blk);
         blk.setBlockCollection(null);
       }
     }
-    blocks = null;
+    setBlocks(null);
     return 1;
   }
   

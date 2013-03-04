@@ -45,6 +45,7 @@ import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -57,6 +58,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import javax.security.auth.callback.CallbackHandler;
 import javax.security.sasl.Sasl;
 import javax.security.sasl.SaslException;
 import javax.security.sasl.SaslServer;
@@ -78,7 +80,8 @@ import org.apache.hadoop.ipc.RPC.VersionMismatch;
 import org.apache.hadoop.ipc.metrics.RpcDetailedMetrics;
 import org.apache.hadoop.ipc.metrics.RpcMetrics;
 import org.apache.hadoop.ipc.protobuf.IpcConnectionContextProtos.IpcConnectionContextProto;
-import org.apache.hadoop.ipc.protobuf.RpcPayloadHeaderProtos.*;
+import org.apache.hadoop.ipc.protobuf.RpcHeaderProtos.RpcResponseHeaderProto.RpcStatusProto;
+import org.apache.hadoop.ipc.protobuf.RpcHeaderProtos.*;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.hadoop.security.SaslRpcServer;
@@ -86,7 +89,10 @@ import org.apache.hadoop.security.SaslRpcServer.AuthMethod;
 import org.apache.hadoop.security.SaslRpcServer.SaslDigestCallbackHandler;
 import org.apache.hadoop.security.SaslRpcServer.SaslGssCallbackHandler;
 import org.apache.hadoop.security.SaslRpcServer.SaslStatus;
+import org.apache.hadoop.security.SecurityUtil;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod;
+import org.apache.hadoop.security.authentication.util.KerberosName;
 import org.apache.hadoop.security.authorize.AuthorizationException;
 import org.apache.hadoop.security.authorize.PolicyProvider;
 import org.apache.hadoop.security.authorize.ProxyUsers;
@@ -111,7 +117,7 @@ import com.google.common.annotations.VisibleForTesting;
 @InterfaceStability.Evolving
 public abstract class Server {
   private final boolean authorize;
-  private boolean isSecurityEnabled;
+  private EnumSet<AuthMethod> enabledAuthMethods;
   private ExceptionsHandler exceptionsHandler = new ExceptionsHandler();
   
   public void addTerseExceptions(Class<?>... exceptionClass) {
@@ -155,7 +161,7 @@ public abstract class Server {
   public static final ByteBuffer HEADER = ByteBuffer.wrap("hrpc".getBytes());
   
   /**
-   * Serialization type for ConnectionContext and RpcPayloadHeader
+   * Serialization type for ConnectionContext and RpcRequestHeader
    */
   public enum IpcSerializationType {
     // Add new serialization type to the end without affecting the enum order
@@ -192,9 +198,10 @@ public abstract class Server {
   // 4 : Introduced SASL security layer
   // 5 : Introduced use of {@link ArrayPrimitiveWritable$Internal}
   //     in ObjectWritable to efficiently transmit arrays of primitives
-  // 6 : Made RPC payload header explicit
+  // 6 : Made RPC Request header explicit
   // 7 : Changed Ipc Connection Header to use Protocol buffers
-  public static final byte CURRENT_VERSION = 7;
+  // 8 : SASL server always sends a final response
+  public static final byte CURRENT_VERSION = 8;
 
   /**
    * Initial and max size of response buffer
@@ -306,6 +313,14 @@ public abstract class Server {
     return (addr == null) ? null : addr.getHostAddress();
   }
 
+  /** Returns the RPC remote user when invoked inside an RPC.  Note this
+   *  may be different than the current user if called within another doAs
+   *  @return connection's UGI or null if not an RPC
+   */
+  public static UserGroupInformation getRemoteUser() {
+    Call call = CurCall.get();
+    return (call != null) ? call.connection.user : null;
+  }
  
   /** Return true if the invocation was through an RPC.
    */
@@ -974,6 +989,8 @@ public abstract class Server {
             return true;
           }
           if (!call.rpcResponse.hasRemaining()) {
+            //Clear out the response buffer so it can be collected
+            call.rpcResponse = null;
             call.connection.decRpcCount();
             if (numElements == 1) {    // last call fully processes.
               done = true;             // no more data for this channel.
@@ -1076,7 +1093,6 @@ public abstract class Server {
     
     IpcConnectionContextProto connectionContext;
     String protocolName;
-    boolean useSasl;
     SaslServer saslServer;
     private AuthMethod authMethod;
     private boolean saslContextEstablished;
@@ -1192,49 +1208,6 @@ public abstract class Server {
       if (!saslContextEstablished) {
         byte[] replyToken = null;
         try {
-          if (saslServer == null) {
-            switch (authMethod) {
-            case DIGEST:
-              if (secretManager == null) {
-                throw new AccessControlException(
-                    "Server is not configured to do DIGEST authentication.");
-              }
-              secretManager.checkAvailableForRead();
-              saslServer = Sasl.createSaslServer(AuthMethod.DIGEST
-                  .getMechanismName(), null, SaslRpcServer.SASL_DEFAULT_REALM,
-                  SaslRpcServer.SASL_PROPS, new SaslDigestCallbackHandler(
-                      secretManager, this));
-              break;
-            default:
-              UserGroupInformation current = UserGroupInformation
-                  .getCurrentUser();
-              String fullName = current.getUserName();
-              if (LOG.isDebugEnabled())
-                LOG.debug("Kerberos principal name is " + fullName);
-              final String names[] = SaslRpcServer.splitKerberosName(fullName);
-              if (names.length != 3) {
-                throw new AccessControlException(
-                    "Kerberos principal name does NOT have the expected "
-                        + "hostname part: " + fullName);
-              }
-              current.doAs(new PrivilegedExceptionAction<Object>() {
-                @Override
-                public Object run() throws SaslException {
-                  saslServer = Sasl.createSaslServer(AuthMethod.KERBEROS
-                      .getMechanismName(), names[0], names[1],
-                      SaslRpcServer.SASL_PROPS, new SaslGssCallbackHandler());
-                  return null;
-                }
-              });
-            }
-            if (saslServer == null)
-              throw new AccessControlException(
-                  "Unable to find SASL server implementation for "
-                      + authMethod.getMechanismName());
-            if (LOG.isDebugEnabled())
-              LOG.debug("Created SASL server with mechanism = "
-                  + authMethod.getMechanismName());
-          }
           if (LOG.isDebugEnabled())
             LOG.debug("Have read input token of size " + saslToken.length
                 + " for processing by saslServer.evaluateResponse()");
@@ -1256,6 +1229,10 @@ public abstract class Server {
           // attempting user could be null
           AUDITLOG.warn(AUTH_FAILED_FOR + clientIP + ":" + attemptingUser);
           throw e;
+        }
+        if (saslServer.isComplete() && replyToken == null) {
+          // send final response for success
+          replyToken = new byte[0];
         }
         if (replyToken != null) {
           if (LOG.isDebugEnabled())
@@ -1373,46 +1350,10 @@ public abstract class Server {
           dataLengthBuffer.clear();
           if (authMethod == null) {
             throw new IOException("Unable to read authentication method");
-          }          
-          final boolean clientUsingSasl;
-          switch (authMethod) {
-            case SIMPLE: { // no sasl for simple
-              if (isSecurityEnabled) {
-                AccessControlException ae = new AccessControlException("Authorization ("
-                    + CommonConfigurationKeys.HADOOP_SECURITY_AUTHORIZATION
-                    + ") is enabled but authentication ("
-                    + CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION
-                    + ") is configured as simple. Please configure another method "
-                    + "like kerberos or digest.");
-                setupResponse(authFailedResponse, authFailedCall, RpcStatusProto.FATAL,
-                    null, ae.getClass().getName(), ae.getMessage());
-                responder.doRespond(authFailedCall);
-                throw ae;
-              }
-              clientUsingSasl = false;
-              useSasl = false; 
-              break;
-            }
-            case DIGEST: {
-              clientUsingSasl = true;
-              useSasl = (secretManager != null);
-              break;
-            }
-            default: {
-              clientUsingSasl = true;
-              useSasl = isSecurityEnabled; 
-              break;
-            }
-          }          
-          if (clientUsingSasl && !useSasl) {
-            doSaslReply(SaslStatus.SUCCESS, new IntWritable(
-                SaslRpcServer.SWITCH_TO_SIMPLE_AUTH), null, null);
-            authMethod = AuthMethod.SIMPLE;
-            // client has already sent the initial Sasl message and we
-            // should ignore it. Both client and server should fall back
-            // to simple auth from now on.
-            skipInitialSaslHandshake = true;
           }
+  
+          // this may create a SASL server, or switch us into SIMPLE
+          authMethod = initializeAuthContext(authMethod);
           
           connectionHeaderBuf = null;
           connectionHeaderRead = true;
@@ -1446,7 +1387,7 @@ public abstract class Server {
             continue;
           }
           boolean isHeaderRead = connectionContextRead;
-          if (useSasl) {
+          if (saslServer != null) {
             saslReadAndProcess(data.array());
           } else {
             processOneRpc(data.array());
@@ -1460,6 +1401,103 @@ public abstract class Server {
       }
     }
 
+    private AuthMethod initializeAuthContext(AuthMethod authMethod)
+        throws IOException, InterruptedException {
+      try {
+        if (enabledAuthMethods.contains(authMethod)) {
+          saslServer = createSaslServer(authMethod);
+        } else if (enabledAuthMethods.contains(AuthMethod.SIMPLE)) {
+          doSaslReply(SaslStatus.SUCCESS, new IntWritable(
+              SaslRpcServer.SWITCH_TO_SIMPLE_AUTH), null, null);
+          authMethod = AuthMethod.SIMPLE;
+          // client has already sent the initial Sasl message and we
+          // should ignore it. Both client and server should fall back
+          // to simple auth from now on.
+          skipInitialSaslHandshake = true;
+        } else {
+          throw new AccessControlException(
+              authMethod + " authentication is not enabled."
+                  + "  Available:" + enabledAuthMethods);
+        }
+      } catch (IOException ioe) {
+        final String ioeClass = ioe.getClass().getName();
+        final String ioeMessage  = ioe.getLocalizedMessage();
+        if (authMethod == AuthMethod.SIMPLE) {
+          setupResponse(authFailedResponse, authFailedCall,
+              RpcStatusProto.FATAL, null, ioeClass, ioeMessage);
+          responder.doRespond(authFailedCall);
+        } else {
+          doSaslReply(SaslStatus.ERROR, null, ioeClass, ioeMessage);
+        }
+        throw ioe;
+      }
+      return authMethod;
+    }
+
+    private SaslServer createSaslServer(AuthMethod authMethod)
+        throws IOException, InterruptedException {
+      String hostname = null;
+      String saslProtocol = null;
+      CallbackHandler saslCallback = null;
+      
+      switch (authMethod) {
+        case SIMPLE: {
+          return null; // no sasl for simple
+        }
+        case DIGEST: {
+          secretManager.checkAvailableForRead();
+          hostname = SaslRpcServer.SASL_DEFAULT_REALM;
+          saslCallback = new SaslDigestCallbackHandler(secretManager, this);
+          break;
+        }
+        case KERBEROS: {
+          String fullName = UserGroupInformation.getCurrentUser().getUserName();
+          if (LOG.isDebugEnabled())
+            LOG.debug("Kerberos principal name is " + fullName);
+          KerberosName krbName = new KerberosName(fullName);
+          hostname = krbName.getHostName();
+          if (hostname == null) {
+            throw new AccessControlException(
+                "Kerberos principal name does NOT have the expected "
+                    + "hostname part: " + fullName);
+          }
+          saslProtocol = krbName.getServiceName();
+          saslCallback = new SaslGssCallbackHandler();
+          break;
+        }
+        default:
+          // we should never be able to get here
+          throw new AccessControlException(
+              "Server does not support SASL " + authMethod);
+      }
+      
+      return createSaslServer(authMethod.getMechanismName(), saslProtocol,
+                              hostname, saslCallback);                                    
+    }
+
+    private SaslServer createSaslServer(final String mechanism,
+                                        final String protocol,
+                                        final String hostname,
+                                        final CallbackHandler callback
+        ) throws IOException, InterruptedException {
+      SaslServer saslServer = UserGroupInformation.getCurrentUser().doAs(
+          new PrivilegedExceptionAction<SaslServer>() {
+            @Override
+            public SaslServer run() throws SaslException  {
+              return Sasl.createSaslServer(mechanism, protocol, hostname,
+                                           SaslRpcServer.SASL_PROPS, callback);
+            }
+          });
+      if (saslServer == null) {
+        throw new AccessControlException(
+            "Unable to find SASL server implementation for " + mechanism);
+      }
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Created SASL server with mechanism = " + mechanism);
+      }
+      return saslServer;
+    }
+    
     /**
      * Try to set up the response to indicate that the client version
      * is incompatible with the server. This can contain special-case
@@ -1521,14 +1559,11 @@ public abstract class Server {
           .getProtocol() : null;
 
       UserGroupInformation protocolUser = ProtoUtil.getUgi(connectionContext);
-      if (!useSasl) {
+      if (saslServer == null) {
         user = protocolUser;
-        if (user != null) {
-          user.setAuthenticationMethod(AuthMethod.SIMPLE.authenticationMethod);
-        }
       } else {
         // user is authenticated
-        user.setAuthenticationMethod(authMethod.authenticationMethod);
+        user.setAuthenticationMethod(authMethod);
         //Now we check if this is a proxy user case. If the protocol user is
         //different from the 'user', it is a proxy user scenario. However, 
         //this is not allowed if user authenticated with DIGEST.
@@ -1608,14 +1643,15 @@ public abstract class Server {
     private void processData(byte[] buf) throws  IOException, InterruptedException {
       DataInputStream dis =
         new DataInputStream(new ByteArrayInputStream(buf));
-      RpcPayloadHeaderProto header = RpcPayloadHeaderProto.parseDelimitedFrom(dis);
+      RpcRequestHeaderProto header = RpcRequestHeaderProto.parseDelimitedFrom(dis);
         
       if (LOG.isDebugEnabled())
         LOG.debug(" got #" + header.getCallId());
       if (!header.hasRpcOp()) {
-        throw new IOException(" IPC Server: No rpc op in rpcPayloadHeader");
+        throw new IOException(" IPC Server: No rpc op in rpcRequestHeader");
       }
-      if (header.getRpcOp() != RpcPayloadOperationProto.RPC_FINAL_PAYLOAD) {
+      if (header.getRpcOp() != 
+          RpcRequestHeaderProto.OperationProto.RPC_FINAL_PACKET) {
         throw new IOException("IPC Server does not implement operation" + 
               header.getRpcOp());
       }
@@ -1623,7 +1659,7 @@ public abstract class Server {
       // (Note it would make more sense to have the handler deserialize but 
       // we continue with this original design.
       if (!header.hasRpcKind()) {
-        throw new IOException(" IPC Server: No rpc kind in rpcPayloadHeader");
+        throw new IOException(" IPC Server: No rpc kind in rpcRequestHeader");
       }
       Class<? extends Writable> rpcRequestClass = 
           getRpcRequestWrapper(header.getRpcKind());
@@ -1881,7 +1917,9 @@ public abstract class Server {
     this.authorize = 
       conf.getBoolean(CommonConfigurationKeys.HADOOP_SECURITY_AUTHORIZATION, 
                       false);
-    this.isSecurityEnabled = UserGroupInformation.isSecurityEnabled();
+
+    // configure supported authentications
+    this.enabledAuthMethods = getAuthMethods(secretManager, conf);
     
     // Start the listener here and let it bind to the port
     listener = new Listener();
@@ -1902,6 +1940,31 @@ public abstract class Server {
     this.exceptionsHandler.addTerseExceptions(StandbyException.class);
   }
 
+  // get the security type from the conf. implicitly include token support
+  // if a secret manager is provided, or fail if token is the conf value but
+  // there is no secret manager
+  private EnumSet<AuthMethod> getAuthMethods(SecretManager<?> secretManager,
+                                             Configuration conf) {
+    AuthenticationMethod confAuthenticationMethod =
+        SecurityUtil.getAuthenticationMethod(conf);        
+    EnumSet<AuthMethod> authMethods =
+        EnumSet.of(confAuthenticationMethod.getAuthMethod()); 
+        
+    if (confAuthenticationMethod == AuthenticationMethod.TOKEN) {
+      if (secretManager == null) {
+        throw new IllegalArgumentException(AuthenticationMethod.TOKEN +
+            " authentication requires a secret manager");
+      } 
+    } else if (secretManager != null) {
+      LOG.debug(AuthenticationMethod.TOKEN +
+          " authentication enabled for secret manager");
+      authMethods.add(AuthenticationMethod.TOKEN.getAuthMethod());
+    }
+    
+    LOG.debug("Server accepts auth methods:" + authMethods);
+    return authMethods;
+  }
+  
   private void closeConnection(Connection connection) {
     synchronized (connectionList) {
       if (connectionList.remove(connection))
@@ -1997,7 +2060,7 @@ public abstract class Server {
   
   private void wrapWithSasl(ByteArrayOutputStream response, Call call)
       throws IOException {
-    if (call.connection.useSasl) {
+    if (call.connection.saslServer != null) {
       byte[] token = response.toByteArray();
       // synchronization may be needed since there can be multiple Handler
       // threads using saslServer to wrap responses.
@@ -2016,16 +2079,6 @@ public abstract class Server {
   
   Configuration getConf() {
     return conf;
-  }
-  
-  /** for unit testing only, should be called before server is started */ 
-  void disableSecurity() {
-    this.isSecurityEnabled = false;
-  }
-  
-  /** for unit testing only, should be called before server is started */ 
-  void enableSecurity() {
-    this.isSecurityEnabled = true;
   }
   
   /** Sets the socket buffer size used for responding to RPCs */

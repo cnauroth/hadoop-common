@@ -72,7 +72,12 @@ public class YarnClientImpl extends AbstractService implements YarnClient {
   private static final String ROOT = "root";
 
   public YarnClientImpl() {
+    this(null);
+  }
+  
+  public YarnClientImpl(InetSocketAddress rmAddress) {
     super(YarnClientImpl.class.getName());
+    this.rmAddress = rmAddress;
   }
 
   private static InetSocketAddress getRmAddress(Configuration conf) {
@@ -82,7 +87,9 @@ public class YarnClientImpl extends AbstractService implements YarnClient {
 
   @Override
   public synchronized void init(Configuration conf) {
-    this.rmAddress = getRmAddress(conf);
+    if (this.rmAddress == null) {
+      this.rmAddress = getRmAddress(conf);
+    }
     super.init(conf);
   }
 
@@ -90,16 +97,19 @@ public class YarnClientImpl extends AbstractService implements YarnClient {
   public synchronized void start() {
     YarnRPC rpc = YarnRPC.create(getConfig());
 
-    this.rmClient =
-        (ClientRMProtocol) rpc.getProxy(ClientRMProtocol.class, rmAddress,
-          getConfig());
-    LOG.debug("Connecting to ResourceManager at " + rmAddress);
+    this.rmClient = (ClientRMProtocol) rpc.getProxy(
+        ClientRMProtocol.class, rmAddress, getConfig());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Connecting to ResourceManager at " + rmAddress);
+    }
     super.start();
   }
 
   @Override
   public synchronized void stop() {
-    RPC.stopProxy(this.rmClient);
+    if (this.rmClient != null) {
+      RPC.stopProxy(this.rmClient);
+    }
     super.stop();
   }
 
@@ -183,6 +193,7 @@ public class YarnClientImpl extends AbstractService implements YarnClient {
         rmClient.getDelegationToken(rmDTRequest);
     return response.getRMDelegationToken();
   }
+
 
   private GetQueueInfoRequest
       getQueueInfoRequest(String queueName, boolean includeApplications,

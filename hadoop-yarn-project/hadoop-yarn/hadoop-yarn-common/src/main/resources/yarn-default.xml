@@ -189,7 +189,7 @@
   </property>
 
   <property>
-    <description>The minimum allocation size for every container request at the RM,
+    <description>The minimum allocation for every container request at the RM,
     in MBs. Memory requests lower than this won't take effect,
     and the specified value will get allocated at minimum.</description>
     <name>yarn.scheduler.minimum-allocation-mb</name>
@@ -197,7 +197,7 @@
   </property>
 
   <property>
-    <description>The maximum allocation size for every container request at the RM,
+    <description>The maximum allocation for every container request at the RM,
     in MBs. Memory requests higher than this won't take effect,
     and will get capped to this value.</description>
     <name>yarn.scheduler.maximum-allocation-mb</name>
@@ -205,19 +205,42 @@
   </property>
 
   <property>
+    <description>The minimum allocation for every container request at the RM,
+    in terms of virtual CPU cores. Requests lower than this won't take effect,
+    and the specified value will get allocated the minimum.</description>
+    <name>yarn.scheduler.minimum-allocation-vcores</name>
+    <value>1</value>
+  </property>
+
+  <property>
+    <description>The maximum allocation for every container request at the RM,
+    in terms of virtual CPU cores. Requests higher than this won't take effect,
+    and will get capped to this value.</description>
+    <name>yarn.scheduler.maximum-allocation-vcores</name>
+    <value>32</value>
+  </property>
+
+  <property>
+    <description>Enable RM to recover state after starting. If true, then 
+    yarn.resourcemanager.store.class must be specified</description>
+    <name>yarn.resourcemanager.recovery.enabled</name>
+    <value>false</value>
+  </property>
+
+  <property>
     <description>The class to use as the persistent store.</description>
     <name>yarn.resourcemanager.store.class</name>
+    <value>org.apache.hadoop.yarn.server.resourcemanager.recovery.FileSystemRMStateStore</value>
   </property>
 
   <property>
-    <description>The address of the zookeeper instance to use with ZK store.</description>
-    <name>yarn.resourcemanager.zookeeper-store.address</name>
-  </property>
-
-  <property>
-    <description>The zookeeper session timeout for the zookeeper store.</description>
-    <name>yarn.resourcemanager.zookeeper-store.session.timeout-ms</name>
-    <value>60000</value>
+    <description>URI pointing to the location of the FileSystem path where
+    RM state will be stored. This must be supplied when using
+    org.apache.hadoop.yarn.server.resourcemanager.recovery.FileSystemRMStateStore
+    as the value for yarn.resourcemanager.store.class</description>
+    <name>yarn.resourcemanager.fs.rm-state-store.uri</name>
+    <value>${hadoop.tmp.dir}/yarn/system/rmstore</value>
+    <!--value>hdfs://localhost:9000/rmstore</value-->
   </property>
 
   <property>
@@ -388,6 +411,15 @@
   </property> 
   
   <property>
+    <description>How long to wait between aggregated log retention checks.
+    If set to 0 or a negative value then the value is computed as one-tenth
+    of the aggregated log retention time. Be careful set this too small and
+    you will spam the name node.</description>
+    <name>yarn.log-aggregation.retain-check-interval-seconds</name>
+    <value>-1</value>
+  </property>
+
+  <property>
     <description>Time in seconds to retain user logs. Only applicable if
     log aggregation is disabled
     </description>
@@ -408,7 +440,6 @@
     <value>logs</value>
   </property>
 
-
   <property>
     <description>Amount of physical memory, in MB, that can be allocated 
     for containers.</description>
@@ -424,6 +455,21 @@
     </description>
     <name>yarn.nodemanager.vmem-pmem-ratio</name>
     <value>2.1</value>
+  </property>
+
+  <property>
+    <description>Number of CPU cores that can be allocated 
+    for containers.</description>
+    <name>yarn.nodemanager.resource.cpu-cores</name>
+    <value>8</value>
+  </property>
+
+  <property>
+    <description>Ratio between virtual cores to physical cores when
+    allocating CPU resources to containers. 
+    </description>
+    <name>yarn.nodemanager.vcores-pcores-ratio</name>
+    <value>2</value>
   </property>
 
   <property>
@@ -486,6 +532,39 @@
   <property>
     <description>The path to the Linux container executor.</description>
     <name>yarn.nodemanager.linux-container-executor.path</name>
+  </property>
+
+  <property>
+    <description>The class which should help the LCE handle resources.</description>
+    <name>yarn.nodemanager.linux-container-executor.resources-handler.class</name>
+    <value>org.apache.hadoop.yarn.server.nodemanager.util.DefaultLCEResourcesHandler</value>
+    <!-- <value>org.apache.hadoop.yarn.server.nodemanager.util.CgroupsLCEResourcesHandler</value> -->
+  </property>
+
+  <property>
+    <description>The cgroups hierarchy under which to place YARN proccesses (cannot contain commas).
+    If yarn.nodemanager.linux-container-executor.cgroups.mount is false (that is, if cgroups have
+    been pre-configured), then this cgroups hierarchy must already exist and be writable by the
+    NodeManager user, otherwise the NodeManager may fail.
+    Only used when the LCE resources handler is set to the CgroupsLCEResourcesHandler.</description>
+    <name>yarn.nodemanager.linux-container-executor.cgroups.hierarchy</name>
+    <value>/hadoop-yarn</value>
+  </property>
+
+  <property>
+    <description>Whether the LCE should attempt to mount cgroups if not found.
+    Only used when the LCE resources handler is set to the CgroupsLCEResourcesHandler.</description>
+    <name>yarn.nodemanager.linux-container-executor.cgroups.mount</name>
+    <value>false</value>
+  </property>
+
+  <property>
+    <description>Where the LCE should attempt to mount cgroups if not found. Common locations
+    include /sys/fs/cgroup and /cgroup; the default location can vary depending on the Linux
+    distribution in use. This path must exist before the NodeManager is launched.
+    Only used when the LCE resources handler is set to the CgroupsLCEResourcesHandler, and
+    yarn.nodemanager.linux-container-executor.cgroups.mount is true.</description>
+    <name>yarn.nodemanager.linux-container-executor.cgroups.mount-path</name>
   </property>
 
   <property>

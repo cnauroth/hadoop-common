@@ -158,7 +158,7 @@ public class TestLargeBlock {
    * Test for block size of 2GB + 512B
    * @throws IOException in case of errors
    */
-  @Test
+  @Test(timeout = 120000)
   public void testLargeBlockSize() throws IOException {
     final long blockSize = 2L * 1024L * 1024L * 1024L + 512L; // 2GB + 512B
     runTest(blockSize);
@@ -183,8 +183,7 @@ public class TestLargeBlock {
     try {
 
       // create a new file in test data directory
-      Path file1 = new Path(System.getProperty("test.build.data") + "/" +
-          Long.toString(blockSize) + ".dat");
+      Path file1 = new Path("/tmp/TestLargeBlock", blockSize + ".dat");
       FSDataOutputStream stm = createFile(fs, file1, 1, blockSize);
       LOG.info("File " + file1 + " created with file size " +
           fileSize +

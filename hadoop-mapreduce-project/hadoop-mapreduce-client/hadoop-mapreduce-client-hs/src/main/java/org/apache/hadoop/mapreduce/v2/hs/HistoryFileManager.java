@@ -535,8 +535,9 @@ public class HistoryFileManager extends AbstractService {
     if (serialPart == null) {
       LOG.warn("Could not find serial portion from path: "
           + serialDirPath.toString() + ". Continuing with next");
+    } else {
+      serialNumberIndex.add(serialPart, timestampPart);
     }
-    serialNumberIndex.add(serialPart, timestampPart);
   }
 
   private void addDirectoryToJobListCache(Path path) throws IOException {
@@ -666,6 +667,9 @@ public class HistoryFileManager extends AbstractService {
             }
           });
         }
+      } else if (old != null && !old.isMovePending()) {
+        //This is a duplicate so just delete it
+        fileInfo.delete();
       }
     }
   }

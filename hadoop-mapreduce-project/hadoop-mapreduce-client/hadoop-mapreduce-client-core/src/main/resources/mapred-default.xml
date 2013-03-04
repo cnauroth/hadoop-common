@@ -111,6 +111,14 @@
 </property>
 
 <property>
+  <name>mapreduce.reduce.shuffle.retry-delay.max.ms</name>
+  <value>60000</value>
+  <description>The maximum number of ms the reducer will delay before retrying
+  to download map data.
+  </description>
+</property>
+
+<property>
   <name>mapreduce.reduce.shuffle.parallelcopies</name>
   <value>5</value>
   <description>The default number of parallel transfers run by reduce
@@ -207,6 +215,22 @@
   <value>INFO</value>
   <description>The logging level for the reduce task. The allowed levels are:
   OFF, FATAL, ERROR, WARN, INFO, DEBUG, TRACE and ALL.
+  </description>
+</property>
+
+<property>
+  <name>mapreduce.map.cpu.vcores</name>
+  <value>1</value>
+  <description>
+      The number of virtual cores required for each map task.
+  </description>
+</property>
+
+<property>
+  <name>mapreduce.reduce.cpu.vcores</name>
+  <value>1</value>
+  <description>
+      The number of virtual cores required for each reduce task.
   </description>
 </property>
 
@@ -602,36 +626,6 @@
     </description>
   </property>
   
-<!-- Job Notification Configuration -->
-
-<!--
-<property>
- <name>mapreduce.job.end-notification.url</name>
- <value>http://localhost:8080/jobstatus.php?jobId=$jobId&amp;jobStatus=$jobStatus</value>
- <description>Indicates url which will be called on completion of job to inform
-              end status of job.
-              User can give at most 2 variables with URI : $jobId and $jobStatus.
-              If they are present in URI, then they will be replaced by their
-              respective values.
-</description>
-</property>
--->
-
-<property>
-  <name>mapreduce.job.end-notification.retry.attempts</name>
-  <value>0</value>
-  <description>Indicates how many times hadoop should attempt to contact the
-               notification URL </description>
-</property>
-
-<property>
-  <name>mapreduce.job.end-notification.retry.interval</name>
-   <value>30000</value>
-   <description>Indicates time in milliseconds between notification URL retry
-                calls</description>
-</property>
-  
-
 <property>
   <name>mapreduce.job.queuename</name>
   <value>default</value>
@@ -770,6 +764,16 @@
   </description>
 </property>
 
+<property>
+  <name>mapreduce.job.reduce.shuffle.consumer.plugin.class</name>
+  <value>org.apache.hadoop.mapreduce.task.reduce.Shuffle</value>
+  <description> 
+  Name of the class whose instance will be used 
+  to send shuffle requests by reducetasks of this job.
+  The class must be an instance of org.apache.hadoop.mapred.ShuffleConsumerPlugin.
+  </description>
+</property>
+
 <!-- MR YARN Application properties -->
 
 <property>
@@ -794,6 +798,34 @@
   </description>
 </property>
 
+<!-- Job Notification Configuration -->
+<property>
+ <name>mapreduce.job.end-notification.url</name>
+ <!--<value>http://localhost:8080/jobstatus.php?jobId=$jobId&amp;jobStatus=$jobStatus</value>-->
+ <description>Indicates url which will be called on completion of job to inform
+              end status of job.
+              User can give at most 2 variables with URI : $jobId and $jobStatus.
+              If they are present in URI, then they will be replaced by their
+              respective values.
+</description>
+</property>
+
+<property>
+  <name>mapreduce.job.end-notification.retry.attempts</name>
+  <value>0</value>
+  <description>The number of times the submitter of the job wants to retry job
+    end notification if it fails. This is capped by
+    mapreduce.job.end-notification.max.attempts</description>
+</property>
+
+<property>
+  <name>mapreduce.job.end-notification.retry.interval</name>
+  <value>1000</value>
+  <description>The number of milliseconds the submitter of the job wants to
+    wait before job end notification is retried if it fails. This is capped by
+    mapreduce.job.end-notification.max.retry.interval</description>
+</property>
+
 <property>
   <name>mapreduce.job.end-notification.max.attempts</name>
   <value>5</value>
@@ -807,36 +839,64 @@
 
 <property>
   <name>mapreduce.job.end-notification.max.retry.interval</name>
-  <value>5</value>
+  <value>5000</value>
   <final>true</final>
-  <description>The maximum amount of time (in seconds) to wait before retrying
-    job end notification. Cluster administrators can set this to limit how long
-    the Application Master waits before exiting. Must be marked as final to
-    prevent users from overriding this.</description>
+  <description>The maximum amount of time (in milliseconds) to wait before
+     retrying job end notification. Cluster administrators can set this to
+     limit how long the Application Master waits before exiting. Must be marked
+     as final to prevent users from overriding this.</description>
 </property>
 
 <property>
-  <name>mapreduce.job.end-notification.url</name>
+  <name>yarn.app.mapreduce.am.env</name>
   <value></value>
-  <description>The URL to send job end notification. It may contain sentinels
-    $jobId and $jobStatus which will be replaced with jobId and jobStatus.
+  <description>User added environment variables for the MR App Master 
+  processes. Example :
+  1) A=foo  This will set the env variable A to foo
+  2) B=$B:c This is inherit tasktracker's B env variable.  
   </description>
 </property>
 
 <property>
-  <name>mapreduce.job.end-notification.retry.attempts</name>
-  <value>5</value>
-  <description>The number of times the submitter of the job wants to retry job
-    end notification if it fails. This is capped by
-    mapreduce.job.end-notification.max.attempts</description>
+  <name>yarn.app.mapreduce.am.admin.user.env</name>
+  <value></value>
+  <description> Environment variables for the MR App Master 
+  processes for admin purposes. These values are set first and can be 
+  overridden by the user env (yarn.app.mapreduce.am.env) Example :
+  1) A=foo  This will set the env variable A to foo
+  2) B=$B:c This is inherit app master's B env variable.  
+  </description>
 </property>
 
 <property>
-  <name>mapreduce.job.end-notification.retry.interval</name>
-  <value>1</value>
-  <description>The number of seconds the submitter of the job wants to wait
-    before job end notification is retried if it fails. This is capped by
-    mapreduce.job.end-notification.max.retry.interval</description>
+  <name>yarn.app.mapreduce.am.command-opts</name>
+  <value>-Xmx1024m</value>
+  <description>Java opts for the MR App Master processes.  
+  The following symbol, if present, will be interpolated: @taskid@ is replaced 
+  by current TaskID. Any other occurrences of '@' will go unchanged.
+  For example, to enable verbose gc logging to a file named for the taskid in
+  /tmp and to set the heap maximum to be a gigabyte, pass a 'value' of:
+        -Xmx1024m -verbose:gc -Xloggc:/tmp/@taskid@.gc
+  
+  Usage of -Djava.library.path can cause programs to no longer function if
+  hadoop native libraries are used. These values should instead be set as part 
+  of LD_LIBRARY_PATH in the map / reduce JVM env using the mapreduce.map.env and 
+  mapreduce.reduce.env config settings. 
+  </description>
+</property>
+
+<property>
+  <name>yarn.app.mapreduce.am.admin-command-opts</name>
+  <value></value>
+  <description>Java opts for the MR App Master processes for admin purposes.
+  It will appears before the opts set by yarn.app.mapreduce.am.command-opts and
+  thus its options can be overridden user. 
+  
+  Usage of -Djava.library.path can cause programs to no longer function if
+  hadoop native libraries are used. These values should instead be set as part 
+  of LD_LIBRARY_PATH in the map / reduce JVM env using the mapreduce.map.env and 
+  mapreduce.reduce.env config settings. 
+  </description>
 </property>
 
 <property>
@@ -852,6 +912,22 @@
   <description>Range of ports that the MapReduce AM can use when binding.
     Leave blank if you want all possible ports.  
     For example 50000-50050,50100-50200</description>
+</property>
+
+<property>
+  <name>yarn.app.mapreduce.am.job.committer.cancel-timeout</name>
+  <value>60000</value>
+  <description>The amount of time in milliseconds to wait for the output
+    committer to cancel an operation if the job is killed</description>
+</property>
+
+<property>
+  <name>yarn.app.mapreduce.am.job.committer.commit-window</name>
+  <value>10000</value>
+  <description>Defines a time window in milliseconds for output commit
+  operations.  If contact with the RM has occurred within this window then
+  commits are allowed, otherwise the AM will not allow output commits until
+  contact with the RM has been re-established.</description>
 </property>
 
 <property>
@@ -882,10 +958,35 @@
 </property>
 
 <property>
+  <name>yarn.app.mapreduce.am.resource.cpu-vcores</name>
+  <value>1</value>
+  <description>
+      The number of virtual CPU cores the MR AppMaster needs.
+  </description>
+</property>
+
+<property>
   <description>CLASSPATH for MR applications. A comma-separated list
   of CLASSPATH entries</description>
    <name>mapreduce.application.classpath</name>
    <value>$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/*,$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/lib/*</value>
+</property>
+
+<property>
+   <name>mapreduce.job.classloader</name>
+   <value>false</value>
+  <description>Whether to use a separate (isolated) classloader for
+    user classes in the task JVM.</description>
+</property>
+
+<property>
+   <name>mapreduce.job.classloader.system.classes</name>
+   <value>java.,javax.,org.apache.commons.logging.,org.apache.log4j.,org.apache.hadoop.</value>
+  <description>A comma-separated list of classes that should be loaded from the
+    system classpath, not the user-supplied JARs, when mapreduce.job.classloader
+    is enabled. Names ending in '.' (period) are treated as package names,
+    and names starting with a '-' are treated as negative matches.
+  </description>
 </property>
 
 <!-- jobhistory properties -->
@@ -917,6 +1018,14 @@
     Kerberos principal name for the MapReduce JobHistory Server.
   </description>
   <value>jhs/_HOST@REALM.TLD</value>
+</property>
+
+<property>
+  <name>mapreduce.job.map.output.collector.class</name>
+  <value>org.apache.hadoop.mapred.MapTask$MapOutputBuffer</value>
+  <description>
+    It defines the MapOutputCollector implementation to use.
+  </description>
 </property>
 
 </configuration>

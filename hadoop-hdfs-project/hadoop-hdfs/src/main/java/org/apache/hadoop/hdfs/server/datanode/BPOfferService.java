@@ -26,6 +26,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.apache.commons.logging.Log;
 import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.ha.HAServiceProtocol.HAServiceState;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
@@ -394,7 +395,7 @@ class BPOfferService {
   }
 
   @VisibleForTesting
-  synchronized List<BPServiceActor> getBPServiceActors() {
+  List<BPServiceActor> getBPServiceActors() {
     return Lists.newArrayList(bpServices);
   }
   
@@ -411,7 +412,7 @@ class BPOfferService {
     final long txid = nnHaState.getTxId();
     
     final boolean nnClaimsActive =
-      nnHaState.getState() == NNHAStatusHeartbeat.State.ACTIVE;
+      nnHaState.getState() == HAServiceState.ACTIVE;
     final boolean bposThinksActive = bpServiceToActive == actor;
     final boolean isMoreRecentClaim = txid > lastActiveClaimTxId; 
     

@@ -20,11 +20,13 @@ package org.apache.hadoop.net;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.reflect.Constructor;
 import java.net.BindException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.NoRouteToHostException;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
@@ -516,11 +518,15 @@ public class NetUtils {
       socket.bind(localAddr);
     }
 
-    if (ch == null) {
-      // let the default implementation handle it.
-      socket.connect(endpoint, timeout);
-    } else {
-      SocketIOWithTimeout.connect(ch, endpoint, timeout);
+    try {
+      if (ch == null) {
+        // let the default implementation handle it.
+        socket.connect(endpoint, timeout);
+      } else {
+        SocketIOWithTimeout.connect(ch, endpoint, timeout);
+      }
+    } catch (SocketTimeoutException ste) {
+      throw new ConnectTimeoutException(ste.getMessage());
     }
 
     // There is a very rare case allowed by the TCP specification, such that
@@ -718,7 +724,7 @@ public class NetUtils {
               + see("BindException"));
     } else if (exception instanceof ConnectException) {
       // connection refused; include the host:port in the error
-      return (ConnectException) new ConnectException(
+      return wrapWithMessage(exception, 
           "Call From "
               + localHost
               + " to "
@@ -728,32 +734,28 @@ public class NetUtils {
               + " failed on connection exception: "
               + exception
               + ";"
-              + see("ConnectionRefused"))
-          .initCause(exception);
+              + see("ConnectionRefused"));
     } else if (exception instanceof UnknownHostException) {
-      return (UnknownHostException) new UnknownHostException(
+      return wrapWithMessage(exception,
           "Invalid host name: "
               + getHostDetailsAsString(destHost, destPort, localHost)
               + exception
               + ";"
-              + see("UnknownHost"))
-          .initCause(exception);
+              + see("UnknownHost"));
     } else if (exception instanceof SocketTimeoutException) {
-      return (SocketTimeoutException) new SocketTimeoutException(
+      return wrapWithMessage(exception,
           "Call From "
               + localHost + " to " + destHost + ":" + destPort
               + " failed on socket timeout exception: " + exception
               + ";"
-              + see("SocketTimeout"))
-          .initCause(exception);
+              + see("SocketTimeout"));
     } else if (exception instanceof NoRouteToHostException) {
-      return (NoRouteToHostException) new NoRouteToHostException(
+      return wrapWithMessage(exception,
           "No Route to Host from  "
               + localHost + " to " + destHost + ":" + destPort
               + " failed on socket timeout exception: " + exception
               + ";"
-              + see("NoRouteToHost"))
-          .initCause(exception);
+              + see("NoRouteToHost"));
     }
     else {
       return (IOException) new IOException("Failed on local exception: "
@@ -767,6 +769,21 @@ public class NetUtils {
 
   private static String see(final String entry) {
     return FOR_MORE_DETAILS_SEE + HADOOP_WIKI + entry;
+  }
+  
+  @SuppressWarnings("unchecked")
+  private static <T extends IOException> T wrapWithMessage(
+      T exception, String msg) {
+    Class<? extends Throwable> clazz = exception.getClass();
+    try {
+      Constructor<? extends Throwable> ctor = clazz.getConstructor(String.class);
+      Throwable t = ctor.newInstance(msg);
+      return (T)(t.initCause(exception));
+    } catch (Throwable e) {
+      LOG.warn("Unable to wrap exception of type " +
+          clazz + ": it has no (String) constructor", e);
+      return exception;
+    }
   }
 
   /**
@@ -864,5 +881,24 @@ public class NetUtils {
       }
     }
     return addrs;
+  }
+
+  /**
+   * Return a free port number. There is no guarantee it will remain free, so
+   * it should be used immediately.
+   *
+   * @returns A free port for binding a local socket
+   */
+  public static int getFreeSocketPort() {
+    int port = 0;
+    try {
+      ServerSocket s = new ServerSocket(0);
+      port = s.getLocalPort();
+      s.close();
+      return port;
+    } catch (IOException e) {
+      // Could not get a free port. Return default port 0.
+    }
+    return port;
   }
 }

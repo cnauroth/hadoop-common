@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.fs;
 
+import org.junit.Before;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -24,14 +25,19 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.jar.Attributes;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.util.Shell;
+import org.apache.hadoop.util.StringUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
@@ -176,12 +182,26 @@ public class TestFileUtil {
       //Expected an IOException
     }
   }
+
+  @Before
+  public void before() throws IOException {
+    cleanupImpl();
+  }
   
   @After
   public void tearDown() throws IOException {
-    FileUtil.fullyDelete(del);
-    FileUtil.fullyDelete(tmp);
-    FileUtil.fullyDelete(partitioned);
+    cleanupImpl();
+  }
+  
+  private void cleanupImpl() throws IOException  {
+    FileUtil.fullyDelete(del, true);
+    Assert.assertTrue(!del.exists());
+    
+    FileUtil.fullyDelete(tmp, true);
+    Assert.assertTrue(!tmp.exists());
+    
+    FileUtil.fullyDelete(partitioned, true);
+    Assert.assertTrue(!partitioned.exists());
   }
 
   @Test
@@ -272,12 +292,14 @@ public class TestFileUtil {
     Assert.assertTrue(new File(tmp, FILE).exists());
   }
 
-  private File xSubDir = new File(del, "xsubdir");
-  private File ySubDir = new File(del, "ysubdir");
-  static String file1Name = "file1";
-  private File file2 = new File(xSubDir, "file2");
-  private File file3 = new File(ySubDir, "file3");
-  private File zlink = new File(del, "zlink");
+  private final File xSubDir = new File(del, "xSubDir");
+  private final File xSubSubDir = new File(xSubDir, "xSubSubDir");
+  private final File ySubDir = new File(del, "ySubDir");
+  private static final String file1Name = "file1";
+  private final File file2 = new File(xSubDir, "file2");
+  private final File file22 = new File(xSubSubDir, "file22");
+  private final File file3 = new File(ySubDir, "file3");
+  private final File zlink = new File(del, "zlink");
   
   /**
    * Creates a directory which can not be deleted completely.
@@ -289,10 +311,14 @@ public class TestFileUtil {
    *                       |
    *    .---------------------------------------,
    *    |            |              |           |
-   *  file1(!w)   xsubdir(-w)   ysubdir(+w)   zlink
-   *                 |              |
-   *               file2          file3
-   *
+   *  file1(!w)   xSubDir(-rwx)   ySubDir(+w)   zlink
+   *              |  |              |
+   *              | file2(-rwx)   file3
+   *              |
+   *            xSubSubDir(-rwx) 
+   *              |
+   *             file22(-rwx)
+   *             
    * @throws IOException
    */
   private void setupDirsAndNonWritablePermissions() throws IOException {
@@ -305,7 +331,16 @@ public class TestFileUtil {
 
     xSubDir.mkdirs();
     file2.createNewFile();
-    xSubDir.setWritable(false);
+    
+    xSubSubDir.mkdirs();
+    file22.createNewFile();
+    
+    revokePermissions(file22);
+    revokePermissions(xSubSubDir);
+    
+    revokePermissions(file2);
+    revokePermissions(xSubDir);
+    
     ySubDir.mkdirs();
     file3.createNewFile();
 
@@ -317,23 +352,43 @@ public class TestFileUtil {
     FileUtil.symLink(tmpFile.toString(), zlink.toString());
   }
   
+  private static void grantPermissions(final File f) {
+    f.setReadable(true);
+    f.setWritable(true);
+    f.setExecutable(true);
+  }
+  
+  private static void revokePermissions(final File f) {
+     f.setWritable(false);
+     f.setExecutable(false);
+     f.setReadable(false);
+  }
+  
   // Validates the return value.
-  // Validates the existence of directory "xsubdir" and the file "file1"
-  // Sets writable permissions for the non-deleted dir "xsubdir" so that it can
-  // be deleted in tearDown().
-  private void validateAndSetWritablePermissions(boolean ret) {
-    xSubDir.setWritable(true);
-    Assert.assertFalse("The return value should have been false!", ret);
-    Assert.assertTrue("The file file1 should not have been deleted!",
+  // Validates the existence of the file "file1"
+  private void validateAndSetWritablePermissions(
+      final boolean expectedRevokedPermissionDirsExist, final boolean ret) {
+    grantPermissions(xSubDir);
+    grantPermissions(xSubSubDir);
+    
+    Assert.assertFalse("The return value should have been false.", ret);
+    Assert.assertTrue("The file file1 should not have been deleted.",
         new File(del, file1Name).exists());
-    Assert.assertTrue(
-        "The directory xsubdir should not have been deleted!",
-        xSubDir.exists());
-    Assert.assertTrue("The file file2 should not have been deleted!",
-        file2.exists());
-    Assert.assertFalse("The directory ysubdir should have been deleted!",
+    
+    Assert.assertEquals(
+        "The directory xSubDir *should* not have been deleted.",
+        expectedRevokedPermissionDirsExist, xSubDir.exists());
+    Assert.assertEquals("The file file2 *should* not have been deleted.",
+        expectedRevokedPermissionDirsExist, file2.exists());
+    Assert.assertEquals(
+        "The directory xSubSubDir *should* not have been deleted.",
+        expectedRevokedPermissionDirsExist, xSubSubDir.exists());
+    Assert.assertEquals("The file file22 *should* not have been deleted.",
+        expectedRevokedPermissionDirsExist, file22.exists());
+    
+    Assert.assertFalse("The directory ySubDir should have been deleted.",
         ySubDir.exists());
-    Assert.assertFalse("The link zlink should have been deleted!",
+    Assert.assertFalse("The link zlink should have been deleted.",
         zlink.exists());
   }
 
@@ -346,7 +401,15 @@ public class TestFileUtil {
     LOG.info("Running test to verify failure of fullyDelete()");
     setupDirsAndNonWritablePermissions();
     boolean ret = FileUtil.fullyDelete(new MyFile(del));
-    validateAndSetWritablePermissions(ret);
+    validateAndSetWritablePermissions(true, ret);
+  }
+  
+  @Test
+  public void testFailFullyDeleteGrantPermissions() throws IOException {
+    setupDirsAndNonWritablePermissions();
+    boolean ret = FileUtil.fullyDelete(new MyFile(del), true);
+    // this time the directories with revoked permissions *should* be deleted:
+    validateAndSetWritablePermissions(false, ret);
   }
 
   /**
@@ -395,7 +458,10 @@ public class TestFileUtil {
      */
     @Override
     public File[] listFiles() {
-      File[] files = super.listFiles();
+      final File[] files = super.listFiles();
+      if (files == null) {
+         return null;
+      }
       List<File> filesList = Arrays.asList(files);
       Collections.sort(filesList);
       File[] myFiles = new MyFile[files.length];
@@ -416,9 +482,17 @@ public class TestFileUtil {
     LOG.info("Running test to verify failure of fullyDeleteContents()");
     setupDirsAndNonWritablePermissions();
     boolean ret = FileUtil.fullyDeleteContents(new MyFile(del));
-    validateAndSetWritablePermissions(ret);
+    validateAndSetWritablePermissions(true, ret);
   }
 
+  @Test
+  public void testFailFullyDeleteContentsGrantPermissions() throws IOException {
+    setupDirsAndNonWritablePermissions();
+    boolean ret = FileUtil.fullyDeleteContents(new MyFile(del), true);
+    // this time the directories with revoked permissions *should* be deleted:
+    validateAndSetWritablePermissions(false, ret);
+  }
+  
   @Test
   public void testCopyMergeSingleDirectory() throws IOException {
     setupDirs();
@@ -509,7 +583,7 @@ public class TestFileUtil {
 
     //ensure that symlink length is correctly reported by Java
     Assert.assertEquals(data.length, file.length());
-    Assert.assertEquals(Shell.WINDOWS ? 0 : data.length, link.length());
+    Assert.assertEquals(data.length, link.length());
 
     //ensure that we can read from link.
     FileInputStream in = new FileInputStream(link);
@@ -519,5 +593,208 @@ public class TestFileUtil {
     }
     in.close();
     Assert.assertEquals(data.length, len);
+  }
+  
+  /**
+   * Test that rename on a symlink works as expected.
+   */
+  @Test
+  public void testSymlinkRenameTo() throws Exception {
+    Assert.assertFalse(del.exists());
+    del.mkdirs();
+
+    File file = new File(del, FILE);
+    file.createNewFile();
+    File link = new File(del, "_link");
+
+    // create the symlink
+    FileUtil.symLink(file.getAbsolutePath(), link.getAbsolutePath());
+
+    Assert.assertTrue(file.exists());
+    Assert.assertTrue(link.exists());
+
+    File link2 = new File(del, "_link2");
+
+    // Rename the symlink
+    Assert.assertTrue(link.renameTo(link2));
+
+    // Make sure the file still exists
+    // (NOTE: this would fail on Java6 on Windows if we didn't
+    // copy the file in FileUtil#symlink)
+    Assert.assertTrue(file.exists());
+
+    Assert.assertTrue(link2.exists());
+    Assert.assertFalse(link.exists());
+  }
+
+  /**
+   * Test that deletion of a symlink works as expected.
+   */
+  @Test
+  public void testSymlinkDelete() throws Exception {
+    Assert.assertFalse(del.exists());
+    del.mkdirs();
+
+    File file = new File(del, FILE);
+    file.createNewFile();
+    File link = new File(del, "_link");
+
+    // create the symlink
+    FileUtil.symLink(file.getAbsolutePath(), link.getAbsolutePath());
+
+    Assert.assertTrue(file.exists());
+    Assert.assertTrue(link.exists());
+
+    // make sure that deleting a symlink works properly
+    Assert.assertTrue(link.delete());
+    Assert.assertFalse(link.exists());
+    Assert.assertTrue(file.exists());
+  }
+
+  /**
+   * Test that length on a symlink works as expected.
+   */
+  @Test
+  public void testSymlinkLength() throws Exception {
+    Assert.assertFalse(del.exists());
+    del.mkdirs();
+
+    byte[] data = "testSymLinkData".getBytes();
+
+    File file = new File(del, FILE);
+    File link = new File(del, "_link");
+
+    // write some data to the file
+    FileOutputStream os = new FileOutputStream(file);
+    os.write(data);
+    os.close();
+
+    Assert.assertEquals(0, link.length());
+
+    // create the symlink
+    FileUtil.symLink(file.getAbsolutePath(), link.getAbsolutePath());
+
+    // ensure that File#length returns the target file and link size
+    Assert.assertEquals(data.length, file.length());
+    Assert.assertEquals(data.length, link.length());
+
+    file.delete();
+    Assert.assertFalse(file.exists());
+
+    if (Shell.WINDOWS && !Shell.isJava7OrAbove()) {
+      // On Java6 on Windows, we copied the file
+      Assert.assertEquals(data.length, link.length());
+    } else {
+      // Otherwise, the target file size is zero
+      Assert.assertEquals(0, link.length());
+    }
+
+    link.delete();
+    Assert.assertFalse(link.exists());
+  }
+
+  private void doUntarAndVerify(File tarFile, File untarDir) 
+                                 throws IOException {
+    if (untarDir.exists() && !FileUtil.fullyDelete(untarDir)) {
+      throw new IOException("Could not delete directory '" + untarDir + "'");
+    }
+    FileUtil.unTar(tarFile, untarDir);
+
+    String parentDir = untarDir.getCanonicalPath() + Path.SEPARATOR + "name";
+    File testFile = new File(parentDir + Path.SEPARATOR + "version");
+    Assert.assertTrue(testFile.exists());
+    Assert.assertTrue(testFile.length() == 0);
+    String imageDir = parentDir + Path.SEPARATOR + "image";
+    testFile = new File(imageDir + Path.SEPARATOR + "fsimage");
+    Assert.assertTrue(testFile.exists());
+    Assert.assertTrue(testFile.length() == 157);
+    String currentDir = parentDir + Path.SEPARATOR + "current";
+    testFile = new File(currentDir + Path.SEPARATOR + "fsimage");
+    Assert.assertTrue(testFile.exists());
+    Assert.assertTrue(testFile.length() == 4331);
+    testFile = new File(currentDir + Path.SEPARATOR + "edits");
+    Assert.assertTrue(testFile.exists());
+    Assert.assertTrue(testFile.length() == 1033);
+    testFile = new File(currentDir + Path.SEPARATOR + "fstime");
+    Assert.assertTrue(testFile.exists());
+    Assert.assertTrue(testFile.length() == 8);
+  }
+
+  @Test
+  public void testUntar() throws IOException {
+    String tarGzFileName = System.getProperty("test.cache.data",
+        "build/test/cache") + "/test-untar.tgz";
+    String tarFileName = System.getProperty("test.cache.data",
+        "build/test/cache") + "/test-untar.tar";
+    String dataDir = System.getProperty("test.build.data", "build/test/data");
+    File untarDir = new File(dataDir, "untarDir");
+
+    doUntarAndVerify(new File(tarGzFileName), untarDir);
+    doUntarAndVerify(new File(tarFileName), untarDir);
+  }
+
+  @Test
+  public void testCreateJarWithClassPath() throws Exception {
+    // setup test directory for files
+    Assert.assertFalse(tmp.exists());
+    Assert.assertTrue(tmp.mkdirs());
+
+    // create files expected to match a wildcard
+    List<File> wildcardMatches = Arrays.asList(new File(tmp, "wildcard1.jar"),
+      new File(tmp, "wildcard2.jar"), new File(tmp, "wildcard3.JAR"),
+      new File(tmp, "wildcard4.JAR"));
+    for (File wildcardMatch: wildcardMatches) {
+      Assert.assertTrue("failure creating file: " + wildcardMatch,
+        wildcardMatch.createNewFile());
+    }
+
+    // create non-jar files, which we expect to not be included in the classpath
+    Assert.assertTrue(new File(tmp, "text.txt").createNewFile());
+    Assert.assertTrue(new File(tmp, "executable.exe").createNewFile());
+    Assert.assertTrue(new File(tmp, "README").createNewFile());
+
+    // create classpath jar
+    String wildcardPath = tmp.getCanonicalPath() + File.separator + "*";
+    List<String> classPaths = Arrays.asList("cp1.jar", "cp2.jar", wildcardPath,
+      "cp3.jar");
+    String inputClassPath = StringUtils.join(File.pathSeparator, classPaths);
+    String classPathJar = FileUtil.createJarWithClassPath(inputClassPath,
+      new Path(tmp.getCanonicalPath()));
+
+    // verify classpath by reading manifest from jar file
+    JarFile jarFile = null;
+    try {
+      jarFile = new JarFile(classPathJar);
+      Manifest jarManifest = jarFile.getManifest();
+      Assert.assertNotNull(jarManifest);
+      Attributes mainAttributes = jarManifest.getMainAttributes();
+      Assert.assertNotNull(mainAttributes);
+      Assert.assertTrue(mainAttributes.containsKey(Attributes.Name.CLASS_PATH));
+      String classPathAttr = mainAttributes.getValue(Attributes.Name.CLASS_PATH);
+      Assert.assertNotNull(classPathAttr);
+      List<String> expectedClassPaths = new ArrayList<String>();
+      for (String classPath: classPaths) {
+        if (!wildcardPath.equals(classPath)) {
+          expectedClassPaths.add(new File(classPath).toURI().toURL()
+            .toExternalForm());
+        } else {
+          // add wildcard matches
+          for (File wildcardMatch: wildcardMatches) {
+            expectedClassPaths.add(wildcardMatch.toURI().toURL()
+              .toExternalForm());
+          }
+        }
+      }
+      List<String> actualClassPaths = Arrays.asList(classPathAttr.split(" "));
+      Assert.assertEquals(expectedClassPaths, actualClassPaths);
+    } finally {
+      if (jarFile != null) {
+        try {
+          jarFile.close();
+        } catch (IOException e) {
+          LOG.warn("exception closing jarFile: " + classPathJar, e);
+        }
+      }
+    }
   }
 }

@@ -19,9 +19,13 @@
 package org.apache.hadoop.yarn.server.nodemanager;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -41,6 +45,7 @@ import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.event.AsyncDispatcher;
 import org.apache.hadoop.yarn.event.Dispatcher;
+import org.apache.hadoop.yarn.event.EventHandler;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.ContainerManagerImpl;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.application.Application;
@@ -51,23 +56,34 @@ import org.apache.hadoop.yarn.server.nodemanager.webapp.WebServer;
 import org.apache.hadoop.yarn.server.security.ApplicationACLsManager;
 import org.apache.hadoop.yarn.service.CompositeService;
 import org.apache.hadoop.yarn.service.Service;
-import org.apache.hadoop.yarn.service.ServiceStateChangeListener;
 import org.apache.hadoop.yarn.util.Records;
 
-public class NodeManager extends CompositeService implements
-    ServiceStateChangeListener {
+public class NodeManager extends CompositeService 
+    implements EventHandler<NodeManagerEvent> {
 
   /**
    * Priority of the NodeManager shutdown hook.
    */
   public static final int SHUTDOWN_HOOK_PRIORITY = 30;
+  
+  /**
+   * Extra duration to wait for containers to be killed on shutdown.
+   */
+  private static final int SHUTDOWN_CLEANUP_SLOP_MS = 1000;
 
   private static final Log LOG = LogFactory.getLog(NodeManager.class);
   protected final NodeManagerMetrics metrics = NodeManagerMetrics.create();
   private ApplicationACLsManager aclsManager;
   private NodeHealthCheckerService nodeHealthChecker;
   private LocalDirsHandlerService dirsHandler;
+  private Context context;
+  private AsyncDispatcher dispatcher;
+  private ContainerManagerImpl containerManager;
   private static CompositeServiceShutdownHook nodeManagerShutdownHook; 
+  
+  private long waitForContainersOnShutdownMillis;
+  
+  private AtomicBoolean isStopping = new AtomicBoolean(false);
   
   public NodeManager() {
     super(NodeManager.class.getName());
@@ -115,7 +131,7 @@ public class NodeManager extends CompositeService implements
       containerTokenSecretManager = new NMContainerTokenSecretManager(conf);
     }
 
-    Context context = new NMContext(containerTokenSecretManager);
+    this.context = new NMContext(containerTokenSecretManager);
 
     this.aclsManager = new ApplicationACLsManager(conf);
 
@@ -131,7 +147,7 @@ public class NodeManager extends CompositeService implements
     addService(del);
 
     // NodeManager level dispatcher
-    AsyncDispatcher dispatcher = new AsyncDispatcher();
+    this.dispatcher = new AsyncDispatcher();
 
     nodeHealthChecker = new NodeHealthCheckerService();
     addService(nodeHealthChecker);
@@ -139,12 +155,11 @@ public class NodeManager extends CompositeService implements
 
     NodeStatusUpdater nodeStatusUpdater =
         createNodeStatusUpdater(context, dispatcher, nodeHealthChecker);
-    nodeStatusUpdater.register(this);
 
     NodeResourceMonitor nodeResourceMonitor = createNodeResourceMonitor();
     addService(nodeResourceMonitor);
 
-    ContainerManagerImpl containerManager =
+    containerManager =
         createContainerManager(context, exec, del, nodeStatusUpdater,
         this.aclsManager, dirsHandler);
     addService(containerManager);
@@ -154,14 +169,22 @@ public class NodeManager extends CompositeService implements
     addService(webServer);
 
     dispatcher.register(ContainerManagerEventType.class, containerManager);
+    dispatcher.register(NodeManagerEventType.class, this);
     addService(dispatcher);
-
+    
     DefaultMetricsSystem.initialize("NodeManager");
 
     // StatusUpdater should be added last so that it get started last 
     // so that we make sure everything is up before registering with RM. 
     addService(nodeStatusUpdater);
-
+    
+    waitForContainersOnShutdownMillis =
+        conf.getLong(YarnConfiguration.NM_SLEEP_DELAY_BEFORE_SIGKILL_MS,
+            YarnConfiguration.DEFAULT_NM_SLEEP_DELAY_BEFORE_SIGKILL_MS) + 
+        conf.getLong(YarnConfiguration.NM_PROCESS_KILL_WAIT_MS,
+            YarnConfiguration.DEFAULT_NM_PROCESS_KILL_WAIT_MS) +
+        SHUTDOWN_CLEANUP_SLOP_MS;
+    
     super.init(conf);
     // TODO add local dirs to del
   }
@@ -178,8 +201,47 @@ public class NodeManager extends CompositeService implements
 
   @Override
   public void stop() {
+    if (isStopping.getAndSet(true)) {
+      return;
+    }
+    
+    cleanupContainers();
     super.stop();
     DefaultMetricsSystem.shutdown();
+  }
+  
+  @SuppressWarnings("unchecked")
+  protected void cleanupContainers() {
+    Map<ContainerId, Container> containers = context.getContainers();
+    if (containers.isEmpty()) {
+      return;
+    }
+    LOG.info("Containers still running on shutdown: " + containers.keySet());
+    
+    List<ContainerId> containerIds = new ArrayList<ContainerId>(containers.keySet());
+    dispatcher.getEventHandler().handle(
+        new CMgrCompletedContainersEvent(containerIds, 
+            CMgrCompletedContainersEvent.Reason.ON_SHUTDOWN));
+    
+    LOG.info("Waiting for containers to be killed");
+    
+    long waitStartTime = System.currentTimeMillis();
+    while (!containers.isEmpty() && 
+        System.currentTimeMillis() - waitStartTime < waitForContainersOnShutdownMillis) {
+      try {
+        Thread.sleep(1000);
+      } catch (InterruptedException ex) {
+        LOG.warn("Interrupted while sleeping on container kill", ex);
+      }
+    }
+
+    // All containers killed
+    if (containers.isEmpty()) {
+      LOG.info("All containers in DONE state");
+    } else {
+      LOG.info("Done waiting for containers to be killed. Still alive: " + 
+          containers.keySet());
+    }
   }
 
   public static class NMContext implements Context {
@@ -238,27 +300,13 @@ public class NodeManager extends CompositeService implements
     return nodeHealthChecker;
   }
 
-  @Override
-  public void stateChanged(Service service) {
-    if (NodeStatusUpdaterImpl.class.getName().equals(service.getName())
-        && STATE.STOPPED.equals(service.getServiceState())) {
-
-      boolean hasToReboot = ((NodeStatusUpdaterImpl) service).hasToRebootNode();
-
-      // Shutdown the Nodemanager when the NodeStatusUpdater is stopped.      
-      stop();
-
-      // Reboot the whole node-manager if NodeStatusUpdater got a reboot command
-      // from the RM.
-      if (hasToReboot) {
-        LOG.info("Rebooting the node manager.");
-        NodeManager nodeManager = createNewNodeManager();
-        nodeManager.initAndStartNodeManager(hasToReboot);
-      }
-    }
+  private void reboot() {
+    LOG.info("Rebooting the node manager.");
+    NodeManager nodeManager = createNewNodeManager();
+    nodeManager.initAndStartNodeManager(this.getConfig(), true);
   }
   
-  private void initAndStartNodeManager(boolean hasToReboot) {
+  private void initAndStartNodeManager(Configuration conf, boolean hasToReboot) {
     try {
 
       // Remove the old hook if we are rebooting.
@@ -270,7 +318,6 @@ public class NodeManager extends CompositeService implements
       ShutdownHookManager.get().addShutdownHook(nodeManagerShutdownHook,
                                                 SHUTDOWN_HOOK_PRIORITY);
 
-      YarnConfiguration conf = new YarnConfiguration();
       this.init(conf);
       this.start();
     } catch (Throwable t) {
@@ -279,15 +326,36 @@ public class NodeManager extends CompositeService implements
     }
   }
 
+  @Override
+  public void handle(NodeManagerEvent event) {
+    switch (event.getType()) {
+    case SHUTDOWN:
+      stop();
+      break;
+    case REBOOT:
+      stop();
+      reboot();
+      break;
+    default:
+      LOG.warn("Invalid shutdown event " + event.getType() + ". Ignoring.");
+    }
+  }
+  
   // For testing
   NodeManager createNewNodeManager() {
     return new NodeManager();
+  }
+  
+  // For testing
+  ContainerManagerImpl getContainerManager() {
+    return containerManager;
   }
 
   public static void main(String[] args) {
     Thread.setDefaultUncaughtExceptionHandler(new YarnUncaughtExceptionHandler());
     StringUtils.startupShutdownMessage(NodeManager.class, args, LOG);
     NodeManager nodeManager = new NodeManager();
-    nodeManager.initAndStartNodeManager(false);
+    Configuration conf = new YarnConfiguration();
+    nodeManager.initAndStartNodeManager(conf, false);
   }
 }

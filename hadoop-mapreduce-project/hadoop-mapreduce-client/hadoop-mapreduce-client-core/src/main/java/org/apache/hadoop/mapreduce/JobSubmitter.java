@@ -56,6 +56,8 @@ import org.codehaus.jackson.JsonParseException;
 import org.codehaus.jackson.map.JsonMappingException;
 import org.codehaus.jackson.map.ObjectMapper;
 
+import com.google.common.base.Charsets;
+
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
 class JobSubmitter {
@@ -249,9 +251,8 @@ class JobSubmitter {
     }
 
     //  set the timestamps of the archives and files
-    ClientDistributedCacheManager.determineTimestamps(conf);
     //  set the public/private visibility of the archives and files
-    ClientDistributedCacheManager.determineCacheVisibilities(conf);
+    ClientDistributedCacheManager.determineTimestampsAndCacheVisibilities(conf);
     // get DelegationToken for each cached file
     ClientDistributedCacheManager.getDelegationTokens(conf, job
         .getCredentials());
@@ -550,7 +551,7 @@ class JobSubmitter {
 
         for(Map.Entry<String, String> ent: nm.entrySet()) {
           credentials.addSecretKey(new Text(ent.getKey()), ent.getValue()
-              .getBytes());
+              .getBytes(Charsets.UTF_8));
         }
       } catch (JsonMappingException e) {
         json_error = true;

@@ -154,7 +154,7 @@ class BlockPoolSliceScanner {
     }
     this.scanPeriod = hours * 3600 * 1000;
     LOG.info("Periodic Block Verification Scanner initialized with interval "
-        + hours + " hours for block pool " + bpid + ".");
+        + hours + " hours for block pool " + bpid);
 
     // get the list of blocks and arrange them in random order
     List<Block> arr = dataset.getFinalizedBlocks(blockPoolId);
@@ -310,12 +310,12 @@ class BlockPoolSliceScanner {
   }
   
   private void handleScanFailure(ExtendedBlock block) {
-    LOG.info("Reporting bad block " + block);
+    LOG.info("Reporting bad " + block);
     try {
       datanode.reportBadBlocks(block);
     } catch (IOException ie) {
       // it is bad, but not bad enough to shutdown the scanner
-      LOG.warn("Cannot report bad block=" + block.getBlockId());
+      LOG.warn("Cannot report bad " + block.getBlockId());
     }
   }
   
@@ -388,8 +388,8 @@ class BlockPoolSliceScanner {
       try {
         adjustThrottler();
         
-        blockSender = new BlockSender(block, 0, -1, false, true, datanode,
-            null);
+        blockSender = new BlockSender(block, 0, -1, false, true, true, 
+            datanode, null);
 
         DataOutputStream out = 
                 new DataOutputStream(new IOUtils.NullOutputStream());
@@ -411,7 +411,7 @@ class BlockPoolSliceScanner {
 
         // If the block does not exists anymore, then its not an error
         if (!dataset.contains(block)) {
-          LOG.info(block + " is no longer in the dataset.");
+          LOG.info(block + " is no longer in the dataset");
           deleteBlock(block.getLocalBlock());
           return;
         }
@@ -424,7 +424,7 @@ class BlockPoolSliceScanner {
         // is a block really deleted by mistake, DirectoryScan should catch it.
         if (e instanceof FileNotFoundException ) {
           LOG.info("Verification failed for " + block +
-              ". It may be due to race with write.");
+              " - may be due to race with write");
           deleteBlock(block.getLocalBlock());
           return;
         }
@@ -602,6 +602,15 @@ class BlockPoolSliceScanner {
       lastScanTime.set(Time.now());
     }
   }
+
+  /**
+   * Shuts down this BlockPoolSliceScanner and releases any internal resources.
+   */
+  void shutdown() {
+    if (verificationLog != null) {
+      verificationLog.close();
+    }
+  }
   
   private void scan() {
     if (LOG.isDebugEnabled()) {
@@ -610,7 +619,8 @@ class BlockPoolSliceScanner {
     try {
       adjustThrottler();
         
-      while (datanode.shouldRun && !Thread.interrupted()
+      while (datanode.shouldRun
+          && !datanode.blockScanner.blockScannerThread.isInterrupted()
           && datanode.isBPServiceAlive(blockPoolId)) {
         long now = Time.now();
         synchronized (this) {
@@ -693,7 +703,7 @@ class BlockPoolSliceScanner {
           (info.lastScanType == ScanType.VERIFICATION_SCAN) ? "local" : "none"; 
         buffer.append(String.format("%-26s : status : %-6s type : %-6s" +
                                     " scan time : " +
-                                    "%-15d %s\n", info.block, 
+                                    "%-15d %s%n", info.block, 
                                     (info.lastScanOk ? "ok" : "failed"),
                                     scanType, scanTime,
                                     (scanTime <= 0) ? "not yet verified" : 
@@ -706,21 +716,21 @@ class BlockPoolSliceScanner {
     double pctProgress = (totalBytesToScan == 0) ? 100 :
                          (totalBytesToScan-bytesLeft)*100.0/totalBytesToScan;
                          
-    buffer.append(String.format("\nTotal Blocks                 : %6d" +
-                                "\nVerified in last hour        : %6d" +
-                                "\nVerified in last day         : %6d" +
-                                "\nVerified in last week        : %6d" +
-                                "\nVerified in last four weeks  : %6d" +
-                                "\nVerified in SCAN_PERIOD      : %6d" +
-                                "\nNot yet verified             : %6d" +
-                                "\nVerified since restart       : %6d" +
-                                "\nScans since restart          : %6d" +
-                                "\nScan errors since restart    : %6d" +
-                                "\nTransient scan errors        : %6d" +
-                                "\nCurrent scan rate limit KBps : %6d" +
-                                "\nProgress this period         : %6.0f%%" +
-                                "\nTime left in cur period      : %6.2f%%" +
-                                "\n", 
+    buffer.append(String.format("%nTotal Blocks                 : %6d" +
+                                "%nVerified in last hour        : %6d" +
+                                "%nVerified in last day         : %6d" +
+                                "%nVerified in last week        : %6d" +
+                                "%nVerified in last four weeks  : %6d" +
+                                "%nVerified in SCAN_PERIOD      : %6d" +
+                                "%nNot yet verified             : %6d" +
+                                "%nVerified since restart       : %6d" +
+                                "%nScans since restart          : %6d" +
+                                "%nScan errors since restart    : %6d" +
+                                "%nTransient scan errors        : %6d" +
+                                "%nCurrent scan rate limit KBps : %6d" +
+                                "%nProgress this period         : %6.0f%%" +
+                                "%nTime left in cur period      : %6.2f%%" +
+                                "%n", 
                                 total, inOneHour, inOneDay, inOneWeek,
                                 inFourWeeks, inScanPeriod, neverScanned,
                                 totalScans, totalScans, 

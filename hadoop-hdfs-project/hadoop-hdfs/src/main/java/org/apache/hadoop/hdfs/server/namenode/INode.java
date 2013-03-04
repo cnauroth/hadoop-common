@@ -17,7 +17,12 @@
  */
 package org.apache.hadoop.hdfs.server.namenode;
 
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -30,6 +35,7 @@ import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
 import org.apache.hadoop.util.StringUtils;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.SignedBytes;
 
 /**
@@ -39,23 +45,13 @@ import com.google.common.primitives.SignedBytes;
  */
 @InterfaceAudience.Private
 abstract class INode implements Comparable<byte[]> {
-  /*
-   *  The inode name is in java UTF8 encoding; 
-   *  The name in HdfsFileStatus should keep the same encoding as this.
-   *  if this encoding is changed, implicitly getFileInfo and listStatus in
-   *  clientProtocol are changed; The decoding at the client
-   *  side should change accordingly.
-   */
-  protected byte[] name;
-  protected INodeDirectory parent;
-  protected long modificationTime;
-  protected long accessTime;
+  static final List<INode> EMPTY_LIST = Collections.unmodifiableList(new ArrayList<INode>());
 
-  /** Simple wrapper for two counters : 
-   *  nsCount (namespace consumed) and dsCount (diskspace consumed).
-   */
+  /** Wrapper of two counters for namespace consumed and diskspace consumed. */
   static class DirCounts {
+    /** namespace count */
     long nsCount = 0;
+    /** diskspace count */
     long dsCount = 0;
     
     /** returns namespace count */
@@ -68,10 +64,6 @@ abstract class INode implements Comparable<byte[]> {
     }
   }
   
-  //Only updated by updatePermissionStatus(...).
-  //Other codes should not modify it.
-  private long permission;
-
   private static enum PermissionStatusFormat {
     MODE(0, 16),
     GROUP(MODE.OFFSET + MODE.LENGTH, 25),
@@ -94,33 +86,81 @@ abstract class INode implements Comparable<byte[]> {
     long combine(long bits, long record) {
       return (record & ~MASK) | (bits << OFFSET);
     }
+
+    /** Encode the {@link PermissionStatus} to a long. */
+    static long toLong(PermissionStatus ps) {
+      long permission = 0L;
+      final int user = SerialNumberManager.INSTANCE.getUserSerialNumber(
+          ps.getUserName());
+      permission = USER.combine(user, permission);
+      final int group = SerialNumberManager.INSTANCE.getGroupSerialNumber(
+          ps.getGroupName());
+      permission = GROUP.combine(group, permission);
+      final int mode = ps.getPermission().toShort();
+      permission = MODE.combine(mode, permission);
+      return permission;
+    }
   }
 
-  INode(PermissionStatus permissions, long mTime, long atime) {
-    this.name = null;
-    this.parent = null;
-    this.modificationTime = mTime;
-    setAccessTime(atime);
-    setPermissionStatus(permissions);
+  /**
+   * The inode id
+   */
+  final private long id;
+
+  /**
+   *  The inode name is in java UTF8 encoding; 
+   *  The name in HdfsFileStatus should keep the same encoding as this.
+   *  if this encoding is changed, implicitly getFileInfo and listStatus in
+   *  clientProtocol are changed; The decoding at the client
+   *  side should change accordingly.
+   */
+  private byte[] name = null;
+  /** 
+   * Permission encoded using {@link PermissionStatusFormat}.
+   * Codes other than {@link #clonePermissionStatus(INode)}
+   * and {@link #updatePermissionStatus(PermissionStatusFormat, long)}
+   * should not modify it.
+   */
+  private long permission = 0L;
+  protected INodeDirectory parent = null;
+  protected long modificationTime = 0L;
+  protected long accessTime = 0L;
+
+  private INode(long id, byte[] name, long permission, INodeDirectory parent,
+      long modificationTime, long accessTime) {
+    this.id = id;
+    this.name = name;
+    this.permission = permission;
+    this.parent = parent;
+    this.modificationTime = modificationTime;
+    this.accessTime = accessTime;
   }
 
-  protected INode(String name, PermissionStatus permissions) {
-    this(permissions, 0L, 0L);
-    setLocalName(name);
+  INode(long id, byte[] name, PermissionStatus permissions,
+      INodeDirectory parent, long modificationTime, long accessTime) {
+    this(id, name, PermissionStatusFormat.toLong(permissions), parent,
+        modificationTime, accessTime);
   }
   
-  /** copy constructor
-   * 
-   * @param other Other node to be copied
-   */
+  INode(long id, PermissionStatus permissions, long mtime, long atime) {
+    this(id, null, PermissionStatusFormat.toLong(permissions), null, mtime, atime);
+  }
+  
+  protected INode(long id, String name, PermissionStatus permissions) {
+    this(id, DFSUtil.string2Bytes(name), permissions, null, 0L, 0L);
+  }
+  
+  /** @param other Other node to be copied */
   INode(INode other) {
-    setLocalName(other.getLocalName());
-    this.parent = other.getParent();
-    setPermissionStatus(other.getPermissionStatus());
-    setModificationTime(other.getModificationTime());
-    setAccessTime(other.getAccessTime());
+    this(other.getId(), other.getLocalNameBytes(), other.permission, other
+        .getParent(), other.getModificationTime(), other.getAccessTime());
   }
 
+  /** Get inode id */
+  public long getId() {
+    return this.id;
+  }
+  
   /**
    * Check whether this is the root inode.
    */
@@ -128,11 +168,9 @@ abstract class INode implements Comparable<byte[]> {
     return name.length == 0;
   }
 
-  /** Set the {@link PermissionStatus} */
-  protected void setPermissionStatus(PermissionStatus ps) {
-    setUser(ps.getUserName());
-    setGroup(ps.getGroupName());
-    setPermission(ps.getPermission());
+  /** Clone the {@link PermissionStatus}. */
+  void clonePermissionStatus(INode that) {
+    this.permission = that.permission;
   }
   /** Get the {@link PermissionStatus} */
   protected PermissionStatus getPermissionStatus() {
@@ -175,16 +213,29 @@ abstract class INode implements Comparable<byte[]> {
   }
 
   /**
-   * Check whether it's a directory
+   * Check whether it's a file.
    */
-  abstract boolean isDirectory();
+  public boolean isFile() {
+    return false;
+  }
 
   /**
-   * Collect all the blocks in all children of this INode.
-   * Count and return the number of files in the sub tree.
-   * Also clears references since this INode is deleted.
+   * Check whether it's a directory
    */
-  abstract int collectSubtreeBlocksAndClear(List<Block> v);
+  public boolean isDirectory() {
+    return false;
+  }
+
+  /**
+   * Collect all the blocks in all children of this INode. Count and return the
+   * number of files in the sub tree. Also clears references since this INode is
+   * deleted.
+   * 
+   * @param info
+   *          Containing all the blocks collected from the children of this
+   *          INode. These blocks later should be removed from the blocksMap.
+   */
+  abstract int collectSubtreeBlocksAndClear(BlocksMapUpdateInfo info);
 
   /** Compute {@link ContentSummary}. */
   public final ContentSummary computeContentSummary() {
@@ -222,22 +273,25 @@ abstract class INode implements Comparable<byte[]> {
   abstract DirCounts spaceConsumedInTree(DirCounts counts);
   
   /**
-   * Get local file name
-   * @return local file name
+   * @return null if the local name is null; otherwise, return the local name.
    */
   String getLocalName() {
-    return DFSUtil.bytes2String(name);
+    return name == null? null: DFSUtil.bytes2String(name);
   }
 
 
   String getLocalParentDir() {
     INode inode = isRoot() ? this : getParent();
-    return (inode != null) ? inode.getFullPathName() : "";
+    String parentDir = "";
+    if (inode != null) {
+      parentDir = inode.getFullPathName();
+    }
+    return (parentDir != null) ? parentDir : "";
   }
 
   /**
-   * Get local file name
-   * @return local file name
+   * @return null if the local name is null;
+   *         otherwise, return the local name byte array.
    */
   byte[] getLocalNameBytes() {
     return name;
@@ -327,7 +381,7 @@ abstract class INode implements Comparable<byte[]> {
   /**
    * Check whether it's a symlink
    */
-  public boolean isLink() {
+  public boolean isSymlink() {
     return false;
   }
 
@@ -421,6 +475,7 @@ abstract class INode implements Comparable<byte[]> {
   /**
    * Create an INode; the inode's name is not set yet
    * 
+   * @param id preassigned inode id
    * @param permissions permissions
    * @param blocks blocks if a file
    * @param symlink symblic link if a symbolic link
@@ -432,7 +487,8 @@ abstract class INode implements Comparable<byte[]> {
    * @param preferredBlockSize block size
    * @return an inode
    */
-  static INode newINode(PermissionStatus permissions,
+  static INode newINode(long id,
+                        PermissionStatus permissions,
                         BlockInfo[] blocks,
                         String symlink,
                         short replication,
@@ -442,17 +498,87 @@ abstract class INode implements Comparable<byte[]> {
                         long dsQuota,
                         long preferredBlockSize) {
     if (symlink.length() != 0) { // check if symbolic link
-      return new INodeSymlink(symlink, modificationTime, atime, permissions);
+      return new INodeSymlink(id, symlink, modificationTime, atime, permissions);
     }  else if (blocks == null) { //not sym link and blocks null? directory!
       if (nsQuota >= 0 || dsQuota >= 0) {
         return new INodeDirectoryWithQuota(
-            permissions, modificationTime, nsQuota, dsQuota);
+             id, permissions, modificationTime, nsQuota, dsQuota);
       } 
       // regular directory
-      return new INodeDirectory(permissions, modificationTime);
+      return new INodeDirectory(id, permissions, modificationTime);
     }
     // file
-    return new INodeFile(permissions, blocks, replication,
+    return new INodeFile(id, permissions, blocks, replication,
         modificationTime, atime, preferredBlockSize);
+  }
+
+  /**
+   * Dump the subtree starting from this inode.
+   * @return a text representation of the tree.
+   */
+  @VisibleForTesting
+  public StringBuffer dumpTreeRecursively() {
+    final StringWriter out = new StringWriter(); 
+    dumpTreeRecursively(new PrintWriter(out, true), new StringBuilder());
+    return out.getBuffer();
+  }
+
+  /**
+   * Dump tree recursively.
+   * @param prefix The prefix string that each line should print.
+   */
+  @VisibleForTesting
+  public void dumpTreeRecursively(PrintWriter out, StringBuilder prefix) {
+    out.print(prefix);
+    out.print(" ");
+    out.print(getLocalName());
+    out.print("   (");
+    final String s = super.toString();
+    out.print(s.substring(s.lastIndexOf(getClass().getSimpleName())));
+    out.println(")");
+  }
+  
+  /**
+   * Information used for updating the blocksMap when deleting files.
+   */
+  public static class BlocksMapUpdateInfo {
+    /**
+     * The list of blocks that need to be removed from blocksMap
+     */
+    private List<Block> toDeleteList;
+    
+    public BlocksMapUpdateInfo(List<Block> toDeleteList) {
+      this.toDeleteList = toDeleteList == null ? new ArrayList<Block>()
+          : toDeleteList;
+    }
+    
+    public BlocksMapUpdateInfo() {
+      toDeleteList = new ArrayList<Block>();
+    }
+    
+    /**
+     * @return The list of blocks that need to be removed from blocksMap
+     */
+    public List<Block> getToDeleteList() {
+      return toDeleteList;
+    }
+    
+    /**
+     * Add a to-be-deleted block into the
+     * {@link BlocksMapUpdateInfo#toDeleteList}
+     * @param toDelete the to-be-deleted block
+     */
+    public void addDeleteBlock(Block toDelete) {
+      if (toDelete != null) {
+        toDeleteList.add(toDelete);
+      }
+    }
+    
+    /**
+     * Clear {@link BlocksMapUpdateInfo#toDeleteList}
+     */
+    public void clear() {
+      toDeleteList.clear();
+    }
   }
 }

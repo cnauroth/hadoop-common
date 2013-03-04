@@ -21,14 +21,16 @@ package org.apache.hadoop.fs.shell;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.LinkedList;
+import java.util.List;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
+import org.apache.hadoop.fs.PathIOException;
+import org.apache.hadoop.fs.PathIsDirectoryException;
+import org.apache.hadoop.fs.PathIsNotDirectoryException;
+import org.apache.hadoop.fs.PathIsNotEmptyDirectoryException;
+import org.apache.hadoop.fs.PathNotFoundException;
 import org.apache.hadoop.fs.Trash;
-import org.apache.hadoop.fs.shell.PathExceptions.PathIOException;
-import org.apache.hadoop.fs.shell.PathExceptions.PathIsDirectoryException;
-import org.apache.hadoop.fs.shell.PathExceptions.PathIsNotDirectoryException;
-import org.apache.hadoop.fs.shell.PathExceptions.PathIsNotEmptyDirectoryException;
 
 /**
  * Classes that delete paths
@@ -69,6 +71,19 @@ class Delete {
       ignoreFNF = cf.getOpt("f");
       deleteDirs = cf.getOpt("r") || cf.getOpt("R");
       skipTrash = cf.getOpt("skipTrash");
+    }
+
+    @Override
+    protected List<PathData> expandArgument(String arg) throws IOException {
+      try {
+        return super.expandArgument(arg);
+      } catch (PathNotFoundException e) {
+        if (!ignoreFNF) {
+          throw e;
+        }
+        // prevent -f on a non-existent glob from failing
+        return new LinkedList<PathData>();
+      }
     }
 
     @Override

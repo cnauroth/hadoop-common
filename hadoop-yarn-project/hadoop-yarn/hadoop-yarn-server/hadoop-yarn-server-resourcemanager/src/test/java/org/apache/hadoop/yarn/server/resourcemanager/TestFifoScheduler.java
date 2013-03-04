@@ -201,7 +201,7 @@ public class TestFifoScheduler {
     testMinimumAllocation(conf, allocMB / 2);
   }
 
-  @Test
+  @Test (timeout = 5000)
   public void testReconnectedNode() throws Exception {
     CapacitySchedulerConfiguration conf = new CapacitySchedulerConfiguration();
     conf.setQueues("default", new String[] {"default"});
@@ -215,19 +215,19 @@ public class TestFifoScheduler {
     fs.handle(new NodeAddedSchedulerEvent(n1));
     fs.handle(new NodeAddedSchedulerEvent(n2));
     List<ContainerStatus> emptyList = new ArrayList<ContainerStatus>();
-    fs.handle(new NodeUpdateSchedulerEvent(n1, emptyList, emptyList));
+    fs.handle(new NodeUpdateSchedulerEvent(n1));
     Assert.assertEquals(6 * GB, fs.getRootQueueMetrics().getAvailableMB());
 
     // reconnect n1 with downgraded memory
     n1 = MockNodes.newNodeInfo(0, MockNodes.newResource(2 * GB), 1);
     fs.handle(new NodeRemovedSchedulerEvent(n1));
     fs.handle(new NodeAddedSchedulerEvent(n1));
-    fs.handle(new NodeUpdateSchedulerEvent(n1, emptyList, emptyList));
+    fs.handle(new NodeUpdateSchedulerEvent(n1));
 
     Assert.assertEquals(4 * GB, fs.getRootQueueMetrics().getAvailableMB());
   }
   
-  @Test
+  @Test (timeout = 5000)
   public void testHeadroom() throws Exception {
     
     Configuration conf = new Configuration();
@@ -265,17 +265,17 @@ public class TestFifoScheduler {
     // Ask for a 1 GB container for app 1
     List<ResourceRequest> ask1 = new ArrayList<ResourceRequest>();
     ask1.add(BuilderUtils.newResourceRequest(BuilderUtils.newPriority(0), "*",
-        BuilderUtils.newResource(GB), 1));
+        BuilderUtils.newResource(GB, 1), 1));
     fs.allocate(appAttemptId1, ask1, emptyId);
 
     // Ask for a 2 GB container for app 2
     List<ResourceRequest> ask2 = new ArrayList<ResourceRequest>();
     ask2.add(BuilderUtils.newResourceRequest(BuilderUtils.newPriority(0), "*",
-        BuilderUtils.newResource(2 * GB), 1));
+        BuilderUtils.newResource(2 * GB, 1), 1));
     fs.allocate(appAttemptId2, ask2, emptyId);
     
     // Trigger container assignment
-    fs.handle(new NodeUpdateSchedulerEvent(n1, emptyStatus, emptyStatus));
+    fs.handle(new NodeUpdateSchedulerEvent(n1));
     
     // Get the allocation for the applications and verify headroom
     Allocation allocation1 = fs.allocate(appAttemptId1, emptyAsk, emptyId);

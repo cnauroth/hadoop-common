@@ -43,12 +43,63 @@ import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.protocol.LayoutVersion;
 import org.apache.hadoop.hdfs.protocol.LayoutVersion.Feature;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
+import org.apache.hadoop.hdfs.server.blockmanagement.BlockManager;
 import org.apache.hadoop.hdfs.server.common.InconsistentFSStateException;
 import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.io.Text;
 
 /**
- * Contains inner classes for reading or writing the on-disk format for FSImages.
+ * Contains inner classes for reading or writing the on-disk format for
+ * FSImages.
+ * 
+ * In particular, the format of the FSImage looks like:
+ * <pre>
+ * FSImage {
+ *   LayoutVersion: int, NamespaceID: int, NumberItemsInFSDirectoryTree: long,
+ *   NamesystemGenerationStamp: long, TransactionID: long
+ *   {FSDirectoryTree, FilesUnderConstruction, SecretManagerState} (can be compressed)
+ * }
+ * 
+ * FSDirectoryTree (if {@link Feature#FSIMAGE_NAME_OPTIMIZATION} is supported) {
+ *   INodeInfo of root, NumberOfChildren of root: int
+ *   [list of INodeInfo of root's children],
+ *   [list of INodeDirectoryInfo of root's directory children]
+ * }
+ * 
+ * FSDirectoryTree (if {@link Feature#FSIMAGE_NAME_OPTIMIZATION} not supported){
+ *   [list of INodeInfo of INodes in topological order]
+ * }
+ * 
+ * INodeInfo {
+ *   {
+ *     LocalName: short + byte[]
+ *   } when {@link Feature#FSIMAGE_NAME_OPTIMIZATION} is supported
+ *   or 
+ *   {
+ *     FullPath: byte[]
+ *   } when {@link Feature#FSIMAGE_NAME_OPTIMIZATION} is not supported
+ *   ReplicationFactor: short, ModificationTime: long,
+ *   AccessTime: long, PreferredBlockSize: long,
+ *   NumberOfBlocks: int (-1 for INodeDirectory, -2 for INodeSymLink),
+ *   { 
+ *     NsQuota: long, DsQuota: long, FsPermission: short, PermissionStatus
+ *   } for INodeDirectory
+ *   or 
+ *   {
+ *     SymlinkString, FsPermission: short, PermissionStatus
+ *   } for INodeSymlink
+ *   or
+ *   {
+ *     [list of BlockInfo], FsPermission: short, PermissionStatus
+ *   } for INodeFile
+ * }
+ * 
+ * INodeDirectoryInfo {
+ *   FullPath of the directory: short + byte[],
+ *   NumberOfChildren: int, [list of INodeInfo of children INode]
+ *   [list of INodeDirectoryInfo of the directory children]
+ * }
+ * </pre>
  */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
@@ -165,7 +216,8 @@ class FSImageFormat {
         in = compression.unwrapInputStream(fin);
 
         LOG.info("Loading image file " + curFile + " using " + compression);
-
+        // reset INodeId. TODO: remove this after inodeId is persisted in fsimage
+        namesystem.resetLastInodeIdWithoutChecking(INodeId.LAST_RESERVED_ID); 
         // load all inodes
         LOG.info("Number of files = " + numFiles);
         if (LayoutVersion.supports(Feature.FSIMAGE_NAME_OPTIMIZATION,
@@ -202,7 +254,7 @@ class FSImageFormat {
       fsDir.rootDir.setQuota(nsQuota, dsQuota);
     }
     fsDir.rootDir.setModificationTime(root.getModificationTime());
-    fsDir.rootDir.setPermissionStatus(root.getPermissionStatus());    
+    fsDir.rootDir.clonePermissionStatus(root);    
   }
 
   /** 
@@ -246,10 +298,8 @@ class FSImageFormat {
    private int loadDirectory(DataInputStream in) throws IOException {
      String parentPath = FSImageSerialization.readString(in);
      FSDirectory fsDir = namesystem.dir;
-     INode parent = fsDir.rootDir.getNode(parentPath, true);
-     if (parent == null || !parent.isDirectory()) {
-       throw new IOException("Path " + parentPath + "is not a directory.");
-     }
+     final INodeDirectory parent = INodeDirectory.valueOf(
+         fsDir.rootDir.getNode(parentPath, true), parentPath);
 
      int numChildren = in.readInt();
      for(int i=0; i<numChildren; i++) {
@@ -259,7 +309,8 @@ class FSImageFormat {
        INode newNode = loadINode(in); // read rest of inode
 
        // add to parent
-       namesystem.dir.addToParent(localName, (INodeDirectory)parent, newNode, false);
+       newNode.setLocalName(localName);
+       addToParent(parent, newNode);
      }
      return numChildren;
    }
@@ -288,13 +339,36 @@ class FSImageFormat {
       }
       // check if the new inode belongs to the same parent
       if(!isParent(pathComponents, parentPath)) {
-        parentINode = fsDir.getParent(pathComponents);
+        parentINode = fsDir.rootDir.getParent(pathComponents);
         parentPath = getParent(pathComponents);
       }
 
       // add new inode
-      parentINode = fsDir.addToParent(pathComponents[pathComponents.length-1], 
-          parentINode, newNode, false);
+      newNode.setLocalName(pathComponents[pathComponents.length-1]);
+      addToParent(parentINode, newNode);
+    }
+  }
+
+  /**
+   * Add the child node to parent and, if child is a file, update block map.
+   * This method is only used for image loading so that synchronization,
+   * modification time update and space count update are not needed.
+   */
+  void addToParent(INodeDirectory parent, INode child) {
+    // NOTE: This does not update space counts for parents
+    if (!parent.addChild(child, false)) {
+      return;
+    }
+    namesystem.dir.cacheName(child);
+
+    if (child.isFile()) {
+      // Add file->block mapping
+      final INodeFile file = (INodeFile)child;
+      final BlockInfo[] blocks = file.getBlocks();
+      final BlockManager bm = namesystem.getBlockManager();
+      for (int i = 0; i < blocks.length; i++) {
+        file.setBlock(i, bm.addBlockCollection(blocks[i], file));
+      }
     }
   }
 
@@ -311,6 +385,8 @@ class FSImageFormat {
     long blockSize = 0;
     
     int imgVersion = getLayoutVersion();
+    long inodeId = namesystem.allocateNewInodeId();
+    
     short replication = in.readShort();
     replication = namesystem.getBlockManager().adjustReplication(replication);
     modificationTime = in.readLong();
@@ -348,7 +424,7 @@ class FSImageFormat {
     
     PermissionStatus permissions = PermissionStatus.read(in);
 
-    return INode.newINode(permissions, blocks, symlink, replication,
+    return INode.newINode(inodeId, permissions, blocks, symlink, replication,
         modificationTime, atime, nsQuota, dsQuota, blockSize);
   }
 
@@ -365,14 +441,7 @@ class FSImageFormat {
 
         // verify that file exists in namespace
         String path = cons.getLocalName();
-        INode old = fsDir.getFileINode(path);
-        if (old == null) {
-          throw new IOException("Found lease for non-existent file " + path);
-        }
-        if (old.isDirectory()) {
-          throw new IOException("Found lease for directory " + path);
-        }
-        INodeFile oldnode = (INodeFile) old;
+        INodeFile oldnode = INodeFile.valueOf(fsDir.getINode(path), path);
         fsDir.replaceNode(path, oldnode, cons);
         namesystem.leaseManager.addLease(cons.getClientName(), path); 
       }
@@ -539,8 +608,8 @@ class FSImageFormat {
     private void saveImage(ByteBuffer currentDirName,
                                   INodeDirectory current,
                                   DataOutputStream out) throws IOException {
-      List<INode> children = current.getChildrenRaw();
-      if (children == null || children.isEmpty())
+      final List<INode> children = current.getChildrenList();
+      if (children.isEmpty())
         return;
       // print prefix (parent directory name)
       int prefixLen = currentDirName.position();

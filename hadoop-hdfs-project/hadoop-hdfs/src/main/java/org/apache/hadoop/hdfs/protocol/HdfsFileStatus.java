@@ -40,6 +40,7 @@ public class HdfsFileStatus {
   private FsPermission permission;
   private String owner;
   private String group;
+  private long fileId;
   
   public static final byte[] EMPTY_NAME = new byte[0];
 
@@ -55,11 +56,12 @@ public class HdfsFileStatus {
    * @param owner the owner of the path
    * @param group the group of the path
    * @param path the local name in java UTF8 encoding the same as that in-memory
+   * @param fileId the file id
    */
   public HdfsFileStatus(long length, boolean isdir, int block_replication,
                     long blocksize, long modification_time, long access_time,
                     FsPermission permission, String owner, String group, 
-                    byte[] symlink, byte[] path) {
+                    byte[] symlink, byte[] path, long fileId) {
     this.length = length;
     this.isdir = isdir;
     this.block_replication = (short)block_replication;
@@ -67,11 +69,15 @@ public class HdfsFileStatus {
     this.modification_time = modification_time;
     this.access_time = access_time;
     this.permission = (permission == null) ? 
-                      FsPermission.getDefault() : permission;
+        ((isdir || symlink!=null) ? 
+            FsPermission.getDefault() : 
+            FsPermission.getFileDefault()) :
+        permission;
     this.owner = (owner == null) ? "" : owner;
     this.group = (group == null) ? "" : group;
     this.symlink = symlink;
     this.path = path;
+    this.fileId = fileId;
   }
 
   /**
@@ -219,5 +225,9 @@ public class HdfsFileStatus {
   
   final public byte[] getSymlinkInBytes() {
     return symlink;
+  }
+  
+  final public long getFileId() {
+    return fileId;
   }
 }

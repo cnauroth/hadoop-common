@@ -28,8 +28,17 @@ import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Random;
+
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.hadoop.conf.Configuration;
 
@@ -90,6 +99,7 @@ public class TestBookKeeperJournalManager {
     NamespaceInfo nsi = newNSInfo();
     BookKeeperJournalManager bkjm = new BookKeeperJournalManager(conf,
         BKJMUtil.createJournalURI("/hdfsjournal-simplewrite"), nsi);
+    bkjm.format(nsi);
 
     EditLogOutputStream out = bkjm.startLogSegment(1);
     for (long i = 1 ; i <= 100; i++) {
@@ -112,6 +122,8 @@ public class TestBookKeeperJournalManager {
 
     BookKeeperJournalManager bkjm = new BookKeeperJournalManager(conf,
         BKJMUtil.createJournalURI("/hdfsjournal-txncount"), nsi);
+    bkjm.format(nsi);
+
     EditLogOutputStream out = bkjm.startLogSegment(1);
     for (long i = 1 ; i <= 100; i++) {
       FSEditLogOp op = FSEditLogTestUtil.getNoOpInstance();
@@ -130,6 +142,7 @@ public class TestBookKeeperJournalManager {
     NamespaceInfo nsi = newNSInfo();
     BookKeeperJournalManager bkjm = new BookKeeperJournalManager(conf,
         BKJMUtil.createJournalURI("/hdfsjournal-gaps"), nsi);
+    bkjm.format(nsi);
 
     long txid = 1;
     for (long i = 0; i < 3; i++) {
@@ -167,6 +180,7 @@ public class TestBookKeeperJournalManager {
     NamespaceInfo nsi = newNSInfo();
     BookKeeperJournalManager bkjm = new BookKeeperJournalManager(conf,
         BKJMUtil.createJournalURI("/hdfsjournal-inprogressAtEnd"), nsi);
+    bkjm.format(nsi);
 
     long txid = 1;
     for (long i = 0; i < 3; i++) {
@@ -208,6 +222,7 @@ public class TestBookKeeperJournalManager {
     NamespaceInfo nsi = newNSInfo();
     BookKeeperJournalManager bkjm = new BookKeeperJournalManager(conf,
         BKJMUtil.createJournalURI("/hdfsjournal-restartFrom1"), nsi);
+    bkjm.format(nsi);
 
     long txid = 1;
     long start = txid;
@@ -266,6 +281,7 @@ public class TestBookKeeperJournalManager {
 
     BookKeeperJournalManager bkjm1 = new BookKeeperJournalManager(conf,
         BKJMUtil.createJournalURI("/hdfsjournal-dualWriter"), nsi);
+    bkjm1.format(nsi);
 
     BookKeeperJournalManager bkjm2 = new BookKeeperJournalManager(conf,
         BKJMUtil.createJournalURI("/hdfsjournal-dualWriter"), nsi);
@@ -288,6 +304,7 @@ public class TestBookKeeperJournalManager {
     BookKeeperJournalManager bkjm = new BookKeeperJournalManager(conf,
         BKJMUtil.createJournalURI("/hdfsjournal-simpleread"),
         nsi);
+    bkjm.format(nsi);
 
     final long numTransactions = 10000;
     EditLogOutputStream out = bkjm.startLogSegment(1);
@@ -299,13 +316,13 @@ public class TestBookKeeperJournalManager {
     out.close();
     bkjm.finalizeLogSegment(1, numTransactions);
 
-     
-    EditLogInputStream in = bkjm.getInputStream(1, true);
+    List<EditLogInputStream> in = new ArrayList<EditLogInputStream>();
+    bkjm.selectInputStreams(in, 1, true);
     try {
       assertEquals(numTransactions, 
-                   FSEditLogTestUtil.countTransactionsInStream(in));
+                   FSEditLogTestUtil.countTransactionsInStream(in.get(0)));
     } finally {
-      in.close();
+      in.get(0).close();
     }
   }
 
@@ -315,6 +332,7 @@ public class TestBookKeeperJournalManager {
     BookKeeperJournalManager bkjm = new BookKeeperJournalManager(conf,
         BKJMUtil.createJournalURI("/hdfsjournal-simplerecovery"),
         nsi);
+    bkjm.format(nsi);
 
     EditLogOutputStream out = bkjm.startLogSegment(1);
     for (long i = 1 ; i <= 100; i++) {
@@ -365,6 +383,7 @@ public class TestBookKeeperJournalManager {
       BookKeeperJournalManager bkjm = new BookKeeperJournalManager(conf,
           BKJMUtil.createJournalURI("/hdfsjournal-allbookiefailure"),
           nsi);
+      bkjm.format(nsi);
       EditLogOutputStream out = bkjm.startLogSegment(txid);
 
       for (long i = 1 ; i <= 3; i++) {
@@ -450,6 +469,7 @@ public class TestBookKeeperJournalManager {
       BookKeeperJournalManager bkjm = new BookKeeperJournalManager(conf,
           BKJMUtil.createJournalURI("/hdfsjournal-onebookiefailure"),
           nsi);
+      bkjm.format(nsi);
 
       EditLogOutputStream out = bkjm.startLogSegment(txid);
       for (long i = 1 ; i <= 3; i++) {
@@ -500,6 +520,7 @@ public class TestBookKeeperJournalManager {
     NamespaceInfo nsi = newNSInfo();
     BookKeeperJournalManager bkjm = new BookKeeperJournalManager(conf, uri,
                                                                  nsi);
+    bkjm.format(nsi);
 
     EditLogOutputStream out = bkjm.startLogSegment(1);
     for (long i = 1; i <= 100; i++) {
@@ -541,6 +562,7 @@ public class TestBookKeeperJournalManager {
     NamespaceInfo nsi = newNSInfo();
     BookKeeperJournalManager bkjm = new BookKeeperJournalManager(conf, uri,
                                                                  nsi);
+    bkjm.format(nsi);
 
     EditLogOutputStream out = bkjm.startLogSegment(1);
     for (long i = 1; i <= 100; i++) {
@@ -583,6 +605,7 @@ public class TestBookKeeperJournalManager {
     NamespaceInfo nsi = newNSInfo();
     BookKeeperJournalManager bkjm = new BookKeeperJournalManager(conf, uri,
                                                                  nsi);
+    bkjm.format(nsi);
 
     EditLogOutputStream out = bkjm.startLogSegment(1);
     for (long i = 1; i <= 100; i++) {
@@ -622,6 +645,7 @@ public class TestBookKeeperJournalManager {
     NamespaceInfo nsi = newNSInfo();
     BookKeeperJournalManager bkjm = new BookKeeperJournalManager(conf, uri,
                                                                  nsi);
+    bkjm.format(nsi);
 
     EditLogOutputStream out = bkjm.startLogSegment(1);
     for (long i = 1; i <= 100; i++) {
@@ -669,6 +693,7 @@ public class TestBookKeeperJournalManager {
     NamespaceInfo nsi = newNSInfo();
     BookKeeperJournalManager bkjm = new BookKeeperJournalManager(conf, uri,
                                                                  nsi);
+    bkjm.format(nsi);
 
     try {
       // start new inprogress log segment with txid=1
@@ -695,6 +720,81 @@ public class TestBookKeeperJournalManager {
     } finally {
       bkjm.close();
     }
+  }
+
+  private enum ThreadStatus {
+    COMPLETED, GOODEXCEPTION, BADEXCEPTION;
+  };
+
+  /**
+   * Tests that concurrent calls to format will still allow one to succeed.
+   */
+  @Test
+  public void testConcurrentFormat() throws Exception {
+    final URI uri = BKJMUtil.createJournalURI("/hdfsjournal-concurrentformat");
+    final NamespaceInfo nsi = newNSInfo();
+
+    // populate with data first
+    BookKeeperJournalManager bkjm
+      = new BookKeeperJournalManager(conf, uri, nsi);
+    bkjm.format(nsi);
+    for (int i = 1; i < 100*2; i += 2) {
+      bkjm.startLogSegment(i);
+      bkjm.finalizeLogSegment(i, i+1);
+    }
+    bkjm.close();
+
+    final int numThreads = 40;
+    List<Callable<ThreadStatus>> threads
+      = new ArrayList<Callable<ThreadStatus>>();
+    final CyclicBarrier barrier = new CyclicBarrier(numThreads);
+
+    for (int i = 0; i < numThreads; i++) {
+      threads.add(new Callable<ThreadStatus>() {
+          public ThreadStatus call() {
+            BookKeeperJournalManager bkjm = null;
+            try {
+              bkjm = new BookKeeperJournalManager(conf, uri, nsi);
+              barrier.await();
+              bkjm.format(nsi);
+              return ThreadStatus.COMPLETED;
+            } catch (IOException ioe) {
+              LOG.info("Exception formatting ", ioe);
+              return ThreadStatus.GOODEXCEPTION;
+            } catch (InterruptedException ie) {
+              LOG.error("Interrupted. Something is broken", ie);
+              Thread.currentThread().interrupt();
+              return ThreadStatus.BADEXCEPTION;
+            } catch (Exception e) {
+              LOG.error("Some other bad exception", e);
+              return ThreadStatus.BADEXCEPTION;
+            } finally {
+              if (bkjm != null) {
+                try {
+                  bkjm.close();
+                } catch (IOException ioe) {
+                  LOG.error("Error closing journal manager", ioe);
+                }
+              }
+            }
+          }
+        });
+    }
+    ExecutorService service = Executors.newFixedThreadPool(numThreads);
+    List<Future<ThreadStatus>> statuses = service.invokeAll(threads, 60,
+                                                      TimeUnit.SECONDS);
+    int numCompleted = 0;
+    for (Future<ThreadStatus> s : statuses) {
+      assertTrue(s.isDone());
+      assertTrue("Thread threw invalid exception",
+          s.get() == ThreadStatus.COMPLETED
+          || s.get() == ThreadStatus.GOODEXCEPTION);
+      if (s.get() == ThreadStatus.COMPLETED) {
+        numCompleted++;
+      }
+    }
+    LOG.info("Completed " + numCompleted + " formats");
+    assertTrue("No thread managed to complete formatting", numCompleted > 0);
   }
 
   private String startAndFinalizeLogSegment(BookKeeperJournalManager bkjm,

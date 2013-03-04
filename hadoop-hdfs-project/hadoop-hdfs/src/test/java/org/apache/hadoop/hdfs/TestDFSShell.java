@@ -452,6 +452,15 @@ public class TestDFSShell {
       assertEquals(" no error ", 0, ret);
       assertTrue("empty path specified",
           (returned.lastIndexOf("empty string") == -1));
+      out.reset();
+      argv = new String[3];
+      argv[0] = "-test";
+      argv[1] = "-d";
+      argv[2] = "/no/such/dir";
+      ret = ToolRunner.run(shell, argv);
+      returned = out.toString();
+      assertEquals(" -test -d wrong result ", 1, ret);
+      assertTrue(returned.isEmpty());
     } finally {
       if (bak != null) {
         System.setErr(bak);
@@ -1145,7 +1154,7 @@ public class TestDFSShell {
 
         args = new String[2];
         args[0] = "-touchz";
-        args[1] = "/test/mkdirs/noFileHere";
+        args[1] = "/test/mkdirs/isFileHere";
         val = -1;
         try {
           val = shell.run(args);
@@ -1157,7 +1166,7 @@ public class TestDFSShell {
 
         args = new String[2];
         args[0] = "-touchz";
-        args[1] = "/test/mkdirs/thisDirNotExists/noFileHere";
+        args[1] = "/test/mkdirs/thisDirNotExists/isFileHere";
         val = -1;
         try {
           val = shell.run(args);
@@ -1171,7 +1180,7 @@ public class TestDFSShell {
         args = new String[3];
         args[0] = "-test";
         args[1] = "-e";
-        args[2] = "/test/mkdirs/noFileHere";
+        args[2] = "/test/mkdirs/isFileHere";
         val = -1;
         try {
           val = shell.run(args);
@@ -1243,7 +1252,106 @@ public class TestDFSShell {
         }
         assertEquals(0, val);
       }
-        
+
+      // Verify -test -f negative case (missing file)
+      {
+        String[] args = new String[3];
+        args[0] = "-test";
+        args[1] = "-f";
+        args[2] = "/test/mkdirs/noFileHere";
+        int val = -1;
+        try {
+          val = shell.run(args);
+        } catch (Exception e) {
+          System.err.println("Exception raised from DFSShell.run " +
+                             e.getLocalizedMessage());
+        }
+        assertEquals(1, val);
+      }
+
+      // Verify -test -f negative case (directory rather than file)
+      {
+        String[] args = new String[3];
+        args[0] = "-test";
+        args[1] = "-f";
+        args[2] = "/test/mkdirs";
+        int val = -1;
+        try {
+          val = shell.run(args);
+        } catch (Exception e) {
+          System.err.println("Exception raised from DFSShell.run " +
+                             e.getLocalizedMessage());
+        }
+        assertEquals(1, val);
+      }
+
+      // Verify -test -f positive case
+      {
+        writeFile(fileSys, myFile);
+        assertTrue(fileSys.exists(myFile));
+
+        String[] args = new String[3];
+        args[0] = "-test";
+        args[1] = "-f";
+        args[2] = myFile.toString();
+        int val = -1;
+        try {
+          val = shell.run(args);
+        } catch (Exception e) {
+          System.err.println("Exception raised from DFSShell.run " +
+                             e.getLocalizedMessage());
+        }
+        assertEquals(0, val);
+      }
+
+      // Verify -test -s negative case (missing file)
+      {
+        String[] args = new String[3];
+        args[0] = "-test";
+        args[1] = "-s";
+        args[2] = "/test/mkdirs/noFileHere";
+        int val = -1;
+        try {
+          val = shell.run(args);
+        } catch (Exception e) {
+          System.err.println("Exception raised from DFSShell.run " +
+                             e.getLocalizedMessage());
+        }
+        assertEquals(1, val);
+      }
+
+      // Verify -test -s negative case (zero length file)
+      {
+        String[] args = new String[3];
+        args[0] = "-test";
+        args[1] = "-s";
+        args[2] = "/test/mkdirs/isFileHere";
+        int val = -1;
+        try {
+          val = shell.run(args);
+        } catch (Exception e) {
+          System.err.println("Exception raised from DFSShell.run " +
+                             e.getLocalizedMessage());
+        }
+        assertEquals(1, val);
+      }
+
+      // Verify -test -s positive case (nonzero length file)
+      {
+        String[] args = new String[3];
+        args[0] = "-test";
+        args[1] = "-s";
+        args[2] = myFile.toString();
+        int val = -1;
+        try {
+          val = shell.run(args);
+        } catch (Exception e) {
+          System.err.println("Exception raised from DFSShell.run " +
+                             e.getLocalizedMessage());
+        }
+        assertEquals(0, val);
+      }
+
     } finally {
       try {
         fileSys.close();
@@ -1330,66 +1438,89 @@ public class TestDFSShell {
   @Test
   public void testGet() throws IOException {
     DFSTestUtil.setLogLevel2All(FSInputChecker.LOG);
+
+    final String fname = "testGet.txt";
+    Path root = new Path("/test/get");
+    final Path remotef = new Path(root, fname);
     final Configuration conf = new HdfsConfiguration();
-    // Race can happen here: block scanner is reading the file when test tries
-    // to corrupt the test file, which will fail the test on Windows platform.
-    // Disable block scanner to avoid this race.
-    conf.setInt(DFSConfigKeys.DFS_DATANODE_SCAN_PERIOD_HOURS_KEY, -1);
-    
-    MiniDFSCluster cluster = new MiniDFSCluster.Builder(conf).numDataNodes(2).build();
-    DistributedFileSystem dfs = (DistributedFileSystem)cluster.getFileSystem();
+
+    TestGetRunner runner = new TestGetRunner() {
+    	private int count = 0;
+    	private FsShell shell = new FsShell(conf);
+
+    	public String run(int exitcode, String... options) throws IOException {
+    	  String dst = TEST_ROOT_DIR + "/" + fname+ ++count;
+    	  String[] args = new String[options.length + 3];
+    	  args[0] = "-get"; 
+    	  args[args.length - 2] = remotef.toString();
+    	  args[args.length - 1] = dst;
+    	  for(int i = 0; i < options.length; i++) {
+    	    args[i + 1] = options[i];
+    	  }
+    	  show("args=" + Arrays.asList(args));
+
+    	  try {
+    	    assertEquals(exitcode, shell.run(args));
+    	  } catch (Exception e) {
+    	    assertTrue(StringUtils.stringifyException(e), false); 
+    	  }
+    	  return exitcode == 0? DFSTestUtil.readFile(new File(dst)): null; 
+    	}
+    };
+
+    File localf = createLocalFile(new File(TEST_ROOT_DIR, fname));
+    MiniDFSCluster cluster = null;
+    DistributedFileSystem dfs = null;
 
     try {
-      final String fname = "testGet.txt";
-      final File localf = createLocalFile(new File(TEST_ROOT_DIR, fname));
-      final String localfcontent = DFSTestUtil.readFile(localf);
-      final Path root = mkdir(dfs, new Path("/test/get"));
-      final Path remotef = new Path(root, fname);
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(2).format(true)
+        .build();
+      dfs = (DistributedFileSystem)cluster.getFileSystem();
+
+      mkdir(dfs, root);
       dfs.copyFromLocalFile(false, false, new Path(localf.getPath()), remotef);
-
-      final FsShell shell = new FsShell();
-      shell.setConf(conf);
-      TestGetRunner runner = new TestGetRunner() {
-        private int count = 0;
-
-        @Override
-        public String run(int exitcode, String... options) throws IOException {
-          String dst = TEST_ROOT_DIR + "/" + fname+ ++count;
-          String[] args = new String[options.length + 3];
-          args[0] = "-get"; 
-          args[args.length - 2] = remotef.toString();
-          args[args.length - 1] = dst;
-          for(int i = 0; i < options.length; i++) {
-            args[i + 1] = options[i];
-          }
-          show("args=" + Arrays.asList(args));
-          
-          try {
-            assertEquals(exitcode, shell.run(args));
-          } catch (Exception e) {
-            assertTrue(StringUtils.stringifyException(e), false); 
-          }
-          return exitcode == 0? DFSTestUtil.readFile(new File(dst)): null; 
-        }
-      };
+      String localfcontent = DFSTestUtil.readFile(localf);
 
       assertEquals(localfcontent, runner.run(0));
       assertEquals(localfcontent, runner.run(0, "-ignoreCrc"));
 
-      //find and modify the block files
+      // find block files to modify later
       List<File> files = getBlockFiles(cluster);
+
+      // Shut down cluster and then corrupt the block files by overwriting a
+      // portion with junk data.  We must shut down the cluster so that threads
+      // in the data node do not hold locks on the block files while we try to
+      // write into them.  Particularly on Windows, the data node's use of the
+      // FileChannel.transferTo method can cause block files to be memory mapped
+      // in read-only mode during the transfer to a client, and this causes a
+      // locking conflict.  The call to shutdown the cluster blocks until all
+      // DataXceiver threads exit, preventing this problem.
+      dfs.close();
+      cluster.shutdown();
+
       show("files=" + files);
       corrupt(files);
+
+      // Start the cluster again, but do not reformat, so prior files remain.
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(2).format(false)
+        .build();
+      dfs = (DistributedFileSystem)cluster.getFileSystem();
 
       assertEquals(null, runner.run(1));
       String corruptedcontent = runner.run(0, "-ignoreCrc");
       assertEquals(localfcontent.substring(1), corruptedcontent.substring(1));
       assertEquals(localfcontent.charAt(0)+1, corruptedcontent.charAt(0));
-
-      localf.delete();
     } finally {
-      try {dfs.close();} catch (Exception e) {}
-      cluster.shutdown();
+      if (null != dfs) {
+        try {
+          dfs.close();
+        } catch (Exception e) {
+        }
+      }
+      if (null != cluster) {
+        cluster.shutdown();
+      }
+      localf.delete();
     }
   }
 

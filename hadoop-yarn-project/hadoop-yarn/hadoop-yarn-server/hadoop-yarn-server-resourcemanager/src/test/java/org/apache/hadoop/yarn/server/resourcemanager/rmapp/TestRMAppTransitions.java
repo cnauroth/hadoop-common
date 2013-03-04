@@ -29,6 +29,7 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.yarn.MockApps;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
+import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.impl.pb.ApplicationSubmissionContextPBImpl;
@@ -40,8 +41,6 @@ import org.apache.hadoop.yarn.server.resourcemanager.RMAppManagerEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.RMAppManagerEventType;
 import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
 import org.apache.hadoop.yarn.server.resourcemanager.RMContextImpl;
-import org.apache.hadoop.yarn.server.resourcemanager.recovery.ApplicationsStore.ApplicationStore;
-import org.apache.hadoop.yarn.server.resourcemanager.recovery.MemStore;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.AMLivelinessMonitor;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttempt;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptEvent;
@@ -140,7 +139,7 @@ public class TestRMAppTransitions {
     AMLivelinessMonitor amLivelinessMonitor = mock(AMLivelinessMonitor.class);
     AMLivelinessMonitor amFinishingMonitor = mock(AMLivelinessMonitor.class);
     this.rmContext =
-        new RMContextImpl(new MemStore(), rmDispatcher,
+        new RMContextImpl(rmDispatcher,
           containerAllocationExpirer, amLivelinessMonitor, amFinishingMonitor,
           null, new ApplicationTokenSecretManager(conf),
           new RMContainerTokenSecretManager(conf),
@@ -170,8 +169,6 @@ public class TestRMAppTransitions {
     Configuration conf = new YarnConfiguration();
     // ensure max retries set to known value
     conf.setInt(YarnConfiguration.RM_AM_MAX_RETRIES, maxRetries);
-    String clientTokenStr = "bogusstring";
-    ApplicationStore appStore = mock(ApplicationStore.class);
     YarnScheduler scheduler = mock(YarnScheduler.class);
     ApplicationMasterService masterService =
         new ApplicationMasterService(rmContext, scheduler);
@@ -180,11 +177,10 @@ public class TestRMAppTransitions {
       submissionContext = new ApplicationSubmissionContextPBImpl();
     }
 
-    RMApp application = new RMAppImpl(applicationId, rmContext,
-        conf, name, user,
-        queue, submissionContext, clientTokenStr,
-        appStore, scheduler,
-        masterService, System.currentTimeMillis());
+    RMApp application =
+        new RMAppImpl(applicationId, rmContext, conf, name, user, queue,
+          submissionContext, scheduler, masterService,
+          System.currentTimeMillis());
 
     testAppStartState(applicationId, user, name, queue, application);
     return application;
@@ -620,5 +616,13 @@ public class TestRMAppTransitions {
     rmDispatcher.await();
     assertTimesAtFinish(application);
     assertAppState(RMAppState.KILLED, application);
+  }
+
+  @Test
+  public void testGetAppReport() {
+    RMApp app = createNewTestApp(null);
+    assertAppState(RMAppState.NEW, app);
+    ApplicationReport report = app.createAndGetApplicationReport(true);
+    Assert.assertNotNull(report.getApplicationResourceUsageReport());
   }
 }

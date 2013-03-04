@@ -33,7 +33,6 @@
     <test.logs>true</test.logs>
     <test.timeout>600000</test.timeout>
     <fork.mode>once</fork.mode>
-    <mr.basedir>${basedir}</mr.basedir>
     <hadoop.component>yarn</hadoop.component>
     <is.hadoop.component>true</is.hadoop.component>
   </properties>
@@ -60,7 +59,7 @@
           <artifactId>ant</artifactId>
         </exclusion>
         <exclusion>
-          <groupId>org.jboss.netty</groupId>
+          <groupId>io.netty</groupId>
           <artifactId>netty</artifactId>
         </exclusion>
         <exclusion>
@@ -150,7 +149,7 @@
       <artifactId>junit</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.jboss.netty</groupId>
+      <groupId>io.netty</groupId>
       <artifactId>netty</artifactId>
     </dependency>
     <dependency>
@@ -183,13 +182,13 @@
                 <echo file="${project.build.directory}/dist-maketar.sh">
 
                   which cygpath 2&gt; /dev/null
-                  if [ $? = 1 ]; then
+                  if [ $? != 0 ]; then
                     BUILD_DIR="${project.build.directory}"
                   else
                     BUILD_DIR=`cygpath --unix '${project.build.directory}'`
                   fi
                   cd $BUILD_DIR
-                  tar czf ${project.artifactId}-${project.version}.tar.gz ${project.artifactId}-${project.version}
+                  tar cf - ${project.artifactId}-${project.version} | gzip > ${project.artifactId}-${project.version}.tar.gz
                 </echo>
                 <exec executable="sh" dir="${project.build.directory}" failonerror="true">
                   <arg line="./dist-maketar.sh"/>
@@ -200,22 +199,13 @@
         </executions>
       </plugin>
       <plugin>
-          <groupId>org.codehaus.mojo</groupId>
-          <artifactId>findbugs-maven-plugin</artifactId>
-          <configuration>
-            <findbugsXmlOutput>true</findbugsXmlOutput>
-            <xmlOutput>true</xmlOutput>
-            <excludeFilterFile>${mr.basedir}/dev-support/findbugs-exclude.xml</excludeFilterFile>
-            <effort>Max</effort>
-          </configuration>
-       </plugin>
-       <plugin>
         <groupId>org.apache.rat</groupId>
         <artifactId>apache-rat-plugin</artifactId>
         <configuration>
-          <includes>
-            <include>pom.xml</include>
-          </includes>
+          <excludes>
+            <exclude>CHANGES.txt</exclude>
+            <exclude>CHANGES.branch-trunk-win.txt</exclude>
+          </excludes>
         </configuration>
       </plugin>
     </plugins>

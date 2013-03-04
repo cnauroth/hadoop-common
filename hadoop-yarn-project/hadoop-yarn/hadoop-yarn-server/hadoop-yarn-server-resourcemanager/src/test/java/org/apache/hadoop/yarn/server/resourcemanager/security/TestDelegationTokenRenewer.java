@@ -21,11 +21,17 @@ package org.apache.hadoop.yarn.server.resourcemanager.security;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -50,6 +56,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 /**
  * unit test - 
@@ -357,6 +365,27 @@ public class TestDelegationTokenRenewer {
     }
   }
   
+  @Test
+  public void testInvalidDTWithAddApplication() throws Exception {
+    MyFS dfs = (MyFS)FileSystem.get(conf);
+    LOG.info("dfs="+(Object)dfs.hashCode() + ";conf="+conf.hashCode());
+
+    MyToken token = dfs.getDelegationToken(new Text("user1"));
+    token.cancelToken();
+
+    Credentials ts = new Credentials();
+    ts.addToken(token.getKind(), token);
+    
+    // register the tokens for renewal
+    ApplicationId appId =  BuilderUtils.newApplicationId(0, 0);
+    try {
+      delegationTokenRenewer.addApplication(appId, ts, true);
+      fail("App submission with a cancelled token should have failed");
+    } catch (InvalidToken e) {
+      // expected
+    }
+  }
+  
   /**
    * Basic idea of the test:
    * 1. register a token for 2 seconds with no cancel at the end
@@ -519,5 +548,55 @@ public class TestDelegationTokenRenewer {
       token1.renew(lconf);
       fail("Renewal of cancelled token should have failed");
     } catch (InvalidToken ite) {}
+  }
+  
+  @Test(timeout=2000)
+  public void testConncurrentAddApplication()
+      throws IOException, InterruptedException, BrokenBarrierException {
+    final CyclicBarrier startBarrier = new CyclicBarrier(2);
+    final CyclicBarrier endBarrier = new CyclicBarrier(2);
+
+    // this token uses barriers to block during renew
+    final Credentials creds1 = new Credentials();
+    final Token<?> token1 = mock(Token.class);
+    creds1.addToken(new Text("token"), token1);
+    doReturn(true).when(token1).isManaged();
+    doAnswer(new Answer<Long>() {
+      public Long answer(InvocationOnMock invocation)
+          throws InterruptedException, BrokenBarrierException {
+        startBarrier.await();
+        endBarrier.await();
+        return Long.MAX_VALUE;
+      }}).when(token1).renew(any(Configuration.class));
+
+    // this dummy token fakes renewing
+    final Credentials creds2 = new Credentials();
+    final Token<?> token2 = mock(Token.class);
+    creds2.addToken(new Text("token"), token2);
+    doReturn(true).when(token2).isManaged();
+    doReturn(Long.MAX_VALUE).when(token2).renew(any(Configuration.class));
+
+    // fire up the renewer
+    final DelegationTokenRenewer dtr = new DelegationTokenRenewer();
+    dtr.init(conf);
+    dtr.start();
+    
+    // submit a job that blocks during renewal
+    Thread submitThread = new Thread() {
+      @Override
+      public void run() {
+        try {
+          dtr.addApplication(mock(ApplicationId.class), creds1, false);
+        } catch (IOException e) {}        
+      }
+    };
+    submitThread.start();
+    
+    // wait till 1st submit blocks, then submit another
+    startBarrier.await();
+    dtr.addApplication(mock(ApplicationId.class), creds2, false);
+    // signal 1st to complete
+    endBarrier.await();
+    submitThread.join();
   }
 }

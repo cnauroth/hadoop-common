@@ -132,6 +132,7 @@ class NameNodeRpcServer implements NamenodeProtocols {
   
   private static final Log LOG = NameNode.LOG;
   private static final Log stateChangeLog = NameNode.stateChangeLog;
+  private static final Log blockStateChangeLog = NameNode.blockStateChangeLog;
   
   // Dependencies from other parts of NN.
   protected final FSNamesystem namesystem;
@@ -337,11 +338,13 @@ class NameNodeRpcServer implements NamenodeProtocols {
         "Unexpected not positive size: "+size);
     }
     namesystem.checkOperation(OperationCategory.READ);
+    namesystem.checkSuperuserPrivilege();
     return namesystem.getBlockManager().getBlocks(datanode, size); 
   }
 
   @Override // NamenodeProtocol
   public ExportedBlockKeys getBlockKeys() throws IOException {
+    namesystem.checkSuperuserPrivilege();
     return namesystem.getBlockManager().getBlockKeys();
   }
 
@@ -350,6 +353,7 @@ class NameNodeRpcServer implements NamenodeProtocols {
                           int errorCode, 
                           String msg) throws IOException {
     namesystem.checkOperation(OperationCategory.UNCHECKED);
+    namesystem.checkSuperuserPrivilege();
     verifyRequest(registration);
     LOG.info("Error report from " + registration + ": " + msg);
     if (errorCode == FATAL) {
@@ -360,6 +364,7 @@ class NameNodeRpcServer implements NamenodeProtocols {
   @Override // NamenodeProtocol
   public NamenodeRegistration register(NamenodeRegistration registration)
   throws IOException {
+    namesystem.checkSuperuserPrivilege();
     verifyLayoutVersion(registration.getVersion());
     NamenodeRegistration myRegistration = nn.setRegistration();
     namesystem.registerBackupNode(registration, myRegistration);
@@ -369,6 +374,7 @@ class NameNodeRpcServer implements NamenodeProtocols {
   @Override // NamenodeProtocol
   public NamenodeCommand startCheckpoint(NamenodeRegistration registration)
   throws IOException {
+    namesystem.checkSuperuserPrivilege();
     verifyRequest(registration);
     if(!nn.isRole(NamenodeRole.NAMENODE))
       throw new IOException("Only an ACTIVE node can invoke startCheckpoint.");
@@ -378,6 +384,7 @@ class NameNodeRpcServer implements NamenodeProtocols {
   @Override // NamenodeProtocol
   public void endCheckpoint(NamenodeRegistration registration,
                             CheckpointSignature sig) throws IOException {
+    namesystem.checkSuperuserPrivilege();
     namesystem.endCheckpoint(registration, sig);
   }
 
@@ -415,13 +422,10 @@ class NameNodeRpcServer implements NamenodeProtocols {
   }
 
   @Override // ClientProtocol
-  public void create(String src, 
-                     FsPermission masked,
-                     String clientName, 
-                     EnumSetWritable<CreateFlag> flag,
-                     boolean createParent,
-                     short replication,
-                     long blockSize) throws IOException {
+  public HdfsFileStatus create(String src, FsPermission masked,
+      String clientName, EnumSetWritable<CreateFlag> flag,
+      boolean createParent, short replication, long blockSize)
+      throws IOException {
     String clientMachine = getClientMachine();
     if (stateChangeLog.isDebugEnabled()) {
       stateChangeLog.debug("*DIR* NameNode.create: file "
@@ -431,12 +435,13 @@ class NameNodeRpcServer implements NamenodeProtocols {
       throw new IOException("create: Pathname too long.  Limit "
           + MAX_PATH_LENGTH + " characters, " + MAX_PATH_DEPTH + " levels.");
     }
-    namesystem.startFile(src,
-        new PermissionStatus(UserGroupInformation.getCurrentUser().getShortUserName(),
-            null, masked),
-        clientName, clientMachine, flag.get(), createParent, replication, blockSize);
+    HdfsFileStatus fileStatus = namesystem.startFile(src, new PermissionStatus(
+        UserGroupInformation.getCurrentUser().getShortUserName(), null, masked),
+        clientName, clientMachine, flag.get(), createParent, replication,
+        blockSize);
     metrics.incrFilesCreated();
     metrics.incrCreateFileOps();
+    return fileStatus;
   }
 
   @Override // ClientProtocol
@@ -475,26 +480,24 @@ class NameNodeRpcServer implements NamenodeProtocols {
       throws IOException {
     namesystem.setOwner(src, username, groupname);
   }
-
-  @Override // ClientProtocol
-  public LocatedBlock addBlock(String src,
-                               String clientName,
-                               ExtendedBlock previous,
-                               DatanodeInfo[] excludedNodes)
+  
+  @Override
+  public LocatedBlock addBlock(String src, String clientName,
+      ExtendedBlock previous, DatanodeInfo[] excludedNodes, long fileId)
       throws IOException {
-    if(stateChangeLog.isDebugEnabled()) {
-      stateChangeLog.debug("*BLOCK* NameNode.addBlock: file "
-          +src+" for "+clientName);
+    if (stateChangeLog.isDebugEnabled()) {
+      stateChangeLog.debug("*BLOCK* NameNode.addBlock: file " + src
+          + " fileId=" + fileId + " for " + clientName);
     }
     HashMap<Node, Node> excludedNodesSet = null;
     if (excludedNodes != null) {
       excludedNodesSet = new HashMap<Node, Node>(excludedNodes.length);
-      for (Node node:excludedNodes) {
+      for (Node node : excludedNodes) {
         excludedNodesSet.put(node, node);
       }
     }
-    LocatedBlock locatedBlock = 
-      namesystem.getAdditionalBlock(src, clientName, previous, excludedNodesSet);
+    LocatedBlock locatedBlock = namesystem.getAdditionalBlock(src, fileId,
+        clientName, previous, excludedNodesSet);
     if (locatedBlock != null)
       metrics.incrAddBlockOps();
     return locatedBlock;
@@ -713,8 +716,17 @@ class NameNodeRpcServer implements NamenodeProtocols {
   }
     
   @Override // ClientProtocol
-  public boolean setSafeMode(SafeModeAction action) throws IOException {
-    namesystem.checkOperation(OperationCategory.UNCHECKED);
+  public boolean setSafeMode(SafeModeAction action, boolean isChecked)
+      throws IOException {
+    OperationCategory opCategory = OperationCategory.UNCHECKED;
+    if (isChecked) {
+      if (action == SafeModeAction.SAFEMODE_GET) {
+        opCategory = OperationCategory.READ;
+      } else {
+        opCategory = OperationCategory.WRITE;
+      }
+    }
+    namesystem.checkOperation(opCategory);
     return namesystem.setSafeMode(action);
   }
 
@@ -745,17 +757,20 @@ class NameNodeRpcServer implements NamenodeProtocols {
   @Override // NamenodeProtocol
   public long getTransactionID() throws IOException {
     namesystem.checkOperation(OperationCategory.UNCHECKED);
+    namesystem.checkSuperuserPrivilege();
     return namesystem.getFSImage().getLastAppliedOrWrittenTxId();
   }
   
   @Override // NamenodeProtocol
   public long getMostRecentCheckpointTxId() throws IOException {
     namesystem.checkOperation(OperationCategory.UNCHECKED);
+    namesystem.checkSuperuserPrivilege();
     return namesystem.getFSImage().getMostRecentCheckpointTxId();
   }
   
   @Override // NamenodeProtocol
   public CheckpointSignature rollEditLog() throws IOException {
+    namesystem.checkSuperuserPrivilege();
     return namesystem.rollEditLog();
   }
   
@@ -763,6 +778,7 @@ class NameNodeRpcServer implements NamenodeProtocols {
   public RemoteEditLogManifest getEditLogManifest(long sinceTxId)
   throws IOException {
     namesystem.checkOperation(OperationCategory.READ);
+    namesystem.checkSuperuserPrivilege();
     return namesystem.getEditLog().getEditLogManifest(sinceTxId);
   }
     
@@ -815,8 +831,9 @@ class NameNodeRpcServer implements NamenodeProtocols {
   }
   
   @Override // ClientProtocol
-  public void fsync(String src, String clientName) throws IOException {
-    namesystem.fsync(src, clientName);
+  public void fsync(String src, String clientName, long lastBlockLength)
+      throws IOException {
+    namesystem.fsync(src, clientName, lastBlockLength);
   }
 
   @Override // ClientProtocol
@@ -889,8 +906,8 @@ class NameNodeRpcServer implements NamenodeProtocols {
       String poolId, StorageBlockReport[] reports) throws IOException {
     verifyRequest(nodeReg);
     BlockListAsLongs blist = new BlockListAsLongs(reports[0].getBlocks());
-    if(stateChangeLog.isDebugEnabled()) {
-      stateChangeLog.debug("*BLOCK* NameNode.blockReport: "
+    if(blockStateChangeLog.isDebugEnabled()) {
+      blockStateChangeLog.debug("*BLOCK* NameNode.blockReport: "
            + "from " + nodeReg + " " + blist.getNumberOfBlocks()
            + " blocks");
     }
@@ -905,8 +922,8 @@ class NameNodeRpcServer implements NamenodeProtocols {
   public void blockReceivedAndDeleted(DatanodeRegistration nodeReg, String poolId,
       StorageReceivedDeletedBlocks[] receivedAndDeletedBlocks) throws IOException {
     verifyRequest(nodeReg);
-    if(stateChangeLog.isDebugEnabled()) {
-      stateChangeLog.debug("*BLOCK* NameNode.blockReceivedAndDeleted: "
+    if(blockStateChangeLog.isDebugEnabled()) {
+      blockStateChangeLog.debug("*BLOCK* NameNode.blockReceivedAndDeleted: "
           +"from "+nodeReg+" "+receivedAndDeletedBlocks.length
           +" blocks.");
     }
@@ -938,6 +955,7 @@ class NameNodeRpcServer implements NamenodeProtocols {
     
   @Override // DatanodeProtocol, NamenodeProtocol
   public NamespaceInfo versionRequest() throws IOException {
+    namesystem.checkSuperuserPrivilege();
     return namesystem.getNamespaceInfo();
   }
 

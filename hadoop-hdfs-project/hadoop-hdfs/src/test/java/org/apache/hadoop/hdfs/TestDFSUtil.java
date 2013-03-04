@@ -619,13 +619,26 @@ public class TestDFSUtil {
     
     assertEquals(1, uris.size());
     assertTrue(uris.contains(new URI("hdfs://" + NN1_SRVC_ADDR)));
+
+    // Make sure when config FS_DEFAULT_NAME_KEY using IP address,
+    // it will automatically convert it to hostname
+    conf = new HdfsConfiguration();
+    conf.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, "hdfs://127.0.0.1:8020");
+    uris = DFSUtil.getNameServiceUris(conf);
+    assertEquals(1, uris.size());
+    for (URI uri : uris) {
+      assertFalse(uri.getHost().equals("127.0.0.1"));
+    }
   }
   
   @Test
   public void testIsValidName() {
     assertFalse(DFSUtil.isValidName("/foo/../bar"));
+    assertFalse(DFSUtil.isValidName("/foo/./bar"));
     assertFalse(DFSUtil.isValidName("/foo//bar"));
     assertTrue(DFSUtil.isValidName("/"));
     assertTrue(DFSUtil.isValidName("/bar/"));
+    assertFalse(DFSUtil.isValidName("/foo/:/bar"));
+    assertFalse(DFSUtil.isValidName("/foo:bar"));
   }
 }

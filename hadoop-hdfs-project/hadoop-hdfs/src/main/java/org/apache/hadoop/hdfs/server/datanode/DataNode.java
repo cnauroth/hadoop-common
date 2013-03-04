@@ -98,7 +98,6 @@ import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.protocol.HdfsBlocksMetadata;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants;
-import org.apache.hadoop.hdfs.protocol.HdfsProtoUtil;
 import org.apache.hadoop.hdfs.protocol.RecoveryInProgressException;
 import org.apache.hadoop.hdfs.protocol.datatransfer.BlockConstructionStage;
 import org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferEncryptor;
@@ -115,6 +114,7 @@ import org.apache.hadoop.hdfs.protocolPB.DatanodeProtocolClientSideTranslatorPB;
 import org.apache.hadoop.hdfs.protocolPB.InterDatanodeProtocolPB;
 import org.apache.hadoop.hdfs.protocolPB.InterDatanodeProtocolServerSideTranslatorPB;
 import org.apache.hadoop.hdfs.protocolPB.InterDatanodeProtocolTranslatorPB;
+import org.apache.hadoop.hdfs.protocolPB.PBHelper;
 import org.apache.hadoop.hdfs.security.token.block.BlockPoolTokenSecretManager;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenSecretManager;
@@ -481,8 +481,7 @@ public class DataNode extends Configured
       blockScanner = new DataBlockScanner(this, data, conf);
       blockScanner.start();
     } else {
-      LOG.info("Periodic Block Verification scan is disabled because " +
-               reason + ".");
+      LOG.info("Periodic Block Verification scan disabled because " + reason);
     }
   }
   
@@ -511,7 +510,7 @@ public class DataNode extends Configured
       directoryScanner.start();
     } else {
       LOG.info("Periodic Directory Tree Verification scan is disabled because " +
-               reason + ".");
+               reason);
     }
   }
   
@@ -971,29 +970,27 @@ public class DataNode extends Configured
     dnId.setStorageID(createNewStorageId(dnId.getXferPort()));
   }
   
+  /**
+   * @return a unique storage ID of form "DS-randInt-ipaddr-port-timestamp"
+   */
   static String createNewStorageId(int port) {
-    /* Return 
-     * "DS-randInt-ipaddr-currentTimeMillis"
-     * It is considered extermely rare for all these numbers to match
-     * on a different machine accidentally for the following 
-     * a) SecureRandom(INT_MAX) is pretty much random (1 in 2 billion), and
-     * b) Good chance ip address would be different, and
-     * c) Even on the same machine, Datanode is designed to use different ports.
-     * d) Good chance that these are started at different times.
-     * For a confict to occur all the 4 above have to match!.
-     * The format of this string can be changed anytime in future without
-     * affecting its functionality.
-     */
+    // It is unlikely that we will create a non-unique storage ID
+    // for the following reasons:
+    // a) SecureRandom is a cryptographically strong random number generator
+    // b) IP addresses will likely differ on different hosts
+    // c) DataNode xfer ports will differ on the same host
+    // d) StorageIDs will likely be generated at different times (in ms)
+    // A conflict requires that all four conditions are violated.
+    // NB: The format of this string can be changed in the future without
+    // requiring that old SotrageIDs be updated.
     String ip = "unknownIP";
     try {
       ip = DNS.getDefaultIP("default");
     } catch (UnknownHostException ignored) {
-      LOG.warn("Could not find ip address of \"default\" inteface.");
+      LOG.warn("Could not find an IP address for the \"default\" inteface.");
     }
-    
     int rand = DFSUtil.getSecureRandom().nextInt(Integer.MAX_VALUE);
-    return "DS-" + rand + "-" + ip + "-" + port + "-"
-        + Time.now();
+    return "DS-" + rand + "-" + ip + "-" + port + "-" + Time.now();
   }
   
   /** Ensure the authentication method is kerberos */
@@ -1095,6 +1092,12 @@ public class DataNode extends Configured
       }
     }
     
+    // We need to make a copy of the original blockPoolManager#offerServices to
+    // make sure blockPoolManager#shutDownAll() can still access all the 
+    // BPOfferServices, since after setting DataNode#shouldRun to false the 
+    // offerServices may be modified.
+    BPOfferService[] bposArray = this.blockPoolManager == null ? null
+        : this.blockPoolManager.getAllNamenodeThreads();
     this.shouldRun = false;
     shutdownPeriodicScanners();
     
@@ -1141,7 +1144,7 @@ public class DataNode extends Configured
     
     if(blockPoolManager != null) {
       try {
-        this.blockPoolManager.shutDownAll();
+        this.blockPoolManager.shutDownAll(bposArray);
       } catch (InterruptedException ie) {
         LOG.warn("Received exception in BlockPoolManager#shutDownAll: ", ie);
       }
@@ -1256,7 +1259,7 @@ public class DataNode extends Configured
           xfersBuilder.append(xferTargets[i]);
           xfersBuilder.append(" ");
         }
-        LOG.info(bpReg + " Starting thread to transfer block " + 
+        LOG.info(bpReg + " Starting thread to transfer " + 
                  block + " to " + xfersBuilder);                       
       }
 
@@ -1438,7 +1441,7 @@ public class DataNode extends Configured
             HdfsConstants.SMALL_BUFFER_SIZE));
         in = new DataInputStream(unbufIn);
         blockSender = new BlockSender(b, 0, b.getNumBytes(), 
-            false, false, DataNode.this, null);
+            false, false, true, DataNode.this, null);
         DatanodeInfo srcNode = new DatanodeInfo(bpReg);
 
         //
@@ -1463,7 +1466,7 @@ public class DataNode extends Configured
         // read ack
         if (isClient) {
           DNTransferAckProto closeAck = DNTransferAckProto.parseFrom(
-              HdfsProtoUtil.vintPrefixed(in));
+              PBHelper.vintPrefixed(in));
           if (LOG.isDebugEnabled()) {
             LOG.debug(getClass().getSimpleName() + ": close-ack=" + closeAck);
           }
@@ -1903,10 +1906,11 @@ public class DataNode extends Configured
   }
 
   /**
-   * Get namenode corresponding to a block pool
+   * Get the NameNode corresponding to the given block pool.
+   *
    * @param bpid Block pool Id
    * @return Namenode corresponding to the bpid
-   * @throws IOException
+   * @throws IOException if unable to get the corresponding NameNode
    */
   public DatanodeProtocolClientSideTranslatorPB getActiveNamenodeForBP(String bpid)
       throws IOException {
@@ -1930,11 +1934,6 @@ public class DataNode extends Configured
     final String bpid = block.getBlockPoolId();
     DatanodeProtocolClientSideTranslatorPB nn =
       getActiveNamenodeForBP(block.getBlockPoolId());
-    if (nn == null) {
-      throw new IOException(
-          "Unable to synchronize block " + rBlock + ", since this DN "
-          + " has not acknowledged any NN as active.");
-    }
     
     long recoveryId = rBlock.getNewGenerationStamp();
     if (LOG.isDebugEnabled()) {
@@ -2043,7 +2042,7 @@ public class DataNode extends Configured
     ExtendedBlock block = rb.getBlock();
     DatanodeInfo[] targets = rb.getLocations();
     
-    LOG.info(who + " calls recoverBlock(block=" + block
+    LOG.info(who + " calls recoverBlock(" + block
         + ", targets=[" + Joiner.on(", ").join(targets) + "]"
         + ", newGenerationStamp=" + rb.getNewGenerationStamp() + ")");
   }

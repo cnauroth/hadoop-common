@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.List;
 
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServlet;
@@ -48,8 +49,10 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
+import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.util.Apps;
 import org.apache.hadoop.yarn.util.StringHelper;
+import org.apache.hadoop.yarn.util.TrackingUriPlugin;
 import org.apache.hadoop.yarn.webapp.MimeType;
 import org.apache.hadoop.yarn.webapp.hamlet.Hamlet;
 
@@ -61,8 +64,10 @@ public class WebAppProxyServlet extends HttpServlet {
         "Accept-Language", "Accept-Charset"));
   
   public static final String PROXY_USER_COOKIE_NAME = "proxy-user";
-  
-  
+
+  private final List<TrackingUriPlugin> trackingUriPlugins;
+  private final String rmAppPageUrlBase;
+
   private static class _ implements Hamlet._ {
     //Empty
   }
@@ -75,6 +80,20 @@ public class WebAppProxyServlet extends HttpServlet {
     public HTML<WebAppProxyServlet._> html() {
       return new HTML<WebAppProxyServlet._>("html", null, EnumSet.of(EOpt.ENDTAG));
     }
+  }
+
+  /**
+   * Default constructor
+   */
+  public WebAppProxyServlet()
+  {
+    super();
+    YarnConfiguration conf = new YarnConfiguration();
+    this.trackingUriPlugins =
+        conf.getInstances(YarnConfiguration.YARN_TRACKING_URL_GENERATOR,
+            TrackingUriPlugin.class);
+    this.rmAppPageUrlBase = StringHelper.pjoin(
+        YarnConfiguration.getRMWebAppURL(conf), "cluster", "app");
   }
 
   /**
@@ -238,11 +257,14 @@ public class WebAppProxyServlet extends HttpServlet {
       
       if(securityEnabled) {
         String cookieName = getCheckCookieName(id); 
-        for(Cookie c: req.getCookies()) {
-          if(cookieName.equals(c.getName())) {
-            userWasWarned = true;
-            userApproved = userApproved || Boolean.valueOf(c.getValue());
-            break;
+        Cookie[] cookies = req.getCookies();
+        if (cookies != null) {
+          for (Cookie c : cookies) {
+            if (cookieName.equals(c.getName())) {
+              userWasWarned = true;
+              userApproved = userApproved || Boolean.valueOf(c.getValue());
+              break;
+            }
           }
         }
       }
@@ -253,31 +275,29 @@ public class WebAppProxyServlet extends HttpServlet {
       if(applicationReport == null) {
         LOG.warn(req.getRemoteUser()+" Attempting to access "+id+
             " that was not found");
+
+        URI toFetch =
+            ProxyUriUtils
+                .getUriFromTrackingPlugins(id, this.trackingUriPlugins);
+        if (toFetch != null)
+        {
+          resp.sendRedirect(resp.encodeRedirectURL(toFetch.toString()));
+          return;
+        }
+
         notFound(resp, "Application "+appId+" could not be found, " +
         		"please try the history server");
         return;
       }
-      URI trackingUri = ProxyUriUtils.getUriFromAMUrl(
-          applicationReport.getOriginalTrackingUrl());
-      if(applicationReport.getOriginalTrackingUrl().equals("N/A")) {
-        String message;
-        switch(applicationReport.getFinalApplicationStatus()) {
-          case FAILED:
-          case KILLED:
-          case SUCCEEDED:
-            message =
-              "The requested application exited before setting a tracking URL.";
-            break;
-          case UNDEFINED:
-            message = "The requested application does not appear to be running "
-              +"yet, and has not set a tracking URL.";
-            break;
-          default:
-            //This should never happen, but just to be safe
-            message = "The requested application has not set a tracking URL.";
-            break;
-        }
-        notFound(resp, message);
+      String original = applicationReport.getOriginalTrackingUrl();
+      URI trackingUri = null;
+      if (original != null) {
+        trackingUri = ProxyUriUtils.getUriFromAMUrl(original);
+      }
+      // fallback to ResourceManager's app page if no tracking URI provided
+      if(original == null || original.equals("N/A")) {
+        resp.sendRedirect(resp.encodeRedirectURL(
+            StringHelper.pjoin(rmAppPageUrlBase, id.toString())));
         return;
       }
 

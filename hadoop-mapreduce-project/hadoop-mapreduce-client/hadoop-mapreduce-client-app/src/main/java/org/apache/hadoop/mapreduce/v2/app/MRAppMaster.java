@@ -23,14 +23,17 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.security.PrivilegedExceptionAction;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileContext;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -45,6 +48,10 @@ import org.apache.hadoop.mapreduce.OutputFormat;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.TypeConverter;
 import org.apache.hadoop.mapreduce.jobhistory.AMStartedEvent;
+import org.apache.hadoop.mapreduce.jobhistory.EventReader;
+import org.apache.hadoop.mapreduce.jobhistory.EventType;
+import org.apache.hadoop.mapreduce.jobhistory.HistoryEvent;
+import org.apache.hadoop.mapreduce.jobhistory.JobHistoryCopyService;
 import org.apache.hadoop.mapreduce.jobhistory.JobHistoryEvent;
 import org.apache.hadoop.mapreduce.jobhistory.JobHistoryEventHandler;
 import org.apache.hadoop.mapreduce.jobhistory.JobHistoryParser.TaskInfo;
@@ -56,7 +63,11 @@ import org.apache.hadoop.mapreduce.v2.api.records.TaskId;
 import org.apache.hadoop.mapreduce.v2.api.records.TaskType;
 import org.apache.hadoop.mapreduce.v2.app.client.ClientService;
 import org.apache.hadoop.mapreduce.v2.app.client.MRClientService;
+import org.apache.hadoop.mapreduce.v2.app.commit.CommitterEvent;
+import org.apache.hadoop.mapreduce.v2.app.commit.CommitterEventHandler;
+import org.apache.hadoop.mapreduce.v2.app.commit.CommitterEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.Job;
+import org.apache.hadoop.mapreduce.v2.app.job.JobStateInternal;
 import org.apache.hadoop.mapreduce.v2.app.job.Task;
 import org.apache.hadoop.mapreduce.v2.app.job.TaskAttempt;
 import org.apache.hadoop.mapreduce.v2.app.job.event.JobEvent;
@@ -78,17 +89,18 @@ import org.apache.hadoop.mapreduce.v2.app.rm.ContainerAllocator;
 import org.apache.hadoop.mapreduce.v2.app.rm.ContainerAllocatorEvent;
 import org.apache.hadoop.mapreduce.v2.app.rm.RMCommunicator;
 import org.apache.hadoop.mapreduce.v2.app.rm.RMContainerAllocator;
+import org.apache.hadoop.mapreduce.v2.app.rm.RMHeartbeatHandler;
 import org.apache.hadoop.mapreduce.v2.app.speculate.DefaultSpeculator;
 import org.apache.hadoop.mapreduce.v2.app.speculate.Speculator;
 import org.apache.hadoop.mapreduce.v2.app.speculate.SpeculatorEvent;
-import org.apache.hadoop.mapreduce.v2.app.taskclean.TaskCleaner;
-import org.apache.hadoop.mapreduce.v2.app.taskclean.TaskCleanerImpl;
+import org.apache.hadoop.mapreduce.v2.util.MRApps;
 import org.apache.hadoop.mapreduce.v2.util.MRBuilderUtils;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.ShutdownHookManager;
+import org.apache.hadoop.util.StringInterner;
 import org.apache.hadoop.yarn.Clock;
 import org.apache.hadoop.yarn.ClusterInfo;
 import org.apache.hadoop.yarn.SystemClock;
@@ -101,11 +113,14 @@ import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.event.AsyncDispatcher;
 import org.apache.hadoop.yarn.event.Dispatcher;
+import org.apache.hadoop.yarn.event.Event;
 import org.apache.hadoop.yarn.event.EventHandler;
 import org.apache.hadoop.yarn.service.AbstractService;
 import org.apache.hadoop.yarn.service.CompositeService;
 import org.apache.hadoop.yarn.service.Service;
 import org.apache.hadoop.yarn.util.ConverterUtils;
+
+import com.google.common.annotations.VisibleForTesting;
 
 /**
  * The Map-Reduce Application Master.
@@ -153,7 +168,7 @@ public class MRAppMaster extends CompositeService {
   private Recovery recoveryServ;
   private ContainerAllocator containerAllocator;
   private ContainerLauncher containerLauncher;
-  private TaskCleaner taskCleaner;
+  private EventHandler<CommitterEvent> committerEventHandler;
   private Speculator speculator;
   private TaskAttemptListener taskAttemptListener;
   private JobTokenSecretManager jobTokenSecretManager =
@@ -168,9 +183,13 @@ public class MRAppMaster extends CompositeService {
 
   private Job job;
   private Credentials fsTokens = new Credentials(); // Filled during init
-  private UserGroupInformation currentUser; // Will be setup during init
+  protected UserGroupInformation currentUser; // Will be setup during init
 
   private volatile boolean isLastAMRetry = false;
+  //Something happened and we should shut down right after we start up.
+  boolean errorHappenedShutDown = false;
+  private String shutDownMessage = null;
+  JobStateInternal forcedState = null;
 
   public MRAppMaster(ApplicationAttemptId applicationAttemptId,
       ContainerId containerId, String nmHost, int nmPort, int nmHttpPort,
@@ -231,93 +250,179 @@ public class MRAppMaster extends CompositeService {
       newApiCommitter = true;
       LOG.info("Using mapred newApiCommitter.");
     }
-
-    committer = createOutputCommitter(conf);
-    boolean recoveryEnabled = conf.getBoolean(
-        MRJobConfig.MR_AM_JOB_RECOVERY_ENABLE, true);
-    boolean recoverySupportedByCommitter = committer.isRecoverySupported();
-    if (recoveryEnabled && recoverySupportedByCommitter
-        && appAttemptID.getAttemptId() > 1) {
-      LOG.info("Recovery is enabled. "
-          + "Will try to recover from previous life on best effort basis.");
-      recoveryServ = createRecoveryService(context);
-      addIfService(recoveryServ);
-      dispatcher = recoveryServ.getDispatcher();
-      clock = recoveryServ.getClock();
-      inRecovery = true;
-    } else {
-      LOG.info("Not starting RecoveryService: recoveryEnabled: "
-          + recoveryEnabled + " recoverySupportedByCommitter: "
-          + recoverySupportedByCommitter + " ApplicationAttemptID: "
-          + appAttemptID.getAttemptId());
+    
+    boolean copyHistory = false;
+    try {
+      String user = UserGroupInformation.getCurrentUser().getShortUserName();
+      Path stagingDir = MRApps.getStagingAreaDir(conf, user);
+      FileSystem fs = getFileSystem(conf);
+      boolean stagingExists = fs.exists(stagingDir);
+      Path startCommitFile = MRApps.getStartJobCommitFile(conf, user, jobId);
+      boolean commitStarted = fs.exists(startCommitFile);
+      Path endCommitSuccessFile = MRApps.getEndJobCommitSuccessFile(conf, user, jobId);
+      boolean commitSuccess = fs.exists(endCommitSuccessFile);
+      Path endCommitFailureFile = MRApps.getEndJobCommitFailureFile(conf, user, jobId);
+      boolean commitFailure = fs.exists(endCommitFailureFile);
+      if(!stagingExists) {
+        isLastAMRetry = true;
+        errorHappenedShutDown = true;
+        forcedState = JobStateInternal.ERROR;
+        shutDownMessage = "Staging dir does not exist " + stagingDir;
+        LOG.fatal(shutDownMessage);
+      } else if (commitStarted) {
+        //A commit was started so this is the last time, we just need to know
+        // what result we will use to notify, and how we will unregister
+        errorHappenedShutDown = true;
+        isLastAMRetry = true;
+        copyHistory = true;
+        if (commitSuccess) {
+          shutDownMessage = "We crashed after successfully committing. Recovering.";
+          forcedState = JobStateInternal.SUCCEEDED;
+        } else if (commitFailure) {
+          shutDownMessage = "We crashed after a commit failure.";
+          forcedState = JobStateInternal.FAILED;
+        } else {
+          //The commit is still pending, commit error
+          shutDownMessage = "We crashed durring a commit";
+          forcedState = JobStateInternal.ERROR;
+        }
+      }
+    } catch (IOException e) {
+      throw new YarnException("Error while initializing", e);
+    }
+    
+    if (errorHappenedShutDown) {
       dispatcher = createDispatcher();
       addIfService(dispatcher);
-    }
+      
+      NoopEventHandler eater = new NoopEventHandler();
+      //We do not have a JobEventDispatcher in this path
+      dispatcher.register(JobEventType.class, eater);
 
-    //service to handle requests to TaskUmbilicalProtocol
-    taskAttemptListener = createTaskAttemptListener(context);
-    addIfService(taskAttemptListener);
+      EventHandler<JobHistoryEvent> historyService = null;
+      if (copyHistory) {
+        historyService = 
+          createJobHistoryHandler(context);
+        dispatcher.register(org.apache.hadoop.mapreduce.jobhistory.EventType.class,
+            historyService);
+      } else {
+        dispatcher.register(org.apache.hadoop.mapreduce.jobhistory.EventType.class,
+            eater);
+      }
+      
+      // service to allocate containers from RM (if non-uber) or to fake it (uber)
+      containerAllocator = createContainerAllocator(null, context);
+      addIfService(containerAllocator);
+      dispatcher.register(ContainerAllocator.EventType.class, containerAllocator);
 
-    //service to do the task cleanup
-    taskCleaner = createTaskCleaner(context);
-    addIfService(taskCleaner);
+      if (copyHistory) {
+        // Add the staging directory cleaner before the history server but after
+        // the container allocator so the staging directory is cleaned after
+        // the history has been flushed but before unregistering with the RM.
+        addService(createStagingDirCleaningService());
 
-    //service to handle requests from JobClient
-    clientService = createClientService(context);
-    addIfService(clientService);
+        // Add the JobHistoryEventHandler last so that it is properly stopped first.
+        // This will guarantee that all history-events are flushed before AM goes
+        // ahead with shutdown.
+        // Note: Even though JobHistoryEventHandler is started last, if any
+        // component creates a JobHistoryEvent in the meanwhile, it will be just be
+        // queued inside the JobHistoryEventHandler 
+        addIfService(historyService);
+        
 
-    //service to log job history events
-    EventHandler<JobHistoryEvent> historyService = 
+        JobHistoryCopyService cpHist = new JobHistoryCopyService(appAttemptID,
+            dispatcher.getEventHandler());
+        addIfService(cpHist);
+      }
+    } else {
+      committer = createOutputCommitter(conf);
+      boolean recoveryEnabled = conf.getBoolean(
+          MRJobConfig.MR_AM_JOB_RECOVERY_ENABLE, true);
+      boolean recoverySupportedByCommitter = committer.isRecoverySupported();
+      if (recoveryEnabled && recoverySupportedByCommitter
+          && appAttemptID.getAttemptId() > 1) {
+        LOG.info("Recovery is enabled. "
+            + "Will try to recover from previous life on best effort basis.");
+        recoveryServ = createRecoveryService(context);
+        addIfService(recoveryServ);
+        dispatcher = recoveryServ.getDispatcher();
+        clock = recoveryServ.getClock();
+        inRecovery = true;
+      } else {
+        LOG.info("Not starting RecoveryService: recoveryEnabled: "
+            + recoveryEnabled + " recoverySupportedByCommitter: "
+            + recoverySupportedByCommitter + " ApplicationAttemptID: "
+            + appAttemptID.getAttemptId());
+        dispatcher = createDispatcher();
+        addIfService(dispatcher);
+      }
+
+      //service to handle requests from JobClient
+      clientService = createClientService(context);
+      addIfService(clientService);
+      
+      containerAllocator = createContainerAllocator(clientService, context);
+      
+      //service to handle the output committer
+      committerEventHandler = createCommitterEventHandler(context, committer);
+      addIfService(committerEventHandler);
+
+      //service to handle requests to TaskUmbilicalProtocol
+      taskAttemptListener = createTaskAttemptListener(context);
+      addIfService(taskAttemptListener);
+
+      //service to log job history events
+      EventHandler<JobHistoryEvent> historyService = 
         createJobHistoryHandler(context);
-    dispatcher.register(org.apache.hadoop.mapreduce.jobhistory.EventType.class,
-        historyService);
+      dispatcher.register(org.apache.hadoop.mapreduce.jobhistory.EventType.class,
+          historyService);
 
-    this.jobEventDispatcher = new JobEventDispatcher();
+      this.jobEventDispatcher = new JobEventDispatcher();
 
-    //register the event dispatchers
-    dispatcher.register(JobEventType.class, jobEventDispatcher);
-    dispatcher.register(TaskEventType.class, new TaskEventDispatcher());
-    dispatcher.register(TaskAttemptEventType.class, 
-        new TaskAttemptEventDispatcher());
-    dispatcher.register(TaskCleaner.EventType.class, taskCleaner);
-   
-    if (conf.getBoolean(MRJobConfig.MAP_SPECULATIVE, false)
-        || conf.getBoolean(MRJobConfig.REDUCE_SPECULATIVE, false)) {
-      //optional service to speculate on task attempts' progress
-      speculator = createSpeculator(conf, context);
-      addIfService(speculator);
+      //register the event dispatchers
+      dispatcher.register(JobEventType.class, jobEventDispatcher);
+      dispatcher.register(TaskEventType.class, new TaskEventDispatcher());
+      dispatcher.register(TaskAttemptEventType.class, 
+          new TaskAttemptEventDispatcher());
+      dispatcher.register(CommitterEventType.class, committerEventHandler);
+
+      if (conf.getBoolean(MRJobConfig.MAP_SPECULATIVE, false)
+          || conf.getBoolean(MRJobConfig.REDUCE_SPECULATIVE, false)) {
+        //optional service to speculate on task attempts' progress
+        speculator = createSpeculator(conf, context);
+        addIfService(speculator);
+      }
+
+      speculatorEventDispatcher = new SpeculatorEventDispatcher(conf);
+      dispatcher.register(Speculator.EventType.class,
+          speculatorEventDispatcher);
+
+      // service to allocate containers from RM (if non-uber) or to fake it (uber)
+      addIfService(containerAllocator);
+      dispatcher.register(ContainerAllocator.EventType.class, containerAllocator);
+
+      // corresponding service to launch allocated containers via NodeManager
+      containerLauncher = createContainerLauncher(context);
+      addIfService(containerLauncher);
+      dispatcher.register(ContainerLauncher.EventType.class, containerLauncher);
+
+      // Add the staging directory cleaner before the history server but after
+      // the container allocator so the staging directory is cleaned after
+      // the history has been flushed but before unregistering with the RM.
+      addService(createStagingDirCleaningService());
+
+      // Add the JobHistoryEventHandler last so that it is properly stopped first.
+      // This will guarantee that all history-events are flushed before AM goes
+      // ahead with shutdown.
+      // Note: Even though JobHistoryEventHandler is started last, if any
+      // component creates a JobHistoryEvent in the meanwhile, it will be just be
+      // queued inside the JobHistoryEventHandler 
+      addIfService(historyService);
     }
-
-    speculatorEventDispatcher = new SpeculatorEventDispatcher(conf);
-    dispatcher.register(Speculator.EventType.class,
-        speculatorEventDispatcher);
-
-    // service to allocate containers from RM (if non-uber) or to fake it (uber)
-    containerAllocator = createContainerAllocator(clientService, context);
-    addIfService(containerAllocator);
-    dispatcher.register(ContainerAllocator.EventType.class, containerAllocator);
-
-    // corresponding service to launch allocated containers via NodeManager
-    containerLauncher = createContainerLauncher(context);
-    addIfService(containerLauncher);
-    dispatcher.register(ContainerLauncher.EventType.class, containerLauncher);
-
-    // Add the staging directory cleaner before the history server but after
-    // the container allocator so the staging directory is cleaned after
-    // the history has been flushed but before unregistering with the RM.
-    addService(createStagingDirCleaningService());
-
-    // Add the JobHistoryEventHandler last so that it is properly stopped first.
-    // This will guarantee that all history-events are flushed before AM goes
-    // ahead with shutdown.
-    // Note: Even though JobHistoryEventHandler is started last, if any
-    // component creates a JobHistoryEvent in the meanwhile, it will be just be
-    // queued inside the JobHistoryEventHandler 
-    addIfService(historyService);
-
+    
     super.init(conf);
   } // end of init()
-
+  
   protected Dispatcher createDispatcher() {
     return new AsyncDispatcher();
   }
@@ -398,52 +503,65 @@ public class MRAppMaster extends CompositeService {
   protected void sysexit() {
     System.exit(0);
   }
-  
+
+  @VisibleForTesting
+  public void shutDownJob() {
+    // job has finished
+    // this is the only job, so shut down the Appmaster
+    // note in a workflow scenario, this may lead to creation of a new
+    // job (FIXME?)
+    // Send job-end notification
+    if (getConfig().get(MRJobConfig.MR_JOB_END_NOTIFICATION_URL) != null) {
+      try {
+        LOG.info("Job end notification started for jobID : "
+            + job.getReport().getJobId());
+        JobEndNotifier notifier = new JobEndNotifier();
+        notifier.setConf(getConfig());
+        notifier.notify(job.getReport());
+      } catch (InterruptedException ie) {
+        LOG.warn("Job end notification interrupted for jobID : "
+            + job.getReport().getJobId(), ie);
+      }
+    }
+
+    // TODO:currently just wait for some time so clients can know the
+    // final states. Will be removed once RM come on.
+    try {
+      Thread.sleep(5000);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+
+    try {
+      //We are finishing cleanly so this is the last retry
+      isLastAMRetry = true;
+      // Stop all services
+      // This will also send the final report to the ResourceManager
+      LOG.info("Calling stop for all the services");
+      MRAppMaster.this.stop();
+
+    } catch (Throwable t) {
+      LOG.warn("Graceful stop failed ", t);
+    }
+
+    //Bring the process down by force.
+    //Not needed after HADOOP-7140
+    LOG.info("Exiting MR AppMaster..GoodBye!");
+    sysexit();   
+  }
+ 
   private class JobFinishEventHandler implements EventHandler<JobFinishEvent> {
     @Override
     public void handle(JobFinishEvent event) {
-      // job has finished
-      // this is the only job, so shut down the Appmaster
-      // note in a workflow scenario, this may lead to creation of a new
-      // job (FIXME?)
-      // Send job-end notification
-      if (getConfig().get(MRJobConfig.MR_JOB_END_NOTIFICATION_URL) != null) {
-        try {
-          LOG.info("Job end notification started for jobID : "
-              + job.getReport().getJobId());
-          JobEndNotifier notifier = new JobEndNotifier();
-          notifier.setConf(getConfig());
-          notifier.notify(job.getReport());
-        } catch (InterruptedException ie) {
-          LOG.warn("Job end notification interrupted for jobID : "
-              + job.getReport().getJobId(), ie);
+      // Create a new thread to shutdown the AM. We should not do it in-line
+      // to avoid blocking the dispatcher itself.
+      new Thread() {
+        
+        @Override
+        public void run() {
+          shutDownJob();
         }
-      }
-
-      // TODO:currently just wait for some time so clients can know the
-      // final states. Will be removed once RM come on.
-      try {
-        Thread.sleep(5000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-
-      try {
-        //We are finishing cleanly so this is the last retry
-        isLastAMRetry = true;
-        // Stop all services
-        // This will also send the final report to the ResourceManager
-        LOG.info("Calling stop for all the services");
-        stop();
-
-      } catch (Throwable t) {
-        LOG.warn("Graceful stop failed ", t);
-      }
-
-      //Bring the process down by force.
-      //Not needed after HADOOP-7140
-      LOG.info("Exiting MR AppMaster..GoodBye!");
-      sysexit();
+      }.start();
     }
   }
   
@@ -461,18 +579,23 @@ public class MRAppMaster extends CompositeService {
    */
   protected Recovery createRecoveryService(AppContext appContext) {
     return new RecoveryService(appContext.getApplicationAttemptId(),
-        appContext.getClock(), getCommitter());
+        appContext.getClock(), getCommitter(), isNewApiCommitter());
   }
 
-  /** Create and initialize (but don't start) a single job. */
-  protected Job createJob(Configuration conf) {
+  /** Create and initialize (but don't start) a single job. 
+   * @param forcedState a state to force the job into or null for normal operation. 
+   * @param diagnostic a diagnostic message to include with the job.
+   */
+  protected Job createJob(Configuration conf, JobStateInternal forcedState, 
+      String diagnostic) {
 
     // create single job
     Job newJob =
         new JobImpl(jobId, appAttemptID, conf, dispatcher.getEventHandler(),
             taskAttemptListener, jobTokenSecretManager, fsTokens, clock,
-            completedTasksFromPreviousRun, metrics, committer, newApiCommitter,
-            currentUser.getUserName(), appSubmitTime, amInfos, context);
+            completedTasksFromPreviousRun, metrics, newApiCommitter,
+            currentUser.getUserName(), appSubmitTime, amInfos, context, 
+            forcedState, diagnostic);
     ((RunningAppContext) context).jobs.put(newJob.getID(), newJob);
 
     dispatcher.register(JobFinishEvent.Type.class,
@@ -559,17 +682,24 @@ public class MRAppMaster extends CompositeService {
 
   protected TaskAttemptListener createTaskAttemptListener(AppContext context) {
     TaskAttemptListener lis =
-        new TaskAttemptListenerImpl(context, jobTokenSecretManager);
+        new TaskAttemptListenerImpl(context, jobTokenSecretManager,
+            getRMHeartbeatHandler());
     return lis;
   }
 
-  protected TaskCleaner createTaskCleaner(AppContext context) {
-    return new TaskCleanerImpl(context);
+  protected EventHandler<CommitterEvent> createCommitterEventHandler(
+      AppContext context, OutputCommitter committer) {
+    return new CommitterEventHandler(context, committer,
+        getRMHeartbeatHandler());
   }
 
   protected ContainerAllocator createContainerAllocator(
       final ClientService clientService, final AppContext context) {
     return new ContainerAllocatorRouter(clientService, context);
+  }
+
+  protected RMHeartbeatHandler getRMHeartbeatHandler() {
+    return (RMHeartbeatHandler) containerAllocator;
   }
 
   protected ContainerLauncher
@@ -639,7 +769,7 @@ public class MRAppMaster extends CompositeService {
    * happened.
    */
   private final class ContainerAllocatorRouter extends AbstractService
-      implements ContainerAllocator {
+      implements ContainerAllocator, RMHeartbeatHandler {
     private final ClientService clientService;
     private final AppContext context;
     private ContainerAllocator containerAllocator;
@@ -683,6 +813,16 @@ public class MRAppMaster extends CompositeService {
     
     public void setShouldUnregister(boolean shouldUnregister) {
       ((RMCommunicator) containerAllocator).setShouldUnregister(shouldUnregister);
+    }
+
+    @Override
+    public long getLastHeartbeatTime() {
+      return ((RMCommunicator) containerAllocator).getLastHeartbeatTime();
+    }
+
+    @Override
+    public void runOnNextHeartbeat(Runnable callback) {
+      ((RMCommunicator) containerAllocator).runOnNextHeartbeat(callback);
     }
   }
 
@@ -811,23 +951,28 @@ public class MRAppMaster extends CompositeService {
   @Override
   public void start() {
 
+    amInfos = new LinkedList<AMInfo>();
+
     // Pull completedTasks etc from recovery
     if (inRecovery) {
       completedTasksFromPreviousRun = recoveryServ.getCompletedTasks();
       amInfos = recoveryServ.getAMInfos();
+    } else {
+      // Get the amInfos anyways irrespective of whether recovery is enabled or
+      // not IF this is not the first AM generation
+      if (appAttemptID.getAttemptId() != 1) {
+        amInfos.addAll(readJustAMInfos());
+      }
     }
 
-    // / Create the AMInfo for the current AppMaster
-    if (amInfos == null) {
-      amInfos = new LinkedList<AMInfo>();
-    }
+    // Current an AMInfo for the current AM generation.
     AMInfo amInfo =
         MRBuilderUtils.newAMInfo(appAttemptID, startTime, containerID, nmHost,
             nmPort, nmHttpPort);
     amInfos.add(amInfo);
 
     // /////////////////// Create the job itself.
-    job = createJob(getConfig());
+    job = createJob(getConfig(), forcedState, shutDownMessage);
 
     // End of creating the job.
 
@@ -844,31 +989,33 @@ public class MRAppMaster extends CompositeService {
     // It's more test friendly to put it here.
     DefaultMetricsSystem.initialize("MRAppMaster");
 
-    // create a job event for job intialization
-    JobEvent initJobEvent = new JobEvent(job.getID(), JobEventType.JOB_INIT);
-    // Send init to the job (this does NOT trigger job execution)
-    // This is a synchronous call, not an event through dispatcher. We want
-    // job-init to be done completely here.
-    jobEventDispatcher.handle(initJobEvent);
+    if (!errorHappenedShutDown) {
+      // create a job event for job intialization
+      JobEvent initJobEvent = new JobEvent(job.getID(), JobEventType.JOB_INIT);
+      // Send init to the job (this does NOT trigger job execution)
+      // This is a synchronous call, not an event through dispatcher. We want
+      // job-init to be done completely here.
+      jobEventDispatcher.handle(initJobEvent);
 
 
-    // JobImpl's InitTransition is done (call above is synchronous), so the
-    // "uber-decision" (MR-1220) has been made.  Query job and switch to
-    // ubermode if appropriate (by registering different container-allocator
-    // and container-launcher services/event-handlers).
+      // JobImpl's InitTransition is done (call above is synchronous), so the
+      // "uber-decision" (MR-1220) has been made.  Query job and switch to
+      // ubermode if appropriate (by registering different container-allocator
+      // and container-launcher services/event-handlers).
 
-    if (job.isUber()) {
-      speculatorEventDispatcher.disableSpeculation();
-      LOG.info("MRAppMaster uberizing job " + job.getID()
-               + " in local container (\"uber-AM\") on node "
-               + nmHost + ":" + nmPort + ".");
-    } else {
-      // send init to speculator only for non-uber jobs. 
-      // This won't yet start as dispatcher isn't started yet.
-      dispatcher.getEventHandler().handle(
-          new SpeculatorEvent(job.getID(), clock.getTime()));
-      LOG.info("MRAppMaster launching normal, non-uberized, multi-container "
-               + "job " + job.getID() + ".");
+      if (job.isUber()) {
+        speculatorEventDispatcher.disableSpeculation();
+        LOG.info("MRAppMaster uberizing job " + job.getID()
+            + " in local container (\"uber-AM\") on node "
+            + nmHost + ":" + nmPort + ".");
+      } else {
+        // send init to speculator only for non-uber jobs. 
+        // This won't yet start as dispatcher isn't started yet.
+        dispatcher.getEventHandler().handle(
+            new SpeculatorEvent(job.getID(), clock.getTime()));
+        LOG.info("MRAppMaster launching normal, non-uberized, multi-container "
+            + "job " + job.getID() + ".");
+      }
     }
 
     //start all the components
@@ -876,6 +1023,51 @@ public class MRAppMaster extends CompositeService {
 
     // All components have started, start the job.
     startJobs();
+  }
+
+  private List<AMInfo> readJustAMInfos() {
+    List<AMInfo> amInfos = new ArrayList<AMInfo>();
+    FSDataInputStream inputStream = null;
+    try {
+      inputStream =
+          RecoveryService.getPreviousJobHistoryFileStream(getConfig(),
+            appAttemptID);
+      EventReader jobHistoryEventReader = new EventReader(inputStream);
+
+      // All AMInfos are contiguous. Track when the first AMStartedEvent
+      // appears.
+      boolean amStartedEventsBegan = false;
+
+      HistoryEvent event;
+      while ((event = jobHistoryEventReader.getNextEvent()) != null) {
+        if (event.getEventType() == EventType.AM_STARTED) {
+          if (!amStartedEventsBegan) {
+            // First AMStartedEvent.
+            amStartedEventsBegan = true;
+          }
+          AMStartedEvent amStartedEvent = (AMStartedEvent) event;
+          amInfos.add(MRBuilderUtils.newAMInfo(
+            amStartedEvent.getAppAttemptId(), amStartedEvent.getStartTime(),
+            amStartedEvent.getContainerId(),
+            StringInterner.weakIntern(amStartedEvent.getNodeManagerHost()),
+            amStartedEvent.getNodeManagerPort(),
+            amStartedEvent.getNodeManagerHttpPort()));
+        } else if (amStartedEventsBegan) {
+          // This means AMStartedEvents began and this event is a
+          // non-AMStarted event.
+          // No need to continue reading all the other events.
+          break;
+        }
+      }
+    } catch (IOException e) {
+      LOG.warn("Could not parse the old history file. "
+          + "Will not have old AMinfos ", e);
+    } finally {
+      if (inputStream != null) {
+        IOUtils.closeQuietly(inputStream);
+      }
+    }
+    return amInfos;
   }
 
   /**
@@ -970,6 +1162,17 @@ public class MRAppMaster extends CompositeService {
 
   }
 
+  /**
+   * Eats events that are not needed in some error cases.
+   */
+  private static class NoopEventHandler implements EventHandler<Event> {
+
+    @Override
+    public void handle(Event event) {
+      //Empty
+    }
+  }
+  
   private static void validateInputParam(String value, String param)
       throws IOException {
     if (value == null) {
@@ -1020,6 +1223,8 @@ public class MRAppMaster extends CompositeService {
       // SIGTERM I have a chance to write out the job history. I'll be closing
       // the objects myself.
       conf.setBoolean("fs.automatic.close", false);
+      // set job classloader if configured
+      MRApps.setJobClassLoader(conf);
       initAndStartAppMaster(appMaster, conf, jobUserName);
     } catch (Throwable t) {
       LOG.fatal("Error starting MRAppMaster", t);
@@ -1066,6 +1271,9 @@ public class MRAppMaster extends CompositeService {
       public Object run() throws Exception {
         appMaster.init(conf);
         appMaster.start();
+        if(appMaster.errorHappenedShutDown) {
+          throw new IOException("Was asked to shut down.");
+        }
         return null;
       }
     });

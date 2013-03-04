@@ -26,6 +26,7 @@ import java.io.RandomAccessFile;
 import java.nio.channels.FileLock;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -61,7 +62,7 @@ import org.apache.hadoop.util.DiskChecker;
  */
 @InterfaceAudience.Private
 public class DataStorage extends Storage {
-  // Constants
+
   public final static String BLOCK_SUBDIR_PREFIX = "subdir";
   final static String BLOCK_FILE_PREFIX = "blk_";
   final static String COPY_FILE_PREFIX = "dncp_";
@@ -70,15 +71,15 @@ public class DataStorage extends Storage {
   public final static String STORAGE_DIR_FINALIZED = "finalized";
   public final static String STORAGE_DIR_TMP = "tmp";
 
-  /** Access to this variable is guarded by "this" */
+  /** Unique storage ID. {@see DataNode#createNewStorageId(int)} for details */
   private String storageID;
 
-  // flag to ensure initialzing storage occurs only once
-  private boolean initilized = false;
+  // Flag to ensure we only initialize storage once
+  private boolean initialized = false;
   
-  // BlockPoolStorage is map of <Block pool Id, BlockPoolStorage>
+  // Maps block pool IDs to block pool storage
   private Map<String, BlockPoolSliceStorage> bpStorageMap
-    = new HashMap<String, BlockPoolSliceStorage>();
+      = Collections.synchronizedMap(new HashMap<String, BlockPoolSliceStorage>());
 
 
   DataStorage() {
@@ -129,7 +130,7 @@ public class DataStorage extends Storage {
   synchronized void recoverTransitionRead(DataNode datanode,
       NamespaceInfo nsInfo, Collection<File> dataDirs, StartupOption startOpt)
       throws IOException {
-    if (initilized) {
+    if (initialized) {
       // DN storage has been initialized, no need to do anything
       return;
     }
@@ -155,11 +156,11 @@ public class DataStorage extends Storage {
           break;
         case NON_EXISTENT:
           // ignore this storage
-          LOG.info("Storage directory " + dataDir + " does not exist.");
+          LOG.info("Storage directory " + dataDir + " does not exist");
           it.remove();
           continue;
         case NOT_FORMATTED: // format
-          LOG.info("Storage directory " + dataDir + " is not formatted.");
+          LOG.info("Storage directory " + dataDir + " is not formatted");
           LOG.info("Formatting ...");
           format(sd, nsInfo);
           break;
@@ -199,7 +200,7 @@ public class DataStorage extends Storage {
     this.writeAll();
     
     // 4. mark DN storage is initilized
-    this.initilized = true;
+    this.initialized = true;
   }
 
   /**
@@ -482,7 +483,7 @@ public class DataStorage extends Storage {
     
     // 5. Rename <SD>/previous.tmp to <SD>/previous
     rename(tmpDir, prevDir);
-    LOG.info("Upgrade of " + sd.getRoot()+ " is complete.");
+    LOG.info("Upgrade of " + sd.getRoot()+ " is complete");
     addBlockPoolStorage(nsInfo.getBlockPoolID(), bpStorage);
   }
 
@@ -556,7 +557,7 @@ public class DataStorage extends Storage {
     rename(prevDir, curDir);
     // delete tmp dir
     deleteDir(tmpDir);
-    LOG.info("Rollback of " + sd.getRoot() + " is complete.");
+    LOG.info("Rollback of " + sd.getRoot() + " is complete");
   }
   
   /**
@@ -596,9 +597,9 @@ public class DataStorage extends Storage {
               deleteDir(bbwDir);
             }
           } catch(IOException ex) {
-            LOG.error("Finalize upgrade for " + dataDirPath + " failed.", ex);
+            LOG.error("Finalize upgrade for " + dataDirPath + " failed", ex);
           }
-          LOG.info("Finalize upgrade for " + dataDirPath + " is complete.");
+          LOG.info("Finalize upgrade for " + dataDirPath + " is complete");
         }
         @Override
         public String toString() { return "Finalize " + dataDirPath; }

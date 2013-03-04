@@ -48,6 +48,8 @@ import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
 import org.znerd.xmlenc.XMLOutputter;
 
+import com.google.common.base.Charsets;
+
 /**
  * This class generates the data that is needed to be displayed on cluster web 
  * console.
@@ -567,12 +569,10 @@ class ClusterJspHelper {
       toXmlItemBlock(doc, "DFS Remaining", StringUtils.byteDesc(free));
     
       // dfsUsedPercent
-      toXmlItemBlock(doc, "DFS Used%", 
-          StringUtils.limitDecimalTo2(dfsUsedPercent)+ "%");
+      toXmlItemBlock(doc, "DFS Used%", DFSUtil.percent2String(dfsUsedPercent));
     
       // dfsRemainingPercent
-      toXmlItemBlock(doc, "DFS Remaining%",
-          StringUtils.limitDecimalTo2(dfsRemainingPercent) + "%");
+      toXmlItemBlock(doc, "DFS Remaining%", DFSUtil.percent2String(dfsRemainingPercent));
     
       doc.endTag(); // storage
     
@@ -873,7 +873,7 @@ class ClusterJspHelper {
     URLConnection connection = url.openConnection();
     BufferedReader in = new BufferedReader(
                             new InputStreamReader(
-                            connection.getInputStream()));
+                            connection.getInputStream(), Charsets.UTF_8));
     String inputLine;
     while ((inputLine = in.readLine()) != null) {
       out.append(inputLine);

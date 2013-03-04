@@ -248,8 +248,9 @@ public class ViewFs extends AbstractFileSystem {
       if (base == null) {
         base = "/user";
       }
-      homeDir = 
-        this.makeQualified(new Path(base + "/" + ugi.getShortUserName()));
+      homeDir = (base.equals("/") ? 
+        this.makeQualified(new Path(base + ugi.getShortUserName())):
+        this.makeQualified(new Path(base + "/" + ugi.getShortUserName())));
     }
     return homeDir;
   }
@@ -594,6 +595,12 @@ public class ViewFs extends AbstractFileSystem {
       }
     }
     return result;
+  }
+
+  @Override
+  public boolean isValidName(String src) {
+    // Prefix validated at mount time and rest of path validated by mount target.
+    return true;
   }
 
   

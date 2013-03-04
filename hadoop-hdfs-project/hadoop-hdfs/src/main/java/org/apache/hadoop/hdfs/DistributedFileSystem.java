@@ -310,10 +310,9 @@ public class DistributedFileSystem extends FileSystem {
   }
   
   /**
-   * THIS IS DFS only operations, it is not part of FileSystem
-   * move blocks from srcs to trg
+   * Move blocks from srcs to trg
    * and delete srcs afterwards
-   * all blocks should be the same size
+   * RESTRICTION: all blocks should be the same size
    * @param trg existing file to append to
    * @param psrcs list of files (same block size, same replication)
    * @throws IOException
@@ -509,14 +508,32 @@ public class DistributedFileSystem extends FileSystem {
   }
   
   /**
-   * Create a directory with given name and permission, only when
-   * parent directory exists.
+   * Create a directory, only when the parent directories exist.
+   *
+   * See {@link FsPermission#applyUMask(FsPermission)} for details of how
+   * the permission is applied.
+   *
+   * @param f           The path to create
+   * @param permission  The permission.  See FsPermission#applyUMask for 
+   *                    details about how this is used to calculate the
+   *                    effective permission.
    */
   public boolean mkdir(Path f, FsPermission permission) throws IOException {
     statistics.incrementWriteOps(1);
     return dfs.mkdirs(getPathName(f), permission, false);
   }
 
+  /**
+   * Create a directory and its parent directories.
+   *
+   * See {@link FsPermission#applyUMask(FsPermission)} for details of how
+   * the permission is applied.
+   *
+   * @param f           The path to create
+   * @param permission  The permission.  See FsPermission#applyUMask for 
+   *                    details about how this is used to calculate the
+   *                    effective permission.
+   */
   @Override
   public boolean mkdirs(Path f, FsPermission permission) throws IOException {
     statistics.incrementWriteOps(1);
@@ -609,11 +626,27 @@ public class DistributedFileSystem extends FileSystem {
    * Enter, leave or get safe mode.
    *  
    * @see org.apache.hadoop.hdfs.protocol.ClientProtocol#setSafeMode(
-   *    HdfsConstants.SafeModeAction)
+   *    HdfsConstants.SafeModeAction,boolean)
    */
   public boolean setSafeMode(HdfsConstants.SafeModeAction action) 
   throws IOException {
-    return dfs.setSafeMode(action);
+    return setSafeMode(action, false);
+  }
+
+  /**
+   * Enter, leave or get safe mode.
+   * 
+   * @param action
+   *          One of SafeModeAction.ENTER, SafeModeAction.LEAVE and
+   *          SafeModeAction.GET
+   * @param isChecked
+   *          If true check only for Active NNs status, else check first NN's
+   *          status
+   * @see org.apache.hadoop.hdfs.protocol.ClientProtocol#setSafeMode(SafeModeAction, boolean)
+   */
+  public boolean setSafeMode(HdfsConstants.SafeModeAction action,
+      boolean isChecked) throws IOException {
+    return dfs.setSafeMode(action, isChecked);
   }
 
   /**
@@ -702,7 +735,7 @@ public class DistributedFileSystem extends FileSystem {
     }
     DatanodeInfo[] dataNode = {dfsIn.getCurrentDatanode()}; 
     lblocks[0] = new LocatedBlock(dataBlock, dataNode);
-    LOG.info("Found checksum error in data stream at block="
+    LOG.info("Found checksum error in data stream at "
         + dataBlock + " on datanode="
         + dataNode[0]);
 
@@ -715,7 +748,7 @@ public class DistributedFileSystem extends FileSystem {
     }
     DatanodeInfo[] sumsNode = {dfsSums.getCurrentDatanode()}; 
     lblocks[1] = new LocatedBlock(sumsBlock, sumsNode);
-    LOG.info("Found checksum error in checksum stream at block="
+    LOG.info("Found checksum error in checksum stream at "
         + sumsBlock + " on datanode=" + sumsNode[0]);
 
     // Ask client to delete blocks.
@@ -860,12 +893,14 @@ public class DistributedFileSystem extends FileSystem {
   }
 
   /**
-   * Utility function that returns if the NameNode is in safemode or not.
-   *
+   * Utility function that returns if the NameNode is in safemode or not. In HA
+   * mode, this API will return only ActiveNN's safemode status.
+   * 
    * @return true if NameNode is in safemode, false otherwise.
-   * @throws IOException when there is an issue communicating with the NameNode
+   * @throws IOException
+   *           when there is an issue communicating with the NameNode
    */
   public boolean isInSafeMode() throws IOException {
-    return setSafeMode(SafeModeAction.SAFEMODE_GET);
+    return setSafeMode(SafeModeAction.SAFEMODE_GET, true);
   }
 }

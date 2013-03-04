@@ -30,12 +30,14 @@ import java.io.FileDescriptor;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.StringTokenizer;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.util.Progressable;
 import org.apache.hadoop.util.Shell;
 import org.apache.hadoop.util.StringUtils;
@@ -280,6 +282,18 @@ public class RawLocalFileSystem extends FileSystem {
     return new FSDataOutputStream(new BufferedOutputStream(
         new LocalFSFileOutputStream(f, false), bufferSize), statistics);
   }
+  
+  @Override
+  @Deprecated
+  public FSDataOutputStream createNonRecursive(Path f, FsPermission permission,
+      EnumSet<CreateFlag> flags, int bufferSize, short replication, long blockSize,
+      Progressable progress) throws IOException {
+    if (exists(f) && !flags.contains(CreateFlag.OVERWRITE)) {
+      throw new IOException("File already exists: "+f);
+    }
+    return new FSDataOutputStream(new BufferedOutputStream(
+        new LocalFSFileOutputStream(f, false), bufferSize), statistics);
+  }
 
   @Override
   public FSDataOutputStream create(Path f, FsPermission permission,
@@ -349,7 +363,7 @@ public class RawLocalFileSystem extends FileSystem {
         new RawLocalFileStatus(localf, getDefaultBlockSize(f), this) };
     }
 
-    String[] names = localf.list();
+    File[] names = localf.listFiles();
     if (names == null) {
       return null;
     }
@@ -357,7 +371,7 @@ public class RawLocalFileSystem extends FileSystem {
     int j = 0;
     for (int i = 0; i < names.length; i++) {
       try {
-        results[j] = getFileStatus(new Path(f, names[i]));
+        results[j] = getFileStatus(new Path(names[i].getAbsolutePath()));
         j++;
       } catch (FileNotFoundException e) {
         // ignore the files not found since the dir list may have have changed
@@ -494,9 +508,10 @@ public class RawLocalFileSystem extends FileSystem {
       return !super.getOwner().isEmpty(); 
     }
     
-    RawLocalFileStatus(File f, long defaultBlockSize, FileSystem fs) {
+    RawLocalFileStatus(File f, long defaultBlockSize, FileSystem fs) { 
       super(f.length(), f.isDirectory(), 1, defaultBlockSize,
-            f.lastModified(), fs.makeQualified(new Path(f.getPath())));
+          f.lastModified(), new Path(f.getPath()).makeQualified(fs.getUri(),
+            fs.getWorkingDirectory()));
     }
     
     @Override
@@ -527,9 +542,10 @@ public class RawLocalFileSystem extends FileSystem {
     private void loadPermissionInfo() {
       IOException e = null;
       try {
-        StringTokenizer t = new StringTokenizer(
-            FileUtil.execCommand(new File(getPath().toUri()), 
-                                          Shell.getGetPermissionCommand()));
+        String output = FileUtil.execCommand(new File(getPath().toUri()), 
+            Shell.getGetPermissionCommand());
+        StringTokenizer t =
+            new StringTokenizer(output, Shell.TOKEN_SEPARATOR_REGEX);
         //expected format
         //-rw-------    1 username groupname ...
         String permission = t.nextToken();
@@ -549,7 +565,6 @@ public class RawLocalFileSystem extends FileSystem {
         }
         setOwner(owner);
 
-        // FIXME: Group names could have spaces on Windows
         setGroup(t.nextToken());
       } catch (Shell.ExitCodeException ioe) {
         if (ioe.getExitCode() != 1) {
@@ -585,24 +600,22 @@ public class RawLocalFileSystem extends FileSystem {
   @Override
   public void setOwner(Path p, String username, String groupname)
     throws IOException {
-    if (username == null && groupname == null) {
-      throw new IOException("username == null && groupname == null");
-    }
-
-    if (username == null) {
-      FileUtil.execCommand(pathToFile(p), Shell.SET_GROUP_COMMAND, groupname); 
-    } else {
-      //OWNER[:[GROUP]]
-      String s = username + (groupname == null? "": ":" + groupname);
-      FileUtil.execCommand(pathToFile(p), Shell.getSetOwnerCommand(s));
-    }
+    FileUtil.setOwner(pathToFile(p), username, groupname);
   }
 
   /**
    * Use the command chmod to set permission.
    */
   @Override
-  public void setPermission(Path p, FsPermission permission) throws IOException {
-    FileUtil.setPermission(pathToFile(p), permission);
+  public void setPermission(Path p, FsPermission permission)
+    throws IOException {
+    if (NativeIO.isAvailable()) {
+      NativeIO.POSIX.chmod(pathToFile(p).getCanonicalPath(),
+                     permission.toShort());
+    } else {
+      String perm = String.format("%04o", permission.toShort());
+      Shell.execCommand(Shell.getSetPermissionCommand(perm, false,
+        FileUtil.makeShellPath(pathToFile(p), true)));
+    }
   }
 }

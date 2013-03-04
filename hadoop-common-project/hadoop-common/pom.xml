@@ -220,6 +220,10 @@
       <version>3.4.2</version>
       <exclusions>
         <exclusion>
+          <groupId>jline</groupId>
+          <artifactId>jline</artifactId>
+        </exclusion>
+        <exclusion>
           <!-- otherwise seems to drag in junit 3.8.1 via jline -->
           <groupId>junit</groupId>
           <artifactId>junit</artifactId>
@@ -241,10 +245,105 @@
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-compress</artifactId>
+      <version>1.4</version>
+    </dependency>
   </dependencies>
 
   <build>
+    <!--
+    Include all files in src/main/resources.  By default, do not apply property
+    substitution (filtering=false), but do apply property substitution to
+    common-version-info.properties (filtering=true).  This will substitute the
+    version information correctly, but prevent Maven from altering other files
+    like core-default.xml.
+    -->
+    <resources>
+      <resource>
+        <directory>${basedir}/src/main/resources</directory>
+        <excludes>
+          <exclude>common-version-info.properties</exclude>
+        </excludes>
+        <filtering>false</filtering>
+      </resource>
+      <resource>
+        <directory>${basedir}/src/main/resources</directory>
+        <includes>
+          <include>common-version-info.properties</include>
+        </includes>
+        <filtering>true</filtering>
+      </resource>
+    </resources>
     <plugins>
+      <plugin>
+        <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-maven-plugins</artifactId>
+        <executions>
+          <execution>
+            <id>version-info</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>version-info</goal>
+            </goals>
+            <configuration>
+              <source>
+                <directory>${basedir}/src/main</directory>
+                <includes>
+                  <include>java/**/*.java</include>
+                  <include>proto/**/*.proto</include>
+                </includes>
+              </source>
+            </configuration>
+          </execution>
+          <execution>
+            <id>compile-protoc</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>protoc</goal>
+            </goals>
+            <configuration>
+              <imports>
+                <param>${basedir}/src/main/proto</param>
+              </imports>
+              <source>
+                <directory>${basedir}/src/main/proto</directory>
+                <includes>
+                  <include>HAServiceProtocol.proto</include>
+                  <include>IpcConnectionContext.proto</include>
+                  <include>ProtocolInfo.proto</include>
+                  <include>RpcHeader.proto</include>
+                  <include>ZKFCProtocol.proto</include>
+                  <include>ProtobufRpcEngine.proto</include>
+                  <include>Security.proto</include>
+                </includes>
+              </source>
+              <output>${project.build.directory}/generated-sources/java</output>
+            </configuration>
+          </execution>
+          <execution>
+            <id>compile-test-protoc</id>
+            <phase>generate-test-sources</phase>
+            <goals>
+              <goal>protoc</goal>
+            </goals>
+            <configuration>
+              <imports>
+                <param>${basedir}/src/test/proto</param>
+              </imports>
+              <source>
+                <directory>${basedir}/src/test/proto</directory>
+                <includes>
+                  <include>test.proto</include>
+                  <include>test_rpc_service.proto</include>
+                </includes>
+              </source>
+              <output>${project.build.directory}/generated-test-sources/java</output>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
@@ -253,6 +352,12 @@
             <startKdc>${startKdc}</startKdc>
             <kdc.resource.dir>${kdc.resource.dir}</kdc.resource.dir>
           </systemPropertyVariables>
+          <properties>
+            <property>
+              <name>listener</name>
+              <value>org.apache.hadoop.test.TimedOutTestsListener</value>
+            </property>
+          </properties>
         </configuration>
       </plugin>
       <plugin>
@@ -276,39 +381,6 @@
         <artifactId>maven-antrun-plugin</artifactId>
         <executions>
           <execution>
-            <id>create-protobuf-generated-sources-directory</id>
-            <phase>initialize</phase>
-            <goals>
-              <goal>run</goal>
-            </goals>
-            <configuration>
-              <target>
-                <mkdir dir="target/generated-sources/java" />
-                <mkdir dir="target/generated-test-sources/java" />
-              </target>
-            </configuration>
-          </execution>
-          <execution>
-            <id>generate-test-sources</id>
-            <phase>generate-test-sources</phase>
-            <goals>
-              <goal>run</goal>
-            </goals>
-            <configuration>
-              <target>
-
-                <mkdir dir="${project.build.directory}/generated-test-sources/java"/>
-
-                <taskdef name="recordcc" classname="org.apache.hadoop.record.compiler.ant.RccTask">
-                  <classpath refid="maven.compile.classpath"/>
-                </taskdef>
-                <recordcc destdir="${project.build.directory}/generated-test-sources/java">
-                  <fileset dir="${basedir}/src/test/ddl" includes="**/*.jr"/>
-                </recordcc>
-              </target>
-            </configuration>
-          </execution>
-          <execution>
             <id>create-log-dir</id>
             <phase>process-test-resources</phase>
             <goals>
@@ -331,6 +403,23 @@
             </configuration>
           </execution>
           <execution>
+            <id>copy-test-tarballs</id>
+            <phase>process-test-resources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <copy toDir="${test.cache.data}">
+                  <fileset dir="${basedir}/src/test/java/org/apache/hadoop/fs">
+                    <include name="test-untar.tar"/>
+                    <include name="test-untar.tgz"/>
+                  </fileset>
+                </copy>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
             <phase>pre-site</phase>
             <goals>
               <goal>run</goal>
@@ -345,111 +434,24 @@
         </executions>
       </plugin>
       <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>save-version</id>
-            <phase>generate-sources</phase>
-            <goals>
-              <goal>exec</goal>
-            </goals>
-            <configuration>
-              <executable>python</executable>
-              <arguments>
-                <argument>${basedir}/../../dev-support/saveVersion.py</argument>
-                <argument>@HadoopVersionAnnotation</argument>
-                <argument>${project.version}</argument>
-                <argument>${basedir}/src/main/java</argument>
-                <argument>org.apache.hadoop</argument>
-                <argument>${project.build.directory}/generated-sources/java/org/apache/hadoop</argument>
-              </arguments>
-            </configuration>
-          </execution>
-          <execution>
-            <id>compile-proto</id>
-            <phase>generate-sources</phase>
-            <goals>
-              <goal>exec</goal>
-            </goals>
-            <configuration>
-              <executable>protoc</executable>
-              <arguments>
-                <argument>-Isrc/main/proto/</argument>
-                <argument>--java_out=target/generated-sources/java</argument>
-                <argument>src/main/proto/HAServiceProtocol.proto</argument>
-                <argument>src/main/proto/IpcConnectionContext.proto</argument>
-                <argument>src/main/proto/ProtocolInfo.proto</argument>
-                <argument>src/main/proto/RpcPayloadHeader.proto</argument>
-                <argument>src/main/proto/ZKFCProtocol.proto</argument>
-                <argument>src/main/proto/hadoop_rpc.proto</argument>
-              </arguments>
-            </configuration>
-          </execution>
-          <execution>
-            <id>compile-test-proto</id>
-            <phase>generate-test-sources</phase>
-            <goals>
-              <goal>exec</goal>
-            </goals>
-            <configuration>
-              <executable>protoc</executable>
-              <arguments>
-                <argument>-Isrc/test/proto/</argument>
-                <argument>--java_out=target/generated-test-sources/java</argument>
-                <argument>src/test/proto/test.proto</argument>
-                <argument>src/test/proto/test_rpc_service.proto</argument>
-              </arguments>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>build-helper-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>add-source</id>
-            <phase>generate-sources</phase>
-            <goals>
-              <goal>add-source</goal>
-            </goals>
-            <configuration>
-              <sources>
-                <source>${project.build.directory}/generated-sources/java</source>
-              </sources>
-            </configuration>
-          </execution>
-          <execution>
-            <id>add-test-source</id>
-            <phase>generate-sources</phase>
-            <goals>
-              <goal>add-test-source</goal>
-            </goals>
-            <configuration>
-              <sources>
-                <source>${project.build.directory}/generated-test-sources/java</source>
-              </sources>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
         <groupId>org.apache.rat</groupId>
         <artifactId>apache-rat-plugin</artifactId>
         <configuration>
           <excludes>
             <exclude>CHANGES.txt</exclude>
+            <exclude>CHANGES.branch-trunk-win.txt</exclude>
             <exclude>.idea/**</exclude>
             <exclude>src/main/conf/*</exclude>
             <exclude>src/main/docs/**</exclude>
             <exclude>dev-support/jdiff/**</exclude>
             <exclude>src/main/native/*</exclude>
             <exclude>src/main/native/config/*</exclude>
-            <exclude>src/main/resources/META-INF/services/org.apache.hadoop.security.SecurityInfo</exclude>
             <exclude>src/main/native/m4/*</exclude>
             <exclude>src/test/empty-file</exclude>
             <exclude>src/test/all-tests</exclude>
+            <exclude>src/test/resources/kdc/ldif/users.ldif</exclude>
+            <exclude>src/main/native/src/org/apache/hadoop/io/compress/lz4/lz4.c</exclude>
+            <exclude>src/test/java/org/apache/hadoop/fs/test-untar.tgz</exclude>
           </excludes>
         </configuration>
       </plugin>
@@ -536,6 +538,9 @@
                     <exec executable="make" dir="${project.build.directory}/native" failonerror="true">
                       <arg line="VERBOSE=1"/>
                     </exec>
+                    <!-- The second make is a workaround for HADOOP-9215.  It can
+                         be removed when version 2.6 of cmake is no longer supported . -->
+                    <exec executable="make" dir="${project.build.directory}/native" failonerror="true"></exec>
                   </target>
                 </configuration>
               </execution>
@@ -589,6 +594,34 @@
           </plugin>
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
+            <artifactId>native-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <phase>compile</phase>
+                <goals>
+                  <goal>javah</goal>
+                </goals>
+                <configuration>
+                  <javahPath>${env.JAVA_HOME}/bin/javah</javahPath>
+                  <javahClassNames>
+                    <javahClassName>org.apache.hadoop.io.compress.zlib.ZlibCompressor</javahClassName>
+                    <javahClassName>org.apache.hadoop.io.compress.zlib.ZlibDecompressor</javahClassName>
+                    <javahClassName>org.apache.hadoop.security.JniBasedUnixGroupsMapping</javahClassName>
+                    <javahClassName>org.apache.hadoop.io.nativeio.NativeIO</javahClassName>
+                    <javahClassName>org.apache.hadoop.security.JniBasedUnixGroupsNetgroupMapping</javahClassName>
+                    <javahClassName>org.apache.hadoop.io.compress.snappy.SnappyCompressor</javahClassName>
+                    <javahClassName>org.apache.hadoop.io.compress.snappy.SnappyDecompressor</javahClassName>
+                    <javahClassName>org.apache.hadoop.io.compress.lz4.Lz4Compressor</javahClassName>
+                    <javahClassName>org.apache.hadoop.io.compress.lz4.Lz4Decompressor</javahClassName>
+                    <javahClassName>org.apache.hadoop.util.NativeCrc32</javahClassName>
+                  </javahClassNames>
+                  <javahOutputDirectory>${project.build.directory}/native/javah</javahOutputDirectory>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
             <executions>
               <execution>
@@ -601,7 +634,25 @@
                   <executable>msbuild</executable>
                   <arguments>
                     <argument>${basedir}/src/main/winutils/winutils.sln</argument>
-                    <argument>/p:Configuration=Release;OutDir=${project.build.directory}/bin/</argument>
+                    <argument>/nologo</argument>
+                    <argument>/p:Configuration=Release</argument>
+                    <argument>/p:OutDir=${project.build.directory}/bin/</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+              <execution>
+                <id>compile-ms-native-dll</id>
+                <phase>compile</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>msbuild</executable>
+                  <arguments>
+                    <argument>${basedir}/src/main/native/native.sln</argument>
+                    <argument>/nologo</argument>
+                    <argument>/p:Configuration=Release</argument>
+                    <argument>/p:OutDir=${project.build.directory}/bin/</argument>
                   </arguments>
                 </configuration>
               </execution>

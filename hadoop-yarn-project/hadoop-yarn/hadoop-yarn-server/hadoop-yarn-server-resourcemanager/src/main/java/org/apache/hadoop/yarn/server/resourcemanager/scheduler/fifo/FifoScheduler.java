@@ -56,7 +56,9 @@ import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger;
 import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger.AuditConstants;
 import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
-import org.apache.hadoop.yarn.server.resourcemanager.recovery.Store.RMState;
+import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore.RMState;
+import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
+import org.apache.hadoop.yarn.server.resourcemanager.resource.DefaultResourceCalculator;
 import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptEventType;
@@ -65,6 +67,7 @@ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerEventType;
 import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
 import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNodeCleanContainerEvent;
+import org.apache.hadoop.yarn.server.resourcemanager.rmnode.UpdatedContainerInfo;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.ActiveUsersManager;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.Allocation;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.NodeType;
@@ -114,6 +117,8 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
 
   private static final String DEFAULT_QUEUE_NAME = "default";
   private QueueMetrics metrics;
+  
+  private final ResourceCalculator resourceCalculator = new DefaultResourceCalculator();
 
   private final Queue DEFAULT_QUEUE = new Queue() {
     @Override
@@ -226,7 +231,8 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
     }
 
     // Sanity check
-    SchedulerUtils.normalizeRequests(ask, minimumAllocation.getMemory());
+    SchedulerUtils.normalizeRequests(ask, resourceCalculator, 
+        clusterResource, minimumAllocation);
 
     // Release containers
     for (ContainerId releasedContainer : release) {
@@ -292,7 +298,7 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
     // TODO: Fix store
     FiCaSchedulerApp schedulerApp = 
         new FiCaSchedulerApp(appAttemptId, user, DEFAULT_QUEUE, activeUsersManager,
-            this.rmContext, null);
+            this.rmContext);
     applications.put(appAttemptId, schedulerApp);
     metrics.submitApp(user, appAttemptId.getAttemptId());
     LOG.info("Application Submission: " + appAttemptId.getApplicationId() + 
@@ -371,7 +377,8 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
       application.showRequests();
 
       // Done
-      if (Resources.lessThan(node.getAvailableResource(), minimumAllocation)) {
+      if (Resources.lessThan(resourceCalculator, clusterResource,
+              node.getAvailableResource(), minimumAllocation)) {
         break;
       }
     }
@@ -570,11 +577,16 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
     return assignedContainers;
   }
 
-  private synchronized void nodeUpdate(RMNode rmNode, 
-      List<ContainerStatus> newlyLaunchedContainers,
-      List<ContainerStatus> completedContainers) {
+  private synchronized void nodeUpdate(RMNode rmNode) {
     FiCaSchedulerNode node = getNode(rmNode.getNodeID());
     
+    List<UpdatedContainerInfo> containerInfoList = rmNode.pullContainerUpdates();
+    List<ContainerStatus> newlyLaunchedContainers = new ArrayList<ContainerStatus>();
+    List<ContainerStatus> completedContainers = new ArrayList<ContainerStatus>();
+    for(UpdatedContainerInfo containerInfo : containerInfoList) {
+      newlyLaunchedContainers.addAll(containerInfo.getNewlyLaunchedContainers());
+      completedContainers.addAll(containerInfo.getCompletedContainers());
+    }
     // Processing the newly launched containers
     for (ContainerStatus launchedContainer : newlyLaunchedContainers) {
       containerLaunchedOnNode(launchedContainer.getContainerId(), node);
@@ -588,8 +600,8 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
           completedContainer, RMContainerEventType.FINISHED);
     }
 
-    if (Resources.greaterThanOrEqual(node.getAvailableResource(),
-        minimumAllocation)) {
+    if (Resources.greaterThanOrEqual(resourceCalculator, clusterResource,
+            node.getAvailableResource(),minimumAllocation)) {
       LOG.debug("Node heartbeat " + rmNode.getNodeID() + 
           " available resource = " + node.getAvailableResource());
 
@@ -622,9 +634,7 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
     {
       NodeUpdateSchedulerEvent nodeUpdatedEvent = 
       (NodeUpdateSchedulerEvent)event;
-      nodeUpdate(nodeUpdatedEvent.getRMNode(), 
-          nodeUpdatedEvent.getNewlyLaunchedContainers(),
-          nodeUpdatedEvent.getCompletedContainers());
+      nodeUpdate(nodeUpdatedEvent.getRMNode());
     }
     break;
     case APP_ADDED:
@@ -763,13 +773,7 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
 
   @Override
   public void recover(RMState state) {
-    // TODO fix recovery
-//    for (Map.Entry<ApplicationId, ApplicationInfo> entry: state.getStoredApplications().entrySet()) {
-//      ApplicationId appId = entry.getKey();
-//      ApplicationInfo appInfo = entry.getValue();
-//      SchedulerApp app = applications.get(appId);
-//      app.allocate(appInfo.getContainers());
-//    }
+    // NOT IMPLEMENTED
   }
 
   @Override

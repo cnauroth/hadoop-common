@@ -29,7 +29,9 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 
@@ -65,6 +67,7 @@ import org.apache.hadoop.hdfs.server.namenode.SafeModeException;
 import org.apache.hadoop.hdfs.web.resources.AccessTimeParam;
 import org.apache.hadoop.hdfs.web.resources.BlockSizeParam;
 import org.apache.hadoop.hdfs.web.resources.BufferSizeParam;
+import org.apache.hadoop.hdfs.web.resources.ConcatSourcesParam;
 import org.apache.hadoop.hdfs.web.resources.CreateParentParam;
 import org.apache.hadoop.hdfs.web.resources.DeleteOpParam;
 import org.apache.hadoop.hdfs.web.resources.DestinationParam;
@@ -103,7 +106,10 @@ import org.apache.hadoop.security.token.TokenIdentifier;
 import org.apache.hadoop.security.token.TokenRenewer;
 import org.apache.hadoop.security.token.delegation.AbstractDelegationTokenSelector;
 import org.apache.hadoop.util.Progressable;
+import org.apache.hadoop.util.StringUtils;
 import org.mortbay.util.ajax.JSON;
+
+import com.google.common.base.Charsets;
 
 /** A FileSystem for HDFS over the web. */
 public class WebHdfsFileSystem extends FileSystem
@@ -124,15 +130,14 @@ public class WebHdfsFileSystem extends FileSystem
   public static final WebHdfsDelegationTokenSelector DT_SELECTOR
       = new WebHdfsDelegationTokenSelector();
 
-  private static DelegationTokenRenewer<WebHdfsFileSystem> DT_RENEWER = null;
+  private DelegationTokenRenewer dtRenewer = null;
 
-  private static synchronized void addRenewAction(final WebHdfsFileSystem webhdfs) {
-    if (DT_RENEWER == null) {
-      DT_RENEWER = new DelegationTokenRenewer<WebHdfsFileSystem>(WebHdfsFileSystem.class);
-      DT_RENEWER.start();
+  private synchronized void addRenewAction(final WebHdfsFileSystem webhdfs) {
+    if (dtRenewer == null) {
+      dtRenewer = DelegationTokenRenewer.getInstance();
     }
 
-    DT_RENEWER.addRenewAction(webhdfs);
+    dtRenewer.addRenewAction(webhdfs);
   }
 
   /** Is WebHDFS enabled in conf? */
@@ -282,7 +287,7 @@ public class WebHdfsFileSystem extends FileSystem
             + "\" (parsed=\"" + parsed + "\")");
       }
     }
-    return (Map<?, ?>)JSON.parse(new InputStreamReader(in));
+    return (Map<?, ?>)JSON.parse(new InputStreamReader(in, Charsets.UTF_8));
   }
 
   private static Map<?, ?> validateResponse(final HttpOpParam.Op op,
@@ -716,6 +721,22 @@ public class WebHdfsFileSystem extends FileSystem
   }
 
   @Override
+  public void concat(final Path trg, final Path [] psrcs) throws IOException {
+    statistics.incrementWriteOps(1);
+    final HttpOpParam.Op op = PostOpParam.Op.CONCAT;
+
+    List<String> strPaths = new ArrayList<String>(psrcs.length);
+    for(Path psrc : psrcs) {
+       strPaths.add(psrc.toUri().getPath());
+    }
+
+    String srcs = StringUtils.join(",", strPaths);
+
+    ConcatSourcesParam param = new ConcatSourcesParam(srcs);
+    run(op, trg, param);
+  }
+
+  @Override
   public FSDataOutputStream create(final Path f, final FsPermission permission,
       final boolean overwrite, final int bufferSize, final short replication,
       final long blockSize, final Progressable progress) throws IOException {
@@ -764,6 +785,14 @@ public class WebHdfsFileSystem extends FileSystem
     final URL url = toUrl(op, f, new BufferSizeParam(buffersize));
     return new FSDataInputStream(new OffsetUrlInputStream(
         new OffsetUrlOpener(url), new OffsetUrlOpener(null)));
+  }
+
+  @Override
+  public void close() throws IOException {
+    super.close();
+    if (dtRenewer != null) {
+      dtRenewer.removeRenewAction(this); // blocks
+    }
   }
 
   class OffsetUrlOpener extends ByteRangeInputStream.URLOpener {

@@ -48,7 +48,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.RandomAccessFile;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.channels.FileChannel;
@@ -81,6 +80,8 @@ import org.apache.hadoop.hdfs.server.common.Storage;
 import org.apache.hadoop.hdfs.server.datanode.DataNode;
 import org.apache.hadoop.hdfs.server.datanode.DataNodeTestUtils;
 import org.apache.hadoop.hdfs.server.datanode.DataStorage;
+import org.apache.hadoop.hdfs.server.datanode.SecureDataNodeStarter;
+import org.apache.hadoop.hdfs.server.datanode.SecureDataNodeStarter.SecureResources;
 import org.apache.hadoop.hdfs.server.datanode.SimulatedFSDataset;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsDatasetSpi;
 import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
@@ -95,6 +96,7 @@ import org.apache.hadoop.net.StaticMapping;
 import org.apache.hadoop.security.SecurityUtil;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.authorize.ProxyUsers;
+import org.apache.hadoop.security.ssl.SSLFactory;
 import org.apache.hadoop.util.ExitUtil;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.ToolRunner;
@@ -145,6 +147,7 @@ public class MiniDFSCluster {
     private boolean setupHostsFile = false;
     private MiniDFSNNTopology nnTopology = null;
     private boolean checkExitOnShutdown = true;
+    private boolean checkDataNodeAddrConfig = false;
     private boolean checkDataNodeHostConfig = false;
     
     public Builder(Configuration conf) {
@@ -266,6 +269,14 @@ public class MiniDFSCluster {
     /**
      * Default: false
      */
+    public Builder checkDataNodeAddrConfig(boolean val) {
+      this.checkDataNodeAddrConfig = val;
+      return this;
+    }
+
+    /**
+     * Default: false
+     */
     public Builder checkDataNodeHostConfig(boolean val) {
       this.checkDataNodeHostConfig = val;
       return this;
@@ -309,7 +320,7 @@ public class MiniDFSCluster {
   /**
    * Used by builder to create and return an instance of MiniDFSCluster
    */
-  private MiniDFSCluster(Builder builder) throws IOException {
+  protected MiniDFSCluster(Builder builder) throws IOException {
     if (builder.nnTopology == null) {
       // If no topology is specified, build a single NN. 
       builder.nnTopology = MiniDFSNNTopology.simpleSingleNN(
@@ -336,6 +347,7 @@ public class MiniDFSCluster {
                        builder.setupHostsFile,
                        builder.nnTopology,
                        builder.checkExitOnShutdown,
+                       builder.checkDataNodeAddrConfig,
                        builder.checkDataNodeHostConfig);
   }
   
@@ -343,18 +355,21 @@ public class MiniDFSCluster {
     DataNode datanode;
     Configuration conf;
     String[] dnArgs;
+    SecureResources secureResources;
 
-    DataNodeProperties(DataNode node, Configuration conf, String[] args) {
+    DataNodeProperties(DataNode node, Configuration conf, String[] args,
+                       SecureResources secureResources) {
       this.datanode = node;
       this.conf = conf;
       this.dnArgs = args;
+      this.secureResources = secureResources;
     }
   }
 
   private Configuration conf;
   private NameNodeInfo[] nameNodes;
-  private int numDataNodes;
-  private ArrayList<DataNodeProperties> dataNodes = 
+  protected int numDataNodes;
+  protected List<DataNodeProperties> dataNodes = 
                          new ArrayList<DataNodeProperties>();
   private File base_dir;
   private File data_dir;
@@ -573,7 +588,7 @@ public class MiniDFSCluster {
         manageNameDfsDirs, true, manageDataDfsDirs, manageDataDfsDirs,
         operation, racks, hosts,
         simulatedCapacities, null, true, false,
-        MiniDFSNNTopology.simpleSingleNN(nameNodePort, 0), true, false);
+        MiniDFSNNTopology.simpleSingleNN(nameNodePort, 0), true, false, false);
   }
 
   private void initMiniDFSCluster(
@@ -584,6 +599,7 @@ public class MiniDFSCluster {
       String[] hosts, long[] simulatedCapacities, String clusterId,
       boolean waitSafeMode, boolean setupHostsFile,
       MiniDFSNNTopology nnTopology, boolean checkExitOnShutdown,
+      boolean checkDataNodeAddrConfig,
       boolean checkDataNodeHostConfig)
   throws IOException {
     ExitUtil.disableSystemExit();
@@ -647,7 +663,7 @@ public class MiniDFSCluster {
 
     // Start the DataNodes
     startDataNodes(conf, numDataNodes, manageDataDfsDirs, operation, racks,
-        hosts, simulatedCapacities, setupHostsFile, false, checkDataNodeHostConfig);
+        hosts, simulatedCapacities, setupHostsFile, checkDataNodeAddrConfig, checkDataNodeHostConfig);
     waitClusterUp();
     //make sure ProxyUsers uses the latest conf
     ProxyUsers.refreshSuperUserGroupsConfiguration(conf);
@@ -1161,7 +1177,18 @@ public class MiniDFSCluster {
       if (hosts != null) {
         NetUtils.addStaticResolution(hosts[i - curDatanodesNum], "localhost");
       }
-      DataNode dn = DataNode.instantiateDataNode(dnArgs, dnConf);
+
+      SecureResources secureResources = null;
+      if (UserGroupInformation.isSecurityEnabled()) {
+        SSLFactory sslFactory = new SSLFactory(SSLFactory.Mode.SERVER, dnConf);
+        try {
+          secureResources = SecureDataNodeStarter.getSecureResources(sslFactory, dnConf);
+        } catch (Exception ex) {
+          ex.printStackTrace();
+        }
+      }
+      DataNode dn = DataNode.instantiateDataNode(dnArgs, dnConf,
+                                                 secureResources);
       if(dn == null)
         throw new IOException("Cannot start DataNode in "
             + dnConf.get(DFS_DATANODE_DATA_DIR_KEY));
@@ -1176,7 +1203,7 @@ public class MiniDFSCluster {
                                   racks[i-curDatanodesNum]);
       }
       dn.runDatanodeDaemon();
-      dataNodes.add(new DataNodeProperties(dn, newconf, dnArgs));
+      dataNodes.add(new DataNodeProperties(dn, newconf, dnArgs, secureResources));
     }
     curDatanodesNum += numDataNodes;
     this.numDataNodes += numDataNodes;
@@ -1607,14 +1634,16 @@ public class MiniDFSCluster {
       boolean keepPort) throws IOException {
     Configuration conf = dnprop.conf;
     String[] args = dnprop.dnArgs;
+    SecureResources secureResources = dnprop.secureResources;
     Configuration newconf = new HdfsConfiguration(conf); // save cloned config
     if (keepPort) {
       InetSocketAddress addr = dnprop.datanode.getXferAddress();
       conf.set(DFS_DATANODE_ADDRESS_KEY, 
           addr.getAddress().getHostAddress() + ":" + addr.getPort());
     }
-    dataNodes.add(new DataNodeProperties(DataNode.createDataNode(args, conf),
-        newconf, args));
+    dataNodes.add(new DataNodeProperties(
+        DataNode.createDataNode(args, conf, secureResources),
+        newconf, args, secureResources));
     numDataNodes++;
     return true;
   }
@@ -2260,20 +2289,7 @@ public class MiniDFSCluster {
     return nameNodes[nnIndex].nameNode;
   }
   
-  private int getFreeSocketPort() {
-    int port = 0;
-    try {
-      ServerSocket s = new ServerSocket(0);
-      port = s.getLocalPort();
-      s.close();
-      return port;
-    } catch (IOException e) {
-      // Could not get a free port. Return default port 0.
-    }
-    return port;
-  }
-  
-  private void setupDatanodeAddress(Configuration conf, boolean setupHostsFile,
+  protected void setupDatanodeAddress(Configuration conf, boolean setupHostsFile,
                            boolean checkDataNodeAddrConfig) throws IOException {
     if (setupHostsFile) {
       String hostsFile = conf.get(DFS_HOSTS, "").trim();
@@ -2281,7 +2297,7 @@ public class MiniDFSCluster {
         throw new IOException("Parameter dfs.hosts is not setup in conf");
       }
       // Setup datanode in the include file, if it is defined in the conf
-      String address = "127.0.0.1:" + getFreeSocketPort();
+      String address = "127.0.0.1:" + NetUtils.getFreeSocketPort();
       if (checkDataNodeAddrConfig) {
         conf.setIfUnset(DFS_DATANODE_ADDRESS_KEY, address);
       } else {

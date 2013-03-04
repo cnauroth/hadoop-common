@@ -46,12 +46,12 @@ import org.apache.hadoop.fs.Syncable;
 import org.apache.hadoop.fs.UnresolvedLinkException;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.client.HdfsDataOutputStream;
+import org.apache.hadoop.hdfs.client.HdfsDataOutputStream.SyncFlag;
 import org.apache.hadoop.hdfs.protocol.DSQuotaExceededException;
 import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
-import org.apache.hadoop.hdfs.protocol.HdfsProtoUtil;
 import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.protocol.NSQuotaExceededException;
 import org.apache.hadoop.hdfs.protocol.UnresolvedPathException;
@@ -65,6 +65,7 @@ import org.apache.hadoop.hdfs.protocol.datatransfer.PipelineAck;
 import org.apache.hadoop.hdfs.protocol.datatransfer.Sender;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.BlockOpResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.Status;
+import org.apache.hadoop.hdfs.protocolPB.PBHelper;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.InvalidBlockTokenException;
 import org.apache.hadoop.hdfs.server.namenode.NotReplicatedYetException;
@@ -114,6 +115,7 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
   private volatile boolean closed = false;
 
   private String src;
+  private final long fileId;
   private final long blockSize;
   private final DataChecksum checksum;
   // both dataQueue and ackQueue are protected by dataQueue lock
@@ -735,7 +737,7 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
     //
     private boolean processDatanodeError() throws IOException {
       if (response != null) {
-        DFSClient.LOG.info("Error Recovery for block " + block +
+        DFSClient.LOG.info("Error Recovery for " + block +
         " waiting for responder to exit. ");
         return true;
       }
@@ -784,13 +786,18 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
     private int findNewDatanode(final DatanodeInfo[] original
         ) throws IOException {
       if (nodes.length != original.length + 1) {
-        throw new IOException("Failed to add a datanode.  "
-            + "User may turn off this feature by setting "
-            + DFSConfigKeys.DFS_CLIENT_WRITE_REPLACE_DATANODE_ON_FAILURE_POLICY_KEY
-            + " in configuration, where the current policy is "
-            + dfsClient.dtpReplaceDatanodeOnFailure
-            + ".  (Nodes: current=" + Arrays.asList(nodes)
-            + ", original=" + Arrays.asList(original) + ")");
+        throw new IOException(
+            new StringBuilder()
+            .append("Failed to replace a bad datanode on the existing pipeline ")
+            .append("due to no more good datanodes being available to try. ")
+            .append("(Nodes: current=").append(Arrays.asList(nodes))
+            .append(", original=").append(Arrays.asList(original)).append("). ")
+            .append("The current failed datanode replacement policy is ")
+            .append(dfsClient.dtpReplaceDatanodeOnFailure).append(", and ")
+            .append("a client may configure this via '")
+            .append(DFSConfigKeys.DFS_CLIENT_WRITE_REPLACE_DATANODE_ON_FAILURE_POLICY_KEY)
+            .append("' in its configuration.")
+            .toString());
       }
       for(int i = 0; i < nodes.length; i++) {
         int j = 0;
@@ -882,7 +889,7 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
 
         //ack
         BlockOpResponseProto response =
-          BlockOpResponseProto.parseFrom(HdfsProtoUtil.vintPrefixed(in));
+          BlockOpResponseProto.parseFrom(PBHelper.vintPrefixed(in));
         if (SUCCESS != response.getStatus()) {
           throw new IOException("Failed to add a datanode");
         }
@@ -1008,7 +1015,7 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
         success = createBlockOutputStream(nodes, 0L, false);
 
         if (!success) {
-          DFSClient.LOG.info("Abandoning block " + block);
+          DFSClient.LOG.info("Abandoning " + block);
           dfsClient.namenode.abandonBlock(block, src, dfsClient.clientName);
           block = null;
           DFSClient.LOG.info("Excluding datanode " + nodes[errorIndex]);
@@ -1072,7 +1079,7 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
   
           // receive ack for connect
           BlockOpResponseProto resp = BlockOpResponseProto.parseFrom(
-              HdfsProtoUtil.vintPrefixed(blockReplyStream));
+              PBHelper.vintPrefixed(blockReplyStream));
           pipelineStatus = resp.getStatus();
           firstBadLink = resp.getFirstBadLink();
           
@@ -1142,7 +1149,8 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
         long localstart = Time.now();
         while (true) {
           try {
-            return dfsClient.namenode.addBlock(src, dfsClient.clientName, block, excludedNodes);
+            return dfsClient.namenode.addBlock(src, dfsClient.clientName,
+                block, excludedNodes, fileId);
           } catch (RemoteException e) {
             IOException ue = 
               e.unwrapRemoteException(FileNotFoundException.class,
@@ -1255,20 +1263,21 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
     return value;
   }
 
-  private DFSOutputStream(DFSClient dfsClient, String src, long blockSize, Progressable progress,
-      DataChecksum checksum, short replication) throws IOException {
+  private DFSOutputStream(DFSClient dfsClient, String src, Progressable progress,
+      HdfsFileStatus stat, DataChecksum checksum) throws IOException {
     super(checksum, checksum.getBytesPerChecksum(), checksum.getChecksumSize());
-    int bytesPerChecksum = checksum.getBytesPerChecksum();
     this.dfsClient = dfsClient;
     this.src = src;
-    this.blockSize = blockSize;
-    this.blockReplication = replication;
+    this.fileId = stat.getFileId();
+    this.blockSize = stat.getBlockSize();
+    this.blockReplication = stat.getReplication();
     this.progress = progress;
     if ((progress != null) && DFSClient.LOG.isDebugEnabled()) {
       DFSClient.LOG.debug(
           "Set non-null progress callback on DFSOutputStream " + src);
     }
     
+    final int bytesPerChecksum = checksum.getBytesPerChecksum();
     if ( bytesPerChecksum < 1 || blockSize % bytesPerChecksum != 0) {
       throw new IOException("io.bytes.per.checksum(" + bytesPerChecksum +
                             ") and blockSize(" + blockSize + 
@@ -1280,19 +1289,27 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
   }
 
   /** Construct a new output stream for creating a file. */
-  private DFSOutputStream(DFSClient dfsClient, String src, FsPermission masked,
-      EnumSet<CreateFlag> flag, boolean createParent, short replication,
-      long blockSize, Progressable progress, int buffersize,
+  private DFSOutputStream(DFSClient dfsClient, String src, HdfsFileStatus stat,
+      EnumSet<CreateFlag> flag, Progressable progress,
       DataChecksum checksum) throws IOException {
-    this(dfsClient, src, blockSize, progress, checksum, replication);
+    this(dfsClient, src, progress, stat, checksum);
     this.shouldSyncBlock = flag.contains(CreateFlag.SYNC_BLOCK);
 
     computePacketChunkSize(dfsClient.getConf().writePacketSize,
         checksum.getBytesPerChecksum());
 
+    streamer = new DataStreamer();
+  }
+
+  static DFSOutputStream newStreamForCreate(DFSClient dfsClient, String src,
+      FsPermission masked, EnumSet<CreateFlag> flag, boolean createParent,
+      short replication, long blockSize, Progressable progress, int buffersize,
+      DataChecksum checksum) throws IOException {
+    final HdfsFileStatus stat;
     try {
-      dfsClient.namenode.create(
-          src, masked, dfsClient.clientName, new EnumSetWritable<CreateFlag>(flag), createParent, replication, blockSize);
+      stat = dfsClient.namenode.create(src, masked, dfsClient.clientName,
+          new EnumSetWritable<CreateFlag>(flag), createParent, replication,
+          blockSize);
     } catch(RemoteException re) {
       throw re.unwrapRemoteException(AccessControlException.class,
                                      DSQuotaExceededException.class,
@@ -1303,30 +1320,20 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
                                      SafeModeException.class,
                                      UnresolvedPathException.class);
     }
-    streamer = new DataStreamer();
-  }
-
-  static DFSOutputStream newStreamForCreate(DFSClient dfsClient, String src,
-      FsPermission masked, EnumSet<CreateFlag> flag, boolean createParent,
-      short replication, long blockSize, Progressable progress, int buffersize,
-      DataChecksum checksum) throws IOException {
-    final DFSOutputStream out = new DFSOutputStream(dfsClient, src, masked,
-        flag, createParent, replication, blockSize, progress, buffersize,
-        checksum);
-    out.streamer.start();
+    final DFSOutputStream out = new DFSOutputStream(dfsClient, src, stat,
+        flag, progress, checksum);
+    out.start();
     return out;
   }
 
   /** Construct a new output stream for append. */
-  private DFSOutputStream(DFSClient dfsClient, String src, int buffersize, Progressable progress,
-      LocatedBlock lastBlock, HdfsFileStatus stat,
+  private DFSOutputStream(DFSClient dfsClient, String src,
+      Progressable progress, LocatedBlock lastBlock, HdfsFileStatus stat,
       DataChecksum checksum) throws IOException {
-    this(dfsClient, src, stat.getBlockSize(), progress, checksum, stat.getReplication());
+    this(dfsClient, src, progress, stat, checksum);
     initialFileSize = stat.getLen(); // length of file when opened
 
-    //
     // The last partial block of the file has to be filled.
-    //
     if (lastBlock != null) {
       // indicate that we are appending to an existing block
       bytesCurBlock = lastBlock.getBlockSize();
@@ -1341,9 +1348,9 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
   static DFSOutputStream newStreamForAppend(DFSClient dfsClient, String src,
       int buffersize, Progressable progress, LocatedBlock lastBlock,
       HdfsFileStatus stat, DataChecksum checksum) throws IOException {
-    final DFSOutputStream out = new DFSOutputStream(dfsClient, src, buffersize,
+    final DFSOutputStream out = new DFSOutputStream(dfsClient, src,
         progress, lastBlock, stat, checksum);
-    out.streamer.start();
+    out.start();
     return out;
   }
 
@@ -1487,9 +1494,14 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
    */
   @Override
   public void hflush() throws IOException {
-    flushOrSync(false);
+    flushOrSync(false, EnumSet.noneOf(SyncFlag.class));
   }
 
+  @Override
+  public void hsync() throws IOException {
+    hsync(EnumSet.noneOf(SyncFlag.class));
+  }
+  
   /**
    * The expected semantics is all data have flushed out to all replicas 
    * and all replicas have done posix fsync equivalent - ie the OS has 
@@ -1498,17 +1510,35 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
    * Note that only the current block is flushed to the disk device.
    * To guarantee durable sync across block boundaries the stream should
    * be created with {@link CreateFlag#SYNC_BLOCK}.
+   * 
+   * @param syncFlags
+   *          Indicate the semantic of the sync. Currently used to specify
+   *          whether or not to update the block length in NameNode.
    */
-  @Override
-  public void hsync() throws IOException {
-    flushOrSync(true);
+  public void hsync(EnumSet<SyncFlag> syncFlags) throws IOException {
+    flushOrSync(true, syncFlags);
   }
 
-  private void flushOrSync(boolean isSync) throws IOException {
+  /**
+   * Flush/Sync buffered data to DataNodes.
+   * 
+   * @param isSync
+   *          Whether or not to require all replicas to flush data to the disk
+   *          device
+   * @param syncFlags
+   *          Indicate extra detailed semantic of the flush/sync. Currently
+   *          mainly used to specify whether or not to update the file length in
+   *          the NameNode
+   * @throws IOException
+   */
+  private void flushOrSync(boolean isSync, EnumSet<SyncFlag> syncFlags)
+      throws IOException {
     dfsClient.checkOpen();
     isClosed();
     try {
       long toWaitFor;
+      long lastBlockLength = -1L;
+      boolean updateLength = syncFlags.contains(SyncFlag.UPDATE_LENGTH);
       synchronized (this) {
         /* Record current blockOffset. This might be changed inside
          * flushBuffer() where a partial checksum chunk might be flushed.
@@ -1572,13 +1602,20 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
       } // end synchronized
 
       waitForAckedSeqno(toWaitFor);
-
-      // If any new blocks were allocated since the last flush, 
-      // then persist block locations on namenode. 
-      //
-      if (persistBlocks.getAndSet(false)) {
+      
+      if (updateLength) {
+        synchronized (this) {
+          if (streamer != null && streamer.block != null) {
+            lastBlockLength = streamer.block.getNumBytes();
+          }
+        }
+      }
+      // If 1) any new blocks were allocated since the last flush, or 2) to
+      // update length in NN is requried, then persist block locations on
+      // namenode.
+      if (persistBlocks.getAndSet(false) || updateLength) {
         try {
-          dfsClient.namenode.fsync(src, dfsClient.clientName);
+          dfsClient.namenode.fsync(src, dfsClient.clientName, lastBlockLength);
         } catch (IOException ioe) {
           DFSClient.LOG.warn("Unable to persist blocks in hflush for " + src, ioe);
           // If we got an error here, it might be because some other thread called
@@ -1680,6 +1717,10 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
     isClosed();
   }
 
+  private synchronized void start() {
+    streamer.start();
+  }
+  
   /**
    * Aborts this output stream and releases any system 
    * resources associated with this stream.
@@ -1773,7 +1814,7 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
         try {
           Thread.sleep(400);
           if (Time.now() - localstart > 5000) {
-            DFSClient.LOG.info("Could not complete file " + src + " retrying...");
+            DFSClient.LOG.info("Could not complete " + src + " retrying...");
           }
         } catch (InterruptedException ie) {
           DFSClient.LOG.warn("Caught exception ", ie);

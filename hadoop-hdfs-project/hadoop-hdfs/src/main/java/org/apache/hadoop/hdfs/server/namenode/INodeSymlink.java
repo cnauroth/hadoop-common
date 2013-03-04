@@ -17,39 +17,29 @@
  */
 package org.apache.hadoop.hdfs.server.namenode;
 
-import java.util.List;
-
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.fs.permission.PermissionStatus;
 import org.apache.hadoop.hdfs.DFSUtil;
-import org.apache.hadoop.hdfs.protocol.Block;
 
 /**
- * An INode representing a symbolic link.
+ * An {@link INode} representing a symbolic link.
  */
 @InterfaceAudience.Private
 public class INodeSymlink extends INode {
-  private byte[] symlink; // The target URI
+  private final byte[] symlink; // The target URI
 
-  INodeSymlink(String value, long modTime, long atime,
-               PermissionStatus permissions) {
-    super(permissions, modTime, atime);
-    assert value != null;
-    setLinkValue(value);
-    setModificationTimeForce(modTime);
-    setAccessTime(atime);
-  }
-
-  @Override
-  public boolean isLink() {
-    return true;
-  }
-  
-  void setLinkValue(String value) {
+  INodeSymlink(long id, String value, long mtime, long atime,
+      PermissionStatus permissions) {
+    super(id, permissions, mtime, atime);
     this.symlink = DFSUtil.string2Bytes(value);
   }
 
-  public String getLinkValue() {
+  @Override
+  public boolean isSymlink() {
+    return true;
+  }
+
+  public String getSymlinkString() {
     return DFSUtil.bytes2String(symlink);
   }
 
@@ -64,7 +54,7 @@ public class INodeSymlink extends INode {
   }
   
   @Override
-  int collectSubtreeBlocksAndClear(List<Block> v) {
+  int collectSubtreeBlocksAndClear(BlocksMapUpdateInfo info) {
     return 1;
   }
 
@@ -72,10 +62,5 @@ public class INodeSymlink extends INode {
   long[] computeContentSummary(long[] summary) {
     summary[1]++; // Increment the file count
     return summary;
-  }
-
-  @Override
-  public boolean isDirectory() {
-    return false;
   }
 }

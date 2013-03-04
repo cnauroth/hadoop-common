@@ -71,16 +71,75 @@ public class TestUserGroupInformation {
   /** configure ugi */
   @BeforeClass
   public static void setup() {
+    javax.security.auth.login.Configuration.setConfiguration(
+        new DummyLoginConfiguration());
+  }
+  
+  @Before
+  public void setupUgi() {
     conf = new Configuration();
     conf.set(CommonConfigurationKeysPublic.HADOOP_SECURITY_AUTH_TO_LOCAL,
         "RULE:[2:$1@$0](.*@HADOOP.APACHE.ORG)s/@.*//" +
         "RULE:[1:$1@$0](.*@HADOOP.APACHE.ORG)s/@.*//"
         + "DEFAULT");
     UserGroupInformation.setConfiguration(conf);
-    javax.security.auth.login.Configuration.setConfiguration(
-        new DummyLoginConfiguration());
+    UserGroupInformation.setLoginUser(null);
   }
   
+  @After
+  public void resetUgi() {
+    UserGroupInformation.setLoginUser(null);
+  }
+
+  @Test
+  public void testSimpleLogin() throws IOException {
+    tryLoginAuthenticationMethod(AuthenticationMethod.SIMPLE, true);
+  }
+
+  @Test
+  public void testTokenLogin() throws IOException {
+    tryLoginAuthenticationMethod(AuthenticationMethod.TOKEN, false);
+  }
+  
+  @Test
+  public void testProxyLogin() throws IOException {
+    tryLoginAuthenticationMethod(AuthenticationMethod.PROXY, false);
+  }
+  
+  private void tryLoginAuthenticationMethod(AuthenticationMethod method,
+                                            boolean expectSuccess)
+                                                throws IOException {
+    SecurityUtil.setAuthenticationMethod(method, conf);
+    UserGroupInformation.setConfiguration(conf); // pick up changed auth       
+
+    UserGroupInformation ugi = null;
+    Exception ex = null;
+    try {
+      ugi = UserGroupInformation.getLoginUser();
+    } catch (Exception e) {
+      ex = e;
+    }
+    if (expectSuccess) {
+      assertNotNull(ugi);
+      assertEquals(method, ugi.getAuthenticationMethod());
+    } else {
+      assertNotNull(ex);
+      assertEquals(UnsupportedOperationException.class, ex.getClass());
+      assertEquals(method + " login authentication is not supported",
+                   ex.getMessage());
+    }
+  }
+  
+  @Test
+  public void testGetRealAuthenticationMethod() {
+    UserGroupInformation ugi = UserGroupInformation.createRemoteUser("user1");
+    ugi.setAuthenticationMethod(AuthenticationMethod.SIMPLE);
+    assertEquals(AuthenticationMethod.SIMPLE, ugi.getAuthenticationMethod());
+    assertEquals(AuthenticationMethod.SIMPLE, ugi.getRealAuthenticationMethod());
+    ugi = UserGroupInformation.createProxyUser("user2", ugi);
+    assertEquals(AuthenticationMethod.PROXY, ugi.getAuthenticationMethod());
+    assertEquals(AuthenticationMethod.SIMPLE, ugi.getRealAuthenticationMethod());
+  }
   /** Test login method */
   @Test
   public void testLogin() throws Exception {
@@ -129,14 +188,15 @@ public class TestUserGroupInformation {
     }
     // get the groups
     pp = Runtime.getRuntime().exec(Shell.WINDOWS ?
-      Shell.WINUTILS + " groups" : "id -Gn");
+      Shell.WINUTILS + " groups -F" : "id -Gn");
     br = new BufferedReader(new InputStreamReader(pp.getInputStream()));
     String line = br.readLine();
 
     System.out.println(userName + ":" + line);
    
     Set<String> groups = new LinkedHashSet<String> ();    
-    for(String s: line.split("[\\s]")) {
+    String[] tokens = line.split(Shell.TOKEN_SEPARATOR_REGEX);
+    for(String s: tokens) {
       groups.add(s);
     }
     
@@ -324,7 +384,6 @@ public class TestUserGroupInformation {
     assertSame(secret, ugi.getCredentials().getSecretKey(secretKey));
   }
 
-  @SuppressWarnings("unchecked") // from Mockito mocks
   @Test
   public <T extends TokenIdentifier> void testGetCredsNotSame()
       throws Exception {
@@ -448,6 +507,18 @@ public class TestUserGroupInformation {
     assertEquals(2, otherSet.size());
   }
 
+  @Test
+  public void testTestAuthMethod() throws Exception {
+    UserGroupInformation ugi = UserGroupInformation.getCurrentUser();
+    // verify the reverse mappings works
+    for (AuthenticationMethod am : AuthenticationMethod.values()) {
+      if (am.getAuthMethod() != null) {
+        ugi.setAuthenticationMethod(am.getAuthMethod());
+        assertEquals(am, ugi.getAuthenticationMethod());
+      }
+    }
+  }
+  
   @Test
   public void testUGIAuthMethod() throws Exception {
     final UserGroupInformation ugi = UserGroupInformation.getCurrentUser();
@@ -592,5 +663,12 @@ public class TestUserGroupInformation {
 
     // Restore hasSufficientTimElapsed back to private
     method.setAccessible(false);
+  }
+  
+  @Test(timeout=1000)
+  public void testSetLoginUser() throws IOException {
+    UserGroupInformation ugi = UserGroupInformation.createRemoteUser("test-user");
+    UserGroupInformation.setLoginUser(ugi);
+    assertEquals(ugi, UserGroupInformation.getLoginUser());
   }
 }

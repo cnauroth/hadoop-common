@@ -150,6 +150,8 @@ public interface ClientProtocol {
    * @param replication block replication factor.
    * @param blockSize maximum block size.
    * 
+   * @return the status of the created file, it could be null if the server
+   *           doesn't support returning the file status
    * @throws AccessControlException If access is denied
    * @throws AlreadyBeingCreatedException if the path does not exist.
    * @throws DSQuotaExceededException If file creation violates disk space 
@@ -168,13 +170,14 @@ public interface ClientProtocol {
    * RuntimeExceptions:
    * @throws InvalidPathException Path <code>src</code> is invalid
    */
-  public void create(String src, FsPermission masked, String clientName,
-      EnumSetWritable<CreateFlag> flag, boolean createParent,
-      short replication, long blockSize) throws AccessControlException,
-      AlreadyBeingCreatedException, DSQuotaExceededException,
-      FileAlreadyExistsException, FileNotFoundException,
-      NSQuotaExceededException, ParentNotDirectoryException, SafeModeException,
-      UnresolvedLinkException, IOException;
+  public HdfsFileStatus create(String src, FsPermission masked,
+      String clientName, EnumSetWritable<CreateFlag> flag,
+      boolean createParent, short replication, long blockSize)
+      throws AccessControlException, AlreadyBeingCreatedException,
+      DSQuotaExceededException, FileAlreadyExistsException,
+      FileNotFoundException, NSQuotaExceededException,
+      ParentNotDirectoryException, SafeModeException, UnresolvedLinkException,
+      IOException;
 
   /**
    * Append to the end of the file. 
@@ -296,6 +299,7 @@ public interface ClientProtocol {
    * @param previous  previous block
    * @param excludeNodes a list of nodes that should not be
    * allocated for the current block
+   * @param fileId the id uniquely identifying a file
    *
    * @return LocatedBlock allocated block information.
    *
@@ -310,7 +314,7 @@ public interface ClientProtocol {
    */
   @Idempotent
   public LocatedBlock addBlock(String src, String clientName,
-      ExtendedBlock previous, DatanodeInfo[] excludeNodes)
+      ExtendedBlock previous, DatanodeInfo[] excludeNodes, long fileId)
       throws AccessControlException, FileNotFoundException,
       NotReplicatedYetException, SafeModeException, UnresolvedLinkException,
       IOException;
@@ -610,7 +614,7 @@ public interface ClientProtocol {
    * <p>
    * Safe mode is entered automatically at name node startup.
    * Safe mode can also be entered manually using
-   * {@link #setSafeMode(HdfsConstants.SafeModeAction) setSafeMode(SafeModeAction.SAFEMODE_GET)}.
+   * {@link #setSafeMode(HdfsConstants.SafeModeAction,boolean) setSafeMode(SafeModeAction.SAFEMODE_ENTER,false)}.
    * <p>
    * At startup the name node accepts data node reports collecting
    * information about block locations.
@@ -626,11 +630,11 @@ public interface ClientProtocol {
    * Then the name node leaves safe mode.
    * <p>
    * If safe mode is turned on manually using
-   * {@link #setSafeMode(HdfsConstants.SafeModeAction) setSafeMode(SafeModeAction.SAFEMODE_ENTER)}
+   * {@link #setSafeMode(HdfsConstants.SafeModeAction,boolean) setSafeMode(SafeModeAction.SAFEMODE_ENTER,false)}
    * then the name node stays in safe mode until it is manually turned off
-   * using {@link #setSafeMode(HdfsConstants.SafeModeAction) setSafeMode(SafeModeAction.SAFEMODE_LEAVE)}.
+   * using {@link #setSafeMode(HdfsConstants.SafeModeAction,boolean) setSafeMode(SafeModeAction.SAFEMODE_LEAVE,false)}.
    * Current state of the name node can be verified using
-   * {@link #setSafeMode(HdfsConstants.SafeModeAction) setSafeMode(SafeModeAction.SAFEMODE_GET)}
+   * {@link #setSafeMode(HdfsConstants.SafeModeAction,boolean) setSafeMode(SafeModeAction.SAFEMODE_GET,false)}
    * <h4>Configuration parameters:</h4>
    * <tt>dfs.safemode.threshold.pct</tt> is the threshold parameter.<br>
    * <tt>dfs.safemode.extension</tt> is the safe mode extension parameter.<br>
@@ -648,12 +652,15 @@ public interface ClientProtocol {
    * @param action  <ul> <li>0 leave safe mode;</li>
    *                <li>1 enter safe mode;</li>
    *                <li>2 get safe mode state.</li></ul>
+   * @param isChecked If true then action will be done only in ActiveNN.
+   * 
    * @return <ul><li>0 if the safe mode is OFF or</li> 
    *         <li>1 if the safe mode is ON.</li></ul>
    *                   
    * @throws IOException
    */
-  public boolean setSafeMode(HdfsConstants.SafeModeAction action) 
+  @Idempotent
+  public boolean setSafeMode(HdfsConstants.SafeModeAction action, boolean isChecked) 
       throws IOException;
 
   /**
@@ -812,14 +819,15 @@ public interface ClientProtocol {
    * The file must be currently open for writing.
    * @param src The string representation of the path
    * @param client The string representation of the client
-   * 
+   * @param lastBlockLength The length of the last block (under construction) 
+   *                        to be reported to NameNode 
    * @throws AccessControlException permission denied
    * @throws FileNotFoundException file <code>src</code> is not found
    * @throws UnresolvedLinkException if <code>src</code> contains a symlink. 
    * @throws IOException If an I/O error occurred
    */
   @Idempotent
-  public void fsync(String src, String client) 
+  public void fsync(String src, String client, long lastBlockLength) 
       throws AccessControlException, FileNotFoundException, 
       UnresolvedLinkException, IOException;
 

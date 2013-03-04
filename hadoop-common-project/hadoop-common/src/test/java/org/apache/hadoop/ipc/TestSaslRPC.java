@@ -18,19 +18,22 @@
 
 package org.apache.hadoop.ipc;
 
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SECURITY_AUTHENTICATION;
+import static org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod.*;
 import static org.junit.Assert.*;
+
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.net.InetSocketAddress;
 import java.security.PrivilegedExceptionAction;
+import java.security.Security;
 import java.util.Collection;
 import java.util.Set;
+import java.util.regex.Pattern;
 
-import javax.security.sasl.Sasl;
-
+import javax.security.auth.callback.*;
+import javax.security.sasl.*;
 import junit.framework.Assert;
 
 import org.apache.commons.logging.Log;
@@ -41,15 +44,8 @@ import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.ipc.Client.ConnectionId;
 import org.apache.hadoop.net.NetUtils;
-import org.apache.hadoop.security.AccessControlException;
-import org.apache.hadoop.security.KerberosInfo;
-import org.apache.hadoop.security.SaslInputStream;
-import org.apache.hadoop.security.SaslRpcClient;
-import org.apache.hadoop.security.SaslRpcServer;
-import org.apache.hadoop.security.SecurityInfo;
-import org.apache.hadoop.security.SecurityUtil;
-import org.apache.hadoop.security.TestUserGroupInformation;
-import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.security.*;
+import org.apache.hadoop.security.SaslRpcServer.AuthMethod;
 import org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod;
 import org.apache.hadoop.security.token.SecretManager;
 import org.apache.hadoop.security.token.Token;
@@ -57,7 +53,9 @@ import org.apache.hadoop.security.token.TokenIdentifier;
 import org.apache.hadoop.security.token.TokenInfo;
 import org.apache.hadoop.security.token.TokenSelector;
 import org.apache.hadoop.security.token.SecretManager.InvalidToken;
+
 import org.apache.log4j.Level;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -73,13 +71,22 @@ public class TestSaslRPC {
   static final String SERVER_KEYTAB_KEY = "test.ipc.server.keytab";
   static final String SERVER_PRINCIPAL_1 = "p1/foo@BAR";
   static final String SERVER_PRINCIPAL_2 = "p2/foo@BAR";
-  
   private static Configuration conf;
+  static Boolean forceSecretManager = null;
+  
   @BeforeClass
-  public static void setup() {
+  public static void setupKerb() {
+    System.setProperty("java.security.krb5.kdc", "");
+    System.setProperty("java.security.krb5.realm", "NONE");
+    Security.addProvider(new SaslPlainServer.SecurityProvider());
+  }    
+
+  @Before
+  public void setup() {
     conf = new Configuration();
-    conf.set(HADOOP_SECURITY_AUTHENTICATION, "kerberos");
+    SecurityUtil.setAuthenticationMethod(KERBEROS, conf);
     UserGroupInformation.setConfiguration(conf);
+    forceSecretManager = null;
   }
 
   static {
@@ -186,6 +193,7 @@ public class TestSaslRPC {
   @TokenInfo(TestTokenSelector.class)
   public interface TestSaslProtocol extends TestRPC.TestProtocol {
     public AuthenticationMethod getAuthMethod() throws IOException;
+    public String getAuthUser() throws IOException;
   }
   
   public static class TestSaslImpl extends TestRPC.TestImpl implements
@@ -193,6 +201,10 @@ public class TestSaslRPC {
     @Override
     public AuthenticationMethod getAuthMethod() throws IOException {
       return UserGroupInformation.getCurrentUser().getAuthenticationMethod();
+    }
+    @Override
+    public String getAuthUser() throws IOException {
+      return UserGroupInformation.getCurrentUser().getUserName();
     }
   }
 
@@ -258,16 +270,6 @@ public class TestSaslRPC {
     }
   }
 
-  @Test
-  public void testSecureToInsecureRpc() throws Exception {
-    Server server = new RPC.Builder(conf).setProtocol(TestSaslProtocol.class)
-        .setInstance(new TestSaslImpl()).setBindAddress(ADDRESS).setPort(0)
-        .setNumHandlers(5).setVerbose(true).build();
-    server.disableSecurity();
-    TestTokenSecretManager sm = new TestTokenSecretManager();
-    doDigestRpc(server, sm);
-  }
-  
   @Test
   public void testErrorMessage() throws Exception {
     BadTokenSecretManager sm = new BadTokenSecretManager();
@@ -345,7 +347,7 @@ public class TestSaslRPC {
           new InetSocketAddress(0), TestSaslProtocol.class, null, 0, newConf);
       assertEquals(SERVER_PRINCIPAL_1, remoteId.getServerPrincipal());
       // this following test needs security to be off
-      newConf.set(HADOOP_SECURITY_AUTHENTICATION, "simple");
+      SecurityUtil.setAuthenticationMethod(SIMPLE, newConf);
       UserGroupInformation.setConfiguration(newConf);
       remoteId = ConnectionId.getConnectionId(new InetSocketAddress(0),
           TestSaslProtocol.class, null, 0, newConf);
@@ -448,127 +450,320 @@ public class TestSaslRPC {
     System.out.println("Test is successful.");
   }
 
-  // insecure -> insecure
   @Test
-  public void testInsecureClientInsecureServer() throws Exception {
-    assertEquals(AuthenticationMethod.SIMPLE,
-                 getAuthMethod(false, false, false));
+  public void testSaslPlainServer() throws IOException {
+    runNegotiation(
+        new TestPlainCallbacks.Client("user", "pass"),
+        new TestPlainCallbacks.Server("user", "pass"));
   }
 
   @Test
-  public void testInsecureClientInsecureServerWithToken() throws Exception {
-    assertEquals(AuthenticationMethod.TOKEN,
-                 getAuthMethod(false, false, true));
-  }
-
-  // insecure -> secure
-  @Test
-  public void testInsecureClientSecureServer() throws Exception {
-    RemoteException e = null;
+  public void testSaslPlainServerBadPassword() throws IOException {
+    SaslException e = null;
     try {
-      getAuthMethod(false, true, false);
-    } catch (RemoteException re) {
-      e = re;
+      runNegotiation(
+          new TestPlainCallbacks.Client("user", "pass1"),
+          new TestPlainCallbacks.Server("user", "pass2"));
+    } catch (SaslException se) {
+      e = se;
     }
     assertNotNull(e);
-    assertEquals(AccessControlException.class.getName(), e.getClassName());
+    assertEquals("PLAIN auth failed: wrong password", e.getMessage());
+  }
+
+
+  private void runNegotiation(CallbackHandler clientCbh,
+                              CallbackHandler serverCbh)
+                                  throws SaslException {
+    String mechanism = AuthMethod.PLAIN.getMechanismName();
+
+    SaslClient saslClient = Sasl.createSaslClient(
+        new String[]{ mechanism }, null, null, null, null, clientCbh);
+    assertNotNull(saslClient);
+
+    SaslServer saslServer = Sasl.createSaslServer(
+        mechanism, null, "localhost", null, serverCbh);
+    assertNotNull("failed to find PLAIN server", saslServer);
+    
+    byte[] response = saslClient.evaluateChallenge(new byte[0]);
+    assertNotNull(response);
+    assertTrue(saslClient.isComplete());
+
+    response = saslServer.evaluateResponse(response);
+    assertNull(response);
+    assertTrue(saslServer.isComplete());
+    assertNotNull(saslServer.getAuthorizationID());
+  }
+  
+  static class TestPlainCallbacks {
+    public static class Client implements CallbackHandler {
+      String user = null;
+      String password = null;
+      
+      Client(String user, String password) {
+        this.user = user;
+        this.password = password;
+      }
+      
+      @Override
+      public void handle(Callback[] callbacks)
+          throws UnsupportedCallbackException {
+        for (Callback callback : callbacks) {
+          if (callback instanceof NameCallback) {
+            ((NameCallback) callback).setName(user);
+          } else if (callback instanceof PasswordCallback) {
+            ((PasswordCallback) callback).setPassword(password.toCharArray());
+          } else {
+            throw new UnsupportedCallbackException(callback,
+                "Unrecognized SASL PLAIN Callback");
+          }
+        }
+      }
+    }
+    
+    public static class Server implements CallbackHandler {
+      String user = null;
+      String password = null;
+      
+      Server(String user, String password) {
+        this.user = user;
+        this.password = password;
+      }
+      
+      @Override
+      public void handle(Callback[] callbacks)
+          throws UnsupportedCallbackException, SaslException {
+        NameCallback nc = null;
+        PasswordCallback pc = null;
+        AuthorizeCallback ac = null;
+        
+        for (Callback callback : callbacks) {
+          if (callback instanceof NameCallback) {
+            nc = (NameCallback)callback;
+            assertEquals(user, nc.getName());
+          } else if (callback instanceof PasswordCallback) {
+            pc = (PasswordCallback)callback;
+            if (!password.equals(new String(pc.getPassword()))) {
+              throw new IllegalArgumentException("wrong password");
+            }
+          } else if (callback instanceof AuthorizeCallback) {
+            ac = (AuthorizeCallback)callback;
+            assertEquals(user, ac.getAuthorizationID());
+            assertEquals(user, ac.getAuthenticationID());
+            ac.setAuthorized(true);
+            ac.setAuthorizedID(ac.getAuthenticationID());
+          } else {
+            throw new UnsupportedCallbackException(callback,
+                "Unsupported SASL PLAIN Callback");
+          }
+        }
+        assertNotNull(nc);
+        assertNotNull(pc);
+        assertNotNull(ac);
+      }
+    }
+  }
+  
+  private static Pattern BadToken =
+      Pattern.compile(".*DIGEST-MD5: digest response format violation.*");
+  private static Pattern KrbFailed =
+      Pattern.compile(".*Failed on local exception:.* " +
+                      "Failed to specify server's Kerberos principal name.*");
+  private static Pattern Denied(AuthenticationMethod method) {
+      return Pattern.compile(".*RemoteException.*AccessControlException.*: "
+          +method.getAuthMethod() + " authentication is not enabled.*");
+  }
+  private static Pattern NoTokenAuth =
+      Pattern.compile(".*IllegalArgumentException: " +
+                      "TOKEN authentication requires a secret manager");
+  
+  /*
+   *  simple server
+   */
+  @Test
+  public void testSimpleServer() throws Exception {
+    assertAuthEquals(SIMPLE,    getAuthMethod(SIMPLE,   SIMPLE));
+    // SASL methods are reverted to SIMPLE, but test setup fails
+    assertAuthEquals(KrbFailed, getAuthMethod(KERBEROS, SIMPLE));
   }
 
   @Test
-  public void testInsecureClientSecureServerWithToken() throws Exception {
-    assertEquals(AuthenticationMethod.TOKEN,
-                 getAuthMethod(false, true, true));
+  public void testSimpleServerWithTokens() throws Exception {
+    // Tokens are ignored because client is reverted to simple
+    assertAuthEquals(SIMPLE, getAuthMethod(SIMPLE,   SIMPLE, true));
+    assertAuthEquals(SIMPLE, getAuthMethod(KERBEROS, SIMPLE, true));
+    forceSecretManager = true;
+    assertAuthEquals(SIMPLE, getAuthMethod(SIMPLE,   SIMPLE, true));
+    assertAuthEquals(SIMPLE, getAuthMethod(KERBEROS, SIMPLE, true));
+  }
+    
+  @Test
+  public void testSimpleServerWithInvalidTokens() throws Exception {
+    // Tokens are ignored because client is reverted to simple
+    assertAuthEquals(SIMPLE, getAuthMethod(SIMPLE,   SIMPLE, false));
+    assertAuthEquals(SIMPLE, getAuthMethod(KERBEROS, SIMPLE, false));
+    forceSecretManager = true;
+    assertAuthEquals(SIMPLE, getAuthMethod(SIMPLE,   SIMPLE, false));
+    assertAuthEquals(SIMPLE, getAuthMethod(KERBEROS, SIMPLE, false));
+  }
+  
+  /*
+   *  token server
+   */
+  @Test
+  public void testTokenOnlyServer() throws Exception {
+    assertAuthEquals(Denied(SIMPLE), getAuthMethod(SIMPLE,   TOKEN));
+    assertAuthEquals(KrbFailed,      getAuthMethod(KERBEROS, TOKEN));
   }
 
-  // secure -> secure
   @Test
-  public void testSecureClientSecureServer() throws Exception {
-    /* Should be this when multiple secure auths are supported and we can
-     * dummy one out:
-     *     assertEquals(AuthenticationMethod.SECURE_AUTH_METHOD,
-     *                  getAuthMethod(true, true, false));
-     */
+  public void testTokenOnlyServerWithTokens() throws Exception {
+    assertAuthEquals(TOKEN, getAuthMethod(SIMPLE,   TOKEN, true));
+    assertAuthEquals(TOKEN, getAuthMethod(KERBEROS, TOKEN, true));
+    forceSecretManager = false;
+    assertAuthEquals(NoTokenAuth, getAuthMethod(SIMPLE,   TOKEN, true));
+    assertAuthEquals(NoTokenAuth, getAuthMethod(KERBEROS, TOKEN, true));
+  }
+
+  @Test
+  public void testTokenOnlyServerWithInvalidTokens() throws Exception {
+    assertAuthEquals(BadToken, getAuthMethod(SIMPLE,   TOKEN, false));
+    assertAuthEquals(BadToken, getAuthMethod(KERBEROS, TOKEN, false));
+    forceSecretManager = false;
+    assertAuthEquals(NoTokenAuth, getAuthMethod(SIMPLE,   TOKEN, false));
+    assertAuthEquals(NoTokenAuth, getAuthMethod(KERBEROS, TOKEN, false));
+  }
+
+  /*
+   * kerberos server
+   */
+  @Test
+  public void testKerberosServer() throws Exception {
+    assertAuthEquals(Denied(SIMPLE), getAuthMethod(SIMPLE,   KERBEROS));
+    assertAuthEquals(KrbFailed,      getAuthMethod(KERBEROS, KERBEROS));    
+  }
+
+  @Test
+  public void testKerberosServerWithTokens() throws Exception {
+    // can use tokens regardless of auth
+    assertAuthEquals(TOKEN, getAuthMethod(SIMPLE,   KERBEROS, true));
+    assertAuthEquals(TOKEN, getAuthMethod(KERBEROS, KERBEROS, true));
+    // can't fallback to simple when using kerberos w/o tokens
+    forceSecretManager = false;
+    assertAuthEquals(Denied(TOKEN), getAuthMethod(SIMPLE,   KERBEROS, true));
+    assertAuthEquals(Denied(TOKEN), getAuthMethod(KERBEROS, KERBEROS, true));
+  }
+
+  @Test
+  public void testKerberosServerWithInvalidTokens() throws Exception {
+    assertAuthEquals(BadToken, getAuthMethod(SIMPLE,   KERBEROS, false));
+    assertAuthEquals(BadToken, getAuthMethod(KERBEROS, KERBEROS, false));
+    forceSecretManager = false;
+    assertAuthEquals(Denied(TOKEN), getAuthMethod(SIMPLE,   KERBEROS, false));
+    assertAuthEquals(Denied(TOKEN), getAuthMethod(KERBEROS, KERBEROS, false));
+  }
+
+
+  // test helpers
+
+  private String getAuthMethod(
+      final AuthenticationMethod clientAuth,
+      final AuthenticationMethod serverAuth) throws Exception {
     try {
-      getAuthMethod(true, true, false);
-    } catch (IOException ioe) {
-      // can't actually test kerberos w/o kerberos...
-      String expectedError = "Failed to specify server's Kerberos principal";
-      String actualError = ioe.getMessage();
-      assertTrue("["+actualError+"] doesn't start with ["+expectedError+"]",
-          actualError.contains(expectedError));
+      return internalGetAuthMethod(clientAuth, serverAuth, false, false);
+    } catch (Exception e) {
+      return e.toString();
     }
   }
 
-  @Test
-  public void testSecureClientSecureServerWithToken() throws Exception {
-    assertEquals(AuthenticationMethod.TOKEN,
-                 getAuthMethod(true, true, true));
-  }
-
-  // secure -> insecure
-  @Test
-  public void testSecureClientInsecureServerWithToken() throws Exception {
-    assertEquals(AuthenticationMethod.TOKEN,
-                 getAuthMethod(true, false, true));
-  }
-
-  @Test
-  public void testSecureClientInsecureServer() throws Exception {
-    /* Should be this when multiple secure auths are supported and we can
-     * dummy one out:
-     *     assertEquals(AuthenticationMethod.SIMPLE
-     *                  getAuthMethod(true, false, false));
-     */
+  private String getAuthMethod(
+      final AuthenticationMethod clientAuth,
+      final AuthenticationMethod serverAuth,
+      final boolean useValidToken) throws Exception {
     try {
-      getAuthMethod(true, false, false);
-    } catch (IOException ioe) {
-      // can't actually test kerberos w/o kerberos...
-      String expectedError = "Failed to specify server's Kerberos principal";
-      String actualError = ioe.getMessage();
-      assertTrue("["+actualError+"] doesn't start with ["+expectedError+"]",
-          actualError.contains(expectedError));
+      return internalGetAuthMethod(clientAuth, serverAuth, true, useValidToken);
+    } catch (Exception e) {
+      return e.toString();
     }
   }
+  
+  private String internalGetAuthMethod(
+      final AuthenticationMethod clientAuth,
+      final AuthenticationMethod serverAuth,
+      final boolean useToken,
+      final boolean useValidToken) throws Exception {
+    
+    String currentUser = UserGroupInformation.getCurrentUser().getUserName();
+    
+    final Configuration serverConf = new Configuration(conf);
+    SecurityUtil.setAuthenticationMethod(serverAuth, serverConf);
+    UserGroupInformation.setConfiguration(serverConf);
+    
+    final UserGroupInformation serverUgi =
+        UserGroupInformation.createRemoteUser(currentUser + "-SERVER");
+    serverUgi.setAuthenticationMethod(serverAuth);
 
-
-  private AuthenticationMethod getAuthMethod(final boolean isSecureClient,
-                                             final boolean isSecureServer,
-                                             final boolean useToken
-                                             
-      ) throws Exception {
-    TestTokenSecretManager sm = new TestTokenSecretManager();
-    Server server = new RPC.Builder(conf).setProtocol(TestSaslProtocol.class)
+    final TestTokenSecretManager sm = new TestTokenSecretManager();
+    boolean useSecretManager = (serverAuth != SIMPLE);
+    if (forceSecretManager != null) {
+      useSecretManager &= forceSecretManager.booleanValue();
+    }
+    final SecretManager<?> serverSm = useSecretManager ? sm : null;
+    
+    Server server = serverUgi.doAs(new PrivilegedExceptionAction<Server>() {
+      @Override
+      public Server run() throws IOException {
+        Server server = new RPC.Builder(serverConf)
+        .setProtocol(TestSaslProtocol.class)
         .setInstance(new TestSaslImpl()).setBindAddress(ADDRESS).setPort(0)
-        .setNumHandlers(5).setVerbose(true).setSecretManager(sm).build();      
-    if (isSecureServer) {
-      server.enableSecurity();
-    } else {
-      server.disableSecurity();
-    }
-    server.start();
+        .setNumHandlers(5).setVerbose(true)
+        .setSecretManager(serverSm)
+        .build();      
+        server.start();
+        return server;
+      }
+    });
 
-    final UserGroupInformation current = UserGroupInformation.getCurrentUser();
+    final Configuration clientConf = new Configuration(conf);
+    SecurityUtil.setAuthenticationMethod(clientAuth, clientConf);
+    UserGroupInformation.setConfiguration(clientConf);
+    
+    final UserGroupInformation clientUgi =
+        UserGroupInformation.createRemoteUser(currentUser + "-CLIENT");
+    clientUgi.setAuthenticationMethod(clientAuth);    
+
     final InetSocketAddress addr = NetUtils.getConnectAddress(server);
     if (useToken) {
       TestTokenIdentifier tokenId = new TestTokenIdentifier(
-          new Text(current.getUserName()));
-      Token<TestTokenIdentifier> token =
-          new Token<TestTokenIdentifier>(tokenId, sm);
+          new Text(clientUgi.getUserName()));
+      Token<TestTokenIdentifier> token = useValidToken
+          ? new Token<TestTokenIdentifier>(tokenId, sm)
+          : new Token<TestTokenIdentifier>(
+              tokenId.getBytes(), "bad-password!".getBytes(),
+              tokenId.getKind(), null);
+      
       SecurityUtil.setTokenService(token, addr);
-      current.addToken(token);
+      clientUgi.addToken(token);
     }
 
-    conf.set(HADOOP_SECURITY_AUTHENTICATION, isSecureClient ? "kerberos" : "simple");
-    UserGroupInformation.setConfiguration(conf);
     try {
-      return current.doAs(new PrivilegedExceptionAction<AuthenticationMethod>() {
+      return clientUgi.doAs(new PrivilegedExceptionAction<String>() {
         @Override
-        public AuthenticationMethod run() throws IOException {
+        public String run() throws IOException {
           TestSaslProtocol proxy = null;
           try {
             proxy = (TestSaslProtocol) RPC.getProxy(TestSaslProtocol.class,
-                TestSaslProtocol.versionID, addr, conf);
-            return proxy.getAuthMethod();
+                TestSaslProtocol.versionID, addr, clientConf);
+            
+            proxy.ping();
+            // verify sasl completed
+            if (serverAuth != SIMPLE) {
+              assertEquals(SaslRpcServer.SASL_PROPS.get(Sasl.QOP), "auth");
+            }
+            
+            // make sure the other side thinks we are who we said we are!!!
+            assertEquals(clientUgi.getUserName(), proxy.getAuthUser());
+            return proxy.getAuthMethod().toString();
           } finally {
             if (proxy != null) {
               RPC.stopProxy(proxy);
@@ -580,7 +775,22 @@ public class TestSaslRPC {
       server.stop();
     }
   }
+
+  private static void assertAuthEquals(AuthenticationMethod expect,
+      String actual) {
+    assertEquals(expect.toString(), actual);
+  }
   
+  private static void assertAuthEquals(Pattern expect,
+      String actual) {
+    // this allows us to see the regexp and the value it didn't match
+    if (!expect.matcher(actual).matches()) {
+      assertEquals(expect, actual); // it failed
+    } else {
+      assertTrue(true); // it matched
+    }
+  }
+
   public static void main(String[] args) throws Exception {
     System.out.println("Testing Kerberos authentication over RPC");
     if (args.length != 2) {
@@ -593,5 +803,4 @@ public class TestSaslRPC {
     String keytab = args[1];
     testKerberosRpc(principal, keytab);
   }
-
 }

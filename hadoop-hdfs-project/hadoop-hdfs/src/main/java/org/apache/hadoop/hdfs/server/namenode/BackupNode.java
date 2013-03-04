@@ -24,6 +24,7 @@ import java.net.SocketTimeoutException;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
+import org.apache.hadoop.ha.ServiceFailedException;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DFSUtil;
 import org.apache.hadoop.hdfs.NameNodeProxies;
@@ -35,6 +36,7 @@ import org.apache.hadoop.hdfs.protocolPB.JournalProtocolPB;
 import org.apache.hadoop.hdfs.protocolPB.JournalProtocolServerSideTranslatorPB;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.NamenodeRole;
 import org.apache.hadoop.hdfs.server.common.Storage;
+import org.apache.hadoop.hdfs.server.namenode.ha.HAState;
 import org.apache.hadoop.hdfs.server.protocol.FenceResponse;
 import org.apache.hadoop.hdfs.server.protocol.JournalInfo;
 import org.apache.hadoop.hdfs.server.protocol.JournalProtocol;
@@ -69,6 +71,8 @@ public class BackupNode extends NameNode {
   private static final String BN_HTTP_ADDRESS_NAME_KEY = DFSConfigKeys.DFS_NAMENODE_BACKUP_HTTP_ADDRESS_KEY;
   private static final String BN_HTTP_ADDRESS_DEFAULT = DFSConfigKeys.DFS_NAMENODE_BACKUP_HTTP_ADDRESS_DEFAULT;
   private static final String BN_SERVICE_RPC_ADDRESS_KEY = DFSConfigKeys.DFS_NAMENODE_BACKUP_SERVICE_RPC_ADDRESS_KEY;
+  private static final float  BN_SAFEMODE_THRESHOLD_PCT_DEFAULT = 1.5f;
+  private static final int    BN_SAFEMODE_EXTENSION_DEFAULT = Integer.MAX_VALUE;
 
   /** Name-node proxy */
   NamenodeProtocol namenode;
@@ -78,10 +82,6 @@ public class BackupNode extends NameNode {
   String nnHttpAddress;
   /** Checkpoint manager */
   Checkpointer checkpointManager;
-  /** ClusterID to which BackupNode belongs to */
-  String clusterId;
-  /** Block pool Id of the peer namenode of this BackupNode */
-  String blockPoolId;
   
   BackupNode(Configuration conf, NamenodeRole role) throws IOException {
     super(conf, role);
@@ -131,6 +131,10 @@ public class BackupNode extends NameNode {
 
   @Override // NameNode
   protected void loadNamesystem(Configuration conf) throws IOException {
+    conf.setFloat(DFSConfigKeys.DFS_NAMENODE_SAFEMODE_THRESHOLD_PCT_KEY,
+                                BN_SAFEMODE_THRESHOLD_PCT_DEFAULT);
+    conf.setInt(DFSConfigKeys.DFS_NAMENODE_SAFEMODE_EXTENSION_KEY,
+                                BN_SAFEMODE_EXTENSION_DEFAULT);
     BackupImage bnImage = new BackupImage(conf);
     this.namesystem = new FSNamesystem(conf, bnImage);
     bnImage.setNamesystem(namesystem);
@@ -145,6 +149,7 @@ public class BackupNode extends NameNode {
                  CommonConfigurationKeys.FS_TRASH_INTERVAL_DEFAULT);
     NamespaceInfo nsInfo = handshake(conf);
     super.initialize(conf);
+    namesystem.setBlockPoolId(nsInfo.getBlockPoolID());
 
     if (false == namesystem.isInSafeMode()) {
       namesystem.setSafeMode(SafeModeAction.SAFEMODE_ENTER);
@@ -154,9 +159,6 @@ public class BackupNode extends NameNode {
     // therefore lease hard limit should never expire.
     namesystem.leaseManager.setLeasePeriod(
         HdfsConstants.LEASE_SOFTLIMIT_PERIOD, Long.MAX_VALUE);
-    
-    clusterId = nsInfo.getClusterID();
-    blockPoolId = nsInfo.getBlockPoolID();
 
     // register with the active name-node 
     registerWith(nsInfo);
@@ -219,7 +221,7 @@ public class BackupNode extends NameNode {
   }
   
   /* @Override */// NameNode
-  public boolean setSafeMode(@SuppressWarnings("unused") SafeModeAction action)
+  public boolean setSafeMode(SafeModeAction action)
       throws IOException {
     throw new UnsupportedActionException("setSafeMode");
   }
@@ -414,22 +416,23 @@ public class BackupNode extends NameNode {
       + HdfsConstants.LAYOUT_VERSION + " actual "+ nsInfo.getLayoutVersion();
     return nsInfo;
   }
-  
-  String getBlockPoolId() {
-    return blockPoolId;
-  }
-  
-  String getClusterId() {
-    return clusterId;
-  }
-  
+
   @Override
+  protected String getNameServiceId(Configuration conf) {
+    return DFSUtil.getBackupNameServiceId(conf);
+  }
+
+  protected HAState createHAState() {
+    return new BackupState();
+  }
+
+  @Override // NameNode
   protected NameNodeHAContext createHAContext() {
     return new BNHAContext();
   }
-  
+
   private class BNHAContext extends NameNodeHAContext {
-    @Override // NameNode
+    @Override // NameNodeHAContext
     public void checkOperation(OperationCategory op)
         throws StandbyException {
       if (op == OperationCategory.UNCHECKED ||
@@ -437,16 +440,48 @@ public class BackupNode extends NameNode {
         return;
       }
       if (OperationCategory.JOURNAL != op &&
-          !(OperationCategory.READ == op && allowStaleStandbyReads)) {
+          !(OperationCategory.READ == op && !isRole(NamenodeRole.CHECKPOINT))) {
         String msg = "Operation category " + op
-            + " is not supported at the BackupNode";
+            + " is not supported at " + getRole();
         throw new StandbyException(msg);
       }
     }
-  }
-  
-  @Override
-  protected String getNameServiceId(Configuration conf) {
-    return DFSUtil.getBackupNameServiceId(conf);
+
+    @Override // NameNodeHAContext
+    public void prepareToStopStandbyServices() throws ServiceFailedException {
+    }
+
+    /**
+     * Start services for BackupNode.
+     * <p>
+     * The following services should be muted
+     * (not run or not pass any control commands to DataNodes)
+     * on BackupNode:
+     * {@link LeaseManager.Monitor} protected by SafeMode.
+     * {@link BlockManager.ReplicationMonitor} protected by SafeMode.
+     * {@link HeartbeatManager.Monitor} protected by SafeMode.
+     * {@link DecommissionManager.Monitor} need to prohibit refreshNodes().
+     * {@link PendingReplicationBlocks.PendingReplicationMonitor} harmless,
+     * because ReplicationMonitor is muted.
+     */
+    @Override
+    public void startActiveServices() throws IOException {
+      try {
+        namesystem.startActiveServices();
+      } catch (Throwable t) {
+        doImmediateShutdown(t);
+      }
+    }
+
+    @Override
+    public void stopActiveServices() throws IOException {
+      try {
+        if (namesystem != null) {
+          namesystem.stopActiveServices();
+        }
+      } catch (Throwable t) {
+        doImmediateShutdown(t);
+      }
+    }
   }
 }

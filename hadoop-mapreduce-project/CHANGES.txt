@@ -11,6 +11,9 @@ Trunk (Unreleased)
     MAPREDUCE-2669. Add new examples for Mean, Median, and Standard Deviation.
     (Plamen Jeliazkov via shv)
 
+    MAPREDUCE-4887. Add RehashPartitioner, to smooth distributions
+    with poor implementations of Object#hashCode().  (Radim Kolar via cutting)
+
   IMPROVEMENTS
 
     MAPREDUCE-3787. [Gridmix] Optimize job monitoring and STRESS mode for
@@ -69,6 +72,9 @@ Trunk (Unreleased)
     (Brandon Li via suresh)
 
   BUG FIXES
+
+    MAPREDUCE-4272. SortedRanges.Range#compareTo is not spec compliant.
+    (Yu Gao via llu)
 
     MAPREDUCE-4356. [Rumen] Provide access to the method
                     ParsedTask.obtainTaskAttempts(). (ravigummadi)
@@ -137,23 +143,89 @@ Trunk (Unreleased)
 
     MAPREDUCE-3223. Remove MR1 configs from mapred-default.xml (tlipcon via harsh)
 
-    MAPREDUCE-4678. Running the Pentomino example with defaults throws
-    java.lang.NegativeArraySizeException (Chris McConnell via harsh)
-
     MAPREDUCE-4695. Fix LocalRunner on trunk after MAPREDUCE-3223 broke it
     (harsh)
 
     MAPREDUCE-4574. Fix TotalOrderParitioner to work with
     non-WritableComparable key types. (harsh)
 
-Release 2.0.3-alpha - Unreleased 
+    MAPREDUCE-4884. Streaming tests fail to start MiniMRCluster due to missing
+    queue configuration. (Chris Nauroth via suresh)
+
+    MAPREDUCE-5012. Typo in javadoc for IdentityMapper class. (Adam Monsen
+    via suresh)
+
+Release 2.0.4-beta - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+    MAPREDUCE-5033. mapred shell script should respect usage flags
+    (--help -help -h). (Andrew Wang via atm)
+
+    MAPREDUCE-4892. Modify CombineFileInputFormat to not skew input slits'
+    allocation on small clusters. (Bikas Saha via vinodkv)
+
+  OPTIMIZATIONS
+
+  BUG FIXES
+
+    MAPREDUCE-4671. AM does not tell the RM about container requests which are
+    no longer needed. (Bikas Saha via sseth)
+
+    MAPREDUCE-4994. -jt generic command line option does not work. (sandyr via tucu)
+
+    MAPREDUCE-5000. Fixes getCounters when speculating by fixing the selection
+    of the best attempt for a task. (Jason Lowe via sseth)
+
+    MAPREDUCE-4994. Addendum fixing testcases failures. (sandyr via tucu)
+
+    MAPREDUCE-4846. Some JobQueueInfo methods are public in MR1 but protected
+    in MR2. (Sandy Ryza via tomwhite)
+
+    MAPREDUCE-5013. mapred.JobStatus compatibility: MR2 missing constructors
+    from MR1. (Sandy Ryza via tomwhite)
+
+    MAPREDUCE-4951. Container preemption interpreted as task failure.
+    (Sandy Ryza via tomwhite)
+
+    MAPREDUCE-5008. Merger progress miscounts with respect to EOF_MARKER.
+    (Sandy Ryza via tomwhite)
+
+    MAPREDUCE-4693. History server should include counters for failed tasks.
+    (Xuan Gong via sseth)
+
+    MAPREDUCE-4896. mapred queue -info spits out ugly exception when queue does 
+    not exist. (sandyr via tucu)
+
+Release 2.0.3-alpha - 2013-02-06 
 
   INCOMPATIBLE CHANGES
 
     MAPREDUCE-4123. Remove the 'mapred groups' command, which is no longer
     supported. (Devaraj K via sseth)
 
+    MAPREDUCE-4938. Use token request messages defined in hadoop common.
+    (suresh)
+
   NEW FEATURES
+
+    MAPREDUCE-4520. Added support for MapReduce applications to request for
+    CPU cores along-with memory post YARN-2. (acmurthy)
+
+    MAPREDUCE-4810. Added new admin command options for MR AM. (Jerry Chen via
+    vinodkv)
+
+    MAPREDUCE-4049. Experimental api to allow for alternate shuffle plugins.
+    (Avner BenHanoch via acmurthy) 
+
+    MAPREDUCE-4807. Allow MapOutputBuffer to be pluggable. (masokan via tucu)
+
+    MAPREDUCE-4808. Refactor MapOutput and MergeManager to facilitate reuse 
+    by Shuffle implementations. (masokan via tucu)
 
   IMPROVEMENTS
 
@@ -166,7 +238,42 @@ Release 2.0.3-alpha - Unreleased
     HADOOP-8911. CRLF characters in source and text files.
     (Raja Aluri via suresh)
 
+    MAPREDUCE-4723. Fix warnings found by findbugs 2. (Sandy Ryza via eli)
+
+    MAPREDUCE-4703. Add the ability to start the MiniMRClientCluster using 
+    the configurations used before it is being stopped. (ahmed.radwan via tucu)
+
+    MAPREDUCE-4845. ClusterStatus.getMaxMemory() and getUsedMemory() exist in
+    MR1 but not MR2. (Sandy Ryza via tomwhite)
+
+    MAPREDUCE-4899. Implemented a MR specific plugin for tracking finished
+    applications that YARN's ResourceManager doesn't keep track off anymore
+    (Derek Dagit via vinodkv)
+
+    MAPREDUCE-4920. Use security token protobuf definition from hadoop common.
+    (Suresh Srinivas via vinodkv)
+
+    MAPREDUCE-4907. TrackerDistributedCacheManager issues too many getFileStatus
+    calls. (sandyr via tucu)
+
+    MAPREDUCE-4949. Enable multiple pi jobs to run in parallel. (sandyr via tucu)
+
+    MAPREDUCE-4809. Change visibility of classes for pluggable sort changes. 
+    (masokan via tucu)
+
+    MAPREDUCE-4838. Add additional fields like Locality, Avataar to the
+    JobHistory logs. (Zhijie Shen via sseth)
+
+    MAPREDUCE-4971. Minor extensibility enhancements to Counters & 
+    FileOutputFormat. (Arun C Murthy via sseth)
+
+    MAPREDUCE-4977. Documentation for pluggable shuffle and pluggable sort. 
+    (tucu)
+
   OPTIMIZATIONS
+
+    MAPREDUCE-4893. Fixed MR ApplicationMaster to do optimal assignment of
+    containers to get maximum locality. (Bikas Saha via vinodkv)
 
   BUG FIXES
 
@@ -188,6 +295,51 @@ Release 2.0.3-alpha - Unreleased
 
     MAPREDUCE-4736. Remove obsolete option [-rootDir] from TestDFSIO.
     (Brandon Li via suresh)
+
+    MAPREDUCE-4637. Handle TaskAttempt diagnostic updates while in the NEW and 
+    UNASSIGNED states. (Mayank Bansal via sseth)
+
+    MAPREDUCE-1806. CombineFileInputFormat does not work with paths not on default FS. (Gera Shegalov via tucu)
+
+    MAPREDUCE-4777. In TestIFile, testIFileReaderWithCodec relies on
+    testIFileWriterWithCodec. (Sandy Ryza via tomwhite)
+
+    MAPREDUCE-4800. Cleanup o.a.h.mapred.MapTaskStatus - remove unused 
+    code. (kkambatl via tucu)
+
+    MAPREDUCE-4861. Cleanup: Remove unused mapreduce.security.token.DelegationTokenRenewal. 
+    (kkambatl via tucu)
+
+    MAPREDUCE-4856. TestJobOutputCommitter uses same directory as
+    TestJobCleanup. (Sandy Ryza via tomwhite)
+
+    MAPREDUCE-4278. Cannot run two local jobs in parallel from the same
+    gateway. (Sandy Ryza via tomwhite)
+
+    MAPREDUCE-1700. User supplied dependencies may conflict with MapReduce
+    system JARs. (tomwhite)
+
+    MAPREDUCE-4936. JobImpl uber checks for cpu are wrong (Arun C Murthy via
+    jlowe)
+
+    MAPREDUCE-4924. flakey test: org.apache.hadoop.mapred.TestClusterMRNotification.testMR. 
+    (rkanter via tucu)
+
+    MAPREDUCE-4923. Add toString method to TaggedInputSplit. (sandyr via tucu)
+
+    MAPREDUCE-4948. Fix a failing unit test TestYARNRunner.testHistoryServerToken.
+    (Junping Du via sseth)
+
+    MAPREDUCE-4803. Remove duplicate copy of TestIndexCache. (Mariappan Asokan
+    via sseth)
+
+    MAPREDUCE-2264. Job status exceeds 100% in some cases. 
+    (devaraj.k and sandyr via tucu)
+
+    MAPREDUCE-4969. TestKeyValueTextInputFormat test fails with Open JDK 7.
+    (Arpit Agarwal via suresh)
+
+    MAPREDUCE-4953. HadoopPipes misuses fprintf. (Andy Isaacson via atm)
 
 Release 2.0.2-alpha - 2012-09-07 
 
@@ -565,7 +717,123 @@ Release 2.0.0-alpha - 05-23-2012
     MAPREDUCE-4444. nodemanager fails to start when one of the local-dirs is
     bad (Jason Lowe via bobby)
 
-Release 0.23.5 - UNRELEASED
+Release 0.23.7 - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+    MAPREDUCE-4905. test org.apache.hadoop.mapred.pipes 
+    (Aleksey Gorshkov via bobby)
+
+    MAPREDUCE-4989. JSONify DataTables input data for Attempts page (Ravi
+    Prakash via jlowe)
+
+  OPTIMIZATIONS
+
+    MAPREDUCE-4946. Fix a performance problem for large jobs by reducing the
+    number of map completion event type conversions. (Jason Lowe via sseth)
+
+    MAPREDUCE-4822. Unnecessary conversions in History Events. (Chu Tong via
+    jlowe)
+
+  BUG FIXES
+
+    MAPREDUCE-4458. Warn if java.library.path is used for AM or Task
+    (Robert Parker via jeagles)
+
+    MAPREDUCE-4992. AM hangs in RecoveryService when recovering tasks with
+    speculative attempts (Robert Parker via jlowe)
+
+    MAPREDUCE-5009. Killing the Task Attempt slated for commit does not clear
+    the value from the Task commitAttempt member (Robert Parker via jeagles)
+
+    MAPREDUCE-4871. AM uses mapreduce.jobtracker.split.metainfo.maxsize but
+    mapred-default has mapreduce.job.split.metainfo.maxsize (Jason Lowe via
+    jeagles)
+
+    MAPREDUCE-4794. DefaultSpeculator generates error messages on normal
+    shutdown (Jason Lowe via jeagles)
+
+    MAPREDUCE-5043. Fetch failure processing can cause AM event queue to
+    backup and eventually OOM (Jason Lowe via bobby)
+
+Release 0.23.6 - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+    MAPREDUCE-4811. JobHistoryServer should show when it was started in WebUI
+    About page (Ravi Prakash via jlowe)
+
+  OPTIMIZATIONS
+
+  BUG FIXES
+
+    MAPREDUCE-4802. Takes a long time to load the task list on the AM for
+    large jobs (Ravi Prakash via bobby)
+
+    MAPREDUCE-4764. repair TestBinaryTokenFile (Ivan A. Veselovsky via bobby)
+
+    MAPREDUCE-4825. JobImpl.finished doesn't expect ERROR as a final job state
+    (jlowe via bobby)
+
+    MAPREDUCE-4817. Hardcoded task ping timeout kills tasks localizing large 
+    amounts of data (tgraves)
+
+    MAPREDUCE-4836. Elapsed time for running tasks on AM web UI tasks page is 0
+    (Ravi Prakash via jeagles)
+
+    MAPREDUCE-4842. Shuffle race can hang reducer (Mariappan Asokan via jlowe)
+
+    MAPREDUCE-4833. Task can get stuck in FAIL_CONTAINER_CLEANUP (Robert
+    Parker via jlowe)
+
+    MAPREDUCE-4793. Problem with adding resources when using both -files and
+    -file to hadoop streaming (jlowe)
+
+    MAPREDUCE-4890. Invalid TaskImpl state transitions when task fails while
+    speculating (jlowe)
+
+    MAPREDUCE-4902. Fix typo "receievd" should be "received" in log output
+    (Albert Chu via jlowe)
+
+    MAPREDUCE-4813. AM timing out during job commit (jlowe via bobby)
+
+    MAPREDUCE-4279. getClusterStatus() fails with null pointer exception when
+    running jobs in local mode (Devaraj K via bobby)
+
+    MAPREDUCE-4832. MR AM can get in a split brain situation (jlowe)
+
+    MAPREDUCE-4894. Renewal / cancellation of JobHistory tokens (Siddharth
+    Seth via tgraves)
+
+    MAPREDUCE-4819. AM can rerun job after reporting final job status to the
+    client (bobby and Bikas Saha via bobby)
+
+    MAPREDUCE-4913. TestMRAppMaster#testMRAppMasterMissingStaging occasionally 
+    exits (Jason Lowe via tgraves)
+
+    MAPREDUCE-4848. TaskAttemptContext cast error during AM recovery (Jerry
+    Chen via jlowe)
+
+    MAPREDUCE-4921. JobClient should acquire HS token with RM principal 
+    (daryn via bobby)
+
+    MAPREDUCE-4934. Maven RAT plugin is not checking all source files (tgraves)
+
+    MAPREDUCE-4678. Running the Pentomino example with defaults throws
+    java.lang.NegativeArraySizeException (Chris McConnell via harsh)
+
+    MAPREDUCE-4925. The pentomino option parser may be buggy.
+    (Karthik Kambatla via harsh)
+
+Release 0.23.5 - 2012-11-28
 
   INCOMPATIBLE CHANGES
 
@@ -576,7 +844,17 @@ Release 0.23.5 - UNRELEASED
     MAPREDUCE-4596. Split StateMachine state from states seen by MRClientProtocol
     for Job, Task and TaskAttempt. (Siddarth Seth via vinodkv) 
 
+    MAPREDUCE-4752. Reduce MR AM memory usage through String Interning (Robert
+    Evans via tgraves)
+
+    MAPREDUCE-4266. remove Ant remnants from MR (tgraves via bobby)
+
+    MAPREDUCE-4666. JVM metrics for history server (jlowe via jeagles)
+
   OPTIMIZATIONS
+
+    MAPREDUCE-4720. Browser thinks History Server main page JS is taking too 
+    long (Ravi Prakash via bobby)
 
   BUG FIXES
 
@@ -602,7 +880,60 @@ Release 0.23.5 - UNRELEASED
     MAPREDUCE-4740. only .jars can be added to the Distributed Cache
     classpath. (Robert Joseph Evans via jlowe)
 
-Release 0.23.4 - UNRELEASED
+    MAPREDUCE-4229. Intern counter names in the JT (Miomir Boljanovic and bobby via daryn)
+
+    MAPREDUCE-4741. WARN and ERROR messages logged during normal AM shutdown.
+    (Vinod Kumar Vavilapalli via jlowe)
+
+    MAPREDUCE-4730. Fix Reducer's EventFetcher to scale the map-completion
+    requests slowly to avoid HADOOP-8942. (Jason Lowe via vinodkv)
+
+    MAPREDUCE-4748. Invalid event: T_ATTEMPT_SUCCEEDED at SUCCEEDED. (jlowe)
+
+    MAPREDUCE-4724. job history web ui applications page should be sorted to
+    display last app first (tgraves via bobby)
+
+    MAPREDUCE-4746. The MR Application Master does not have a config to set
+    environment variables (Rob Parker via bobby)
+
+    MAPREDUCE-4729. job history UI not showing all job attempts. (Vinod
+    Kumar Vavilapalli via jlowe)
+
+    MAPREDUCE-4763 repair test TestUmbilicalProtocolWithJobToken (Ivan A.
+    Veselovsky via bobby)
+
+    MAPREDUCE-4771. KeyFieldBasedPartitioner not partitioning properly when
+    configured (jlowe via bobby)
+
+    MAPREDUCE-4772. Fetch failures can take way too long for a map to be 
+    restarted (bobby)
+
+    MAPREDUCE-4782. NLineInputFormat skips first line of last InputSplit 
+    (Mark Fuhs via bobby)
+
+    MAPREDUCE-4774. JobImpl does not handle asynchronous task events in FAILED
+    state (jlowe via bobby)
+
+    MAPREDUCE-4751. AM stuck in KILL_WAIT for days (vinodkv via bobby)
+
+    MAPREDUCE-4787. TestJobMonitorAndPrint is broken (Rob Parker via bobby)
+
+    MAPREDUCE-4425. Speculation + Fetch failures can lead to a hung job (jlowe
+    via bobby)
+
+    MAPREDUCE-4786. Job End Notification retry interval is 5 milliseconds by
+    default (Ravi Prakash via bobby)
+
+    MAPREDUCE-4517. Too many INFO messages written out during AM to RM heartbeat
+    (Jason Lowe via tgraves)
+
+    MAPREDUCE-4797. LocalContainerAllocator can loop forever trying to contact
+    the RM (jlowe via bobby)
+
+    MAPREDUCE-4801. ShuffleHandler can generate large logs due to prematurely
+    closed channels (jlowe via bobby)
+ 
+Release 0.23.4
 
   INCOMPATIBLE CHANGES
 

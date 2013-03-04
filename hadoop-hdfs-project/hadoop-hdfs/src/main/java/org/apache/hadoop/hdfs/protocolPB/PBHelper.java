@@ -17,6 +17,9 @@
  */
 package org.apache.hadoop.hdfs.protocolPB;
 
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -26,6 +29,7 @@ import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.CreateFlag;
 import org.apache.hadoop.fs.FsServerDefaults;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.ha.HAServiceProtocol.HAServiceState;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.ClientProtocol;
@@ -42,6 +46,7 @@ import org.apache.hadoop.hdfs.protocol.HdfsLocatedFileStatus;
 import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos;
+import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.CreateFlagProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.DatanodeReportTypeProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.GetFsStatsResponseProto;
@@ -62,12 +67,10 @@ import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.StorageRepor
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.DataEncryptionKeyProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockKeyProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockProto;
-import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockTokenIdentifierProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockWithLocationsProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlocksWithLocationsProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.CheckpointCommandProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.CheckpointSignatureProto;
-import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.ChecksumTypeProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.ContentSummaryProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.CorruptFileBlocksProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.DatanodeIDProto;
@@ -103,6 +106,7 @@ import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.NamenodeRole;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState;
 import org.apache.hadoop.hdfs.server.common.StorageInfo;
 import org.apache.hadoop.hdfs.server.namenode.CheckpointSignature;
+import org.apache.hadoop.hdfs.server.namenode.INodeId;
 import org.apache.hadoop.hdfs.server.protocol.BalancerBandwidthCommand;
 import org.apache.hadoop.hdfs.server.protocol.BlockCommand;
 import org.apache.hadoop.hdfs.server.protocol.BlockRecoveryCommand;
@@ -127,15 +131,20 @@ import org.apache.hadoop.hdfs.server.protocol.ReceivedDeletedBlockInfo.BlockStat
 import org.apache.hadoop.hdfs.server.protocol.RegisterCommand;
 import org.apache.hadoop.hdfs.server.protocol.RemoteEditLog;
 import org.apache.hadoop.hdfs.server.protocol.RemoteEditLogManifest;
+import org.apache.hadoop.hdfs.util.ExactSizeInputStream;
 import org.apache.hadoop.io.EnumSetWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.util.DataChecksum;
+import org.apache.hadoop.security.proto.SecurityProtos.TokenProto;
 import org.apache.hadoop.security.token.Token;
+import org.apache.hadoop.util.DataChecksum;
 
+import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedInputStream;
 
 /**
- * Utilities for converting protobuf classes to and from implementation classes.
+ * Utilities for converting protobuf classes to and from implementation classes
+ * and other helper utilities to help in dealing with protobuf.
  * 
  * Note that when converting from an internal type to protobuf type, the
  * converter never return null for protobuf type. The check for internal type
@@ -219,7 +228,8 @@ public class PBHelper {
 
   // Arrays of DatanodeId
   public static DatanodeIDProto[] convert(DatanodeID[] did) {
-    if (did == null) return null;
+    if (did == null)
+      return null;
     final int len = did.length;
     DatanodeIDProto[] result = new DatanodeIDProto[len];
     for (int i = 0; i < len; ++i) {
@@ -482,14 +492,26 @@ public class PBHelper {
     }    
     return result;
   }
+
+  public static List<? extends HdfsProtos.DatanodeInfoProto> convert(
+      DatanodeInfo[] dnInfos) {
+    return convert(dnInfos, 0);
+  }
   
-  static public DatanodeInfoProto[] convert(DatanodeInfo[] di) {
-    if (di == null) return null;
-    DatanodeInfoProto[] result = new DatanodeInfoProto[di.length];
-    for (int i = 0; i < di.length; i++) {
-      result[i] = PBHelper.convertDatanodeInfo(di[i]);
+  /**
+   * Copy from {@code dnInfos} to a target of list of same size starting at
+   * {@code startIdx}.
+   */
+  public static List<? extends HdfsProtos.DatanodeInfoProto> convert(
+      DatanodeInfo[] dnInfos, int startIdx) {
+    if (dnInfos == null)
+      return null;
+    ArrayList<HdfsProtos.DatanodeInfoProto> protos = Lists
+        .newArrayListWithCapacity(dnInfos.length);
+    for (int i = startIdx; i < dnInfos.length; i++) {
+      protos.add(convert(dnInfos[i]));
     }
-    return result;
+    return protos;
   }
 
   public static DatanodeInfo[] convert(List<DatanodeInfoProto> list) {
@@ -552,8 +574,8 @@ public class PBHelper {
     return lb;
   }
 
-  public static BlockTokenIdentifierProto convert(Token<?> tok) {
-    return BlockTokenIdentifierProto.newBuilder().
+  public static TokenProto convert(Token<?> tok) {
+    return TokenProto.newBuilder().
               setIdentifier(ByteString.copyFrom(tok.getIdentifier())).
               setPassword(ByteString.copyFrom(tok.getPassword())).
               setKind(tok.getKind().toString()).
@@ -561,7 +583,7 @@ public class PBHelper {
   }
   
   public static Token<BlockTokenIdentifier> convert(
-      BlockTokenIdentifierProto blockToken) {
+      TokenProto blockToken) {
     return new Token<BlockTokenIdentifier>(blockToken.getIdentifier()
         .toByteArray(), blockToken.getPassword().toByteArray(), new Text(
         blockToken.getKind()), new Text(blockToken.getService()));
@@ -569,7 +591,7 @@ public class PBHelper {
 
   
   public static Token<DelegationTokenIdentifier> convertDelegationToken(
-      BlockTokenIdentifierProto blockToken) {
+      TokenProto blockToken) {
     return new Token<DelegationTokenIdentifier>(blockToken.getIdentifier()
         .toByteArray(), blockToken.getPassword().toByteArray(), new Text(
         blockToken.getKind()), new Text(blockToken.getService()));
@@ -679,6 +701,8 @@ public class PBHelper {
     case DatanodeProtocol.DNA_SHUTDOWN:
       builder.setAction(BlockCommandProto.Action.SHUTDOWN);
       break;
+    default:
+      throw new AssertionError("Invalid action");
     }
     Block[] blocks = cmd.getBlocks();
     for (int i = 0; i < blocks.length; i++) {
@@ -692,7 +716,7 @@ public class PBHelper {
     DatanodeInfosProto[] ret = new DatanodeInfosProto[targets.length];
     for (int i = 0; i < targets.length; i++) {
       ret[i] = DatanodeInfosProto.newBuilder()
-          .addAllDatanodes(Arrays.asList(PBHelper.convert(targets[i]))).build();
+          .addAllDatanodes(PBHelper.convert(targets[i])).build();
     }
     return Arrays.asList(ret);
   }
@@ -861,25 +885,14 @@ public class PBHelper {
   // Located Block Arrays and Lists
   public static LocatedBlockProto[] convertLocatedBlock(LocatedBlock[] lb) {
     if (lb == null) return null;
-    final int len = lb.length;
-    LocatedBlockProto[] result = new LocatedBlockProto[len];
-    for (int i = 0; i < len; ++i) {
-      result[i] = PBHelper.convert(lb[i]);
-    }
-    return result;
+    return convertLocatedBlock2(Arrays.asList(lb)).toArray(
+        new LocatedBlockProto[lb.length]);
   }
   
   public static LocatedBlock[] convertLocatedBlock(LocatedBlockProto[] lb) {
     if (lb == null) return null;
-    final int len = lb.length;
-    LocatedBlock[] result = new LocatedBlock[len];
-    for (int i = 0; i < len; ++i) {
-      result[i] = new LocatedBlock(
-          PBHelper.convert(lb[i].getB()),
-          PBHelper.convert(lb[i].getLocsList()), 
-          lb[i].getOffset(), lb[i].getCorrupt());
-    }
-    return result;
+    return convertLocatedBlock(Arrays.asList(lb)).toArray(
+        new LocatedBlock[lb.length]);
   }
   
   public static List<LocatedBlock> convertLocatedBlock(
@@ -961,7 +974,7 @@ public class PBHelper {
         fs.getFileBufferSize(),
         fs.getEncryptDataTransfer(),
         fs.getTrashInterval(),
-        DataChecksum.Type.valueOf(fs.getChecksumType().name()));
+        PBHelper.convert(fs.getChecksumType()));
   }
   
   public static FsServerDefaultsProto convert(FsServerDefaults fs) {
@@ -974,7 +987,7 @@ public class PBHelper {
       .setFileBufferSize(fs.getFileBufferSize())
       .setEncryptDataTransfer(fs.getEncryptDataTransfer())
       .setTrashInterval(fs.getTrashInterval())
-      .setChecksumType(ChecksumTypeProto.valueOf(fs.getChecksumType().name()))
+      .setChecksumType(PBHelper.convert(fs.getChecksumType()))
       .build();
   }
   
@@ -1033,6 +1046,7 @@ public class PBHelper {
         fs.getFileType().equals(FileType.IS_SYMLINK) ? 
             fs.getSymlink().toByteArray() : null,
         fs.getPath().toByteArray(),
+        fs.hasFileId()? fs.getFileId(): INodeId.GRANDFATHER_INODE_ID,
         fs.hasLocations() ? PBHelper.convert(fs.getLocations()) : null);
   }
 
@@ -1057,6 +1071,7 @@ public class PBHelper {
       setPermission(PBHelper.convert(fs.getPermission())).
       setOwner(fs.getOwner()).
       setGroup(fs.getGroup()).
+      setFileId(fs.getFileId()).
       setPath(ByteString.copyFrom(fs.getLocalNameInBytes()));
     if (fs.isSymlink())  {
       builder.setSymlink(ByteString.copyFrom(fs.getSymlinkInBytes()));
@@ -1233,9 +1248,9 @@ public class PBHelper {
     if (s == null) return null;
     switch (s.getState()) {
     case ACTIVE:
-      return new NNHAStatusHeartbeat(NNHAStatusHeartbeat.State.ACTIVE, s.getTxid());
+      return new NNHAStatusHeartbeat(HAServiceState.ACTIVE, s.getTxid());
     case STANDBY:
-      return new NNHAStatusHeartbeat(NNHAStatusHeartbeat.State.STANDBY, s.getTxid());
+      return new NNHAStatusHeartbeat(HAServiceState.STANDBY, s.getTxid());
     default:
       throw new IllegalArgumentException("Unexpected NNHAStatusHeartbeat.State:" + s.getState());
     }
@@ -1311,5 +1326,25 @@ public class PBHelper {
     return JournalInfoProto.newBuilder().setClusterID(j.getClusterId())
         .setLayoutVersion(j.getLayoutVersion())
         .setNamespaceID(j.getNamespaceId()).build();
+  }
+
+  public static DataChecksum.Type convert(HdfsProtos.ChecksumTypeProto type) {
+    return DataChecksum.Type.valueOf(type.getNumber());
+  }
+
+  public static HdfsProtos.ChecksumTypeProto convert(DataChecksum.Type type) {
+    return HdfsProtos.ChecksumTypeProto.valueOf(type.id);
+  }
+
+  public static InputStream vintPrefixed(final InputStream input)
+      throws IOException {
+    final int firstByte = input.read();
+    if (firstByte == -1) {
+      throw new EOFException("Premature EOF: no length prefix available");
+    }
+
+    int size = CodedInputStream.readRawVarint32(firstByte, input);
+    assert size >= 0;
+    return new ExactSizeInputStream(input, size);
   }
 }

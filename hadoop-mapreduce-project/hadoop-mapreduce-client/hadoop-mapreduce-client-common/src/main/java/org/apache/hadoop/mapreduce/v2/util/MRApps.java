@@ -18,18 +18,19 @@
 
 package org.apache.hadoop.mapreduce.v2.util;
 
-import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.net.MalformedURLException;
 import java.net.URI;
-import java.net.URL;
+import java.security.AccessController;
+import java.security.PrivilegedActionException;
+import java.security.PrivilegedExceptionAction;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience.Private;
 import org.apache.hadoop.classification.InterfaceStability.Unstable;
 import org.apache.hadoop.conf.Configuration;
@@ -55,9 +56,12 @@ import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
+import org.apache.hadoop.yarn.util.ApplicationClassLoader;
 import org.apache.hadoop.yarn.util.Apps;
 import org.apache.hadoop.yarn.util.BuilderUtils;
 import org.apache.hadoop.yarn.util.ConverterUtils;
+
+import com.google.common.base.Charsets;
 
 /**
  * Helper class for MR applications
@@ -65,6 +69,8 @@ import org.apache.hadoop.yarn.util.ConverterUtils;
 @Private
 @Unstable
 public class MRApps extends Apps {
+  public static final Log LOG = LogFactory.getLog(MRApps.class);
+
   public static String toString(JobId jid) {
     return jid.toString();
   }
@@ -132,61 +138,24 @@ public class MRApps extends Apps {
 
   private static void setMRFrameworkClasspath(
       Map<String, String> environment, Configuration conf) throws IOException {
-    InputStream classpathFileStream = null;
-    BufferedReader reader = null;
-    try {
-      // Get yarn mapreduce-app classpath from generated classpath
-      // Works if compile time env is same as runtime. Mainly tests.
-      ClassLoader thisClassLoader =
-          Thread.currentThread().getContextClassLoader();
-      String mrAppGeneratedClasspathFile = "mrapp-generated-classpath";
-      classpathFileStream =
-          thisClassLoader.getResourceAsStream(mrAppGeneratedClasspathFile);
+    // Propagate the system classpath when using the mini cluster
+    if (conf.getBoolean(YarnConfiguration.IS_MINI_YARN_CLUSTER, false)) {
+      Apps.addToEnvironment(environment, Environment.CLASSPATH.name(),
+          System.getProperty("java.class.path"));
+    }
 
-      // Put the file itself on classpath for tasks.
-      URL classpathResource = thisClassLoader
-        .getResource(mrAppGeneratedClasspathFile);
-      if (classpathResource != null) {
-        String classpathElement = classpathResource.getFile();
-        if (classpathElement.contains("!")) {
-          classpathElement = classpathElement.substring(0,
-            classpathElement.indexOf("!"));
-        } else {
-          classpathElement = new File(classpathElement).getParent();
-        }
-        Apps.addToEnvironment(environment, Environment.CLASSPATH.name(),
-          classpathElement);
-      }
-
-      if (classpathFileStream != null) {
-        reader = new BufferedReader(new InputStreamReader(classpathFileStream));
-        String cp = reader.readLine();
-        if (cp != null) {
-          Apps.addToEnvironment(environment, Environment.CLASSPATH.name(),
-            cp.trim());
-        }
-      }
-
-      // Add standard Hadoop classes
-      for (String c : conf.getStrings(
-          YarnConfiguration.YARN_APPLICATION_CLASSPATH,
-          YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH)) {
-        Apps.addToEnvironment(environment, Environment.CLASSPATH.name(), c
-            .trim());
-      }
-      for (String c : conf.getStrings(
-          MRJobConfig.MAPREDUCE_APPLICATION_CLASSPATH,
-          MRJobConfig.DEFAULT_MAPREDUCE_APPLICATION_CLASSPATH)) {
-        Apps.addToEnvironment(environment, Environment.CLASSPATH.name(), c
-            .trim());
-      }
-    } finally {
-      if (classpathFileStream != null) {
-        classpathFileStream.close();
-      }
-      if (reader != null) {
-        reader.close();
-      }
+    // Add standard Hadoop classes
+    for (String c : conf.getStrings(
+        YarnConfiguration.YARN_APPLICATION_CLASSPATH,
+        YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH)) {
+      Apps.addToEnvironment(environment, Environment.CLASSPATH.name(), c
+          .trim());
+    }
+    for (String c : conf.getStrings(
+        MRJobConfig.MAPREDUCE_APPLICATION_CLASSPATH,
+        MRJobConfig.DEFAULT_MAPREDUCE_APPLICATION_CLASSPATH)) {
+      Apps.addToEnvironment(environment, Environment.CLASSPATH.name(), c
+          .trim());
     }
     // TODO: Remove duplicates.
   }
@@ -197,38 +166,42 @@ public class MRApps extends Apps {
     boolean userClassesTakesPrecedence = 
       conf.getBoolean(MRJobConfig.MAPREDUCE_JOB_USER_CLASSPATH_FIRST, false);
 
+    String classpathEnvVar = 
+      conf.getBoolean(MRJobConfig.MAPREDUCE_JOB_CLASSLOADER, false)
+        ? Environment.APP_CLASSPATH.name() : Environment.CLASSPATH.name();
+
     Apps.addToEnvironment(environment,
-      Environment.CLASSPATH.name(),
+      classpathEnvVar,
       Environment.PWD.$());
     if (!userClassesTakesPrecedence) {
       MRApps.setMRFrameworkClasspath(environment, conf);
     }
     Apps.addToEnvironment(
         environment,
-        Environment.CLASSPATH.name(),
+        classpathEnvVar,
         MRJobConfig.JOB_JAR + Path.SEPARATOR + MRJobConfig.JOB_JAR);
     Apps.addToEnvironment(
         environment,
-        Environment.CLASSPATH.name(),
+        classpathEnvVar,
         MRJobConfig.JOB_JAR + Path.SEPARATOR + "classes" + Path.SEPARATOR);
     Apps.addToEnvironment(
         environment,
-        Environment.CLASSPATH.name(),
+        classpathEnvVar,
         MRJobConfig.JOB_JAR + Path.SEPARATOR + "lib" + Path.SEPARATOR + "*");
     Apps.addToEnvironment(
         environment,
-        Environment.CLASSPATH.name(),
+        classpathEnvVar,
         Environment.PWD.$() + Path.SEPARATOR + "*");
     // a * in the classpath will only find a .jar, so we need to filter out
     // all .jars and add everything else
     addToClasspathIfNotJar(DistributedCache.getFileClassPaths(conf),
         DistributedCache.getCacheFiles(conf),
         conf,
-        environment);
+        environment, classpathEnvVar);
     addToClasspathIfNotJar(DistributedCache.getArchiveClassPaths(conf),
         DistributedCache.getCacheArchives(conf),
         conf,
-        environment);
+        environment, classpathEnvVar);
     if (userClassesTakesPrecedence) {
       MRApps.setMRFrameworkClasspath(environment, conf);
     }
@@ -244,7 +217,8 @@ public class MRApps extends Apps {
    */
   private static void addToClasspathIfNotJar(Path[] paths,
       URI[] withLinks, Configuration conf,
-      Map<String, String> environment) throws IOException {
+      Map<String, String> environment,
+      String classpathEnvVar) throws IOException {
     if (paths != null) {
       HashMap<Path, String> linkLookup = new HashMap<Path, String>();
       if (withLinks != null) {
@@ -272,10 +246,61 @@ public class MRApps extends Apps {
         if(!name.toLowerCase().endsWith(".jar")) {
           Apps.addToEnvironment(
               environment,
-              Environment.CLASSPATH.name(),
+              classpathEnvVar,
               Environment.PWD.$() + Path.SEPARATOR + name);
         }
       }
+    }
+  }
+
+  /**
+   * Sets a {@link ApplicationClassLoader} on the given configuration and as
+   * the context classloader, if
+   * {@link MRJobConfig#MAPREDUCE_JOB_CLASSLOADER} is set to true, and
+   * the APP_CLASSPATH environment variable is set.
+   * @param conf
+   * @throws IOException
+   */
+  public static void setJobClassLoader(Configuration conf)
+      throws IOException {
+    if (conf.getBoolean(MRJobConfig.MAPREDUCE_JOB_CLASSLOADER, false)) {
+      String appClasspath = System.getenv(Environment.APP_CLASSPATH.key());
+      if (appClasspath == null) {
+        LOG.warn("Not using job classloader since APP_CLASSPATH is not set.");
+      } else {
+        LOG.info("Using job classloader");
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("APP_CLASSPATH=" + appClasspath);
+        }
+        String[] systemClasses = conf.getStrings(
+            MRJobConfig.MAPREDUCE_JOB_CLASSLOADER_SYSTEM_CLASSES);
+        ClassLoader jobClassLoader = createJobClassLoader(appClasspath,
+            systemClasses);
+        if (jobClassLoader != null) {
+          conf.setClassLoader(jobClassLoader);
+          Thread.currentThread().setContextClassLoader(jobClassLoader);
+        }
+      }
+    }
+  }
+
+  private static ClassLoader createJobClassLoader(final String appClasspath,
+      final String[] systemClasses) throws IOException {
+    try {
+      return AccessController.doPrivileged(
+        new PrivilegedExceptionAction<ClassLoader>() {
+          @Override
+          public ClassLoader run() throws MalformedURLException {
+            return new ApplicationClassLoader(appClasspath,
+                MRApps.class.getClassLoader(), Arrays.asList(systemClasses));
+          }
+      });
+    } catch (PrivilegedActionException e) {
+      Throwable t = e.getCause();
+      if (t instanceof MalformedURLException) {
+        throw (MalformedURLException) t;
+      }
+      throw new IOException(e);
     }
   }
 
@@ -293,7 +318,26 @@ public class MRApps extends Apps {
     return jobFile.toString();
   }
   
-
+  public static Path getEndJobCommitSuccessFile(Configuration conf, String user,
+      JobId jobId) {
+    Path endCommitFile = new Path(MRApps.getStagingAreaDir(conf, user),
+        jobId.toString() + Path.SEPARATOR + "COMMIT_SUCCESS");
+    return endCommitFile;
+  }
+  
+  public static Path getEndJobCommitFailureFile(Configuration conf, String user,
+      JobId jobId) {
+    Path endCommitFile = new Path(MRApps.getStagingAreaDir(conf, user),
+        jobId.toString() + Path.SEPARATOR + "COMMIT_FAIL");
+    return endCommitFile;
+  }
+  
+  public static Path getStartJobCommitFile(Configuration conf, String user,
+      JobId jobId) {
+    Path startCommitFile = new Path(MRApps.getStagingAreaDir(conf, user),
+        jobId.toString() + Path.SEPARATOR + "COMMIT_STARTED");
+    return startCommitFile;
+  }
 
   private static long[] parseTimeStamps(String[] strs) {
     if (null == strs) {

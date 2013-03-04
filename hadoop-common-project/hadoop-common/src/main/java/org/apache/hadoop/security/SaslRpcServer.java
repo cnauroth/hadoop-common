@@ -23,6 +23,7 @@ import java.io.DataInput;
 import java.io.DataInputStream;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.security.Security;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -42,7 +43,6 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ipc.Server;
-import org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod;
 import org.apache.hadoop.security.token.SecretManager;
 import org.apache.hadoop.security.token.TokenIdentifier;
 import org.apache.hadoop.security.token.SecretManager.InvalidToken;
@@ -90,6 +90,7 @@ public class SaslRpcServer {
     
     SASL_PROPS.put(Sasl.QOP, saslQOP.getSaslQop());
     SASL_PROPS.put(Sasl.SERVER_AUTH, "true");
+    Security.addProvider(new SaslPlainServer.SecurityProvider());
   }
   
   static String encodeIdentifier(byte[] identifier) {
@@ -137,20 +138,18 @@ public class SaslRpcServer {
   /** Authentication method */
   @InterfaceStability.Evolving
   public static enum AuthMethod {
-    SIMPLE((byte) 80, "", AuthenticationMethod.SIMPLE),
-    KERBEROS((byte) 81, "GSSAPI", AuthenticationMethod.KERBEROS),
-    DIGEST((byte) 82, "DIGEST-MD5", AuthenticationMethod.TOKEN);
+    SIMPLE((byte) 80, ""),
+    KERBEROS((byte) 81, "GSSAPI"),
+    DIGEST((byte) 82, "DIGEST-MD5"),
+    PLAIN((byte) 83, "PLAIN");
 
     /** The code for this method. */
     public final byte code;
     public final String mechanismName;
-    public final AuthenticationMethod authenticationMethod;
 
-    private AuthMethod(byte code, String mechanismName, 
-                       AuthenticationMethod authMethod) {
+    private AuthMethod(byte code, String mechanismName) { 
       this.code = code;
       this.mechanismName = mechanismName;
-      this.authenticationMethod = authMethod;
     }
 
     private static final int FIRST_CODE = values()[0].code;

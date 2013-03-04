@@ -36,6 +36,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
+import org.apache.hadoop.util.Shell;
 import org.apache.hadoop.util.Shell.ShellCommandExecutor;
 import org.apache.hadoop.util.StringUtils;
 
@@ -59,32 +60,30 @@ public class ProcfsBasedProcessTree extends ResourceCalculatorProcessTree {
   public static final String PROCFS_STAT_FILE = "stat";
   public static final String PROCFS_CMDLINE_FILE = "cmdline";
   public static final long PAGE_SIZE;
+  public static final long JIFFY_LENGTH_IN_MILLIS; // in millisecond
+  
   static {
-    ShellCommandExecutor shellExecutor =
-            new ShellCommandExecutor(new String[]{"getconf",  "PAGESIZE"});
+    long jiffiesPerSecond = -1;
     long pageSize = -1;
     try {
-      shellExecutor.execute();
-      pageSize = Long.parseLong(shellExecutor.getOutput().replace("\n", ""));
-    } catch (IOException e) {
-      LOG.error(StringUtils.stringifyException(e));
-    } finally {
-      PAGE_SIZE = pageSize;
-    }
-  }
-  public static final long JIFFY_LENGTH_IN_MILLIS; // in millisecond
-  static {
-    ShellCommandExecutor shellExecutor =
-            new ShellCommandExecutor(new String[]{"getconf",  "CLK_TCK"});
-    long jiffiesPerSecond = -1;
-    try {
-      shellExecutor.execute();
-      jiffiesPerSecond = Long.parseLong(shellExecutor.getOutput().replace("\n", ""));
+      if(Shell.LINUX) {
+        ShellCommandExecutor shellExecutorClk = new ShellCommandExecutor(
+            new String[] { "getconf", "CLK_TCK" });
+        shellExecutorClk.execute();
+        jiffiesPerSecond = Long.parseLong(shellExecutorClk.getOutput().replace("\n", ""));
+
+        ShellCommandExecutor shellExecutorPage = new ShellCommandExecutor(
+            new String[] { "getconf", "PAGESIZE" });
+        shellExecutorPage.execute();
+        pageSize = Long.parseLong(shellExecutorPage.getOutput().replace("\n", ""));
+
+      }
     } catch (IOException e) {
       LOG.error(StringUtils.stringifyException(e));
     } finally {
       JIFFY_LENGTH_IN_MILLIS = jiffiesPerSecond != -1 ?
                      Math.round(1000D / jiffiesPerSecond) : -1;
+                     PAGE_SIZE = pageSize;
     }
   }
 
@@ -114,6 +113,7 @@ public class ProcfsBasedProcessTree extends ResourceCalculatorProcessTree {
    * @param procfsDir the root of a proc file system - only used for testing.
    */
   public ProcfsBasedProcessTree(String pid, String procfsDir) {
+    super(pid);
     this.pid = getValidPID(pid);
     this.procfsDir = procfsDir;
   }
@@ -125,8 +125,7 @@ public class ProcfsBasedProcessTree extends ResourceCalculatorProcessTree {
    */
   public static boolean isAvailable() {
     try {
-      String osName = System.getProperty("os.name");
-      if (!osName.startsWith("Linux")) {
+      if (!Shell.LINUX) {
         LOG.info("ProcfsBasedProcessTree currently is supported only on "
             + "Linux.");
         return false;
@@ -139,13 +138,12 @@ public class ProcfsBasedProcessTree extends ResourceCalculatorProcessTree {
   }
 
   /**
-   * Get the process-tree with latest state. If the root-process is not alive,
-   * an empty tree will be returned.
+   * Update process-tree with latest state. If the root-process is not alive,
+   * tree will be empty.
    *
-   * @return the process-tree with latest state.
    */
   @Override
-  public ResourceCalculatorProcessTree getProcessTree() {
+  public void updateProcessTree() {
     if (!pid.equals(deadPid)) {
       // Get the list of processes
       List<String> processList = getProcessList();
@@ -171,7 +169,7 @@ public class ProcfsBasedProcessTree extends ResourceCalculatorProcessTree {
       }
 
       if (me == null) {
-        return this;
+        return;
       }
 
       // Add each process to its parent.
@@ -213,7 +211,6 @@ public class ProcfsBasedProcessTree extends ResourceCalculatorProcessTree {
         LOG.debug(this.toString());
       }
     }
-    return this;
   }
 
   /** Verify that the given process id is same as its process group id.

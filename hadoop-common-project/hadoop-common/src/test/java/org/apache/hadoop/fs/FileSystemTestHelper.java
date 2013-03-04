@@ -34,7 +34,7 @@ import static org.mockito.Mockito.mock;
  */
 public final class FileSystemTestHelper {
   // The test root is relative to the <wd>/build/test/data by default
-  public static final String TEST_ROOT_DIR = 
+  public static String TEST_ROOT_DIR = 
     System.getProperty("test.build.data", "target/test/data") + "/test";
   private static final int DEFAULT_BLOCK_SIZE = 1024;
   private static final int DEFAULT_NUM_BLOCKS = 2;
@@ -61,23 +61,32 @@ public final class FileSystemTestHelper {
     return data;
   }
   
+  
+  /*
+   * get testRootPath qualified for fSys
+   */
   public static Path getTestRootPath(FileSystem fSys) {
     return fSys.makeQualified(new Path(TEST_ROOT_DIR));
   }
 
+  /*
+   * get testRootPath + pathString qualified for fSys
+   */
   public static Path getTestRootPath(FileSystem fSys, String pathString) {
     return fSys.makeQualified(new Path(TEST_ROOT_DIR, pathString));
   }
   
   
   // the getAbsolutexxx method is needed because the root test dir
-  // can be messed up by changing the working dir.
+  // can be messed up by changing the working dir since the TEST_ROOT_PATH
+  // is often relative to the working directory of process
+  // running the unit tests.
 
-  public static String getAbsoluteTestRootDir(FileSystem fSys)
+  static String getAbsoluteTestRootDir(FileSystem fSys)
       throws IOException {
     // NOTE: can't cache because of different filesystems!
     //if (absTestRootDir == null) 
-      if (TEST_ROOT_DIR.startsWith("/")) {
+      if (new Path(TEST_ROOT_DIR).isAbsolute()) {
         absTestRootDir = TEST_ROOT_DIR;
       } else {
         absTestRootDir = fSys.getWorkingDirectory().toString() + "/"

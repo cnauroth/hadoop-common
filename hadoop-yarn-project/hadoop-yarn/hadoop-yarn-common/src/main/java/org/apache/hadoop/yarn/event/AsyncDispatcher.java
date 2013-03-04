@@ -68,7 +68,9 @@ public class AsyncDispatcher extends AbstractService implements Dispatcher {
           try {
             event = eventQueue.take();
           } catch(InterruptedException ie) {
-            LOG.warn("AsyncDispatcher thread interrupted", ie);
+            if (!stopped) {
+              LOG.warn("AsyncDispatcher thread interrupted", ie);
+            }
             return;
           }
           if (event != null) {
@@ -123,7 +125,12 @@ public class AsyncDispatcher extends AbstractService implements Dispatcher {
     Class<? extends Enum> type = event.getType().getDeclaringClass();
 
     try{
-      eventDispatchers.get(type).handle(event);
+      EventHandler handler = eventDispatchers.get(type);
+      if(handler != null) {
+        handler.handle(event);
+      } else {
+        throw new Exception("No handler for registered for " + type);
+      }
     }
     catch (Throwable t) {
       //TODO Maybe log the state of the queue
@@ -180,7 +187,9 @@ public class AsyncDispatcher extends AbstractService implements Dispatcher {
       try {
         eventQueue.put(event);
       } catch (InterruptedException e) {
-        LOG.warn("AsyncDispatcher thread interrupted", e);
+        if (!stopped) {
+          LOG.warn("AsyncDispatcher thread interrupted", e);
+        }
         throw new YarnException(e);
       }
     };

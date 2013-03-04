@@ -20,6 +20,7 @@ package org.apache.hadoop.yarn.server.resourcemanager;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.LinkedList;
+import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -27,16 +28,17 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.DataInputByteBuffer;
 import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.event.EventHandler;
 import org.apache.hadoop.yarn.ipc.RPCUtil;
-import org.apache.hadoop.yarn.security.client.ClientTokenIdentifier;
 import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger.AuditConstants;
-import org.apache.hadoop.yarn.server.resourcemanager.recovery.ApplicationsStore.ApplicationStore;
+import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore;
+import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore.ApplicationState;
+import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore.RMState;
+import org.apache.hadoop.yarn.server.resourcemanager.recovery.Recoverable;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.RMApp;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.RMAppEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.RMAppEventType;
@@ -49,7 +51,8 @@ import org.apache.hadoop.yarn.server.security.ApplicationACLsManager;
 /**
  * This class manages the list of applications for the resource manager. 
  */
-public class RMAppManager implements EventHandler<RMAppManagerEvent> {
+public class RMAppManager implements EventHandler<RMAppManagerEvent>, 
+                                        Recoverable {
 
   private static final Log LOG = LogFactory.getLog(RMAppManager.class);
 
@@ -174,6 +177,10 @@ public class RMAppManager implements EventHandler<RMAppManagerEvent> {
       
       completedApps.add(applicationId);  
       writeAuditLog(applicationId);
+      
+      // application completely done. Remove from state
+      RMStateStore store = rmContext.getStateStore();
+      store.removeApplication(rmContext.getRMApps().get(applicationId));
     }
   }
 
@@ -221,27 +228,12 @@ public class RMAppManager implements EventHandler<RMAppManagerEvent> {
   }
 
   @SuppressWarnings("unchecked")
-  protected synchronized void submitApplication(
+  protected void submitApplication(
       ApplicationSubmissionContext submissionContext, long submitTime) {
     ApplicationId applicationId = submissionContext.getApplicationId();
     RMApp application = null;
     try {
 
-      String clientTokenStr = null;
-      if (UserGroupInformation.isSecurityEnabled()) {
-
-        // TODO: This needs to move to per-AppAttempt
-        this.rmContext.getClientToAMTokenSecretManager().registerApplication(
-          applicationId);
-
-        Token<ClientTokenIdentifier> clientToken = new 
-            Token<ClientTokenIdentifier>(
-            new ClientTokenIdentifier(applicationId),
-            this.rmContext.getClientToAMTokenSecretManager());
-        clientTokenStr = clientToken.encodeToUrlString();
-        LOG.debug("Sending client token as " + clientTokenStr);
-      }
-      
       // Sanity checks
       if (submissionContext.getQueue() == null) {
         submissionContext.setQueue(YarnConfiguration.DEFAULT_QUEUE_NAME);
@@ -251,18 +243,13 @@ public class RMAppManager implements EventHandler<RMAppManagerEvent> {
             YarnConfiguration.DEFAULT_APPLICATION_NAME);
       }
 
-      // Store application for recovery
-      ApplicationStore appStore = rmContext.getApplicationsStore()
-          .createApplicationStore(submissionContext.getApplicationId(),
-          submissionContext);
-
       // Create RMApp
       application =
           new RMAppImpl(applicationId, rmContext, this.conf,
             submissionContext.getApplicationName(),
             submissionContext.getUser(), submissionContext.getQueue(),
-            submissionContext, clientTokenStr, appStore, this.scheduler,
-            this.masterService, submitTime);
+            submissionContext, this.scheduler, this.masterService,
+            submitTime);
 
       // Sanity check - duplicate?
       if (rmContext.getRMApps().putIfAbsent(applicationId, application) != 
@@ -311,6 +298,37 @@ public class RMAppManager implements EventHandler<RMAppManagerEvent> {
       tokens.rewind();
     }
     return credentials;
+  }
+  
+  @Override
+  public void recover(RMState state) throws Exception {
+    RMStateStore store = rmContext.getStateStore();
+    assert store != null;
+    // recover applications
+    Map<ApplicationId, ApplicationState> appStates = state.getApplicationState();
+    LOG.info("Recovering " + appStates.size() + " applications");
+    for(ApplicationState appState : appStates.values()) {
+      // re-submit the application
+      // this is going to send an app start event but since the async dispatcher 
+      // has not started that event will be queued until we have completed re
+      // populating the state
+      if(appState.getApplicationSubmissionContext().getUnmanagedAM()) {
+        // do not recover unmanaged applications since current recovery 
+        // mechanism of restarting attempts does not work for them.
+        // This will need to be changed in work preserving recovery in which 
+        // RM will re-connect with the running AM's instead of restarting them
+        LOG.info("Not recovering unmanaged application " + appState.getAppId());
+        store.removeApplication(appState);
+      } else {
+        LOG.info("Recovering application " + appState.getAppId());
+        submitApplication(appState.getApplicationSubmissionContext(), 
+                          appState.getSubmitTime());
+        // re-populate attempt information in application
+        RMAppImpl appImpl = (RMAppImpl) rmContext.getRMApps().get(
+                                                          appState.getAppId());
+        appImpl.recover(state);
+      }
+    }
   }
 
   @Override

@@ -34,7 +34,7 @@
   <description>Apache Hadoop HttpFS</description>
 
   <properties>
-    <tomcat.version>6.0.32</tomcat.version>
+    <tomcat.version>6.0.36</tomcat.version>
     <httpfs.source.repository>REPO NOT AVAIL</httpfs.source.repository>
     <httpfs.source.repository>REPO NOT AVAIL</httpfs.source.repository>
     <httpfs.source.revision>REVISION NOT AVAIL</httpfs.source.revision>
@@ -359,6 +359,8 @@
         <artifactId>apache-rat-plugin</artifactId>
         <configuration>
           <excludes>
+            <exclude>src/test/resources/classutils.txt</exclude>
+            <exclude>src/main/conf/httpfs-signature.secret</exclude>
           </excludes>
         </configuration>
       </plugin>
@@ -531,7 +533,7 @@
                     <mkdir dir="downloads"/>
                     <get
                         src="${tomcat.download.url}"
-                        dest="downloads/tomcat.tar.gz" verbose="true" skipexisting="true"/>
+                        dest="downloads/apache-tomcat-${tomcat.version}.tar.gz" verbose="true" skipexisting="true"/>
                     <delete dir="${project.build.directory}/tomcat.exp"/>
                     <mkdir dir="${project.build.directory}/tomcat.exp"/>
 
@@ -539,13 +541,13 @@
                     <echo file="${project.build.directory}/tomcat-untar.sh">
 
                       which cygpath 2&gt; /dev/null
-                      if [ $? = 1 ]; then
+                      if [ $? != 0 ]; then
                       BUILD_DIR="${project.build.directory}"
                       else
                       BUILD_DIR=`cygpath --unix '${project.build.directory}'`
                       fi
                       cd $BUILD_DIR/tomcat.exp
-                      tar xzf ${basedir}/downloads/tomcat.tar.gz
+                      gzip -cd ../../downloads/apache-tomcat-${tomcat.version}.tar.gz | tar xf -
                     </echo>
                     <exec executable="sh" dir="${project.build.directory}" failonerror="true">
                       <arg line="./tomcat-untar.sh"/>
@@ -582,13 +584,13 @@
                     <echo file="${project.build.directory}/dist-maketar.sh">
 
                       which cygpath 2&gt; /dev/null
-                      if [ $? = 1 ]; then
+                      if [ $? != 0 ]; then
                       BUILD_DIR="${project.build.directory}"
                       else
                       BUILD_DIR=`cygpath --unix '${project.build.directory}'`
                       fi
                       cd $BUILD_DIR
-                      tar czf ${project.artifactId}-${project.version}.tar.gz ${project.artifactId}-${project.version}
+                      tar cf - ${project.artifactId}-${project.version} | gzip > ${project.artifactId}-${project.version}.tar.gz
                     </echo>
                     <exec executable="sh" dir="${project.build.directory}" failonerror="true">
                       <arg line="./dist-maketar.sh"/>

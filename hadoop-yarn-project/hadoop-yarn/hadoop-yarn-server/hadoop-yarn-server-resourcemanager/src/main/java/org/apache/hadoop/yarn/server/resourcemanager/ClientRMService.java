@@ -23,6 +23,7 @@ import java.net.InetSocketAddress;
 import java.security.AccessControlException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -37,7 +38,10 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod;
 import org.apache.hadoop.security.authorize.PolicyProvider;
 import org.apache.hadoop.security.token.Token;
+import org.apache.hadoop.util.ExitUtil;
 import org.apache.hadoop.yarn.api.ClientRMProtocol;
+import org.apache.hadoop.yarn.api.protocolrecords.CancelDelegationTokenRequest;
+import org.apache.hadoop.yarn.api.protocolrecords.CancelDelegationTokenResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.GetAllApplicationsRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.GetAllApplicationsResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.GetApplicationReportRequest;
@@ -56,12 +60,15 @@ import org.apache.hadoop.yarn.api.protocolrecords.GetQueueUserAclsInfoRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.GetQueueUserAclsInfoResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.KillApplicationRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.KillApplicationResponse;
+import org.apache.hadoop.yarn.api.protocolrecords.RenewDelegationTokenRequest;
+import org.apache.hadoop.yarn.api.protocolrecords.RenewDelegationTokenResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.SubmitApplicationRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.SubmitApplicationResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationAccessType;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
+import org.apache.hadoop.yarn.api.records.DelegationToken;
 import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.QueueInfo;
 import org.apache.hadoop.yarn.api.records.Resource;
@@ -75,6 +82,7 @@ import org.apache.hadoop.yarn.ipc.YarnRPC;
 import org.apache.hadoop.yarn.security.client.RMDelegationTokenIdentifier;
 import org.apache.hadoop.yarn.server.RMDelegationTokenSecretManager;
 import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger.AuditConstants;
+import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.RMApp;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.RMAppEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.RMAppEventType;
@@ -85,6 +93,7 @@ import org.apache.hadoop.yarn.server.resourcemanager.security.authorize.RMPolicy
 import org.apache.hadoop.yarn.server.security.ApplicationACLsManager;
 import org.apache.hadoop.yarn.service.AbstractService;
 import org.apache.hadoop.yarn.util.BuilderUtils;
+import org.apache.hadoop.yarn.util.Records;
 
 
 /**
@@ -103,7 +112,7 @@ public class ClientRMService extends AbstractService implements
   private final RMAppManager rmAppManager;
 
   private Server server;
-  private RMDelegationTokenSecretManager rmDTSecretManager;
+  protected RMDelegationTokenSecretManager rmDTSecretManager;
 
   private final RecordFactory recordFactory = RecordFactoryProvider.getRecordFactory(null);
   InetSocketAddress clientBindAddress;
@@ -120,16 +129,13 @@ public class ClientRMService extends AbstractService implements
     this.applicationsACLsManager = applicationACLsManager;
     this.rmDTSecretManager = rmDTSecretManager;
   }
-  
+
   @Override
   public void init(Configuration conf) {
-    clientBindAddress = conf.getSocketAddr(
-        YarnConfiguration.RM_ADDRESS,
-        YarnConfiguration.DEFAULT_RM_ADDRESS,
-        YarnConfiguration.DEFAULT_RM_PORT);
+    clientBindAddress = getBindAddress(conf);
     super.init(conf);
   }
-  
+
   @Override
   public void start() {
     Configuration conf = getConfig();
@@ -151,7 +157,25 @@ public class ClientRMService extends AbstractService implements
     this.server.start();
     clientBindAddress = conf.updateConnectAddr(YarnConfiguration.RM_ADDRESS,
                                                server.getListenerAddress());
+    // enable RM to short-circuit token operations directly to itself
+    RMDelegationTokenIdentifier.Renewer.setSecretManager(
+        rmDTSecretManager, clientBindAddress);
+    
     super.start();
+  }
+
+  @Override
+  public void stop() {
+    if (this.server != null) {
+        this.server.stop();
+    }
+    super.stop();
+  }
+
+  InetSocketAddress getBindAddress(Configuration conf) {
+    return conf.getSocketAddr(YarnConfiguration.RM_ADDRESS,
+            YarnConfiguration.DEFAULT_RM_ADDRESS,
+            YarnConfiguration.DEFAULT_RM_PORT);
   }
 
   @Private
@@ -254,6 +278,20 @@ public class ClientRMService extends AbstractService implements
       // So call handle directly and do not send an event.
       rmAppManager.handle(new RMAppManagerSubmitEvent(submissionContext, System
           .currentTimeMillis()));
+      
+      // If recovery is enabled then store the application information in a 
+      // blocking call so make sure that RM has stored the information needed 
+      // to restart the AM after RM restart without further client communication
+      RMStateStore stateStore = rmContext.getStateStore();
+      LOG.info("Storing Application with id " + applicationId);
+      try {
+        stateStore.storeApplication(rmContext.getRMApps().get(applicationId));
+      } catch (Exception e) {
+        // For HA this exception needs to be handled by giving up 
+        // master status if we got fenced
+        LOG.error("Failed to store application:" + applicationId, e);
+        ExitUtil.terminate(1, e);
+      }
 
       LOG.info("Application with id " + applicationId.getId() + 
           " submitted by user " + user);
@@ -398,7 +436,6 @@ public class ClientRMService extends AbstractService implements
       response.setQueueInfo(queueInfo);
     } catch (IOException ioe) {
       LOG.info("Failed to getQueueInfo for " + request.getQueueName(), ioe);
-      throw RPCUtil.getRemoteException(ioe);
     }
     
     return response;
@@ -407,7 +444,7 @@ public class ClientRMService extends AbstractService implements
   private NodeReport createNodeReports(RMNode rmNode) {    
     SchedulerNodeReport schedulerNodeReport = 
         scheduler.getNodeReport(rmNode.getNodeID());
-    Resource used = BuilderUtils.newResource(0);
+    Resource used = BuilderUtils.newResource(0, 0);
     int numContainers = 0;
     if (schedulerNodeReport != null) {
       used = schedulerNodeReport.getUsedResource();
@@ -439,10 +476,7 @@ public class ClientRMService extends AbstractService implements
     try {
 
       // Verify that the connection is kerberos authenticated
-      AuthenticationMethod authMethod = UserGroupInformation
-        .getRealAuthenticationMethod(UserGroupInformation.getCurrentUser());
-      if (UserGroupInformation.isSecurityEnabled()
-          && (authMethod != AuthenticationMethod.KERBEROS)) {
+      if (!isAllowedDelegationTokenOp()) {
         throw new IOException(
           "Delegation Token can be issued only with kerberos authentication");
       }
@@ -474,17 +508,76 @@ public class ClientRMService extends AbstractService implements
     }
   }
 
+  @Override
+  public RenewDelegationTokenResponse renewDelegationToken(
+      RenewDelegationTokenRequest request) throws YarnRemoteException {
+    try {
+      if (!isAllowedDelegationTokenOp()) {
+        throw new IOException(
+            "Delegation Token can be renewed only with kerberos authentication");
+      }
+      
+      DelegationToken protoToken = request.getDelegationToken();
+      Token<RMDelegationTokenIdentifier> token = new Token<RMDelegationTokenIdentifier>(
+          protoToken.getIdentifier().array(), protoToken.getPassword().array(),
+          new Text(protoToken.getKind()), new Text(protoToken.getService()));
+
+      String user = getRenewerForToken(token);
+      long nextExpTime = rmDTSecretManager.renewToken(token, user);
+      RenewDelegationTokenResponse renewResponse = Records
+          .newRecord(RenewDelegationTokenResponse.class);
+      renewResponse.setNextExpirationTime(nextExpTime);
+      return renewResponse;
+    } catch (IOException e) {
+      throw RPCUtil.getRemoteException(e);
+    }
+  }
+
+  @Override
+  public CancelDelegationTokenResponse cancelDelegationToken(
+      CancelDelegationTokenRequest request) throws YarnRemoteException {
+    try {
+      if (!isAllowedDelegationTokenOp()) {
+        throw new IOException(
+            "Delegation Token can be cancelled only with kerberos authentication");
+      }
+      DelegationToken protoToken = request.getDelegationToken();
+      Token<RMDelegationTokenIdentifier> token = new Token<RMDelegationTokenIdentifier>(
+          protoToken.getIdentifier().array(), protoToken.getPassword().array(),
+          new Text(protoToken.getKind()), new Text(protoToken.getService()));
+
+      String user = getRenewerForToken(token);
+      rmDTSecretManager.cancelToken(token, user);
+      return Records.newRecord(CancelDelegationTokenResponse.class);
+    } catch (IOException e) {
+      throw RPCUtil.getRemoteException(e);
+    }
+  }
+
+  private String getRenewerForToken(Token<RMDelegationTokenIdentifier> token)
+      throws IOException {
+    UserGroupInformation user = UserGroupInformation.getCurrentUser();
+    UserGroupInformation loginUser = UserGroupInformation.getLoginUser();
+    // we can always renew our own tokens
+    return loginUser.getUserName().equals(user.getUserName())
+        ? token.decodeIdentifier().getRenewer().toString()
+        : user.getShortUserName();
+  }
+
   void refreshServiceAcls(Configuration configuration, 
       PolicyProvider policyProvider) {
     this.server.refreshServiceAcl(configuration, policyProvider);
   }
-  
-  @Override
-  public void stop() {
-    if (this.server != null) {
-        this.server.stop();
+
+  private boolean isAllowedDelegationTokenOp() throws IOException {
+    if (UserGroupInformation.isSecurityEnabled()) {
+      return EnumSet.of(AuthenticationMethod.KERBEROS,
+                        AuthenticationMethod.KERBEROS_SSL,
+                        AuthenticationMethod.CERTIFICATE)
+          .contains(UserGroupInformation.getCurrentUser()
+                  .getRealAuthenticationMethod());
+    } else {
+      return true;
     }
-    super.stop();
   }
-  
 }

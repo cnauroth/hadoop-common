@@ -85,15 +85,13 @@ public class RawLocalFs extends DelegateToFileSystem {
                             "system: "+target.toString());
     }
     if (createParent) {
-      mkdir(link.getParent(), FsPermission.getDefault(), true);
+      mkdir(link.getParent(), FsPermission.getDirDefault(), true);
     }
     // NB: Use createSymbolicLink in java.nio.file.Path once available
     try {
-      Shell.execCommand(Shell.LINK_COMMAND, "-s",
-                        new URI(target.toString()).getPath(),
-                        new URI(link.toString()).getPath());
-    } catch (URISyntaxException x) {
-      throw new IOException("Invalid symlink path: "+x.getMessage());
+      Shell.execCommand(Shell.getSymlinkCommand(
+        getPathWithoutSchemeAndAuthority(target),
+        getPathWithoutSchemeAndAuthority(link)));
     } catch (IOException x) {
       throw new IOException("Unable to create symlink: "+x.getMessage());
     }
@@ -159,6 +157,14 @@ public class RawLocalFs extends DelegateToFileSystem {
     }
   }
   
+   @Override
+   public boolean isValidName(String src) {
+     // Different local file systems have different validation rules.  Skip
+     // validation here and just let the OS handle it.  This is consistent with
+     // RawLocalFileSystem.
+     return true;
+   }
+  
   @Override
   public Path getLinkTarget(Path f) throws IOException {
     /* We should never get here. Valid local links are resolved transparently
@@ -167,5 +173,14 @@ public class RawLocalFs extends DelegateToFileSystem {
      * should never call this function.
      */
     throw new AssertionError();
+  }
+
+  private static String getPathWithoutSchemeAndAuthority(Path path) {
+    // This code depends on Path.toString() to remove the leading slash before
+    // the drive specification on Windows.
+    Path newPath = path.isUriPathAbsolute() ?
+      new Path(null, null, path.toUri().getPath()) :
+      path;
+    return newPath.toString();
   }
 }

@@ -82,7 +82,7 @@ public class TestNameNodeMetrics {
     CONF.set(DFSConfigKeys.DFS_METRICS_PERCENTILES_INTERVALS_KEY, 
         "" + PERCENTILES_INTERVAL);
     // Enable stale DataNodes checking
-    CONF.setBoolean(DFSConfigKeys.DFS_NAMENODE_CHECK_STALE_DATANODE_KEY, true);
+    CONF.setBoolean(DFSConfigKeys.DFS_NAMENODE_AVOID_STALE_DATANODE_FOR_READ_KEY, true);
     ((Log4JLogger)LogFactory.getLog(MetricsAsserts.class))
       .getLogger().setLevel(Level.DEBUG);
   }
@@ -123,7 +123,25 @@ public class TestNameNodeMetrics {
     stm.read(buffer,0,4);
     stm.close();
   }
-  
+
+  /**
+   * Test that capacity metrics are exported and pass
+   * basic sanity tests.
+   */
+  @Test (timeout = 1800)
+  public void testCapacityMetrics() throws Exception {
+    MetricsRecordBuilder rb = getMetrics(NS_METRICS);
+    long capacityTotal = MetricsAsserts.getLongGauge("CapacityTotal", rb);
+    assert(capacityTotal != 0);
+    long capacityUsed = MetricsAsserts.getLongGauge("CapacityUsed", rb);
+    long capacityRemaining =
+        MetricsAsserts.getLongGauge("CapacityRemaining", rb);
+    long capacityUsedNonDFS =
+        MetricsAsserts.getLongGauge("CapacityUsedNonDFS", rb);
+    assert(capacityUsed + capacityRemaining + capacityUsedNonDFS ==
+        capacityTotal);
+  }
+
   /** Test metrics indicating the number of stale DataNodes */
   @Test
   public void testStaleNodes() throws Exception {
@@ -205,6 +223,12 @@ public class TestNameNodeMetrics {
     final Path file = getTestPath("testCorruptBlock");
     createFile(file, 100, (short)2);
     
+    // Disable the heartbeats, so that no corrupted replica
+    // can be fixed
+    for (DataNode dn : cluster.getDataNodes()) {
+      DataNodeTestUtils.setHeartbeatsDisabledForTests(dn, true);
+    }
+    
     // Corrupt first replica of the block
     LocatedBlock block = NameNodeAdapter.getBlockLocations(
         cluster.getNameNode(), file.toString(), 0, 1).get(0);
@@ -215,12 +239,21 @@ public class TestNameNodeMetrics {
     } finally {
       cluster.getNamesystem().writeUnlock();
     }
-    Thread.sleep(1000); // Wait for block to be marked corrupt
+    BlockManagerTestUtil.getComputedDatanodeWork(bm);
     MetricsRecordBuilder rb = getMetrics(NS_METRICS);
     assertGauge("CorruptBlocks", 1L, rb);
     assertGauge("PendingReplicationBlocks", 1L, rb);
-    assertGauge("ScheduledReplicationBlocks", 1L, rb);
+    
     fs.delete(file, true);
+    // During the file deletion, both BlockManager#corruptReplicas and
+    // BlockManager#pendingReplications will be updated, i.e., the records
+    // for the blocks of the deleted file will be removed from both
+    // corruptReplicas and pendingReplications. The corresponding
+    // metrics (CorruptBlocks and PendingReplicationBlocks) will only be updated
+    // when BlockManager#computeDatanodeWork is run where the
+    // BlockManager#updateState is called. And in
+    // BlockManager#computeDatanodeWork the metric ScheduledReplicationBlocks
+    // will also be updated.
     rb = waitForDnMetricValue(NS_METRICS, "CorruptBlocks", 0L);
     assertGauge("PendingReplicationBlocks", 0L, rb);
     assertGauge("ScheduledReplicationBlocks", 0L, rb);
@@ -386,9 +419,9 @@ public class TestNameNodeMetrics {
     assertGauge("TransactionsSinceLastCheckpoint", 4L, getMetrics(NS_METRICS));
     assertGauge("TransactionsSinceLastLogRoll", 1L, getMetrics(NS_METRICS));
     
-    cluster.getNameNodeRpc().setSafeMode(SafeModeAction.SAFEMODE_ENTER);
+    cluster.getNameNodeRpc().setSafeMode(SafeModeAction.SAFEMODE_ENTER, false);
     cluster.getNameNodeRpc().saveNamespace();
-    cluster.getNameNodeRpc().setSafeMode(SafeModeAction.SAFEMODE_LEAVE);
+    cluster.getNameNodeRpc().setSafeMode(SafeModeAction.SAFEMODE_LEAVE, false);
     
     long newLastCkptTime = MetricsAsserts.getLongGauge("LastCheckpointTime",
         getMetrics(NS_METRICS));

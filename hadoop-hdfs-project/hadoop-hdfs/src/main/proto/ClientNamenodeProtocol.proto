@@ -20,7 +20,9 @@ option java_package = "org.apache.hadoop.hdfs.protocol.proto";
 option java_outer_classname = "ClientNamenodeProtocolProtos";
 option java_generic_services = true;
 option java_generate_equals_and_hash = true;
+package hadoop.hdfs;
 
+import "Security.proto";
 import "hdfs.proto";
 
 /**
@@ -65,7 +67,8 @@ message CreateRequestProto {
   required uint64 blockSize = 7;
 }
 
-message CreateResponseProto { // void response
+message CreateResponseProto {
+  optional HdfsFileStatusProto fs = 1;
 }
 
 message AppendRequestProto {
@@ -117,6 +120,7 @@ message AddBlockRequestProto {
   required string clientName = 2;
   optional ExtendedBlockProto previous = 3;
   repeated DatanodeInfoProto excludeNodes = 4;
+  optional uint64 fileId = 5 [default = 0];  // default as a bogus id
 }
 
 message AddBlockResponseProto {
@@ -166,7 +170,7 @@ message RenameRequestProto {
   required string dst = 2;
 }
 
-message RenameResponseProto { // void response
+message RenameResponseProto {
   required bool result = 1;
 }
 
@@ -264,6 +268,7 @@ enum SafeModeActionProto {
 
 message SetSafeModeRequestProto {
   required SafeModeActionProto action = 1;
+  optional bool checked = 2 [default = false];
 }
 
 message SetSafeModeResponseProto {
@@ -355,6 +360,7 @@ message SetQuotaResponseProto { // void response
 message FsyncRequestProto {
   required string src = 1;
   required string client = 2;
+  optional sint64 lastBlockLength = 3 [default = -1];
 }
 
 message FsyncResponseProto { // void response
@@ -383,7 +389,7 @@ message GetLinkTargetRequestProto {
   required string path = 1;
 }
 message GetLinkTargetResponseProto {
-  required string targetPath = 1;
+  optional string targetPath = 1;
 }
 
 message UpdateBlockForPipelineRequestProto {
@@ -405,29 +411,6 @@ message UpdatePipelineRequestProto {
 message UpdatePipelineResponseProto { // void response
 }
 
-message GetDelegationTokenRequestProto {
-  required string renewer = 1;
-}
-
-message GetDelegationTokenResponseProto {
-  required BlockTokenIdentifierProto token = 1;
-}
-
-message RenewDelegationTokenRequestProto {
-  required BlockTokenIdentifierProto token = 1;
-}
-
-message RenewDelegationTokenResponseProto {
-  required uint64 newExireTime = 1;
-}
-
-message CancelDelegationTokenRequestProto {
-  required BlockTokenIdentifierProto token = 1;
-}
-
-message CancelDelegationTokenResponseProto { // void response
-}
-
 message SetBalancerBandwidthRequestProto {
   required int64 bandwidth = 1;
 }
@@ -439,7 +422,7 @@ message GetDataEncryptionKeyRequestProto { // no parameters
 }
 
 message GetDataEncryptionKeyResponseProto {
-  required DataEncryptionKeyProto dataEncryptionKey = 1;
+  optional DataEncryptionKeyProto dataEncryptionKey = 1;
 }
 
 service ClientNamenodeProtocol {
@@ -505,12 +488,12 @@ service ClientNamenodeProtocol {
       returns(UpdateBlockForPipelineResponseProto);
   rpc updatePipeline(UpdatePipelineRequestProto)
       returns(UpdatePipelineResponseProto);
-  rpc getDelegationToken(GetDelegationTokenRequestProto)
-      returns(GetDelegationTokenResponseProto);
-  rpc renewDelegationToken(RenewDelegationTokenRequestProto)
-      returns(RenewDelegationTokenResponseProto);
-  rpc cancelDelegationToken(CancelDelegationTokenRequestProto)
-      returns(CancelDelegationTokenResponseProto);
+  rpc getDelegationToken(hadoop.common.GetDelegationTokenRequestProto)
+      returns(hadoop.common.GetDelegationTokenResponseProto);
+  rpc renewDelegationToken(hadoop.common.RenewDelegationTokenRequestProto)
+      returns(hadoop.common.RenewDelegationTokenResponseProto);
+  rpc cancelDelegationToken(hadoop.common.CancelDelegationTokenRequestProto)
+      returns(hadoop.common.CancelDelegationTokenResponseProto);
   rpc setBalancerBandwidth(SetBalancerBandwidthRequestProto)
       returns(SetBalancerBandwidthResponseProto);
   rpc getDataEncryptionKey(GetDataEncryptionKeyRequestProto)

@@ -362,8 +362,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
   void addBlockToBeRecovered(BlockInfoUnderConstruction block) {
     if(recoverBlocks.contains(block)) {
       // this prevents adding the same block twice to the recovery queue
-      BlockManager.LOG.info("Block " + block +
-                            " is already in the recovery queue.");
+      BlockManager.LOG.info(block + " is already in the recovery queue");
       return;
     }
     recoverBlocks.offer(block);
@@ -548,6 +547,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
   @Override
   public void updateRegInfo(DatanodeID nodeReg) {
     super.updateRegInfo(nodeReg);
+    firstBlockReport = true; // must re-process IBR after re-registration
   }
 
   /**
