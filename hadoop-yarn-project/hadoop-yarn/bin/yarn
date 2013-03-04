@@ -72,11 +72,6 @@ function print_usage(){
   echo "Most commands print help when invoked w/o parameters."
 }
 
-cygwin=false
-case "`uname`" in
-CYGWIN*) cygwin=true;;
-esac
-
 # if no args specified, show usage
 if [ $# = 0 ]; then
   print_usage
