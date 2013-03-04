@@ -315,7 +315,10 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     TimeUnit.MILLISECONDS.convert(1, TimeUnit.HOURS);
   final DelegationTokenSecretManager dtSecretManager;
   private final boolean alwaysUseDelegationTokensForTests;
-  
+
+  private static final Step STEP_AWAITING_REPORTED_BLOCKS =
+    new Step(StepType.AWAITING_REPORTED_BLOCKS);
+
   // Tracks whether the default audit logger is the only configured audit
   // logger; this allows isAuditEnabled() to return false in case the
   // underlying logger is disabled, and avoid some unnecessary work.
@@ -734,9 +737,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
         !safeMode.isPopulatingReplQueues();
       StartupProgress prog = NameNode.getStartupProgress();
       prog.beginPhase(Phase.SAFEMODE);
-      Step step = new Step(StepType.AWAITING_REPORTED_BLOCKS);
-      prog.beginStep(Phase.SAFEMODE, step);
-      prog.setTotal(Phase.SAFEMODE, step, getCompleteBlocksTotal());
+      prog.setTotal(Phase.SAFEMODE, STEP_AWAITING_REPORTED_BLOCKS,
+        getCompleteBlocksTotal());
       setBlockTotal();
       blockManager.activate(conf);
     } finally {
@@ -4090,8 +4092,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       // If startup has not yet completed, end safemode phase.
       StartupProgress prog = NameNode.getStartupProgress();
       if (prog.getStatus(Phase.SAFEMODE) != Status.COMPLETE) {
-        prog.endStep(Phase.SAFEMODE, new Step(
-          StepType.AWAITING_REPORTED_BLOCKS));
+        prog.endStep(Phase.SAFEMODE, STEP_AWAITING_REPORTED_BLOCKS);
         prog.endPhase(Phase.SAFEMODE);
       }
     }
@@ -4217,7 +4218,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
         if (prog.getStatus(Phase.SAFEMODE) != Status.COMPLETE) {
           if (this.awaitingReportedBlocksCounter == null) {
             this.awaitingReportedBlocksCounter = prog.getCounter(Phase.SAFEMODE,
-              new Step(StepType.AWAITING_REPORTED_BLOCKS));
+              STEP_AWAITING_REPORTED_BLOCKS);
           }
           this.awaitingReportedBlocksCounter.increment();
         }
