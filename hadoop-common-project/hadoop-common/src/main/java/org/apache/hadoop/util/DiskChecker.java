@@ -92,65 +92,73 @@ public class DiskChecker {
    * @throws DiskErrorException
    */
   public static void checkDir(File dir) throws DiskErrorException {
-    if (!mkdirsWithExistsCheck(dir))
+    if (!mkdirsWithExistsCheck(dir)) {
       throw new DiskErrorException("Can not create directory: "
                                    + dir.toString());
+    }
 
-    if (!dir.isDirectory())
+    if (!dir.isDirectory()) {
       throw new DiskErrorException("Not a directory: "
                                    + dir.toString());
-
-    if (!dir.canRead())
-      throw new DiskErrorException("Directory is not readable: "
-                                   + dir.toString());
+    }
 
     // This method contains several workarounds to known JVM bugs that cause
     // File.canRead, File.canWrite, and File.canExecute to return incorrect
     // results on Windows with NTFS ACLs.  See:
     // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6203387
-    // On Windows, make sure we can read the directory by listing it.
-    if (Shell.WINDOWS && dir.list() == null)
-      throw new DiskErrorException("Directory is not readable: "
-                                   + dir.toString());
 
-    if (!dir.canWrite())
-      throw new DiskErrorException("Directory is not writable: "
-                                   + dir.toString());
-
-    // On Windows, make sure we can write to the directory by creating a temp
-    // file in it.
     if (Shell.WINDOWS) {
-      try {
-        File tempFile = File.createTempFile("checkDir", null, dir);
-        if (!tempFile.delete())
-          throw new DiskErrorException("Directory is not writable: "
-                                       + dir.toString());
-
+      // On Windows, make sure we can read the directory by listing it.
+      if (dir.list() == null) {
+        throw new DiskErrorException("Directory is not readable: "
+                                     + dir.toString());
       }
-      catch (IOException e) {
-        throw new DiskErrorException("Directory is not writable: "
-                                     + dir.toString(), e);
+    } else {
+      if (!dir.canRead()) {
+        throw new DiskErrorException("Directory is not readable: "
+                                     + dir.toString());
       }
     }
 
-    if (!dir.canExecute())
-      throw new DiskErrorException("Directory is not executable: "
-	  + dir.toString());
-
-    // On Windows, make sure the directory is executable by trying to cd into it.
     if (Shell.WINDOWS) {
+      // On Windows, make sure we can write to the directory by creating a temp
+      // file in it.
+      try {
+        File tempFile = File.createTempFile("checkDir", null, dir);
+        if (!tempFile.delete()) {
+          throw new DiskErrorException("Directory is not writable: "
+                                       + dir.toString());
+        }
+      } catch (IOException e) {
+        throw new DiskErrorException("Directory is not writable: "
+                                     + dir.toString(), e);
+      }
+    } else {
+      if (!dir.canWrite()) {
+        throw new DiskErrorException("Directory is not writable: "
+                                     + dir.toString());
+      }
+    }
+
+    if (Shell.WINDOWS) {
+      // On Windows, make sure the directory is executable by trying to cd into
+      // it.  This launches a separate process.  It does not change the working
+      // directory of the current process.
       try {
         String[] cdCmd = new String[] { "cmd", "/C", "cd",
             dir.getAbsolutePath() };
         Shell.execCommand(null, cdCmd, SHELL_TIMEOUT);
-      }
-      catch (Shell.ExitCodeException e) {
+      } catch (Shell.ExitCodeException e) {
+        throw new DiskErrorException("Directory is not executable: "
+                                     + dir.toString(), e);
+      } catch (IOException e) {
         throw new DiskErrorException("Directory is not executable: "
                                      + dir.toString(), e);
       }
-      catch (IOException e) {
+    } else {
+      if (!dir.canExecute()) {
         throw new DiskErrorException("Directory is not executable: "
-                                     + dir.toString(), e);
+                                     + dir.toString());
       }
     }
   }
