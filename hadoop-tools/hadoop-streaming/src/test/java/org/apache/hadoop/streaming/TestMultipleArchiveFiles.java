@@ -84,9 +84,8 @@ public class TestMultipleArchiveFiles extends TestStreaming
   {
     fileSys.delete(new Path(INPUT_DIR), true);
     DataOutputStream dos = fileSys.create(new Path(INPUT_FILE));
-    String inputFileString = "symlink1" + File.separator + "cacheArchive1"
-      + System.getProperty("line.separator") + "symlink2" + File.separator
-      + "cacheArchive2";
+    String inputFileString = "symlink1" + File.separator
+      + "cacheArchive1\nsymlink2" + File.separator + "cacheArchive2";
     dos.write(inputFileString.getBytes("UTF-8"));
     dos.close();
 
