@@ -112,14 +112,14 @@ public class TestMultipleCachefiles
       fileSys.delete(new Path(OUTPUT_DIR), true);
       
       DataOutputStream file = fileSys.create(new Path(INPUT_FILE));
-      file.writeBytes(mapString + System.getProperty("line.separator"));
-      file.writeBytes(mapString2 + System.getProperty("line.separator"));
+      file.writeBytes(mapString + "\n");
+      file.writeBytes(mapString2 + "\n");
       file.close();
       file = fileSys.create(new Path(CACHE_FILE));
-      file.writeBytes(cacheString + System.getProperty("line.separator"));
+      file.writeBytes(cacheString + "\n");
       file.close();
       file = fileSys.create(new Path(CACHE_FILE_2));
-      file.writeBytes(cacheString2 + System.getProperty("line.separator"));
+      file.writeBytes(cacheString2 + "\n");
       file.close();
         
       job = new StreamJob(argv, mayExit);     
