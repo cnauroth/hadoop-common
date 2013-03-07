@@ -101,7 +101,8 @@ public class TestStreamingTaskLog {
       mr = new MiniMRCluster(numSlaves, fs.getUri().toString(), 1, null, null, conf);
 
       writeInputFile(fs, inputPath);
-      map = scriptFile.getAbsolutePath();
+      map = Shell.WINDOWS ? "cmd /c " + scriptFile.getAbsolutePath() :
+        scriptFile.getAbsolutePath();
       
       runStreamJobAndValidateEnv();
       
