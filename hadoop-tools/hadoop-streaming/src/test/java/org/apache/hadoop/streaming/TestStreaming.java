@@ -43,25 +43,10 @@ public class TestStreaming
 
   public static final String STREAMING_JAR = JarFinder.getJar(StreamJob.class);
 
-    /*
-  static final String CAT = Shell.WINDOWS ? "cmd /c findstr ." : "cat";
-  static final String CAT_NAMED_FILES_FROM_STDIN = Shell.WINDOWS ?
-    //"cmd /C for /F \"usebackq\" %F in (`findstr .`) do @type %F" :
-    "cmd /C for /F \"usebackq\" %F in (`findstr .`) do @type %F" :
-    //"cmd /C dir . /S > C:\\test\\test.txt" :
-    //"cmd /C for /F \"usebackq\" %F in (`findstr .`) do @echo %F >> C:\\test\\test.txt" :
-    //"cmd /C C:\\cygwin\\bin\\xargs C:\\cygwin\\bin\\cat" :
-    //"C:\\test\\testfindstr\\test.cmd" :
-    "xargs cat";
-    */
-    /*
-  static final String CAT = "cmd /c C:\\test\\testfindstr\\cat.cmd";
-  static final String XARGS_CAT = "cmd /c C:\\test\\testfindstr\\xargs_cat.cmd";
-    */
   static final String CAT = Shell.WINDOWS ?
-    "cmd /c " + new File("target/bin/cat.cmd").getAbsolutePath() : "cat";
+    new File("target/bin/cat.cmd").getAbsolutePath() : "cat";
   static final String XARGS_CAT = Shell.WINDOWS ?
-    "cmd /c " + new File("target/bin/xargs_cat.cmd").getAbsolutePath() : "xargs cat";
+    new File("target/bin/xargs_cat.cmd").getAbsolutePath() : "xargs cat";
 
   // "map" command: grep -E (red|green|blue)
   // reduce command: uniq
