@@ -64,8 +64,6 @@ public class TestMultipleCachefiles
   @Test
   public void testMultipleCachefiles() throws Exception
   {
-      System.out.println("cn map = " + map);
-      System.out.println("cn reduce = " + reduce);
     boolean mayExit = false;
     MiniMRCluster mr = null;
     MiniDFSCluster dfs = null; 
@@ -123,9 +121,7 @@ public class TestMultipleCachefiles
       file = fileSys.create(new Path(CACHE_FILE_2));
       file.writeBytes(cacheString2 + System.getProperty("line.separator"));
       file.close();
-
-      System.out.println("cn argv:");
-      System.out.println(java.util.Arrays.toString(argv));
+        
       job = new StreamJob(argv, mayExit);     
       job.go();
 
