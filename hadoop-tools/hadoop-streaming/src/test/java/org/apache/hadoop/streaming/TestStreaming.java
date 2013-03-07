@@ -53,7 +53,7 @@ public class TestStreaming
   /**
    * Command used for iterating through file names on stdin and copying each
    * file's contents to stdout, used as mapper or reducer function.  On Windows,
-   * use a cmd script that approximate the functionality of xargs cat.
+   * use a cmd script that approximates the functionality of xargs cat.
    */
   static final String XARGS_CAT = Shell.WINDOWS ?
     "cmd /c " + new File("target/bin/xargs_cat.cmd").getAbsolutePath() :
