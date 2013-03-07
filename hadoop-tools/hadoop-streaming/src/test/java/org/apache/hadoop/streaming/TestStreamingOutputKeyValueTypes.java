@@ -119,7 +119,7 @@ public class TestStreamingOutputKeyValueTypes extends TestStreaming {
   @Test
   public void testJavaMapperAndCommandReducer() throws Exception {
     map = "org.apache.hadoop.mapred.lib.IdentityMapper";
-    reduce = "cat";
+    reduce = CAT;
     super.testCommandLine();
   }
 
@@ -127,7 +127,7 @@ public class TestStreamingOutputKeyValueTypes extends TestStreaming {
   @Test
   public void testJavaMapperAndCommandReducerAndZeroReduces() throws Exception {
     map = "org.apache.hadoop.mapred.lib.IdentityMapper";
-    reduce = "cat";
+    reduce = CAT;
     args.add("-numReduceTasks");
     args.add("0");
     super.testCommandLine();
@@ -136,7 +136,7 @@ public class TestStreamingOutputKeyValueTypes extends TestStreaming {
   // Check with Command Mapper, Java Reducer
   @Test
   public void testCommandMapperAndJavaReducer() throws Exception {
-    map = "cat";
+    map = CAT;
     reduce = MyReducer.class.getName();
     super.testCommandLine();
   }
@@ -144,7 +144,7 @@ public class TestStreamingOutputKeyValueTypes extends TestStreaming {
   // Check with Command Mapper, Java Reducer and -numReduceTasks 0
   @Test
   public void testCommandMapperAndJavaReducerAndZeroReduces() throws Exception {
-    map = "cat";
+    map = CAT;
     reduce = MyReducer.class.getName();
     args.add("-numReduceTasks");
     args.add("0");
@@ -154,7 +154,7 @@ public class TestStreamingOutputKeyValueTypes extends TestStreaming {
   // Check with Command Mapper, Reducer = "NONE"
   @Test
   public void testCommandMapperWithReduceNone() throws Exception {
-    map = "cat";
+    map = CAT;
     reduce = "NONE";
     super.testCommandLine();
   }
@@ -162,8 +162,8 @@ public class TestStreamingOutputKeyValueTypes extends TestStreaming {
   // Check with Command Mapper, Command Reducer
   @Test
   public void testCommandMapperAndCommandReducer() throws Exception {
-    map = "cat";
-    reduce = "cat";
+    map = CAT;
+    reduce = CAT;
     super.testCommandLine();
   }
 
@@ -171,8 +171,8 @@ public class TestStreamingOutputKeyValueTypes extends TestStreaming {
   @Test
   public void testCommandMapperAndCommandReducerAndZeroReduces()
       throws Exception {
-    map = "cat";
-    reduce = "cat";
+    map = CAT;
+    reduce = CAT;
     args.add("-numReduceTasks");
     args.add("0");
     super.testCommandLine();

@@ -49,8 +49,8 @@ public class TestMultipleCachefiles
   String CACHE_FILE = "/testing-streaming/cache.txt";
   String CACHE_FILE_2 = "/testing-streaming/cache2.txt";
   String input = "check to see if we can read this none reduce";
-  String map = "xargs cat ";
-  String reduce = "cat";
+  String map = TestStreaming.XARGS_CAT;
+  String reduce = TestStreaming.CAT;
   String mapString = "testlink";
   String mapString2 = "testlink2";
   String cacheString = "This is just the cache string";
@@ -64,6 +64,8 @@ public class TestMultipleCachefiles
   @Test
   public void testMultipleCachefiles() throws Exception
   {
+      System.out.println("cn map = " + map);
+      System.out.println("cn reduce = " + reduce);
     boolean mayExit = false;
     MiniMRCluster mr = null;
     MiniDFSCluster dfs = null; 
@@ -112,16 +114,18 @@ public class TestMultipleCachefiles
       fileSys.delete(new Path(OUTPUT_DIR), true);
       
       DataOutputStream file = fileSys.create(new Path(INPUT_FILE));
-      file.writeBytes(mapString + "\n");
-      file.writeBytes(mapString2 + "\n");
+      file.writeBytes(mapString + System.getProperty("line.separator"));
+      file.writeBytes(mapString2 + System.getProperty("line.separator"));
       file.close();
       file = fileSys.create(new Path(CACHE_FILE));
-      file.writeBytes(cacheString + "\n");
+      file.writeBytes(cacheString + System.getProperty("line.separator"));
       file.close();
       file = fileSys.create(new Path(CACHE_FILE_2));
-      file.writeBytes(cacheString2 + "\n");
+      file.writeBytes(cacheString2 + System.getProperty("line.separator"));
       file.close();
-        
+
+      System.out.println("cn argv:");
+      System.out.println(java.util.Arrays.toString(argv));
       job = new StreamJob(argv, mayExit);     
       job.go();
 
