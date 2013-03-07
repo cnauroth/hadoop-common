@@ -85,6 +85,15 @@ public class TestStreaming
     setTestDir(new File("target/TestStreaming").getAbsoluteFile());
   }
 
+  /**
+   * Sets root of test working directory and resets any other paths that must be
+   * children of the test working directory.  Typical usage is for subclasses
+   * that use HDFS to override the test directory to the form "/tmp/<test name>"
+   * so that on Windows, tests won't attempt to use paths containing a ':' from
+   * the drive specifier.  The ':' character is considered invalid by HDFS.
+   * 
+   * @param testDir File to set
+   */
   protected void setTestDir(File testDir) {
     TEST_DIR = testDir;
     OUTPUT_DIR = new File(testDir, "out");
