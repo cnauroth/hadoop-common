@@ -25,6 +25,7 @@ import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 import static org.apache.hadoop.test.MockitoMaker.*;
+import static org.apache.hadoop.fs.permission.FsAction.*;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
@@ -112,20 +113,23 @@ public class TestDiskChecker {
       throws Throwable {
     File localDir = make(stub(File.class).returning(true).from.exists());
     when(localDir.mkdir()).thenReturn(true);
+    when(localDir.isDirectory()).thenReturn(isDir);
+    when(localDir.canRead()).thenReturn(perm.getUserAction().implies(READ));
+    when(localDir.canWrite()).thenReturn(perm.getUserAction().implies(WRITE));
+    when(localDir.canExecute()).thenReturn(perm.getUserAction().implies(
+      EXECUTE));
     Path dir = mock(Path.class);
     LocalFileSystem fs = make(stub(LocalFileSystem.class)
         .returning(localDir).from.pathToFile(dir));
     FileStatus stat = make(stub(FileStatus.class)
         .returning(perm).from.getPermission());
-    when(stat.isDirectory()).thenReturn(isDir);
     when(fs.getFileStatus(dir)).thenReturn(stat);
 
     try {
       DiskChecker.checkDir(fs, dir, perm);
 
-      verify(stat).isDirectory();
-      verify(fs, times(2)).getFileStatus(dir);
-      verify(stat, times(2)).getPermission();
+      verify(fs, times(1)).getFileStatus(dir);
+      verify(stat, times(1)).getPermission();
       assertTrue("checkDir success", success);
     }
     catch (DiskErrorException e) {
@@ -168,8 +172,10 @@ public class TestDiskChecker {
   private void _checkDirs(boolean isDir, String perm, boolean success)
       throws Throwable {
     File localDir = File.createTempFile("test", "tmp");
-    localDir.delete();
-    localDir.mkdir();
+    if (isDir) {
+      localDir.delete();
+      localDir.mkdir();
+    }
     Shell.execCommand(Shell.getSetPermissionCommand(perm, false,
                                                     localDir.getAbsolutePath()));
     try {
