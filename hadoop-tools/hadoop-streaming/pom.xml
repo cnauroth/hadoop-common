@@ -163,10 +163,6 @@
         </includes>
         <filtering>false</filtering>
       </testResource>
-      <testResource>
-        <directory>src/test/bin</directory>
-        <filtering>false</filtering>
-      </testResource>
     </testResources>
   </build>
 </project>
