@@ -43,10 +43,21 @@ public class TestStreaming
 
   public static final String STREAMING_JAR = JarFinder.getJar(StreamJob.class);
 
+  /**
+   * cat command used for copying stdin to stdout as mapper or reducer function.
+   * On Windows, use a cmd script that approximates the functionality of cat.
+   */
   static final String CAT = Shell.WINDOWS ?
-    new File("target/bin/cat.cmd").getAbsolutePath() : "cat";
+    "cmd /c " + new File("target/bin/cat.cmd").getAbsolutePath() : "cat";
+
+  /**
+   * Command used for iterating through file names on stdin and copying each
+   * file's contents to stdout, used as mapper or reducer function.  On Windows,
+   * use a cmd script that approximate the functionality of xargs cat.
+   */
   static final String XARGS_CAT = Shell.WINDOWS ?
-    new File("target/bin/xargs_cat.cmd").getAbsolutePath() : "xargs cat";
+    "cmd /c " + new File("target/bin/xargs_cat.cmd").getAbsolutePath() :
+    "xargs cat";
 
   // "map" command: grep -E (red|green|blue)
   // reduce command: uniq

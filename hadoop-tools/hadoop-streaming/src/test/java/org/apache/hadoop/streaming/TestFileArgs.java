@@ -47,7 +47,8 @@ public class TestFileArgs extends TestStreaming
   private static final String EXPECTED_OUTPUT =
     "job.jar\t\nsidefile\t\n";
 
-  private static final String LS_PATH = Shell.WINDOWS ? "dir /B" : "/bin/ls";
+  private static final String LS_PATH = Shell.WINDOWS ? "cmd /c dir /B" :
+    "/bin/ls";
 
   public TestFileArgs() throws IOException
   {
