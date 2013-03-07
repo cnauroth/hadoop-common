@@ -83,7 +83,7 @@ public class TestStreamingTaskLog {
    *  (b) hadoop.tasklog.totalLogFileSize
    * for the children of java tasks in streaming jobs.
    */
-  @Test (timeout = 60000)
+  @Test (timeout = 120000)
   public void testStreamingTaskLogWithHadoopCmd() {
     try {
       final int numSlaves = 1;
