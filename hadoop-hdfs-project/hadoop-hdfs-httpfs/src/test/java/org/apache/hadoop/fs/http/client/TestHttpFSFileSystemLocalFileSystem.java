@@ -65,21 +65,7 @@ public class TestHttpFSFileSystemLocalFileSystem extends BaseTestHttpFSWith {
   }
 
   protected Path addPrefix(Path path) {
-    URI uri = path.toUri();
-    try {
-      if (uri.getAuthority() != null) {
-        uri = new URI(uri.getScheme(),
-                      uri.getAuthority(), PATH_PREFIX + uri.getPath());
-      }
-      else {
-        if (uri.getPath().startsWith("/")) {
-          uri = new URI(PATH_PREFIX + uri.getPath());
-        }
-      }
-    } catch (URISyntaxException ex) {
-      throw new RuntimeException("It should not happen: " + ex.toString(), ex);
-    }
-    return new Path(uri);
+    return Path.mergePaths(new Path(PATH_PREFIX), path);
   }
 
 }
