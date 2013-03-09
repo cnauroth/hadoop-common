@@ -381,8 +381,8 @@ public abstract class BaseTestHttpFSWith extends HFSTestCase {
     FsPermission permission2 = status1.getPermission();
     Assert.assertEquals(permission2, permission1);
 
-    //sticky bit (not supported on Windows)
-    if (!Shell.WINDOWS) {
+    //sticky bit (not supported on Windows local file system)
+    if (!(Shell.WINDOWS && "file:///".equals(getProxiedFSURI()))) {
       fs = getHttpFSFileSystem();
       permission1 = new FsPermission(FsAction.READ_WRITE, FsAction.NONE, FsAction.NONE, true);
       fs.setPermission(path, permission1);
