@@ -25,6 +25,7 @@ import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.Shell;
 import org.apache.hadoop.fs.http.server.HttpFSServerWebApp;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
@@ -380,18 +381,20 @@ public abstract class BaseTestHttpFSWith extends HFSTestCase {
     FsPermission permission2 = status1.getPermission();
     Assert.assertEquals(permission2, permission1);
 
-    //sticky bit
-    fs = getHttpFSFileSystem();
-    permission1 = new FsPermission(FsAction.READ_WRITE, FsAction.NONE, FsAction.NONE, true);
-    fs.setPermission(path, permission1);
-    fs.close();
+    //sticky bit (not supported on Windows)
+    if (!Shell.WINDOWS) {
+      fs = getHttpFSFileSystem();
+      permission1 = new FsPermission(FsAction.READ_WRITE, FsAction.NONE, FsAction.NONE, true);
+      fs.setPermission(path, permission1);
+      fs.close();
 
-    fs = FileSystem.get(getProxiedFSConf());
-    status1 = fs.getFileStatus(path);
-    fs.close();
-    permission2 = status1.getPermission();
-    Assert.assertTrue(permission2.getStickyBit());
-    Assert.assertEquals(permission2, permission1);
+      fs = FileSystem.get(getProxiedFSConf());
+      status1 = fs.getFileStatus(path);
+      fs.close();
+      permission2 = status1.getPermission();
+      Assert.assertTrue(permission2.getStickyBit());
+      Assert.assertEquals(permission2, permission1);
+    }
   }
 
   private void testSetOwner() throws Exception {
