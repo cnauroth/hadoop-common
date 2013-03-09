@@ -39,6 +39,7 @@ import org.apache.hadoop.test.TestDirHelper;
 import org.apache.hadoop.test.TestHdfs;
 import org.apache.hadoop.test.TestJetty;
 import org.apache.hadoop.test.TestJettyHelper;
+import org.apache.hadoop.util.Shell;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
