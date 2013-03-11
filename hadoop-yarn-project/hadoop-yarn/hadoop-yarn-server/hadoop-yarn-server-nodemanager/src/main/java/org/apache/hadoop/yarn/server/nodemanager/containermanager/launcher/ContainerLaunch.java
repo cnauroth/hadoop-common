@@ -512,7 +512,7 @@ public class ContainerLaunch implements Callable<Integer> {
       // If not on Java7+ on Windows, then copy file instead of symlinking.
       // See also FileUtil#symLink for full explanation.
       if (!Shell.isJava7OrAbove() && srcFile.isFile()) {
-        line(String.format("@copy \"%s\" \"%s\"", dstFileStr, srcFileStr));
+        line(String.format("@copy \"%s\" \"%s\"", srcFileStr, dstFileStr));
       } else {
         line(String.format("@%s symlink \"%s\" \"%s\"", Shell.WINUTILS,
           dstFileStr, srcFileStr));
