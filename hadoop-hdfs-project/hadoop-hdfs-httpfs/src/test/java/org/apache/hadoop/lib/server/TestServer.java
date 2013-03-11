@@ -42,6 +42,7 @@ import org.apache.hadoop.test.HTestCase;
 import org.apache.hadoop.test.TestDir;
 import org.apache.hadoop.test.TestDirHelper;
 import org.apache.hadoop.test.TestException;
+import org.apache.hadoop.util.Shell;
 import org.apache.hadoop.util.StringUtils;
 import org.junit.Test;
 
@@ -50,21 +51,24 @@ public class TestServer extends HTestCase {
   @Test
   @TestDir
   public void constructorsGetters() throws Exception {
-    Server server = new Server("server", "/a", "/b", "/c", "/d", new Configuration(false));
-    assertEquals(server.getHomeDir(), "/a");
-    assertEquals(server.getConfigDir(), "/b");
-    assertEquals(server.getLogDir(), "/c");
-    assertEquals(server.getTempDir(), "/d");
+    String drive = Shell.WINDOWS ? "C:/" : "";
+    Server server = new Server("server", drive + "/a", drive + "/b",
+      drive + "/c", drive + "/d", new Configuration(false));
+    assertEquals(server.getHomeDir(), drive + "/a");
+    assertEquals(server.getConfigDir(), drive + "/b");
+    assertEquals(server.getLogDir(), drive + "/c");
+    assertEquals(server.getTempDir(), drive + "/d");
     assertEquals(server.getName(), "server");
     assertEquals(server.getPrefix(), "server");
     assertEquals(server.getPrefixedName("name"), "server.name");
     assertNotNull(server.getConfig());
 
-    server = new Server("server", "/a", "/b", "/c", "/d");
-    assertEquals(server.getHomeDir(), "/a");
-    assertEquals(server.getConfigDir(), "/b");
-    assertEquals(server.getLogDir(), "/c");
-    assertEquals(server.getTempDir(), "/d");
+    server = new Server("server", drive + "/a", drive + "/b", drive + "/c",
+      drive + "/d");
+    assertEquals(server.getHomeDir(), drive + "/a");
+    assertEquals(server.getConfigDir(), drive + "/b");
+    assertEquals(server.getLogDir(), drive + "/c");
+    assertEquals(server.getTempDir(), drive + "/d");
     assertEquals(server.getName(), "server");
     assertEquals(server.getPrefix(), "server");
     assertEquals(server.getPrefixedName("name"), "server.name");

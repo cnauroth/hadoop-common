@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 import org.junit.rules.MethodRule;
 import org.junit.runners.model.FrameworkMethod;
@@ -64,7 +63,7 @@ public class TestDirHelper implements MethodRule {
   static {
     try {
       TEST_DIR_ROOT = System.getProperty(TEST_DIR_PROP, new File("target").getAbsolutePath());
-      if (!new Path(TEST_DIR_ROOT).isUriPathAbsolute()) {
+      if (!new File(TEST_DIR_ROOT).isAbsolute()) {
         System.err.println(MessageFormat.format("System property [{0}]=[{1}] must be set to an absolute path",
                                                 TEST_DIR_PROP, TEST_DIR_ROOT));
         System.exit(-1);

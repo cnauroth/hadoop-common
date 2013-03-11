@@ -20,7 +20,6 @@ package org.apache.hadoop.lib.server;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.lib.util.Check;
 import org.apache.hadoop.lib.util.ConfigurationUtils;
 import org.apache.log4j.LogManager;
@@ -233,7 +232,7 @@ public class Server {
    * path.
    */
   private String checkAbsolutePath(String value, String name) {
-    if (!new Path(value).isUriPathAbsolute()) {
+    if (!new File(value).isAbsolute()) {
       throw new IllegalArgumentException(
         MessageFormat.format("[{0}] must be an absolute path [{1}]", name, value));
     }
