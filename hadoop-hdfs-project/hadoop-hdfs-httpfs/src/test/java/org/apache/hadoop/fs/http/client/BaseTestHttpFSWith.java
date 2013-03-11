@@ -38,7 +38,6 @@ import org.apache.hadoop.test.TestDirHelper;
 import org.apache.hadoop.test.TestHdfs;
 import org.apache.hadoop.test.TestJetty;
 import org.apache.hadoop.test.TestJettyHelper;
-import org.apache.hadoop.util.Shell;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -365,7 +364,7 @@ public abstract class BaseTestHttpFSWith extends HFSTestCase {
     }
   }
 
-  private void testSetPermission() throws Exception {
+  protected void testSetPermission() throws Exception {
     FileSystem fs = FileSystem.get(getProxiedFSConf());
     Path path = new Path(getProxiedFSTestDir(), "foodir");
     fs.mkdirs(path);
@@ -381,20 +380,18 @@ public abstract class BaseTestHttpFSWith extends HFSTestCase {
     FsPermission permission2 = status1.getPermission();
     Assert.assertEquals(permission2, permission1);
 
-    //sticky bit (not supported on Windows local file system)
-    if (!(Shell.WINDOWS && "file:///".equals(getProxiedFSURI()))) {
-      fs = getHttpFSFileSystem();
-      permission1 = new FsPermission(FsAction.READ_WRITE, FsAction.NONE, FsAction.NONE, true);
-      fs.setPermission(path, permission1);
-      fs.close();
+    //sticky bit
+    fs = getHttpFSFileSystem();
+    permission1 = new FsPermission(FsAction.READ_WRITE, FsAction.NONE, FsAction.NONE, true);
+    fs.setPermission(path, permission1);
+    fs.close();
 
-      fs = FileSystem.get(getProxiedFSConf());
-      status1 = fs.getFileStatus(path);
-      fs.close();
-      permission2 = status1.getPermission();
-      Assert.assertTrue(permission2.getStickyBit());
-      Assert.assertEquals(permission2, permission1);
-    }
+    fs = FileSystem.get(getProxiedFSConf());
+    status1 = fs.getFileStatus(path);
+    fs.close();
+    permission2 = status1.getPermission();
+    Assert.assertTrue(permission2.getStickyBit());
+    Assert.assertEquals(permission2, permission1);
   }
 
   private void testSetOwner() throws Exception {
