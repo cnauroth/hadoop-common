@@ -506,9 +506,17 @@ public class ContainerLaunch implements Callable<Integer> {
 
     @Override
     protected void link(Path src, Path dst) throws IOException {
-      line(String.format("@%s symlink \"%s\" \"%s\"", Shell.WINUTILS,
-        new File(dst.toString()).getPath(),
-        new File(src.toUri().getPath()).getPath()));
+      File srcFile = new File(src.toUri().getPath());
+      String srcFileStr = srcFile.getPath();
+      String dstFileStr = new File(dst.toString()).getPath();
+      // If not on Java7+ on Windows, then copy file instead of symlinking.
+      // See also FileUtil#symLink for full explanation.
+      if (!Shell.isJava7OrAbove() && srcFile.isFile()) {
+        line(String.format("@copy \"%s\" \"%s\"", dstFileStr, srcFileStr));
+      } else {
+        line(String.format("@%s symlink \"%s\" \"%s\"", Shell.WINUTILS,
+          dstFileStr, srcFileStr));
+      }
     }
 
     @Override
