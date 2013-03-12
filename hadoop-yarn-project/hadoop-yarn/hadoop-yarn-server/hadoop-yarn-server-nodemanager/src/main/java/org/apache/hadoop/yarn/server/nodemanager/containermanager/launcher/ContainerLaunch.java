@@ -254,7 +254,6 @@ public class ContainerLaunch implements Callable<Integer> {
             e.getMessage()));
       return ret;
     } finally {
-        try { Thread.sleep(Long.MAX_VALUE); } catch (InterruptedException e) { }
       completed.set(true);
       exec.deactivateContainer(containerID);
     }
