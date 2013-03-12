@@ -210,7 +210,7 @@ public class ContainerLaunch implements Callable<Integer> {
                 FINAL_CONTAINER_TOKENS_FILE).toUri().getPath());
 
         // Sanitize the container's environment
-        sanitizeEnv(environment, containerWorkDir, appDirs);
+        sanitizeEnv(environment, containerWorkDir, appDirs, localResources);
         
         // Write out the environment
         writeLaunchEnv(containerScriptOutStream, environment, localResources,
@@ -254,6 +254,7 @@ public class ContainerLaunch implements Callable<Integer> {
             e.getMessage()));
       return ret;
     } finally {
+        try { Thread.sleep(Long.MAX_VALUE); } catch (InterruptedException e) { }
       completed.set(true);
       exec.deactivateContainer(containerID);
     }
@@ -540,7 +541,8 @@ public class ContainerLaunch implements Callable<Integer> {
   }
   
   public void sanitizeEnv(Map<String, String> environment, 
-      Path pwd, List<Path> appDirs) throws IOException {
+      Path pwd, List<Path> appDirs, Map<Path, List<String>> resources)
+      throws IOException {
     /**
      * Non-modifiable environment variables
      */
@@ -576,11 +578,26 @@ public class ContainerLaunch implements Callable<Integer> {
 
     // TODO: Remove Windows check and use this approach on all platforms after
     // additional testing.  See YARN-358.
-    if (Shell.WINDOWS) {
-      String inputClassPath = environment.get(Environment.CLASSPATH.name());
+    //if (Shell.WINDOWS) {
+    //System.out.println("cn tree =\n" + Shell.execCommand("/opt/local/bin/tree", "/Users/chris/git/hadoop-common/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/target/org.apache.hadoop.mapreduce.v2.TestMRJobs"));
+      StringBuilder inputClassPath = new StringBuilder(environment.get(
+        Environment.CLASSPATH.name()));
+      for (Map.Entry<Path,List<String>> entry : resources.entrySet()) {
+          System.out.println("cn checking resources for entry = " + entry + ", entry.toUri.getPath = " + entry.getKey().toUri().getPath() + ", exists? " + new File(entry.getKey().toUri().getPath()).exists());
+        for (String linkName : entry.getValue()) {
+          inputClassPath.append(File.pathSeparatorChar).append(pwd.toString()).append(File.separatorChar).append(linkName);
+          if (new File(entry.getKey().toUri().getPath()).isDirectory()) {
+            System.out.println("cn entry is directory, so adding separator: " + new File(entry.getKey().toUri().getPath()));
+            inputClassPath.append(File.separatorChar);
+          } else {
+            System.out.println("cn entry is NOT directory, so skipping separator: " + new File(entry.getKey().toUri().getPath()));
+          }
+        }
+      }
       environment.put(Environment.CLASSPATH.name(),
-          FileUtil.createJarWithClassPath(inputClassPath, pwd));
-    }
+        FileUtil.createJarWithClassPath(inputClassPath.toString(), pwd,
+          environment));
+    //}
 
     /**
      * Modifiable environment variables

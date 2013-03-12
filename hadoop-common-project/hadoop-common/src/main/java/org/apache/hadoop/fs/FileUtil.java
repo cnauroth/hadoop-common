@@ -19,6 +19,7 @@
 package org.apache.hadoop.fs;
 
 import java.io.*;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
@@ -1039,19 +1040,24 @@ public class FileUtil {
    * 
    * @param inputClassPath String input classpath to bundle into the jar manifest
    * @param pwd Path to working directory to save jar
+   * @param callerEnv Map<String, String> caller's environment variables to use
+   *   for expansion
    * @return String absolute path to new jar
    * @throws IOException if there is an I/O error while writing the jar file
    */
-  public static String createJarWithClassPath(String inputClassPath, Path pwd)
-      throws IOException {
+  public static String createJarWithClassPath(String inputClassPath, Path pwd,
+      Map<String, String> callerEnv) throws IOException {
+    System.out.println("cn createJarWithClassPath, inputClassPath = " + inputClassPath + ", pwd = " + pwd);
     // Replace environment variables, case-insensitive on Windows
     @SuppressWarnings("unchecked")
-    Map<String, String> env = Shell.WINDOWS ?
-      new CaseInsensitiveMap(System.getenv()) : System.getenv();
+    Map<String, String> env = Shell.WINDOWS ? new CaseInsensitiveMap(callerEnv) :
+      callerEnv;
     String[] classPathEntries = inputClassPath.split(File.pathSeparator);
     for (int i = 0; i < classPathEntries.length; ++i) {
+      System.out.println("cn classPathEntries[" + i + "] before = " + classPathEntries[i]);
       classPathEntries[i] = StringUtils.replaceTokens(classPathEntries[i],
         StringUtils.ENV_VAR_PATTERN, env);
+      System.out.println("cn classPathEntries[" + i + "] after = " + classPathEntries[i]);
     }
     File workingDir = new File(pwd.toString());
     if (!workingDir.mkdirs()) {
@@ -1066,6 +1072,7 @@ public class FileUtil {
     List<String> classPathEntryList = new ArrayList<String>(
       classPathEntries.length);
     for (String classPathEntry: classPathEntries) {
+      System.out.println("cn checking classPathEntry = " + classPathEntry);
       if (classPathEntry.endsWith("*")) {
         // Append all jars that match the wildcard
         Path globPath = new Path(classPathEntry).suffix("{.jar,.JAR}");
@@ -1075,12 +1082,22 @@ public class FileUtil {
           for (FileStatus wildcardJar: wildcardJars) {
             classPathEntryList.add(wildcardJar.getPath().toUri().toURL()
               .toExternalForm());
+            System.out.println("cn added wildcard expansion: " + wildcardJar.getPath().toUri().toURL().toExternalForm());
           }
         }
+      } else if (classPathEntry.endsWith("/") && new File(classPathEntry).isAbsolute()) {
+          // Append directory
+          try {
+        classPathEntryList.add(new URI("file", null, classPathEntry, null).toURL().toExternalForm());
+        System.out.println("cn added one entry: " + new URI("file", null, classPathEntry, null).toURL().toExternalForm());
+          } catch (java.net.URISyntaxException e) {
+              throw new IOException("boo", e);
+          }
       } else {
         // Append just this jar
         classPathEntryList.add(new File(classPathEntry).toURI().toURL()
           .toExternalForm());
+        System.out.println("cn added one entry: " + new File(classPathEntry).toURI().toURL());
       }
     }
     String jarClassPath = StringUtils.join(" ", classPathEntryList);
