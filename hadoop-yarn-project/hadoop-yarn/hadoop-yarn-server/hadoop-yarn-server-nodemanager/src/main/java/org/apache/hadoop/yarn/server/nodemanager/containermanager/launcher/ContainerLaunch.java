@@ -584,10 +584,10 @@ public class ContainerLaunch implements Callable<Integer> {
       for (Map.Entry<Path,List<String>> entry : resources.entrySet()) {
           System.out.println("cn checking resources for entry = " + entry + ", entry.toUri.getPath = " + entry.getKey().toUri().getPath() + ", exists? " + new File(entry.getKey().toUri().getPath()).exists());
         for (String linkName : entry.getValue()) {
-          inputClassPath.append(File.pathSeparatorChar).append(pwd.toString()).append(File.separatorChar).append(linkName);
+          inputClassPath.append(File.pathSeparatorChar).append(pwd.toString()).append('/').append(linkName);
           if (new File(entry.getKey().toUri().getPath()).isDirectory()) {
             System.out.println("cn entry is directory, so adding separator: " + new File(entry.getKey().toUri().getPath()));
-            inputClassPath.append(File.separatorChar);
+            inputClassPath.append('/');
           } else {
             System.out.println("cn entry is NOT directory, so skipping separator: " + new File(entry.getKey().toUri().getPath()));
           }
