@@ -86,9 +86,9 @@ public class TestServer extends HTestCase {
 
     server = new Server("server", TestDirHelper.getTestDir().getAbsolutePath());
     assertEquals(server.getHomeDir(), TestDirHelper.getTestDir().getAbsolutePath());
-    assertEquals(server.getConfigDir(), getAbsolutePath("/conf"));
-    assertEquals(server.getLogDir(), getAbsolutePath("/log"));
-    assertEquals(server.getTempDir(), getAbsolutePath("/temp"));
+    assertEquals(server.getConfigDir(), TestDirHelper.getTestDir() + "/conf");
+    assertEquals(server.getLogDir(), TestDirHelper.getTestDir() + "/log");
+    assertEquals(server.getTempDir(), TestDirHelper.getTestDir() + "/temp");
     assertEquals(server.getName(), "server");
     assertEquals(server.getPrefix(), "server");
     assertEquals(server.getPrefixedName("name"), "server.name");
