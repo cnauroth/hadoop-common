@@ -131,36 +131,6 @@ public class TestASVUriAndConfiguration extends TestCase {
   public void testConnectToFullyQualifiedAccountLive() throws Exception {
     testAccount =
         AzureBlobStorageTestAccount.create("", true);
-    assertTrue(validateIOStreams(new Path("/testFile")));
-  }
-
-  /**
-   * Tests that we can connect to fully qualified accounts outside
-   * of blob.core.windows.net
-   */
-  public void testConnectToFullyQualifiedAccountMock() throws Exception {
-    Configuration conf = new Configuration();
-    AzureBlobStorageTestAccount.setMockAccountKey(conf,
-        "mockAccount.mock.authority.net");
-    AzureNativeFileSystemStore store = new AzureNativeFileSystemStore();
-    MockStorageInterface mockStorage = new MockStorageInterface();
-    store.setAzureStorageInteractionLayer(mockStorage);
-    NativeAzureFileSystem fs = new NativeAzureFileSystem(store);
-    fs.initialize(new URI(
-        "asv://mockContainer@mockAccount.mock.authority.net"),
-        conf);
-    fs.createNewFile(new Path("/x"));
-    assertTrue(mockStorage.getBackingStore().exists(
-        "http://mockAccount.mock.authority.net/mockContainer/x"));
-  }
-
-  /**
-   * Tests that we can connect to fully qualified accounts outside
-   * of blob.core.windows.net
-   */
-  public void testConnectToFullyQualifiedAccountLive() throws Exception {
-    testAccount =
-        AzureBlobStorageTestAccount.create("", true);
     if (testAccount == null) {
       return;
     }
