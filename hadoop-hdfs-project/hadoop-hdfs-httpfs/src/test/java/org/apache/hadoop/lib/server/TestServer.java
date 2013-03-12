@@ -51,24 +51,24 @@ public class TestServer extends HTestCase {
   @Test
   @TestDir
   public void constructorsGetters() throws Exception {
-    String drive = Shell.WINDOWS ? "C:/" : "";
-    Server server = new Server("server", drive + "/a", drive + "/b",
-      drive + "/c", drive + "/d", new Configuration(false));
-    assertEquals(server.getHomeDir(), drive + "/a");
-    assertEquals(server.getConfigDir(), drive + "/b");
-    assertEquals(server.getLogDir(), drive + "/c");
-    assertEquals(server.getTempDir(), drive + "/d");
+    Server server = new Server("server", getAbsolutePath("/a"),
+      getAbsolutePath("/b"), getAbsolutePath("/c"), getAbsolutePath("/d"),
+      new Configuration(false));
+    assertEquals(server.getHomeDir(), getAbsolutePath("/a"));
+    assertEquals(server.getConfigDir(), getAbsolutePath("/b"));
+    assertEquals(server.getLogDir(), getAbsolutePath("/c"));
+    assertEquals(server.getTempDir(), getAbsolutePath("/d"));
     assertEquals(server.getName(), "server");
     assertEquals(server.getPrefix(), "server");
     assertEquals(server.getPrefixedName("name"), "server.name");
     assertNotNull(server.getConfig());
 
-    server = new Server("server", drive + "/a", drive + "/b", drive + "/c",
-      drive + "/d");
-    assertEquals(server.getHomeDir(), drive + "/a");
-    assertEquals(server.getConfigDir(), drive + "/b");
-    assertEquals(server.getLogDir(), drive + "/c");
-    assertEquals(server.getTempDir(), drive + "/d");
+    server = new Server("server", getAbsolutePath("/a"), getAbsolutePath("/b"),
+      getAbsolutePath("/c"), getAbsolutePath("/d"));
+    assertEquals(server.getHomeDir(), getAbsolutePath("/a"));
+    assertEquals(server.getConfigDir(), getAbsolutePath("/b"));
+    assertEquals(server.getLogDir(), getAbsolutePath("/c"));
+    assertEquals(server.getTempDir(), getAbsolutePath("/d"));
     assertEquals(server.getName(), "server");
     assertEquals(server.getPrefix(), "server");
     assertEquals(server.getPrefixedName("name"), "server.name");
@@ -86,9 +86,9 @@ public class TestServer extends HTestCase {
 
     server = new Server("server", TestDirHelper.getTestDir().getAbsolutePath());
     assertEquals(server.getHomeDir(), TestDirHelper.getTestDir().getAbsolutePath());
-    assertEquals(server.getConfigDir(), TestDirHelper.getTestDir() + "/conf");
-    assertEquals(server.getLogDir(), TestDirHelper.getTestDir() + "/log");
-    assertEquals(server.getTempDir(), TestDirHelper.getTestDir() + "/temp");
+    assertEquals(server.getConfigDir(), getAbsolutePath("/conf"));
+    assertEquals(server.getLogDir(), getAbsolutePath("/log"));
+    assertEquals(server.getTempDir(), getAbsolutePath("/temp"));
     assertEquals(server.getName(), "server");
     assertEquals(server.getPrefix(), "server");
     assertEquals(server.getPrefixedName("name"), "server.name");
@@ -797,4 +797,14 @@ public class TestServer extends HTestCase {
     server.destroy();
   }
 
+  /**
+   * Creates an absolute path by appending the given relative path to the test
+   * root.
+   * 
+   * @param relativePath String relative path
+   * @return String absolute path formed by appending relative path to test root
+   */
+  private static String getAbsolutePath(String relativePath) {
+    return new File(TestDirHelper.getTestDir(), relativePath).getAbsolutePath();
+  }
 }
