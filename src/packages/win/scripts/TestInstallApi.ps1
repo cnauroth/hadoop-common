@@ -318,15 +318,15 @@ function CoreConfigureTestBasic()
     
     ### Change Hadoop core configuration
     Configure "Core" $NodeInstallRoot $ServiceCredential @{
-        "fs.checkpoint.dir" = "$NodeInstallRoot\hdfs\2nn";
+        "fs.checkpoint.dir" = "x:\hdfs\2nn"; ### should pass for a drive that does not exist
         "fs.checkpoint.edits.dir" = "$NodeInstallRoot\hdfs\2nn";
         "fs.default.name" = "asv://host:8000"}
     
     ### Verify that the update took place
-    ValidateXmlConfigValue $coreSiteXml "fs.checkpoint.dir" "$NodeInstallRoot\hdfs\2nn"
+    ValidateXmlConfigValue $coreSiteXml "fs.checkpoint.dir" "x:\hdfs\2nn"
     ValidateXmlConfigValue $coreSiteXml "fs.checkpoint.edits.dir" "$NodeInstallRoot\hdfs\2nn"
     ValidateXmlConfigValue $coreSiteXml "fs.default.name" "asv://host:8000"
-    
+
     Uninstall "Core" $NodeInstallRoot
 }
 
@@ -536,6 +536,7 @@ try
     ###
     ### Test methods
     ###
+
     CoreInstallTestBasic
     CoreInstallTestIdempotent
     HdfsInstallTestBasic
@@ -550,6 +551,7 @@ try
     InstallAllTestIdempotent
     TestUpdateXmlConfig
     CoreConfigureTestBasic
+
     CoreConfigureWithFileTestBasic
     InstallAndConfigAllTestBasic
     TestStartStopServiceRoleNoSupported
