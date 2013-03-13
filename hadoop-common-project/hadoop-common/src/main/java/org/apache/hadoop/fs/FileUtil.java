@@ -1085,19 +1085,15 @@ public class FileUtil {
             System.out.println("cn added wildcard expansion: " + wildcardJar.getPath().toUri().toURL().toExternalForm());
           }
         }
-      } else if (classPathEntry.endsWith("/") && new File(classPathEntry).isAbsolute()) {
-          // Append directory
-          try {
-        classPathEntryList.add(new URI("file", null, classPathEntry, null).toURL().toExternalForm());
-        System.out.println("cn added one entry: " + new URI("file", null, classPathEntry, null).toURL().toExternalForm());
-          } catch (java.net.URISyntaxException e) {
-              throw new IOException("boo", e);
-          }
       } else {
         // Append just this jar
-        classPathEntryList.add(new File(classPathEntry).toURI().toURL()
-          .toExternalForm());
-        System.out.println("cn added one entry: " + new File(classPathEntry).toURI().toURL());
+        String classPathEntryUrl = new File(classPathEntry).toURI().toURL()
+          .toExternalForm();
+        if (classPathEntry.endsWith("/") && ! classPathEntryUrl.endsWith("/")) {
+          classPathEntryUrl = classPathEntryUrl + "/";
+        }
+        classPathEntryList.add(classPathEntryUrl);
+        System.out.println("cn added one entry: " + classPathEntryUrl);
       }
     }
     String jarClassPath = StringUtils.join(" ", classPathEntryList);
