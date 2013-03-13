@@ -25,7 +25,6 @@ Trunk (Unreleased)
     HADOOP-8562. Enhancements to support Hadoop on Windows Server and Windows
     Azure environments. (See breakdown of tasks below for subtasks and
     contributors)
-    
 
   IMPROVEMENTS
 
@@ -307,7 +306,13 @@ Trunk (Unreleased)
     HDFS-4502. JsonUtil.toFileStatus(..) should check if the fileId property
     exists.  (Brandon Li via suresh)
 
-  BREAKDOWN OF HADOOP-8562 SUBTASKS
+    HDFS-4391. TestDataTransferKeepalive fails when tests are executed in a
+    certain order. (Andrew Wang via atm)
+
+    HDFS-4586. TestDataDirs.testGetDataDirsFromURIs fails with all directories
+    in dfs.datanode.data.dir are invalid. (Ivan Mitic via atm)
+
+  BREAKDOWN OF HADOOP-8562 SUBTASKS AND RELATED JIRAS
 
     HDFS-4145. Merge hdfs cmd line scripts from branch-1-win. (David Lao,
     Bikas Saha, Lauren Yang, Chuan Liu, Thejas M Nair and Ivan Mitic via suresh)
@@ -320,6 +325,16 @@ Trunk (Unreleased)
 
     HDFS-4297. Fix issues related to datanode concurrent reading and writing on
     Windows. (Arpit Agarwal, Chuan Liu via suresh)
+
+    HDFS-4573. Fix TestINodeFile on Windows. (Arpit Agarwal via suresh)
+
+    HDFS-4572. Fix TestJournal failures on Windows. (Arpit Agarwal via suresh)
+
+    HDFS-4287. HTTPFS tests fail on Windows. (Chris Nauroth via suresh)
+
+    HDFS-4593. TestSaveNamespace fails on Windows. (Arpit Agarwal via suresh)
+
+    HDFS-4582. TestHostsFiles fails on Windows. (Ivan Mitic via suresh)
 
 Release 2.0.5-beta - UNRELEASED
 
@@ -340,6 +355,9 @@ Release 2.0.5-beta - UNRELEASED
 
     HDFS-4519. Support overriding jsvc binary and log file locations
     when launching secure datanode. (Chris Nauroth via suresh)
+
+    HDFS-4569. Small image transfer related cleanups.
+    (Andrew Wang via suresh)
 
   OPTIMIZATIONS
 
@@ -373,6 +391,28 @@ Release 2.0.5-beta - UNRELEASED
 
     HDFS-4565. Use DFSUtil.getSpnegoKeytabKey() to get the spnego keytab key
     in secondary namenode and namenode http server. (Arpit Gupta via suresh)
+
+    HDFS-4571. WebHDFS should not set the service hostname on the server side. 
+    (tucu)
+
+    HDFS-4013. TestHftpURLTimeouts throws NPE. (Chao Shi via suresh)
+
+    HDFS-4592. Default values for access time precision are out of sync between
+    hdfs-default.xml and the code. (atm)
+
+    HDFS-4522. LightWeightGSet expects incrementing a volatile to be atomic.
+    (Colin Patrick McCabe via atm)
+
+    HDFS-4484. libwebhdfs compilation broken with gcc 4.6.2. (Colin Patrick
+    McCabe via atm)
+
+    HDFS-4595. When short circuit read is fails, DFSClient does not fallback
+    to regular reads. (suresh)
+
+    HDFS-4583. TestNodeCount fails. (Ivan Mitic via suresh)
+
+    HDFS-4591. HA clients can fail to fail over while Standby NN is performing
+    long checkpoint. (atm)
 
 Release 2.0.4-alpha - UNRELEASED
 
@@ -2375,6 +2415,12 @@ Release 0.23.7 - UNRELEASED
     HDFS-4560. Webhdfs cannot use tokens obtained by another user (daryn)
 
     HDFS-4566. Webdhfs token cancelation should use authentication (daryn)
+
+    HDFS-4567. Webhdfs does not need a token for token operations (daryn via
+    kihwal)
+
+    HDFS-4577. Webhdfs operations should declare if authentication is required
+    (daryn via kihwal)
 
 Release 0.23.6 - UNRELEASED
 

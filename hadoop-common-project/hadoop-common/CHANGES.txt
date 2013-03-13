@@ -8,6 +8,12 @@ Trunk (Unreleased)
     FSDataOutputStream.sync() and Syncable.sync().  (szetszwo)
 
     HADOOP-8886. Remove KFS support. (eli)
+    
+    HADOOP-9163 The rpc msg in ProtobufRpcEngine.proto should be moved out to
+    avoid an extra copy (Sanjay Radia)
+
+    HADOOP-9151 Include RPC error info in RpcResponseHeader instead of sending
+    it separately (sanjay Radia)
 
   NEW FEATURES
     
@@ -157,8 +163,6 @@ Trunk (Unreleased)
     HADOOP-9112. test-patch should -1 for @Tests without a timeout 
     (Surenkumar Nihalani via bobby)
 
-    HADOOP-9163 The rpc msg in ProtobufRpcEngine.proto should be moved out to
-    avoid an extra copy (Sanjay Radia)
 
   BUG FIXES
 
@@ -336,6 +340,14 @@ Trunk (Unreleased)
     HADOOP-9264. Port change to use Java untar API on Windows from 
     branch-1-win to trunk. (Chris Nauroth via suresh)
 
+    HADOOP-9393. TestRPC fails with JDK7. (Andrew Wang via atm)
+
+    HADOOP-9394. Port findHangingTest.sh from HBase to Hadoop. (Andrew Wang
+    via atm)
+
+    HADOOP-9099. NetUtils.normalizeHostName fails on domains where 
+    UnknownHost resolves to an IP address. (Ivan Mitic via suresh)
+
   OPTIMIZATIONS
 
     HADOOP-7761. Improve the performance of raw comparisons. (todd)
@@ -461,6 +473,14 @@ Trunk (Unreleased)
 
     HADOOP-9365. TestHAZKUtil fails on Windows. (Ivan Mitic via suresh)
 
+    HADOOP-9364. PathData#expandAsGlob does not return correct results for
+    absolute paths on Windows. (Ivan Mitic via suresh)
+
+    HADOOP-8973. DiskChecker cannot reliably detect an inaccessible disk on
+    Windows with NTFS ACLs. (Chris Nauroth via suresh)
+
+    HADOOP-9388. TestFsShellCopy fails on Windows. (Ivan Mitic via suresh)
+    
 Release 2.0.5-beta - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -531,6 +551,14 @@ Release 2.0.5-beta - UNRELEASED
 
     HADOOP-9337. org.apache.hadoop.fs.DF.getMount() does not work on Mac OS.
     (Ivan A. Veselovsky via atm)
+
+    HADOOP-9369. DNS#reverseDns() can return hostname with . appended at the
+    end. (Karthik Kambatla via atm)
+
+    HADOOP-9379. capture the ulimit info after printing the log to the 
+    console. (Arpit Gupta via suresh)
+
+    HADOOP-9399. protoc maven plugin doesn't work on mvn 3.0.2 (todd)
 
 Release 2.0.4-alpha - UNRELEASED
 
@@ -2785,6 +2813,9 @@ Release 0.23.0 - 2011-11-01
     HADOOP-7797. Fix top-level pom.xml to refer to correct staging maven
     repository. (omalley via acmurthy) 
 
+    HADOOP-7101. UserGroupInformation.getCurrentUser() fails when called from
+    non-Hadoop JAAS context. (todd)
+
 Release 0.22.1 - Unreleased
 
   INCOMPATIBLE CHANGES
@@ -3241,9 +3272,6 @@ Release 0.22.0 - 2011-11-29
     todd)
 
     HADOOP-7093. Servlets should default to text/plain (todd)
-
-    HADOOP-7101. UserGroupInformation.getCurrentUser() fails when called from
-    non-Hadoop JAAS context. (todd)
 
     HADOOP-7089. Fix link resolution logic in hadoop-config.sh. (eli)
 
