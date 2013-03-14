@@ -71,6 +71,7 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.security.token.TokenIdentifier;
 import org.apache.hadoop.util.JarFinder;
+import org.apache.hadoop.util.Shell;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -467,8 +468,28 @@ public class TestMRJobs {
       // Check that the symlink for the Job Jar was created in the cwd and
       // points to the extracted directory
       File jobJarDir = new File("job.jar");
-      Assert.assertTrue(FileUtils.isSymlink(jobJarDir));
+      Assert.assertTrue(isSymlink(jobJarDir));
       Assert.assertTrue(jobJarDir.isDirectory());
+    }
+
+    /**
+     * Determines if the specified file is a symlink.  On most platforms, this
+     * can use commons-io.  On Windows, the commons-io implementation is
+     * unreliable and always returns false, so instead it checks the output of
+     * dir.  After migrating to Java 7, this method can be removed in favor of
+     * the new method java.nio.file.Files.isSymbolicLink.
+     * 
+     * @param file File to check
+     * @return boolean true if the file is a symlink
+     * @throws IOException thrown for any I/O error
+     */
+    private static boolean isSymlink(File file) throws IOException {
+      if (Shell.WINDOWS) {
+        String dirOut = Shell.execCommand("cmd", "/c", file.getAbsolutePath());
+        return dirOut.contains("<SYMLINK>");
+      } else {
+        return FileUtils.isSymlink(file);
+      }
     }
 
     /**
