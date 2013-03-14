@@ -577,26 +577,21 @@ public class ContainerLaunch implements Callable<Integer> {
 
     // TODO: Remove Windows check and use this approach on all platforms after
     // additional testing.  See YARN-358.
-    //if (Shell.WINDOWS) {
-    //System.out.println("cn tree =\n" + Shell.execCommand("/opt/local/bin/tree", "/Users/chris/git/hadoop-common/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-jobclient/target/org.apache.hadoop.mapreduce.v2.TestMRJobs"));
+    if (Shell.WINDOWS) {
       StringBuilder inputClassPath = new StringBuilder(environment.get(
         Environment.CLASSPATH.name()));
       for (Map.Entry<Path,List<String>> entry : resources.entrySet()) {
-          System.out.println("cn checking resources for entry = " + entry + ", entry.toUri.getPath = " + entry.getKey().toUri().getPath() + ", exists? " + new File(entry.getKey().toUri().getPath()).exists());
         for (String linkName : entry.getValue()) {
           inputClassPath.append(File.pathSeparatorChar).append(pwd.toString()).append('/').append(linkName);
           if (new File(entry.getKey().toUri().getPath()).isDirectory()) {
-            System.out.println("cn entry is directory, so adding separator: " + new File(entry.getKey().toUri().getPath()));
             inputClassPath.append('/');
-          } else {
-            System.out.println("cn entry is NOT directory, so skipping separator: " + new File(entry.getKey().toUri().getPath()));
           }
         }
       }
       environment.put(Environment.CLASSPATH.name(),
         FileUtil.createJarWithClassPath(inputClassPath.toString(), pwd,
           environment));
-    //}
+    }
 
     /**
      * Modifiable environment variables

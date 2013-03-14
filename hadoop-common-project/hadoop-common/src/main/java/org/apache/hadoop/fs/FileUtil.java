@@ -1047,17 +1047,14 @@ public class FileUtil {
    */
   public static String createJarWithClassPath(String inputClassPath, Path pwd,
       Map<String, String> callerEnv) throws IOException {
-    System.out.println("cn createJarWithClassPath, inputClassPath = " + inputClassPath + ", pwd = " + pwd);
     // Replace environment variables, case-insensitive on Windows
     @SuppressWarnings("unchecked")
     Map<String, String> env = Shell.WINDOWS ? new CaseInsensitiveMap(callerEnv) :
       callerEnv;
     String[] classPathEntries = inputClassPath.split(File.pathSeparator);
     for (int i = 0; i < classPathEntries.length; ++i) {
-      System.out.println("cn classPathEntries[" + i + "] before = " + classPathEntries[i]);
       classPathEntries[i] = StringUtils.replaceTokens(classPathEntries[i],
         StringUtils.ENV_VAR_PATTERN, env);
-      System.out.println("cn classPathEntries[" + i + "] after = " + classPathEntries[i]);
     }
     File workingDir = new File(pwd.toString());
     if (!workingDir.mkdirs()) {
@@ -1072,7 +1069,6 @@ public class FileUtil {
     List<String> classPathEntryList = new ArrayList<String>(
       classPathEntries.length);
     for (String classPathEntry: classPathEntries) {
-      System.out.println("cn checking classPathEntry = " + classPathEntry);
       if (classPathEntry.endsWith("*")) {
         // Append all jars that match the wildcard
         Path globPath = new Path(classPathEntry).suffix("{.jar,.JAR}");
@@ -1082,7 +1078,6 @@ public class FileUtil {
           for (FileStatus wildcardJar: wildcardJars) {
             classPathEntryList.add(wildcardJar.getPath().toUri().toURL()
               .toExternalForm());
-            System.out.println("cn added wildcard expansion: " + wildcardJar.getPath().toUri().toURL().toExternalForm());
           }
         }
       } else {
@@ -1093,7 +1088,6 @@ public class FileUtil {
           classPathEntryUrl = classPathEntryUrl + "/";
         }
         classPathEntryList.add(classPathEntryUrl);
-        System.out.println("cn added one entry: " + classPathEntryUrl);
       }
     }
     String jarClassPath = StringUtils.join(" ", classPathEntryList);
