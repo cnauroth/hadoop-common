@@ -348,6 +348,8 @@ Trunk (Unreleased)
     HADOOP-9099. NetUtils.normalizeHostName fails on domains where 
     UnknownHost resolves to an IP address. (Ivan Mitic via suresh)
 
+    HADOOP-9397. Incremental dist tar build fails (Chris Nauroth via jlowe)
+
   OPTIMIZATIONS
 
     HADOOP-7761. Improve the performance of raw comparisons. (todd)
@@ -557,6 +559,8 @@ Release 2.0.5-beta - UNRELEASED
 
     HADOOP-9379. capture the ulimit info after printing the log to the 
     console. (Arpit Gupta via suresh)
+
+    HADOOP-9399. protoc maven plugin doesn't work on mvn 3.0.2 (todd)
 
 Release 2.0.4-alpha - UNRELEASED
 
@@ -2811,6 +2815,9 @@ Release 0.23.0 - 2011-11-01
     HADOOP-7797. Fix top-level pom.xml to refer to correct staging maven
     repository. (omalley via acmurthy) 
 
+    HADOOP-7101. UserGroupInformation.getCurrentUser() fails when called from
+    non-Hadoop JAAS context. (todd)
+
 Release 0.22.1 - Unreleased
 
   INCOMPATIBLE CHANGES
@@ -3267,9 +3274,6 @@ Release 0.22.0 - 2011-11-29
     todd)
 
     HADOOP-7093. Servlets should default to text/plain (todd)
-
-    HADOOP-7101. UserGroupInformation.getCurrentUser() fails when called from
-    non-Hadoop JAAS context. (todd)
 
     HADOOP-7089. Fix link resolution logic in hadoop-config.sh. (eli)
 

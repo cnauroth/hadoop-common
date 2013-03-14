@@ -66,6 +66,12 @@ Release 2.0.5-beta - UNRELEASED
     the per-application page are translated to html line breaks. (Omkar Vinit
     Joshi via vinodkv)
 
+    YARN-198. Added a link to RM pages from the NodeManager web app. (Jian He
+    via vinodkv)
+
+    YARN-237. Refreshing the RM page forgets how many rows I had in my
+    Datatables (jian he via bobby)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -396,6 +402,8 @@ Release 0.23.7 - UNRELEASED
     YARN-443. allow OS scheduling priority of NM to be different than the 
     containers it launches (tgraves)
 
+    YARN-468. coverage fix for org.apache.hadoop.yarn.server.webproxy.amfilter
+    (Aleksey Gorshkov via bobby)
 
   OPTIMIZATIONS
 
