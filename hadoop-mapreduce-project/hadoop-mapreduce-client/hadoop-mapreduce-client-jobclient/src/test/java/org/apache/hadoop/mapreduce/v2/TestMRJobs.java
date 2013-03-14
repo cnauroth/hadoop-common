@@ -97,13 +97,6 @@ public class TestMRJobs {
     } catch (IOException io) {
       throw new RuntimeException("problem getting local fs", io);
     }
-    try {
-      dfsCluster = new MiniDFSCluster.Builder(conf).numDataNodes(2)
-        .format(true).racks(null).build();
-      remoteFs = dfsCluster.getFileSystem();
-    } catch (IOException io) {
-      throw new RuntimeException("problem starting mini dfs cluster", io);
-    }
   }
 
   private static Path TEST_ROOT_DIR = new Path("target",
@@ -114,6 +107,13 @@ public class TestMRJobs {
 
   @BeforeClass
   public static void setup() throws IOException {
+    try {
+      dfsCluster = new MiniDFSCluster.Builder(conf).numDataNodes(2)
+        .format(true).racks(null).build();
+      remoteFs = dfsCluster.getFileSystem();
+    } catch (IOException io) {
+      throw new RuntimeException("problem starting mini dfs cluster", io);
+    }
 
     if (!(new File(MiniMRYarnCluster.APPJAR)).exists()) {
       LOG.info("MRAppJar " + MiniMRYarnCluster.APPJAR
