@@ -485,7 +485,8 @@ public class TestMRJobs {
      */
     private static boolean isSymlink(File file) throws IOException {
       if (Shell.WINDOWS) {
-        String dirOut = Shell.execCommand("cmd", "/c", file.getAbsolutePath());
+        String dirOut = Shell.execCommand("cmd", "/c", "dir",
+          file.getAbsolutePath());
         return dirOut.contains("<SYMLINK>");
       } else {
         return FileUtils.isSymlink(file);
