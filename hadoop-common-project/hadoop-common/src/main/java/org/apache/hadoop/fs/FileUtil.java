@@ -1080,11 +1080,20 @@ public class FileUtil {
           }
         }
       } else {
-        // Append just this jar
+        // Append just this entry
         String classPathEntryUrl = new File(classPathEntry).toURI().toURL()
           .toExternalForm();
-        if (classPathEntry.endsWith("/") && ! classPathEntryUrl.endsWith("/")) {
-          classPathEntryUrl = classPathEntryUrl + "/";
+
+        // File.toURI only appends trailing '/' if it can determine that it is a
+        // directory that already exists.  (See JavaDocs.)  If this entry had a
+        // trailing '/' specified by the caller, then guarantee that the
+        // classpath entry in the manifest has a trailing '/', and thus refers to
+        // a directory instead of a file.  This can happen if the caller is
+        // creating a classpath jar referencing a directory that hasn't been
+        // created yet, but will definitely be created before running.
+        if (classPathEntry.endsWith(Path.SEPARATOR) &&
+            !classPathEntryUrl.endsWith(Path.SEPARATOR)) {
+          classPathEntryUrl = classPathEntryUrl + Path.SEPARATOR;
         }
         classPathEntryList.add(classPathEntryUrl);
       }

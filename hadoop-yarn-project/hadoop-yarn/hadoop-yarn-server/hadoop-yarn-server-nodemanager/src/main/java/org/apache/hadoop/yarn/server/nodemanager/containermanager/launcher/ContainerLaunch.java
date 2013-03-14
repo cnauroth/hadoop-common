@@ -580,17 +580,36 @@ public class ContainerLaunch implements Callable<Integer> {
     if (Shell.WINDOWS) {
       StringBuilder inputClassPath = new StringBuilder(environment.get(
         Environment.CLASSPATH.name()));
+
+      // Localized resources do not exist at the desired paths yet, because the
+      // container launch script has not run to create symlinks yet.  This means
+      // that FileUtil.createJarWithClassPath can't automatically expand
+      // wildcards to separate classpath entries for each file in the manifest.
+      // To resolve this, append classpath entries explicitly for each resource.
       for (Map.Entry<Path,List<String>> entry : resources.entrySet()) {
         for (String linkName : entry.getValue()) {
-          inputClassPath.append(File.pathSeparatorChar).append(pwd.toString()).append('/').append(linkName);
+          // Append resource.
+          inputClassPath.append(Path.SEPARATOR).append(pwd.toString())
+            .append(Path.SEPARATOR).append(linkName);
+
+          // FileUtil.createJarWithClassPath must use File.toURI to convert each
+          // file to a URI to write into the manifest's classpath.  For
+          // directories, the classpath must have a trailing '/', but File.toURI
+          // only appends the trailing '/' if it is a directory that already
+          // exists.  To resolve this, add the classpath entries with explicit
+          // trailing '/' here for any localized resource that targets a
+          // directory.  Then, FileUtil.createJarWithClassPath will guarantee
+          // that the resulting entry in the manifest's classpath will have a
+          // trailing '/', and thus refer to a directory instead of a file.
           if (new File(entry.getKey().toUri().getPath()).isDirectory()) {
-            inputClassPath.append('/');
+            inputClassPath.append(Path.SEPARATOR);
           }
         }
       }
-      environment.put(Environment.CLASSPATH.name(),
-        FileUtil.createJarWithClassPath(inputClassPath.toString(), pwd,
-          environment));
+
+      String classPathJar = FileUtil.createJarWithClassPath(
+        inputClassPath.toString(), pwd, environment);
+      environment.put(Environment.CLASSPATH.name(), classPathJar);
     }
 
     /**
