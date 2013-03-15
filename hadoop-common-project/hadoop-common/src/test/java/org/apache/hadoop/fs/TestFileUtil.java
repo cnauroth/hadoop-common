@@ -755,8 +755,8 @@ public class TestFileUtil {
 
     // create classpath jar
     String wildcardPath = tmp.getCanonicalPath() + File.separator + "*";
-    String nonExistentSubdir = tmp.getCanonicalPath() + File.separator + "subdir"
-      + File.separator;
+    String nonExistentSubdir = tmp.getCanonicalPath() + Path.SEPARATOR + "subdir"
+      + Path.SEPARATOR;
     List<String> classPaths = Arrays.asList("cp1.jar", "cp2.jar", wildcardPath,
       "cp3.jar", nonExistentSubdir);
     String inputClassPath = StringUtils.join(File.pathSeparator, classPaths);
