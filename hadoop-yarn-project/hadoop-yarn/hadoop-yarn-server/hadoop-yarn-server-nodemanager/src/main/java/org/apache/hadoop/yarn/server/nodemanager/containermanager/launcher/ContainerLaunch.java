@@ -589,7 +589,7 @@ public class ContainerLaunch implements Callable<Integer> {
       for (Map.Entry<Path,List<String>> entry : resources.entrySet()) {
         for (String linkName : entry.getValue()) {
           // Append resource.
-          inputClassPath.append(Path.SEPARATOR).append(pwd.toString())
+          inputClassPath.append(File.pathSeparator).append(pwd.toString())
             .append(Path.SEPARATOR).append(linkName);
 
           // FileUtil.createJarWithClassPath must use File.toURI to convert each
