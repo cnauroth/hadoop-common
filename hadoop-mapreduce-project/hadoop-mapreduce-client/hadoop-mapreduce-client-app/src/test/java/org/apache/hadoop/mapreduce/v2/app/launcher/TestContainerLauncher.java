@@ -101,11 +101,11 @@ public class TestContainerLauncher {
     ThreadPoolExecutor threadPool = containerLauncher.getThreadPool();
 
     // No events yet
-    Assert.assertEquals(0, threadPool.getPoolSize());
     Assert.assertEquals(ContainerLauncherImpl.INITIAL_POOL_SIZE,
       threadPool.getCorePoolSize());
     Assert.assertNull(containerLauncher.foundErrors);
 
+    // Submit events for hosts 0-9.
     containerLauncher.expectedCorePoolSize = ContainerLauncherImpl.INITIAL_POOL_SIZE;
     for (int i = 0; i < 10; i++) {
       ContainerId containerId = BuilderUtils.newContainerId(appAttemptId, i);
@@ -115,10 +115,9 @@ public class TestContainerLauncher {
         ContainerLauncher.EventType.CONTAINER_REMOTE_LAUNCH));
     }
     waitForEvents(containerLauncher, 10);
-    Assert.assertEquals(10, threadPool.getPoolSize());
     Assert.assertNull(containerLauncher.foundErrors);
 
-    // Same set of hosts, so no change
+    // Drain all events.
     containerLauncher.finishEventHandling = true;
     int timeOut = 0;
     while (containerLauncher.numEventsProcessed.get() < 10 && timeOut++ < 200) {
@@ -129,31 +128,38 @@ public class TestContainerLauncher {
     }
     Assert.assertEquals(10, containerLauncher.numEventsProcessed.get());
     containerLauncher.finishEventHandling = false;
+
+    // Same set of hosts (0-9), so no change in core pool size
     for (int i = 0; i < 10; i++) {
-      ContainerId containerId = BuilderUtils.newContainerId(appAttemptId,
-          i + 10);
-      TaskAttemptId taskAttemptId = MRBuilderUtils.newTaskAttemptId(taskId,
-          i + 10);
+      ContainerId containerId = BuilderUtils.newContainerId(appAttemptId, i);
+      TaskAttemptId taskAttemptId = MRBuilderUtils.newTaskAttemptId(taskId, i);
       containerLauncher.handle(new ContainerLauncherEvent(taskAttemptId,
         containerId, "host" + i + ":1234", null,
         ContainerLauncher.EventType.CONTAINER_REMOTE_LAUNCH));
     }
     waitForEvents(containerLauncher, 20);
-    Assert.assertEquals(10, threadPool.getPoolSize());
     Assert.assertNull(containerLauncher.foundErrors);
 
-    // Different hosts, there should be an increase in core-thread-pool size to
-    // 21(11hosts+10buffer)
-    // Core pool size should be 21 but the live pool size should be only 11.
+    // Different hosts (10-20), there should be an increase in core-thread-pool
+    // size to at least 21 (at least 11 hosts + 10 buffer)
     containerLauncher.expectedCorePoolSize = 11 + ContainerLauncherImpl.INITIAL_POOL_SIZE;
-    containerLauncher.finishEventHandling = false;
+    for (int i = 10; i < 20; i++) {
+      ContainerId containerId = BuilderUtils.newContainerId(appAttemptId, i);
+      TaskAttemptId taskAttemptId = MRBuilderUtils.newTaskAttemptId(taskId, i);
+      containerLauncher.handle(new ContainerLauncherEvent(taskAttemptId,
+        containerId, "host" + i + ":1234", null,
+        ContainerLauncher.EventType.CONTAINER_REMOTE_LAUNCH));
+    }
+    waitForEvents(containerLauncher, 30);
+    Assert.assertNull(containerLauncher.foundErrors);
+
+    // One additional host (21), which does not exceed core pool size.
     ContainerId containerId = BuilderUtils.newContainerId(appAttemptId, 21);
     TaskAttemptId taskAttemptId = MRBuilderUtils.newTaskAttemptId(taskId, 21);
     containerLauncher.handle(new ContainerLauncherEvent(taskAttemptId,
-      containerId, "host11:1234", null,
+      containerId, "host21:1234", null,
       ContainerLauncher.EventType.CONTAINER_REMOTE_LAUNCH));
-    waitForEvents(containerLauncher, 21);
-    Assert.assertEquals(11, threadPool.getPoolSize());
+    waitForEvents(containerLauncher, 31);
     Assert.assertNull(containerLauncher.foundErrors);
 
     containerLauncher.stop();
@@ -331,11 +337,14 @@ public class TestContainerLauncher {
     protected ContainerLauncherImpl.EventProcessor createEventProcessor(
         final ContainerLauncherEvent event) {
       // At this point of time, the EventProcessor is being created and so no
-      // additional threads would have been created.
-
-      // Core-pool-size should have increased by now.
-      if (expectedCorePoolSize != launcherPool.getCorePoolSize()) {
-        foundErrors = "Expected " + expectedCorePoolSize + " but found "
+      // additional threads would have been created.  Core-pool-size should have
+      // increased by now.  However, because enqueuing and dequeuing of
+      // events/hosts is happening in separate threads without synchronization,
+      // we cannot predict the exact value that the thread pool resizing logic
+      // will see.  Instead of asserting an exact value, we assert that the
+      // thread pool has grown to at least a certain size.
+      if (launcherPool.getCorePoolSize() < expectedCorePoolSize) {
+        foundErrors = "Expected at least " + expectedCorePoolSize + " but found "
             + launcherPool.getCorePoolSize();
       }
 
