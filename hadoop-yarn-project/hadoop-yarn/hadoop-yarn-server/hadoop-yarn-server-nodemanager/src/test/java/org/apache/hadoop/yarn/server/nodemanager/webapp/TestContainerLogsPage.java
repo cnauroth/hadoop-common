@@ -41,7 +41,7 @@ import org.junit.Test;
 
 public class TestContainerLogsPage {
 
-  @Test
+  @Test(timeout=30000)
   public void testContainerLogDirs() throws IOException {
     File absLogDir = new File("target",
       TestNMWebServer.class.getSimpleName() + "LogDir").getAbsoluteFile();
