@@ -336,6 +336,10 @@ Trunk (Unreleased)
 
     HDFS-4582. TestHostsFiles fails on Windows. (Ivan Mitic via suresh)
 
+    HDFS-4603. TestMiniDFSCluster fails on Windows. (Ivan Mitic via suresh)
+
+    HDFS-4604. TestJournalNode fails on Windows. (Ivan Mitic via suresh)
+
 Release 2.0.5-beta - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -358,6 +362,9 @@ Release 2.0.5-beta - UNRELEASED
 
     HDFS-4569. Small image transfer related cleanups.
     (Andrew Wang via suresh)
+
+    HDFS-4521. Invalid network toploogies should not be cached. (Colin Patrick
+    McCabe via atm)
 
   OPTIMIZATIONS
 
