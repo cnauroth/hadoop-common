@@ -83,7 +83,7 @@ public class TestDistributedShell {
     }
   }
 
-  @Test
+  @Test(timeout=30000)
   public void testDSShell() throws Exception {
 
     String[] args = {
@@ -111,7 +111,7 @@ public class TestDistributedShell {
 
   }
 
-  @Test
+  @Test(timeout=30000)
   public void testDSShellWithNoArgs() throws Exception {
 
     String[] args = {};
