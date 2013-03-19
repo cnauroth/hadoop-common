@@ -219,7 +219,7 @@ public class TestMRJobs {
     }
   }
 
-  @Test (timeout = 30000)
+  @Test (timeout = 60000)
   public void testRandomWriter() throws IOException, InterruptedException,
       ClassNotFoundException {
     
@@ -281,7 +281,7 @@ public class TestMRJobs {
             && counters.findCounter(JobCounter.SLOTS_MILLIS_MAPS).getValue() != 0);
   }
 
-  @Test (timeout = 30000)
+  @Test (timeout = 60000)
   public void testFailingMapper() throws IOException, InterruptedException,
       ClassNotFoundException {
 
@@ -363,7 +363,7 @@ public class TestMRJobs {
     return job;
   }
 
-  //@Test (timeout = 30000)
+  //@Test (timeout = 60000)
   public void testSleepJobWithSecurityOn() throws IOException,
       InterruptedException, ClassNotFoundException {
 
@@ -584,7 +584,7 @@ public class TestMRJobs {
           trackingUrl.endsWith(jobId.substring(jobId.lastIndexOf("_")) + "/"));
   }
   
-  @Test (timeout = 300000)
+  @Test (timeout = 600000)
   public void testDistributedCache() throws Exception {
     // Test with a local (file:///) Job Jar
     Path localJobJarPath = makeJobJarWithLib(TEST_ROOT_DIR.toUri().toString());
