@@ -306,17 +306,29 @@ public class TestContainerManager extends BaseContainerManagerTest {
   
   private void testContainerLaunchAndExit(int exitCode) throws IOException, InterruptedException {
 
-	  File scriptFile = new File(tmpDir, "scriptFile.sh");
+	  File scriptFile = new File(tmpDir, Path.WINDOWS ? "scriptFile.cmd" :
+	    "scriptFile.sh");
 	  PrintWriter fileWriter = new PrintWriter(scriptFile);
 	  File processStartFile =
 			  new File(tmpDir, "start_file.txt").getAbsoluteFile();
-	  fileWriter.write("\numask 0"); // So that start file is readable by the test
-	  fileWriter.write("\necho Hello World! > " + processStartFile);
-	  fileWriter.write("\necho $$ >> " + processStartFile); 
 
-	  // Have script throw an exit code at the end
-	  if (exitCode != 0) {
-		  fileWriter.write("\nexit "+exitCode);
+	  // ////// Construct the Container-id
+	  ContainerId cId = createContainerId();
+
+	  if (Path.WINDOWS) {
+	    fileWriter.println("@echo Hello World!> " + processStartFile);
+	    fileWriter.println("@echo " + cId + ">> " + processStartFile);
+	    if (exitCode != 0) {
+	      fileWriter.println("@exit " + exitCode);
+	    }
+	  } else {
+	    fileWriter.write("\numask 0"); // So that start file is readable by the test
+	    fileWriter.write("\necho Hello World! > " + processStartFile);
+	    fileWriter.write("\necho $$ >> " + processStartFile); 
+	    // Have script throw an exit code at the end
+	    if (exitCode != 0) {
+	      fileWriter.write("\nexit "+exitCode);
+	    }
 	  }
 	  
 	  fileWriter.close();
@@ -324,8 +336,6 @@ public class TestContainerManager extends BaseContainerManagerTest {
 	  ContainerLaunchContext containerLaunchContext = 
 			  recordFactory.newRecordInstance(ContainerLaunchContext.class);
 
-	  // ////// Construct the Container-id
-	  ContainerId cId = createContainerId();
 	  containerLaunchContext.setContainerId(cId);
 
 	  containerLaunchContext.setUser(user);
@@ -347,12 +357,18 @@ public class TestContainerManager extends BaseContainerManagerTest {
 	  containerLaunchContext.setLocalResources(localResources);
 	  containerLaunchContext.setUser(containerLaunchContext.getUser());
 	  List<String> commands = new ArrayList<String>();
-	  commands.add("/bin/bash");
-	  commands.add(scriptFile.getAbsolutePath());
+	  if (Path.WINDOWS) {
+	    commands.add("cmd");
+	    commands.add("/c");
+	    commands.add(scriptFile.getAbsolutePath());
+	  } else {
+	    commands.add("/bin/bash");
+	    commands.add(scriptFile.getAbsolutePath());
+	  }
 	  containerLaunchContext.setCommands(commands);
 	  containerLaunchContext.setResource(recordFactory
 			  .newRecordInstance(Resource.class));
-	  containerLaunchContext.getResource().setMemory(100 * 1024 * 1024);
+	  containerLaunchContext.getResource().setMemory(100); // MB
 
 	  StartContainerRequest startRequest = recordFactory.newRecordInstance(StartContainerRequest.class);
 	  startRequest.setContainerLaunchContext(containerLaunchContext);
