@@ -25,7 +25,7 @@
 #define ERROR_TASK_NOT_ALIVE 1
 
 // This exit code for killed processes is compatible with Unix, where a killed
-// process exits with 128+signal.  For SIGKILL, this would be 128 + 9 = 137.
+// process exits with 128 + signal.  For SIGKILL, this would be 128 + 9 = 137.
 #define KILLED_PROCESS_EXIT_CODE 137
 
 // List of different task related command line options supported by
