@@ -53,6 +53,7 @@ import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
 import org.apache.hadoop.yarn.server.nodemanager.CMgrCompletedAppsEvent;
 import org.apache.hadoop.yarn.server.nodemanager.ContainerExecutor.ExitCode;
 import org.apache.hadoop.yarn.server.nodemanager.ContainerExecutor.Signal;
+import org.apache.hadoop.yarn.server.nodemanager.DefaultContainerExecutor;
 import org.apache.hadoop.yarn.server.nodemanager.DeletionService;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.application.ApplicationState;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.ContainerLocalizer;
@@ -193,21 +194,30 @@ public class TestContainerManager extends BaseContainerManagerTest {
       InterruptedException {
     containerManager.start();
 
-    File scriptFile = new File(tmpDir, "scriptFile.sh");
+    File scriptFile = new File(tmpDir, Path.WINDOWS ? "scriptFile.cmd" :
+      "scriptFile.sh");
     PrintWriter fileWriter = new PrintWriter(scriptFile);
     File processStartFile =
         new File(tmpDir, "start_file.txt").getAbsoluteFile();
-    fileWriter.write("\numask 0"); // So that start file is readable by the test
-    fileWriter.write("\necho Hello World! > " + processStartFile);
-    fileWriter.write("\necho $$ >> " + processStartFile);
-    fileWriter.write("\nexec sleep 100");
+
+    // ////// Construct the Container-id
+    ContainerId cId = createContainerId();
+
+    if (Path.WINDOWS) {
+      fileWriter.println("@echo Hello World!> " + processStartFile);
+      fileWriter.println("@echo " + cId + ">> " + processStartFile);
+      fileWriter.println("@ping -n 40 127.0.0.1 >nul");
+    } else {
+      fileWriter.write("\numask 0"); // So that start file is readable by the test
+      fileWriter.write("\necho Hello World! > " + processStartFile);
+      fileWriter.write("\necho $$ >> " + processStartFile);
+      fileWriter.write("\nexec sleep 100");
+    }
     fileWriter.close();
 
     ContainerLaunchContext containerLaunchContext = 
         recordFactory.newRecordInstance(ContainerLaunchContext.class);
 
-    // ////// Construct the Container-id
-    ContainerId cId = createContainerId();
     containerLaunchContext.setContainerId(cId);
 
     containerLaunchContext.setUser(user);
@@ -229,8 +239,14 @@ public class TestContainerManager extends BaseContainerManagerTest {
     containerLaunchContext.setLocalResources(localResources);
     containerLaunchContext.setUser(containerLaunchContext.getUser());
     List<String> commands = new ArrayList<String>();
-    commands.add("/bin/bash");
-    commands.add(scriptFile.getAbsolutePath());
+    if (Path.WINDOWS) {
+      commands.add("cmd");
+      commands.add("/c");
+      commands.add(scriptFile.getAbsolutePath());
+    } else {
+      commands.add("/bin/bash");
+      commands.add(scriptFile.getAbsolutePath());
+    }
     containerLaunchContext.setCommands(commands);
     containerLaunchContext.setResource(recordFactory
         .newRecordInstance(Resource.class));
@@ -260,12 +276,10 @@ public class TestContainerManager extends BaseContainerManagerTest {
 
     // Assert that the process is alive
     Assert.assertTrue("Process is not alive!",
-        exec.signalContainer(user,
-            pid, Signal.NULL));
+      ((DefaultContainerExecutor)exec).containerIsAlive(pid));
     // Once more
     Assert.assertTrue("Process is not alive!",
-        exec.signalContainer(user,
-            pid, Signal.NULL));
+      ((DefaultContainerExecutor)exec).containerIsAlive(pid));
 
     StopContainerRequest stopRequest = recordFactory.newRecordInstance(StopContainerRequest.class);
     stopRequest.setContainerId(cId);
@@ -284,8 +298,7 @@ public class TestContainerManager extends BaseContainerManagerTest {
 
     // Assert that the process is not alive anymore
     Assert.assertFalse("Process is still alive!",
-        exec.signalContainer(user,
-            pid, Signal.NULL));
+      ((DefaultContainerExecutor)exec).containerIsAlive(pid));
   }
   
   private void testContainerLaunchAndExit(int exitCode) throws IOException, InterruptedException {

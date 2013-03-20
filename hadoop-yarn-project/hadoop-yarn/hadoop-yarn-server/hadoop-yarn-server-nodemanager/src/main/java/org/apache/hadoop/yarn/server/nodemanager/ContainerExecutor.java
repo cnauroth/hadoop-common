@@ -306,7 +306,7 @@ public abstract class ContainerExecutor implements Configurable {
   public static final boolean isSetsidAvailable = isSetsidSupported();
   private static boolean isSetsidSupported() {
     if (Shell.WINDOWS) {
-      return true;
+      return false;
     }
     ShellCommandExecutor shexec = null;
     boolean setsidSupported = true;

@@ -50,6 +50,8 @@ import org.apache.hadoop.yarn.server.nodemanager.containermanager.launcher.Conta
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.ContainerLocalizer;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 
+import com.google.common.annotations.VisibleForTesting;
+
 public class DefaultContainerExecutor extends ContainerExecutor {
 
   private static final Log LOG = LogFactory
@@ -322,7 +324,8 @@ public class DefaultContainerExecutor extends ContainerExecutor {
    * @param pid String pid
    * @return boolean true if the process is alive
    */
-  private boolean containerIsAlive(String pid) throws IOException {
+  @VisibleForTesting
+  public boolean containerIsAlive(String pid) throws IOException {
     try {
       new ShellCommandExecutor(getCheckProcessIsAliveCommand(pid)).execute();
       // successful execution means process is alive
