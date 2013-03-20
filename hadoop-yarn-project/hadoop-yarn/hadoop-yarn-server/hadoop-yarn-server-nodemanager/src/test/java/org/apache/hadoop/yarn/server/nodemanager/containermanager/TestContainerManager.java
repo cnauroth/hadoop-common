@@ -206,7 +206,7 @@ public class TestContainerManager extends BaseContainerManagerTest {
     if (Path.WINDOWS) {
       fileWriter.println("@echo Hello World!> " + processStartFile);
       fileWriter.println("@echo " + cId + ">> " + processStartFile);
-      fileWriter.println("@ping -n 40 127.0.0.1 >nul");
+      fileWriter.println("@ping -n 100 127.0.0.1 >nul");
     } else {
       fileWriter.write("\numask 0"); // So that start file is readable by the test
       fileWriter.write("\necho Hello World! > " + processStartFile);
