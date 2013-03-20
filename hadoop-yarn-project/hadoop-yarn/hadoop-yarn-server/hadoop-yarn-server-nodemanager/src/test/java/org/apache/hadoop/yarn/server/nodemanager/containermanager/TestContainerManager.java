@@ -250,7 +250,7 @@ public class TestContainerManager extends BaseContainerManagerTest {
     containerLaunchContext.setCommands(commands);
     containerLaunchContext.setResource(recordFactory
         .newRecordInstance(Resource.class));
-    containerLaunchContext.getResource().setMemory(100 * 1024 * 1024);
+    containerLaunchContext.getResource().setMemory(100); // MB
     StartContainerRequest startRequest = recordFactory.newRecordInstance(StartContainerRequest.class);
     startRequest.setContainerLaunchContext(containerLaunchContext);
     containerManager.startContainer(startRequest);
