@@ -262,7 +262,7 @@ public class DefaultContainerExecutor extends ContainerExecutor {
       pout.println();
       pout.println("echo $$ > " + pidFile.toString() + ".tmp");
       pout.println("/bin/mv -f " + pidFile.toString() + ".tmp " + pidFile);
-      String exec = ContainerExecutor.isSetsidAvailable? "exec setsid" : "exec";
+      String exec = Shell.isSetsidAvailable? "exec setsid" : "exec";
       pout.println(exec + " /bin/bash -c \"" +
         launchDst.toUri().getPath().toString() + "\"");
     }
@@ -299,18 +299,15 @@ public class DefaultContainerExecutor extends ContainerExecutor {
   @Override
   public boolean signalContainer(String user, String pid, Signal signal)
       throws IOException {
-    final String sigpid = ContainerExecutor.isSetsidAvailable
-        ? "-" + pid
-        : pid;
-    LOG.debug("Sending signal " + signal.getValue() + " to pid " + sigpid
+    LOG.debug("Sending signal " + signal.getValue() + " to pid " + pid
         + " as user " + user);
-    if (!containerIsAlive(sigpid)) {
+    if (!containerIsAlive(pid)) {
       return false;
     }
     try {
-      killContainer(sigpid, signal);
+      killContainer(pid, signal);
     } catch (IOException e) {
-      if (!containerIsAlive(sigpid)) {
+      if (!containerIsAlive(pid)) {
         return false;
       }
       throw e;
@@ -327,7 +324,8 @@ public class DefaultContainerExecutor extends ContainerExecutor {
   @VisibleForTesting
   public boolean containerIsAlive(String pid) throws IOException {
     try {
-      new ShellCommandExecutor(getCheckProcessIsAliveCommand(pid)).execute();
+      new ShellCommandExecutor(Shell.getCheckProcessIsAliveCommand(pid))
+        .execute();
       // successful execution means process is alive
       return true;
     }
@@ -345,7 +343,7 @@ public class DefaultContainerExecutor extends ContainerExecutor {
    * (for logging).
    */
   private void killContainer(String pid, Signal signal) throws IOException {
-    new ShellCommandExecutor(getSignalKillCommand(signal.getValue(), pid))
+    new ShellCommandExecutor(Shell.getSignalKillCommand(signal.getValue(), pid))
       .execute();
   }
 

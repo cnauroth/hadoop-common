@@ -123,6 +123,19 @@ abstract public class Shell {
                    : new String[] { "ln", "-s", target, link };
   }
 
+  /** Return a command for determining if process with specified pid is alive. */
+  public static String[] getCheckProcessIsAliveCommand(String pid) {
+    return Shell.WINDOWS ?
+      new String[] { Shell.WINUTILS, "task", "isAlive", pid } :
+      new String[] { "kill", "-0", isSetsidAvailable ? "-" + pid : pid };
+  }
+
+  /** Return a command to send a signal to a given pid */
+  public static String[] getSignalKillCommand(int code, String pid) {
+    return Shell.WINDOWS ? new String[] { Shell.WINUTILS, "task", "kill", pid } :
+      new String[] { "kill", "-" + code, isSetsidAvailable ? "-" + pid : pid };
+  }
+
   /** a Unix command to set permission */
   public static final String SET_PERMISSION_COMMAND = "chmod";
   /** a Unix command to set owner */
@@ -241,6 +254,26 @@ abstract public class Shell {
     }
 
     return winUtilsPath;
+  }
+
+  public static final boolean isSetsidAvailable = isSetsidSupported();
+  private static boolean isSetsidSupported() {
+    if (Shell.WINDOWS) {
+      return false;
+    }
+    ShellCommandExecutor shexec = null;
+    boolean setsidSupported = true;
+    try {
+      String[] args = {"setsid", "bash", "-c", "echo $$"};
+      shexec = new ShellCommandExecutor(args);
+      shexec.execute();
+    } catch (IOException ioe) {
+      LOG.warn("setsid is not available on this machine. So not using it.");
+      setsidSupported = false;
+    } finally { // handle the exit code
+      LOG.info("setsid exited with exit code " + shexec.getExitCode());
+    }
+    return setsidSupported;
   }
 
   /** Token separator regex used to parse Shell tool outputs */
