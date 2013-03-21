@@ -322,7 +322,7 @@ public class DefaultContainerExecutor extends ContainerExecutor {
    * @return boolean true if the process is alive
    */
   @VisibleForTesting
-  public boolean containerIsAlive(String pid) throws IOException {
+  public static boolean containerIsAlive(String pid) throws IOException {
     try {
       new ShellCommandExecutor(Shell.getCheckProcessIsAliveCommand(pid))
         .execute();

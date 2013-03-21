@@ -276,10 +276,10 @@ public class TestContainerManager extends BaseContainerManagerTest {
 
     // Assert that the process is alive
     Assert.assertTrue("Process is not alive!",
-      ((DefaultContainerExecutor)exec).containerIsAlive(pid));
+      DefaultContainerExecutor.containerIsAlive(pid));
     // Once more
     Assert.assertTrue("Process is not alive!",
-      ((DefaultContainerExecutor)exec).containerIsAlive(pid));
+      DefaultContainerExecutor.containerIsAlive(pid));
 
     StopContainerRequest stopRequest = recordFactory.newRecordInstance(StopContainerRequest.class);
     stopRequest.setContainerId(cId);
@@ -301,7 +301,7 @@ public class TestContainerManager extends BaseContainerManagerTest {
 
     // Assert that the process is not alive anymore
     Assert.assertFalse("Process is still alive!",
-      ((DefaultContainerExecutor)exec).containerIsAlive(pid));
+      DefaultContainerExecutor.containerIsAlive(pid));
   }
   
   private void testContainerLaunchAndExit(int exitCode) throws IOException, InterruptedException {
