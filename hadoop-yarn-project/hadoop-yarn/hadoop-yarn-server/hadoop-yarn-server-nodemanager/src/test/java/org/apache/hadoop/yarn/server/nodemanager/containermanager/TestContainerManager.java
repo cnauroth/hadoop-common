@@ -293,8 +293,6 @@ public class TestContainerManager extends BaseContainerManagerTest {
     gcsRequest.setContainerId(cId);
     ContainerStatus containerStatus = 
         containerManager.getContainerStatus(gcsRequest).getStatus();
-    // On Windows, winutils task kill causes processes to exit with FORCE_KILLED.
-    // On other platforms, we send SIGTERM signal, causing exit with TERMINATED.
     int expectedExitCode = Path.WINDOWS ? ExitCode.FORCE_KILLED.getExitCode() :
       ExitCode.TERMINATED.getExitCode();
     Assert.assertEquals(expectedExitCode, containerStatus.getExitStatus());

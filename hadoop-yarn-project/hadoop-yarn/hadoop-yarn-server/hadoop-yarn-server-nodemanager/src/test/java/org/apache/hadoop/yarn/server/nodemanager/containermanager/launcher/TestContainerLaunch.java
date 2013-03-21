@@ -55,6 +55,7 @@ import org.apache.hadoop.yarn.api.records.URL;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.server.nodemanager.ContainerExecutor.ExitCode;
 import org.apache.hadoop.yarn.server.nodemanager.ContainerExecutor.Signal;
+import org.apache.hadoop.yarn.server.nodemanager.DefaultContainerExecutor;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.BaseContainerManagerTest;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.launcher.ContainerLaunch;
 import org.apache.hadoop.yarn.util.ConverterUtils;
@@ -176,22 +177,6 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
     envWithDummy.put(Environment.MALLOC_ARENA_MAX.name(), "99");
     setNewEnvironmentHack(envWithDummy);
 
-    String malloc = System.getenv(Environment.MALLOC_ARENA_MAX.name());
-    File scriptFile = new File(tmpDir, "scriptFile.sh");
-    PrintWriter fileWriter = new PrintWriter(scriptFile);
-    File processStartFile =
-        new File(tmpDir, "env_vars.txt").getAbsoluteFile();
-    fileWriter.write("\numask 0"); // So that start file is readable by the test
-    fileWriter.write("\necho $" + Environment.MALLOC_ARENA_MAX.name() + " > " + processStartFile);
-    fileWriter.write("\necho $$ >> " + processStartFile);
-    fileWriter.write("\nexec sleep 100");
-    fileWriter.close();
-
-    assert(malloc != null && !"".equals(malloc));
-
-    ContainerLaunchContext containerLaunchContext = 
-        recordFactory.newRecordInstance(ContainerLaunchContext.class);
-
     // ////// Construct the Container-id
     ApplicationId appId = recordFactory.newRecordInstance(ApplicationId.class);
     appId.setClusterTimestamp(0);
@@ -203,6 +188,31 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
     ContainerId cId = 
         recordFactory.newRecordInstance(ContainerId.class);
     cId.setApplicationAttemptId(appAttemptId);
+
+    String malloc = System.getenv(Environment.MALLOC_ARENA_MAX.name());
+    File scriptFile = new File(tmpDir, Shell.WINDOWS ? "scriptFile.cmd" :
+      "scriptFile.sh");
+    PrintWriter fileWriter = new PrintWriter(scriptFile);
+    File processStartFile =
+        new File(tmpDir, "env_vars.txt").getAbsoluteFile();
+    if (Shell.WINDOWS) {
+      fileWriter.println("@echo " + Environment.MALLOC_ARENA_MAX.$() + "> " +
+        processStartFile);
+      fileWriter.println("@echo " + cId + ">> " + processStartFile);
+      fileWriter.println("@ping -n 100 127.0.0.1 >nul");
+    } else {
+      fileWriter.write("\numask 0"); // So that start file is readable by the test
+      fileWriter.write("\necho " + Environment.MALLOC_ARENA_MAX.$() + " > " +
+        processStartFile);
+      fileWriter.write("\necho $$ >> " + processStartFile);
+      fileWriter.write("\nexec sleep 100");
+    }
+    fileWriter.close();
+
+    assert(malloc != null && !"".equals(malloc));
+
+    ContainerLaunchContext containerLaunchContext = 
+        recordFactory.newRecordInstance(ContainerLaunchContext.class);
     containerLaunchContext.setContainerId(cId);
 
     containerLaunchContext.setUser(user);
@@ -227,8 +237,14 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
     // set up the rest of the container
     containerLaunchContext.setUser(containerLaunchContext.getUser());
     List<String> commands = new ArrayList<String>();
-    commands.add("/bin/bash");
-    commands.add(scriptFile.getAbsolutePath());
+    if (Shell.WINDOWS) {
+      commands.add("cmd");
+      commands.add("/c");
+      commands.add(scriptFile.getAbsolutePath());
+    } else {
+      commands.add("/bin/bash");
+      commands.add(scriptFile.getAbsolutePath());
+    }
     containerLaunchContext.setCommands(commands);
     containerLaunchContext.setResource(recordFactory
         .newRecordInstance(Resource.class));
@@ -258,12 +274,10 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
 
     // Assert that the process is alive
     Assert.assertTrue("Process is not alive!",
-        exec.signalContainer(user,
-            pid, Signal.NULL));
+      DefaultContainerExecutor.containerIsAlive(pid));
     // Once more
     Assert.assertTrue("Process is not alive!",
-        exec.signalContainer(user,
-            pid, Signal.NULL));
+      DefaultContainerExecutor.containerIsAlive(pid));
 
     StopContainerRequest stopRequest = recordFactory.newRecordInstance(StopContainerRequest.class);
     stopRequest.setContainerId(cId);
@@ -277,13 +291,13 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
     gcsRequest.setContainerId(cId);
     ContainerStatus containerStatus = 
         containerManager.getContainerStatus(gcsRequest).getStatus();
-    Assert.assertEquals(ExitCode.TERMINATED.getExitCode(),
-        containerStatus.getExitStatus());
+    int expectedExitCode = Path.WINDOWS ? ExitCode.FORCE_KILLED.getExitCode() :
+      ExitCode.TERMINATED.getExitCode();
+    Assert.assertEquals(expectedExitCode, containerStatus.getExitStatus());
 
     // Assert that the process is not alive anymore
     Assert.assertFalse("Process is still alive!",
-        exec.signalContainer(user,
-            pid, Signal.NULL));
+      DefaultContainerExecutor.containerIsAlive(pid));
   }
 
   @Test
