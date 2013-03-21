@@ -84,13 +84,15 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
 
     File shellFile = null;
     File tempFile = null;
-    String badSymlink = "foo@zz%_#*&!-+= bar()";
+    String badSymlink = Shell.WINDOWS ? "foo@zz_#!-+bar.cmd" :
+      "foo@zz%_#*&!-+= bar()";
     File symLinkFile = null;
 
     try {
-      shellFile = new File(tmpDir, "hello.sh");
-      tempFile = new File(tmpDir, "temp.sh");
-      String timeoutCommand = "echo \"hello\"";
+      shellFile = new File(tmpDir, Shell.WINDOWS ? "hello.cmd" : "hello.sh");
+      tempFile = new File(tmpDir, Shell.WINDOWS ? "temp.cmd" : "temp.sh");
+      String timeoutCommand = Shell.WINDOWS ? "@echo \"hello\"" :
+        "echo \"hello\"";
       PrintWriter writer = new PrintWriter(new FileOutputStream(shellFile));    
       shellFile.setExecutable(true);
       writer.println(timeoutCommand);
@@ -105,7 +107,13 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
 
       Map<String, String> env = new HashMap<String, String>();
       List<String> commands = new ArrayList<String>();
-      commands.add("/bin/sh ./\\\"" + badSymlink + "\\\"");
+      if (Shell.WINDOWS) {
+        commands.add("cmd");
+        commands.add("/c");
+        commands.add("\"" + badSymlink + "\"");
+      } else {
+        commands.add("/bin/sh ./\\\"" + badSymlink + "\\\"");
+      }
 
       ContainerLaunch.writeLaunchEnv(fos, env, resources, commands);
       fos.flush();
