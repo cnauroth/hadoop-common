@@ -150,16 +150,30 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
   // this is a dirty hack - but should be ok for a unittest.
   @SuppressWarnings({ "rawtypes", "unchecked" })
   public static void setNewEnvironmentHack(Map<String, String> newenv) throws Exception {
-    Class[] classes = Collections.class.getDeclaredClasses();
-    Map<String, String> env = System.getenv();
-    for (Class cl : classes) {
-      if ("java.util.Collections$UnmodifiableMap".equals(cl.getName())) {
-        Field field = cl.getDeclaredField("m");
-        field.setAccessible(true);
-        Object obj = field.get(env);
-        Map<String, String> map = (Map<String, String>) obj;
-        map.clear();
-        map.putAll(newenv);
+    try {
+      Class<?> cl = Class.forName("java.lang.ProcessEnvironment");
+      Field field = cl.getDeclaredField("theEnvironment");
+      field.setAccessible(true);
+      Map<String, String> env = (Map<String, String>)field.get(null);
+      env.clear();
+      env.putAll(newenv);
+      Field ciField = cl.getDeclaredField("theCaseInsensitiveEnvironment");
+      ciField.setAccessible(true);
+      Map<String, String> cienv = (Map<String, String>)ciField.get(null);
+      cienv.clear();
+      cienv.putAll(newenv);
+    } catch (NoSuchFieldException e) {
+      Class[] classes = Collections.class.getDeclaredClasses();
+      Map<String, String> env = System.getenv();
+      for (Class cl : classes) {
+        if ("java.util.Collections$UnmodifiableMap".equals(cl.getName())) {
+          Field field = cl.getDeclaredField("m");
+          field.setAccessible(true);
+          Object obj = field.get(env);
+          Map<String, String> map = (Map<String, String>) obj;
+          map.clear();
+          map.putAll(newenv);
+        }
       }
     }
   }
