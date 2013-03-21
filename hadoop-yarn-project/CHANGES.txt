@@ -18,6 +18,13 @@ Trunk - Unreleased
 
   BUG FIXES
 
+    YARN-488. TestContainerManagerSecurity fails on Windows. (Chris Nauroth
+    via hitesh)
+
+    YARN-490. TestDistributedShell fails on Windows. (Chris Nauroth via hitesh)
+
+    YARN-491. TestContainerLogsPage fails on Windows. (Chris Nauroth via hitesh)
+
   BREAKDOWN OF HADOOP-8562 SUBTASKS
 
     YARN-158. Yarn creating package-info.java must not depend on sh.
@@ -80,6 +87,9 @@ Release 2.0.5-beta - UNRELEASED
 
     YARN-297. Improve hashCode implementations for PB records. (Xuan Gong via
     hitesh)
+
+    YARN-417. Create AMRMClient wrapper that provides asynchronous callbacks.
+    (Sandy Ryza via bikas)
 
   OPTIMIZATIONS
 
