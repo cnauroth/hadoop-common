@@ -318,26 +318,6 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
   public void testDelayedKill() throws Exception {
     containerManager.start();
 
-    File processStartFile =
-        new File(tmpDir, "pid.txt").getAbsoluteFile();
-
-    // setup a script that can handle sigterm gracefully
-    File scriptFile = new File(tmpDir, "testscript.sh");
-    PrintWriter writer = new PrintWriter(new FileOutputStream(scriptFile));
-    writer.println("#!/bin/bash\n\n");
-    writer.println("echo \"Running testscript for delayed kill\"");
-    writer.println("hello=\"Got SIGTERM\"");
-    writer.println("umask 0");
-    writer.println("trap \"echo $hello >> " + processStartFile + "\" SIGTERM");
-    writer.println("echo \"Writing pid to start file\"");
-    writer.println("echo $$ >> " + processStartFile);
-    writer.println("while true; do\nsleep 1s;\ndone");
-    writer.close();
-    scriptFile.setExecutable(true);
-
-    ContainerLaunchContext containerLaunchContext = 
-        recordFactory.newRecordInstance(ContainerLaunchContext.class);
-
     // ////// Construct the Container-id
     ApplicationId appId = recordFactory.newRecordInstance(ApplicationId.class);
     appId.setClusterTimestamp(1);
@@ -349,6 +329,33 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
     ContainerId cId = 
         recordFactory.newRecordInstance(ContainerId.class);
     cId.setApplicationAttemptId(appAttemptId);
+
+    File processStartFile =
+        new File(tmpDir, "pid.txt").getAbsoluteFile();
+
+    // setup a script that can handle sigterm gracefully
+    File scriptFile = new File(tmpDir, Shell.WINDOWS ? "testscript.cmd" :
+      "testscript.sh");
+    PrintWriter writer = new PrintWriter(new FileOutputStream(scriptFile));
+    if (Shell.WINDOWS) {
+      writer.println("@echo \"Running testscript for delayed kill\"");
+      writer.println("@echo \"Writing pid to start file\"");
+      writer.println("@echo " + cId + "> " + processStartFile);
+    } else {
+      writer.println("#!/bin/bash\n\n");
+      writer.println("echo \"Running testscript for delayed kill\"");
+      writer.println("hello=\"Got SIGTERM\"");
+      writer.println("umask 0");
+      writer.println("trap \"echo $hello >> " + processStartFile + "\" SIGTERM");
+      writer.println("echo \"Writing pid to start file\"");
+      writer.println("echo $$ >> " + processStartFile);
+      writer.println("while true; do\nsleep 1s;\ndone");
+    }
+    writer.close();
+    scriptFile.setExecutable(true);
+
+    ContainerLaunchContext containerLaunchContext = 
+        recordFactory.newRecordInstance(ContainerLaunchContext.class);
     containerLaunchContext.setContainerId(cId);
 
     containerLaunchContext.setUser(user);
@@ -373,7 +380,13 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
     // set up the rest of the container
     containerLaunchContext.setUser(containerLaunchContext.getUser());
     List<String> commands = new ArrayList<String>();
-    commands.add(scriptFile.getAbsolutePath());
+    if (Shell.WINDOWS) {
+      commands.add("cmd");
+      commands.add("/c");
+      commands.add(scriptFile.getAbsolutePath());
+    } else {
+      commands.add(scriptFile.getAbsolutePath());
+    }
     containerLaunchContext.setCommands(commands);
     containerLaunchContext.setResource(recordFactory
         .newRecordInstance(Resource.class));
@@ -407,25 +420,32 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
     Assert.assertEquals(ExitCode.FORCE_KILLED.getExitCode(),
         containerStatus.getExitStatus());
 
-    // Now verify the contents of the file
-    // Script generates a message when it receives a sigterm
-    // so we look for that
-    BufferedReader reader =
-        new BufferedReader(new FileReader(processStartFile));
+    // Now verify the contents of the file.  Script generates a message when it
+    // receives a sigterm so we look for that.  We cannot perform this check on
+    // Windows, because the process is not notified when killed by winutils.
+    // There is no way for the process to trap and respond.  Instead, we can
+    // verify that the job object with ID matching container ID no longer exists.
+    if (Shell.WINDOWS) {
+      Assert.assertFalse("Process is still alive!",
+        DefaultContainerExecutor.containerIsAlive(cId.toString()));
+    } else {
+      BufferedReader reader =
+          new BufferedReader(new FileReader(processStartFile));
 
-    boolean foundSigTermMessage = false;
-    while (true) {
-      String line = reader.readLine();
-      if (line == null) {
-        break;
+      boolean foundSigTermMessage = false;
+      while (true) {
+        String line = reader.readLine();
+        if (line == null) {
+          break;
+        }
+        if (line.contains("SIGTERM")) {
+          foundSigTermMessage = true;
+          break;
+        }
       }
-      if (line.contains("SIGTERM")) {
-        foundSigTermMessage = true;
-        break;
-      }
+      Assert.assertTrue("Did not find sigterm message", foundSigTermMessage);
+      reader.close();
     }
-    Assert.assertTrue("Did not find sigterm message", foundSigTermMessage);
-    reader.close();
   }
 
 }
