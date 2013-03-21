@@ -238,8 +238,8 @@ Release 2.0.5-beta - UNRELEASED
     MAPREDUCE-4716. TestHsWebServicesJobsQuery.testJobsQueryStateInvalid 
     fails with jdk7. (tgraves via tucu)
 
-    MAPREDUCE-5028. Maps fail when io.sort.mb is set to high value. 
-    (kkambatl via tucu)
+    MAPREDUCE-5075. DistCp leaks input file handles since ThrottledInputStream
+    does not close the wrapped InputStream.  (Chris Nauroth via szetszwo)
 
 Release 2.0.4-alpha - UNRELEASED
 
@@ -786,6 +786,9 @@ Release 0.23.7 - UNRELEASED
     MAPREDUCE-5027. Shuffle does not limit number of outstanding connections
     (Robert Parker via jeagles)
 
+    MAPREDUCE-4972. Coverage fixing for org.apache.hadoop.mapreduce.jobhistory
+    (Aleksey Gorshkov via bobby)
+
   OPTIMIZATIONS
 
     MAPREDUCE-4946. Fix a performance problem for large jobs by reducing the
@@ -823,6 +826,9 @@ Release 0.23.7 - UNRELEASED
 
     MAPREDUCE-5042. Reducer unable to fetch for a map task that was recovered
     (Jason Lowe via bobby)
+
+    MAPREDUCE-5053. java.lang.InternalError from decompression codec cause
+    reducer to fail (Robert Parker via jeagles)
 
 Release 0.23.6 - UNRELEASED
 

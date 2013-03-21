@@ -578,38 +578,41 @@ public class ContainerLaunch implements Callable<Integer> {
     // TODO: Remove Windows check and use this approach on all platforms after
     // additional testing.  See YARN-358.
     if (Shell.WINDOWS) {
-      StringBuilder inputClassPath = new StringBuilder(environment.get(
-        Environment.CLASSPATH.name()));
+      String inputClassPath = environment.get(Environment.CLASSPATH.name());
+      if (inputClassPath != null && !inputClassPath.isEmpty()) {
+        StringBuilder newClassPath = new StringBuilder(inputClassPath);
 
-      // Localized resources do not exist at the desired paths yet, because the
-      // container launch script has not run to create symlinks yet.  This means
-      // that FileUtil.createJarWithClassPath can't automatically expand
-      // wildcards to separate classpath entries for each file in the manifest.
-      // To resolve this, append classpath entries explicitly for each resource.
-      for (Map.Entry<Path,List<String>> entry : resources.entrySet()) {
-        for (String linkName : entry.getValue()) {
-          // Append resource.
-          inputClassPath.append(File.pathSeparator).append(pwd.toString())
-            .append(Path.SEPARATOR).append(linkName);
+        // Localized resources do not exist at the desired paths yet, because the
+        // container launch script has not run to create symlinks yet.  This
+        // means that FileUtil.createJarWithClassPath can't automatically expand
+        // wildcards to separate classpath entries for each file in the manifest.
+        // To resolve this, append classpath entries explicitly for each
+        // resource.
+        for (Map.Entry<Path,List<String>> entry : resources.entrySet()) {
+          for (String linkName : entry.getValue()) {
+            // Append resource.
+            newClassPath.append(File.pathSeparator).append(pwd.toString())
+              .append(Path.SEPARATOR).append(linkName);
 
-          // FileUtil.createJarWithClassPath must use File.toURI to convert each
-          // file to a URI to write into the manifest's classpath.  For
-          // directories, the classpath must have a trailing '/', but File.toURI
-          // only appends the trailing '/' if it is a directory that already
-          // exists.  To resolve this, add the classpath entries with explicit
-          // trailing '/' here for any localized resource that targets a
-          // directory.  Then, FileUtil.createJarWithClassPath will guarantee
-          // that the resulting entry in the manifest's classpath will have a
-          // trailing '/', and thus refer to a directory instead of a file.
-          if (new File(entry.getKey().toUri().getPath()).isDirectory()) {
-            inputClassPath.append(Path.SEPARATOR);
+            // FileUtil.createJarWithClassPath must use File.toURI to convert
+            // each file to a URI to write into the manifest's classpath.  For
+            // directories, the classpath must have a trailing '/', but
+            // File.toURI only appends the trailing '/' if it is a directory that
+            // already exists.  To resolve this, add the classpath entries with
+            // explicit trailing '/' here for any localized resource that targets
+            // a directory.  Then, FileUtil.createJarWithClassPath will guarantee
+            // that the resulting entry in the manifest's classpath will have a
+            // trailing '/', and thus refer to a directory instead of a file.
+            if (new File(entry.getKey().toUri().getPath()).isDirectory()) {
+              newClassPath.append(Path.SEPARATOR);
+            }
           }
         }
-      }
 
-      String classPathJar = FileUtil.createJarWithClassPath(
-        inputClassPath.toString(), pwd, environment);
-      environment.put(Environment.CLASSPATH.name(), classPathJar);
+        String classPathJar = FileUtil.createJarWithClassPath(
+          newClassPath.toString(), pwd, environment);
+        environment.put(Environment.CLASSPATH.name(), classPathJar);
+      }
     }
 
     /**
