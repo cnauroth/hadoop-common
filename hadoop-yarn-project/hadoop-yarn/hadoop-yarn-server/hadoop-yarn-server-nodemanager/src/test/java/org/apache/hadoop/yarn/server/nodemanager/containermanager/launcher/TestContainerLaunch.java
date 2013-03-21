@@ -341,6 +341,7 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
       writer.println("@echo \"Running testscript for delayed kill\"");
       writer.println("@echo \"Writing pid to start file\"");
       writer.println("@echo " + cId + "> " + processStartFile);
+      writer.println("@ping -n 100 127.0.0.1 >nul");
     } else {
       writer.println("#!/bin/bash\n\n");
       writer.println("echo \"Running testscript for delayed kill\"");
