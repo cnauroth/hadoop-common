@@ -14,7 +14,7 @@ import com.microsoft.windowsazure.services.blob.client.*;
 import com.microsoft.windowsazure.services.core.storage.*;
 import com.microsoft.windowsazure.services.core.storage.utils.Base64;
 
-import static org.apache.hadoop.fs.azurenative.AzureNativeFileSystemStore.EMULATOR_ACCOUNT_NAME;
+import static org.apache.hadoop.fs.azurenative.AzureNativeFileSystemStore.STORAGE_EMULATOR_ACCOUNT_NAME;
 
 /**
  * Helper class to create ASV file systems backed by either a mock in-memory
@@ -35,8 +35,6 @@ public final class AzureBlobStorageTestAccount {
   public static final String AZURE_ROOT_CONTAINER = "$root";
   public static final String MOCK_ASV_URI = "asv://" + MOCK_CONTAINER_NAME + 
       ASV_AUTHORITY_DELIMITER + MOCK_ACCOUNT_NAME + "/";
-  private static final String EMULATOR_ACCOUNT_KEY =
-      "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==";
   private static final String USE_EMULATOR_PROPERTY_NAME =
       "fs.azure.test.emulator";
 
@@ -214,12 +212,8 @@ public final class AzureBlobStorageTestAccount {
             " Please see RunningLiveAsvTests.txt for guidance.");
       return null;
     }
-    conf.set(ACCOUNT_KEY_PROPERTY_NAME + EMULATOR_ACCOUNT_NAME,
-        EMULATOR_ACCOUNT_KEY);
-    CloudStorageAccount account = createEmulatorAccount();
-    if (account == null) {
-      return null;
-    }
+    CloudStorageAccount account =
+        CloudStorageAccount.getDevelopmentStorageAccount();
     fs = new NativeAzureFileSystem();
     String containerName = String.format("asvtests-%s-%tQ",
         System.getProperty("user.name"), new Date());
@@ -228,7 +222,7 @@ public final class AzureBlobStorageTestAccount {
 
     // Set account URI and initialize Azure file system.
     //
-    URI accountUri = createAccountUri(EMULATOR_ACCOUNT_NAME,
+    URI accountUri = createAccountUri(STORAGE_EMULATOR_ACCOUNT_NAME,
         containerName);
     fs.initialize(accountUri, conf);
 
@@ -278,15 +272,6 @@ public final class AzureBlobStorageTestAccount {
     return create(containerNameSuffix, false);
   }
 
-  static CloudStorageAccount createEmulatorAccount()
-      throws URISyntaxException {
-    StorageCredentials credentials = new StorageCredentialsAccountAndKey(
-        EMULATOR_ACCOUNT_NAME, EMULATOR_ACCOUNT_KEY);
-    return new CloudStorageAccount(credentials,
-        new URI("http://127.0.0.1:10000/" + EMULATOR_ACCOUNT_NAME),
-        null, null);
-  }
-  
   static CloudStorageAccount createStorageAccount(String accountName,
       Configuration conf, boolean allowAnonymous) throws URISyntaxException {
     String accountKey = AzureNativeFileSystemStore.

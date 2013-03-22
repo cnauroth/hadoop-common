@@ -38,6 +38,8 @@ import static org.apache.hadoop.fs.azurenative.StorageInterface.*;
 
 class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
+  static final String STORAGE_EMULATOR_ACCOUNT_NAME = "storageemulator";
+
   public static final Log LOG = LogFactory.getLog(AzureNativeFileSystemStore.class);
 
   private CloudStorageAccount account;
@@ -61,8 +63,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   static final String CURRENT_ASV_VERSION = "2013-01-01";
   static final String LINK_BACK_TO_UPLOAD_IN_PROGRESS_METADATA_KEY =
       "asv_tmpupload";
-
-  static final String EMULATOR_ACCOUNT_NAME = "devstoreaccount1";
 
   private static final String HTTP_SCHEME = "http";
   private static final String HTTPS_SCHEME = "https";
@@ -531,21 +531,21 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       final String accountName, final String containerName, final String accountKey) 
           throws InvalidKeyException, StorageException, IOException, URISyntaxException {
 
-    // If the account name is "acc.blob.core.windows.net", then the
-    // rawAccountName is just "acc"
-    String rawAccountName = accountName.split("\\.")[0];
-    StorageCredentials credentials =
-        new StorageCredentialsAccountAndKey(rawAccountName, accountKey);
-    String baseUriString;
-    if (accountName.equalsIgnoreCase(EMULATOR_ACCOUNT_NAME)) {
-      baseUriString = "http://127.0.0.1:10000" +
-          "/" + accountName;
+    CloudStorageAccount account;
+    if (accountName.equalsIgnoreCase(STORAGE_EMULATOR_ACCOUNT_NAME)) {
+      account = CloudStorageAccount.getDevelopmentStorageAccount();
     } else {
+      // If the account name is "acc.blob.core.windows.net", then the
+      // rawAccountName is just "acc"
+      String rawAccountName = accountName.split("\\.")[0];
+      StorageCredentials credentials =
+          new StorageCredentialsAccountAndKey(rawAccountName, accountKey);
+      String baseUriString;
       baseUriString = getHTTPScheme() + "://" +
           getFullUriAuthority(accountName);
+      account = new CloudStorageAccount(credentials,
+          new URI(baseUriString), null, null);
     }
-    CloudStorageAccount account = new CloudStorageAccount(credentials,
-        new URI(baseUriString), null, null);
 
     // Capture storage account from the connection string in order to create
     // the blob client. The blob client will be used to retrieve the container
@@ -556,7 +556,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
     // Set the root directory.
     //
-    String containerUri = baseUriString +
+    String containerUri = account.getBlobEndpoint() +
         PATH_DELIMITER +
         containerName;
     rootDirectory = storageInteractionLayer.getDirectoryReference(containerUri);
@@ -671,7 +671,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //
       String propertyValue = getAccountKeyFromConfiguration(accountName,
           sessionConfiguration);
-      if (null != propertyValue) {
+      if (null != propertyValue ||
+          accountName.equalsIgnoreCase(STORAGE_EMULATOR_ACCOUNT_NAME)) {
 
         // Account key was found. Create the Azure storage session using the account
         // key and container.
