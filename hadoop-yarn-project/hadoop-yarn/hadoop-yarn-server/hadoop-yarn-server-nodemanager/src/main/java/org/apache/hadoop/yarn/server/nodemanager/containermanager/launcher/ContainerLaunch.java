@@ -631,7 +631,7 @@ public class ContainerLaunch implements Callable<Integer> {
 
         // When the container launches, it takes the parent process's environment
         // and then adds/overwrites with the entries from the container launch
-        // context.  Do the same thing here for correct subtitution of
+        // context.  Do the same thing here for correct substitution of
         // environment variables in the classpath jar manifest.
         Map<String, String> mergedEnv = new HashMap<String, String>(
           System.getenv());
