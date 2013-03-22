@@ -14,7 +14,7 @@ import com.microsoft.windowsazure.services.blob.client.*;
 import com.microsoft.windowsazure.services.core.storage.*;
 import com.microsoft.windowsazure.services.core.storage.utils.Base64;
 
-import static org.apache.hadoop.fs.azurenative.AzureNativeFileSystemStore.STORAGE_EMULATOR_ACCOUNT_NAME;
+import static org.apache.hadoop.fs.azurenative.AzureNativeFileSystemStore.DEFAULT_STORAGE_EMULATOR_ACCOUNT_NAME;
 
 /**
  * Helper class to create ASV file systems backed by either a mock in-memory
@@ -222,7 +222,7 @@ public final class AzureBlobStorageTestAccount {
 
     // Set account URI and initialize Azure file system.
     //
-    URI accountUri = createAccountUri(STORAGE_EMULATOR_ACCOUNT_NAME,
+    URI accountUri = createAccountUri(DEFAULT_STORAGE_EMULATOR_ACCOUNT_NAME,
         containerName);
     fs.initialize(accountUri, conf);
 

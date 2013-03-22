@@ -38,7 +38,10 @@ import static org.apache.hadoop.fs.azurenative.StorageInterface.*;
 
 class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
-  static final String STORAGE_EMULATOR_ACCOUNT_NAME = "storageemulator";
+  static final String DEFAULT_STORAGE_EMULATOR_ACCOUNT_NAME =
+      "storageemulator";
+  static final String STORAGE_EMULATOR_ACCOUNT_NAME_PROPERTY_NAME =
+      "fs.azure.storage.emulator.account.name";
 
   public static final Log LOG = LogFactory.getLog(AzureNativeFileSystemStore.class);
 
@@ -532,7 +535,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           throws InvalidKeyException, StorageException, IOException, URISyntaxException {
 
     CloudStorageAccount account;
-    if (accountName.equalsIgnoreCase(STORAGE_EMULATOR_ACCOUNT_NAME)) {
+    if (isStorageEmulatorAccount(accountName)) {
       account = CloudStorageAccount.getDevelopmentStorageAccount();
     } else {
       // If the account name is "acc.blob.core.windows.net", then the
@@ -599,6 +602,13 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // Configure Azure storage session.
     //
     configureAzureStorageSession();
+  }
+
+  private boolean isStorageEmulatorAccount(final String accountName) {
+    return accountName.equalsIgnoreCase(
+        sessionConfiguration.get(
+            STORAGE_EMULATOR_ACCOUNT_NAME_PROPERTY_NAME,
+            DEFAULT_STORAGE_EMULATOR_ACCOUNT_NAME));
   }
 
   static String getAccountKeyFromConfiguration(String accountName, Configuration conf) {
@@ -672,9 +682,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       String propertyValue = getAccountKeyFromConfiguration(accountName,
           sessionConfiguration);
       if (null != propertyValue ||
-          accountName.equalsIgnoreCase(STORAGE_EMULATOR_ACCOUNT_NAME)) {
+          isStorageEmulatorAccount(accountName)) {
 
-        // Account key was found. Create the Azure storage session using the account
+        // Account key was found (or it's a storage emulator account).
+        // Create the Azure storage session using the account
         // key and container.
         //
         connectUsingConnectionStringCredentials(getAccountFromAuthority(sessionUri),
