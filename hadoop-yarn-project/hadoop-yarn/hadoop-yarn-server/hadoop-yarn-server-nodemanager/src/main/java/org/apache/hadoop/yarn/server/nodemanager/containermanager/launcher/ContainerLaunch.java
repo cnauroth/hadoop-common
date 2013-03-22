@@ -28,6 +28,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -575,6 +576,25 @@ public class ContainerLaunch implements Callable<Integer> {
       environment.put("JVM_PID", "$$");
     }
 
+    /**
+     * Modifiable environment variables
+     */
+    
+    // allow containers to override these variables
+    String[] whitelist = conf.get(YarnConfiguration.NM_ENV_WHITELIST, YarnConfiguration.DEFAULT_NM_ENV_WHITELIST).split(",");
+    
+    for(String whitelistEnvVariable : whitelist) {
+      putEnvIfAbsent(environment, whitelistEnvVariable.trim());
+    }
+
+    // variables here will be forced in, even if the container has specified them.
+    Apps.setEnvFromInputString(
+      environment,
+      conf.get(
+        YarnConfiguration.NM_ADMIN_USER_ENV,
+        YarnConfiguration.DEFAULT_NM_ADMIN_USER_ENV)
+    );
+
     // TODO: Remove Windows check and use this approach on all platforms after
     // additional testing.  See YARN-358.
     if (Shell.WINDOWS) {
@@ -609,30 +629,19 @@ public class ContainerLaunch implements Callable<Integer> {
           }
         }
 
+        // When the container launches, it takes the parent process's environment
+        // and then adds/overwrites with the entries from the container launch
+        // context.  Do the same thing here for correct subtitution of
+        // environment variables in the classpath jar manifest.
+        Map<String, String> mergedEnv = new HashMap<String, String>(
+          System.getenv());
+        mergedEnv.putAll(environment);
+
         String classPathJar = FileUtil.createJarWithClassPath(
-          newClassPath.toString(), pwd, environment);
+          newClassPath.toString(), pwd, mergedEnv);
         environment.put(Environment.CLASSPATH.name(), classPathJar);
       }
     }
-
-    /**
-     * Modifiable environment variables
-     */
-    
-    // allow containers to override these variables
-    String[] whitelist = conf.get(YarnConfiguration.NM_ENV_WHITELIST, YarnConfiguration.DEFAULT_NM_ENV_WHITELIST).split(",");
-    
-    for(String whitelistEnvVariable : whitelist) {
-      putEnvIfAbsent(environment, whitelistEnvVariable.trim());
-    }
-
-    // variables here will be forced in, even if the container has specified them.
-    Apps.setEnvFromInputString(
-      environment,
-      conf.get(
-        YarnConfiguration.NM_ADMIN_USER_ENV,
-        YarnConfiguration.DEFAULT_NM_ADMIN_USER_ENV)
-    );
   }
     
   static void writeLaunchEnv(OutputStream out,
