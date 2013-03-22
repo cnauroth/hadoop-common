@@ -9,4 +9,8 @@
     <name>fs.azure.account.key.not-real-example</name>
     <value>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX</value>
   </property>
+  <property>
+    <name>fs.azure.test.emulator</name>
+    <value>true</value>
+  </property>
 </configuration>

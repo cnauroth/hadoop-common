@@ -62,6 +62,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   static final String LINK_BACK_TO_UPLOAD_IN_PROGRESS_METADATA_KEY =
       "asv_tmpupload";
 
+  static final String EMULATOR_ACCOUNT_NAME = "devstoreaccount1";
+
   private static final String HTTP_SCHEME = "http";
   private static final String HTTPS_SCHEME = "https";
   private static final String ASV_SCHEME = "asv";
@@ -534,8 +536,14 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     String rawAccountName = accountName.split("\\.")[0];
     StorageCredentials credentials =
         new StorageCredentialsAccountAndKey(rawAccountName, accountKey);
-    String baseUriString = getHTTPScheme() + ":" + PATH_DELIMITER + PATH_DELIMITER +
-        getFullUriAuthority(accountName);
+    String baseUriString;
+    if (accountName.equalsIgnoreCase(EMULATOR_ACCOUNT_NAME)) {
+      baseUriString = "http://127.0.0.1:10000" +
+          "/" + accountName;
+    } else {
+      baseUriString = getHTTPScheme() + "://" +
+          getFullUriAuthority(accountName);
+    }
     CloudStorageAccount account = new CloudStorageAccount(credentials,
         new URI(baseUriString), null, null);
 
@@ -645,7 +653,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Get the account name.
       //
       String accountName = getAccountFromAuthority(sessionUri);
-      if(null == accountName) {
+      if (null == accountName) {
         // Account name is not specified as part of the URI. Throw indicating
         // an invalid account name.
         //
