@@ -86,7 +86,7 @@ public class TestDFSClientExcludedNodes {
 
   @Test(timeout=60000)
   public void testExcludedNodesForgiveness() throws IOException {
-    // Forgive nodes in under 10s for this test case.
+    // Forgive nodes in under 2.5s for this test case.
     conf.setLong(
         DFSConfigKeys.DFS_CLIENT_WRITE_EXCLUDE_NODES_CACHE_EXPIRY_INTERVAL,
         2500);
@@ -128,9 +128,9 @@ public class TestDFSClientExcludedNodes {
     Assert.assertEquals(true, cluster.restartDataNode(two, true));
     cluster.waitActive();
 
-    // Sleep for 2s, to let the excluded nodes be expired
+    // Sleep for 5s, to let the excluded nodes be expired
     // from the excludes list (i.e. forgiven after the configured wait period).
-    // [Sleeping just in case the restart of the DNs completed < 2s cause
+    // [Sleeping just in case the restart of the DNs completed < 5s cause
     // otherwise, we'll end up quickly excluding those again.]
     ThreadUtil.sleepAtLeastIgnoreInterrupts(5000);
 
