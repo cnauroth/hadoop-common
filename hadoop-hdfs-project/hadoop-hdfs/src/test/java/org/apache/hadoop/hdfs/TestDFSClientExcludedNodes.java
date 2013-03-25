@@ -89,7 +89,7 @@ public class TestDFSClientExcludedNodes {
     // Forgive nodes in under 10s for this test case.
     conf.setLong(
         DFSConfigKeys.DFS_CLIENT_WRITE_EXCLUDE_NODES_CACHE_EXPIRY_INTERVAL,
-        10000);
+        2500);
     // We'll be using a 512 bytes block size just for tests
     // so making sure the checksum bytes too match it.
     conf.setInt("io.bytes.per.checksum", 512);
@@ -132,7 +132,7 @@ public class TestDFSClientExcludedNodes {
     // from the excludes list (i.e. forgiven after the configured wait period).
     // [Sleeping just in case the restart of the DNs completed < 2s cause
     // otherwise, we'll end up quickly excluding those again.]
-    ThreadUtil.sleepAtLeastIgnoreInterrupts(15000);
+    ThreadUtil.sleepAtLeastIgnoreInterrupts(5000);
 
     // Terminate the last good DN, to assert that there's no
     // single-DN-available scenario, caused by not forgiving the other
