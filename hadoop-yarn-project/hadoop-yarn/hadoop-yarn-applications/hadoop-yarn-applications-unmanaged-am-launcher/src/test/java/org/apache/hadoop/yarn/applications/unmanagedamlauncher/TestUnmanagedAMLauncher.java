@@ -28,6 +28,7 @@ import junit.framework.Assert;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.util.Shell;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.server.MiniYARNCluster;
 import org.junit.AfterClass;
@@ -99,8 +100,8 @@ public class TestUnmanagedAMLauncher {
       LOG.fatal("JAVA_HOME not defined. Test not running.");
       return;
     }
-    // start dist-shell with 0 containers because container launch will fail if 
-    // there are no dist cache resources.
+    // Start dist-shell with 1 container, because its application master only
+    // exits on receipt of the last completed container message.
     String[] args = {
         "--classpath",
         classpath,
@@ -110,7 +111,8 @@ public class TestUnmanagedAMLauncher {
         javaHome
             + "/bin/java -Xmx512m "
             + "org.apache.hadoop.yarn.applications.distributedshell.ApplicationMaster "
-            + "--container_memory 128 --num_containers 1 --priority 0 --shell_command ls" };
+            + "--container_memory 128 --num_containers 1 --priority 0 "
+            + "--shell_command " + (Shell.WINDOWS ? "dir" : "ls") };
 
     LOG.info("Initializing Launcher");
     UnmanagedAMLauncher launcher = new UnmanagedAMLauncher(new Configuration(
