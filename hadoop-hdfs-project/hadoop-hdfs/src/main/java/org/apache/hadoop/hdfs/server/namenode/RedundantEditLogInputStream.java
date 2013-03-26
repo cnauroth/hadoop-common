@@ -252,6 +252,11 @@ class RedundantEditLogInputStream extends EditLogInputStream {
   }
 
   @Override
+  public boolean isLengthKnown() {
+    return streams[curIdx].isLengthKnown();
+  }
+
+  @Override
   public long length() throws IOException {
     return streams[curIdx].length();
   }

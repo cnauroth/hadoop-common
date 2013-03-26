@@ -88,7 +88,7 @@ public class FSEditLogLoader {
   long loadFSEdits(EditLogInputStream edits, long expectedStartingTxId,
       MetaRecoveryContext recovery) throws IOException {
     StartupProgress prog = NameNode.getStartupProgress();
-    Step step = new Step(edits.getName(), edits.length());
+    Step step = createStartupProgressStep(edits);
     prog.beginStep(Phase.LOADING_EDITS, step);
     fsNamesys.writeLock();
     try {
@@ -129,7 +129,7 @@ public class FSEditLogLoader {
     long lastTxId = in.getLastTxId();
     long numTxns = (lastTxId - expectedStartingTxId) + 1;
     StartupProgress prog = NameNode.getStartupProgress();
-    Step step = new Step(in.getName(), in.length());
+    Step step = createStartupProgressStep(in);
     prog.setTotal(Phase.LOADING_EDITS, step, numTxns);
     Counter counter = prog.getCounter(Phase.LOADING_EDITS, step);
     long lastLogTime = now();
@@ -807,5 +807,20 @@ public class FSEditLogLoader {
 
   public long getLastAppliedTxId() {
     return lastAppliedTxId;
+  }
+
+  /**
+   * Creates a Step used for updating startup progress, populated with
+   * information from the given edits.  The step always includes the log's name.
+   * If the log has a known length, then the length is included in the step too.
+   * 
+   * @param edits EditLogInputStream to use for populating step
+   * @return Step populated with information from edits
+   * @throws IOException thrown if there is an I/O error
+   */
+  private static Step createStartupProgressStep(EditLogInputStream edits)
+      throws IOException {
+    return edits.isLengthKnown() ? new Step(edits.getName(), edits.length()) :
+      new Step(edits.getName());
   }
 }

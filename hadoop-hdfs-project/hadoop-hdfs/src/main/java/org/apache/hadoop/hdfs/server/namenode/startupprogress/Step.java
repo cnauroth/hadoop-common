@@ -46,6 +46,15 @@ public class Step implements Comparable<Step> {
 
   /**
    * Creates a new Step.
+   * 
+   * @param file String file
+   */
+  public Step(String file) {
+    this(null, file, null);
+  }
+
+  /**
+   * Creates a new Step.
    */
   public Step(String file, long size) {
     this(null, file, size);
