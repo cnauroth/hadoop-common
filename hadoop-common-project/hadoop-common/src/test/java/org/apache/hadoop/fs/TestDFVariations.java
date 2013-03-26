@@ -31,42 +31,37 @@ import java.util.Random;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.hadoop.util.Shell;
 import org.junit.Test;
+import static org.junit.Assert.*;
 
 public class TestDFVariations {
 
   public static class XXDF extends DF {
-    private final String osName;
-    public XXDF(String osName) throws IOException {
+    public XXDF() throws IOException {
       super(new File(System.getProperty("test.build.data","/tmp")), 0L);
-      this.osName = osName;
     }
-    @Override
-    public DF.OSType getOSType() {
-      return DF.getOSType(osName);
-    }
+
     @Override
     protected String[] getExecString() {
-      switch(getOSType()) {
-        case OS_TYPE_AIX:
-          return new String[] { "echo", "IGNORE\n", "/dev/sda3",
-            "453115160", "400077240", "11%", "18", "skip%", "/foo/bar", "\n" };
-        default:
-          return new String[] { "echo", "IGNORE\n", "/dev/sda3",
-            "453115160", "53037920", "400077240", "11%", "/foo/bar", "\n" };
-      }
+      return new String[] { "echo", "IGNORE\n", 
+        "/dev/sda3", "453115160", "53037920", "400077240", "11%", "/foo/bar\n"};
     }
   }
 
   @Test(timeout=5000)
-  public void testOSParsing() throws Exception {
-    for (DF.OSType ost : EnumSet.allOf(DF.OSType.class)) {
-      XXDF df = new XXDF(ost.getId());
-      assertEquals(ost.getId() + " mount",
-        Shell.WINDOWS ? df.getDirPath().substring(0, 2) : "/foo/bar",
-        df.getMount());
-    }
+  public void testMountAndFileSystem() throws Exception {
+    XXDF df = new XXDF();
+    String expectedMount =
+        Shell.WINDOWS ? df.getDirPath().substring(0, 2) : "/foo/bar";
+    String expectedFileSystem =
+        Shell.WINDOWS ? df.getDirPath().substring(0, 2) : "/dev/sda3";
+
+    assertEquals("Invalid mount point",
+        expectedMount, df.getMount());
+
+    assertEquals("Invalid filesystem",
+        expectedFileSystem, df.getFilesystem());
   }
-  
+
   @Test(timeout=5000)
   public void testDFInvalidPath() throws Exception {
     // Generate a path that doesn't exist
@@ -134,6 +129,21 @@ public class TestDFVariations {
       GenericTestUtils.assertExceptionContains("Could not parse line: ", e);
       System.out.println(e.toString());
     }
+  }
+
+  @Test(timeout=5000)
+  public void testGetMountCurrentDirectory() throws Exception {
+    File currentDirectory = new File(".");
+    String workingDir = currentDirectory.getAbsoluteFile().getCanonicalPath();
+    DF df = new DF(new File(workingDir), 0L);
+    String mountPath = df.getMount();
+    File mountDir = new File(mountPath);
+    assertTrue("Mount dir ["+mountDir.getAbsolutePath()+"] should exist.", 
+        mountDir.exists());
+    assertTrue("Mount dir ["+mountDir.getAbsolutePath()+"] should be directory.", 
+        mountDir.isDirectory());
+    assertTrue("Working dir ["+workingDir+"] should start with ["+mountPath+"].",
+        workingDir.startsWith(mountPath));
   }
 }
 

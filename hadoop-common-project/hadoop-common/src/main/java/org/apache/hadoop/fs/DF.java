@@ -35,7 +35,7 @@ import com.google.common.annotations.VisibleForTesting;
 
 /** Filesystem disk space usage statistics.
  * Uses the unix 'df' program to get mount points, and java.io.File for
- * space utilization. Tested on Linux, FreeBSD, Cygwin. */
+ * space utilization. Tested on Linux, FreeBSD, Windows. */
 @InterfaceAudience.LimitedPrivate({"HDFS", "MapReduce"})
 @InterfaceStability.Evolving
 public class DF extends Shell {
@@ -50,37 +50,6 @@ public class DF extends Shell {
   
   private ArrayList<String> output;
 
-  enum OSType {
-    OS_TYPE_UNIX("UNIX"),
-    OS_TYPE_WIN("Windows"),
-    OS_TYPE_SOLARIS("SunOS"),
-    OS_TYPE_MAC("Mac"),
-    OS_TYPE_AIX("AIX");
-
-    private String id;
-    OSType(String id) {
-      this.id = id;
-    }
-    public boolean match(String osStr) {
-      return osStr != null && osStr.indexOf(id) >= 0;
-    }
-    String getId() {
-      return id;
-    }
-  }
-
-  private static final String OS_NAME = System.getProperty("os.name");
-  private static final OSType OS_TYPE = getOSType(OS_NAME);
-
-  protected static OSType getOSType(String osName) {
-    for (OSType ost : EnumSet.allOf(OSType.class)) {
-      if (ost.match(osName)) {
-        return ost;
-      }
-    }
-    return OSType.OS_TYPE_UNIX;
-  }
-
   public DF(File path, Configuration conf) throws IOException {
     this(path, conf.getLong(CommonConfigurationKeys.FS_DF_INTERVAL_KEY, DF.DF_INTERVAL_DEFAULT));
   }
@@ -92,10 +61,6 @@ public class DF extends Shell {
     this.output = new ArrayList<String>();
   }
 
-  protected OSType getOSType() {
-    return OS_TYPE;
-  }
-  
   /// ACCESSORS
 
   /** @return the canonical path to the volume we're checking. */
@@ -105,8 +70,13 @@ public class DF extends Shell {
 
   /** @return a string indicating which filesystem volume we're checking. */
   public String getFilesystem() throws IOException {
-    run();
-    return filesystem;
+    if (Shell.WINDOWS) {
+      this.filesystem = dirFile.getCanonicalPath().substring(0, 2);
+      return this.filesystem;
+    } else {
+      run();
+      return filesystem;
+    }
   }
 
   /** @return the capacity of the measured filesystem in bytes. */
@@ -138,16 +108,23 @@ public class DF extends Shell {
       throw new FileNotFoundException("Specified path " + dirFile.getPath()
           + "does not exist");
     }
-    run();
-    // Skip parsing if df was not successful
-    if (getExitCode() != 0) {
-      StringBuffer sb = new StringBuffer("df could not be run successfully: ");
-      for (String line: output) {
-        sb.append(line);
+
+    if (Shell.WINDOWS) {
+      // Assume a drive letter for a mount point
+      this.mount = dirFile.getCanonicalPath().substring(0, 2);
+    } else {
+      run();
+      // Skip parsing if df was not successful
+      if (getExitCode() != 0) {
+        StringBuffer sb = new StringBuffer("df could not be run successfully: ");
+        for (String line: output) {
+          sb.append(line);
+        }
+        throw new IOException(sb.toString());
       }
-      throw new IOException(sb.toString());
+      parseOutput();
     }
-    parseOutput();
+
     return mount;
   }
   
@@ -166,8 +143,13 @@ public class DF extends Shell {
   @Override
   protected String[] getExecString() {
     // ignoring the error since the exit code it enough
-    return new String[] {"bash","-c","exec 'df' '-k' '" + dirPath 
-                         + "' 2>/dev/null"};
+    if (Shell.WINDOWS){
+      throw new AssertionError(
+          "DF.getExecString() should never be called on Windows");
+    } else {
+      return new String[] {"bash","-c","exec 'df' '-k' '-P' '" + dirPath 
+                      + "' 2>/dev/null"};
+    }
   }
 
   @Override
@@ -210,28 +192,11 @@ public class DF extends Shell {
     }
 
     try {
-      switch(getOSType()) {
-        case OS_TYPE_AIX:
-          Long.parseLong(tokens.nextToken()); // capacity
-          Long.parseLong(tokens.nextToken()); // available
-          Integer.parseInt(tokens.nextToken()); // pct used
-          tokens.nextToken();
-          tokens.nextToken();
-          this.mount = tokens.nextToken();
-          break;
-
-        case OS_TYPE_WIN:
-        case OS_TYPE_SOLARIS:
-        case OS_TYPE_MAC:
-        case OS_TYPE_UNIX:
-        default:
-          Long.parseLong(tokens.nextToken()); // capacity
-          Long.parseLong(tokens.nextToken()); // used
-          Long.parseLong(tokens.nextToken()); // available
-          Integer.parseInt(tokens.nextToken()); // pct used
-          this.mount = tokens.nextToken();
-          break;
-     }
+      Long.parseLong(tokens.nextToken()); // capacity
+      Long.parseLong(tokens.nextToken()); // used
+      Long.parseLong(tokens.nextToken()); // available
+      Integer.parseInt(tokens.nextToken()); // pct used
+      this.mount = tokens.nextToken();
     } catch (NoSuchElementException e) {
       throw new IOException("Could not parse line: " + line);
     } catch (NumberFormatException e) {
