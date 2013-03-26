@@ -725,10 +725,6 @@ public class FSImage implements Closeable {
     LOG.debug("About to load edits:\n  " + Joiner.on("\n  ").join(editStreams));
     StartupProgress prog = NameNode.getStartupProgress();
     prog.beginPhase(Phase.LOADING_EDITS);
-    long totalEditOps = 0;
-    for (EditLogInputStream editIn: editStreams) {
-      totalEditOps += editIn.getLastTxId() - lastAppliedTxId;
-    }
     
     long prevLastAppliedTxId = lastAppliedTxId;  
     try {    
