@@ -98,6 +98,16 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private boolean needToStampVersionOnWrite = false;
   private final Object versionStampLock = new Object();
 
+  private TestHookOperationContext testHookOperationContext = null;
+
+  /**
+    * A test hook interface that can modify the operation context
+    * we use for Azure Storage operations, e.g. to inject errors.
+    */
+   interface TestHookOperationContext {
+     OperationContext modifyOperationContext(OperationContext original);
+   }
+
   /**
    * Suppress the default retry policy for the Storage, useful in unit
    * tests to test negative cases without waiting forever.
@@ -107,6 +117,15 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   /**
+  * Add a test hook to modify the operation context we use for Azure Storage
+  * operations.
+  * @param testHook The test hook, or null to unset previous hooks.
+  */
+ void addTestHookToOperationContext(TestHookOperationContext testHook) {
+   this.testHookOperationContext = testHook;
+ }
+
+ /**
    * If we're asked by unit tests to not retry, set the retry policy factory
    * in the client accordingly.
    */
@@ -1198,8 +1217,13 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * @return The OperationContext object to use.
    */
   private OperationContext getInstrumentedContext() {
-    final OperationContext operationContext = new OperationContext();
-    ResponseReceivedMetricUpdater.hook(operationContext, instrumentation, bandwidthGaugeUpdater);
+    OperationContext operationContext = new OperationContext();
+    ResponseReceivedMetricUpdater.hook(operationContext, instrumentation,
+        bandwidthGaugeUpdater);
+    if (testHookOperationContext != null) {
+      operationContext =
+          testHookOperationContext.modifyOperationContext(operationContext);
+    }
     ErrorMetricUpdater.hook(operationContext, instrumentation);
     return operationContext;
   }
