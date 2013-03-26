@@ -435,6 +435,13 @@ class NamenodeJspHelper {
       }
     }
 
+    /**
+     * Generates the Startup Progress report.
+     * 
+     * @param out JspWriter to receive output
+     * @param prog StartupProgress tracking NameNode startup progress
+     * @throws IOException thrown if there is an I/O error
+     */
     void generateStartupProgress(JspWriter out, StartupProgress prog)
         throws IOException {
       StartupProgressView view = prog.createView();
@@ -475,6 +482,14 @@ class NamenodeJspHelper {
       fout.println("</div>");
     }
 
+    /**
+     * Prints one line of content for a phase in the Startup Progress report.
+     * 
+     * @param fout FormattedWriter to receive output
+     * @param view StartupProgressView containing information to print
+     * @param phase Phase to print
+     * @throws IOException thrown if there is an I/O error
+     */
     private void printPhase(FormattedWriter fout, StartupProgressView view,
         Phase phase) throws IOException {
       StringBuilder phaseLine = new StringBuilder();
@@ -494,6 +509,15 @@ class NamenodeJspHelper {
         StringUtils.formatTime(view.getElapsedTime(phase)));
     }
 
+    /**
+     * Prints one line of content for a step in the Startup Progress report.
+     * 
+     * @param fout FormattedWriter to receive output
+     * @param view StartupProgressView containing information to print
+     * @param phase Phase to print
+     * @param step Step to print
+     * @throws IOException thrown if there is an I/O error
+     */
     private void printStep(FormattedWriter fout, StartupProgressView view,
         Phase phase, Step step) throws IOException {
       StringBuilder stepLine = new StringBuilder();
@@ -519,13 +543,29 @@ class NamenodeJspHelper {
         StringUtils.formatTime(view.getElapsedTime(phase)));
     }
 
+    /**
+     * JspWriter wrapper that helps simplify printing formatted lines.
+     */
     private static class FormattedWriter {
       private final JspWriter out;
 
+      /**
+       * Creates a new FormattedWriter that delegates to the given JspWriter.
+       * 
+       * @param out JspWriter to wrap
+       */
       FormattedWriter(JspWriter out) {
         this.out = out;
       }
 
+      /**
+       * Prints one formatted line, followed by line terminator, using the
+       * English locale.
+       * 
+       * @param format String format
+       * @param args Object... any number of arguments to match format
+       * @throws IOException thrown if there is an I/O error
+       */
       void println(String format, Object... args) throws IOException {
         out.println(StringUtils.format(format, args));
       }
