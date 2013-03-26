@@ -1719,6 +1719,37 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     }
   }
 
+  /**
+   * Deletes the given blob, taking special care that if we get a
+   * blob-not-found exception upon retrying the operation, we just
+   * swallow the error since what most probably happened is that
+   * the first operation succeeded on the server.
+   * @param blob The blob to delete.
+   * @throws StorageException
+   */
+  private void safeDelete(CloudBlockBlobWrapper blob) throws StorageException {
+    OperationContext operationContext = getInstrumentedContext();
+    try {
+      blob.delete(operationContext);
+    } catch (StorageException e) {
+      // On exception, check that if:
+      // 1. It's a BlobNotFound exception AND
+      // 2. It got there after one-or-more retries THEN
+      // we swallow the exception.
+      if (e.getErrorCode() != null &&
+          e.getErrorCode().equals("BlobNotFound") &&
+          operationContext.getRequestResults().size() > 1 &&
+          operationContext.getRequestResults().get(0).getException() != null) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Swallowing delete exception on retry: " + e.getMessage());
+        }
+        return;
+      } else {
+        throw e;
+      }
+    }
+  }
+
   @Override
   public void delete(String key) throws IOException {
     try {
@@ -1727,7 +1758,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //
       CloudBlockBlobWrapper blob = getBlobReference(key);
       if (blob.exists(getInstrumentedContext())) {
-        blob.delete(getInstrumentedContext());
+        safeDelete(blob);
       }
     } catch (Exception e) {
       // Re-throw as an Azure storage exception.
@@ -1773,7 +1804,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // the destination blob then deleting it.
       //
       dstBlob.copyFromBlob(srcBlob, getInstrumentedContext());
-      srcBlob.delete(getInstrumentedContext());
+      safeDelete(srcBlob);
     } catch (Exception e) {
       // Re-throw exception as an Azure storage exception.
       //

@@ -112,6 +112,30 @@ public class TestAzureFileSystemErrorConditions extends TestCase {
     });
   }
 
+  public void testTransientErrorOnDelete() throws Exception {
+    // Need to do this test against a live storage account
+    AzureBlobStorageTestAccount testAccount =
+        AzureBlobStorageTestAccount.create();
+    if (testAccount == null) {
+      // No live account, skip.
+      return;
+    }
+    try {
+      NativeAzureFileSystem fs = testAccount.getFileSystem();
+      injectTransientError(fs, new ConnectionRecognizer() {
+        @Override
+        public boolean isTargetConnection(HttpURLConnection connection) {
+          return connection.getRequestMethod().equals("DELETE");
+        }
+      });
+      Path testFile = new Path("/a/b");
+      assertTrue(fs.createNewFile(testFile));
+      assertTrue(fs.rename(testFile, new Path("/x")));
+    } finally {
+      testAccount.cleanup();
+    }
+  }
+
   public void testTransientErrorOnCommitBlockList() throws Exception {
     // Need to do this test against a live storage account
     AzureBlobStorageTestAccount testAccount =
