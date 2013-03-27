@@ -147,6 +147,62 @@ public class TestStartupProgress {
   }
 
   @Test(timeout=10000)
+  public void testFrozenAfterStartupCompletes() {
+    // Do some updates and counter increments.
+    startupProgress.beginPhase(LOADING_FSIMAGE);
+    startupProgress.setFile(LOADING_FSIMAGE, "file1");
+    startupProgress.setSize(LOADING_FSIMAGE, 1000L);
+    Step step = new Step(INODES);
+    startupProgress.beginStep(LOADING_FSIMAGE, step);
+    startupProgress.setTotal(LOADING_FSIMAGE, step, 10000L);
+    incrementCounter(startupProgress, LOADING_FSIMAGE, step, 100L);
+    startupProgress.endStep(LOADING_FSIMAGE, step);
+    startupProgress.endPhase(LOADING_FSIMAGE);
+
+    // Force completion of phases, so that entire startup process is completed.
+    for (Phase phase: EnumSet.allOf(Phase.class)) {
+      if (startupProgress.getStatus(phase) != Status.COMPLETE) {
+        startupProgress.beginPhase(phase);
+        startupProgress.endPhase(phase);
+      }
+    }
+
+    StartupProgressView before = startupProgress.createView();
+
+    // Attempt more updates and counter increments.
+    startupProgress.beginPhase(LOADING_FSIMAGE);
+    startupProgress.setFile(LOADING_FSIMAGE, "file2");
+    startupProgress.setSize(LOADING_FSIMAGE, 2000L);
+    startupProgress.beginStep(LOADING_FSIMAGE, step);
+    startupProgress.setTotal(LOADING_FSIMAGE, step, 20000L);
+    incrementCounter(startupProgress, LOADING_FSIMAGE, step, 100L);
+    startupProgress.endStep(LOADING_FSIMAGE, step);
+    startupProgress.endPhase(LOADING_FSIMAGE);
+
+    StartupProgressView after = startupProgress.createView();
+
+    // Expect that data was frozen after completion of entire startup process, so
+    // second set of updates and counter increments should have had no effect.
+    assertEquals(before.getCount(LOADING_FSIMAGE),
+      after.getCount(LOADING_FSIMAGE));
+    assertEquals(before.getCount(LOADING_FSIMAGE, step),
+      after.getCount(LOADING_FSIMAGE, step));
+    assertEquals(before.getElapsedTime(), after.getElapsedTime());
+    assertEquals(before.getElapsedTime(LOADING_FSIMAGE),
+      after.getElapsedTime(LOADING_FSIMAGE));
+    assertEquals(before.getElapsedTime(LOADING_FSIMAGE, step),
+      after.getElapsedTime(LOADING_FSIMAGE, step));
+    assertEquals(before.getFile(LOADING_FSIMAGE),
+      after.getFile(LOADING_FSIMAGE));
+    assertEquals(before.getSize(LOADING_FSIMAGE),
+      after.getSize(LOADING_FSIMAGE));
+    assertEquals(before.getTotal(LOADING_FSIMAGE),
+      after.getTotal(LOADING_FSIMAGE));
+    assertEquals(before.getTotal(LOADING_FSIMAGE, step),
+      after.getTotal(LOADING_FSIMAGE, step));
+  }
+
+  @Test(timeout=10000)
   public void testInitialState() {
     StartupProgressView view = startupProgress.createView();
     assertNotNull(view);

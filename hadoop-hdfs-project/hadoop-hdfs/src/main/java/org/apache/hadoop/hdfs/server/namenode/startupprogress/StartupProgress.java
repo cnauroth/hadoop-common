@@ -42,6 +42,9 @@ import org.apache.hadoop.classification.InterfaceAudience;
  * prior writes.  Instances of {@link Counter} provide an atomic increment
  * operation to prevent lost updates.
  * 
+ * After startup completes, the tracked data is frozen.  Any subsequent updates
+ * or counter increments are no-ops.
+ * 
  * For read access, call {@link #createView()} to create a consistent view with
  * a clone of the data.
  */
@@ -77,7 +80,9 @@ public class StartupProgress {
    * @param phase Phase to begin
    */
   public void beginPhase(Phase phase) {
-    phases.get(phase).beginTime = monotonicNow();
+    if (!isComplete()) {
+      phases.get(phase).beginTime = monotonicNow();
+    }
   }
 
   /**
@@ -87,7 +92,9 @@ public class StartupProgress {
    * @param step Step to begin
    */
   public void beginStep(Phase phase, Step step) {
-    lazyInitStep(phase, step).beginTime = monotonicNow();
+    if (!isComplete()) {
+      lazyInitStep(phase, step).beginTime = monotonicNow();
+    }
   }
 
   /**
@@ -96,7 +103,9 @@ public class StartupProgress {
    * @param phase Phase to end
    */
   public void endPhase(Phase phase) {
-    phases.get(phase).endTime = monotonicNow();
+    if (!isComplete()) {
+      phases.get(phase).endTime = monotonicNow();
+    }
   }
 
   /**
@@ -106,7 +115,9 @@ public class StartupProgress {
    * @param step Step to end
    */
   public void endStep(Phase phase, Step step) {
-    lazyInitStep(phase, step).endTime = monotonicNow();
+    if (!isComplete()) {
+      lazyInitStep(phase, step).endTime = monotonicNow();
+    }
   }
 
   /**
@@ -141,12 +152,21 @@ public class StartupProgress {
    */
   public Counter getCounter(Phase phase, Step step) {
     final StepTracking tracking = lazyInitStep(phase, step);
-    return new Counter() {
-      @Override
-      public void increment() {
-        tracking.count.incrementAndGet();
-      }
-    };
+    if (!isComplete()) {
+      return new Counter() {
+        @Override
+        public void increment() {
+          tracking.count.incrementAndGet();
+        }
+      };
+    } else {
+      return new Counter() {
+        @Override
+        public void increment() {
+          // no-op, because startup has completed
+        }
+      };
+    }
   }
 
   /**
@@ -158,7 +178,9 @@ public class StartupProgress {
    * @param file String file name to set
    */
   public void setFile(Phase phase, String file) {
-    phases.get(phase).file = file;
+    if (!isComplete()) {
+      phases.get(phase).file = file;
+    }
   }
 
   /**
@@ -170,7 +192,9 @@ public class StartupProgress {
    * @param size long to set
    */
   public void setSize(Phase phase, long size) {
-    phases.get(phase).size = size;
+    if (!isComplete()) {
+      phases.get(phase).size = size;
+    }
   }
 
   /**
@@ -183,7 +207,9 @@ public class StartupProgress {
    * @param total long to set
    */
   public void setTotal(Phase phase, Step step, long total) {
-    lazyInitStep(phase, step).total = total;
+    if (!isComplete()) {
+      lazyInitStep(phase, step).total = total;
+    }
   }
 
   /**
@@ -198,6 +224,21 @@ public class StartupProgress {
    */
   public StartupProgressView createView() {
     return new StartupProgressView(this);
+  }
+
+  /**
+   * Returns true if the entire startup process has completed, determined by
+   * checking if each phase is complete.
+   * 
+   * @return boolean true if the entire startup process has completed
+   */
+  private boolean isComplete() {
+    for (Phase phase: EnumSet.allOf(Phase.class)) {
+      if (getStatus(phase) != Status.COMPLETE) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**
