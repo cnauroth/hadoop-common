@@ -194,7 +194,7 @@ public class StartupProgressView {
    * @return Iterable<Step> all steps
    */
   public Iterable<Step> getSteps(Phase phase) {
-    return new TreeSet(phases.get(phase).steps.keySet());
+    return new TreeSet<Step>(phases.get(phase).steps.keySet());
   }
 
   /**
