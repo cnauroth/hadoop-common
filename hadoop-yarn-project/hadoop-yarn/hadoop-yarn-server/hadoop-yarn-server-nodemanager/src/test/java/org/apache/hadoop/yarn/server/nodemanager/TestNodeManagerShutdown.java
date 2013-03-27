@@ -25,6 +25,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -124,15 +125,7 @@ public class TestNodeManagerShutdown {
     localResources.put(destinationFile, localResource);
     containerLaunchContext.setLocalResources(localResources);
     containerLaunchContext.setUser(containerLaunchContext.getUser());
-    List<String> commands = new ArrayList<String>();
-    if (Path.WINDOWS) {
-      commands.add("cmd");
-      commands.add("/c");
-      commands.add(scriptFile.getAbsolutePath());
-    } else {
-      commands.add("/bin/bash");
-      commands.add(scriptFile.getAbsolutePath());
-    }
+    List<String> commands = Arrays.asList(Shell.getRunScriptCommand(scriptFile));
     containerLaunchContext.setCommands(commands);
     containerLaunchContext.setResource(recordFactory
         .newRecordInstance(Resource.class));
@@ -164,7 +157,7 @@ public class TestNodeManagerShutdown {
     // Windows, because the process is not notified when killed by winutils.
     // There is no way for the process to trap and respond.  Instead, we can
     // verify that the job object with ID matching container ID no longer exists.
-    if (Path.WINDOWS) {
+    if (Shell.WINDOWS) {
       Assert.assertFalse("Process is still alive!",
         DefaultContainerExecutor.containerIsAlive(cId.toString()));
     } else {

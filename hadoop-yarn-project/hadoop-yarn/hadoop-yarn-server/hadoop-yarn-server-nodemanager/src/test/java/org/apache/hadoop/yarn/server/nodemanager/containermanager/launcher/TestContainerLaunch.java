@@ -296,7 +296,7 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
     gcsRequest.setContainerId(cId);
     ContainerStatus containerStatus = 
         containerManager.getContainerStatus(gcsRequest).getStatus();
-    int expectedExitCode = Path.WINDOWS ? ExitCode.FORCE_KILLED.getExitCode() :
+    int expectedExitCode = Shell.WINDOWS ? ExitCode.FORCE_KILLED.getExitCode() :
       ExitCode.TERMINATED.getExitCode();
     Assert.assertEquals(expectedExitCode, containerStatus.getExitStatus());
 

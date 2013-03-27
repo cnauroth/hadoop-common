@@ -285,7 +285,7 @@ public class TestContainerManager extends BaseContainerManagerTest {
     gcsRequest.setContainerId(cId);
     ContainerStatus containerStatus = 
         containerManager.getContainerStatus(gcsRequest).getStatus();
-    int expectedExitCode = Path.WINDOWS ? ExitCode.FORCE_KILLED.getExitCode() :
+    int expectedExitCode = Shell.WINDOWS ? ExitCode.FORCE_KILLED.getExitCode() :
       ExitCode.TERMINATED.getExitCode();
     Assert.assertEquals(expectedExitCode, containerStatus.getExitStatus());
 
@@ -304,7 +304,7 @@ public class TestContainerManager extends BaseContainerManagerTest {
 	  // ////// Construct the Container-id
 	  ContainerId cId = createContainerId();
 
-	  if (Path.WINDOWS) {
+	  if (Shell.WINDOWS) {
 	    fileWriter.println("@echo Hello World!> " + processStartFile);
 	    fileWriter.println("@echo " + cId + ">> " + processStartFile);
 	    if (exitCode != 0) {
