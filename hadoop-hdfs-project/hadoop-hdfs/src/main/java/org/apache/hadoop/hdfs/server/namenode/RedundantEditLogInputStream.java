@@ -123,6 +123,11 @@ class RedundantEditLogInputStream extends EditLogInputStream {
   }
 
   @Override
+  public String getCurrentStreamName() {
+    return streams[curIdx].getCurrentStreamName();
+  }
+
+  @Override
   public String getName() {
     StringBuilder bld = new StringBuilder();
     String prefix = "";
@@ -249,6 +254,11 @@ class RedundantEditLogInputStream extends EditLogInputStream {
   @Override
   public long getPosition() {
     return streams[curIdx].getPosition();
+  }
+
+  @Override
+  public boolean isLengthKnown() {
+    return streams[curIdx].isLengthKnown();
   }
 
   @Override

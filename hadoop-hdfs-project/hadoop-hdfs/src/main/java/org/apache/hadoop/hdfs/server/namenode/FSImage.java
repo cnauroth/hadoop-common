@@ -52,6 +52,8 @@ import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.StartupOption;
 import org.apache.hadoop.hdfs.server.namenode.FSImageStorageInspector.FSImageFile;
 import org.apache.hadoop.hdfs.server.namenode.NNStorage.NameNodeDirType;
 import org.apache.hadoop.hdfs.server.namenode.NNStorage.NameNodeFile;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgress;
 import org.apache.hadoop.hdfs.server.protocol.CheckpointCommand;
 import org.apache.hadoop.hdfs.server.protocol.NamenodeCommand;
 import org.apache.hadoop.hdfs.server.protocol.NamenodeProtocol;
@@ -65,6 +67,7 @@ import org.apache.hadoop.util.Time;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DFSUtil;
 import org.apache.hadoop.hdfs.HAUtil;
+import org.apache.hadoop.util.StringUtils;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -590,6 +593,12 @@ public class FSImage implements Closeable {
     isUpgradeFinalized = inspector.isUpgradeFinalized();
  
     List<FSImageFile> imageFiles = inspector.getLatestImages();
+
+    StartupProgress prog = NameNode.getStartupProgress();
+    prog.beginPhase(Phase.LOADING_FSIMAGE);
+    File phaseFile = imageFiles.get(0).getFile();
+    prog.setFile(Phase.LOADING_FSIMAGE, phaseFile.getAbsolutePath());
+    prog.setSize(Phase.LOADING_FSIMAGE, phaseFile.length());
     boolean needToSave = inspector.needToSave();
 
     Iterable<EditLogInputStream> editStreams = null;
@@ -639,6 +648,7 @@ public class FSImage implements Closeable {
       FSEditLog.closeAllStreams(editStreams);
       throw new IOException("Failed to load an FSImage file!");
     }
+    prog.endPhase(Phase.LOADING_FSIMAGE);
     long txnsAdvanced = loadEdits(editStreams, target, recovery);
     needToSave |= needsResaveBasedOnStaleCheckpoint(imageFile.getFile(),
                                                     txnsAdvanced);
@@ -713,6 +723,8 @@ public class FSImage implements Closeable {
   public long loadEdits(Iterable<EditLogInputStream> editStreams,
       FSNamesystem target, MetaRecoveryContext recovery) throws IOException {
     LOG.debug("About to load edits:\n  " + Joiner.on("\n  ").join(editStreams));
+    StartupProgress prog = NameNode.getStartupProgress();
+    prog.beginPhase(Phase.LOADING_EDITS);
     
     long prevLastAppliedTxId = lastAppliedTxId;  
     try {    
@@ -739,6 +751,7 @@ public class FSImage implements Closeable {
       // update the counts
       target.dir.updateCountForINodeWithQuota();   
     }
+    prog.endPhase(Phase.LOADING_EDITS);
     return lastAppliedTxId - prevLastAppliedTxId;
   }
 
@@ -908,6 +921,8 @@ public class FSImage implements Closeable {
   protected synchronized void saveFSImageInAllDirs(FSNamesystem source, long txid,
       Canceler canceler)
       throws IOException {    
+    StartupProgress prog = NameNode.getStartupProgress();
+    prog.beginPhase(Phase.SAVING_CHECKPOINT);
     if (storage.getNumStorageDirs(NameNodeDirType.IMAGE) == 0) {
       throw new IOException("No image directories available!");
     }
@@ -953,6 +968,7 @@ public class FSImage implements Closeable {
       ctx.markComplete();
       ctx = null;
     }
+    prog.endPhase(Phase.SAVING_CHECKPOINT);
   }
 
   /**

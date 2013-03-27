@@ -826,6 +826,11 @@ public class TestEditLog {
     public long getLastTxId() {
       return HdfsConstants.INVALID_TXID;
     }
+
+    @Override
+    public boolean isLengthKnown() {
+      return true;
+    }
   
     @Override
     public long length() throws IOException {

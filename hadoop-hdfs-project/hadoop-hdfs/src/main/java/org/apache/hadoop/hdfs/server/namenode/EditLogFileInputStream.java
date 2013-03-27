@@ -257,6 +257,11 @@ public class EditLogFileInputStream extends EditLogInputStream {
   }
 
   @Override
+  public boolean isLengthKnown() {
+    return log.isLengthKnown();
+  }
+
+  @Override
   public long length() throws IOException {
     // file size + size of both buffers
     return log.length();
@@ -333,6 +338,7 @@ public class EditLogFileInputStream extends EditLogInputStream {
   
   private interface LogSource {
     public InputStream getInputStream() throws IOException;
+    public boolean isLengthKnown();
     public long length();
     public String getName();
   }
@@ -347,6 +353,11 @@ public class EditLogFileInputStream extends EditLogInputStream {
     @Override
     public InputStream getInputStream() throws IOException {
       return new FileInputStream(file);
+    }
+
+    @Override
+    public boolean isLengthKnown() {
+      return true;
     }
 
     @Override
@@ -402,6 +413,11 @@ public class EditLogFileInputStream extends EditLogInputStream {
               return connection.getInputStream();
             }
           });
+    }
+
+    @Override
+    public boolean isLengthKnown() {
+      return advertisedSize != -1; // length only known after opening stream
     }
 
     @Override

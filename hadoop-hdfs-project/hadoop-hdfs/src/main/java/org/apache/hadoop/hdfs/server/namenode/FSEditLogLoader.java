@@ -58,7 +58,12 @@ import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.TimesOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.UpdateBlocksOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.UpdateMasterKeyOp;
 import org.apache.hadoop.hdfs.server.namenode.LeaseManager.Lease;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgress;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgress.Counter;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.Step;
 import org.apache.hadoop.hdfs.util.Holder;
+import org.apache.hadoop.util.StringUtils;
 
 import com.google.common.base.Joiner;
 
@@ -82,6 +87,9 @@ public class FSEditLogLoader {
    */
   long loadFSEdits(EditLogInputStream edits, long expectedStartingTxId,
       MetaRecoveryContext recovery) throws IOException {
+    StartupProgress prog = NameNode.getStartupProgress();
+    Step step = createStartupProgressStep(edits);
+    prog.beginStep(Phase.LOADING_EDITS, step);
     fsNamesys.writeLock();
     try {
       long startTime = now();
@@ -94,6 +102,7 @@ public class FSEditLogLoader {
     } finally {
       edits.close();
       fsNamesys.writeUnlock();
+      prog.endStep(Phase.LOADING_EDITS, step);
     }
   }
 
@@ -119,6 +128,10 @@ public class FSEditLogLoader {
     long numEdits = 0;
     long lastTxId = in.getLastTxId();
     long numTxns = (lastTxId - expectedStartingTxId) + 1;
+    StartupProgress prog = NameNode.getStartupProgress();
+    Step step = createStartupProgressStep(in);
+    prog.setTotal(Phase.LOADING_EDITS, step, numTxns);
+    Counter counter = prog.getCounter(Phase.LOADING_EDITS, step);
     long lastLogTime = now();
     long lastInodeId = fsNamesys.getLastInodeId();
     
@@ -179,7 +192,7 @@ public class FSEditLogLoader {
           }
           // Now that the operation has been successfully decoded and
           // applied, update our bookkeeping.
-          incrOpCount(op.opCode, opCounts);
+          incrOpCount(op.opCode, opCounts, step, counter);
           if (op.hasTransactionId()) {
             lastAppliedTxId = op.getTransactionId();
             expectedTxId = lastAppliedTxId + 1;
@@ -614,7 +627,8 @@ public class FSEditLogLoader {
   }
 
   private void incrOpCount(FSEditLogOpCodes opCode,
-      EnumMap<FSEditLogOpCodes, Holder<Integer>> opCounts) {
+      EnumMap<FSEditLogOpCodes, Holder<Integer>> opCounts, Step step,
+      Counter counter) {
     Holder<Integer> holder = opCounts.get(opCode);
     if (holder == null) {
       holder = new Holder<Integer>(1);
@@ -622,6 +636,7 @@ public class FSEditLogLoader {
     } else {
       holder.held++;
     }
+    counter.increment();
   }
 
   /**
@@ -792,5 +807,21 @@ public class FSEditLogLoader {
 
   public long getLastAppliedTxId() {
     return lastAppliedTxId;
+  }
+
+  /**
+   * Creates a Step used for updating startup progress, populated with
+   * information from the given edits.  The step always includes the log's name.
+   * If the log has a known length, then the length is included in the step too.
+   * 
+   * @param edits EditLogInputStream to use for populating step
+   * @return Step populated with information from edits
+   * @throws IOException thrown if there is an I/O error
+   */
+  private static Step createStartupProgressStep(EditLogInputStream edits)
+      throws IOException {
+    return edits.isLengthKnown() ?
+      new Step(edits.getCurrentStreamName(), edits.length()) :
+      new Step(edits.getCurrentStreamName());
   }
 }
