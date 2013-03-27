@@ -180,10 +180,13 @@ public class YarnConfiguration extends Configuration {
     RM_PREFIX + "admin.client.thread-count";
   public static final int DEFAULT_RM_ADMIN_CLIENT_THREAD_COUNT = 1;
   
-  /** The maximum number of application master retries.*/
-  public static final String RM_AM_MAX_RETRIES = 
-    RM_PREFIX + "am.max-retries";
-  public static final int DEFAULT_RM_AM_MAX_RETRIES = 1;
+  /**
+   * The maximum number of application attempts.
+   * It's a global setting for all application masters.
+   */
+  public static final String RM_AM_MAX_ATTEMPTS =
+    RM_PREFIX + "am.max-attempts";
+  public static final int DEFAULT_RM_AM_MAX_ATTEMPTS = 1;
   
   /** The keytab for the resource manager.*/
   public static final String RM_KEYTAB = 
@@ -436,6 +439,16 @@ public class YarnConfiguration extends Configuration {
   /** Amount of memory in GB that can be allocated for containers.*/
   public static final String NM_PMEM_MB = NM_PREFIX + "resource.memory-mb";
   public static final int DEFAULT_NM_PMEM_MB = 8 * 1024;
+
+  /** Specifies whether physical memory check is enabled. */
+  public static final String NM_PMEM_CHECK_ENABLED = NM_PREFIX
+      + "pmem-check-enabled";
+  public static final boolean DEFAULT_NM_PMEM_CHECK_ENABLED = true;
+
+  /** Specifies whether physical memory check is enabled. */
+  public static final String NM_VMEM_CHECK_ENABLED = NM_PREFIX
+      + "vmem-check-enabled";
+  public static final boolean DEFAULT_NM_VMEM_CHECK_ENABLED = true;
 
   /** Conversion ratio for physical memory to virtual memory. */
   public static final String NM_VMEM_PMEM_RATIO =
