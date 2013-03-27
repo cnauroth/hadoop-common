@@ -147,22 +147,6 @@ public class TestASVUriAndConfiguration {
         "http://mockAccount.mock.authority.net/mockContainer/x"));
   }
 
-  /**
-   * Tests that we can connect to fully qualified accounts outside
-   * of blob.core.windows.net
-   */
-  @Test
-  public void testConnectToFullyQualifiedAccountLive() throws Exception {
-    testAccount =
-        AzureBlobStorageTestAccount.create("",
-            EnumSet.of(
-                CreateOptions.UseQualifiedAccountName,
-                CreateOptions.CreateContainer));
-    assumeNotNull(testAccount);
-    assertTrue(validateIOStreams(new Path("/testFile")));
-  }
-
-  @Test
   public void testConnectToRoot() throws Exception {
 
     // Set up blob names.

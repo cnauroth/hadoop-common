@@ -29,7 +29,7 @@ public final class AzureBlobStorageTestAccount {
   private static final String SAS_PROPERTY_NAME = "fs.azure.sas.";
   private static final String TEST_CONFIGURATION_FILE_NAME = "azure-test.xml";
   private static final String TEST_ACCOUNT_NAME_PROPERTY_NAME = "fs.azure.test.account.name";
-  public static final String MOCK_ACCOUNT_NAME = "mockAccount";
+  public static final String MOCK_ACCOUNT_NAME = "mockAccount.blob.core.windows.net";
   public static final String MOCK_CONTAINER_NAME = "mockContainer";
   public static final String  ASV_AUTHORITY_DELIMITER = "@";
   public static final String ASV_SCHEME = "asv";
@@ -83,13 +83,13 @@ public final class AzureBlobStorageTestAccount {
   }
 
   public static String getMockContainerUri() {
-    return String.format("http://%s.blob.core.windows.net/%s",
+    return String.format("http://%s/%s",
         AzureBlobStorageTestAccount.MOCK_ACCOUNT_NAME,
         AzureBlobStorageTestAccount.MOCK_CONTAINER_NAME);
   }
 
   public static String toMockUri(String path) {
-    return String.format("http://%s.blob.core.windows.net/%s/%s",
+    return String.format("http://%s/%s/%s",
         AzureBlobStorageTestAccount.MOCK_ACCOUNT_NAME,
         AzureBlobStorageTestAccount.MOCK_CONTAINER_NAME,
         path);
@@ -283,13 +283,15 @@ public final class AzureBlobStorageTestAccount {
     if (accountKey == null && allowAnonymous) {
       credentials = StorageCredentialsAnonymous.ANONYMOUS;
     } else {
-      credentials = new StorageCredentialsAccountAndKey(accountName,
+      credentials = new StorageCredentialsAccountAndKey(
+          accountName.split("\\.")[0],
           accountKey);
     }
     if (credentials == null) {
       return null;
     } else {
-      return new CloudStorageAccount(credentials);
+      return new CloudStorageAccount(credentials,
+          new URI("http://" + accountName), null, null);
     }
   }
 
@@ -312,7 +314,7 @@ public final class AzureBlobStorageTestAccount {
   }
 
   public static enum CreateOptions {
-    UseQualifiedAccountName, UseSas, CreateContainer
+    UseSas, CreateContainer
   }
 
   public static AzureBlobStorageTestAccount create(String containerNameSuffix,
@@ -332,16 +334,7 @@ public final class AzureBlobStorageTestAccount {
     if (createOptions.contains(CreateOptions.CreateContainer)) {
       container.create();
     }
-    String accountUrl = account.getBlobEndpoint().getAuthority();
-    String accountName = accountUrl.substring(0, accountUrl.indexOf('.'));
-    if (createOptions.contains(CreateOptions.UseQualifiedAccountName)) {
-      // Change the account name to be fully qualified,
-      // and make sure to store the same key under the qualified account.
-      String key = AzureNativeFileSystemStore.getAccountKeyFromConfiguration(
-          accountName, conf);
-      accountName += ".blob.core.windows.net";
-      conf.set(ACCOUNT_KEY_PROPERTY_NAME + accountName, key);
-    }
+    String accountName = conf.get(TEST_ACCOUNT_NAME_PROPERTY_NAME);
     if (createOptions.contains(CreateOptions.UseSas)) {
       String sas = generateSAS(container);
       if (!createOptions.contains(CreateOptions.CreateContainer)) {
@@ -444,8 +437,7 @@ public final class AzureBlobStorageTestAccount {
     //
     CloudBlobContainer container = 
         blobClient.getContainerReference(
-            "https://" + accountName +
-            ".blob.core.windows.net/" + containerName);
+            "https://" + accountName + "/" + containerName);
     container.createIfNotExist();
 
     // Create a new shared access policy.
@@ -476,7 +468,7 @@ public final class AzureBlobStorageTestAccount {
     // Create a blob output stream.
     //
     String blobAddressUri = 
-        String.format("https://%s.blob.core.windows.net/%s/%s",
+        String.format("https://%s/%s/%s",
             accountName, containerName, blobName);
     CloudBlockBlob blob = blobClient.getBlockBlobReference(blobAddressUri);    
     BlobOutputStream outputStream = blob.openOutputStream();
@@ -504,8 +496,7 @@ public final class AzureBlobStorageTestAccount {
 
     // Capture the account URL and the account name.
     //
-    String accountUrl = account.getBlobEndpoint().getAuthority();
-    String accountName = accountUrl.substring(0, accountUrl.indexOf('.'));
+    String accountName = conf.get(TEST_ACCOUNT_NAME_PROPERTY_NAME);
 
     // Generate a container name and create a shared access signature string for it.
     //
@@ -552,14 +543,13 @@ public final class AzureBlobStorageTestAccount {
     //
     CloudBlobContainer container = 
         blobClient.getContainerReference(
-            "https://" + accountName +
-            ".blob.core.windows.net/" + "$root");
+            "https://" + accountName + "/" + "$root");
     container.createIfNotExist();
 
     // Create a blob output stream.
     //
     String blobAddressUri = 
-        String.format("https://%s.blob.core.windows.net/$root/%s",
+        String.format("https://%s/$root/%s",
             accountName, blobName);
     CloudBlockBlob blob = blobClient.getBlockBlobReference(blobAddressUri);    
     BlobOutputStream outputStream = blob.openOutputStream();
@@ -590,8 +580,7 @@ public final class AzureBlobStorageTestAccount {
 
     // Capture the account URL and the account name.
     //
-    String accountUrl = account.getBlobEndpoint().getAuthority();
-    String accountName = accountUrl.substring(0, accountUrl.indexOf('.'));
+    String accountName = conf.get(TEST_ACCOUNT_NAME_PROPERTY_NAME);
 
 
     // Set up public container with the specified blob name.

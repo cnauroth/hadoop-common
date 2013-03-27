@@ -73,7 +73,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final String HTTPS_SCHEME = "https";
   private static final String ASV_SCHEME = "asv";
   private static final String ASV_SECURE_SCHEME = "asvs";
-  private static final String ASV_URL_AUTHORITY = ".blob.core.windows.net";
   private static final String ASV_AUTHORITY_DELIMITER = "@";
   private static final String AZURE_ROOT_CONTAINER = "$root";
 
@@ -466,24 +465,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   /**
-   * Given the account name in the ASV URI, returns the full
-   * URI authority we should use. This adds the default
-   * .blob.core.windows.net if the account specified in the
-   * ASV URI is a simple unqualified name.
-   * @param accountName The account name in the ASV URI.
-   * @return The full authority to use in the HTTP(S) URI.
-   */
-  private static String getFullUriAuthority(String accountName) {
-    if (accountName.contains(".")) {
-      // Assume it's fully qualified already
-      return accountName;
-    } else {
-      // Default to the public Azure Storage URI's.
-      return accountName + ASV_URL_AUTHORITY;
-    }
-  }
-
-  /**
    * Connect to Azure storage using anonymous credentials.
    * 
    * @param uri - URI to target blob (R/O access to public blob)
@@ -500,7 +481,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     //
     String accountName = getAccountFromAuthority(uri);
     URI storageUri = new URI(getHTTPScheme() + ":" + PATH_DELIMITER + PATH_DELIMITER + 
-        getFullUriAuthority(accountName));
+        accountName);
 
     // Create the service client with anonymous credentials.
     //
@@ -555,7 +536,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       storageInteractionLayer.createBlobClient(account);
     } else {
       blobEndPoint = new URI(getHTTPScheme() + "://" +
-          getFullUriAuthority(accountName));
+          accountName);
       storageInteractionLayer.createBlobClient(blobEndPoint, credentials);
     }
     suppressRetryPolicyInClientIfNeeded();

@@ -48,7 +48,7 @@ public class TestAzureFileSystemInstrumentation {
   public void testMetricTags() throws Exception {
     String accountName =
         testAccount.getRealAccount().getBlobEndpoint()
-        .getAuthority().split("\\.")[0];
+        .getAuthority();
     String containerName =
         testAccount.getRealContainer().getName();
     MetricsRecordBuilder myMetrics = getMyMetrics();
