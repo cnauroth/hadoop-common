@@ -239,8 +239,9 @@ public class DefaultContainerExecutor extends ContainerExecutor {
     protected abstract void writeLocalWrapperScript(Path launchDst, Path pidFile,
         PrintStream pout);
 
-    protected LocalWrapperScriptBuilder(Path wrapperScriptPath) {
-      this.wrapperScriptPath = wrapperScriptPath;
+    protected LocalWrapperScriptBuilder(Path containerWorkDir) {
+      this.wrapperScriptPath = new Path(containerWorkDir,
+        Shell.getScriptName("default_container_executor"));
     }
   }
 
@@ -248,7 +249,7 @@ public class DefaultContainerExecutor extends ContainerExecutor {
       extends LocalWrapperScriptBuilder {
 
     public UnixLocalWrapperScriptBuilder(Path containerWorkDir) {
-      super(new Path(containerWorkDir, "default_container_executor.sh"));
+      super(containerWorkDir);
     }
 
     @Override
@@ -276,7 +277,7 @@ public class DefaultContainerExecutor extends ContainerExecutor {
     public WindowsLocalWrapperScriptBuilder(String containerIdStr,
         Path containerWorkDir) {
 
-      super(new Path(containerWorkDir, "default_container_executor.cmd"));
+      super(containerWorkDir);
       this.containerIdStr = containerIdStr;
     }
 

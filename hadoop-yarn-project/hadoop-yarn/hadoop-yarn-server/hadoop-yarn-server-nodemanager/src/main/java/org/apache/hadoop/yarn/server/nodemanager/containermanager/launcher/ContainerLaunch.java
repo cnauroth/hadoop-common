@@ -71,8 +71,8 @@ public class ContainerLaunch implements Callable<Integer> {
 
   private static final Log LOG = LogFactory.getLog(ContainerLaunch.class);
 
-  public static final String CONTAINER_SCRIPT = Shell.WINDOWS ?
-    "launch_container.cmd" : "launch_container.sh";
+  public static final String CONTAINER_SCRIPT =
+    Shell.getScriptName("launch_container");
   public static final String FINAL_CONTAINER_TOKENS_FILE = "container_tokens";
 
   private static final String PID_FILE_NAME_FMT = "%s.pid";

@@ -34,6 +34,7 @@ import junit.framework.Assert;
 import org.apache.hadoop.fs.FileContext;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.UnsupportedFileSystemException;
+import org.apache.hadoop.util.Shell;
 import org.apache.hadoop.yarn.api.protocolrecords.GetContainerStatusRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
@@ -216,10 +217,9 @@ public class TestNodeManagerShutdown {
    * stopped by external means.
    */
   private File createUnhaltingScriptFile() throws IOException {
-    File scriptFile = new File(tmpDir, Path.WINDOWS ? "scriptFile.cmd" :
-      "scriptFile.sh");
+    File scriptFile = Shell.getScriptFile(tmpDir, "scriptFile");
     PrintWriter fileWriter = new PrintWriter(scriptFile);
-    if (Path.WINDOWS) {
+    if (Shell.WINDOWS) {
       fileWriter.println("@echo \"Running testscript for delayed kill\"");
       fileWriter.println("@echo \"Writing pid to start file\"");
       fileWriter.println("@echo " + cId + ">> " + processStartFile);

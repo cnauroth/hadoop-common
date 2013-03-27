@@ -35,6 +35,7 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.FileContext;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.UnsupportedFileSystemException;
+import org.apache.hadoop.util.Shell;
 import org.apache.hadoop.yarn.api.protocolrecords.GetContainerStatusRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.StopContainerRequest;
@@ -194,8 +195,7 @@ public class TestContainerManager extends BaseContainerManagerTest {
       InterruptedException {
     containerManager.start();
 
-    File scriptFile = new File(tmpDir, Path.WINDOWS ? "scriptFile.cmd" :
-      "scriptFile.sh");
+    File scriptFile = Shell.getScriptFile(tmpDir, "scriptFile");
     PrintWriter fileWriter = new PrintWriter(scriptFile);
     File processStartFile =
         new File(tmpDir, "start_file.txt").getAbsoluteFile();
@@ -203,7 +203,7 @@ public class TestContainerManager extends BaseContainerManagerTest {
     // ////// Construct the Container-id
     ContainerId cId = createContainerId();
 
-    if (Path.WINDOWS) {
+    if (Shell.WINDOWS) {
       fileWriter.println("@echo Hello World!> " + processStartFile);
       fileWriter.println("@echo " + cId + ">> " + processStartFile);
       fileWriter.println("@ping -n 100 127.0.0.1 >nul");
@@ -238,15 +238,7 @@ public class TestContainerManager extends BaseContainerManagerTest {
     localResources.put(destinationFile, rsrc_alpha);
     containerLaunchContext.setLocalResources(localResources);
     containerLaunchContext.setUser(containerLaunchContext.getUser());
-    List<String> commands = new ArrayList<String>();
-    if (Path.WINDOWS) {
-      commands.add("cmd");
-      commands.add("/c");
-      commands.add(scriptFile.getAbsolutePath());
-    } else {
-      commands.add("/bin/bash");
-      commands.add(scriptFile.getAbsolutePath());
-    }
+    List<String> commands = Arrays.asList(Shell.getRunScriptCommand(scriptFile));
     containerLaunchContext.setCommands(commands);
     containerLaunchContext.setResource(recordFactory
         .newRecordInstance(Resource.class));
@@ -304,8 +296,7 @@ public class TestContainerManager extends BaseContainerManagerTest {
   
   private void testContainerLaunchAndExit(int exitCode) throws IOException, InterruptedException {
 
-	  File scriptFile = new File(tmpDir, Path.WINDOWS ? "scriptFile.cmd" :
-	    "scriptFile.sh");
+	  File scriptFile = Shell.getScriptFile(tmpDir, "scriptFile");
 	  PrintWriter fileWriter = new PrintWriter(scriptFile);
 	  File processStartFile =
 			  new File(tmpDir, "start_file.txt").getAbsoluteFile();
@@ -354,15 +345,7 @@ public class TestContainerManager extends BaseContainerManagerTest {
 	  localResources.put(destinationFile, rsrc_alpha);
 	  containerLaunchContext.setLocalResources(localResources);
 	  containerLaunchContext.setUser(containerLaunchContext.getUser());
-	  List<String> commands = new ArrayList<String>();
-	  if (Path.WINDOWS) {
-	    commands.add("cmd");
-	    commands.add("/c");
-	    commands.add(scriptFile.getAbsolutePath());
-	  } else {
-	    commands.add("/bin/bash");
-	    commands.add(scriptFile.getAbsolutePath());
-	  }
+	  List<String> commands = Arrays.asList(Shell.getRunScriptCommand(scriptFile));
 	  containerLaunchContext.setCommands(commands);
 	  containerLaunchContext.setResource(recordFactory
 			  .newRecordInstance(Resource.class));

@@ -90,8 +90,8 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
     File symLinkFile = null;
 
     try {
-      shellFile = new File(tmpDir, Shell.WINDOWS ? "hello.cmd" : "hello.sh");
-      tempFile = new File(tmpDir, Shell.WINDOWS ? "temp.cmd" : "temp.sh");
+      shellFile = Shell.getScriptFile(tmpDir, "hello");
+      tempFile = Shell.getScriptFile(tmpDir, "temp");
       String timeoutCommand = Shell.WINDOWS ? "@echo \"hello\"" :
         "echo \"hello\"";
       PrintWriter writer = new PrintWriter(new FileOutputStream(shellFile));    
@@ -204,8 +204,7 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
     cId.setApplicationAttemptId(appAttemptId);
 
     String malloc = System.getenv(Environment.MALLOC_ARENA_MAX.name());
-    File scriptFile = new File(tmpDir, Shell.WINDOWS ? "scriptFile.cmd" :
-      "scriptFile.sh");
+    File scriptFile = Shell.getScriptFile(tmpDir, "scriptFile");
     PrintWriter fileWriter = new PrintWriter(scriptFile);
     File processStartFile =
         new File(tmpDir, "env_vars.txt").getAbsoluteFile();
@@ -250,15 +249,7 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
 
     // set up the rest of the container
     containerLaunchContext.setUser(containerLaunchContext.getUser());
-    List<String> commands = new ArrayList<String>();
-    if (Shell.WINDOWS) {
-      commands.add("cmd");
-      commands.add("/c");
-      commands.add(scriptFile.getAbsolutePath());
-    } else {
-      commands.add("/bin/bash");
-      commands.add(scriptFile.getAbsolutePath());
-    }
+    List<String> commands = Arrays.asList(Shell.getRunScriptCommand(scriptFile));
     containerLaunchContext.setCommands(commands);
     containerLaunchContext.setResource(recordFactory
         .newRecordInstance(Resource.class));
@@ -334,8 +325,7 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
         new File(tmpDir, "pid.txt").getAbsoluteFile();
 
     // setup a script that can handle sigterm gracefully
-    File scriptFile = new File(tmpDir, Shell.WINDOWS ? "testscript.cmd" :
-      "testscript.sh");
+    File scriptFile = Shell.getScriptFile(tmpDir, "testscript");
     PrintWriter writer = new PrintWriter(new FileOutputStream(scriptFile));
     if (Shell.WINDOWS) {
       writer.println("@echo \"Running testscript for delayed kill\"");
@@ -380,14 +370,7 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
 
     // set up the rest of the container
     containerLaunchContext.setUser(containerLaunchContext.getUser());
-    List<String> commands = new ArrayList<String>();
-    if (Shell.WINDOWS) {
-      commands.add("cmd");
-      commands.add("/c");
-      commands.add(scriptFile.getAbsolutePath());
-    } else {
-      commands.add(scriptFile.getAbsolutePath());
-    }
+    List<String> commands = Arrays.asList(Shell.getRunScriptCommand(scriptFile));
     containerLaunchContext.setCommands(commands);
     containerLaunchContext.setResource(recordFactory
         .newRecordInstance(Resource.class));
