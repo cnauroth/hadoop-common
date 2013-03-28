@@ -17,6 +17,8 @@ Trunk (Unreleased)
 
     HADOOP-9380 Add totalLength to rpc response  (sanjay Radia)
 
+    HADOOP-9194. RPC Support for QoS. (Junping Du via llu)
+
   NEW FEATURES
     
     HADOOP-8561. Introduce HADOOP_PROXY_USER for secure impersonation in child
@@ -89,9 +91,6 @@ Trunk (Unreleased)
 
     HADOOP-8367 Improve documentation of declaringClassProtocolName in 
     rpc headers. (Sanjay Radia)
-
-    HADOOP-8415. Add getDouble() and setDouble() in
-    org.apache.hadoop.conf.Configuration (Jan van der Lugt via harsh)
 
     HADOOP-7659. fs -getmerge isn't guaranteed to work well over non-HDFS
     filesystems (harsh)
@@ -512,6 +511,9 @@ Release 2.0.5-beta - UNRELEASED
 
     HADOOP-9283. Add support for running the Hadoop client on AIX. (atm)
 
+    HADOOP-8415. Add getDouble() and setDouble() in
+    org.apache.hadoop.conf.Configuration (Jan van der Lugt via harsh)
+
   IMPROVEMENTS
 
     HADOOP-9253. Capture ulimit info in the logs at service start time.
@@ -531,6 +533,8 @@ Release 2.0.5-beta - UNRELEASED
 
     HADOOP-9318. When exiting on a signal, print the signal name first. (Colin
     Patrick McCabe via atm)
+
+    HADOOP-9358. "Auth failed" log should include exception string (todd)
 
   OPTIMIZATIONS
 
@@ -591,6 +595,14 @@ Release 2.0.5-beta - UNRELEASED
 
     HADOOP-9299.  kerberos name resolution is kicking in even when kerberos
     is not configured (daryn)
+
+    HADOOP-9430. TestSSLFactory fails on IBM JVM. (Amir Sanjar via suresh)
+
+    HADOOP-9125. LdapGroupsMapping threw CommunicationException after some
+    idle time. (Kai Zheng via atm)
+
+    HADOOP-9357. Fallback to default authority if not specified in FileContext.
+    (Andrew Wang via eli)
 
 Release 2.0.4-alpha - UNRELEASED
 
