@@ -473,7 +473,7 @@ public class TestNativeIO {
     } catch (NativeIOException e) {
       if (Path.WINDOWS) {
         Assert.assertEquals(
-          String.format("The device does not recognize the command.%n"),
+          String.format("The parameter is incorrect.%n"),
           e.getMessage());
       } else {
         Assert.assertEquals(Errno.ENOTDIR, e.getErrno());

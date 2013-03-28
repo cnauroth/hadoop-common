@@ -823,7 +823,11 @@ jclass clazz, jstring jsrc, jstring jdst)
   dst = (*env)->GetStringUTFChars(env, jdst, NULL);
   if (!dst) goto done; // exception was thrown
   if (rename(src, dst)) {
+#ifdef WINDOWS
+    throw_ioe(env, GetLastError());
+#else
     throw_ioe(env, errno);
+#endif
   }
 
 done:
