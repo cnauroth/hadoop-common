@@ -98,8 +98,7 @@ public class TestOfflineImageViewer {
       Configuration conf = new Configuration();
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_DELEGATION_TOKEN_MAX_LIFETIME_KEY, 10000);
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_DELEGATION_TOKEN_RENEW_INTERVAL_KEY, 5000);
-      // TODO: fix this?
-      //conf.setBoolean(DFSConfigKeys.DFS_NAMENODE_DELEGATION_TOKEN_ALWAYS_USE_KEY, true);
+      conf.setBoolean(DFSConfigKeys.DFS_NAMENODE_DELEGATION_TOKEN_ALWAYS_USE_KEY, true);
       conf.set("hadoop.security.auth_to_local",
           "RULE:[2:$1@$0](JobTracker@.*FOO.COM)s/@.*//" + "DEFAULT");
       cluster = new MiniDFSCluster(conf, 4, true, null);
@@ -123,10 +122,9 @@ public class TestOfflineImageViewer {
         }
       }
 
-      // TODO: fix this?
       // Get delegation tokens so we log the delegation token op
-      //Token<?> delegationToken = hdfs.getDelegationToken(TEST_RENEWER);
-      //LOG.debug("got token " + delegationToken);
+      Token<?> delegationToken = hdfs.getDelegationToken(TEST_RENEWER);
+      LOG.debug("got token " + delegationToken);
 
       // Write results to the fsimage file
       cluster.getNameNode().setSafeMode(SafeModeAction.SAFEMODE_ENTER);
@@ -460,11 +458,10 @@ public class TestOfflineImageViewer {
       OfflineImageViewer oiv = new OfflineImageViewer(testFile.getPath(), v, true);
       oiv.go();
 
-      // TODO: fix this?
       // Validated stored delegation token identifiers.
-      //List<String> dtrs = v.getDelegationTokenRenewers();
-      //assertEquals(1, dtrs.size());
-      //assertEquals(TEST_RENEWER, dtrs.get(0));
+      List<String> dtrs = v.getDelegationTokenRenewers();
+      assertEquals(1, dtrs.size());
+      assertEquals(TEST_RENEWER, dtrs.get(0));
     } finally {
       if(testFile.exists()) testFile.delete();
     }
