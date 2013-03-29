@@ -538,6 +538,9 @@ Release 2.0.5-beta - UNRELEASED
 
   OPTIMIZATIONS
 
+    HADOOP-9150. Avoid unnecessary DNS resolution attempts for logical URIs
+    (todd)
+
   BUG FIXES
 
     HADOOP-9294. GetGroupsTestBase fails on Windows. (Chris Nauroth via suresh)
@@ -600,6 +603,9 @@ Release 2.0.5-beta - UNRELEASED
 
     HADOOP-9125. LdapGroupsMapping threw CommunicationException after some
     idle time. (Kai Zheng via atm)
+
+    HADOOP-9357. Fallback to default authority if not specified in FileContext.
+    (Andrew Wang via eli)
 
 Release 2.0.4-alpha - UNRELEASED
 
