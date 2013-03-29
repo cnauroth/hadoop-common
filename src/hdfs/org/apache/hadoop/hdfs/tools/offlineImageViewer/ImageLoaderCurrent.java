@@ -148,7 +148,6 @@ class ImageLoaderCurrent implements ImageLoader {
       v.visitEnclosingElement(ImageElement.FS_IMAGE);
 
       imageVersion = in.readInt();
-      System.out.println("cn loadImage, imageVersion = " + imageVersion);
       if( !canLoadVersion(imageVersion))
         throw new IOException("Cannot process fslayout version " + imageVersion);
 

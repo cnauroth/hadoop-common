@@ -123,7 +123,6 @@ public class OfflineImageViewer {
                new FileInputStream(new File(inputFile))));
 
       int imageVersionFile = findImageVersion(in);
-      System.out.println("cn go, imageVersionFile = " + imageVersionFile);
 
       fsip = ImageLoader.LoaderFactory.getLoader(imageVersionFile);
 
