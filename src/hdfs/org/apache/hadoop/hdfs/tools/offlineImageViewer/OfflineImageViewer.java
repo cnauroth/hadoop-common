@@ -22,7 +22,9 @@ import java.io.DataInputStream;
 import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -117,10 +119,13 @@ public class OfflineImageViewer {
    */
   public void go() throws IOException  {
     DataInputStream in = null;
+    PositionTrackingInputStream tracker = null;
     ImageLoader fsip = null;
+    boolean done = false;
     try {
-      in = new DataInputStream(new BufferedInputStream(
+      tracker = new PositionTrackingInputStream(new BufferedInputStream(
                new FileInputStream(new File(inputFile))));
+      in = new DataInputStream(tracker);
 
       int imageVersionFile = findImageVersion(in);
 
@@ -130,8 +135,12 @@ public class OfflineImageViewer {
         throw new IOException("No image processor to read version " +
             imageVersionFile + " is available.");
       fsip.loadImage(in, processor, skipBlocks);
+      done = true;
     } finally {
-      IOUtils.cleanup(LOG, in);
+      if (!done) {
+        LOG.error("image loading failed at offset " + tracker.getPos());
+      }
+      IOUtils.cleanup(LOG, in, tracker);
     }
   }
 
@@ -262,5 +271,65 @@ public class OfflineImageViewer {
    */
   private static void printUsage() {
     System.out.println(usage);
+  }
+
+  /**
+   * Stream wrapper that keeps track of the current stream position.
+   */
+  private static class PositionTrackingInputStream extends FilterInputStream {
+    private long curPos = 0;
+    private long markPos = -1;
+
+    public PositionTrackingInputStream(InputStream is) {
+      super(is);
+    }
+    
+    @Override
+    public int read() throws IOException {
+      int ret = super.read();
+      if (ret != -1) curPos++;
+      return ret;
+    }
+
+    @Override
+    public int read(byte[] data) throws IOException {
+      int ret = super.read(data);
+      if (ret > 0) curPos += ret;
+      return ret;
+    }
+
+    @Override
+    public int read(byte[] data, int offset, int length) throws IOException {
+      int ret = super.read(data, offset, length);
+      if (ret > 0) curPos += ret;
+      return ret;
+    }
+
+    @Override
+    public void mark(int limit) {
+      super.mark(limit);
+      markPos = curPos;
+    }
+
+    @Override
+    public void reset() throws IOException {
+      if (markPos == -1) {
+        throw new IOException("Not marked!");
+      }
+      super.reset();
+      curPos = markPos;
+      markPos = -1;
+    }
+
+    public long getPos() {
+      return curPos;
+    }
+    
+    @Override
+    public long skip(long amt) throws IOException {
+      long ret = super.skip(amt);
+      curPos += ret;
+      return ret;
+    }
   }
 }
