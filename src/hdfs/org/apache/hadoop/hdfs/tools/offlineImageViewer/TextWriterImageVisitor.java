@@ -21,8 +21,7 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-
-import com.google.common.base.Charsets;
+import java.nio.charset.Charset;
 
 /**
  * TextWriterImageProcessor mixes in the ability for ImageVisitor
@@ -36,6 +35,7 @@ import com.google.common.base.Charsets;
  * enabled) screen.  This is the implementing class' responsibility.
  */
 abstract class TextWriterImageVisitor extends ImageVisitor {
+  private static final Charset UTF_8 = Charset.forName("UTF-8");
   private boolean printToScreen = false;
   private boolean okToWrite = false;
   final private OutputStreamWriter fw;
@@ -60,7 +60,7 @@ abstract class TextWriterImageVisitor extends ImageVisitor {
          throws IOException {
     super();
     this.printToScreen = printToScreen;
-    fw = new OutputStreamWriter(new FileOutputStream(filename), Charsets.UTF_8);
+    fw = new OutputStreamWriter(new FileOutputStream(filename), UTF_8);
     okToWrite = true;
   }
   
