@@ -816,23 +816,39 @@ JNIEXPORT void JNICALL
 Java_org_apache_hadoop_io_nativeio_NativeIO_renameTo0(JNIEnv *env, 
 jclass clazz, jstring jsrc, jstring jdst)
 {
+#ifdef UNIX
   const char *src = NULL, *dst = NULL;
   
   src = (*env)->GetStringUTFChars(env, jsrc, NULL);
   if (!src) goto done; // exception was thrown
   dst = (*env)->GetStringUTFChars(env, jdst, NULL);
   if (!dst) goto done; // exception was thrown
+
   if (rename(src, dst)) {
-#ifdef WINDOWS
-    throw_ioe(env, GetLastError());
-#else
     throw_ioe(env, errno);
-#endif
   }
 
 done:
   if (src) (*env)->ReleaseStringUTFChars(env, jsrc, src);
   if (dst) (*env)->ReleaseStringUTFChars(env, jdst, dst);
+#endif
+
+#ifdef WINDOWS
+  LPCWSTR src = NULL, dst = NULL;
+
+  src = (LPCWSTR) (*env)->GetStringChars(env, jsrc, NULL);
+  if (!src) goto done; // exception was thrown
+  dst = (LPCWSTR) (*env)->GetStringChars(env, jdst, NULL);
+  if (!dst) goto done; // exception was thrown
+
+  if (!MoveFile(src, dst)) {
+    throw_ioe(env, GetLastError());
+  }
+
+done:
+  if (src) (*env)->ReleaseStringChars(env, jsrc, src);
+  if (dst) (*env)->ReleaseStringChars(env, jdst, dst);
+#endif
 }
 
 /**
