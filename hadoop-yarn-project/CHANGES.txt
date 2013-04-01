@@ -100,6 +100,12 @@ Release 2.0.5-beta - UNRELEASED
 
     YARN-469. Make scheduling mode in FS pluggable. (kkambatl via tucu)
 
+    YARN-450. Define value for * in the scheduling protocol (Zhijie Shen via
+    bikas)
+
+    YARN-475. Remove a unused constant in the public API -
+    ApplicationConstants.AM_APP_ATTEMPT_ID_ENV. (Hitesh Shah via vinodkv)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -154,6 +160,9 @@ Release 2.0.5-beta - UNRELEASED
 
     YARN-24. Nodemanager fails to start if log aggregation enabled and 
     namenode unavailable. (sandyr via tucu)
+
+    YARN-515. Node Manager not getting the master key. (Robert Joseph Evans
+    via jlowe)
 
 Release 2.0.4-alpha - UNRELEASED
 
@@ -495,6 +504,9 @@ Release 0.23.7 - UNRELEASED
 
     YARN-109. .tmp file is not deleted for localized archives (Mayank Bansal 
     via bobby)
+
+    YARN-460. CS user left in list of active users for the queue even when 
+    application finished (tgraves)
 
 Release 0.23.6 - UNRELEASED
 

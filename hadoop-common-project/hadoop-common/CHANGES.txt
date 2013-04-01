@@ -538,6 +538,9 @@ Release 2.0.5-beta - UNRELEASED
 
   OPTIMIZATIONS
 
+    HADOOP-9150. Avoid unnecessary DNS resolution attempts for logical URIs
+    (todd)
+
   BUG FIXES
 
     HADOOP-9294. GetGroupsTestBase fails on Windows. (Chris Nauroth via suresh)
@@ -623,6 +626,9 @@ Release 2.0.4-alpha - UNRELEASED
 
     HADOOP-9408. misleading description for net.topology.table.file.name
     property in core-default.xml. (rajeshbabu via suresh)
+
+    HADOOP-9444. Modify hadoop-policy.xml to replace unexpanded variables to a
+    default value of '*'. (Roman Shaposhnik via vinodkv)
 
 Release 2.0.3-alpha - 2013-02-06 
 
