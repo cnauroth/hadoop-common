@@ -823,7 +823,6 @@ jclass clazz, jstring jsrc, jstring jdst)
   if (!src) goto done; // exception was thrown
   dst = (*env)->GetStringUTFChars(env, jdst, NULL);
   if (!dst) goto done; // exception was thrown
-
   if (rename(src, dst)) {
     throw_ioe(env, errno);
   }
@@ -840,7 +839,6 @@ done:
   if (!src) goto done; // exception was thrown
   dst = (LPCWSTR) (*env)->GetStringChars(env, jdst, NULL);
   if (!dst) goto done; // exception was thrown
-
   if (!MoveFile(src, dst)) {
     throw_ioe(env, GetLastError());
   }
