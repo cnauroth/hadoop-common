@@ -771,10 +771,12 @@ class MapTask extends Task {
     } catch (IllegalAccessException e) {
       throw new IOException("Can't invoke Context constructor", e);
     } finally {
-      if (input!=null)
+      if (input != null) {
         input.close();
-      if (output!=null)
+      }
+      if (output != null) {
         output.close(mapperContext);
+      }
     }
   }
 
