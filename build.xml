@@ -33,7 +33,7 @@
   <property name="version" value="1.1.0-SNAPSHOT"/>
   <property name="final.name" value="${name}-${version}"/>
   <property name="test.final.name" value="${name}-test-${version}"/>
-  <property name="year" value="2012"/>
+  <property name="year" value="2013"/>
   <property name="package.release" value="1"/>
   
   <property name="core.final.name" value="${name}-core-${version}"/>
@@ -690,15 +690,15 @@
     <mkdir dir="${build.native.win}/src/org/apache/hadoop/io/compress/zlib"/>
     <mkdir dir="${build.native.win}/src/org/apache/hadoop/io/nativeio"/>
 
-  	<javah
-  	  classpath="${build.classes}"
-  	  destdir="${build.native.win}/src/org/apache/hadoop/io/compress/zlib"
+    <javah
+      classpath="${build.classes}"
+      destdir="${build.native.win}/src/org/apache/hadoop/io/compress/zlib"
       force="yes"
-  	  verbose="yes"
-  	  >
-  	  <class name="org.apache.hadoop.io.compress.zlib.ZlibCompressor" />
+      verbose="yes"
+      >
+      <class name="org.apache.hadoop.io.compress.zlib.ZlibCompressor" />
       <class name="org.apache.hadoop.io.compress.zlib.ZlibDecompressor" />
-  	</javah>
+    </javah>
 
     <javah
       classpath="${build.classes}"
@@ -3087,7 +3087,8 @@
 
   <target name="jsvc" >
     <mkdir dir="${jsvc.build.dir}" />
-    <get src="${jsvc.location}" dest="${jsvc.build.dir}/${jsvc.dest.name}"/>
+    <get src="${jsvc.location}" dest="${jsvc.build.dir}/${jsvc.dest.name}" />
+
     <untar compression="gzip" src="${jsvc.build.dir}/${jsvc.dest.name}" dest="${jsvc.build.dir}" />
 
     <copy file="${jsvc.build.dir}/jsvc" toFile="${jsvc.install.dir}/jsvc.${os.arch}" verbose="true" />
