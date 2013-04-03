@@ -117,6 +117,9 @@
             value="${build.c++}/examples/pipes"/>
   <property name="build.docs" value="${build.dir}/docs"/>
   <property name="build.docs.cn" value="${build.dir}/docs/cn"/>
+  <condition property="forrest.exec" value="${forrest.home}/bin/forrest.bat" else="${forrest.home}/bin/forrest">
+    <os family="windows" />
+  </condition>
   <property name="build.javadoc" value="${build.docs}/api"/>
   <property name="build.javadoc.dev" value="${build.docs}/dev-api"/>
   <property name="build.encoding" value="ISO-8859-1"/>
@@ -1448,7 +1451,7 @@
     <echo file="${build.dir}/hadoop.ent" append="false">
       &lt;!ENTITY HadoopVersion "${version}"&gt; 
     </echo>
-    <exec dir="${docs.src}" executable="${forrest.home}/bin/forrest"
+    <exec dir="${docs.src}" executable="${forrest.exec}"
 	  failonerror="true">
     </exec>
     <copy todir="${build.docs}">
@@ -1467,7 +1470,7 @@
   <target name="cn-docs" depends="forrest.check, init" 
        description="Generate forrest-based Chinese documentation. To use, specify -Dforrest.home=&lt;base of Apache Forrest installation&gt; on the command line." 
         if="forrest.home">
-    <exec dir="${src.docs.cn}" executable="${forrest.home}/bin/forrest" failonerror="true">
+    <exec dir="${src.docs.cn}" executable="${forrest.exec}" failonerror="true">
       <env key="LANG" value="en_US.utf8"/>
     </exec>
     <copy todir="${build.docs.cn}">
