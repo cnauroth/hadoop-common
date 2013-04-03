@@ -2153,37 +2153,9 @@
        This target should be removed prior to submission to Apache -->
   <target name="ms-package" depends="winpkg"/>
 
-  <!-- builds the binary winpkg, no sources or docs -->
-  <target name="bin-winpkg" depends="zip,just-bin-winpkg" />
-
-  <!-- builds the full win pkg, with sources and docs -->
   <target name="winpkg" depends="zip,just-winpkg" />
-
-  <!-- builds the winpkg for binaries only -->
-  <target name="just-bin-winpkg" depends="just-winpkg-helper" >
-    <copy file="${build.dir}/${final.name}-bin.zip" tofile="${package.buildroot}/resources/${final.name}.zip"/>
-    <macro_zip param.destfile="${build.dir}/${final.name}.winpkg.zip">
-      <param.listofitems>
-         <zipfileset dir="${package.buildroot}">
-          <include name="**" />
-         </zipfileset>
-      </param.listofitems>
-    </macro_zip>
-  </target>
-
-  <!-- builds the winpkg, with sources and docs -->
-  <target name="just-winpkg" depends="just-winpkg-helper" >
+  <target name="just-winpkg" description="Make a package for Windows">
     <copy file="${build.dir}/${final.name}.zip" todir="${package.buildroot}/resources"/>
-    <macro_zip param.destfile="${build.dir}/${final.name}.winpkg.zip">
-      <param.listofitems>
-         <zipfileset dir="${package.buildroot}">
-          <include name="**" />
-         </zipfileset>
-      </param.listofitems>
-    </macro_zip>
-  </target>
-
-  <target name="just-winpkg-helper" description="Make a package for Windows">
     <copy todir="${package.buildroot}/scripts">
       <fileset dir="${src.dir}/packages/win/scripts">
         <include name="**" />
@@ -2217,6 +2189,13 @@
         </replacetokens>
       </filterchain>
     </copy>
+    <macro_zip param.destfile="${build.dir}/${final.name}.winpkg.zip">
+      <param.listofitems>
+         <zipfileset dir="${package.buildroot}">
+          <include name="**" />
+         </zipfileset>
+      </param.listofitems>
+    </macro_zip>
   </target>
 
   <!-- ================================================================== -->
