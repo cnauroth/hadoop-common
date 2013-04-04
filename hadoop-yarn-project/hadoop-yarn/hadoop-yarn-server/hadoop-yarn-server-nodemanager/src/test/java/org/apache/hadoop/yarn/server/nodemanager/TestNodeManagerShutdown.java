@@ -210,7 +210,7 @@ public class TestNodeManagerShutdown {
    * stopped by external means.
    */
   private File createUnhaltingScriptFile() throws IOException {
-    File scriptFile = Shell.getScriptFile(tmpDir, "scriptFile");
+    File scriptFile = Shell.appendScriptExtension(tmpDir, "scriptFile");
     PrintWriter fileWriter = new PrintWriter(scriptFile);
     if (Shell.WINDOWS) {
       fileWriter.println("@echo \"Running testscript for delayed kill\"");

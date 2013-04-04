@@ -195,7 +195,7 @@ public class TestContainerManager extends BaseContainerManagerTest {
       InterruptedException {
     containerManager.start();
 
-    File scriptFile = Shell.getScriptFile(tmpDir, "scriptFile");
+    File scriptFile = Shell.appendScriptExtension(tmpDir, "scriptFile");
     PrintWriter fileWriter = new PrintWriter(scriptFile);
     File processStartFile =
         new File(tmpDir, "start_file.txt").getAbsoluteFile();
@@ -296,7 +296,7 @@ public class TestContainerManager extends BaseContainerManagerTest {
   
   private void testContainerLaunchAndExit(int exitCode) throws IOException, InterruptedException {
 
-	  File scriptFile = Shell.getScriptFile(tmpDir, "scriptFile");
+	  File scriptFile = Shell.appendScriptExtension(tmpDir, "scriptFile");
 	  PrintWriter fileWriter = new PrintWriter(scriptFile);
 	  File processStartFile =
 			  new File(tmpDir, "start_file.txt").getAbsoluteFile();

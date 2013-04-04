@@ -90,8 +90,8 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
     File symLinkFile = null;
 
     try {
-      shellFile = Shell.getScriptFile(tmpDir, "hello");
-      tempFile = Shell.getScriptFile(tmpDir, "temp");
+      shellFile = Shell.appendScriptExtension(tmpDir, "hello");
+      tempFile = Shell.appendScriptExtension(tmpDir, "temp");
       String timeoutCommand = Shell.WINDOWS ? "@echo \"hello\"" :
         "echo \"hello\"";
       PrintWriter writer = new PrintWriter(new FileOutputStream(shellFile));    
@@ -204,7 +204,7 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
     cId.setApplicationAttemptId(appAttemptId);
 
     String malloc = System.getenv(Environment.MALLOC_ARENA_MAX.name());
-    File scriptFile = Shell.getScriptFile(tmpDir, "scriptFile");
+    File scriptFile = Shell.appendScriptExtension(tmpDir, "scriptFile");
     PrintWriter fileWriter = new PrintWriter(scriptFile);
     File processStartFile =
         new File(tmpDir, "env_vars.txt").getAbsoluteFile();
@@ -325,7 +325,7 @@ public class TestContainerLaunch extends BaseContainerManagerTest {
         new File(tmpDir, "pid.txt").getAbsoluteFile();
 
     // setup a script that can handle sigterm gracefully
-    File scriptFile = Shell.getScriptFile(tmpDir, "testscript");
+    File scriptFile = Shell.appendScriptExtension(tmpDir, "testscript");
     PrintWriter writer = new PrintWriter(new FileOutputStream(scriptFile));
     if (Shell.WINDOWS) {
       writer.println("@echo \"Running testscript for delayed kill\"");

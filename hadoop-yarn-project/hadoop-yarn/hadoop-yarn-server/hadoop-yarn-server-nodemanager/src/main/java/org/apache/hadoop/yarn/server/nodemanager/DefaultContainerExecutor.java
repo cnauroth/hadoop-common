@@ -241,7 +241,7 @@ public class DefaultContainerExecutor extends ContainerExecutor {
 
     protected LocalWrapperScriptBuilder(Path containerWorkDir) {
       this.wrapperScriptPath = new Path(containerWorkDir,
-        Shell.getScriptName("default_container_executor"));
+        Shell.appendScriptExtension("default_container_executor"));
     }
   }
 

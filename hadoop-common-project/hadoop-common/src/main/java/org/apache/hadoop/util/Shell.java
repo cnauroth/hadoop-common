@@ -145,8 +145,8 @@ abstract public class Shell {
    * @param basename String script file basename
    * @return File referencing the script in the directory
    */
-  public static File getScriptFile(File parent, String basename) {
-    return new File(parent, getScriptName(basename));
+  public static File appendScriptExtension(File parent, String basename) {
+    return new File(parent, appendScriptExtension(basename));
   }
 
   /**
@@ -156,7 +156,7 @@ abstract public class Shell {
    * @param basename String script file basename
    * @return String script file name
    */
-  public static String getScriptName(String basename) {
+  public static String appendScriptExtension(String basename) {
     return basename + (WINDOWS ? ".cmd" : ".sh");
   }
 
