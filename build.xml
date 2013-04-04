@@ -3054,7 +3054,7 @@
   </target>
 
   <!-- taskcontroller targets -->
-  <target name="task-controller" depends="init" unless="windows" >
+  <target name="task-controller" depends="init" unless="windows">
     <exec executable="autoreconf" 
           dir="${c++.task-controller.src}"
           searchpath="yes" failonerror="yes">
