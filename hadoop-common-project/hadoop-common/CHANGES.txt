@@ -15,6 +15,10 @@ Trunk (Unreleased)
     HADOOP-9151 Include RPC error info in RpcResponseHeader instead of sending
     it separately (sanjay Radia)
 
+    HADOOP-9380 Add totalLength to rpc response  (sanjay Radia)
+
+    HADOOP-9194. RPC Support for QoS. (Junping Du via llu)
+
   NEW FEATURES
     
     HADOOP-8561. Introduce HADOOP_PROXY_USER for secure impersonation in child
@@ -88,9 +92,6 @@ Trunk (Unreleased)
     HADOOP-8367 Improve documentation of declaringClassProtocolName in 
     rpc headers. (Sanjay Radia)
 
-    HADOOP-8415. Add getDouble() and setDouble() in
-    org.apache.hadoop.conf.Configuration (Jan van der Lugt via harsh)
-
     HADOOP-7659. fs -getmerge isn't guaranteed to work well over non-HDFS
     filesystems (harsh)
 
@@ -160,11 +161,12 @@ Trunk (Unreleased)
 
     HADOOP-9218 Document the Rpc-wrappers used internally (sanjay Radia)
 
-    HADOOP-9112. test-patch should -1 for @Tests without a timeout 
-    (Surenkumar Nihalani via bobby)
-
+	HADOOP-9258 Add stricter tests to FileSystemContractTestBase (stevel)
 
   BUG FIXES
+
+    HADOOP-9451. Fault single-layer config if node group topology is enabled.
+    (Junping Du via llu)
 
     HADOOP-8419. Fixed GzipCode NPE reset for IBM JDK. (Yu Li via eyang)
 
@@ -348,6 +350,23 @@ Trunk (Unreleased)
     HADOOP-9099. NetUtils.normalizeHostName fails on domains where 
     UnknownHost resolves to an IP address. (Ivan Mitic via suresh)
 
+    HADOOP-9397. Incremental dist tar build fails (Chris Nauroth via jlowe)
+
+    HADOOP-9405. TestGridmixSummary#testExecutionSummarizer is broken. (Andrew
+    Wang via atm)
+
+    HADOOP-9431 TestSecurityUtil#testLocalHostNameForNullOrWild on systems where hostname
+    contains capital letters  (Chris Nauroth via sanjay)
+
+    HADOOP-9261 S3n filesystem can move a directory under itself -and so lose data
+    (fixed in HADOOP-9258) (stevel)
+
+    HADOOP-9265 S3 blockstore filesystem breaks part of the Filesystem contract
+    (fixed in HADOOP-9258) (stevel)
+
+    HADOOP-9433 TestLocalFileSystem#testHasFileDescriptor leaks file handle
+    (Chris Nauroth via sanjay)
+
   OPTIMIZATIONS
 
     HADOOP-7761. Improve the performance of raw comparisons. (todd)
@@ -480,6 +499,12 @@ Trunk (Unreleased)
     Windows with NTFS ACLs. (Chris Nauroth via suresh)
 
     HADOOP-9388. TestFsShellCopy fails on Windows. (Ivan Mitic via suresh)
+
+    HADOOP-9387. Fix DF so that it won't execute a shell command on Windows
+    to compute the file system/mount point.  (Ivan Mitic via szetszwo)
+
+    HADOOP-9353. Activate native-win maven profile by default on Windows.
+    (Arpit Agarwal via szetszwo)
     
 Release 2.0.5-beta - UNRELEASED
 
@@ -488,6 +513,9 @@ Release 2.0.5-beta - UNRELEASED
   NEW FEATURES
 
     HADOOP-9283. Add support for running the Hadoop client on AIX. (atm)
+
+    HADOOP-8415. Add getDouble() and setDouble() in
+    org.apache.hadoop.conf.Configuration (Jan van der Lugt via harsh)
 
   IMPROVEMENTS
 
@@ -506,7 +534,18 @@ Release 2.0.5-beta - UNRELEASED
 
     HADOOP-9343. Allow additional exceptions through the RPC layer. (sseth)
 
+    HADOOP-9318. When exiting on a signal, print the signal name first. (Colin
+    Patrick McCabe via atm)
+
+    HADOOP-9358. "Auth failed" log should include exception string (todd)
+
+    HADOOP-9401. CodecPool: Add counters for number of (de)compressors 
+    leased out. (kkambatl via tucu)
+
   OPTIMIZATIONS
+
+    HADOOP-9150. Avoid unnecessary DNS resolution attempts for logical URIs
+    (todd)
 
   BUG FIXES
 
@@ -560,6 +599,20 @@ Release 2.0.5-beta - UNRELEASED
 
     HADOOP-9399. protoc maven plugin doesn't work on mvn 3.0.2 (todd)
 
+    HADOOP-9407. commons-daemon 1.0.3 dependency has bad group id causing
+    build issues. (Sangjin Lee via suresh)
+
+    HADOOP-9299.  kerberos name resolution is kicking in even when kerberos
+    is not configured (daryn)
+
+    HADOOP-9430. TestSSLFactory fails on IBM JVM. (Amir Sanjar via suresh)
+
+    HADOOP-9125. LdapGroupsMapping threw CommunicationException after some
+    idle time. (Kai Zheng via atm)
+
+    HADOOP-9429. TestConfiguration fails with IBM JAVA. (Amir Sanjar via
+    suresh)
+
 Release 2.0.4-alpha - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -571,6 +624,17 @@ Release 2.0.4-alpha - UNRELEASED
   OPTIMIZATIONS
 
   BUG FIXES
+
+    HADOOP-9406. hadoop-client leaks dependency on JDK tools jar. (tucu)
+
+    HADOOP-9301. hadoop client servlet/jsp/jetty/tomcat JARs creating
+    conflicts in Oozie & HttpFS. (tucu)
+
+    HADOOP-9408. misleading description for net.topology.table.file.name
+    property in core-default.xml. (rajeshbabu via suresh)
+
+    HADOOP-9444. Modify hadoop-policy.xml to replace unexpanded variables to a
+    default value of '*'. (Roman Shaposhnik via vinodkv)
 
 Release 2.0.3-alpha - 2013-02-06 
 

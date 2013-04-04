@@ -22,6 +22,7 @@ import static org.apache.hadoop.fs.CreateFlag.OVERWRITE;
 
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URISyntaxException;
@@ -53,14 +54,17 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
 import org.apache.hadoop.fs.FileContext;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.ipc.Server;
 import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.security.token.TokenIdentifier;
+import org.apache.hadoop.util.DiskChecker;
 import org.apache.hadoop.yarn.YarnException;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
@@ -127,7 +131,7 @@ public class ResourceLocalizationService extends CompositeService
   private RecordFactory recordFactory;
   private final ScheduledExecutorService cacheCleanup;
 
-  private final LocalResourcesTracker publicRsrc;
+  private LocalResourcesTracker publicRsrc;
 
   private LocalDirsHandlerService dirsHandler;
 
@@ -155,7 +159,6 @@ public class ResourceLocalizationService extends CompositeService
     this.delService = delService;
     this.dirsHandler = dirsHandler;
 
-    this.publicRsrc = new LocalResourcesTrackerImpl(null, dispatcher);
     this.cacheCleanup = new ScheduledThreadPoolExecutor(1,
         new ThreadFactoryBuilder()
           .setNameFormat("ResourceLocalizationService Cache Cleanup")
@@ -170,14 +173,34 @@ public class ResourceLocalizationService extends CompositeService
     }
   }
 
+  private void validateConf(Configuration conf) {
+    int perDirFileLimit =
+        conf.getInt(YarnConfiguration.NM_LOCAL_CACHE_MAX_FILES_PER_DIRECTORY,
+          YarnConfiguration.DEFAULT_NM_LOCAL_CACHE_MAX_FILES_PER_DIRECTORY);
+    if (perDirFileLimit <= 36) {
+      LOG.error(YarnConfiguration.NM_LOCAL_CACHE_MAX_FILES_PER_DIRECTORY
+          + " parameter is configured with very low value.");
+      throw new YarnException(
+        YarnConfiguration.NM_LOCAL_CACHE_MAX_FILES_PER_DIRECTORY
+            + " parameter is configured with a value less than 37.");
+    } else {
+      LOG.info("per directory file limit = " + perDirFileLimit);
+    }
+  }
+
   @Override
   public void init(Configuration conf) {
+    this.validateConf(conf);
+    this.publicRsrc =
+        new LocalResourcesTrackerImpl(null, dispatcher, true, conf);
     this.recordFactory = RecordFactoryProvider.getRecordFactory(conf);
 
     try {
-      // TODO queue deletions here, rather than NM init?
       FileContext lfs = getLocalFileContext(conf);
       lfs.setUMask(new FsPermission((short)FsPermission.DEFAULT_UMASK));
+
+      cleanUpLocalDir(lfs,delService);
+
       List<String> localDirs = dirsHandler.getLocalDirs();
       for (String localDir : localDirs) {
         // $local/usercache
@@ -207,6 +230,7 @@ public class ResourceLocalizationService extends CompositeService
         YarnConfiguration.NM_LOCALIZER_ADDRESS,
         YarnConfiguration.DEFAULT_NM_LOCALIZER_ADDRESS,
         YarnConfiguration.DEFAULT_NM_LOCALIZER_PORT);
+
     localizerTracker = createLocalizerTracker(conf);
     addService(localizerTracker);
     dispatcher.register(LocalizerEventType.class, localizerTracker);
@@ -301,15 +325,17 @@ public class ResourceLocalizationService extends CompositeService
   private void handleInitApplicationResources(Application app) {
     // 0) Create application tracking structs
     String userName = app.getUser();
-    privateRsrc.putIfAbsent(userName,
-        new LocalResourcesTrackerImpl(userName, dispatcher));
-    if (null != appRsrc.putIfAbsent(ConverterUtils.toString(app.getAppId()),
-        new LocalResourcesTrackerImpl(app.getUser(), dispatcher))) {
+    privateRsrc.putIfAbsent(userName, new LocalResourcesTrackerImpl(userName,
+      dispatcher, false, super.getConfig()));
+    if (null != appRsrc.putIfAbsent(
+      ConverterUtils.toString(app.getAppId()),
+      new LocalResourcesTrackerImpl(app.getUser(), dispatcher, false, super
+        .getConfig()))) {
       LOG.warn("Initializing application " + app + " already present");
       assert false; // TODO: FIXME assert doesn't help
                     // ^ The condition is benign. Tests should fail and it
-                    //   should appear in logs, but it's an internal error
-                    //   that should have no effect on applications
+                    // should appear in logs, but it's an internal error
+                    // that should have no effect on applications
     }
     // 1) Signal container init
     //
@@ -615,6 +641,13 @@ public class ResourceLocalizationService extends CompositeService
             Path publicDirDestPath = dirsHandler.getLocalPathForWrite(
                 "." + Path.SEPARATOR + ContainerLocalizer.FILECACHE,
                 ContainerLocalizer.getEstimatedSize(resource), true);
+            Path hierarchicalPath =
+              publicRsrc.getPathForLocalization(key, publicDirDestPath);
+            if (!hierarchicalPath.equals(publicDirDestPath)) {
+              publicDirDestPath = hierarchicalPath;
+              DiskChecker.checkDir(
+                new File(publicDirDestPath.toUri().getPath()));
+            }
             pending.put(queue.submit(new FSDownload(
                 lfs, null, conf, publicDirDestPath, resource, new Random())),
                 request);
@@ -649,19 +682,21 @@ public class ResourceLocalizationService extends CompositeService
               assoc.getResource().handle(
                   new ResourceLocalizedEvent(key,
                     local, FileUtil.getDU(new File(local.toUri()))));
+              publicRsrc.localizationCompleted(key, true);
               synchronized (attempts) {
                 attempts.remove(key);
               }
             } catch (ExecutionException e) {
               LOG.info("Failed to download rsrc " + assoc.getResource(),
                   e.getCause());
+              LocalResourceRequest req = assoc.getResource().getRequest();
               dispatcher.getEventHandler().handle(
                   new ContainerResourceFailedEvent(
                     assoc.getContext().getContainerId(),
-                    assoc.getResource().getRequest(), e.getCause()));
+                    req, e.getCause()));
+              publicRsrc.localizationCompleted(req, false);
               List<LocalizerResourceRequestEvent> reqs;
               synchronized (attempts) {
-                LocalResourceRequest req = assoc.getResource().getRequest();
                 reqs = attempts.get(req);
                 if (null == reqs) {
                   LOG.error("Missing pending list for " + req);
@@ -924,6 +959,78 @@ public class ResourceLocalizationService extends CompositeService
           new LocalizationEvent(LocalizationEventType.CACHE_CLEANUP));
     }
 
+  }
+
+  private void cleanUpLocalDir(FileContext lfs, DeletionService del) {
+    long currentTimeStamp = System.currentTimeMillis();
+    for (String localDir : dirsHandler.getLocalDirs()) {
+      renameLocalDir(lfs, localDir, ContainerLocalizer.USERCACHE,
+          currentTimeStamp);
+      renameLocalDir(lfs, localDir, ContainerLocalizer.FILECACHE,
+          currentTimeStamp);
+      renameLocalDir(lfs, localDir, ResourceLocalizationService.NM_PRIVATE_DIR,
+          currentTimeStamp);
+      try {
+        deleteLocalDir(lfs, del, localDir);
+      } catch (IOException e) {
+        // Do nothing, just give the warning
+        LOG.warn("Failed to delete localDir: " + localDir);
+      }
+    }
+  }
+
+  private void renameLocalDir(FileContext lfs, String localDir,
+      String localSubDir, long currentTimeStamp) {
+    try {
+      lfs.rename(new Path(localDir, localSubDir), new Path(
+          localDir, localSubDir + "_DEL_" + currentTimeStamp));
+    } catch (FileNotFoundException ex) {
+      // No need to handle this exception
+      // localSubDir may not be exist
+    } catch (Exception ex) {
+      // Do nothing, just give the warning
+      LOG.warn("Failed to rename the local file under " +
+          localDir + "/" + localSubDir);
+    }
+  }
+
+  private void deleteLocalDir(FileContext lfs, DeletionService del,
+      String localDir) throws IOException {
+    RemoteIterator<FileStatus> fileStatus = lfs.listStatus(new Path(localDir));
+    if (fileStatus != null) {
+      while (fileStatus.hasNext()) {
+        FileStatus status = fileStatus.next();
+        try {
+          if (status.getPath().getName().matches(".*" +
+              ContainerLocalizer.USERCACHE + "_DEL_.*")) {
+            cleanUpFilesFromSubDir(lfs, del, status.getPath());
+          } else if (status.getPath().getName()
+              .matches(".*" + NM_PRIVATE_DIR + "_DEL_.*")
+              ||
+              status.getPath().getName()
+                  .matches(".*" + ContainerLocalizer.FILECACHE + "_DEL_.*")) {
+            del.delete(null, status.getPath(), new Path[] {});
+          }
+        } catch (IOException ex) {
+          // Do nothing, just give the warning
+          LOG.warn("Failed to delete this local Directory: " +
+              status.getPath().getName());
+        }
+      }
+    }
+  }
+
+  private void cleanUpFilesFromSubDir(FileContext lfs, DeletionService del,
+      Path dirPath) throws IOException {
+    RemoteIterator<FileStatus> fileStatus = lfs.listStatus(dirPath);
+    if (fileStatus != null) {
+      while (fileStatus.hasNext()) {
+        FileStatus status = fileStatus.next();
+        String owner = status.getOwner();
+        del.delete(owner, status.getPath(), new Path[] {});
+      }
+    }
+    del.delete(null, dirPath, new Path[] {});
   }
 
 }

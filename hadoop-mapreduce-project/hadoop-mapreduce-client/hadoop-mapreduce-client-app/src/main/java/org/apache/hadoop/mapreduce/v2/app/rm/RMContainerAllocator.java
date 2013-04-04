@@ -59,7 +59,7 @@ import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptKillEvent;
 import org.apache.hadoop.util.StringInterner;
 import org.apache.hadoop.yarn.YarnException;
-import org.apache.hadoop.yarn.api.records.AMResponse;
+import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
@@ -544,8 +544,9 @@ public class RMContainerAllocator extends RMContainerRequestor
   
   @SuppressWarnings("unchecked")
   private List<Container> getResources() throws Exception {
-    int headRoom = getAvailableResources() != null ? getAvailableResources().getMemory() : 0;//first time it would be null
-    AMResponse response;
+    int headRoom = getAvailableResources() != null
+        ? getAvailableResources().getMemory() : 0;//first time it would be null
+    AllocateResponse response;
     /*
      * If contact with RM is lost, the AM will wait MR_AM_TO_RM_WAIT_INTERVAL_MS
      * milliseconds before aborting. During this interval, AM will still try
@@ -573,7 +574,7 @@ public class RMContainerAllocator extends RMContainerRequestor
       // This can happen if the RM has been restarted. If it is in that state,
       // this application must clean itself up.
       eventHandler.handle(new JobEvent(this.getJob().getID(),
-                                       JobEventType.INTERNAL_ERROR));
+                                       JobEventType.JOB_AM_REBOOT));
       throw new YarnException("Resource Manager doesn't recognize AttemptId: " +
                                this.getContext().getApplicationID());
     }
@@ -634,7 +635,7 @@ public class RMContainerAllocator extends RMContainerRequestor
   }
   
   @SuppressWarnings("unchecked")
-  private void handleUpdatedNodes(AMResponse response) {
+  private void handleUpdatedNodes(AllocateResponse response) {
     // send event to the job about on updated nodes
     List<NodeReport> updatedNodes = response.getUpdatedNodes();
     if (!updatedNodes.isEmpty()) {

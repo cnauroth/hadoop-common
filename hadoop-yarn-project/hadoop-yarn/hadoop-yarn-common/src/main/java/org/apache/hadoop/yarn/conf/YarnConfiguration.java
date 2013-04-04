@@ -180,10 +180,13 @@ public class YarnConfiguration extends Configuration {
     RM_PREFIX + "admin.client.thread-count";
   public static final int DEFAULT_RM_ADMIN_CLIENT_THREAD_COUNT = 1;
   
-  /** The maximum number of application master retries.*/
-  public static final String RM_AM_MAX_RETRIES = 
-    RM_PREFIX + "am.max-retries";
-  public static final int DEFAULT_RM_AM_MAX_RETRIES = 1;
+  /**
+   * The maximum number of application attempts.
+   * It's a global setting for all application masters.
+   */
+  public static final String RM_AM_MAX_ATTEMPTS =
+    RM_PREFIX + "am.max-attempts";
+  public static final int DEFAULT_RM_AM_MAX_ATTEMPTS = 1;
   
   /** The keytab for the resource manager.*/
   public static final String RM_KEYTAB = 
@@ -215,6 +218,11 @@ public class YarnConfiguration extends Configuration {
  
   public static final String DEFAULT_RM_SCHEDULER = 
       "org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler";
+
+  /** RM set next Heartbeat interval for NM */
+  public static final String RM_NM_HEARTBEAT_INTERVAL_MS =
+      RM_PREFIX + "nodemanagers.heartbeat-interval-ms";
+  public static final long DEFAULT_RM_NM_HEARTBEAT_INTERVAL_MS = 1000;
 
   //Delegation token related keys
   public static final String  DELEGATION_KEY_UPDATE_INTERVAL_KEY = 
@@ -326,19 +334,21 @@ public class YarnConfiguration extends Configuration {
     NM_PREFIX +  "delete.thread-count";
   public static final int DEFAULT_NM_DELETE_THREAD_COUNT = 4;
   
-  // TODO: Should this instead be dictated by RM?
-  /** Heartbeat interval to RM*/
-  public static final String NM_TO_RM_HEARTBEAT_INTERVAL_MS = 
-    NM_PREFIX + "heartbeat.interval-ms";
-  public static final int DEFAULT_NM_TO_RM_HEARTBEAT_INTERVAL_MS = 1000;
-  
   /** Keytab for NM.*/
   public static final String NM_KEYTAB = NM_PREFIX + "keytab";
   
   /**List of directories to store localized files in.*/
   public static final String NM_LOCAL_DIRS = NM_PREFIX + "local-dirs";
   public static final String DEFAULT_NM_LOCAL_DIRS = "/tmp/nm-local-dir";
-  
+
+  /**
+   * Number of files in each localized directories
+   * Avoid tuning this too low. 
+   */
+  public static final String NM_LOCAL_CACHE_MAX_FILES_PER_DIRECTORY =
+    NM_PREFIX + "local-cache.max-files-per-directory";
+  public static final int DEFAULT_NM_LOCAL_CACHE_MAX_FILES_PER_DIRECTORY = 8192;
+
   /** Address where the localizer IPC is.*/
   public static final String NM_LOCALIZER_ADDRESS =
     NM_PREFIX + "localizer.address";
@@ -436,6 +446,16 @@ public class YarnConfiguration extends Configuration {
   /** Amount of memory in GB that can be allocated for containers.*/
   public static final String NM_PMEM_MB = NM_PREFIX + "resource.memory-mb";
   public static final int DEFAULT_NM_PMEM_MB = 8 * 1024;
+
+  /** Specifies whether physical memory check is enabled. */
+  public static final String NM_PMEM_CHECK_ENABLED = NM_PREFIX
+      + "pmem-check-enabled";
+  public static final boolean DEFAULT_NM_PMEM_CHECK_ENABLED = true;
+
+  /** Specifies whether physical memory check is enabled. */
+  public static final String NM_VMEM_CHECK_ENABLED = NM_PREFIX
+      + "vmem-check-enabled";
+  public static final boolean DEFAULT_NM_VMEM_CHECK_ENABLED = true;
 
   /** Conversion ratio for physical memory to virtual memory. */
   public static final String NM_VMEM_PMEM_RATIO =
@@ -621,6 +641,20 @@ public class YarnConfiguration extends Configuration {
   public static final long DEFAULT_NM_PROCESS_KILL_WAIT_MS =
       2000;
 
+  /** Max time to wait to establish a connection to RM when NM starts
+   */
+  public static final String RESOURCEMANAGER_CONNECT_WAIT_SECS =
+      NM_PREFIX + "resourcemanager.connect.wait.secs";
+  public static final int DEFAULT_RESOURCEMANAGER_CONNECT_WAIT_SECS =
+      15*60;
+
+  /** Time interval between each NM attempt to connect to RM
+   */
+  public static final String RESOURCEMANAGER_CONNECT_RETRY_INTERVAL_SECS =
+      NM_PREFIX + "resourcemanager.connect.retry_interval.secs";
+  public static final long DEFAULT_RESOURCEMANAGER_CONNECT_RETRY_INTERVAL_SECS
+      = 30;
+
   /**
    * CLASSPATH for YARN applications. A comma-separated list of CLASSPATH
    * entries
@@ -683,21 +717,16 @@ public class YarnConfiguration extends Configuration {
   }
   
   public static String getRMWebAppHostAndPort(Configuration conf) {
-    int port = conf.getSocketAddr(
+    InetSocketAddress address = conf.getSocketAddr(
         YarnConfiguration.RM_WEBAPP_ADDRESS,
         YarnConfiguration.DEFAULT_RM_WEBAPP_ADDRESS,
-        YarnConfiguration.DEFAULT_RM_WEBAPP_PORT).getPort();
-    // Use apps manager address to figure out the host for webapp
-    String host = conf.getSocketAddr(
-        YarnConfiguration.RM_ADDRESS,
-        YarnConfiguration.DEFAULT_RM_ADDRESS,
-        YarnConfiguration.DEFAULT_RM_PORT).getHostName();
-    InetSocketAddress address = NetUtils.createSocketAddrForHost(host, port);
+        YarnConfiguration.DEFAULT_RM_WEBAPP_PORT);
+    address = NetUtils.getConnectAddress(address);
     StringBuffer sb = new StringBuffer();
     InetAddress resolved = address.getAddress();
     if (resolved == null || resolved.isAnyLocalAddress() || 
         resolved.isLoopbackAddress()) {
-      String lh = host;
+      String lh = address.getHostName();
       try {
         lh = InetAddress.getLocalHost().getCanonicalHostName();
       } catch (UnknownHostException e) {

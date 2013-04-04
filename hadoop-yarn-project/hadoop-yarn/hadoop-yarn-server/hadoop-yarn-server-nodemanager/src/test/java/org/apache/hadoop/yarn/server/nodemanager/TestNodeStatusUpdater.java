@@ -19,6 +19,7 @@
 package org.apache.hadoop.yarn.server.nodemanager;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -29,6 +30,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.Log;
@@ -43,6 +45,7 @@ import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
+import org.apache.hadoop.yarn.api.records.ContainerState;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.api.records.Resource;
@@ -56,16 +59,17 @@ import org.apache.hadoop.yarn.server.api.protocolrecords.NodeHeartbeatRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.NodeHeartbeatResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RegisterNodeManagerRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RegisterNodeManagerResponse;
-import org.apache.hadoop.yarn.server.api.records.HeartbeatResponse;
 import org.apache.hadoop.yarn.server.api.records.NodeAction;
 import org.apache.hadoop.yarn.server.api.records.NodeStatus;
-import org.apache.hadoop.yarn.server.api.records.RegistrationResponse;
+import org.apache.hadoop.yarn.server.nodemanager.NodeManager.NMContext;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.ContainerManagerImpl;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.application.Application;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.container.Container;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerImpl;
 import org.apache.hadoop.yarn.server.nodemanager.metrics.NodeManagerMetrics;
+import org.apache.hadoop.yarn.server.nodemanager.security.NMContainerTokenSecretManager;
 import org.apache.hadoop.yarn.server.security.ApplicationACLsManager;
+import org.apache.hadoop.yarn.server.utils.YarnServerBuilderUtils;
 import org.apache.hadoop.yarn.service.Service;
 import org.apache.hadoop.yarn.service.Service.STATE;
 import org.apache.hadoop.yarn.util.BuilderUtils;
@@ -93,6 +97,8 @@ public class TestNodeStatusUpdater {
   private final Configuration conf = createNMConfig();
   private NodeManager nm;
   protected NodeManager rebootedNodeManager;
+  private boolean containerStatusBackupSuccessfully = true;
+  private List<ContainerStatus> completedContainerStatusList = new ArrayList<ContainerStatus>();
 
   @After
   public void tearDown() {
@@ -124,12 +130,9 @@ public class TestNodeStatusUpdater {
       Assert.assertEquals(NetUtils.getHostPortString(expected), nodeId.toString());
       Assert.assertEquals(5 * 1024, resource.getMemory());
       registeredNodes.add(nodeId);
-      RegistrationResponse regResponse = recordFactory
-          .newRecordInstance(RegistrationResponse.class);
 
       RegisterNodeManagerResponse response = recordFactory
           .newRecordInstance(RegisterNodeManagerResponse.class);
-      response.setRegistrationResponse(regResponse);
       return response;
     }
 
@@ -218,13 +221,9 @@ public class TestNodeStatusUpdater {
             this.context.getContainers();
         Assert.assertEquals(2, activeContainers.size());
       }
-      HeartbeatResponse response = recordFactory
-          .newRecordInstance(HeartbeatResponse.class);
-      response.setResponseId(heartBeatID);
 
-      NodeHeartbeatResponse nhResponse = recordFactory
-          .newRecordInstance(NodeHeartbeatResponse.class);
-      nhResponse.setHeartbeatResponse(response);
+      NodeHeartbeatResponse nhResponse = YarnServerBuilderUtils.
+          newNodeHeartbeatResponse(heartBeatID, null, null, null, null, 1000L);
       return nhResponse;
     }
   }
@@ -243,6 +242,22 @@ public class TestNodeStatusUpdater {
     protected ResourceTracker getRMClient() {
       return resourceTracker;
     }
+  }
+
+  private class MyNodeStatusUpdater2 extends NodeStatusUpdaterImpl {
+    public ResourceTracker resourceTracker;
+
+    public MyNodeStatusUpdater2(Context context, Dispatcher dispatcher,
+        NodeHealthCheckerService healthChecker, NodeManagerMetrics metrics) {
+      super(context, dispatcher, healthChecker, metrics);
+      resourceTracker = new MyResourceTracker4(context);
+    }
+
+    @Override
+    protected ResourceTracker getRMClient() {
+      return resourceTracker;
+    }
+
   }
 
   private class MyNodeStatusUpdater3 extends NodeStatusUpdaterImpl {
@@ -264,6 +279,36 @@ public class TestNodeStatusUpdater {
     @Override
     protected boolean isTokenKeepAliveEnabled(Configuration conf) {
       return true;
+    }
+  }
+
+  private class MyNodeStatusUpdater4 extends NodeStatusUpdaterImpl {
+    public ResourceTracker resourceTracker =
+        new MyResourceTracker(this.context);
+    private Context context;
+    private final long waitStartTime;
+    private final long rmStartIntervalMS;
+    private final boolean rmNeverStart;
+
+    public MyNodeStatusUpdater4(Context context, Dispatcher dispatcher,
+        NodeHealthCheckerService healthChecker, NodeManagerMetrics metrics,
+        long rmStartIntervalMS, boolean rmNeverStart) {
+      super(context, dispatcher, healthChecker, metrics);
+      this.context = context;
+      this.waitStartTime = System.currentTimeMillis();
+      this.rmStartIntervalMS = rmStartIntervalMS;
+      this.rmNeverStart = rmNeverStart;
+    }
+
+    @Override
+    protected ResourceTracker getRMClient() {
+      if(System.currentTimeMillis() - waitStartTime <= rmStartIntervalMS
+          || rmNeverStart) {
+        throw new YarnException("Faking RM start failure as start " +
+            "delay timer has not expired.");
+      } else {
+        return resourceTracker;
+      }
     }
   }
 
@@ -294,10 +339,7 @@ public class TestNodeStatusUpdater {
       
       RegisterNodeManagerResponse response = recordFactory
           .newRecordInstance(RegisterNodeManagerResponse.class);
-      RegistrationResponse regResponse = recordFactory
-      .newRecordInstance(RegistrationResponse.class);
-      regResponse.setNodeAction(registerNodeAction );
-      response.setRegistrationResponse(regResponse);
+      response.setNodeAction(registerNodeAction );
       return response;
     }
     @Override
@@ -305,14 +347,10 @@ public class TestNodeStatusUpdater {
         throws YarnRemoteException {
       NodeStatus nodeStatus = request.getNodeStatus();
       nodeStatus.setResponseId(heartBeatID++);
-      HeartbeatResponse response = recordFactory
-          .newRecordInstance(HeartbeatResponse.class);
-      response.setResponseId(heartBeatID);
-      response.setNodeAction(heartBeatNodeAction);
       
-      NodeHeartbeatResponse nhResponse = recordFactory
-      .newRecordInstance(NodeHeartbeatResponse.class);
-      nhResponse.setHeartbeatResponse(response);
+      NodeHeartbeatResponse nhResponse = YarnServerBuilderUtils.
+          newNodeHeartbeatResponse(heartBeatID, heartBeatNodeAction, null,
+              null, null, 1000L);
       return nhResponse;
     }
   }
@@ -335,10 +373,7 @@ public class TestNodeStatusUpdater {
 
       RegisterNodeManagerResponse response =
           recordFactory.newRecordInstance(RegisterNodeManagerResponse.class);
-      RegistrationResponse regResponse =
-          recordFactory.newRecordInstance(RegistrationResponse.class);
-      regResponse.setNodeAction(registerNodeAction);
-      response.setRegistrationResponse(regResponse);
+      response.setNodeAction(registerNodeAction);
       return response;
     }
 
@@ -348,10 +383,9 @@ public class TestNodeStatusUpdater {
       LOG.info("Got heartBeatId: [" + heartBeatID +"]");
       NodeStatus nodeStatus = request.getNodeStatus();
       nodeStatus.setResponseId(heartBeatID++);
-      HeartbeatResponse response =
-          recordFactory.newRecordInstance(HeartbeatResponse.class);
-      response.setResponseId(heartBeatID);
-      response.setNodeAction(heartBeatNodeAction);
+      NodeHeartbeatResponse nhResponse = YarnServerBuilderUtils.
+          newNodeHeartbeatResponse(heartBeatID, heartBeatNodeAction, null,
+              null, null, 1000L);
 
       if (nodeStatus.getKeepAliveApplications() != null
           && nodeStatus.getKeepAliveApplications().size() > 0) {
@@ -367,11 +401,106 @@ public class TestNodeStatusUpdater {
       if (heartBeatID == 2) {
         LOG.info("Sending FINISH_APP for application: [" + appId + "]");
         this.context.getApplications().put(appId, mock(Application.class));
-        response.addAllApplicationsToCleanup(Collections.singletonList(appId));
+        nhResponse.addAllApplicationsToCleanup(Collections.singletonList(appId));
       }
+      return nhResponse;
+    }
+  }
+
+  private class MyResourceTracker4 implements ResourceTracker {
+
+    public NodeAction registerNodeAction = NodeAction.NORMAL;
+    public NodeAction heartBeatNodeAction = NodeAction.NORMAL;
+    private Context context;
+
+    public MyResourceTracker4(Context context) {
+      this.context = context;
+    }
+
+    @Override
+    public RegisterNodeManagerResponse registerNodeManager(
+        RegisterNodeManagerRequest request) throws YarnRemoteException {
+      RegisterNodeManagerResponse response = recordFactory
+          .newRecordInstance(RegisterNodeManagerResponse.class);
+      response.setNodeAction(registerNodeAction);
+      return response;
+    }
+
+    @Override
+    public NodeHeartbeatResponse nodeHeartbeat(NodeHeartbeatRequest request)
+        throws YarnRemoteException {
+      try {
+        if (heartBeatID == 0) {
+          Assert.assertEquals(request.getNodeStatus().getContainersStatuses()
+              .size(), 0);
+          Assert.assertEquals(context.getContainers().size(), 0);
+        } else if (heartBeatID == 1) {
+          Assert.assertEquals(request.getNodeStatus().getContainersStatuses()
+              .size(), 5);
+          Assert.assertTrue(request.getNodeStatus().getContainersStatuses()
+              .get(0).getState() == ContainerState.RUNNING
+              && request.getNodeStatus().getContainersStatuses().get(0)
+                  .getContainerId().getId() == 1);
+          Assert.assertTrue(request.getNodeStatus().getContainersStatuses()
+              .get(1).getState() == ContainerState.RUNNING
+              && request.getNodeStatus().getContainersStatuses().get(1)
+                  .getContainerId().getId() == 2);
+          Assert.assertTrue(request.getNodeStatus().getContainersStatuses()
+              .get(2).getState() == ContainerState.COMPLETE
+              && request.getNodeStatus().getContainersStatuses().get(2)
+                  .getContainerId().getId() == 3);
+          Assert.assertTrue(request.getNodeStatus().getContainersStatuses()
+              .get(3).getState() == ContainerState.COMPLETE
+              && request.getNodeStatus().getContainersStatuses().get(3)
+                  .getContainerId().getId() == 4);
+          Assert.assertTrue(request.getNodeStatus().getContainersStatuses()
+              .get(4).getState() == ContainerState.RUNNING
+              && request.getNodeStatus().getContainersStatuses().get(4)
+                  .getContainerId().getId() == 5);
+          throw new YarnException("Lost the heartbeat response");
+        } else if (heartBeatID == 2) {
+          Assert.assertEquals(request.getNodeStatus().getContainersStatuses()
+              .size(), 7);
+          Assert.assertTrue(request.getNodeStatus().getContainersStatuses()
+              .get(0).getState() == ContainerState.COMPLETE
+              && request.getNodeStatus().getContainersStatuses().get(0)
+                  .getContainerId().getId() == 3);
+          Assert.assertTrue(request.getNodeStatus().getContainersStatuses()
+              .get(1).getState() == ContainerState.COMPLETE
+              && request.getNodeStatus().getContainersStatuses().get(1)
+                  .getContainerId().getId() == 4);
+          Assert.assertTrue(request.getNodeStatus().getContainersStatuses()
+              .get(2).getState() == ContainerState.RUNNING
+              && request.getNodeStatus().getContainersStatuses().get(2)
+                  .getContainerId().getId() == 1);
+          Assert.assertTrue(request.getNodeStatus().getContainersStatuses()
+              .get(3).getState() == ContainerState.RUNNING
+              && request.getNodeStatus().getContainersStatuses().get(3)
+                  .getContainerId().getId() == 2);
+          Assert.assertTrue(request.getNodeStatus().getContainersStatuses()
+              .get(4).getState() == ContainerState.RUNNING
+              && request.getNodeStatus().getContainersStatuses().get(4)
+                  .getContainerId().getId() == 5);
+          Assert.assertTrue(request.getNodeStatus().getContainersStatuses()
+              .get(5).getState() == ContainerState.RUNNING
+              && request.getNodeStatus().getContainersStatuses().get(5)
+                  .getContainerId().getId() == 6);
+          Assert.assertTrue(request.getNodeStatus().getContainersStatuses()
+              .get(6).getState() == ContainerState.COMPLETE
+              && request.getNodeStatus().getContainersStatuses().get(6)
+                  .getContainerId().getId() == 7);
+        }
+      } catch (AssertionError error) {
+        LOG.info(error);
+        containerStatusBackupSuccessfully = false;
+      } finally {
+        heartBeatID++;
+      }
+      NodeStatus nodeStatus = request.getNodeStatus();
+      nodeStatus.setResponseId(heartBeatID);
       NodeHeartbeatResponse nhResponse =
-          recordFactory.newRecordInstance(NodeHeartbeatResponse.class);
-      nhResponse.setHeartbeatResponse(response);
+          YarnServerBuilderUtils.newNodeHeartbeatResponse(heartBeatID,
+              heartBeatNodeAction, null, null, null, 1000L);
       return nhResponse;
     }
   }
@@ -580,6 +709,73 @@ public class TestNodeStatusUpdater {
         + "Recieved SHUTDOWN signal from Resourcemanager ,Registration of NodeManager failed");
   }
 
+  @Test (timeout = 15000)
+  public void testNMConnectionToRM() {
+    final long delta = 1500;
+    final long connectionWaitSecs = 5;
+    final long connectionRetryIntervalSecs = 1;
+    //Waiting for rmStartIntervalMS, RM will be started
+    final long rmStartIntervalMS = 2*1000;
+    YarnConfiguration conf = createNMConfig();
+    conf.setLong(YarnConfiguration.RESOURCEMANAGER_CONNECT_WAIT_SECS,
+        connectionWaitSecs);
+    conf.setLong(YarnConfiguration
+        .RESOURCEMANAGER_CONNECT_RETRY_INTERVAL_SECS,
+        connectionRetryIntervalSecs);
+
+    //Test NM try to connect to RM Several times, but finally fail
+    nm = new NodeManager() {
+      @Override
+      protected NodeStatusUpdater createNodeStatusUpdater(Context context,
+          Dispatcher dispatcher, NodeHealthCheckerService healthChecker) {
+        NodeStatusUpdater nodeStatusUpdater = new MyNodeStatusUpdater4(
+            context, dispatcher, healthChecker, metrics,
+            rmStartIntervalMS, true);
+        return nodeStatusUpdater;
+      }
+    };
+    nm.init(conf);
+    long waitStartTime = System.currentTimeMillis();
+    try {
+      nm.start();
+      Assert.fail("NM should have failed to start due to RM connect failure");
+    } catch(Exception e) {
+      Assert.assertTrue("NM should have tried re-connecting to RM during " +
+          "period of at least " + connectionWaitSecs + " seconds, but " +
+          "stopped retrying within " + (connectionWaitSecs + delta/1000) +
+          " seconds", (System.currentTimeMillis() - waitStartTime
+              >= connectionWaitSecs*1000) && (System.currentTimeMillis()
+              - waitStartTime < (connectionWaitSecs*1000+delta)));
+    }
+
+    //Test NM connect to RM, fail at first several attempts,
+    //but finally success.
+    nm = new NodeManager() {
+      @Override
+      protected NodeStatusUpdater createNodeStatusUpdater(Context context,
+          Dispatcher dispatcher, NodeHealthCheckerService healthChecker) {
+        NodeStatusUpdater nodeStatusUpdater = new MyNodeStatusUpdater4(
+            context, dispatcher, healthChecker, metrics, rmStartIntervalMS,
+            false);
+        return nodeStatusUpdater;
+      }
+    };
+
+    nm.init(conf);
+    waitStartTime = System.currentTimeMillis();
+    try {
+      nm.start();
+    } catch (Exception ex){
+      Assert.fail("NM should have started successfully " +
+          "after connecting to RM.");
+    }
+    Assert.assertTrue("NM should have connected to RM within " + delta/1000
+        +" seconds of RM starting up.",
+        (System.currentTimeMillis() - waitStartTime >= rmStartIntervalMS)
+        && (System.currentTimeMillis() - waitStartTime
+        < (rmStartIntervalMS+delta)));
+  }
+
   /**
    * Verifies that if for some reason NM fails to start ContainerManager RPC
    * server, RM is oblivious to NM's presence. The behaviour is like this
@@ -647,6 +843,127 @@ public class TestNodeStatusUpdater {
     } finally {
       if (nm.getServiceState() == STATE.STARTED)
         nm.stop();
+    }
+  }
+
+  /**
+   * Test completed containerStatus get back up when heart beat lost
+   */
+  @Test(timeout = 20000)
+  public void testCompletedContainerStatusBackup() throws Exception {
+    nm = new NodeManager() {
+      @Override
+      protected NodeStatusUpdater createNodeStatusUpdater(Context context,
+          Dispatcher dispatcher, NodeHealthCheckerService healthChecker) {
+        MyNodeStatusUpdater2 myNodeStatusUpdater =
+            new MyNodeStatusUpdater2(context, dispatcher, healthChecker,
+                metrics);
+        return myNodeStatusUpdater;
+      }
+
+      @Override
+      protected NMContext createNMContext(
+          NMContainerTokenSecretManager containerTokenSecretManager) {
+        return new MyNMContext(containerTokenSecretManager);
+      }
+
+    };
+
+    YarnConfiguration conf = createNMConfig();
+    nm.init(conf);
+    nm.start();
+
+    int waitCount = 0;
+    while (heartBeatID <= 3 && waitCount++ != 20) {
+      Thread.sleep(500);
+    }
+    if(!containerStatusBackupSuccessfully) {
+      Assert.fail("ContainerStatus Backup failed");
+    }
+    nm.stop();
+  }
+
+  private class MyNMContext extends NMContext {
+    ConcurrentMap<ContainerId, Container> containers =
+        new ConcurrentSkipListMap<ContainerId, Container>();
+
+    public MyNMContext(NMContainerTokenSecretManager
+        containerTokenSecretManager) {
+      super(containerTokenSecretManager);
+    }
+
+    @Override
+    public ConcurrentMap<ContainerId, Container> getContainers() {
+      if (heartBeatID == 0) {
+        return containers;
+      } else if (heartBeatID == 1) {
+        ContainerStatus containerStatus1 =
+            createContainerStatus(1, ContainerState.RUNNING);
+        Container container1 = getMockContainer(containerStatus1);
+        containers.put(containerStatus1.getContainerId(), container1);
+
+        ContainerStatus containerStatus2 =
+            createContainerStatus(2, ContainerState.RUNNING);
+        Container container2 = getMockContainer(containerStatus2);
+        containers.put(containerStatus2.getContainerId(), container2);
+
+        ContainerStatus containerStatus3 =
+            createContainerStatus(3, ContainerState.COMPLETE);
+        Container container3 = getMockContainer(containerStatus3);
+        containers.put(containerStatus3.getContainerId(), container3);
+        completedContainerStatusList.add(containerStatus3);
+
+        ContainerStatus containerStatus4 =
+            createContainerStatus(4, ContainerState.COMPLETE);
+        Container container4 = getMockContainer(containerStatus4);
+        containers.put(containerStatus4.getContainerId(), container4);
+        completedContainerStatusList.add(containerStatus4);
+
+        ContainerStatus containerStatus5 =
+            createContainerStatus(5, ContainerState.RUNNING);
+        Container container5 = getMockContainer(containerStatus5);
+        containers.put(containerStatus5.getContainerId(), container5);
+
+        return containers;
+      } else if (heartBeatID == 2) {
+        ContainerStatus containerStatus6 =
+            createContainerStatus(6, ContainerState.RUNNING);
+        Container container6 = getMockContainer(containerStatus6);
+        containers.put(containerStatus6.getContainerId(), container6);
+
+        ContainerStatus containerStatus7 =
+            createContainerStatus(7, ContainerState.COMPLETE);
+        Container container7 = getMockContainer(containerStatus7);
+        containers.put(containerStatus7.getContainerId(), container7);
+        completedContainerStatusList.add(containerStatus7);
+
+        return containers;
+      } else {
+        containers.clear();
+
+        return containers;
+      }
+    }
+
+    private ContainerStatus createContainerStatus(int id,
+        ContainerState containerState) {
+      ApplicationId applicationId =
+          BuilderUtils.newApplicationId(System.currentTimeMillis(), id);
+      ApplicationAttemptId applicationAttemptId =
+          BuilderUtils.newApplicationAttemptId(applicationId, id);
+      ContainerId contaierId =
+          BuilderUtils.newContainerId(applicationAttemptId, id);
+      ContainerStatus containerStatus =
+          BuilderUtils.newContainerStatus(contaierId, containerState,
+              "test_containerStatus: id=" + id + ", containerState: "
+                  + containerState, 0);
+      return containerStatus;
+    }
+
+    private Container getMockContainer(ContainerStatus containerStatus) {
+      Container container = mock(Container.class);
+      when(container.cloneAndGetContainerStatus()).thenReturn(containerStatus);
+      return container;
     }
   }
 

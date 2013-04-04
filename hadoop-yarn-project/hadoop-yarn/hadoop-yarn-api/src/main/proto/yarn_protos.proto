@@ -67,9 +67,7 @@ message ContainerProto {
   optional string node_http_address = 3;
   optional ResourceProto resource = 4;
   optional PriorityProto priority = 5;
-  optional ContainerStateProto state = 6;
-  optional hadoop.common.TokenProto container_token = 7;
-  optional ContainerStatusProto container_status = 8;
+  optional hadoop.common.TokenProto container_token = 6;
 }
 
 enum YarnApplicationStateProto {
@@ -207,16 +205,6 @@ message ResourceRequestProto {
   optional int32 num_containers = 4;
 }
 
-message AMResponseProto {
-  optional bool reboot = 1;
-  optional int32 response_id = 2;
-  repeated ContainerProto allocated_containers = 3;
-  repeated ContainerStatusProto completed_container_statuses = 4;
-  optional ResourceProto limit = 5;
-  repeated NodeReportProto updated_nodes = 6;
-}
-
-
 ////////////////////////////////////////////////////////////////////////
 ////// From client_RM_Protocol /////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
@@ -229,6 +217,7 @@ message ApplicationSubmissionContextProto {
   optional ContainerLaunchContextProto am_container_spec = 6;
   optional bool cancel_tokens_when_complete = 7 [default = true];
   optional bool unmanaged_am = 8 [default = false];
+  optional int32 maxAppAttempts = 9 [default = 0];
 }
 
 enum ApplicationAccessTypeProto {

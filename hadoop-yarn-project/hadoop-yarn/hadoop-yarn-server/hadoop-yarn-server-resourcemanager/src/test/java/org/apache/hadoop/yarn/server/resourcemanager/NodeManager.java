@@ -51,8 +51,8 @@ import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.ipc.RPCUtil;
 import org.apache.hadoop.yarn.server.api.protocolrecords.NodeHeartbeatRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.NodeHeartbeatResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RegisterNodeManagerRequest;
-import org.apache.hadoop.yarn.server.api.records.HeartbeatResponse;
 import org.apache.hadoop.yarn.server.api.records.NodeStatus;
 import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.common.fica.FiCaSchedulerNode;
@@ -76,6 +76,9 @@ public class NodeManager implements ContainerManager {
   final Map<ApplicationId, List<Container>> containers = 
     new HashMap<ApplicationId, List<Container>>();
   
+  final Map<Container, ContainerStatus> containerStatusMap =
+      new HashMap<Container, ContainerStatus>();
+
   public NodeManager(String hostName, int containerManagerPort, int httpPort,
       String rackName, Resource capability,
       ResourceTrackerService resourceTrackerService, RMContext rmContext)
@@ -96,8 +99,7 @@ public class NodeManager implements ContainerManager {
     request.setNodeId(this.nodeId);
     request.setResource(capability);
     request.setNodeId(this.nodeId);
-    resourceTrackerService.registerNodeManager(request)
-        .getRegistrationResponse();
+    resourceTrackerService.registerNodeManager(request);
     this.schedulerNode = new FiCaSchedulerNode(rmContext.getRMNodes().get(
         this.nodeId));
    
@@ -138,7 +140,7 @@ public class NodeManager implements ContainerManager {
     List<ContainerStatus> containerStatuses = new ArrayList<ContainerStatus>();
     for (List<Container> appContainers : containers.values()) {
       for (Container container : appContainers) {
-        containerStatuses.add(container.getContainerStatus());
+        containerStatuses.add(containerStatusMap.get(container));
       }
     }
     return containerStatuses;
@@ -151,8 +153,8 @@ public class NodeManager implements ContainerManager {
     NodeHeartbeatRequest request = recordFactory
         .newRecordInstance(NodeHeartbeatRequest.class);
     request.setNodeStatus(nodeStatus);
-    HeartbeatResponse response = resourceTrackerService
-        .nodeHeartbeat(request).getHeartbeatResponse();
+    NodeHeartbeatResponse response = resourceTrackerService
+        .nodeHeartbeat(request);
     responseID = response.getResponseId();
   }
 
@@ -190,8 +192,11 @@ public class NodeManager implements ContainerManager {
             null, null                                 // DKDC - Doesn't matter
             );
 
+    ContainerStatus containerStatus =
+        BuilderUtils.newContainerStatus(container.getId(), ContainerState.NEW,
+            "", -1000);
     applicationContainers.add(container);
-    
+    containerStatusMap.put(container, containerStatus);
     Resources.subtractFrom(available, containerLaunchContext.getResource());
     Resources.addTo(used, containerLaunchContext.getResource());
     
@@ -224,7 +229,9 @@ public class NodeManager implements ContainerManager {
     List<Container> applicationContainers = containers.get(applicationId);
     for (Container c : applicationContainers) {
       if (c.getId().compareTo(containerID) == 0) {
-        c.setState(ContainerState.COMPLETE);
+        ContainerStatus containerStatus = containerStatusMap.get(c);
+        containerStatus.setState(ContainerState.COMPLETE);
+        containerStatusMap.put(c, containerStatus);
       }
     }
     
@@ -278,8 +285,8 @@ public class NodeManager implements ContainerManager {
     }
     GetContainerStatusResponse response = 
         recordFactory.newRecordInstance(GetContainerStatusResponse.class);
-    if (container != null && container.getContainerStatus() != null) {
-      response.setStatus(container.getContainerStatus());
+    if (container != null && containerStatusMap.get(container).getState() != null) {
+      response.setStatus(containerStatusMap.get(container));
     }
     return response;
   }

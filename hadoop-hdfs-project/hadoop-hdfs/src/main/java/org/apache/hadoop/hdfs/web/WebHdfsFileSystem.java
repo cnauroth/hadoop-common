@@ -29,7 +29,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.ArrayList;
+import java.security.PrivilegedExceptionAction;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -63,7 +63,33 @@ import org.apache.hadoop.hdfs.protocol.UnresolvedPathException;
 import org.apache.hadoop.hdfs.security.token.delegation.DelegationTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.delegation.DelegationTokenSelector;
 import org.apache.hadoop.hdfs.server.namenode.SafeModeException;
-import org.apache.hadoop.hdfs.web.resources.*;
+import org.apache.hadoop.hdfs.web.resources.AccessTimeParam;
+import org.apache.hadoop.hdfs.web.resources.BlockSizeParam;
+import org.apache.hadoop.hdfs.web.resources.BufferSizeParam;
+import org.apache.hadoop.hdfs.web.resources.ConcatSourcesParam;
+import org.apache.hadoop.hdfs.web.resources.CreateParentParam;
+import org.apache.hadoop.hdfs.web.resources.DelegationParam;
+import org.apache.hadoop.hdfs.web.resources.DeleteOpParam;
+import org.apache.hadoop.hdfs.web.resources.DestinationParam;
+import org.apache.hadoop.hdfs.web.resources.DoAsParam;
+import org.apache.hadoop.hdfs.web.resources.GetOpParam;
+import org.apache.hadoop.hdfs.web.resources.GroupParam;
+import org.apache.hadoop.hdfs.web.resources.HttpOpParam;
+import org.apache.hadoop.hdfs.web.resources.LengthParam;
+import org.apache.hadoop.hdfs.web.resources.ModificationTimeParam;
+import org.apache.hadoop.hdfs.web.resources.OffsetParam;
+import org.apache.hadoop.hdfs.web.resources.OverwriteParam;
+import org.apache.hadoop.hdfs.web.resources.OwnerParam;
+import org.apache.hadoop.hdfs.web.resources.Param;
+import org.apache.hadoop.hdfs.web.resources.PermissionParam;
+import org.apache.hadoop.hdfs.web.resources.PostOpParam;
+import org.apache.hadoop.hdfs.web.resources.PutOpParam;
+import org.apache.hadoop.hdfs.web.resources.RecursiveParam;
+import org.apache.hadoop.hdfs.web.resources.RenameOptionSetParam;
+import org.apache.hadoop.hdfs.web.resources.RenewerParam;
+import org.apache.hadoop.hdfs.web.resources.ReplicationParam;
+import org.apache.hadoop.hdfs.web.resources.TokenArgumentParam;
+import org.apache.hadoop.hdfs.web.resources.UserParam;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.retry.RetryPolicy;
 import org.apache.hadoop.io.retry.RetryUtils;
@@ -81,7 +107,6 @@ import org.apache.hadoop.security.token.TokenIdentifier;
 import org.apache.hadoop.security.token.TokenRenewer;
 import org.apache.hadoop.security.token.delegation.AbstractDelegationTokenSelector;
 import org.apache.hadoop.util.Progressable;
-import org.apache.hadoop.util.StringUtils;
 import org.mortbay.util.ajax.JSON;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -131,7 +156,6 @@ public class WebHdfsFileSystem extends FileSystem
   private URI uri;
   private boolean hasInitedToken;
   private Token<?> delegationToken;
-  private final AuthenticatedURL.Token authToken = new AuthenticatedURL.Token();
   private RetryPolicy retryPolicy = null;
   private Path workingDir;
 
@@ -212,6 +236,11 @@ public class WebHdfsFileSystem extends FileSystem
   @Override
   public URI getUri() {
     return this.uri;
+  }
+  
+  @Override
+  protected URI canonicalizeUri(URI uri) {
+    return NetUtils.getCanonicalUri(uri, getDefaultPort());
   }
 
   /** @return the home directory. */
@@ -376,17 +405,6 @@ public class WebHdfsFileSystem extends FileSystem
     return url;
   }
 
-  private HttpURLConnection getHttpUrlConnection(URL url)
-      throws IOException, AuthenticationException {
-    final HttpURLConnection conn;
-    if (ugi.hasKerberosCredentials()) { 
-      conn = new AuthenticatedURL(AUTH).openConnection(url, authToken);
-    } else {
-      conn = (HttpURLConnection)url.openConnection();
-    }
-    return conn;
-  }
-
   /**
    * Run a http operation.
    * Connect to the http server, validate response, and obtain the JSON output.
@@ -431,6 +449,50 @@ public class WebHdfsFileSystem extends FileSystem
       this.conn = conn;
     }
 
+    private HttpURLConnection getHttpUrlConnection(final URL url)
+        throws IOException, AuthenticationException {
+      UserGroupInformation connectUgi = ugi.getRealUser();
+      if (connectUgi == null) {
+        connectUgi = ugi;
+      }
+      try {
+        return connectUgi.doAs(
+            new PrivilegedExceptionAction<HttpURLConnection>() {
+              @Override
+              public HttpURLConnection run() throws IOException {
+                return openHttpUrlConnection(url);
+              }
+            });
+      } catch (IOException ioe) {
+        Throwable cause = ioe.getCause();
+        if (cause != null && cause instanceof AuthenticationException) {
+          throw (AuthenticationException)cause;
+        }
+        throw ioe;
+      } catch (InterruptedException e) {
+        throw new IOException(e);
+      }
+    }
+    
+    private HttpURLConnection openHttpUrlConnection(final URL url)
+        throws IOException {
+      final HttpURLConnection conn;
+      try {
+        if (op.getRequireAuth()) {
+          LOG.debug("open AuthenticatedURL connection");
+          UserGroupInformation.getCurrentUser().checkTGTAndReloginFromKeytab();
+          final AuthenticatedURL.Token authToken = new AuthenticatedURL.Token();
+          conn = new AuthenticatedURL(AUTH).openConnection(url, authToken);
+        } else {
+          LOG.debug("open URL connection");
+          conn = (HttpURLConnection)url.openConnection();
+        }
+      } catch (AuthenticationException e) {
+        throw new IOException(e);
+      }
+      return conn;
+    }
+  
     private void init() throws IOException {
       checkRetry = !redirected;
       try {
@@ -697,16 +759,9 @@ public class WebHdfsFileSystem extends FileSystem
   }
 
   @Override
-  public void concat(final Path trg, final Path [] psrcs) throws IOException {
+  public void concat(final Path trg, final Path [] srcs) throws IOException {
     statistics.incrementWriteOps(1);
     final HttpOpParam.Op op = PostOpParam.Op.CONCAT;
-
-    List<String> strPaths = new ArrayList<String>(psrcs.length);
-    for(Path psrc : psrcs) {
-       strPaths.add(psrc.toUri().getPath());
-    }
-
-    String srcs = StringUtils.join(",", strPaths);
 
     ConcatSourcesParam param = new ConcatSourcesParam(srcs);
     run(op, trg, param);
@@ -952,20 +1007,12 @@ public class WebHdfsFileSystem extends FileSystem
     @Override
     public long renew(final Token<?> token, final Configuration conf
         ) throws IOException, InterruptedException {
-      final UserGroupInformation ugi = UserGroupInformation.getLoginUser();
-      // update the kerberos credentials, if they are coming from a keytab
-      ugi.reloginFromKeytab();
-
       return getWebHdfs(token, conf).renewDelegationToken(token);
     }
   
     @Override
     public void cancel(final Token<?> token, final Configuration conf
         ) throws IOException, InterruptedException {
-      final UserGroupInformation ugi = UserGroupInformation.getLoginUser();
-      // update the kerberos credentials, if they are coming from a keytab
-      ugi.checkTGTAndReloginFromKeytab();
-
       getWebHdfs(token, conf).cancelDelegationToken(token);
     }
   }
