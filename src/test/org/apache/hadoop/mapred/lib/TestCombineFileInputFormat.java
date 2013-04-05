@@ -36,7 +36,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.InputSplit;
-import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.RecordReader;
@@ -475,7 +474,6 @@ public class TestCombineFileInputFormat extends TestCase{
     dos.writeChars("Local file for CFIF");
     dos.close();
 
-    JobClient job = new JobClient(conf);
     FileInputFormat.setInputPaths(conf, lfs.makeQualified(localPath));
     DummyInputFormat inFormat = new DummyInputFormat();
     InputSplit[] splits = inFormat.getSplits(conf, 100);
