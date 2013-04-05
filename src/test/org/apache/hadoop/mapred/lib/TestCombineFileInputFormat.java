@@ -26,7 +26,6 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
@@ -459,11 +458,10 @@ public class TestCombineFileInputFormat extends TestCase{
    * Test when input files are from non-default file systems
    */
   public void testForNonDefaultFileSystem() throws Throwable {
-    JobConf conf = new JobConf();
+    Configuration conf = new Configuration();
 
     // use a fake file system scheme as default
     conf.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, DUMMY_FS_URI);
-    conf.setClass("fs.dummyfs.impl", LocalFileSystem.class, FileSystem.class);
 
     // default fs path
     assertEquals(DUMMY_FS_URI, FileSystem.getDefaultUri(conf).toString());
@@ -474,9 +472,12 @@ public class TestCombineFileInputFormat extends TestCase{
     dos.writeChars("Local file for CFIF");
     dos.close();
 
-    FileInputFormat.setInputPaths(conf, lfs.makeQualified(localPath));
+    conf.set("mapred.working.dir", "/");
+    JobConf job = new JobConf(conf);
+
+    FileInputFormat.setInputPaths(job, lfs.makeQualified(localPath));
     DummyInputFormat inFormat = new DummyInputFormat();
-    InputSplit[] splits = inFormat.getSplits(conf, 100);
+    InputSplit[] splits = inFormat.getSplits(job, 1);
     assertTrue(splits.length > 0);
     for (InputSplit s : splits) {
       CombineFileSplit cfs = (CombineFileSplit)s;
