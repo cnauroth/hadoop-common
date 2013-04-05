@@ -70,7 +70,7 @@ public class TestCombineFileInputFormat extends TestCase{
   static final int BLOCKSIZE = 1024;
   static final byte[] databuf = new byte[BLOCKSIZE];
   private static final String DUMMY_FS_URI = "dummyfs:///";
-  
+
   private static final Log LOG = LogFactory.getLog(TestCombineFileInputFormat.class);
   
   /** Dummy class to extend CombineFileInputFormat*/
