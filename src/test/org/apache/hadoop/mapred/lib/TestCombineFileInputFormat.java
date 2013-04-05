@@ -23,8 +23,10 @@ import junit.framework.TestCase;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
@@ -32,7 +34,9 @@ import org.apache.hadoop.hdfs.DFSTestUtil;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.PathFilter;
+import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.InputSplit;
+import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.RecordReader;
@@ -67,7 +71,8 @@ public class TestCombineFileInputFormat extends TestCase{
 
   static final int BLOCKSIZE = 1024;
   static final byte[] databuf = new byte[BLOCKSIZE];
-
+  private static final String DUMMY_FS_URI = "dummyfs:///";
+  
   private static final Log LOG = LogFactory.getLog(TestCombineFileInputFormat.class);
   
   /** Dummy class to extend CombineFileInputFormat*/
@@ -450,6 +455,38 @@ public class TestCombineFileInputFormat extends TestCase{
     stm.close();
     DFSTestUtil.waitReplication(fileSys, name, replication);
   }
+  
+  /**
+   * Test when input files are from non-default file systems
+   */
+  public void testForNonDefaultFileSystem() throws Throwable {
+    JobConf conf = new JobConf();
+
+    // use a fake file system scheme as default
+    conf.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, DUMMY_FS_URI);
+    conf.setClass("fs.dummyfs.impl", LocalFileSystem.class, FileSystem.class);
+
+    // default fs path
+    assertEquals(DUMMY_FS_URI, FileSystem.getDefaultUri(conf).toString());
+    // add a local file
+    Path localPath = new Path("testFile1");
+    FileSystem lfs = FileSystem.getLocal(conf);
+    FSDataOutputStream dos = lfs.create(localPath);
+    dos.writeChars("Local file for CFIF");
+    dos.close();
+
+    JobClient job = new JobClient(conf);
+    FileInputFormat.setInputPaths(conf, lfs.makeQualified(localPath));
+    DummyInputFormat inFormat = new DummyInputFormat();
+    InputSplit[] splits = inFormat.getSplits(conf, 100);
+    assertTrue(splits.length > 0);
+    for (InputSplit s : splits) {
+      CombineFileSplit cfs = (CombineFileSplit)s;
+      for (Path p : cfs.getPaths()) {
+        assertEquals(p.toUri().getScheme(), "file");
+      }
+    }
+  }
 
   static class TestFilter implements PathFilter {
     private Path p;
@@ -462,8 +499,7 @@ public class TestCombineFileInputFormat extends TestCase{
     // returns true if the specified path matches the prefix stored
     // in this TestFilter.
     public boolean accept(Path path) {
-      Path uriPath = new Path(path.toUri().getPath());
-      if (uriPath.toString().indexOf(p.toString()) == 0) {
+      if (path.toUri().getPath().indexOf(p.toString()) == 0) {
         return true;
       }
       return false;
