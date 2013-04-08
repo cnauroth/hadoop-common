@@ -94,7 +94,7 @@ public class TestUnmanagedAMLauncher {
     return envClassPath;
   }
 
-  @Test(timeout=10000)
+  @Test(timeout=30000)
   public void testDSShell() throws Exception {
     String classpath = getTestRuntimeClasspath();
     String javaHome = System.getenv("JAVA_HOME");
