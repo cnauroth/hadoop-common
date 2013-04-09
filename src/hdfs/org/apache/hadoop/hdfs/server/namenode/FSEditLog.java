@@ -46,6 +46,7 @@ import org.apache.hadoop.hdfs.server.common.Storage.StorageDirectory;
 import org.apache.hadoop.hdfs.server.namenode.FSImage.NameNodeDirType;
 import org.apache.hadoop.hdfs.server.namenode.metrics.NameNodeInstrumentation;
 import org.apache.hadoop.io.*;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.permission.*;
 import org.apache.hadoop.security.token.delegation.DelegationKey;
 
@@ -129,13 +130,24 @@ public class FSEditLog {
     private DataOutputBuffer bufCurrent;  // current buffer for writing
     private DataOutputBuffer bufReady;    // buffer ready for flushing
     static ByteBuffer fill = ByteBuffer.allocateDirect(512); // preallocation
+    private Configuration conf;
+    private boolean syncWrites;
 
     EditLogFileOutputStream(File name) throws IOException {
       super();
+      conf = new Configuration();
+      syncWrites =
+          conf.getBoolean("dfs.namenode.edits.noeditlogchannelflush", false);
+
       file = name;
       bufCurrent = new DataOutputBuffer(sizeFlushBuffer);
       bufReady = new DataOutputBuffer(sizeFlushBuffer);
-      RandomAccessFile rp = new RandomAccessFile(name, "rw");
+      RandomAccessFile rp = null;
+      if (syncWrites) {
+        rp = new RandomAccessFile(name, "rws");
+      } else {
+        rp = new RandomAccessFile(name, "rw");
+      }
       fp = new FileOutputStream(rp.getFD()); // open for append
       fc = rp.getChannel();
       fc.position(fc.size());
@@ -216,7 +228,13 @@ public class FSEditLog {
       preallocate();            // preallocate file if necessary
       bufReady.writeTo(fp);     // write data to file
       bufReady.reset();         // erase all data in the buffer
-      fc.force(false);          // metadata updates not needed because of preallocation
+      if (syncWrites) {
+        // if writing synchronously, just make sure that the output stream is flushed
+        fp.flush();
+      } else {
+        // metadata updates not needed because of preallocation
+        fc.force(false); 
+      }
       fc.position(fc.position()-1); // skip back the end-of-file marker
     }
 
