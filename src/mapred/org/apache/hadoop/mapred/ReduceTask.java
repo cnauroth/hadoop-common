@@ -648,10 +648,10 @@ class ReduceTask extends Task {
                                                reporter, comparator, keyClass,
                                                valueClass);
     try {
-    reducer.run(reducerContext);
+      reducer.run(reducerContext);
     } finally {
-    trackedRW.close(reducerContext);
-  }
+      trackedRW.close(reducerContext);
+    }
   }
 
   private static enum CopyOutputErrorType {

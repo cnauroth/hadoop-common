@@ -103,6 +103,16 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private boolean needToStampVersionOnWrite = false;
   private final Object versionStampLock = new Object();
 
+  private TestHookOperationContext testHookOperationContext = null;
+
+  /**
+    * A test hook interface that can modify the operation context
+    * we use for Azure Storage operations, e.g. to inject errors.
+    */
+   interface TestHookOperationContext {
+     OperationContext modifyOperationContext(OperationContext original);
+   }
+
   /**
    * Suppress the default retry policy for the Storage, useful in unit
    * tests to test negative cases without waiting forever.
@@ -112,6 +122,15 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   /**
+  * Add a test hook to modify the operation context we use for Azure Storage
+  * operations.
+  * @param testHook The test hook, or null to unset previous hooks.
+  */
+ void addTestHookToOperationContext(TestHookOperationContext testHook) {
+   this.testHookOperationContext = testHook;
+ }
+
+ /**
    * If we're asked by unit tests to not retry, set the retry policy factory
    * in the client accordingly.
    */
@@ -1218,8 +1237,13 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * @return The OperationContext object to use.
    */
   private OperationContext getInstrumentedContext() {
-    final OperationContext operationContext = new OperationContext();
-    ResponseReceivedMetricUpdater.hook(operationContext, instrumentation, bandwidthGaugeUpdater);
+    OperationContext operationContext = new OperationContext();
+    ResponseReceivedMetricUpdater.hook(operationContext, instrumentation,
+        bandwidthGaugeUpdater);
+    if (testHookOperationContext != null) {
+      operationContext =
+          testHookOperationContext.modifyOperationContext(operationContext);
+    }
     ErrorMetricUpdater.hook(operationContext, instrumentation);
     return operationContext;
   }
@@ -1715,6 +1739,37 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     }
   }
 
+  /**
+   * Deletes the given blob, taking special care that if we get a
+   * blob-not-found exception upon retrying the operation, we just
+   * swallow the error since what most probably happened is that
+   * the first operation succeeded on the server.
+   * @param blob The blob to delete.
+   * @throws StorageException
+   */
+  private void safeDelete(CloudBlockBlobWrapper blob) throws StorageException {
+    OperationContext operationContext = getInstrumentedContext();
+    try {
+      blob.delete(operationContext);
+    } catch (StorageException e) {
+      // On exception, check that if:
+      // 1. It's a BlobNotFound exception AND
+      // 2. It got there after one-or-more retries THEN
+      // we swallow the exception.
+      if (e.getErrorCode() != null &&
+          e.getErrorCode().equals("BlobNotFound") &&
+          operationContext.getRequestResults().size() > 1 &&
+          operationContext.getRequestResults().get(0).getException() != null) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Swallowing delete exception on retry: " + e.getMessage());
+        }
+        return;
+      } else {
+        throw e;
+      }
+    }
+  }
+
   @Override
   public void delete(String key) throws IOException {
     try {
@@ -1723,7 +1778,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //
       CloudBlockBlobWrapper blob = getBlobReference(key);
       if (blob.exists(getInstrumentedContext())) {
-        blob.delete(getInstrumentedContext());
+        safeDelete(blob);
       }
     } catch (Exception e) {
       // Re-throw as an Azure storage exception.
@@ -1769,7 +1824,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // the destination blob then deleting it.
       //
       dstBlob.copyFromBlob(srcBlob, getInstrumentedContext());
-      srcBlob.delete(getInstrumentedContext());
+      safeDelete(srcBlob);
     } catch (Exception e) {
       // Re-throw exception as an Azure storage exception.
       //

@@ -1,12 +1,15 @@
 package org.apache.hadoop.fs.azurenative;
 
-import java.net.URI;
-import java.util.HashMap;
+import java.net.*;
+import java.io.*;
+import java.util.*;
 
 import org.apache.hadoop.conf.*;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.azure.AzureException;
+import org.apache.hadoop.fs.azurenative.AzureNativeFileSystemStore.TestHookOperationContext;
 
+import com.microsoft.windowsazure.services.core.storage.*;
 import junit.framework.*;
 
 public class TestAzureFileSystemErrorConditions extends TestCase {
@@ -69,5 +72,95 @@ public class TestAzureFileSystemErrorConditions extends TestCase {
     }
     assertFalse("Should've thrown an exception because of the wrong version.",
         passed);
+  }
+
+  private interface ConnectionRecognizer {
+    boolean isTargetConnection(HttpURLConnection connection);
+  }
+
+  private class TransientErrorInjector extends StorageEvent<SendingRequestEvent> {
+    final ConnectionRecognizer connectionRecognizer;
+    private boolean injectedErrorOnce = false;
+
+    public TransientErrorInjector(ConnectionRecognizer connectionRecognizer) {
+      this.connectionRecognizer = connectionRecognizer;
+    }
+
+    @Override
+    public void eventOccurred(SendingRequestEvent eventArg) {
+      HttpURLConnection connection = (HttpURLConnection)eventArg.getConnectionObject();
+      if (!connectionRecognizer.isTargetConnection(connection)) {
+        return;
+      }
+      if (!injectedErrorOnce) {
+        connection.setReadTimeout(1);
+        connection.disconnect();
+        injectedErrorOnce = true;
+      }
+    }
+  }
+
+  private void injectTransientError(NativeAzureFileSystem fs,
+      final ConnectionRecognizer connectionRecognizer) {
+    fs.getStore().addTestHookToOperationContext(new TestHookOperationContext() {
+      @Override
+      public OperationContext modifyOperationContext(OperationContext original) {
+        original.getSendingRequestEventHandler().addListener(
+            new TransientErrorInjector(connectionRecognizer));
+        return original;
+      }
+    });
+  }
+
+  public void testTransientErrorOnDelete() throws Exception {
+    // Need to do this test against a live storage account
+    AzureBlobStorageTestAccount testAccount =
+        AzureBlobStorageTestAccount.create();
+    if (testAccount == null) {
+      // No live account, skip.
+      return;
+    }
+    try {
+      NativeAzureFileSystem fs = testAccount.getFileSystem();
+      injectTransientError(fs, new ConnectionRecognizer() {
+        @Override
+        public boolean isTargetConnection(HttpURLConnection connection) {
+          return connection.getRequestMethod().equals("DELETE");
+        }
+      });
+      Path testFile = new Path("/a/b");
+      assertTrue(fs.createNewFile(testFile));
+      assertTrue(fs.rename(testFile, new Path("/x")));
+    } finally {
+      testAccount.cleanup();
+    }
+  }
+
+  public void testTransientErrorOnCommitBlockList() throws Exception {
+    // Need to do this test against a live storage account
+    AzureBlobStorageTestAccount testAccount =
+        AzureBlobStorageTestAccount.create();
+    if (testAccount == null) {
+      // No live account, skip.
+      return;
+    }
+    try {
+      NativeAzureFileSystem fs = testAccount.getFileSystem();
+      injectTransientError(fs, new ConnectionRecognizer() {
+        @Override
+        public boolean isTargetConnection(HttpURLConnection connection) {
+          return connection.getRequestMethod().equals("PUT") &&
+              connection.getURL().getQuery().contains("blocklist");
+        }
+      });
+      Path testFile = new Path("/a/b");
+      byte[] buffer = new byte[1024];
+      Arrays.fill(buffer, (byte)3);
+      OutputStream stream = fs.create(testFile);
+      stream.write(buffer);
+      stream.close();
+    } finally {
+      testAccount.cleanup();
+    }
   }
 }
