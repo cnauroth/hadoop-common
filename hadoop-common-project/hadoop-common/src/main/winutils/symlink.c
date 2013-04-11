@@ -60,6 +60,15 @@ int Symlink(int argc, wchar_t *argv[])
     goto SymlinkEnd;
   }
 
+  if (wcschr(longFileName, L'/') != NULL)
+  {
+    // Reject forward-slash separated target paths as they result in
+    // unusable symlinks.
+    //
+    ret = FAILURE;
+    goto SymlinkEnd;
+  }
+
   // Check if the the process's access token has the privilege to create
   // symbolic links. Without this step, the call to CreateSymbolicLink() from
   // users have the privilege to create symbolic links will still succeed.
