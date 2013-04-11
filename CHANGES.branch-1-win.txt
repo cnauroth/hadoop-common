@@ -92,6 +92,8 @@ Branch-hadoop-1-win (branched from branch-1 at r1293509 on 2012-02-24 17:46:42)
     HDFS-3566. Add AzureBlockPlacementPolicy to handle fault and upgrade
     domains in Azure.  (Sumadhur Reddy Bolli via szetszwo)
 
+    HADOOP-8911. CRLF characters in source and text files.
+
     HDFS-6527. Backport HADOOP-7389: Use of TestingGroups by tests causes
     subsequent tests to fail.  (Ivan Mitic via szetszwo)
 
@@ -248,6 +250,14 @@ Branch-hadoop-1-win (branched from branch-1 at r1293509 on 2012-02-24 17:46:42)
     HADOOP-9185. TestFileCreation.testFsClose should clean up on exit.
     (Arpit Agarwal via suresh)
 
+    HADOOP-9250. Windows installer bugfixes. (Ivan Mitic via suresh)
+
+    HADOOP-9463. branch-1-win fails to build with OpenJDK7.
+    (Ivan Mitic via suresh)
+
+    HADOOP-8731. Fixed TrackerDistributedCacheManager to address failure in the
+    test TestTrackerDistributedCacheManager on Windows. (Ivan Mitic via vinodkv)
+
   Merged from branch-1
 
     HDFS-385. Backport: Add support for an experimental API that allows a
@@ -297,11 +307,6 @@ Branch-hadoop-1-win (branched from branch-1 at r1293509 on 2012-02-24 17:46:42)
     HADOOP-7096. Allow setting of end-of-record delimiter for TextInputFormat
     (Ahmed Radwan, backported by suresh)
 
-    HDFS-496. Backport: Use PureJavaCrc32 in HDFS.  (Brandon Li via szetszwo)
-
-    MAPREDUCE-782. Use PureJavaCrc32 in mapreduce spills.
-    (Todd Lipcon, backport by Brandon Li via sseth)
-
     HDFS-3942. Backport HDFS-3495 and HDFS-4234: Update Balancer to support new
     NetworkTopology with NodeGroup and use generic code for choosing datanode
     in Balancer.  (Junping Du via szetszwo)
@@ -350,7 +355,13 @@ Branch-hadoop-1-win (branched from branch-1 at r1293509 on 2012-02-24 17:46:42)
     HADOOP-8973. DiskChecker cannot reliably detect an inaccessible disk on
     Windows with NTFS ACLs. (Chris Nauroth via suresh)
 
-    HADOOP-8731. TestTrackerDistributedCacheManager fails on Windows
-    (Ivan Mitic)
+    MAPREDUCE-782. Use PureJavaCrc32 in mapreduce spills. (Todd Lipcon, backport by Brandon Li via sseth)
 
-    HADOOP-9250. Windows installer bugfixes (Ivan Mitic)
+    HADOOP-9071. Configure ivy log levels for resolve/retrieve.
+    (Giridharan Kesavan via suresh)
+
+    HDFS-4413. Secondary namenode won't start if HDFS isn't the default
+    file system. (Mostafa Elhemali via suresh)
+
+    HADOOP-9467. Metrics2 record filter should check name as well as tags.
+    (Ganeshan Iyler via llu)
