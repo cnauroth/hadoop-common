@@ -115,6 +115,7 @@
             value="${build.c++}/examples/pipes"/>
   <property name="build.docs" value="${build.dir}/docs"/>
   <property name="build.docs.cn" value="${build.dir}/docs/cn"/>
+  <property name="forrest.home" value="${env.FORREST_HOME}"/>
   <condition property="forrest.exec" value="${forrest.home}/bin/forrest.bat" else="${forrest.home}/bin/forrest">
     <os family="windows" />
   </condition>
