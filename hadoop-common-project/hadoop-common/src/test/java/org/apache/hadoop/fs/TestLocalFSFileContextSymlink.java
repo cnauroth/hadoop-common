@@ -27,6 +27,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.FileUtil;
 import static org.apache.hadoop.fs.FileContextTestHelper.*;
 import static org.junit.Assert.*;
+import static org.junit.Assume.assumeTrue;
 import org.junit.Test;
 import org.junit.Before;
 
@@ -65,7 +66,37 @@ public class TestLocalFSFileContextSymlink extends FileContextSymlinkBaseTest {
     fc = FileContext.getLocalFSFileContext();
     super.setUp();
   }
-  
+
+  @Override
+  public void testCreateFileViaDanglingLinkParent() throws IOException {
+    assumeTrue(!Path.WINDOWS);
+    super.testCreateFileViaDanglingLinkParent();
+  }
+
+  @Override
+  public void testOpenResolvesLinks() throws IOException {
+    assumeTrue(!Path.WINDOWS);
+    super.testOpenResolvesLinks();
+  }
+
+  @Override
+  public void testRecursiveLinks() throws IOException {
+    assumeTrue(!Path.WINDOWS);
+    super.testRecursiveLinks();
+  }
+
+  @Override
+  public void testRenameDirToDanglingSymlink() throws IOException {
+    assumeTrue(!Path.WINDOWS);
+    super.testRenameDirToDanglingSymlink();
+  }
+
+  @Override  
+  public void testStatDanglingLink() throws IOException {
+    assumeTrue(!Path.WINDOWS);
+    super.testStatDanglingLink();
+  }
+
   @Test
   /** lstat a non-existant file using a partially qualified path */
   public void testDanglingLinkFilePartQual() throws IOException {
@@ -87,6 +118,7 @@ public class TestLocalFSFileContextSymlink extends FileContextSymlinkBaseTest {
   @Test
   /** Stat and lstat a dangling link */
   public void testDanglingLink() throws IOException {
+    assumeTrue(!Path.WINDOWS);
     Path fileAbs  = new Path(testBaseDir1()+"/file");    
     Path fileQual = new Path(testURI().toString(), fileAbs);    
     Path link     = new Path(testBaseDir1()+"/linkToFile");
