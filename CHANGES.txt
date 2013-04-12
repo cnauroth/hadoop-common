@@ -2,6 +2,10 @@ Hadoop Change Log
 
 Release 1.1.0 - (partial upto at r1293509 as of 2012-02-24 17:46:42)
 
+    HDFS-496. Backport: Use PureJavaCrc32 in HDFS.  (Brandon Li via szetszwo)
+
+    MAPREDUCE-782. Use PureJavaCrc32 in mapreduce spills. (Todd Lipcon, backport by Brandon Li via sseth)
+
   BUG FIXES
 
     HDFS-2305. Running multiple 2NNs can result in corrupt file system. (atm)
@@ -143,6 +147,8 @@ Release 1.1.0 - (partial upto at r1293509 as of 2012-02-24 17:46:42)
 
     HDFS-2701. Cleanup FS* processIOError methods. (eli)
 
+    HADOOP-8329. Build fails with Java 7. (eli)
+
     HDFS-2547. Fix inaccuracy in ReplicationTargetChooser comments. (harsh)
 
     MAPREDUCE-2919. The JT web UI should show job start times. (harsh)
@@ -154,11 +160,6 @@ Release 1.1.0 - (partial upto at r1293509 as of 2012-02-24 17:46:42)
     (Brandon Li via suresh)
 
     HDFS-8417. HADOOP-6963 didn't update hadoop-core-pom-template.xml (Zhihong Ted Yu via cos)
-
-    HDFS-3652. FSEditLog failure removes the wrong edit stream when storage
-    dirs have same name. (todd)
-
-    HADOOP-8329. Build fails with Java 7. (eli)
 
 Release 1.0.3 - 2012.05.07
 

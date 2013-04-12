@@ -56,6 +56,7 @@ import org.apache.hadoop.filecache.TaskDistributedCacheManager;
 import org.apache.hadoop.filecache.TrackerDistributedCacheManager;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.ReflectionUtils;
+import org.apache.hadoop.util.Shell;
 
 public class TestTrackerDistributedCacheManager extends TestCase {
   private static final Log LOG =

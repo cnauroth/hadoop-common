@@ -38,6 +38,11 @@ import static org.apache.hadoop.fs.azurenative.StorageInterface.*;
 
 class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
+  static final String DEFAULT_STORAGE_EMULATOR_ACCOUNT_NAME =
+      "storageemulator";
+  static final String STORAGE_EMULATOR_ACCOUNT_NAME_PROPERTY_NAME =
+      "fs.azure.storage.emulator.account.name";
+
   public static final Log LOG = LogFactory.getLog(AzureNativeFileSystemStore.class);
 
   private CloudStorageAccount account;
@@ -548,15 +553,21 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       final String accountName, final String containerName, final String accountKey) 
           throws InvalidKeyException, StorageException, IOException, URISyntaxException {
 
-    // If the account name is "acc.blob.core.windows.net", then the
-    // rawAccountName is just "acc"
-    String rawAccountName = accountName.split("\\.")[0];
-    StorageCredentials credentials =
-        new StorageCredentialsAccountAndKey(rawAccountName, accountKey);
-    String baseUriString = getHTTPScheme() + ":" + PATH_DELIMITER + PATH_DELIMITER +
-        getFullUriAuthority(accountName);
-    CloudStorageAccount account = new CloudStorageAccount(credentials,
-        new URI(baseUriString), null, null);
+    CloudStorageAccount account;
+    if (isStorageEmulatorAccount(accountName)) {
+      account = CloudStorageAccount.getDevelopmentStorageAccount();
+    } else {
+      // If the account name is "acc.blob.core.windows.net", then the
+      // rawAccountName is just "acc"
+      String rawAccountName = accountName.split("\\.")[0];
+      StorageCredentials credentials =
+          new StorageCredentialsAccountAndKey(rawAccountName, accountKey);
+      String baseUriString;
+      baseUriString = getHTTPScheme() + "://" +
+          getFullUriAuthority(accountName);
+      account = new CloudStorageAccount(credentials,
+          new URI(baseUriString), null, null);
+    }
 
     // Capture storage account from the connection string in order to create
     // the blob client. The blob client will be used to retrieve the container
@@ -567,7 +578,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
     // Set the root directory.
     //
-    String containerUri = baseUriString +
+    String containerUri = account.getBlobEndpoint() +
         PATH_DELIMITER +
         containerName;
     rootDirectory = storageInteractionLayer.getDirectoryReference(containerUri);
@@ -610,6 +621,13 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // Configure Azure storage session.
     //
     configureAzureStorageSession();
+  }
+
+  private boolean isStorageEmulatorAccount(final String accountName) {
+    return accountName.equalsIgnoreCase(
+        sessionConfiguration.get(
+            STORAGE_EMULATOR_ACCOUNT_NAME_PROPERTY_NAME,
+            DEFAULT_STORAGE_EMULATOR_ACCOUNT_NAME));
   }
 
   static String getAccountKeyFromConfiguration(String accountName, Configuration conf) {
@@ -664,7 +682,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Get the account name.
       //
       String accountName = getAccountFromAuthority(sessionUri);
-      if(null == accountName) {
+      if (null == accountName) {
         // Account name is not specified as part of the URI. Throw indicating
         // an invalid account name.
         //
@@ -682,9 +700,11 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //
       String propertyValue = getAccountKeyFromConfiguration(accountName,
           sessionConfiguration);
-      if (null != propertyValue) {
+      if (null != propertyValue ||
+          isStorageEmulatorAccount(accountName)) {
 
-        // Account key was found. Create the Azure storage session using the account
+        // Account key was found (or it's a storage emulator account).
+        // Create the Azure storage session using the account
         // key and container.
         //
         connectUsingConnectionStringCredentials(getAccountFromAuthority(sessionUri),
