@@ -18,6 +18,7 @@
 package org.apache.hadoop.fs.local;
 
 import java.io.IOException;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -176,11 +177,16 @@ public class RawLocalFs extends DelegateToFileSystem {
   }
 
   private static String getPathWithoutSchemeAndAuthority(Path path) {
-    // This code depends on Path.toString() to remove the leading slash before
-    // the drive specification on Windows.
     Path newPath = path.isUriPathAbsolute() ?
       new Path(null, null, path.toUri().getPath()) :
       path;
-    return newPath.toString();
+
+    // Path.toString() removes leading slash before drive spec on Windows.
+    String newPathStr = newPath.toString();
+
+    // On Windows, creating a symlink with forward slashes would yield a symlink
+    // that isn't usable in subsequent file open operations.  Going through File
+    // translates forward slashes to back slashes on Windows.
+    return new File(newPathStr).getPath();
   }
 }
