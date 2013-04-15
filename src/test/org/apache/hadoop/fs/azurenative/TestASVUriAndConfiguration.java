@@ -89,6 +89,20 @@ public class TestASVUriAndConfiguration {
   }
 
   @Test
+  public void testConnectUsingSAS() throws Exception {
+    // Create the test account with SAS credentials.
+    //
+    testAccount = AzureBlobStorageTestAccount.create("", false, true);
+    // Validate input and output on the connection.
+    // NOTE: As of 4/15/2013, Azure Storage has a deficiency that prevents the
+    // full scenario from working (CopyFromBlob doesn't work with SAS), so
+    // just do a minor check until that is corrected.
+    //
+    assertFalse(testAccount.getFileSystem().exists(new Path("/IDontExist")));
+    //assertTrue(validateIOStreams(new Path("/sastest.txt")));
+  }
+
+  @Test
   public void testConnectUsingAnonymous() throws Exception {
 
     // Create test account with anonymous credentials
@@ -136,7 +150,7 @@ public class TestASVUriAndConfiguration {
   @Test
   public void testConnectToFullyQualifiedAccountLive() throws Exception {
     testAccount =
-        AzureBlobStorageTestAccount.create("", true);
+        AzureBlobStorageTestAccount.create("", true, false);
     assumeNotNull(testAccount);
     assertTrue(validateIOStreams(new Path("/testFile")));
   }

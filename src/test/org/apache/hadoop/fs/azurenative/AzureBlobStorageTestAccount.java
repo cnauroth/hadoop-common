@@ -25,6 +25,7 @@ import static org.apache.hadoop.fs.azurenative.AzureNativeFileSystemStore.DEFAUL
 public final class AzureBlobStorageTestAccount {
 
   private static final String ACCOUNT_KEY_PROPERTY_NAME = "fs.azure.account.key.";
+  private static final String SAS_PROPERTY_NAME = "fs.azure.sas.";
   private static final String TEST_CONFIGURATION_FILE_NAME = "azure-test.xml";
   private static final String TEST_ACCOUNT_NAME_PROPERTY_NAME = "fs.azure.test.account.name";
   public static final String MOCK_ACCOUNT_NAME = "mockAccount";
@@ -269,7 +270,7 @@ public final class AzureBlobStorageTestAccount {
 
   public static AzureBlobStorageTestAccount create(String containerNameSuffix)
       throws Exception {
-    return create(containerNameSuffix, false);
+    return create(containerNameSuffix, false, false);
   }
 
   static CloudStorageAccount createStorageAccount(String accountName,
@@ -309,7 +310,8 @@ public final class AzureBlobStorageTestAccount {
   }
 
   public static AzureBlobStorageTestAccount create(String containerNameSuffix,
-      boolean useQualifiedAccountName) throws Exception {
+      boolean useQualifiedAccountName,
+      boolean useSas) throws Exception {
     saveMetricsConfigFile();
     NativeAzureFileSystem fs = null;
     CloudBlobContainer container = null;
@@ -333,6 +335,15 @@ public final class AzureBlobStorageTestAccount {
       accountName += ".blob.core.windows.net";
       conf.set(ACCOUNT_KEY_PROPERTY_NAME + accountName, key);
     }
+    if (useSas) {
+      String sas = generateSAS(container);
+      // Remove the account key from the configuration to make sure we don't
+      // cheat and use that.
+      conf.set(ACCOUNT_KEY_PROPERTY_NAME + accountName, "");
+      // Set the SAS key.
+      conf.set(SAS_PROPERTY_NAME + containerName + "." + accountName,
+          sas);
+    }
 
     // Set account URI and initialize Azure file system.
     //
@@ -353,6 +364,59 @@ public final class AzureBlobStorageTestAccount {
             System.getProperty("user.name"),
             new Date());
     return containerName;
+  }
+
+  private static String generateSAS(CloudBlobContainer container)
+      throws Exception {
+
+    // Create a container if it does not exist.
+    container.createIfNotExist();
+
+    // Create a new shared access policy.
+    //
+    SharedAccessBlobPolicy sasPolicy = new SharedAccessBlobPolicy();
+
+    // Create a UTC Gregorian calendar value.
+    //
+    GregorianCalendar calendar = new GregorianCalendar(TimeZone.getTimeZone("UTC"));
+
+    // Specify the current time as the start time for the shared access
+    // signature.
+    //
+    calendar.setTime(new Date());
+    sasPolicy.setSharedAccessStartTime(calendar.getTime());
+
+    // Use the start time delta one hour as the end time for the shared
+    // access signature.
+    //
+    calendar.add(Calendar.HOUR, 10);
+    sasPolicy.setSharedAccessExpiryTime(calendar.getTime());
+
+    // Set READ and WRITE permissions.
+    //
+    sasPolicy.setPermissions(EnumSet.of(
+        SharedAccessBlobPermissions.READ,
+        SharedAccessBlobPermissions.WRITE,
+        SharedAccessBlobPermissions.LIST));
+
+    // Create the container permissions.
+    //
+    BlobContainerPermissions containerPermissions =
+        new BlobContainerPermissions();
+
+    // Turn public access to the container off.
+    //
+    containerPermissions.setPublicAccess(BlobContainerPublicAccessType.OFF);
+
+    container.uploadPermissions(containerPermissions);
+
+    // Create a shared access signature for the container.
+    //
+    String sas = container.generateSharedAccessSignature(sasPolicy, null);
+
+    // Return to caller with the shared access signature.
+    //
+    return sas;
   }
 
   public static void primePublicContainer(CloudBlobClient blobClient, String accountName,
