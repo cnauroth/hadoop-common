@@ -564,7 +564,7 @@ public class TestPipelinesFailover {
           }
           return success;
         }
-      }, 1000, 30000);
+      }, 1000, 120000);
     } catch (TimeoutException e) {
       throw new TimeoutException("Timed out recovering lease for " +
           testPath);
