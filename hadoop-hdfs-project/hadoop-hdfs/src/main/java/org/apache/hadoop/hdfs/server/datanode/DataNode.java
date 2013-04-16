@@ -1288,7 +1288,7 @@ public class DataNode extends Configured
     	  || e instanceof ClosedByInterruptException 
     	  || e.getMessage().startsWith("An established connection was aborted")
     	  || e.getMessage().startsWith("Broken pipe")
-    	  || e.getMessage().startsWith("Connection reset by peer")
+    	  || e.getMessage().startsWith("Connection reset")
     	  || e.getMessage().contains("java.nio.channels.SocketChannel")) {
       LOG.info("Not checking disk as checkDiskError was called on a network" +
       		" related exception");	
