@@ -8,8 +8,11 @@ import org.apache.hadoop.conf.*;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.azure.AzureException;
 import org.apache.hadoop.fs.azurenative.AzureNativeFileSystemStore.TestHookOperationContext;
+import org.apache.hadoop.fs.permission.PermissionStatus;
 
+import static org.mockito.Mockito.*;
 import com.microsoft.windowsazure.services.core.storage.*;
+
 import junit.framework.*;
 
 public class TestAzureFileSystemErrorConditions extends TestCase {
@@ -161,6 +164,72 @@ public class TestAzureFileSystemErrorConditions extends TestCase {
       stream.close();
     } finally {
       testAccount.cleanup();
+    }
+  }
+
+  // Validate the NativeAzureFsInputStream#read retry policy
+  public void testRetryPolicyOnRead() throws Exception {
+    NativeFileSystemStore store = mock(NativeFileSystemStore.class);
+    NativeAzureFileSystem fs = new NativeAzureFileSystem(store);
+    Configuration conf = new Configuration();
+    fs.initialize(new URI(AzureBlobStorageTestAccount.MOCK_ASV_URI), conf);
+
+    FileMetadata metadata = mock(FileMetadata.class);
+    when(store.retrieveMetadata(any(String.class))).thenReturn(metadata);
+    when(metadata.isDir()).thenReturn(false);
+    InputStream inputStream = mock(InputStream.class);
+    DataInputStream dataInputStream = new DataInputStream(inputStream);
+    when(store.retrieve(any(String.class)))
+      .thenReturn(dataInputStream);
+
+    doThrow(new IOException("Injected failure"))
+      .when(inputStream)
+      .read(any(byte[].class), anyInt(), anyInt());
+
+    InputStream is = fs.open(new Path("/test"), 1024);
+    try {
+      is.read();
+      assertTrue("Should have thrown", false);
+    } catch (IOException ex) {
+      verify(inputStream, times(4)).read(any(byte[].class), anyInt(), anyInt());
+    }
+
+    try {
+      is.read(new byte[10], 0, 10);
+      assertTrue("Should have thrown", false);
+    } catch (IOException ex) {
+      verify(inputStream, times(8)).read(any(byte[].class), anyInt(), anyInt());
+    }
+  }
+
+  // Validate the NativeAzureFsOutputStream#flush retry policy
+  public void testRetryPolicyOnFlush() throws Exception {
+    NativeFileSystemStore store = mock(NativeFileSystemStore.class);
+    NativeAzureFileSystem fs = new NativeAzureFileSystem(store);
+    Configuration conf = new Configuration();
+    fs.initialize(new URI(AzureBlobStorageTestAccount.MOCK_ASV_URI), conf);
+
+    FileMetadata metadata = mock(FileMetadata.class);
+    when(store.retrieveMetadata(any(String.class))).thenReturn(metadata);
+    when(metadata.isDir()).thenReturn(false);
+    OutputStream outputStream = mock(OutputStream.class);
+    DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
+    when(store.storefile(any(String.class), any(PermissionStatus.class)))
+      .thenReturn(dataOutputStream);
+    doNothing().when(store)
+      .storeEmptyLinkFile(
+          any(String.class), any(String.class), any(PermissionStatus.class));
+
+    doThrow(new IOException("Injected failure"))
+      .when(outputStream)
+      .flush();
+
+    OutputStream os = fs.create(new Path("/test"));
+    try {
+      os.flush();
+      assertTrue("Should have thrown", false);
+    } catch (IOException ex) {
+      verify(outputStream, times(4)).flush();
     }
   }
 }

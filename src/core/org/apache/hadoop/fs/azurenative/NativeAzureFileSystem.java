@@ -127,7 +127,7 @@ public class NativeAzureFileSystem extends FileSystem {
     @Override
     public synchronized int read() throws IOException {
       int result = 0;
-      for (int readAttempts = 0; readAttempts < AZURE_MAX_READ_RETRIES; readAttempts++) {
+      for (int readAttempts = 0; readAttempts <= AZURE_MAX_READ_RETRIES; readAttempts++) {
         try {
           result = in.read();
           if (result != -1) {
@@ -144,7 +144,7 @@ public class NativeAzureFileSystem extends FileSystem {
         } catch (IOException e) {
           // Log the exception and print the stack trace.
           //
-          LOG.warn("Caught I/O exception on read" + e);
+          LOG.warn("Caught I/O exception on read " + e.getMessage());
           if (AZURE_MAX_READ_RETRIES > readAttempts) {
             // Delay the next attempt with a linear back out.
             //
@@ -158,9 +158,8 @@ public class NativeAzureFileSystem extends FileSystem {
             }
           } else {
             // Read attempts exhausted so dump the current stack and re-throw
-            // the exception to indicated that the flush failed.
+            // the exception to indicated that the read failed.
             //
-            e.printStackTrace();
             throw new IOException(e);
           }
         }
@@ -195,7 +194,7 @@ public class NativeAzureFileSystem extends FileSystem {
     public synchronized int read(byte[] b, int off, int len) throws IOException {
       int result = 0;
 
-      for (int readAttempts = 0; readAttempts < AZURE_MAX_READ_RETRIES; readAttempts++) {
+      for (int readAttempts = 0; readAttempts <= AZURE_MAX_READ_RETRIES; readAttempts++) {
         try {
           result = in.read(b, off, len);
           if (result > 0) {
@@ -213,7 +212,7 @@ public class NativeAzureFileSystem extends FileSystem {
         } catch (IOException e) {
           // Log the exception and print the stack trace.
           //
-          LOG.warn("Caught I/O exception on read" + e);
+          LOG.warn("Caught I/O exception on read " + e.getMessage());
           if (AZURE_MAX_READ_RETRIES > readAttempts) {
             // Delay the next attempt with a linear back out.
             //
@@ -227,9 +226,8 @@ public class NativeAzureFileSystem extends FileSystem {
             }
           } else {
             // Read attempts exhausted so dump the current stack and re-throw
-            // the exception to indicated that the flush failed.
+            // the exception to indicated that the read failed.
             //
-            e.printStackTrace();
             throw new IOException(e);
           }
         }
@@ -321,7 +319,7 @@ public class NativeAzureFileSystem extends FileSystem {
       //
       boolean isFlushed = false;
       for (int flushAttempts = 0; !isFlushed
-          && flushAttempts < AZURE_MAX_FLUSH_RETRIES; flushAttempts++) {
+          && flushAttempts <= AZURE_MAX_FLUSH_RETRIES; flushAttempts++) {
         // Make an attempt to flush the current outstanding buffers out to Azure
         // storage.
         //
@@ -367,7 +365,7 @@ public class NativeAzureFileSystem extends FileSystem {
         } catch (IOException e) {
           // Log the exception and print the stack trace.
           //
-          LOG.warn("Caught I/O exception" + e);
+          LOG.warn("Caught I/O exception on flush " + e.getMessage());
           if (AZURE_MAX_FLUSH_RETRIES > flushAttempts) {
             // Delay the next attempt with a linear back out.
             //
@@ -383,7 +381,6 @@ public class NativeAzureFileSystem extends FileSystem {
             // Flush attempts exhausted so dump the current stack and re-throw
             // the exception to indicated that the flush failed.
             //
-            e.printStackTrace();
             throw new IOException(e);
           }
         }
