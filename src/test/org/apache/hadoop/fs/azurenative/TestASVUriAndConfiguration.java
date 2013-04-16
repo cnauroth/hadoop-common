@@ -104,6 +104,14 @@ public class TestASVUriAndConfiguration extends TestCase {
     assertEquals(FILE_SIZE, readInputStream(new Path("/testAsv.txt")));
   }
 
+  public void testConnectToEmulator() throws Exception {
+    testAccount = AzureBlobStorageTestAccount.createForEmulator();
+    if (testAccount == null) {
+      return;
+    }
+    assertTrue(validateIOStreams(new Path("/testFile")));
+  }
+
   /**
    * Tests that we can connect to fully qualified accounts outside
    * of blob.core.windows.net
