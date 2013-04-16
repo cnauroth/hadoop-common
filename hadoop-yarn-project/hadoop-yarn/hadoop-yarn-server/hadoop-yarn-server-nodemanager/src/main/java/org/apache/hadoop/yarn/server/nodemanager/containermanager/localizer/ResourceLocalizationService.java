@@ -34,7 +34,6 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ConcurrentHashMap;
@@ -85,7 +84,6 @@ import org.apache.hadoop.yarn.server.nodemanager.api.protocolrecords.LocalResour
 import org.apache.hadoop.yarn.server.nodemanager.api.protocolrecords.LocalizerAction;
 import org.apache.hadoop.yarn.server.nodemanager.api.protocolrecords.LocalizerHeartbeatResponse;
 import org.apache.hadoop.yarn.server.nodemanager.api.protocolrecords.LocalizerStatus;
-import org.apache.hadoop.yarn.server.nodemanager.api.protocolrecords.ResourceStatusType;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.application.Application;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.application.ApplicationEvent;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.application.ApplicationEventType;
@@ -102,6 +100,7 @@ import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.even
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.event.LocalizerEvent;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.event.LocalizerEventType;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.event.LocalizerResourceRequestEvent;
+import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.event.ResourceFailedLocalizationEvent;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.event.ResourceLocalizedEvent;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.event.ResourceReleaseEvent;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.event.ResourceRequestEvent;
@@ -666,8 +665,11 @@ public class ResourceLocalizationService extends CompositeService
               DiskChecker.checkDir(
                 new File(publicDirDestPath.toUri().getPath()));
             }
+            publicDirDestPath =
+                new Path(publicDirDestPath, Long.toString(publicRsrc
+                  .nextUniqueNumber()));
             pending.put(queue.submit(new FSDownload(
-                lfs, null, conf, publicDirDestPath, resource, new Random())),
+                lfs, null, conf, publicDirDestPath, resource)),
                 request);
             attempts.put(key, new LinkedList<LocalizerResourceRequestEvent>());
           } catch (IOException e) {
@@ -681,7 +683,6 @@ public class ResourceLocalizationService extends CompositeService
     }
 
     @Override
-    @SuppressWarnings("unchecked") // dispatcher not typed
     public void run() {
       try {
         // TODO shutdown, better error handling esp. DU
@@ -697,10 +698,8 @@ public class ResourceLocalizationService extends CompositeService
                 return;
               }
               LocalResourceRequest key = assoc.getResource().getRequest();
-              assoc.getResource().handle(
-                  new ResourceLocalizedEvent(key,
-                    local, FileUtil.getDU(new File(local.toUri()))));
-              publicRsrc.localizationCompleted(key, true);
+              publicRsrc.handle(new ResourceLocalizedEvent(key, local, FileUtil
+                .getDU(new File(local.toUri()))));
               synchronized (attempts) {
                 attempts.remove(key);
               }
@@ -708,26 +707,16 @@ public class ResourceLocalizationService extends CompositeService
               LOG.info("Failed to download rsrc " + assoc.getResource(),
                   e.getCause());
               LocalResourceRequest req = assoc.getResource().getRequest();
-              dispatcher.getEventHandler().handle(
-                  new ContainerResourceFailedEvent(
-                    assoc.getContext().getContainerId(),
-                    req, e.getCause()));
-              publicRsrc.localizationCompleted(req, false);
-              List<LocalizerResourceRequestEvent> reqs;
+              publicRsrc.handle(new ResourceFailedLocalizationEvent(req, e
+                .getCause()));
               synchronized (attempts) {
+                List<LocalizerResourceRequestEvent> reqs;
                 reqs = attempts.get(req);
                 if (null == reqs) {
                   LOG.error("Missing pending list for " + req);
                   return;
                 }
                 attempts.remove(req);
-              }
-              // let the other containers know about the localization failure
-              for (LocalizerResourceRequestEvent reqEvent : reqs) {
-                dispatcher.getEventHandler().handle(
-                    new ContainerResourceFailedEvent(
-                        reqEvent.getContext().getContainerId(),
-                        reqEvent.getResource().getRequest(), e.getCause()));
               }
             } catch (CancellationException e) {
               // ignore; shutting down
@@ -808,13 +797,14 @@ public class ResourceLocalizationService extends CompositeService
       return null;
     }
 
-    // TODO this sucks. Fix it later
-    @SuppressWarnings("unchecked") // dispatcher not typed
     LocalizerHeartbeatResponse update(
         List<LocalResourceStatus> remoteResourceStatuses) {
       LocalizerHeartbeatResponse response =
         recordFactory.newRecordInstance(LocalizerHeartbeatResponse.class);
 
+      String user = context.getUser();
+      ApplicationId applicationId =
+          context.getContainerId().getApplicationAttemptId().getApplicationId();
       // The localizer has just spawned. Start giving it resources for
       // remote-fetching.
       if (remoteResourceStatuses.isEmpty()) {
@@ -845,6 +835,11 @@ public class ResourceLocalizationService extends CompositeService
       }
       ArrayList<ResourceLocalizationSpec> rsrcs =
           new ArrayList<ResourceLocalizationSpec>();
+       /*
+        * TODO : It doesn't support multiple downloads per ContainerLocalizer
+        * at the same time. We need to think whether we should support this.
+        */
+
       for (LocalResourceStatus stat : remoteResourceStatuses) {
         LocalResource rsrc = stat.getResource();
         LocalResourceRequest req = null;
@@ -863,11 +858,10 @@ public class ResourceLocalizationService extends CompositeService
           case FETCH_SUCCESS:
             // notify resource
             try {
-              assoc.getResource().handle(
-                  new ResourceLocalizedEvent(req,
-                    ConverterUtils.getPathFromYarnURL(stat.getLocalPath()),
-                    stat.getLocalSize()));
-              localizationCompleted(stat);
+            getLocalResourcesTracker(req.getVisibility(), user, applicationId)
+              .handle(
+                new ResourceLocalizedEvent(req, ConverterUtils
+                  .getPathFromYarnURL(stat.getLocalPath()), stat.getLocalSize()));
             } catch (URISyntaxException e) { }
             if (pending.isEmpty()) {
               // TODO: Synchronization
@@ -897,45 +891,21 @@ public class ResourceLocalizationService extends CompositeService
             LOG.info("DEBUG: FAILED " + req, stat.getException());
             assoc.getResource().unlock();
             response.setLocalizerAction(LocalizerAction.DIE);
-            localizationCompleted(stat);
-            // TODO: Why is this event going directly to the container. Why not
-            // the resource itself? What happens to the resource? Is it removed?
-            dispatcher.getEventHandler().handle(
-                new ContainerResourceFailedEvent(context.getContainerId(),
-                  req, stat.getException()));
+            getLocalResourcesTracker(req.getVisibility(), user, applicationId)
+              .handle(
+                new ResourceFailedLocalizationEvent(req, stat.getException()));
             break;
           default:
             LOG.info("Unknown status: " + stat.getStatus());
             response.setLocalizerAction(LocalizerAction.DIE);
-            dispatcher.getEventHandler().handle(
-                new ContainerResourceFailedEvent(context.getContainerId(),
-                  req, stat.getException()));
+            getLocalResourcesTracker(req.getVisibility(), user, applicationId)
+              .handle(
+                new ResourceFailedLocalizationEvent(req, stat.getException()));
             break;
         }
       }
       response.setResourceSpecs(rsrcs);
       return response;
-    }
-
-    private void localizationCompleted(LocalResourceStatus stat) {
-      try {
-        LocalResource rsrc = stat.getResource();
-        LocalResourceRequest key = new LocalResourceRequest(rsrc);
-        String user = context.getUser();
-        ApplicationId appId =
-            context.getContainerId().getApplicationAttemptId()
-              .getApplicationId();
-        LocalResourceVisibility vis = rsrc.getVisibility();
-        LocalResourcesTracker tracker =
-            getLocalResourcesTracker(vis, user, appId);
-        if (stat.getStatus() == ResourceStatusType.FETCH_SUCCESS) {
-          tracker.localizationCompleted(key, true);
-        } else {
-          tracker.localizationCompleted(key, false);
-        }
-      } catch (URISyntaxException e) {
-        LOG.error("Invalid resource URL specified", e);
-      }
     }
 
     private Path getPathForLocalization(LocalResource rsrc) throws IOException,
@@ -955,9 +925,9 @@ public class ResourceLocalizationService extends CompositeService
       Path dirPath =
           dirsHandler.getLocalPathForWrite(cacheDirectory,
             ContainerLocalizer.getEstimatedSize(rsrc), false);
-      return tracker.getPathForLocalization(new LocalResourceRequest(rsrc),
+      dirPath = tracker.getPathForLocalization(new LocalResourceRequest(rsrc),
         dirPath);
-
+      return new Path (dirPath, Long.toString(tracker.nextUniqueNumber()));
     }
 
     @Override

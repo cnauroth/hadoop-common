@@ -16,24 +16,29 @@
 * limitations under the License.
 */
 
-package org.apache.hadoop.mapreduce.v2.app.recover;
+package org.apache.hadoop.yarn.api;
 
-import java.util.List;
-import java.util.Map;
+import org.apache.hadoop.classification.InterfaceAudience.Public;
+import org.apache.hadoop.classification.InterfaceStability.Evolving;
 
-import org.apache.hadoop.mapreduce.jobhistory.JobHistoryParser.TaskInfo;
-import org.apache.hadoop.mapreduce.v2.api.records.AMInfo;
-import org.apache.hadoop.mapreduce.v2.api.records.TaskId;
-import org.apache.hadoop.yarn.Clock;
-import org.apache.hadoop.yarn.event.Dispatcher;
+/**
+ * Container exit statuses indicating special exit circumstances.
+ */
+@Public
+@Evolving
+public class ContainerExitStatus {
+  public static final int SUCCESS = 0;
+  public static final int INVALID = -1000;
 
-public interface Recovery {
-
-  Dispatcher getDispatcher();
-
-  Clock getClock();
+  /**
+   * Containers killed by the framework, either due to being released by
+   * the application or being 'lost' due to node failures etc.
+   */
+  public static final int ABORTED = -100;
   
-  Map<TaskId, TaskInfo> getCompletedTasks();
-  
-  List<AMInfo> getAMInfos();
+  /**
+   * When threshold number of the nodemanager-local-directories or
+   * threshold number of the nodemanager-log-directories become bad.
+   */
+  public static final int DISKS_FAILED = -101;
 }

@@ -21,6 +21,7 @@ import java.io.File;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -32,6 +33,7 @@ import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.event.Dispatcher;
 import org.apache.hadoop.yarn.server.nodemanager.DeletionService;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.event.ResourceEvent;
+import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.event.ResourceReleaseEvent;
 
 
 /**
@@ -66,6 +68,12 @@ class LocalResourcesTrackerImpl implements LocalResourcesTracker {
    */
   private ConcurrentHashMap<LocalResourceRequest, Path>
     inProgressLocalResourcesMap;
+  /*
+   * starting with 10 to accommodate 0-9 directories created as a part of
+   * LocalCacheDirectoryManager. So there will be one unique number generator
+   * per APPLICATION, USER and PUBLIC cache.
+   */
+  private AtomicLong uniqueNumberGenerator = new AtomicLong(9);
 
   public LocalResourcesTrackerImpl(String user, Dispatcher dispatcher,
       boolean useLocalCacheDirectoryManager, Configuration conf) {
@@ -89,13 +97,22 @@ class LocalResourcesTrackerImpl implements LocalResourcesTracker {
     this.conf = conf;
   }
 
+  /*
+   * Synchronizing this method for avoiding races due to multiple ResourceEvent's
+   * coming to LocalResourcesTracker from Public/Private localizer and
+   * Resource Localization Service.
+   */
   @Override
-  public void handle(ResourceEvent event) {
+  public synchronized void handle(ResourceEvent event) {
     LocalResourceRequest req = event.getLocalResourceRequest();
     LocalizedResource rsrc = localrsrc.get(req);
     switch (event.getType()) {
-    case REQUEST:
     case LOCALIZED:
+      if (useLocalCacheDirectoryManager) {
+        inProgressLocalResourcesMap.remove(req);
+      }
+      break;
+    case REQUEST:
       if (rsrc != null && (!isResourcePresent(rsrc))) {
         LOG.info("Resource " + rsrc.getLocalPath()
             + " is missing, localizing it again");
@@ -110,9 +127,23 @@ class LocalResourcesTrackerImpl implements LocalResourcesTracker {
       break;
     case RELEASE:
       if (null == rsrc) {
-        LOG.info("Release unknown rsrc null (discard)");
+        // The container sent a release event on a resource which 
+        // 1) Failed
+        // 2) Removed for some reason (ex. disk is no longer accessible)
+        ResourceReleaseEvent relEvent = (ResourceReleaseEvent) event;
+        LOG.info("Container " + relEvent.getContainer()
+            + " sent RELEASE event on a resource request " + req
+            + " not present in cache.");
         return;
       }
+      break;
+    case LOCALIZATION_FAILED:
+      decrementFileCountForLocalCacheDirectory(req, null);
+      /*
+       * If resource localization fails then Localized resource will be
+       * removed from local cache.
+       */
+      localrsrc.remove(req);
       break;
     }
     rsrc.handle(event);
@@ -273,14 +304,7 @@ class LocalResourcesTrackerImpl implements LocalResourcesTracker {
   }
 
   @Override
-  public void localizationCompleted(LocalResourceRequest req,
-      boolean success) {
-    if (useLocalCacheDirectoryManager) {
-      if (!success) {
-        decrementFileCountForLocalCacheDirectory(req, null);
-      } else {
-        inProgressLocalResourcesMap.remove(req);
-      }
-    }
+  public long nextUniqueNumber() {
+    return uniqueNumberGenerator.incrementAndGet();
   }
 }
