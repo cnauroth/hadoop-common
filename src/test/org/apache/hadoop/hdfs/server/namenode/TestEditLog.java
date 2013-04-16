@@ -142,7 +142,7 @@ public class TestEditLog extends TestCase {
             fsimage.dirIterator(NameNodeDirType.EDITS); it.hasNext();) {
       File editFile = FSImage.getImageFile(it.next(), NameNodeFile.EDITS);
       System.out.println("Verifying file: " + editFile);
-      int numEdits = FSEditLog.loadFSEdits(new EditLogFileInputStream(editFile));
+      int numEdits = FSEditLog.loadFSEdits(new EditLogFileInputStream(editFile), -1);
       int numLeases = FSNamesystem.getFSNamesystem().leaseManager.countLease();
       System.out.println("Number of outstanding leases " + numLeases);
       assertEquals(0, numLeases);
