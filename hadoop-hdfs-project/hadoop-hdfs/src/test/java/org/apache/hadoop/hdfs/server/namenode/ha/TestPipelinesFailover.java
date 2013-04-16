@@ -422,6 +422,11 @@ public class TestPipelinesFailover {
     // Disable permissions so that another user can recover the lease.
     harness.conf.setBoolean(
         DFSConfigKeys.DFS_PERMISSIONS_ENABLED_KEY, false);
+    // This test triggers rapid NN failovers.  The client retry policy uses an
+    // exponential backoff.  This can quickly lead to long sleep times and even
+    // timeout the whole test.  Cap the sleep time at 1s to prevent this.
+    harness.conf.setInt(DFSConfigKeys.DFS_CLIENT_FAILOVER_SLEEPTIME_MAX_KEY,
+      1000);
 
     final MiniDFSCluster cluster = harness.startCluster();
     try {
