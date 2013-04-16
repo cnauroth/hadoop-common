@@ -537,10 +537,10 @@ public class TestPipelinesFailover {
   }
   
   /**
-   * Try to recover the lease on the given file for up to 30 seconds.
+   * Try to recover the lease on the given file for up to 60 seconds.
    * @param fsOtherUser the filesystem to use for the recoverLease call
    * @param testPath the path on which to run lease recovery
-   * @throws TimeoutException if lease recover does not succeed within 30
+   * @throws TimeoutException if lease recover does not succeed within 60
    * seconds
    * @throws InterruptedException if the thread is interrupted
    */
@@ -563,7 +563,7 @@ public class TestPipelinesFailover {
           }
           return success;
         }
-      }, 1000, 30000);
+      }, 1000, 60000);
     } catch (TimeoutException e) {
       throw new TimeoutException("Timed out recovering lease for " +
           testPath);
