@@ -360,7 +360,7 @@ public class TestWinUtils {
     File newFile = new File(TEST_DIR, "file");
     assertTrue(newFile.createNewFile());
     String target = newFile.getPath();
-    String link = new File(TEST_DIR, "link").getPath().replaceAll("\\", "/");
+    String link = new File(TEST_DIR, "link").getPath().replaceAll("\\\\", "/");
     try {
       Shell.execCommand(Shell.WINUTILS, "symlink", link, target);
       fail(String.format("did not receive expected failure creating symlink "
@@ -380,7 +380,7 @@ public class TestWinUtils {
 
     File newFile = new File(TEST_DIR, "file");
     assertTrue(newFile.createNewFile());
-    String target = newFile.getPath().replaceAll("\\", "/");
+    String target = newFile.getPath().replaceAll("\\\\", "/");
     String link = new File(TEST_DIR, "link").getPath();
     try {
       Shell.execCommand(Shell.WINUTILS, "symlink", link, target);
