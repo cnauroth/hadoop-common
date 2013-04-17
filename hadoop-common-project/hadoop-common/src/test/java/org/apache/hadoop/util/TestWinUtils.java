@@ -349,4 +349,46 @@ public class TestWinUtils {
     assertTrue(a.delete());
     assertFalse(a.exists());
   }
+
+  @Test (timeout = 30000)
+  public void testSymlinkRejectsForwardSlashesInLink() throws IOException {
+    if (!Shell.WINDOWS) {
+      // Not supported on non-Windows platforms
+      return;
+    }
+
+    File newFile = new File(TEST_DIR, "file");
+    assertTrue(newFile.createNewFile());
+    String target = newFile.getPath();
+    String link = TEST_DIR.toString() + "/link";
+    try {
+      Shell.execCommand(Shell.WINUTILS, "symlink", link, target);
+      fail(String.format("did not receive expected failure creating symlink "
+        + "with forward slashes in link: link = %s, target = %s", link, target));
+    } catch (IOException e) {
+      LOG.info(
+        "Expected: Failed to create symlink with forward slashes in target");
+    }
+  }
+
+  @Test (timeout = 30000)
+  public void testSymlinkRejectsForwardSlashesInTarget() throws IOException {
+    if (!Shell.WINDOWS) {
+      // Not supported on non-Windows platforms
+      return;
+    }
+
+    File newFile = new File(TEST_DIR, "file");
+    assertTrue(newFile.createNewFile());
+    String target = TEST_DIR.toString() + "/file";
+    String link = new File(TEST_DIR, "link").getPath();
+    try {
+      Shell.execCommand(Shell.WINUTILS, "symlink", link, target);
+      fail(String.format("did not receive expected failure creating symlink "
+        + "with forward slashes in target: link = %s, target = %s", link, target));
+    } catch (IOException e) {
+      LOG.info(
+        "Expected: Failed to create symlink with forward slashes in target");
+    }
+  }
 }

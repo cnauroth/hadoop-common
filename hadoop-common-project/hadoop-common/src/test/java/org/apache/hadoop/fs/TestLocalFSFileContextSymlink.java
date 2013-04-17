@@ -69,6 +69,7 @@ public class TestLocalFSFileContextSymlink extends FileContextSymlinkBaseTest {
 
   @Override
   public void testCreateFileViaDanglingLinkParent() throws IOException {
+    // Dangling symlinks are not supported on Windows local file system.
     assumeTrue(!Path.WINDOWS);
     super.testCreateFileViaDanglingLinkParent();
   }

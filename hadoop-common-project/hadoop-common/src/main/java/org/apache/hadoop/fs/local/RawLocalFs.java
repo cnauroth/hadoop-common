@@ -91,8 +91,8 @@ public class RawLocalFs extends DelegateToFileSystem {
     // NB: Use createSymbolicLink in java.nio.file.Path once available
     try {
       Shell.execCommand(Shell.getSymlinkCommand(
-        getPathWithoutSchemeAndAuthority(target),
-        getPathWithoutSchemeAndAuthority(link)));
+        getPathWithoutSchemeAndAuthority(target).getPath(),
+        getPathWithoutSchemeAndAuthority(link).getPath()));
     } catch (IOException x) {
       throw new IOException("Unable to create symlink: "+x.getMessage());
     }
@@ -176,17 +176,12 @@ public class RawLocalFs extends DelegateToFileSystem {
     throw new AssertionError();
   }
 
-  private static String getPathWithoutSchemeAndAuthority(Path path) {
+  private static File getPathWithoutSchemeAndAuthority(Path path) {
     Path newPath = path.isUriPathAbsolute() ?
       new Path(null, null, path.toUri().getPath()) :
       path;
 
     // Path.toString() removes leading slash before drive spec on Windows.
-    String newPathStr = newPath.toString();
-
-    // On Windows, creating a symlink with forward slashes would yield a symlink
-    // that isn't usable in subsequent file open operations.  Going through File
-    // translates forward slashes to back slashes on Windows.
-    return new File(newPathStr).getPath();
+    return new File(newPath.toString());
   }
 }
