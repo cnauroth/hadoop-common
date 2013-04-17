@@ -10,9 +10,12 @@ import org.apache.hadoop.fs.azure.AzureException;
 import org.apache.hadoop.fs.azurenative.AzureNativeFileSystemStore.TestHookOperationContext;
 
 import com.microsoft.windowsazure.services.core.storage.*;
+
 import junit.framework.*;
 
 public class TestAzureFileSystemErrorConditions extends TestCase {
+  private static final int ALL_THREE_FILE_SIZE = 1024;
+
   public void testNoInitialize() throws Exception {
     AzureNativeFileSystemStore store = new AzureNativeFileSystemStore();
     boolean passed = false;
@@ -136,6 +139,27 @@ public class TestAzureFileSystemErrorConditions extends TestCase {
     }
   }
 
+  private void writeAllThreeFile(NativeAzureFileSystem fs, Path testFile)
+      throws IOException {
+    byte[] buffer = new byte[ALL_THREE_FILE_SIZE];
+    Arrays.fill(buffer, (byte)3);
+    OutputStream stream = fs.create(testFile);
+    stream.write(buffer);
+    stream.close();
+  }
+
+  private void readAllThreeFile(NativeAzureFileSystem fs, Path testFile)
+      throws IOException {
+    byte[] buffer = new byte[ALL_THREE_FILE_SIZE];
+    InputStream inStream = fs.open(testFile);
+    assertEquals(buffer.length,
+        inStream.read(buffer, 0, buffer.length));
+    inStream.close();
+    for (int i = 0; i < buffer.length; i++) {
+      assertEquals(3, buffer[i]);
+    }
+  }
+
   public void testTransientErrorOnCommitBlockList() throws Exception {
     // Need to do this test against a live storage account
     AzureBlobStorageTestAccount testAccount =
@@ -154,11 +178,32 @@ public class TestAzureFileSystemErrorConditions extends TestCase {
         }
       });
       Path testFile = new Path("/a/b");
-      byte[] buffer = new byte[1024];
-      Arrays.fill(buffer, (byte)3);
-      OutputStream stream = fs.create(testFile);
-      stream.write(buffer);
-      stream.close();
+      writeAllThreeFile(fs, testFile);
+      readAllThreeFile(fs, testFile);
+    } finally {
+      testAccount.cleanup();
+    }
+  }
+
+  public void testTransientErrorOnRead() throws Exception {
+    // Need to do this test against a live storage account
+    AzureBlobStorageTestAccount testAccount =
+        AzureBlobStorageTestAccount.create();
+    if (testAccount == null) {
+      // No live account, skip.
+      return;
+    }
+    try {
+      NativeAzureFileSystem fs = testAccount.getFileSystem();
+      Path testFile = new Path("/a/b");
+      writeAllThreeFile(fs, testFile);
+      injectTransientError(fs, new ConnectionRecognizer() {
+        @Override
+        public boolean isTargetConnection(HttpURLConnection connection) {
+          return connection.getRequestMethod().equals("GET");
+        }
+      });
+      readAllThreeFile(fs, testFile);
     } finally {
       testAccount.cleanup();
     }

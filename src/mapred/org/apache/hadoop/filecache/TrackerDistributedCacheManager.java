@@ -328,10 +328,12 @@ public class TrackerDistributedCacheManager {
       return false;
     }
     if (Shell.WINDOWS && fs instanceof LocalFileSystem) {
-      // Relax the requirement for public cache on Windows since default
+      // Relax the requirement for public cache on LFS on Windows since default
       // permissions are "700" all the way up to the drive letter. In this
       // model, the only requirement for a user is to give EVERYONE group
       // permission on the file and the file will be considered public.
+      // This code path is only hit when fs.default.name is file:/// (mainly
+      // in test).
       return true;
     } else {
       return ancestorsHaveExecutePermissions(fs, current.getParent());
@@ -434,7 +436,6 @@ public class TrackerDistributedCacheManager {
     }
     Path workFile = new Path(workDir, parchive.getName());
     sourceFs.copyToLocalFile(sourcePath, workFile);
-    localFs.setPermission(workFile, permission);
     if (isArchive) {
       String tmpArchive = workFile.getName().toLowerCase();
       File srcFile = new File(workFile.toString());
@@ -466,8 +467,14 @@ public class TrackerDistributedCacheManager {
       return 0;
     }
 
-    FileUtil.chmod(finalDir.toString(),
-      String.format("%04o", permission.toShort()), true);
+    // chmod after the above rename operation since rename does not transfer
+    // the original permissions to the target on all platforms
+    if (isArchive) {
+      FileUtil.chmod(finalDir.toString(), "ugo+rx", true);
+    } else {
+      Path finalWorkFile = new Path(finalDir, parchive.getName());
+      localFs.setPermission(finalWorkFile, permission);
+    }
 
     LOG.info(String.format("Cached %s as %s",
              source.toString(), destination.toString()));
@@ -760,9 +767,7 @@ public class TrackerDistributedCacheManager {
    * Determines the visibilities of the distributed cache files and 
    * archives. The visibility of a cache path is "public" if the leaf component
    * has READ permissions for others, and the parent subdirs have 
-   * EXECUTE permissions for others. On Windows, the visibility criteria
-   * is relaxed, and the cache path is "public" if the leaf component
-   * has EVERYONE permissions.
+   * EXECUTE permissions for others
    * @param job
    * @throws IOException
    */
