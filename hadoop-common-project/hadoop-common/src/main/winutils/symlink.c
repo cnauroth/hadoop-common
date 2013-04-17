@@ -60,14 +60,13 @@ int Symlink(int argc, wchar_t *argv[])
     goto SymlinkEnd;
   }
 
-  if (wcschr(longFileName, L'/') != NULL)
+  if (wcschr(longLinkName, L'/') != NULL || wcschr(longFileName, L'/') != NULL)
   {
-    // Reject forward-slash separated target paths as they result in
-    // unusable symlinks.
+    // Reject forward-slash separated paths as they result in unusable symlinks.
     //
     fwprintf(stderr,
-      L"Rejecting forward-slash separated target path which would result in an "
-      L"unusable symlink: %s\n", longFileName);
+      L"Rejecting forward-slash separated path which would result in an "
+      L"unusable symlink: link = %s, target = %s\n", longLinkName, longFileName);
     ret = FAILURE;
     goto SymlinkEnd;
   }
