@@ -25,6 +25,15 @@ Trunk - Unreleased
 
     YARN-491. TestContainerLogsPage fails on Windows. (Chris Nauroth via hitesh)
 
+    YARN-557. Fix TestUnmanagedAMLauncher failure on Windows. (Chris Nauroth via
+    vinodkv)
+
+    YARN-524 TestYarnVersionInfo failing if generated properties doesn't
+    include an SVN URL. (stevel)
+
+    YARN-487. Modify path manipulation in LocalDirsHandlerService to let
+    TestDiskFailures pass on Windows. (Chris Nauroth via vinodkv)
+
   BREAKDOWN OF HADOOP-8562 SUBTASKS
 
     YARN-158. Yarn creating package-info.java must not depend on sh.
@@ -55,9 +64,6 @@ Trunk - Unreleased
     YARN-359. Fixing commands for container signalling in Windows. (Chris Nauroth
     via vinodkv)
     
-    YARN-524 TestYarnVersionInfo failing if generated properties doesn't
-    include an SVN URL(stevel)
-
 Release 2.0.5-beta - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -71,6 +77,13 @@ Release 2.0.5-beta - UNRELEASED
 
     YARN-536. Removed the unused objects ContainerStatus and ContainerStatus from
     Container which also don't belong to the container. (Xuan Gong via vinodkv)
+
+    YARN-486. Changed NM's startContainer API to accept Container record given by
+    RM as a direct parameter instead of as part of the ContainerLaunchContext
+    record. (Xuan Gong via vinodkv)
+
+    YARN-444. Moved special container exit codes from YarnConfiguration to API
+    where they belong. (Sandy Ryza via vinodkv)
 
   NEW FEATURES
 
@@ -123,6 +136,15 @@ Release 2.0.5-beta - UNRELEASED
     YARN-458. YARN daemon addresses must be placed in many different configs. 
     (sandyr via tucu)
 
+    YARN-193. Scheduler.normalizeRequest does not account for allocation
+    requests that exceed maximumAllocation limits (Zhijie Shen via bikas)
+
+    YARN-479. NM retry behavior for connection to RM should be similar for
+    lost heartbeats (Jian He via bikas)
+
+    YARN-495. Changed NM reboot behaviour to be a simple resync - kill all
+    containers  and re-register with RM. (Jian He via vinodkv)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -154,9 +176,6 @@ Release 2.0.5-beta - UNRELEASED
     YARN-485. TestProcfsProcessTree#testProcessTree() doesn't wait long enough 
     for the process to die. (kkambatl via tucu)
  
-    YARN-470. Support a way to disable resource monitoring on the NodeManager.
-    (Siddharth Seth via hitesh)
-    
     YARN-71. Fix the NodeManager to clean up local-dirs on restart.
     (Xuan Gong via sseth)
 
@@ -194,6 +213,31 @@ Release 2.0.5-beta - UNRELEASED
     YARN-538. RM address DNS lookup can cause unnecessary slowness on every JHS 
     page load. (sandyr via tucu)
 
+    YARN-532. Change RMAdmin and Localization client protocol PB implementations
+    to implement closeable so that they can be stopped when needed via
+    RPC.stopProxy(). (Siddharth Seth via vinodkv)
+
+    YARN-99. Modify private distributed cache to localize files such that no
+    local directory hits unix file count limits and thus prevent job failures.
+    (Omkar Vinit Joshi via vinodkv)
+
+    YARN-112. Fixed a race condition during localization that fails containers.
+    (Omkar Vinit Joshi via vinodkv)
+
+    YARN-534. Change RM restart recovery to also account for AM max-attempts 
+    configuration after the restart. (Jian He via vinodkv)
+
+    YARN-539. Addressed memory leak of LocalResource objects NM when a resource
+    localization fails. (Omkar Vinit Joshi via vinodkv)
+
+    YARN-319. Submitting a job to a fair scheduler queue for which the user
+    does not have permission causes the client to wait forever.
+    (shenhong via tomwhite)
+
+    YARN-412. Fixed FifoScheduler to check hostname of a NodeManager rather
+    than its host:port during scheduling which caused incorrect locality for
+    containers. (Roger Hoover via acmurthy)
+    
 Release 2.0.4-alpha - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -209,6 +253,9 @@ Release 2.0.4-alpha - UNRELEASED
     YARN-429. capacity-scheduler config missing from yarn-test artifact.
     (sseth via hitesh)
 
+    YARN-470. Support a way to disable resource monitoring on the NodeManager.
+    (Siddharth Seth via hitesh)
+    
 Release 2.0.3-alpha - 2013-02-06 
 
   INCOMPATIBLE CHANGES
@@ -407,10 +454,6 @@ Release 2.0.3-alpha - 2013-02-06
 
     YARN-302. Fair scheduler assignmultiple should default to false. (sandyr via tucu)
     
-    YARN-319. Submitting a job to a fair scheduler queue for which the user
-    does not have permission causes the client to wait forever.
-    (shenhong via tomwhite)
-
     YARN-372. Move InlineDispatcher from hadoop-yarn-server-resourcemanager to
     hadoop-yarn-common (sseth via hitesh)
 
@@ -473,6 +516,18 @@ Release 2.0.2-alpha - 2012-09-07
     YARN-138. Ensure default values for minimum/maximum container sizes is
     sane. (harsh & sseth via acmurthy)
 
+Release 0.23.8 - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+  OPTIMIZATIONS
+
+  BUG FIXES
+
 Release 0.23.7 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -504,6 +559,8 @@ Release 0.23.7 - UNRELEASED
 
     YARN-200. yarn log does not output all needed information, and is in a
     binary format (Ravi Prakash via jlowe)
+
+    YARN-525. make CS node-locality-delay refreshable (Thomas Graves via jlowe)
 
   OPTIMIZATIONS
 

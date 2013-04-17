@@ -41,6 +41,7 @@ import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.StopContainerRequest;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
+import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.ContainerState;
@@ -48,7 +49,6 @@ import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
-import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.URL;
 import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
 import org.apache.hadoop.yarn.server.nodemanager.CMgrCompletedAppsEvent;
@@ -60,8 +60,10 @@ import org.apache.hadoop.yarn.server.nodemanager.containermanager.application.Ap
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.ContainerLocalizer;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.ResourceLocalizationService;
 import org.apache.hadoop.yarn.server.security.ApplicationACLsManager;
+import org.apache.hadoop.yarn.util.BuilderUtils;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.junit.Test;
+import static org.mockito.Mockito.*;
 
 public class TestContainerManager extends BaseContainerManagerTest {
 
@@ -123,7 +125,6 @@ public class TestContainerManager extends BaseContainerManagerTest {
 
     // ////// Construct the Container-id
     ContainerId cId = createContainerId();
-    container.setContainerId(cId);
 
     container.setUser(user);
 
@@ -145,14 +146,16 @@ public class TestContainerManager extends BaseContainerManagerTest {
     localResources.put(destinationFile, rsrc_alpha);
     containerLaunchContext.setLocalResources(localResources);
     containerLaunchContext.setUser(container.getUser());
-    containerLaunchContext.setContainerId(container.getContainerId());
-    containerLaunchContext.setResource(recordFactory
-        .newRecordInstance(Resource.class));
+    Container mockContainer = mock(Container.class);
+    when(mockContainer.getId()).thenReturn(cId);
+    when(mockContainer.getResource()).thenReturn(
+        BuilderUtils.newResource(512, 1));
 
     StartContainerRequest startRequest = 
         recordFactory.newRecordInstance(StartContainerRequest.class);
     startRequest.setContainerLaunchContext(containerLaunchContext);
-    
+    startRequest.setContainer(mockContainer);
+
     containerManager.startContainer(startRequest);
 
     BaseContainerManagerTest.waitForContainerState(containerManager, cId,
@@ -218,8 +221,6 @@ public class TestContainerManager extends BaseContainerManagerTest {
     ContainerLaunchContext containerLaunchContext = 
         recordFactory.newRecordInstance(ContainerLaunchContext.class);
 
-    containerLaunchContext.setContainerId(cId);
-
     containerLaunchContext.setUser(user);
 
     URL resource_alpha =
@@ -240,11 +241,13 @@ public class TestContainerManager extends BaseContainerManagerTest {
     containerLaunchContext.setUser(containerLaunchContext.getUser());
     List<String> commands = Arrays.asList(Shell.getRunScriptCommand(scriptFile));
     containerLaunchContext.setCommands(commands);
-    containerLaunchContext.setResource(recordFactory
-        .newRecordInstance(Resource.class));
-    containerLaunchContext.getResource().setMemory(100); // MB
+    Container mockContainer = mock(Container.class);
+    when(mockContainer.getId()).thenReturn(cId);
+    when(mockContainer.getResource()).thenReturn(
+        BuilderUtils.newResource(100, 1)); // MB
     StartContainerRequest startRequest = recordFactory.newRecordInstance(StartContainerRequest.class);
     startRequest.setContainerLaunchContext(containerLaunchContext);
+    startRequest.setContainer(mockContainer);
     containerManager.startContainer(startRequest);
  
     int timeoutSecs = 0;
@@ -325,8 +328,6 @@ public class TestContainerManager extends BaseContainerManagerTest {
 	  ContainerLaunchContext containerLaunchContext = 
 			  recordFactory.newRecordInstance(ContainerLaunchContext.class);
 
-	  containerLaunchContext.setContainerId(cId);
-
 	  containerLaunchContext.setUser(user);
 
 	  URL resource_alpha =
@@ -347,12 +348,14 @@ public class TestContainerManager extends BaseContainerManagerTest {
 	  containerLaunchContext.setUser(containerLaunchContext.getUser());
 	  List<String> commands = Arrays.asList(Shell.getRunScriptCommand(scriptFile));
 	  containerLaunchContext.setCommands(commands);
-	  containerLaunchContext.setResource(recordFactory
-			  .newRecordInstance(Resource.class));
-	  containerLaunchContext.getResource().setMemory(100); // MB
+    Container mockContainer = mock(Container.class);
+    when(mockContainer.getId()).thenReturn(cId);
+    when(mockContainer.getResource()).thenReturn(
+        BuilderUtils.newResource(100, 1)); // MB
 
 	  StartContainerRequest startRequest = recordFactory.newRecordInstance(StartContainerRequest.class);
 	  startRequest.setContainerLaunchContext(containerLaunchContext);
+	  startRequest.setContainer(mockContainer);
 	  containerManager.startContainer(startRequest);
 
 	  BaseContainerManagerTest.waitForContainerState(containerManager, cId,
@@ -415,7 +418,6 @@ public class TestContainerManager extends BaseContainerManagerTest {
     // ////// Construct the Container-id
     ContainerId cId = createContainerId();
     ApplicationId appId = cId.getApplicationAttemptId().getApplicationId();
-    container.setContainerId(cId);
 
     container.setUser(user);
 
@@ -438,14 +440,16 @@ public class TestContainerManager extends BaseContainerManagerTest {
     localResources.put(destinationFile, rsrc_alpha);
     containerLaunchContext.setLocalResources(localResources);
     containerLaunchContext.setUser(container.getUser());
-    containerLaunchContext.setContainerId(container.getContainerId());
-    containerLaunchContext.setResource(recordFactory
-        .newRecordInstance(Resource.class));
+    Container mockContainer = mock(Container.class);
+    when(mockContainer.getId()).thenReturn(cId);
+    when(mockContainer.getResource()).thenReturn(
+        BuilderUtils.newResource(100, 1));
 
 //    containerLaunchContext.command = new ArrayList<CharSequence>();
 
     StartContainerRequest request = recordFactory.newRecordInstance(StartContainerRequest.class);
     request.setContainerLaunchContext(containerLaunchContext);
+    request.setContainer(mockContainer);
     containerManager.startContainer(request);
 
     BaseContainerManagerTest.waitForContainerState(containerManager, cId,

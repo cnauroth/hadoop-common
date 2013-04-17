@@ -235,8 +235,7 @@ public class FSDirectory implements Closeable {
                 long preferredBlockSize,
                 String clientName,
                 String clientMachine,
-                DatanodeDescriptor clientNode,
-                long generationStamp) 
+                DatanodeDescriptor clientNode)
     throws FileAlreadyExistsException, QuotaExceededException,
       UnresolvedLinkException {
     waitForReady();
@@ -2097,5 +2096,9 @@ public class FSDirectory implements Closeable {
     if (name != null) {
       inode.setLocalName(name.getBytes());
     }
+  }
+  
+  void shutdown() {
+    nameCache.reset();
   }
 }
