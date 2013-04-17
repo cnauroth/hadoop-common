@@ -122,25 +122,32 @@ public class TestNodeManagerShutdown {
     
     nm.stop();
     
-    // Now verify the contents of the file
-    // Script generates a message when it receives a sigterm
-    // so we look for that
-    BufferedReader reader =
-        new BufferedReader(new FileReader(processStartFile));
+    // Now verify the contents of the file.  Script generates a message when it
+    // receives a sigterm so we look for that.  We cannot perform this check on
+    // Windows, because the process is not notified when killed by winutils.
+    // There is no way for the process to trap and respond.  Instead, we can
+    // verify that the job object with ID matching container ID no longer exists.
+    if (Shell.WINDOWS) {
+      Assert.assertFalse("Process is still alive!",
+        DefaultContainerExecutor.containerIsAlive(cId.toString()));
+    } else {
+      BufferedReader reader =
+          new BufferedReader(new FileReader(processStartFile));
 
-    boolean foundSigTermMessage = false;
-    while (true) {
-      String line = reader.readLine();
-      if (line == null) {
-        break;
+      boolean foundSigTermMessage = false;
+      while (true) {
+        String line = reader.readLine();
+        if (line == null) {
+          break;
+        }
+        if (line.contains("SIGTERM")) {
+          foundSigTermMessage = true;
+          break;
+        }
       }
-      if (line.contains("SIGTERM")) {
-        foundSigTermMessage = true;
-        break;
-      }
+      Assert.assertTrue("Did not find sigterm message", foundSigTermMessage);
+      reader.close();
     }
-    Assert.assertTrue("Did not find sigterm message", foundSigTermMessage);
-    reader.close();
   }
   
   @SuppressWarnings("unchecked")
@@ -205,44 +212,6 @@ public class TestNodeManagerShutdown {
     ContainerStatus containerStatus =
         containerManager.getContainerStatus(request).getStatus();
     Assert.assertEquals(ContainerState.RUNNING, containerStatus.getState());
-    
-    final int MAX_TRIES=20;
-    int numTries = 0;
-    while (!processStartFile.exists() && numTries < MAX_TRIES) {
-      try {
-        Thread.sleep(500);
-      } catch (InterruptedException ex) {ex.printStackTrace();}
-      numTries++;
-    }
-    
-    nm.stop();
-    
-    // Now verify the contents of the file.  Script generates a message when it
-    // receives a sigterm so we look for that.  We cannot perform this check on
-    // Windows, because the process is not notified when killed by winutils.
-    // There is no way for the process to trap and respond.  Instead, we can
-    // verify that the job object with ID matching container ID no longer exists.
-    if (Shell.WINDOWS) {
-      Assert.assertFalse("Process is still alive!",
-        DefaultContainerExecutor.containerIsAlive(cId.toString()));
-    } else {
-      BufferedReader reader =
-          new BufferedReader(new FileReader(processStartFile));
-
-      boolean foundSigTermMessage = false;
-      while (true) {
-        String line = reader.readLine();
-        if (line == null) {
-          break;
-        }
-        if (line.contains("SIGTERM")) {
-          foundSigTermMessage = true;
-          break;
-        }
-      }
-      Assert.assertTrue("Did not find sigterm message", foundSigTermMessage);
-      reader.close();
-    }
   }
   
   private ContainerId createContainerId() {
