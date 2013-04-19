@@ -668,6 +668,7 @@ public class Configuration implements Iterable<Map.Entry<String,String>>,
     }
     Matcher match = varPat.matcher("");
     String eval = expr;
+    boolean isFileUri = expr.startsWith("file:");
     Set<String> evalSet = new HashSet<String>();
     for(int s=0; s<MAX_SUBST; s++) {
       if (evalSet.contains(eval)) {
@@ -692,6 +693,11 @@ public class Configuration implements Iterable<Map.Entry<String,String>>,
       }
       if (val == null) {
         return eval; // return literal ${var}: var is unbound
+      }
+      if (isFileUri) {
+        // If substituting into a file URI, prepare the substitution value so
+        // that the final result is a valid file URI.
+        val = new File(val).toURI().getPath();
       }
       // substitute
       eval = eval.substring(0, match.start())+val+eval.substring(match.end());
