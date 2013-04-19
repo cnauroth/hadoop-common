@@ -28,7 +28,6 @@ import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.fs.Path;
 
 @InterfaceAudience.Private
 public final class Util {
@@ -71,8 +70,7 @@ public final class Util {
    * @throws IOException
    */
   public static URI fileAsURI(File f) throws IOException {
-    String canonicalPath = new Path(f.getCanonicalPath()).toUri().getPath();
-    URI u = new File(canonicalPath).toURI();
+    URI u = f.getCanonicalFile().toURI();
     
     // trim the trailing slash, if it's present
     if (u.getPath().endsWith("/")) {
