@@ -27,6 +27,8 @@ import java.io.InputStream;
 import java.io.StringWriter;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -55,6 +57,8 @@ public class TestConfiguration extends TestCase {
   final static String XMLHEADER = 
             IBMJAVA?"<?xml version=\"1.0\" encoding=\"UTF-8\"?><configuration>":
   "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?><configuration>";
+  private static final File TEST_BASE_DIR = new File(System.getProperty(
+    "test.build.data", "build/test/data")).getAbsoluteFile();
 
   @Override
   protected void setUp() throws Exception {
@@ -111,6 +115,11 @@ public class TestConfiguration extends TestCase {
     declareProperty("my.fullfile", "${my.base}/${my.file}${my.suffix}", UNSPEC);
     // check that undefined variables are returned as-is
     declareProperty("my.failsexpand", "a${my.undefvar}b", "a${my.undefvar}b");
+    File myDir = new File(TEST_BASE_DIR, "myDir");
+    String myDirPath = myDir.getPath();
+    declareProperty("my.dir", myDirPath, myDirPath);
+    declareProperty("my.subdir.file.uri", "file://${my.dir}/subdir",
+      "file://" + myDir.toURI().getPath() + "/subdir");
     endConfig();
     Path fileResource = new Path(CONFIG);
     conf.addResource(fileResource);
@@ -132,6 +141,17 @@ public class TestConfiguration extends TestCase {
     // check that expansion also occurs for getInt()
     assertTrue(conf.getInt("intvar", -1) == 42);
     assertTrue(conf.getInt("my.int", -1) == 42);
+
+    // For a configured file URI, verify that the final result can be parsed as a
+    // valid URI.
+    String subdirFileUri = conf.get("my.subdir.file.uri");
+    try {
+      new URI(subdirFileUri);
+    } catch (URISyntaxException e) {
+      fail(String.format(
+        "value of my.subdir.file.uri cannot be parsed as a URI, "
+        + "value = %s, reason = %s", subdirFileUri, e.getMessage()));
+    }
   }
 
   public void testFinalParam() throws IOException {
