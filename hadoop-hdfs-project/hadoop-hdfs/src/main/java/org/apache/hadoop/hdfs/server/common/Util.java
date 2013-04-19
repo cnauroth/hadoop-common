@@ -71,7 +71,8 @@ public final class Util {
    * @throws IOException
    */
   public static URI fileAsURI(File f) throws IOException {
-    URI u = new Path(f.getCanonicalPath()).toUri();
+    String canonicalPath = new Path(f.getCanonicalPath()).toUri().getPath();
+    URI u = new File(canonicalPath).toURI();
     
     // trim the trailing slash, if it's present
     if (u.getPath().endsWith("/")) {
