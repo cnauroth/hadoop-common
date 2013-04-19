@@ -115,10 +115,11 @@ public class TestConfiguration extends TestCase {
     declareProperty("my.fullfile", "${my.base}/${my.file}${my.suffix}", UNSPEC);
     // check that undefined variables are returned as-is
     declareProperty("my.failsexpand", "a${my.undefvar}b", "a${my.undefvar}b");
-    String myDir = new File(TEST_BASE_DIR, "myDir").getPath();
-    declareProperty("my.dir", myDir, myDir);
+    File myDir = new File(TEST_BASE_DIR, "myDir");
+    String myDirPath = myDir.getPath();
+    declareProperty("my.dir", myDirPath, myDirPath);
     declareProperty("my.subdir.file.uri", "file://${my.dir}/subdir",
-      "file://" + myDir + "/subdir");
+      "file://" + myDir.toURI().getPath() + "/subdir");
     endConfig();
     Path fileResource = new Path(CONFIG);
     conf.addResource(fileResource);
