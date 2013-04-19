@@ -1,12 +1,13 @@
 package org.apache.hadoop.fs.azurenative;
 
-import junit.framework.*;
+import static org.junit.Assert.*;
+import org.junit.*;
 
-public class TestRollingWindowAverage
-  extends TestCase {
+public class TestRollingWindowAverage {
   /**
    * Tests the basic functionality of the class.
    */
+  @Test
   public void testBasicFunctionality() throws Exception {
     RollingWindowAverage average = new RollingWindowAverage(100);
     assertEquals(0, average.getCurrentAverage()); // Nothing there yet.

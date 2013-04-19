@@ -7,10 +7,13 @@ import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.azure.AzureException;
 import org.apache.hadoop.metrics2.*;
 import org.apache.hadoop.metrics2.lib.*;
+import org.junit.*;
 
 import static org.apache.hadoop.test.MetricsAsserts.*;
 import static org.apache.hadoop.fs.azurenative.AzureMetricsTestUtil.*;
 import static org.apache.hadoop.fs.azurenative.AzureFileSystemInstrumentation.*;
+import static org.junit.Assert.*;
+import static org.junit.Assume.*;
 
 import org.hamcrest.*;
 import org.mockito.ArgumentCaptor;
@@ -18,22 +21,22 @@ import org.mockito.ArgumentCaptor;
 import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.*;
 
-import junit.framework.TestCase;
 
-public class TestAzureFileSystemInstrumentation extends TestCase {
+public class TestAzureFileSystemInstrumentation {
   private FileSystem fs;
   private AzureBlobStorageTestAccount testAccount;
 
-  @Override
-  protected void setUp() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     testAccount = AzureBlobStorageTestAccount.create();
     if (testAccount != null) {
       fs = testAccount.getFileSystem();
     }
+    assumeNotNull(testAccount);
   }
 
-  @Override
-  protected void tearDown() throws Exception {
+  @After
+  public void tearDown() throws Exception {
     if (testAccount != null) {
       testAccount.cleanup();
       testAccount = null;
@@ -41,13 +44,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     }
   }
 
-  @Override
-  protected void runTest() throws Throwable {
-    if (testAccount != null) {
-      super.runTest();
-    }
-  }
-
+  @Test
   public void testMetricTags() throws Exception {
     String accountName =
         testAccount.getRealAccount().getBlobEndpoint()
@@ -69,6 +66,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
         ));
   }
 
+  @Test
   public void testMetricsOnMkdirList() throws Exception {
     long base = getBaseWebResponses();
     
@@ -98,6 +96,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     return azureStore.getBandwidthGaugeUpdater();
   }
 
+  @Test
   public void testMetricsOnFileCreateRead() throws Exception {
     long base = getBaseWebResponses();
     
@@ -208,6 +207,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     assertNoErrors();
   }
 
+  @Test
   public void testMetricsOnBigFileCreateRead() throws Exception {
     long base = getBaseWebResponses();
 
@@ -274,6 +274,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
         downloadLatency > 0);
   }
 
+  @Test
   public void testMetricsOnFileRename() throws Exception {
     long base = getBaseWebResponses();
 
@@ -296,6 +297,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     assertNoErrors();
   }
 
+  @Test
   public void testMetricsOnFileExistsDelete() throws Exception {
     long base = getBaseWebResponses();
 
@@ -329,6 +331,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     assertNoErrors();
   }
 
+  @Test
   public void testMetricsOnDirRename() throws Exception {
     long base = getBaseWebResponses();
     
@@ -354,6 +357,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     assertNoErrors();
   }
 
+  @Test
   public void testClientErrorMetrics() throws Exception {
     String directoryName = "metricsTestDirectory_ClientError";
     Path directoryPath = new Path("/" + directoryName);

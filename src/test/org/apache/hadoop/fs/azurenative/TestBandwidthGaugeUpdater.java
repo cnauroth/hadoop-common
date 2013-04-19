@@ -1,14 +1,16 @@
 package org.apache.hadoop.fs.azurenative;
 
 import static org.apache.hadoop.fs.azurenative.AzureMetricsTestUtil.*;
+import static org.junit.Assert.*;
 
 import java.util.*;
 
 import org.apache.hadoop.conf.*;
 
-import junit.framework.*;
+import org.junit.*;
 
-public class TestBandwidthGaugeUpdater extends TestCase {
+public class TestBandwidthGaugeUpdater {
+  @Test
   public void testSingleThreaded() throws Exception {
     AzureFileSystemInstrumentation instrumentation =
         new AzureFileSystemInstrumentation(new Configuration());
@@ -30,6 +32,7 @@ public class TestBandwidthGaugeUpdater extends TestCase {
     updater.close();
   }
 
+  @Test
   public void testMultiThreaded() throws Exception {
     final AzureFileSystemInstrumentation instrumentation =
         new AzureFileSystemInstrumentation(new Configuration());

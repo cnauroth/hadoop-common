@@ -1,5 +1,8 @@
 package org.apache.hadoop.fs.azurenative;
 
+import static org.junit.Assert.*;
+import static org.junit.Assume.*;
+
 import java.net.*;
 import java.io.*;
 import java.util.*;
@@ -8,14 +11,15 @@ import org.apache.hadoop.conf.*;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.azure.AzureException;
 import org.apache.hadoop.fs.azurenative.AzureNativeFileSystemStore.TestHookOperationContext;
+import org.junit.*;
 
 import com.microsoft.windowsazure.services.core.storage.*;
 
-import junit.framework.*;
 
-public class TestAzureFileSystemErrorConditions extends TestCase {
+public class TestAzureFileSystemErrorConditions {
   private static final int ALL_THREE_FILE_SIZE = 1024;
 
+  @Test
   public void testNoInitialize() throws Exception {
     AzureNativeFileSystemStore store = new AzureNativeFileSystemStore();
     boolean passed = false;
@@ -33,6 +37,7 @@ public class TestAzureFileSystemErrorConditions extends TestCase {
    * Try accessing an unauthorized or non-existent (treated the same)
    * container from ASV.
    */
+  @Test
   public void testAccessUnauthorizedPublicContainer() throws Exception {
     Path noAccessPath = new Path(
         "asv://nonExistentContainer@hopefullyNonExistentAccount/someFile");
@@ -51,6 +56,7 @@ public class TestAzureFileSystemErrorConditions extends TestCase {
     }
   }
 
+  @Test
   public void testAccessContainerWithWrongVersion() throws Exception {
     AzureNativeFileSystemStore store = new AzureNativeFileSystemStore();
     MockStorageInterface mockStorage = new MockStorageInterface();
@@ -115,14 +121,12 @@ public class TestAzureFileSystemErrorConditions extends TestCase {
     });
   }
 
+  @Test
   public void testTransientErrorOnDelete() throws Exception {
     // Need to do this test against a live storage account
     AzureBlobStorageTestAccount testAccount =
         AzureBlobStorageTestAccount.create();
-    if (testAccount == null) {
-      // No live account, skip.
-      return;
-    }
+    assumeNotNull(testAccount);
     try {
       NativeAzureFileSystem fs = testAccount.getFileSystem();
       injectTransientError(fs, new ConnectionRecognizer() {
@@ -160,14 +164,12 @@ public class TestAzureFileSystemErrorConditions extends TestCase {
     }
   }
 
+  @Test
   public void testTransientErrorOnCommitBlockList() throws Exception {
     // Need to do this test against a live storage account
     AzureBlobStorageTestAccount testAccount =
         AzureBlobStorageTestAccount.create();
-    if (testAccount == null) {
-      // No live account, skip.
-      return;
-    }
+    assumeNotNull(testAccount);
     try {
       NativeAzureFileSystem fs = testAccount.getFileSystem();
       injectTransientError(fs, new ConnectionRecognizer() {
@@ -185,14 +187,12 @@ public class TestAzureFileSystemErrorConditions extends TestCase {
     }
   }
 
+  @Test
   public void testTransientErrorOnRead() throws Exception {
     // Need to do this test against a live storage account
     AzureBlobStorageTestAccount testAccount =
         AzureBlobStorageTestAccount.create();
-    if (testAccount == null) {
-      // No live account, skip.
-      return;
-    }
+    assumeNotNull(testAccount);
     try {
       NativeAzureFileSystem fs = testAccount.getFileSystem();
       Path testFile = new Path("/a/b");

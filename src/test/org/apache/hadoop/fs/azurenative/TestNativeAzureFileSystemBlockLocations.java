@@ -1,13 +1,15 @@
 package org.apache.hadoop.fs.azurenative;
 
+import static org.junit.Assert.*;
+
 import java.io.*;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
+import org.junit.*;
 
-import junit.framework.TestCase;
-
-public class TestNativeAzureFileSystemBlockLocations extends TestCase {
+public class TestNativeAzureFileSystemBlockLocations {
+  @Test
   public void testNumberOfBlocks() throws Exception {
     Configuration conf  = new Configuration();
     conf.set(NativeAzureFileSystem.AZURE_BLOCK_SIZE_PROPERTY_NAME, "500");
@@ -20,6 +22,7 @@ public class TestNativeAzureFileSystemBlockLocations extends TestCase {
     testAccount.cleanup();
   }
 
+  @Test
   public void testBlockLocationsTypical() throws Exception {
     BlockLocation[] locations = getBlockLocationsOutput(210, 50, 0, 210);
     assertEquals(5, locations.length);
@@ -29,17 +32,20 @@ public class TestNativeAzureFileSystemBlockLocations extends TestCase {
     assertEquals(100, locations[2].getOffset());
   }
 
+  @Test
   public void testBlockLocationsEmptyFile() throws Exception {
     BlockLocation[] locations = getBlockLocationsOutput(0, 50, 0, 0);
     assertEquals(0, locations.length);
   }
 
+  @Test
   public void testBlockLocationsSmallFile() throws Exception {
     BlockLocation[] locations = getBlockLocationsOutput(1, 50, 0, 1);
     assertEquals(1, locations.length);
     assertEquals(1, locations[0].getLength());
   }
 
+  @Test
   public void testBlockLocationsExactBlockSizeMultiple() throws Exception {
     BlockLocation[] locations = getBlockLocationsOutput(200, 50, 0, 200);
     assertEquals(4, locations.length);
@@ -47,6 +53,7 @@ public class TestNativeAzureFileSystemBlockLocations extends TestCase {
     assertEquals(50, locations[3].getLength());
   }
 
+  @Test
   public void testBlockLocationsSubsetOfFile() throws Exception {
     BlockLocation[] locations = getBlockLocationsOutput(205, 10, 15, 35);
     assertEquals(4, locations.length);
@@ -56,16 +63,19 @@ public class TestNativeAzureFileSystemBlockLocations extends TestCase {
     assertEquals(45, locations[3].getOffset());
   }
 
+  @Test
   public void testBlockLocationsOutOfRangeSubsetOfFile() throws Exception {
     BlockLocation[] locations = getBlockLocationsOutput(205, 10, 300, 10);
     assertEquals(0, locations.length);
   }
 
+  @Test
   public void testBlockLocationsEmptySubsetOfFile() throws Exception {
     BlockLocation[] locations = getBlockLocationsOutput(205, 10, 0, 0);
     assertEquals(0, locations.length);
   }
 
+  @Test
   public void testBlockLocationsDifferentLocationHost() throws Exception {
     BlockLocation[] locations = getBlockLocationsOutput(100, 10, 0, 100,
         "myblobhost");

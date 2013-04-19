@@ -1,33 +1,35 @@
 package org.apache.hadoop.fs.azurenative;
 
+import static org.junit.Assert.*;
+
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.*;
 
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.util.StringUtils;
+import org.junit.*;
 
-import junit.framework.*;
-
-public class TestNativeAzureFileSystemConcurrency extends TestCase {
+public class TestNativeAzureFileSystemConcurrency {
   private AzureBlobStorageTestAccount testAccount;
   private FileSystem fs;
   private InMemoryBlockBlobStore backingStore;
 
-  @Override
-  protected void setUp() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     testAccount = AzureBlobStorageTestAccount.createMock();
     fs = testAccount.getFileSystem();
     backingStore = testAccount.getMockStorage().getBackingStore();
   }
 
-  @Override
-  protected void tearDown() throws Exception {
+  @After
+  public void tearDown() throws Exception {
     testAccount.cleanup();
     fs = null;
     backingStore = null;
   }
 
+  @Test
   public void testLinkBlobs() throws Exception {
     Path filePath = new Path("/inProgress");
     FSDataOutputStream outputStream = fs.create(filePath);
@@ -66,6 +68,7 @@ public class TestNativeAzureFileSystemConcurrency extends TestCase {
    * Test to make sure that we don't expose the temporary upload
    * folder when listing at the root.
    */
+  @Test
   public void testNoTempBlobsVisible() throws Exception {
     Path filePath = new Path("/inProgress");
     FSDataOutputStream outputStream = fs.create(filePath);
@@ -114,6 +117,7 @@ public class TestNativeAzureFileSystemConcurrency extends TestCase {
    * Tests running starting multiple threads all doing various
    * File system operations against the same FS.
    */
+  @Test
   public void testMultiThreadedOperation() throws Exception {
     final int numThreads = 20;
     Thread[] threads = new Thread[numThreads];

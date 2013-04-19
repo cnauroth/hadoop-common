@@ -1,24 +1,25 @@
 package org.apache.hadoop.fs.azurenative;
 
+import static org.junit.Assert.*;
+
 import org.apache.hadoop.conf.*;
 import org.apache.hadoop.fs.*;
+import org.junit.*;
 
-import junit.framework.*;
-
-public class TestAsvFsck extends TestCase {
+public class TestAsvFsck {
   private AzureBlobStorageTestAccount testAccount;
   private FileSystem fs;
   private InMemoryBlockBlobStore backingStore;
 
-  @Override
-  protected void setUp() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     testAccount = AzureBlobStorageTestAccount.createMock();
     fs = testAccount.getFileSystem();
     backingStore = testAccount.getMockStorage().getBackingStore();
   }
 
-  @Override
-  protected void tearDown() throws Exception {
+  @After
+  public void tearDown() throws Exception {
     testAccount.cleanup();
     fs = null;
     backingStore = null;
@@ -40,6 +41,7 @@ public class TestAsvFsck extends TestCase {
   /**
    * Tests that we recover files properly
    */
+  @Test
   public void testRecover() throws Exception {
     Path danglingFile = new Path("/crashedInTheMiddle");
 
@@ -84,6 +86,7 @@ public class TestAsvFsck extends TestCase {
   /**
    * Tests that we delete dangling files properly
    */
+  @Test
   public void testDelete() throws Exception {
     Path danglingFile = new Path("/crashedInTheMiddle");
 
