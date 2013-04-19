@@ -609,6 +609,9 @@ public class ContainerLaunch implements Callable<Integer> {
         // To resolve this, append classpath entries explicitly for each
         // resource.
         for (Map.Entry<Path,List<String>> entry : resources.entrySet()) {
+          boolean targetIsDirectory = new File(entry.getKey().toUri().getPath())
+            .isDirectory();
+
           for (String linkName : entry.getValue()) {
             // Append resource.
             newClassPath.append(File.pathSeparator).append(pwd.toString())
@@ -623,7 +626,7 @@ public class ContainerLaunch implements Callable<Integer> {
             // a directory.  Then, FileUtil.createJarWithClassPath will guarantee
             // that the resulting entry in the manifest's classpath will have a
             // trailing '/', and thus refer to a directory instead of a file.
-            if (new File(entry.getKey().toUri().getPath()).isDirectory()) {
+            if (targetIsDirectory) {
               newClassPath.append(Path.SEPARATOR);
             }
           }
