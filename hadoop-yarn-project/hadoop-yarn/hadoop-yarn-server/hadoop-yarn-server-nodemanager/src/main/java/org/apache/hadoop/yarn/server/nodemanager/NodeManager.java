@@ -58,6 +58,8 @@ import org.apache.hadoop.yarn.service.CompositeService;
 import org.apache.hadoop.yarn.service.Service;
 import org.apache.hadoop.yarn.util.Records;
 
+import com.google.common.annotations.VisibleForTesting;
+
 public class NodeManager extends CompositeService 
     implements EventHandler<NodeManagerEvent> {
 
@@ -79,6 +81,7 @@ public class NodeManager extends CompositeService
   private Context context;
   private AsyncDispatcher dispatcher;
   private ContainerManagerImpl containerManager;
+  private NodeStatusUpdater nodeStatusUpdater;
   private static CompositeServiceShutdownHook nodeManagerShutdownHook; 
   
   private long waitForContainersOnShutdownMillis;
@@ -113,6 +116,14 @@ public class NodeManager extends CompositeService
     return new WebServer(nmContext, resourceView, aclsManager, dirsHandler);
   }
 
+  protected DeletionService createDeletionService(ContainerExecutor exec) {
+    return new DeletionService(exec);
+  }
+
+  protected NMContext createNMContext(NMContainerTokenSecretManager containerTokenSecretManager) {
+    return new NMContext(containerTokenSecretManager);
+  }
+
   protected void doSecureLogin() throws IOException {
     SecurityUtil.login(getConfig(), YarnConfiguration.NM_KEYTAB,
         YarnConfiguration.NM_PRINCIPAL);
@@ -131,7 +142,7 @@ public class NodeManager extends CompositeService
       containerTokenSecretManager = new NMContainerTokenSecretManager(conf);
     }
 
-    this.context = new NMContext(containerTokenSecretManager);
+    this.context = createNMContext(containerTokenSecretManager);
 
     this.aclsManager = new ApplicationACLsManager(conf);
 
@@ -143,7 +154,7 @@ public class NodeManager extends CompositeService
     } catch (IOException e) {
       throw new YarnException("Failed to initialize container executor", e);
     }    
-    DeletionService del = new DeletionService(exec);
+    DeletionService del = createDeletionService(exec);
     addService(del);
 
     // NodeManager level dispatcher
@@ -153,7 +164,7 @@ public class NodeManager extends CompositeService
     addService(nodeHealthChecker);
     dirsHandler = nodeHealthChecker.getDiskHandler();
 
-    NodeStatusUpdater nodeStatusUpdater =
+    nodeStatusUpdater =
         createNodeStatusUpdater(context, dispatcher, nodeHealthChecker);
 
     NodeResourceMonitor nodeResourceMonitor = createNodeResourceMonitor();
@@ -204,35 +215,67 @@ public class NodeManager extends CompositeService
     if (isStopping.getAndSet(true)) {
       return;
     }
-    
-    cleanupContainers();
+
+    cleanupContainers(NodeManagerEventType.SHUTDOWN);
     super.stop();
     DefaultMetricsSystem.shutdown();
   }
-  
+
+  protected void cleanupContainersOnResync() {
+    //we do not want to block dispatcher thread here
+    new Thread() {
+      @Override
+      public void run() {
+        cleanupContainers(NodeManagerEventType.RESYNC);
+        ((NodeStatusUpdaterImpl) nodeStatusUpdater ).rebootNodeStatusUpdater();
+      }
+    }.start();
+  }
+
   @SuppressWarnings("unchecked")
-  protected void cleanupContainers() {
+  protected void cleanupContainers(NodeManagerEventType eventType) {
     Map<ContainerId, Container> containers = context.getContainers();
     if (containers.isEmpty()) {
       return;
     }
-    LOG.info("Containers still running on shutdown: " + containers.keySet());
+    LOG.info("Containers still running on " + eventType + " : "
+        + containers.keySet());
     
-    List<ContainerId> containerIds = new ArrayList<ContainerId>(containers.keySet());
+    List<ContainerId> containerIds =
+        new ArrayList<ContainerId>(containers.keySet());
     dispatcher.getEventHandler().handle(
         new CMgrCompletedContainersEvent(containerIds, 
             CMgrCompletedContainersEvent.Reason.ON_SHUTDOWN));
     
     LOG.info("Waiting for containers to be killed");
     
-    long waitStartTime = System.currentTimeMillis();
-    while (!containers.isEmpty() && 
-        System.currentTimeMillis() - waitStartTime < waitForContainersOnShutdownMillis) {
-      try {
-        Thread.sleep(1000);
-      } catch (InterruptedException ex) {
-        LOG.warn("Interrupted while sleeping on container kill", ex);
+    switch (eventType) {
+    case SHUTDOWN:
+      long waitStartTime = System.currentTimeMillis();
+      while (!containers.isEmpty()
+          && System.currentTimeMillis() - waitStartTime < waitForContainersOnShutdownMillis) {
+        try {
+          Thread.sleep(1000);
+        } catch (InterruptedException ex) {
+          LOG.warn("Interrupted while sleeping on container kill on shutdown",
+            ex);
+        }
       }
+      break;
+    case RESYNC:
+      while (!containers.isEmpty()) {
+        try {
+          Thread.sleep(1000);
+          //to remove done containers from the map
+          nodeStatusUpdater.getNodeStatusAndUpdateContainersInContext();
+        } catch (InterruptedException ex) {
+          LOG.warn("Interrupted while sleeping on container kill on resync",
+            ex);
+        }
+      }
+      break;
+    default:
+      LOG.warn("Invalid eventType: " + eventType);
     }
 
     // All containers killed
@@ -332,9 +375,8 @@ public class NodeManager extends CompositeService
     case SHUTDOWN:
       stop();
       break;
-    case REBOOT:
-      stop();
-      reboot();
+    case RESYNC:
+      cleanupContainersOnResync();
       break;
     default:
       LOG.warn("Invalid shutdown event " + event.getType() + ". Ignoring.");
@@ -351,6 +393,16 @@ public class NodeManager extends CompositeService
     return containerManager;
   }
   
+  //For testing
+  Dispatcher getNMDispatcher(){
+    return dispatcher;
+  }
+
+  @VisibleForTesting
+  Context getNMContext() {
+    return this.context;
+  }
+
   public static void main(String[] args) {
     Thread.setDefaultUncaughtExceptionHandler(new YarnUncaughtExceptionHandler());
     StringUtils.startupShutdownMessage(NodeManager.class, args, LOG);

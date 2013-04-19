@@ -161,7 +161,7 @@ public class FairScheduler implements ResourceScheduler {
   protected boolean assignMultiple; // Allocate multiple containers per
                                     // heartbeat
   protected int maxAssign; // Max containers to assign per heartbeat
-  
+
   public FairScheduler() {
     clock = new SystemClock();
     queueMgr = new QueueManager(this);
@@ -217,7 +217,7 @@ public class FairScheduler implements ResourceScheduler {
     rootQueue.setFairShare(clusterCapacity);
     // Recursively compute fair shares for all queues
     // and update metrics
-    rootQueue.recomputeFairShares();
+    rootQueue.recomputeShares();
 
     // Update recorded capacity of root queue (child queues are updated
     // when fair share is calculated).
@@ -650,11 +650,12 @@ public class FairScheduler implements ResourceScheduler {
    *
    * @param asks a list of resource requests
    * @param minMemory the configured minimum memory allocation
+   * @param maxMemory the configured maximum memory allocation
    */
   static void normalizeRequests(List<ResourceRequest> asks,
-      int minMemory) {
+      int minMemory, int maxMemory) {
     for (ResourceRequest ask : asks) {
-      normalizeRequest(ask, minMemory);
+      normalizeRequest(ask, minMemory, maxMemory);
     }
   }
 
@@ -664,11 +665,14 @@ public class FairScheduler implements ResourceScheduler {
    *
    * @param ask the resource request
    * @param minMemory the configured minimum memory allocation
+   * @param maxMemory the configured maximum memory allocation
    */
-  static void normalizeRequest(ResourceRequest ask, int minMemory) {
+  static void normalizeRequest(ResourceRequest ask, int minMemory,
+      int maxMemory) {
     int memory = Math.max(ask.getCapability().getMemory(), minMemory);
-    ask.getCapability().setMemory(
-        minMemory * ((memory / minMemory) + (memory % minMemory > 0 ? 1 : 0)));
+    int normalizedMemory =
+        minMemory * ((memory / minMemory) + (memory % minMemory > 0 ? 1 : 0));
+    ask.getCapability().setMemory(Math.min(normalizedMemory, maxMemory));
   }
 
   @Override
@@ -684,7 +688,8 @@ public class FairScheduler implements ResourceScheduler {
     }
 
     // Sanity check
-    normalizeRequests(ask, minimumAllocation.getMemory());
+    normalizeRequests(ask, minimumAllocation.getMemory(),
+        maximumAllocation.getMemory());
 
     // Release containers
     for (ContainerId releasedContainerId : release) {
@@ -781,39 +786,24 @@ public class FairScheduler implements ResourceScheduler {
     // 1. Check for reserved applications
     // 2. Schedule if there are no reservations
 
-    // If we have have an application that has reserved a resource on this node
-    // already, we try to complete the reservation.
-    RMContainer reservedContainer = node.getReservedContainer();
-    if (reservedContainer != null) {
-      FSSchedulerApp reservedApplication =
-          applications.get(reservedContainer.getApplicationAttemptId());
+    AppSchedulable reservedAppSchedulable = node.getReservedAppSchedulable();
+    if (reservedAppSchedulable != null) {
+      // Reservation exists; try to fulfill the reservation
+      LOG.info("Trying to fulfill reservation for application "
+          + reservedAppSchedulable.getApp().getApplicationAttemptId()
+          + " on node: " + nm);
 
-      // Try to fulfill the reservation
-      LOG.info("Trying to fulfill reservation for application " +
-          reservedApplication.getApplicationId() + " on node: " + nm);
-
-      FSLeafQueue queue = queueMgr.getLeafQueue(reservedApplication.getQueueName());
-      queue.assignContainer(node, true);
+      node.getReservedAppSchedulable().assignReservedContainer(node);
     }
-
-    // Otherwise, schedule at queue which is furthest below fair share
     else {
+      // No reservation, schedule at queue which is farthest below fair share
       int assignedContainers = 0;
       while (node.getReservedContainer() == null) {
-        // At most one task is scheduled each iteration of this loop
-        List<FSLeafQueue> scheds = new ArrayList<FSLeafQueue>(
-            queueMgr.getLeafQueues());
-        Collections.sort(scheds, new SchedulingAlgorithms.FairShareComparator());
         boolean assignedContainer = false;
-        for (FSLeafQueue sched : scheds) {
-          Resource assigned = sched.assignContainer(node, false);
-          if (Resources.greaterThan(assigned, Resources.none()) ||
-              node.getReservedContainer() != null) {
-            eventLog.log("ASSIGN", nm.getHostName(), assigned);
-            assignedContainers++;
-            assignedContainer = true;
-            break;
-          }
+        if (Resources.greaterThan(
+            queueMgr.getRootQueue().assignContainer(node),
+            Resources.none())) {
+          assignedContainer = true;
         }
         if (!assignedContainer) { break; }
         if (!assignMultiple) { break; }
@@ -921,24 +911,24 @@ public class FairScheduler implements ResourceScheduler {
   @Override
   public synchronized void reinitialize(Configuration conf, RMContext rmContext)
       throws IOException {
+    this.conf = new FairSchedulerConfiguration(conf);
+    minimumAllocation = this.conf.getMinimumMemoryAllocation();
+    maximumAllocation = this.conf.getMaximumMemoryAllocation();
+    userAsDefaultQueue = this.conf.getUserAsDefaultQueue();
+    nodeLocalityThreshold = this.conf.getLocalityThresholdNode();
+    rackLocalityThreshold = this.conf.getLocalityThresholdRack();
+    preemptionEnabled = this.conf.getPreemptionEnabled();
+    assignMultiple = this.conf.getAssignMultiple();
+    maxAssign = this.conf.getMaxAssign();
+    sizeBasedWeight = this.conf.getSizeBasedWeight();
+    
     if (!initialized) {
-      this.conf = new FairSchedulerConfiguration(conf);
       rootMetrics = QueueMetrics.forQueue("root", null, true, conf);
       this.rmContext = rmContext;
       this.eventLog = new FairSchedulerEventLog();
       eventLog.init(this.conf);
-      minimumAllocation = this.conf.getMinimumMemoryAllocation();
-      maximumAllocation = this.conf.getMaximumMemoryAllocation();
-      userAsDefaultQueue = this.conf.getUserAsDefaultQueue();
-      nodeLocalityThreshold = this.conf.getLocalityThresholdNode();
-      rackLocalityThreshold = this.conf.getLocalityThresholdRack();
-      preemptionEnabled = this.conf.getPreemptionEnabled();
-      assignMultiple = this.conf.getAssignMultiple();
-      maxAssign = this.conf.getMaxAssign();
 
       initialized = true;
-
-      sizeBasedWeight = this.conf.getSizeBasedWeight();
 
       try {
         queueMgr.initialize();
@@ -951,14 +941,8 @@ public class FairScheduler implements ResourceScheduler {
       updateThread.setDaemon(true);
       updateThread.start();
     } else {
-      this.conf = new FairSchedulerConfiguration(conf);
-      userAsDefaultQueue = this.conf.getUserAsDefaultQueue();
-      nodeLocalityThreshold = this.conf.getLocalityThresholdNode();
-      rackLocalityThreshold = this.conf.getLocalityThresholdRack();
-      preemptionEnabled = this.conf.getPreemptionEnabled();
       try {
         queueMgr.reloadAllocs();
-
       } catch (Exception e) {
         throw new IOException("Failed to initialize FairScheduler", e);
       }

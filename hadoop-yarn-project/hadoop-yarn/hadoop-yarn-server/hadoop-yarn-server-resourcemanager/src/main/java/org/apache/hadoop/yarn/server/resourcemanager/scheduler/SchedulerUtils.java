@@ -21,12 +21,12 @@ import java.util.List;
 
 import org.apache.hadoop.classification.InterfaceAudience.Private;
 import org.apache.hadoop.classification.InterfaceStability.Unstable;
+import org.apache.hadoop.yarn.api.ContainerExitStatus;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerState;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
-import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
@@ -76,7 +76,7 @@ public class SchedulerUtils {
     containerStatus.setContainerId(containerId);
     containerStatus.setDiagnostics(diagnostics);
     containerStatus.setExitStatus(
-        YarnConfiguration.ABORTED_CONTAINER_EXIT_STATUS);
+        ContainerExitStatus.ABORTED);
     containerStatus.setState(ContainerState.COMPLETE);
     return containerStatus;
   }
@@ -89,10 +89,12 @@ public class SchedulerUtils {
       List<ResourceRequest> asks,
       ResourceCalculator resourceCalculator, 
       Resource clusterResource,
-      Resource minimumResource) {
+      Resource minimumResource,
+      Resource maximumResource) {
     for (ResourceRequest ask : asks) {
       normalizeRequest(
-          ask, resourceCalculator, clusterResource, minimumResource);
+          ask, resourceCalculator, clusterResource, minimumResource,
+          maximumResource);
     }
   }
 
@@ -104,12 +106,50 @@ public class SchedulerUtils {
       ResourceRequest ask, 
       ResourceCalculator resourceCalculator, 
       Resource clusterResource,
-      Resource minimumResource) {
+      Resource minimumResource,
+      Resource maximumResource) {
     Resource normalized = 
         Resources.normalize(
-            resourceCalculator, ask.getCapability(), minimumResource);
-    ask.getCapability().setMemory(normalized.getMemory());
-    ask.getCapability().setVirtualCores(normalized.getVirtualCores());
+            resourceCalculator, ask.getCapability(), minimumResource,
+            maximumResource);
+    ask.setCapability(normalized);
+  }
+
+  /**
+   * Utility method to validate a resource request, by insuring that the
+   * requested memory/vcore is non-negative and not greater than max
+   */
+  public static void validateResourceRequest(ResourceRequest resReq,
+      Resource maximumResource) throws InvalidResourceRequestException {
+    if (resReq.getCapability().getMemory() < 0 ||
+        resReq.getCapability().getMemory() > maximumResource.getMemory()) {
+      throw new InvalidResourceRequestException("Invalid resource request"
+          + ", requested memory < 0"
+          + ", or requested memory > max configured"
+          + ", requestedMemory=" + resReq.getCapability().getMemory()
+          + ", maxMemory=" + maximumResource.getMemory());
+    }
+    if (resReq.getCapability().getVirtualCores() < 0 ||
+        resReq.getCapability().getVirtualCores() >
+        maximumResource.getVirtualCores()) {
+      throw new InvalidResourceRequestException("Invalid resource request"
+          + ", requested virtual cores < 0"
+          + ", or requested virtual cores > max configured"
+          + ", requestedVirtualCores="
+          + resReq.getCapability().getVirtualCores()
+          + ", maxVirtualCores=" + maximumResource.getVirtualCores());
+    }
+  }
+
+  /**
+   * Utility method to validate a list resource requests, by insuring that the
+   * requested memory/vcore is non-negative and not greater than max
+   */
+  public static void validateResourceRequests(List<ResourceRequest> ask,
+      Resource maximumResource) throws InvalidResourceRequestException {
+    for (ResourceRequest resReq : ask) {
+      validateResourceRequest(resReq, maximumResource);
+    }
   }
 
 }

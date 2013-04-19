@@ -22,7 +22,6 @@ import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -70,11 +69,8 @@ import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.ContainerToken;
 import org.apache.hadoop.yarn.api.records.LocalResource;
-import org.apache.hadoop.yarn.api.records.LocalResourceType;
-import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
-import org.apache.hadoop.yarn.api.records.URL;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
 import org.apache.hadoop.yarn.factories.RecordFactory;
@@ -89,7 +85,6 @@ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptS
 import org.apache.hadoop.yarn.server.resourcemanager.security.ApplicationTokenSecretManager;
 import org.apache.hadoop.yarn.server.resourcemanager.security.RMContainerTokenSecretManager;
 import org.apache.hadoop.yarn.util.BuilderUtils;
-import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -362,8 +357,13 @@ public class TestContainerManagerSecurity {
 
         LOG.info("Going to contact NM with expired token");
         ContainerLaunchContext context = createContainerLaunchContextForTest(newTokenId);
+        Container container =
+            BuilderUtils.newContainer(newTokenId.getContainerID(), null, null,
+                BuilderUtils.newResource(newTokenId.getResource().getMemory(),
+                    newTokenId.getResource().getVirtualCores()), null, null);
         StartContainerRequest request = Records.newRecord(StartContainerRequest.class);
         request.setContainerLaunchContext(context);
+        request.setContainer(container);
 
         //Calling startContainer with an expired token.
         try {
@@ -407,18 +407,19 @@ public class TestContainerManagerSecurity {
       Arrays.asList("ping", "-n", "100", "127.0.0.1", ">nul") :
       Arrays.asList("sleep", "100");
 
-    ContainerLaunchContext amContainer = BuilderUtils
-        .newContainerLaunchContext(null, "testUser", BuilderUtils
-            .newResource(1024, 1), Collections.<String, LocalResource>emptyMap(),
-            new HashMap<String, String>(), cmd,
-            new HashMap<String, ByteBuffer>(), null,
-            new HashMap<ApplicationAccessType, String>());
+    ContainerLaunchContext amContainer =
+        BuilderUtils.newContainerLaunchContext("testUser",
+                Collections.<String, LocalResource> emptyMap(),
+                new HashMap<String, String>(), cmd,
+                new HashMap<String, ByteBuffer>(), null,
+                new HashMap<ApplicationAccessType, String>());
 
     ApplicationSubmissionContext appSubmissionContext = recordFactory
         .newRecordInstance(ApplicationSubmissionContext.class);
     appSubmissionContext.setApplicationId(appID);
-    appSubmissionContext.setUser("testUser");
     appSubmissionContext.setAMContainerSpec(amContainer);
+    appSubmissionContext.getAMContainerSpec().setUser("testUser");
+    appSubmissionContext.setResource(BuilderUtils.newResource(1024, 1));
 
     SubmitApplicationRequest submitRequest = recordFactory
         .newRecordInstance(SubmitApplicationRequest.class);
@@ -486,8 +487,8 @@ public class TestContainerManagerSecurity {
 
     // Request a container allocation.
     List<ResourceRequest> ask = new ArrayList<ResourceRequest>();
-    ask.add(BuilderUtils.newResourceRequest(BuilderUtils.newPriority(0), "*",
-        BuilderUtils.newResource(1024, 1), 1));
+    ask.add(BuilderUtils.newResourceRequest(BuilderUtils.newPriority(0),
+        ResourceRequest.ANY, BuilderUtils.newResource(1024, 1), 1));
 
     AllocateRequest allocateRequest = BuilderUtils.newAllocateRequest(
         BuilderUtils.newApplicationAttemptId(appID, 1), 0, 0F, ask,
@@ -496,7 +497,7 @@ public class TestContainerManagerSecurity {
         .getAllocatedContainers();
 
     // Modify ask to request no more.
-    allocateRequest.clearAsks();
+    allocateRequest.setAskList(new ArrayList<ResourceRequest>());
 
     int waitCounter = 0;
     while ((allocatedContainers == null || allocatedContainers.size() == 0)
@@ -544,8 +545,11 @@ public class TestContainerManagerSecurity {
     // Authenticated but unauthorized, due to wrong resource
     ContainerLaunchContext context =
         createContainerLaunchContextForTest(tokenId);
-    context.getResource().setMemory(2048); // Set a different resource size.
+    Container container =
+        BuilderUtils.newContainer(tokenId.getContainerID(), null, null,
+            BuilderUtils.newResource(2048, 1), null, null);
     request.setContainerLaunchContext(context);
+    request.setContainer(container);
     try {
       client.startContainer(request);
       fail("Connection initiation with unauthorized "
@@ -556,7 +560,7 @@ public class TestContainerManagerSecurity {
           "Unauthorized request to start container. "));
       Assert.assertTrue(e.getMessage().contains(
           "\nExpected resource " + tokenId.getResource().toString()
-              + " but found " + context.getResource().toString()));
+              + " but found " + container.getResource().toString()));
     }
   }
 
@@ -568,7 +572,12 @@ public class TestContainerManagerSecurity {
     ContainerLaunchContext context =
         createContainerLaunchContextForTest(tokenId);
     context.setUser("Saruman"); // Set a different user-name.
+    Container container =
+        BuilderUtils.newContainer(tokenId.getContainerID(), null, null,
+            BuilderUtils.newResource(tokenId.getResource().getMemory(), tokenId
+                .getResource().getVirtualCores()), null, null);
     request.setContainerLaunchContext(context);
+    request.setContainer(container);
     try {
       client.startContainer(request);
       fail("Connection initiation with unauthorized "
@@ -586,12 +595,8 @@ public class TestContainerManagerSecurity {
   private ContainerLaunchContext createContainerLaunchContextForTest(
       ContainerTokenIdentifier tokenId) {
     ContainerLaunchContext context =
-        BuilderUtils.newContainerLaunchContext(tokenId.getContainerID(),
-            "testUser",
-            BuilderUtils.newResource(
-                tokenId.getResource().getMemory(), 
-                tokenId.getResource().getVirtualCores()),
-            new HashMap<String, LocalResource>(),
+        BuilderUtils.newContainerLaunchContext(
+            "testUser", new HashMap<String, LocalResource>(),
             new HashMap<String, String>(), new ArrayList<String>(),
             new HashMap<String, ByteBuffer>(), null,
             new HashMap<ApplicationAccessType, String>());

@@ -37,7 +37,6 @@ import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
-import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.NodeType;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.QueueMetrics;
 import org.apache.hadoop.yarn.server.resourcemanager.security.RMContainerTokenSecretManager;
@@ -279,9 +278,7 @@ public class AppSchedulable extends Schedulable {
     }
   }
 
-
-  @Override
-  public Resource assignContainer(FSSchedulerNode node, boolean reserved) {
+  private Resource assignContainer(FSSchedulerNode node, boolean reserved) {
     LOG.info("Node offered to app: " + getName() + " reserved: " + reserved);
 
     if (reserved) {
@@ -336,7 +333,7 @@ public class AppSchedulable extends Schedulable {
         }
 
         ResourceRequest offSwitchRequest = app.getResourceRequest(priority,
-            RMNode.ANY);
+            ResourceRequest.ANY);
         if (offSwitchRequest != null && offSwitchRequest.getNumContainers() != 0
             && allowedLocality.equals(NodeType.OFF_SWITCH)) {
           return assignContainer(node, app, priority, offSwitchRequest,
@@ -345,5 +342,14 @@ public class AppSchedulable extends Schedulable {
       }
     }
     return Resources.none();
+  }
+
+  public Resource assignReservedContainer(FSSchedulerNode node) {
+    return assignContainer(node, true);
+  }
+
+  @Override
+  public Resource assignContainer(FSSchedulerNode node) {
+    return assignContainer(node, false);
   }
 }

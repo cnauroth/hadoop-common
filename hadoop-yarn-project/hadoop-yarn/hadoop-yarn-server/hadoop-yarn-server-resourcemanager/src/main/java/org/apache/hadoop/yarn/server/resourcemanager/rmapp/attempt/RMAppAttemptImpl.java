@@ -38,9 +38,9 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.http.HttpConfig;
-import org.apache.hadoop.util.ExitUtil;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
+import org.apache.hadoop.util.ExitUtil;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationResourceUsageReport;
@@ -63,10 +63,10 @@ import org.apache.hadoop.yarn.server.resourcemanager.ApplicationMasterService;
 import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
 import org.apache.hadoop.yarn.server.resourcemanager.amlauncher.AMLauncherEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.amlauncher.AMLauncherEventType;
+import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore.ApplicationAttemptState;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore.ApplicationState;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore.RMState;
-import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.Recoverable;
 import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.RMAppEvent;
@@ -690,7 +690,7 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
       appAttempt.eventHandler.handle(
           new AppAddedSchedulerEvent(appAttempt.applicationAttemptId,
               appAttempt.submissionContext.getQueue(),
-              appAttempt.submissionContext.getUser()));
+              appAttempt.submissionContext.getAMContainerSpec().getUser()));
     }
   }
 
@@ -736,10 +736,13 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
             RMAppEventType.APP_ACCEPTED));
 
         // Request a container for the AM.
-        ResourceRequest request = BuilderUtils.newResourceRequest(
-            AM_CONTAINER_PRIORITY, "*", appAttempt.submissionContext
-                .getAMContainerSpec().getResource(), 1);
+        ResourceRequest request =
+            BuilderUtils.newResourceRequest(
+                AM_CONTAINER_PRIORITY, ResourceRequest.ANY, appAttempt
+                    .getSubmissionContext().getResource(), 1);
 
+        // SchedulerUtils.validateResourceRequests is not necessary because
+        // AM resource has been checked when submission
         Allocation amContainerAllocation = appAttempt.scheduler.allocate(
             appAttempt.applicationAttemptId,
             Collections.singletonList(request), EMPTY_CONTAINER_RELEASE_LIST);
@@ -771,7 +774,8 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
       // Set the masterContainer
       appAttempt.setMasterContainer(amContainerAllocation.getContainers().get(
                                                                            0));
-
+      appAttempt.getSubmissionContext().setResource(
+          appAttempt.getMasterContainer().getResource());
       RMStateStore store = appAttempt.rmContext.getStateStore();
       appAttempt.storeAttempt(store);
     }

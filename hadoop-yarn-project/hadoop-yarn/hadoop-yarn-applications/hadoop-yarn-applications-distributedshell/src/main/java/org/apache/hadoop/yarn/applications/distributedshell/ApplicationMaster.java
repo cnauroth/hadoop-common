@@ -45,6 +45,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.yarn.api.AMRMProtocol;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
+import org.apache.hadoop.yarn.api.ContainerExitStatus;
 import org.apache.hadoop.yarn.api.ContainerManager;
 
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateRequest;
@@ -319,10 +320,7 @@ public class ApplicationMaster {
 
     Map<String, String> envs = System.getenv();
 
-    if (envs.containsKey(ApplicationConstants.AM_APP_ATTEMPT_ID_ENV)) {
-      appAttemptID = ConverterUtils.toApplicationAttemptId(envs
-          .get(ApplicationConstants.AM_APP_ATTEMPT_ID_ENV));
-    } else if (!envs.containsKey(ApplicationConstants.AM_CONTAINER_ID_ENV)) {
+    if (!envs.containsKey(ApplicationConstants.AM_CONTAINER_ID_ENV)) {
       if (cliParser.hasOption("app_attempt_id")) {
         String appIdStr = cliParser.getOptionValue("app_attempt_id", "");
         appAttemptID = ConverterUtils.toApplicationAttemptId(appIdStr);
@@ -334,6 +332,23 @@ public class ApplicationMaster {
       ContainerId containerId = ConverterUtils.toContainerId(envs
           .get(ApplicationConstants.AM_CONTAINER_ID_ENV));
       appAttemptID = containerId.getApplicationAttemptId();
+    }
+
+    if (!envs.containsKey(ApplicationConstants.APP_SUBMIT_TIME_ENV)) {
+      throw new RuntimeException(ApplicationConstants.APP_SUBMIT_TIME_ENV
+          + " not set in the environment");
+    }
+    if (!envs.containsKey(ApplicationConstants.NM_HOST_ENV)) {
+      throw new RuntimeException(ApplicationConstants.NM_HOST_ENV
+          + " not set in the environment");
+    }
+    if (!envs.containsKey(ApplicationConstants.NM_HTTP_PORT_ENV)) {
+      throw new RuntimeException(ApplicationConstants.NM_HTTP_PORT_ENV
+          + " not set in the environment");
+    }
+    if (!envs.containsKey(ApplicationConstants.NM_PORT_ENV)) {
+      throw new RuntimeException(ApplicationConstants.NM_PORT_ENV
+          + " not set in the environment");
     }
 
     LOG.info("Application master for app" + ", appId="
@@ -394,6 +409,10 @@ public class ApplicationMaster {
         "container_memory", "10"));
     numTotalContainers = Integer.parseInt(cliParser.getOptionValue(
         "num_containers", "1"));
+    if (numTotalContainers == 0) {
+      throw new IllegalArgumentException(
+          "Cannot run distributed shell with no containers");
+    }
     requestPriority = Integer.parseInt(cliParser
         .getOptionValue("priority", "0"));
 
@@ -538,7 +557,7 @@ public class ApplicationMaster {
         int exitStatus = containerStatus.getExitStatus();
         if (0 != exitStatus) {
           // container failed
-          if (YarnConfiguration.ABORTED_CONTAINER_EXIT_STATUS != exitStatus) {
+          if (ContainerExitStatus.ABORTED != exitStatus) {
             // shell script failed
             // counts as completed
             numCompletedContainers.incrementAndGet();
@@ -590,7 +609,6 @@ public class ApplicationMaster {
             + ", containerNode=" + allocatedContainer.getNodeId().getHost()
             + ":" + allocatedContainer.getNodeId().getPort()
             + ", containerNodeURI=" + allocatedContainer.getNodeHttpAddress()
-            + ", containerState" + allocatedContainer.getState()
             + ", containerResourceMemory"
             + allocatedContainer.getResource().getMemory());
         // + ", containerToken"
@@ -662,11 +680,8 @@ public class ApplicationMaster {
       ContainerLaunchContext ctx = Records
           .newRecord(ContainerLaunchContext.class);
 
-      ctx.setContainerId(container.getId());
-      ctx.setResource(container.getResource());
-
       String jobUserName = System.getenv(ApplicationConstants.Environment.USER
-          .name());
+          .key());
       ctx.setUser(jobUserName);
       LOG.info("Setting user in ContainerLaunchContext to: " + jobUserName);
 
@@ -735,6 +750,7 @@ public class ApplicationMaster {
       StartContainerRequest startReq = Records
           .newRecord(StartContainerRequest.class);
       startReq.setContainerLaunchContext(ctx);
+      startReq.setContainer(container);
       try {
         cm.startContainer(startReq);
       } catch (YarnRemoteException e) {

@@ -58,7 +58,6 @@ import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerEventType;
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerState;
-import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.ActiveUsersManager;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.NodeType;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.QueueMetrics;
@@ -89,6 +88,8 @@ public class LeafQueue implements CSQueue {
   private int maxActiveApplications; // Based on absolute max capacity
   private int maxActiveAppsUsingAbsCap; // Based on absolute capacity
   private int maxActiveApplicationsPerUser;
+  
+  private int nodeLocalityDelay;
   
   private Resource usedResources = Resources.createResource(0, 0);
   private float usedCapacity = 0.0f;
@@ -123,8 +124,6 @@ public class LeafQueue implements CSQueue {
   private CapacitySchedulerContext scheduler;
   
   private final ActiveUsersManager activeUsersManager;
-  
-  private final int nodeLocalityDelay;
   
   private final ResourceCalculator resourceCalculator;
   
@@ -197,9 +196,6 @@ public class LeafQueue implements CSQueue {
     Map<QueueACL, AccessControlList> acls = 
       cs.getConfiguration().getAcls(getQueuePath());
 
-    this.nodeLocalityDelay = 
-        cs.getConfiguration().getNodeLocalityDelay();
-    
     setupQueueConfigs(
         cs.getClusterResources(),
         capacity, absoluteCapacity, 
@@ -207,7 +203,7 @@ public class LeafQueue implements CSQueue {
         userLimit, userLimitFactor, 
         maxApplications, maxApplicationsPerUser,
         maxActiveApplications, maxActiveApplicationsPerUser,
-        state, acls);
+        state, acls, cs.getConfiguration().getNodeLocalityDelay());
 
     if(LOG.isDebugEnabled()) {
       LOG.debug("LeafQueue:" + " name=" + queueName
@@ -228,7 +224,8 @@ public class LeafQueue implements CSQueue {
       int userLimit, float userLimitFactor,
       int maxApplications, int maxApplicationsPerUser,
       int maxActiveApplications, int maxActiveApplicationsPerUser,
-      QueueState state, Map<QueueACL, AccessControlList> acls)
+      QueueState state, Map<QueueACL, AccessControlList> acls, 
+      int nodeLocalityDelay)
   {
     // Sanity check
     CSQueueUtils.checkMaxCapacity(getQueueName(), capacity, maximumCapacity);
@@ -257,6 +254,8 @@ public class LeafQueue implements CSQueue {
     this.queueInfo.setCapacity(this.capacity);
     this.queueInfo.setMaximumCapacity(this.maximumCapacity);
     this.queueInfo.setQueueState(this.state);
+    
+    this.nodeLocalityDelay = nodeLocalityDelay;
 
     StringBuilder aclsString = new StringBuilder();
     for (Map.Entry<QueueACL, AccessControlList> e : acls.entrySet()) {
@@ -320,7 +319,8 @@ public class LeafQueue implements CSQueue {
         "state = " + state +
         " [= configuredState ]" + "\n" +
         "acls = " + aclsString +
-        " [= configuredAcls ]" + "\n");
+        " [= configuredAcls ]" + "\n" + 
+        "nodeLocalityDelay = " +  nodeLocalityDelay + "\n");
   }
   
   @Override
@@ -606,7 +606,12 @@ public class LeafQueue implements CSQueue {
         newlyParsedLeafQueue.getMaxApplicationsPerUser(),
         newlyParsedLeafQueue.getMaximumActiveApplications(), 
         newlyParsedLeafQueue.getMaximumActiveApplicationsPerUser(),
-        newlyParsedLeafQueue.state, newlyParsedLeafQueue.acls);
+        newlyParsedLeafQueue.state, newlyParsedLeafQueue.acls,
+        newlyParsedLeafQueue.getNodeLocalityDelay());
+
+    // queue metrics are updated, more resource may be available
+    // activate the pending applications if possible
+    activateApplications();
   }
 
   @Override
@@ -812,7 +817,8 @@ public class LeafQueue implements CSQueue {
         for (Priority priority : application.getPriorities()) {
           // Required resource
           Resource required = 
-              application.getResourceRequest(priority, RMNode.ANY).getCapability();
+              application.getResourceRequest(
+                  priority, ResourceRequest.ANY).getCapability();
 
           // Do we need containers at this 'priority'?
           if (!needContainers(application, priority, required)) {
@@ -1157,7 +1163,7 @@ public class LeafQueue implements CSQueue {
       FiCaSchedulerApp application, Priority priority, 
       RMContainer reservedContainer) {
     ResourceRequest request = 
-      application.getResourceRequest(priority, RMNode.ANY);
+      application.getResourceRequest(priority, ResourceRequest.ANY);
     if (request != null) {
       if (canAssign(application, priority, node, NodeType.OFF_SWITCH, 
           reservedContainer)) {
@@ -1179,7 +1185,7 @@ public class LeafQueue implements CSQueue {
 
       // 'Delay' off-switch
       ResourceRequest offSwitchRequest = 
-          application.getResourceRequest(priority, RMNode.ANY);
+          application.getResourceRequest(priority, ResourceRequest.ANY);
       long missedOpportunities = application.getSchedulingOpportunities(priority);
       long requiredContainers = offSwitchRequest.getNumContainers(); 
       
@@ -1477,7 +1483,11 @@ public class LeafQueue implements CSQueue {
     CSQueueUtils.updateQueueStatistics(
         resourceCalculator, this, getParent(), clusterResource, 
         minimumAllocation);
-    
+
+    // queue metrics are updated, more resource may be available
+    // activate the pending applications if possible
+    activateApplications();
+
     // Update application properties
     for (FiCaSchedulerApp application : activeApplications) {
       synchronized (application) {

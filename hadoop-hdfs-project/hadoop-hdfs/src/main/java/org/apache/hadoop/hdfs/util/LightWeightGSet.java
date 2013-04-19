@@ -24,7 +24,10 @@ import java.util.Iterator;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.HadoopIllegalArgumentException;
+
+import com.google.common.annotations.VisibleForTesting;
 
 /**
  * A low memory footprint {@link GSet} implementation,
@@ -82,7 +85,6 @@ public class LightWeightGSet<K, E extends K> implements GSet<K, E> {
     if (LOG.isDebugEnabled()) {
       LOG.debug("recommended=" + recommended_length + ", actual=" + actual);
     }
-
     entries = new LinkedElement[actual];
     hash_mask = entries.length - 1;
   }
@@ -284,5 +286,60 @@ public class LightWeightGSet<K, E extends K> implements GSet<K, E> {
     public void remove() {
       throw new UnsupportedOperationException("Remove is not supported.");
     }
+  }
+  
+  /**
+   * Let t = percentage of max memory.
+   * Let e = round(log_2 t).
+   * Then, we choose capacity = 2^e/(size of reference),
+   * unless it is outside the close interval [1, 2^30].
+   */
+  public static int computeCapacity(double percentage, String mapName) {
+    return computeCapacity(Runtime.getRuntime().maxMemory(), percentage,
+        mapName);
+  }
+  
+  @VisibleForTesting
+  static int computeCapacity(long maxMemory, double percentage,
+      String mapName) {
+    if (percentage > 100.0 || percentage < 0.0) {
+      throw new HadoopIllegalArgumentException("Percentage " + percentage
+          + " must be greater than or equal to 0 "
+          + " and less than or equal to 100");
+    }
+    if (maxMemory < 0) {
+      throw new HadoopIllegalArgumentException("Memory " + maxMemory
+          + " must be greater than or equal to 0");
+    }
+    if (percentage == 0.0 || maxMemory == 0) {
+      return 0;
+    }
+    //VM detection
+    //See http://java.sun.com/docs/hotspot/HotSpotFAQ.html#64bit_detection
+    final String vmBit = System.getProperty("sun.arch.data.model");
+
+    //Percentage of max memory
+    final double percentDivisor = 100.0/percentage;
+    final double percentMemory = maxMemory/percentDivisor;
+    
+    //compute capacity
+    final int e1 = (int)(Math.log(percentMemory)/Math.log(2.0) + 0.5);
+    final int e2 = e1 - ("32".equals(vmBit)? 2: 3);
+    final int exponent = e2 < 0? 0: e2 > 30? 30: e2;
+    final int c = 1 << exponent;
+
+    LOG.info("Computing capacity for map " + mapName);
+    LOG.info("VM type       = " + vmBit + "-bit");
+    LOG.info(percentage + "% max memory = "
+        + StringUtils.TraditionalBinaryPrefix.long2String(maxMemory, "B", 1));
+    LOG.info("capacity      = 2^" + exponent + " = " + c + " entries");
+    return c;
+  }
+  
+  public void clear() {
+    for (int i = 0; i < entries.length; i++) {
+      entries[i] = null;
+    }
+    size = 0;
   }
 }
