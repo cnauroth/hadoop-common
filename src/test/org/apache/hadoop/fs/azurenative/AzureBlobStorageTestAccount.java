@@ -413,6 +413,10 @@ public final class AzureBlobStorageTestAccount {
     // Create a shared access signature for the container.
     //
     String sas = container.generateSharedAccessSignature(sasPolicy, null);
+    // HACK: when the just generated SAS is used straight away, we get an
+    // authorization error intermittently. Sleeping for 1.5 seconds fixes that
+    // on my box.
+    Thread.sleep(1500);
 
     // Return to caller with the shared access signature.
     //
