@@ -109,7 +109,6 @@ http://www.sonatype.org/m2eclipse/
 
 First, do a one-time install of the entire Hadoop project.
 
-  $ cd hadoop-maven-plugins
   $ mvn install -DskipTests
 
 Then, generate eclipse project files.
