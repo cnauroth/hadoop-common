@@ -102,17 +102,22 @@ to update SNAPSHOTs from external repos.
 ----------------------------------------------------------------------------------
 Importing projects to eclipse
 
-When you import the project to eclipse, install hadoop-maven-plugins at first.
+These instructions assume that your installation of Eclipse has the m2eclipse
+plugin.
+
+http://www.sonatype.org/m2eclipse/
+
+First, do a one-time install of the entire Hadoop project.
 
   $ cd hadoop-maven-plugins
-  $ mvn install
+  $ mvn install -DskipTests
 
 Then, generate eclipse project files.
 
   $ mvn eclipse:eclipse -DskipTests
 
 At last, import to eclipse by specifying the root directory of the project via
-[File] > [Import] > [Existing Projects into Workspace].
+[File] > [Import] > [Maven] > [Existing Maven Projects].
 
 ----------------------------------------------------------------------------------
 Building distributions:
