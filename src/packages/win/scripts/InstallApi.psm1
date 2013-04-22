@@ -193,7 +193,7 @@ function InstallCore(
     $xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template\conf\*.xml`" `"$hadoopInstallToDir\conf`""
     Invoke-CmdChk $xcopy_cmd
 
-    $xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template\conf\*.properties`" `"$hadoopInstallToDir\bin`""
+    $xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template\conf\*.properties`" `"$hadoopInstallToDir\conf`""
     Invoke-CmdChk $xcopy_cmd
 
     $xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template\bin`" `"$hadoopInstallToDir\bin`""
@@ -632,7 +632,9 @@ function UpdateXmlConfig(
     [parameter( Position=1 )]
     $config = @{} )
 {
-    $xml = [xml] (Get-Content $fileName)
+    $xml = New-Object System.Xml.XmlDocument
+    $xml.PreserveWhitespace = $true
+    $xml.Load($fileName)
 
     foreach( $key in empty-null $config.Keys )
     {
@@ -641,12 +643,17 @@ function UpdateXmlConfig(
         $xml.SelectNodes('/configuration/property') | ? { $_.name -eq $key } | % { $_.value = $value; $found = $True }
         if ( -not $found )
         {
+            $xml["configuration"].AppendChild($xml.CreateWhitespace("`r`n  ")) | Out-Null
             $newItem = $xml.CreateElement("property")
+            $newItem.AppendChild($xml.CreateWhitespace("`r`n    ")) | Out-Null
             $newItem.AppendChild($xml.CreateElement("name")) | Out-Null
+            $newItem.AppendChild($xml.CreateWhitespace("`r`n    ")) | Out-Null
             $newItem.AppendChild($xml.CreateElement("value")) | Out-Null
+            $newItem.AppendChild($xml.CreateWhitespace("`r`n  ")) | Out-Null
             $newItem.name = $key
             $newItem.value = $value
             $xml["configuration"].AppendChild($newItem) | Out-Null
+            $xml["configuration"].AppendChild($xml.CreateWhitespace("`r`n")) | Out-Null
         }
     }
     
