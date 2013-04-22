@@ -16,7 +16,7 @@ import org.junit.*;
  * Tests the Native Azure file system (ASV) against an actual blob store if
  * provided in the environment.
  */
-public abstract class TestNativeAzureFileSystemBase {
+public abstract class NativeAzureFileSystemBaseTest {
 
   private FileSystem fs;
   private AzureBlobStorageTestAccount testAccount;
