@@ -33,7 +33,7 @@
   <property name="version" value="1.1.0-SNAPSHOT"/>
   <property name="final.name" value="${name}-${version}"/>
   <property name="test.final.name" value="${name}-test-${version}"/>
-  <property name="year" value="2012"/>
+  <property name="year" value="2013"/>
   <property name="package.release" value="1"/>
   
   <property name="core.final.name" value="${name}-core-${version}"/>
@@ -115,6 +115,10 @@
             value="${build.c++}/examples/pipes"/>
   <property name="build.docs" value="${build.dir}/docs"/>
   <property name="build.docs.cn" value="${build.dir}/docs/cn"/>
+  <property name="forrest.home" value="${env.FORREST_HOME}"/>
+  <condition property="forrest.exec" value="${forrest.home}/bin/forrest.bat" else="${forrest.home}/bin/forrest">
+    <os family="windows" />
+  </condition>
   <property name="build.javadoc" value="${build.docs}/api"/>
   <property name="build.javadoc.dev" value="${build.docs}/dev-api"/>
   <property name="build.encoding" value="ISO-8859-1"/>
@@ -688,15 +692,15 @@
     <mkdir dir="${build.native.win}/src/org/apache/hadoop/io/compress/zlib"/>
     <mkdir dir="${build.native.win}/src/org/apache/hadoop/io/nativeio"/>
 
-  	<javah
-  	  classpath="${build.classes}"
-  	  destdir="${build.native.win}/src/org/apache/hadoop/io/compress/zlib"
+    <javah
+      classpath="${build.classes}"
+      destdir="${build.native.win}/src/org/apache/hadoop/io/compress/zlib"
       force="yes"
-  	  verbose="yes"
-  	  >
-  	  <class name="org.apache.hadoop.io.compress.zlib.ZlibCompressor" />
+      verbose="yes"
+      >
+      <class name="org.apache.hadoop.io.compress.zlib.ZlibCompressor" />
       <class name="org.apache.hadoop.io.compress.zlib.ZlibDecompressor" />
-  	</javah>
+    </javah>
 
     <javah
       classpath="${build.classes}"
@@ -1446,7 +1450,7 @@
     <echo file="${build.dir}/hadoop.ent" append="false">
       &lt;!ENTITY HadoopVersion "${version}"&gt; 
     </echo>
-    <exec dir="${docs.src}" executable="${forrest.home}/bin/forrest"
+    <exec dir="${docs.src}" executable="${forrest.exec}"
 	  failonerror="true">
     </exec>
     <copy todir="${build.docs}">
@@ -1465,7 +1469,7 @@
   <target name="cn-docs" depends="forrest.check, init" 
        description="Generate forrest-based Chinese documentation. To use, specify -Dforrest.home=&lt;base of Apache Forrest installation&gt; on the command line." 
         if="forrest.home">
-    <exec dir="${src.docs.cn}" executable="${forrest.home}/bin/forrest" failonerror="true">
+    <exec dir="${src.docs.cn}" executable="${forrest.exec}" failonerror="true">
       <env key="LANG" value="en_US.utf8"/>
     </exec>
     <copy todir="${build.docs.cn}">
@@ -1637,7 +1641,7 @@
   <!-- ================================================================== -->
   <!--                                                                    -->
   <!-- ================================================================== -->
-  <target name="package" depends="compile, jar, api-report, examples, tools-jar, jar-test, ant-tasks, package-librecordio"
+  <target name="package" depends="compile, jar, javadoc, docs, api-report, examples, tools-jar, jar-test, ant-tasks, package-librecordio"
 	  description="assembles multi-platform artifacts for distribution">
     <delete dir="${dist.dir}"/>
     <mkdir dir="${dist.dir}"/>
@@ -3049,7 +3053,7 @@
   </target>
 
   <!-- taskcontroller targets -->
-  <target name="task-controller" depends="init" unless="windows" >
+  <target name="task-controller" depends="init" unless="windows">
     <exec executable="autoreconf" 
           dir="${c++.task-controller.src}"
           searchpath="yes" failonerror="yes">
@@ -3085,7 +3089,8 @@
 
   <target name="jsvc" >
     <mkdir dir="${jsvc.build.dir}" />
-    <get src="${jsvc.location}" dest="${jsvc.build.dir}/${jsvc.dest.name}"/>
+    <get src="${jsvc.location}" dest="${jsvc.build.dir}/${jsvc.dest.name}" />
+
     <untar compression="gzip" src="${jsvc.build.dir}/${jsvc.dest.name}" dest="${jsvc.build.dir}" />
 
     <copy file="${jsvc.build.dir}/jsvc" toFile="${jsvc.install.dir}/jsvc.${os.arch}" verbose="true" />
@@ -3095,4 +3100,3 @@
  </target>
 
 </project>
-
