@@ -254,7 +254,7 @@ public class TestDFSUpgradeFromImage {
 
     MiniDFSCluster cluster = null;
     try {
-      cluster = MiniDFSCluster.Builder(conf).numDataNodes(0)
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(0)
         .format(false)
         .manageDataDfsDirs(false)
         .manageNameDfsDirs(false)
