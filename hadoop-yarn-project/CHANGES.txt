@@ -167,6 +167,10 @@ Release 2.0.5-beta - UNRELEASED
     YARN-542. Changed the default global AM max-attempts value to be not one.
     (Zhijie Shen via vinodkv)
 
+    YARN-583. Moved application level local resources to be localized under the
+    filecache sub-directory under application directory. (Omkar Vinit Joshi via
+    vinodkv)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -276,6 +280,9 @@ Release 2.0.5-beta - UNRELEASED
     which used to cause duplicate downloads. (Omkar Vinit Joshi via vinodkv)
 
     YARN-594. Update test and add comments in YARN-534 (Jian He via bikas)
+
+    YARN-549. YarnClient.submitApplication should wait for application to be
+    accepted by the RM (Zhijie Shen via bikas)
 
 Release 2.0.4-alpha - UNRELEASED
 
