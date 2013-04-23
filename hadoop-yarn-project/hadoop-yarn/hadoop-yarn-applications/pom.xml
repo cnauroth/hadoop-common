@@ -28,6 +28,10 @@
   <name>hadoop-yarn-applications</name>
   <packaging>pom</packaging>
 
+  <properties>
+    <hadoop.common.build.dir>${basedir}/../../../../hadoop-common-project/hadoop-common/target</hadoop.common.build.dir>
+  </properties>
+
   <modules>
     <module>hadoop-yarn-applications-distributedshell</module>
     <module>hadoop-yarn-applications-unmanaged-am-launcher</module>

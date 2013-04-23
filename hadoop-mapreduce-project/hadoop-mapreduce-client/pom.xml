@@ -30,7 +30,7 @@
   <packaging>pom</packaging>
 
   <properties>
-    <!-- Needed for generating FindBugs warnings using parent pom -->
+    <hadoop.common.build.dir>${basedir}/../../../hadoop-common-project/hadoop-common/target</hadoop.common.build.dir>
   </properties>
 
   <dependencies>

@@ -28,6 +28,10 @@
   <name>hadoop-yarn-server</name>
   <packaging>pom</packaging>
 
+  <properties>
+    <hadoop.common.build.dir>${basedir}/../../../../hadoop-common-project/hadoop-common/target</hadoop.common.build.dir>
+  </properties>
+
   <build>
     <plugins>
       <plugin>
