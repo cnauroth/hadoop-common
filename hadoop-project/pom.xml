@@ -50,6 +50,9 @@
 
     <test.build.dir>${project.build.directory}/test-dir</test.build.dir>
     <test.build.data>${test.build.dir}</test.build.data>
+
+    <!-- Used for building path to native library loaded by tests.  Projects -->
+    <!-- at different nesting levels in the source tree may need to override. -->
     <hadoop.common.build.dir>${basedir}/../../hadoop-common-project/hadoop-common/target</hadoop.common.build.dir>
   </properties>
 
