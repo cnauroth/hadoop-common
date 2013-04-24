@@ -895,7 +895,6 @@
             <configuration>
               <environmentVariables>
                 <!-- Specify where to look for the native DLL on Windows -->
-                <PATH>${env.PATH};${basedir}/../../hadoop-common-project/hadoop-common/target/bin</PATH>
                 <PATH>${env.PATH};${hadoop.common.build.dir}/bin</PATH>
               </environmentVariables>
             </configuration>
