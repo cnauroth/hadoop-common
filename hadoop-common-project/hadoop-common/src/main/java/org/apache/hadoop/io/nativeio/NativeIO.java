@@ -542,6 +542,30 @@ public class NativeIO {
     }
   }
 
+  /**
+   * Create a FileOutputStream that shares delete permission on the
+   * file opened, i.e. other process can delete the file the
+   * FileOutputStream is writing. Only Windows implementation uses
+   * the native interface.
+   * @param f the file that we want to create
+   * @return FileOutputStream that was created
+   * @throws IOException if any error occurs
+   */
+  public static FileOutputStream getShareDeleteFileOutputStream(File f)
+      throws IOException {
+    if (!Shell.WINDOWS) {
+      return new FileOutputStream(new RandomAccessFile(f, "rw").getFD());
+    } else {
+      FileDescriptor fd = NativeIO.Windows.createFile(f.getCanonicalPath(),
+          NativeIO.Windows.GENERIC_WRITE,
+          NativeIO.Windows.FILE_SHARE_DELETE
+              | NativeIO.Windows.FILE_SHARE_READ
+              | NativeIO.Windows.FILE_SHARE_WRITE,
+          NativeIO.Windows.OPEN_ALWAYS);
+      return new FileOutputStream(fd);
+    }
+  }
+
   private synchronized static void ensureInitialized() {
     if (!initialized) {
       cacheTimeout =

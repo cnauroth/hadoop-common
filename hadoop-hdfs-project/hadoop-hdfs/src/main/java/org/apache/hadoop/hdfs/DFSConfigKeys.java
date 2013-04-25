@@ -180,6 +180,10 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final int     DFS_LIST_LIMIT_DEFAULT = 1000;
   public static final String  DFS_DATANODE_FAILED_VOLUMES_TOLERATED_KEY = "dfs.datanode.failed.volumes.tolerated";
   public static final int     DFS_DATANODE_FAILED_VOLUMES_TOLERATED_DEFAULT = 0;
+  public static final String  DFS_DATANODE_USE_SHARE_DELETE_BLOCK_FILES_KEY =
+    "dfs.datanode.use.share.delete.block.files";
+  public static final boolean DFS_DATANODE_USE_SHARE_DELETE_BLOCK_FILES_DEFAULT =
+    false;
   public static final String  DFS_DATANODE_SYNCONCLOSE_KEY = "dfs.datanode.synconclose";
   public static final boolean DFS_DATANODE_SYNCONCLOSE_DEFAULT = false;
   public static final String  DFS_DATANODE_SOCKET_REUSE_KEEPALIVE_KEY = "dfs.datanode.socket.reuse.keepalive";
