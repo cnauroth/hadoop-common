@@ -42,5 +42,3 @@ Monarch - unreleased
 
     MISSING JIRA: Metrics sink for SqlServer and WindowsAzureTable.
     (Bonnie Feinberg)
-
-    HADOOP-441 build.xml creates distribution archives without docs (Chris Nauroth)
