@@ -270,7 +270,7 @@ public final class AzureBlobStorageTestAccount {
 
   public static AzureBlobStorageTestAccount create(String containerNameSuffix)
       throws Exception {
-    return create(containerNameSuffix, false, false);
+    return create(containerNameSuffix, EnumSet.of(CreateOptions.CreateContainer));
   }
 
   static CloudStorageAccount createStorageAccount(String accountName,
@@ -309,9 +309,12 @@ public final class AzureBlobStorageTestAccount {
     return createStorageAccount(testAccountName, conf, false);
   }
 
+  public static enum CreateOptions {
+    UseQualifiedAccountName, UseSas, CreateContainer
+  }
+
   public static AzureBlobStorageTestAccount create(String containerNameSuffix,
-      boolean useQualifiedAccountName,
-      boolean useSas) throws Exception {
+      EnumSet<CreateOptions> createOptions) throws Exception {
     saveMetricsConfigFile();
     NativeAzureFileSystem fs = null;
     CloudBlobContainer container = null;
@@ -324,10 +327,12 @@ public final class AzureBlobStorageTestAccount {
     String containerName = String.format("asvtests-%s-%tQ%s",
         System.getProperty("user.name"), new Date(), containerNameSuffix);
     container = account.createCloudBlobClient().getContainerReference(containerName);
-    container.create();
+    if (createOptions.contains(CreateOptions.CreateContainer)) {
+      container.create();
+    }
     String accountUrl = account.getBlobEndpoint().getAuthority();
     String accountName = accountUrl.substring(0, accountUrl.indexOf('.'));
-    if (useQualifiedAccountName) {
+    if (createOptions.contains(CreateOptions.UseQualifiedAccountName)) {
       // Change the account name to be fully qualified,
       // and make sure to store the same key under the qualified account.
       String key = AzureNativeFileSystemStore.getAccountKeyFromConfiguration(
@@ -335,8 +340,13 @@ public final class AzureBlobStorageTestAccount {
       accountName += ".blob.core.windows.net";
       conf.set(ACCOUNT_KEY_PROPERTY_NAME + accountName, key);
     }
-    if (useSas) {
+    if (createOptions.contains(CreateOptions.UseSas)) {
       String sas = generateSAS(container);
+      if (!createOptions.contains(CreateOptions.CreateContainer)) {
+        // The caller doesn't want the container to be pre-created,
+        // so delete it now that we have generated the SAS.
+        container.delete();
+      }
       // Remove the account key from the configuration to make sure we don't
       // cheat and use that.
       conf.set(ACCOUNT_KEY_PROPERTY_NAME + accountName, "");
@@ -628,7 +638,7 @@ public final class AzureBlobStorageTestAccount {
       fs = null;
     }
     if (container != null) {
-      container.delete();
+      container.deleteIfExists();
       container = null;
     }
     if (blob != null) {

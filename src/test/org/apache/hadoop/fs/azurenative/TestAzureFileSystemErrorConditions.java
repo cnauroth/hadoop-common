@@ -74,6 +74,7 @@ public class TestAzureFileSystemErrorConditions {
     boolean passed = false;
     try {
       fs.initialize(new URI(AzureBlobStorageTestAccount.MOCK_ASV_URI), conf);
+      fs.listStatus(new Path("/"));
       passed = true;
     } catch (AzureException ex) {
       assertTrue("Unexpected exception message: " + ex,

@@ -96,12 +96,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private final static JSON permissionJsonSerializer =
       createPermissionJsonSerializer();
   private boolean suppressRetryPolicy = false;
-  /**
-   * If set, then we need to put a version property on the container the first
-   * time we do any write operation in there.
-   */
-  private boolean needToStampVersionOnWrite = false;
-  private final Object versionStampLock = new Object();
+  private boolean canCreateOrModifyContainer = false;
+  private ContainerState currentKnownContainerState = ContainerState.Unknown;
+  private final Object containerStateLock = new Object();
 
   private TestHookOperationContext testHookOperationContext = null;
 
@@ -567,35 +564,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     //
     container = storageInteractionLayer.getContainerReference(containerUri.toString());
 
-    // Only do container checks when not using SAS credentials
-    if (credentials == null ||
-        !(credentials instanceof StorageCredentialsSharedAccessSignature)) {
-      // Check for the existence of the Azure container. If it does not exist,
-      // create one.
-      //
-      if (!container.exists(getInstrumentedContext())) {
-        // Stamp the version in there.
-        storeVersionAttribute(container);
-        container.create(getInstrumentedContext());
-      } else {
-        // Container already exists, check to see if it's not my current version
-        container.downloadAttributes(getInstrumentedContext());
-        String containerVersion = retrieveVersionAttribute(container);
-        if (containerVersion != null // No version is OK,
-                                     // means it was probably created by the user
-            && !containerVersion.equals(CURRENT_ASV_VERSION)) {
-          throw new AzureException("The container " + containerName +
-              " is at an unsupported version: " + containerVersion +
-              ". Current supported version: " + CURRENT_ASV_VERSION);
-        }
-        if (containerVersion == null) {
-          // We're OK with reading from containers with no version metadata,
-          // but we need to stamp the version the first time we do any write
-          // operation so that we later know what version of ASV messed with it.
-          needToStampVersionOnWrite = true;
-        }
-      }
-    }
+    // Can only create container if using account key credentials
+    canCreateOrModifyContainer =
+        credentials instanceof StorageCredentialsAccountAndKey;
 
     // Configure Azure storage session.
     //
@@ -747,29 +718,156 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     }
   }
 
+  private enum ContainerState {
+    /**
+     * We haven't checked the container state yet.
+     */
+    Unknown,
+    /**
+     * We checked and the container doesn't exist.
+     */
+    DoesntExist,
+    /**
+     * The container exists and doesn't have an ASV version stamp on it.
+     */
+    ExistsNoVersion,
+    /**
+     * The container exists and has an unsupported ASV version stamped on it.
+     */
+    ExistsAtWrongVersion,
+    /**
+     * The container exists and has the proper ASV version stamped on it.
+     */
+    ExistsAtRightVersion
+  }
+
+  private enum ContainerAccessType {
+    /**
+     * We're accessing the container for a pure read operation,
+     * e.g. read a file.
+     */
+    PureRead,
+    /**
+     * We're accessing the container purely to write something,
+     * e.g. write a file.
+     */
+    PureWrite,
+    /**
+     * We're accessing the container to read something then write,
+     * e.g. rename a file.
+     */
+    ReadThenWrite
+  }
+
   /**
    * This should be called from any method that does any modifications
    * to the underlying container: it makes sure to put the ASV current
    * version in the container's metadata if it's not already there.
    */
-  private void versionContainer() throws StorageException {
-    if (!needToStampVersionOnWrite) {
-      return;
-    }
-    synchronized (versionStampLock) {
-      if (!needToStampVersionOnWrite) {
-        return;
+  private ContainerState checkContainer(ContainerAccessType accessType)
+      throws StorageException, AzureException {
+    synchronized (containerStateLock) {
+      if (isOkContainerState(accessType)) {
+        return currentKnownContainerState;
+      }
+      if (currentKnownContainerState ==
+          ContainerState.ExistsAtWrongVersion) {
+        String containerVersion = retrieveVersionAttribute(container);
+        throw wrongVersionException(containerVersion);
+      }
+      // This means I didn't check it before or it  didn't exist or
+      // we need to stamp the version. Since things may have changed by
+      // other machines since then, do the check again and don't depend
+      // on past information.
+
+      // Sanity check: we don't expect this at this point.
+      if (currentKnownContainerState == ContainerState.ExistsAtRightVersion) {
+        throw new AssertionError("Unexpected state: " +
+            currentKnownContainerState);
       }
 
-      // Make sure that the container still doesn't have any version
-      // stamped on it.
-      container.downloadAttributes(getInstrumentedContext());
-      if (retrieveVersionAttribute(container) == null) {
-        // No ASV version found, just stamp the current version.
-        storeVersionAttribute(container);
-        container.uploadMetadata(getInstrumentedContext());
+      // Download the attributes - doubles as an existence check with just
+      // one service call
+      try {
+        container.downloadAttributes(getInstrumentedContext());
+      } catch (StorageException ex) {
+        if (ex.getErrorCode().equals(StorageErrorCode.RESOURCE_NOT_FOUND.toString())) {
+          currentKnownContainerState = ContainerState.DoesntExist;
+        } else {
+          throw ex;
+        }
       }
-      needToStampVersionOnWrite = false; // Done, no need to do this anymore.
+
+      if (currentKnownContainerState == ContainerState.DoesntExist) {
+        // If the container doesn't exist and we intend to write to it,
+        // create it now.
+        if (needToCreateContainer(accessType)) {
+          storeVersionAttribute(container);
+          container.create(getInstrumentedContext());
+          currentKnownContainerState = ContainerState.ExistsAtRightVersion;
+        }
+      } else {
+        // The container exists, check the version.
+        String containerVersion = retrieveVersionAttribute(container);
+        if (containerVersion != null) {
+          if (!containerVersion.equals(CURRENT_ASV_VERSION)) {
+            // At this point in time we consider anything other than current
+            // version a wrong version. In the future we may add back-compat
+            // to previous version.
+            currentKnownContainerState = ContainerState.ExistsAtWrongVersion;
+            throw wrongVersionException(containerVersion);
+          } else {
+            // It's our correct version.
+            currentKnownContainerState = ContainerState.ExistsAtRightVersion;
+          }
+        } else {
+          // No version info exists.
+          currentKnownContainerState = ContainerState.ExistsNoVersion;
+          if (needToStampVersion(accessType)) {
+            // Need to stamp the version
+            storeVersionAttribute(container);
+            container.uploadMetadata(getInstrumentedContext());
+            currentKnownContainerState = ContainerState.ExistsAtRightVersion;
+          }
+        }
+      }
+      return currentKnownContainerState;
+    }
+  }
+
+  private AzureException wrongVersionException(String containerVersion) {
+    return new AzureException("The container " + container.getName() +
+        " is at an unsupported version: " + containerVersion +
+        ". Current supported version: " + CURRENT_ASV_VERSION);
+  }
+
+  private boolean needToStampVersion(ContainerAccessType accessType) {
+    // We need to stamp the version on the container any time we write to
+    // it and we have the correct credentials to be able to write container
+    // metadata.
+    return accessType != ContainerAccessType.PureRead &&
+        canCreateOrModifyContainer;
+  }
+
+  private static boolean needToCreateContainer(ContainerAccessType accessType) {
+    // We need to pro-actively create the container (if it doesn't exist) if
+    // we're doing a pure write. No need to create it for pure read or read-
+    // then-write access.
+    return accessType == ContainerAccessType.PureWrite;
+  }
+
+  private boolean isOkContainerState(ContainerAccessType accessType) {
+    switch (currentKnownContainerState) {
+      case Unknown: return false;
+      case DoesntExist: return !needToCreateContainer(accessType);
+      case ExistsAtRightVersion: return true;
+      case ExistsAtWrongVersion: return false;
+      case ExistsNoVersion:
+        // If there's no version, it's OK if we don't need to stamp the version
+        // or we can't anyway even if we wanted to.
+        return !needToStampVersion(accessType);
+      default:
+        throw new AssertionError("Unknown access type: " + accessType);
     }
   }
 
@@ -800,7 +898,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
                 + "access is prohibited."));
       }
 
-      versionContainer();
+      checkContainer(ContainerAccessType.PureWrite);
 
       /**
        * Note: Windows Azure Blob Storage does not allow the creation of arbitrary directory
@@ -970,7 +1068,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     }
 
     try {
-      versionContainer();
+      checkContainer(ContainerAccessType.PureWrite);
+
       CloudBlockBlobWrapper blob = getBlobReference(key);
       storePermissionStatus(blob, permissionStatus);
       storeFolderAttribute(blob);
@@ -1010,6 +1109,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     }
 
     try {
+      checkContainer(ContainerAccessType.PureWrite);
+
       CloudBlockBlobWrapper blob = getBlobReference(key);
       storePermissionStatus(blob, permissionStatus);
       storeLinkAttribute(blob, tempBlobKey);
@@ -1037,6 +1138,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     }
 
     try {
+      checkContainer(ContainerAccessType.PureRead);
+
       CloudBlockBlobWrapper blob = getBlobReference(key);
       blob.downloadAttributes(getInstrumentedContext());
       return getLinkAttributeValue(blob);
@@ -1281,6 +1384,13 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     }
 
     try {
+      if (checkContainer(ContainerAccessType.PureRead) ==
+          ContainerState.DoesntExist) {
+        // The container doesn't exist, so spare some service calls and just
+        // return null now.
+        return null;
+      }
+
       // Handle the degenerate cases where the key does not exist or the
       // key is a container.
       //
@@ -1388,6 +1498,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
             String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
         throw new AssertionError(errMsg);
       }
+      checkContainer(ContainerAccessType.PureRead);
 
       // Get blob reference and open the input buffer stream.
       //
@@ -1418,6 +1529,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
             String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
         throw new AssertionError(errMsg);
       }
+      checkContainer(ContainerAccessType.PureRead);
 
       // Get blob reference and open the input buffer stream.
       //
@@ -1478,6 +1590,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       final int maxListingCount, final int maxListingDepth, String priorLastKey) 
           throws IOException {
     try {
+      checkContainer(ContainerAccessType.PureRead);
+
       if (0 < prefix.length() && !prefix.endsWith(PATH_DELIMITER)) {
         prefix += PATH_DELIMITER;
       }
@@ -1789,7 +1903,12 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   @Override
   public void delete(String key) throws IOException {
     try {
-      versionContainer();
+      if (checkContainer(ContainerAccessType.ReadThenWrite) ==
+          ContainerState.DoesntExist) {
+        // Container doesn't exist, no need to do anything
+        return;
+      }
+
       // Get the blob reference an delete it.
       //
       CloudBlockBlobWrapper blob = getBlobReference(key);
@@ -1821,7 +1940,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         throw new AssertionError(errMsg);
       }
 
-      versionContainer();
+      checkContainer(ContainerAccessType.ReadThenWrite);
       // Get the source blob and assert its existence. If the source key
       // needs to be normalized then normalize it.
       //
@@ -1855,6 +1974,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   public void changePermissionStatus(String key, PermissionStatus newPermission)
       throws AzureException {
     try {
+      checkContainer(ContainerAccessType.ReadThenWrite);
       CloudBlockBlobWrapper blob = getBlobReference(key);
       blob.downloadAttributes(getInstrumentedContext());
       storePermissionStatus(blob, newPermission);
@@ -1877,7 +1997,11 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         throw new AssertionError(errMsg);
       }
 
-      versionContainer();
+      if (checkContainer(ContainerAccessType.ReadThenWrite) ==
+          ContainerState.DoesntExist) {
+        // Container doesn't exist, no need to do anything.
+        return;
+      }
       // Get all blob items with the given prefix from the container and delete
       // them.
       //

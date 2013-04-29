@@ -12,6 +12,8 @@ import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.azure.AzureException;
 import org.junit.*;
 
+import org.apache.hadoop.fs.azurenative.AzureBlobStorageTestAccount.CreateOptions;
+
 public class TestASVUriAndConfiguration {
 
   private static final int FILE_SIZE = 4096;
@@ -92,7 +94,8 @@ public class TestASVUriAndConfiguration {
   public void testConnectUsingSAS() throws Exception {
     // Create the test account with SAS credentials.
     //
-    testAccount = AzureBlobStorageTestAccount.create("", false, true);
+    testAccount = AzureBlobStorageTestAccount.create("",
+        EnumSet.of(CreateOptions.UseSas, CreateOptions.CreateContainer));
     // Validate input and output on the connection.
     // NOTE: As of 4/15/2013, Azure Storage has a deficiency that prevents the
     // full scenario from working (CopyFromBlob doesn't work with SAS), so
@@ -150,7 +153,10 @@ public class TestASVUriAndConfiguration {
   @Test
   public void testConnectToFullyQualifiedAccountLive() throws Exception {
     testAccount =
-        AzureBlobStorageTestAccount.create("", true, false);
+        AzureBlobStorageTestAccount.create("",
+            EnumSet.of(
+                CreateOptions.UseQualifiedAccountName,
+                CreateOptions.CreateContainer));
     assumeNotNull(testAccount);
     assertTrue(validateIOStreams(new Path("/testFile")));
   }

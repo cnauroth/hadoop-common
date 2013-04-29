@@ -52,6 +52,8 @@ public class TestBlobMetadata {
    */
   @Test
   public void testContainerVersionMetadata() throws Exception {
+    // Do a write operation to trigger version stamp
+    fs.createNewFile(new Path("/foo"));
     HashMap<String, String> containerMetadata =
         backingStore.getContainerMetadata();
     assertNotNull(containerMetadata);

@@ -160,6 +160,10 @@ class StorageInterfaceImpl extends StorageInterface {
     }
 
     @Override
+    public String getName() {
+        return container.getName();
+    }
+    @Override
     public boolean exists(OperationContext opContext) throws StorageException {
       return container.exists(null, opContext);
     }

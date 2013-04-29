@@ -80,7 +80,8 @@ public class TestAzureFileSystemInstrumentation {
     // called /user/<name>/a, and then 3 request for the creation of the three
     // levels, and then 2 requests for checking/stamping the version of AS,
     // totaling 11.
-    base = assertWebResponsesInRange(base, 1, 11);
+    // Also, there's the initial 1 request for container check so total is 12.
+    base = assertWebResponsesInRange(base, 1, 12);
     assertEquals(1, getLongCounterValue(getInstrumentation(), ASV_DIRECTORIES_CREATED));
 
     // List the root contents
@@ -118,7 +119,8 @@ public class TestAzureFileSystemInstrumentation {
     
     // The exact number of requests/responses that happen to create a file
     // can vary  - at the time of writing this code it takes 10
-    // requests/responses for the 1000 byte file (33 for 100 MB), but that
+    // requests/responses for the 1000 byte file (33 for 100 MB),
+    // plus the initial container-check request but that
     // can very easily change in the future. Just assert that we do roughly
     // more than 2 but less than 15.
     logOpResponseCount("Creating a 1K file", base);
@@ -226,8 +228,9 @@ public class TestAzureFileSystemInstrumentation {
     outputStream.close();
 
     // The exact number of requests/responses that happen to create a file
-    // can vary  - at the time of writing this code it takes 3
-    // requests/responses for the 100 MB file, but that
+    // can vary  - at the time of writing this code it takes 34
+    // requests/responses for the 100 MB file,
+    // plus the initial container check request, but that
     // can very easily change in the future. Just assert that we do roughly
     // more than 20 but less than 50.
     logOpResponseCount("Creating a 100 MB file", base);
@@ -306,9 +309,10 @@ public class TestAzureFileSystemInstrumentation {
     // Check existence
     assertFalse(fs.exists(filePath));
     // At the time of writing this code it takes 2 requests/responses to
-    // check existence, which seems excessive. Check for range 1-4 for now.
+    // check existence, which seems excessive, plus initial request for
+    // container check.
     logOpResponseCount("Checking file existence for non-existent file", base);
-    base = assertWebResponsesInRange(base, 1, 2);
+    base = assertWebResponsesInRange(base, 1, 3);
 
     // Create an empty file
     assertTrue(fs.createNewFile(filePath));
@@ -388,9 +392,8 @@ public class TestAzureFileSystemInstrumentation {
    * after the creation of the file system object.
    */
   private long getBaseWebResponses() {
-    // The number of requests should start at 2
-    // from when we check the existence of the container and its version
-    return assertWebResponsesEquals(0, 2);
+    // The number of requests should start at 0
+    return assertWebResponsesEquals(0, 0);
   }
 
   /**
