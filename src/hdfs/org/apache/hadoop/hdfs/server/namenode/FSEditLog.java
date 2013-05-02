@@ -64,8 +64,8 @@ import org.apache.hadoop.security.token.delegation.DelegationKey;
  * 
  */
 public class FSEditLog {
-  public static final Log LOG = LogFactory.getLog(FSEditLog.class.getName());
-  
+  public static final Log LOG = LogFactory.getLog(FSEditLog.class);
+
   static final byte OP_INVALID = -1;
   private static final byte OP_ADD = 0;
   private static final byte OP_RENAME = 1;  // rename
@@ -152,7 +152,6 @@ public class FSEditLog {
     private FileChannel fc;         // channel of the file stream for sync
     private DataOutputBuffer bufCurrent;  // current buffer for writing
     private DataOutputBuffer bufReady;    // buffer ready for flushing
-    static ByteBuffer fill = ByteBuffer.allocateDirect(512); // preallocation
 
     EditLogFileOutputStream(File name) throws IOException {
       super();
@@ -206,13 +205,12 @@ public class FSEditLog {
       int bufSize = bufCurrent.size();
       if (bufSize != 0) {
         throw new IOException("FSEditStream has " + bufSize +
-                              " bytes still to be flushed and cannot " +
-                              "be closed.");
+           " bytes still to be flushed and cannot be closed.");
       } 
       bufCurrent.close();
       bufReady.close();
 
-      // remove the last INVALID marker from transaction log.
+      // remove any preallocated padding bytes from the transaction log.
       fc.truncate(fc.position());
       fp.close();
       
@@ -451,7 +449,7 @@ public class FSEditLog {
     // Namedir is the parent of current which is the parent of edits
     return editsFile.getParentFile().getParentFile();
   }
-  
+
   /**
    * For error injection tests only. It closes edit stream, unlocks storage
    * directory, and reopen the original stream with a different
@@ -536,6 +534,12 @@ public class FSEditLog {
     return false;
   }
 
+  /**
+   * The end of a edit log should contain padding of either 0x00 or OP_INVALID.
+   * If it contains other bytes, the edit log may be corrupted.
+   * It is important to perform the check; otherwise, a stray OP_INVALID byte 
+   * could be misinterpreted as an end-of-log, and lead to silent data loss.
+   */
   private static void checkEndOfLog(final EditLogInputStream edits,
       final DataInputStream in,
       final PositionTrackingInputStream pin,
@@ -573,7 +577,8 @@ public class FSEditLog {
             pad = b;
             
             if (LOG.isDebugEnabled()) {
-              LOG.debug(String.format("found: bytes[%d]=0x%02X=pad, firstPadPos=%d", i, b, firstPadPos));
+              LOG.debug(String.format("found: bytes[%d]=0x%02X=pad, firstPadPos=%d",
+                  i, b, firstPadPos));
             }
           }
         } 
@@ -689,11 +694,14 @@ public class FSEditLog {
           opcode = in.readByte();
           if (opcode == OP_INVALID) {
             LOG.info("Invalid opcode, reached end of edit log " +
-                                   "Number of transactions found " + numEdits);
+                       "Number of transactions found: " + numEdits + ".  " +
+                       "Bytes read: " + tracker.getPos());
             break; // no more transactions
           }
         } catch (EOFException e) {
-          LOG.info("Reading " + edits.getName() + ": " + e);
+          LOG.info("EOF of " + edits.getName() + ", reached end of edit log "
+              + "Number of transactions found: " + numEdits + ".  "
+              + "Bytes read: " + tracker.getPos());
           break; // no more transactions
         }
         recentOpcodeOffsets[numEdits % recentOpcodeOffsets.length] =
@@ -816,7 +824,7 @@ public class FSEditLog {
           int length = in.readInt();
           if (length != 3) {
             throw new IOException("Incorrect data format. " 
-                                  + "Mkdir operation.");
+                                  + "Rename operation.");
           }
           String s = FSImage.readString(in);
           String d = FSImage.readString(in);
@@ -868,7 +876,7 @@ public class FSEditLog {
           long lw = in.readLong();
           fsDir.namesystem.setGenerationStamp(lw);
           break;
-        } 
+        }
         case OP_DATANODE_ADD: {
           numOpOther++;
           FSImage.DatanodeImage nodeimage = new FSImage.DatanodeImage();
@@ -1016,9 +1024,9 @@ public class FSEditLog {
         // conflicting opcodes with the later releases. The editlog must be 
         // emptied by restarting the namenode, before proceeding with the upgrade.
         msg += ": During upgrade, failed to load the editlog version " + 
-        logVersion + " from release 0.20.203. Please go back to the old " + 
-        " release and restart the namenode. This empties the editlog " +
-        " and saves the namespace. Resume the upgrade after this step.";
+          logVersion + " from release 0.20.203. Please go back to the old " + 
+          " release and restart the namenode. This empties the editlog " +
+          " and saves the namespace. Resume the upgrade after this step.";
         throw new IOException(msg, t);
       }
       if (recentOpcodeOffsets[0] != -1) {
@@ -1040,7 +1048,6 @@ public class FSEditLog {
         //edit log toleration feature is disabled
         throw new IOException(msg, t);
       }
-      
     } finally {
       try {
         checkEndOfLog(edits, in, tracker, tolerationLength);
@@ -1241,7 +1248,7 @@ public class FSEditLog {
     buf.append(numTransactions);
     buf.append(" Total time for transactions(ms): ");
     buf.append(totalTimeTransactions);
-    buf.append("Number of transactions batched in Syncs: ");
+    buf.append(" Number of transactions batched in Syncs: ");
     buf.append(numTransactionsBatchedInSync);
     buf.append(" Number of syncs: ");
     buf.append(editStreams.get(0).getNumSync());
