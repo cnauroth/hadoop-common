@@ -37,7 +37,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.server.namenode.FSImage.NameNodeFile;
-import org.apache.hadoop.io.PositionInputStream;
 import org.apache.hadoop.metrics2.util.MBeans;
 import org.apache.log4j.Level;
 import org.junit.Assert;
@@ -51,7 +50,6 @@ import org.junit.Test;
  */
 public class TestEditLogToleration {
   {
-    ((Log4JLogger)PositionInputStream.LOG).getLogger().setLevel(Level.ALL);
     ((Log4JLogger)FSEditLog.LOG).getLogger().setLevel(Level.ALL);
     ((Log4JLogger)LogFactory.getLog(MBeans.class)).getLogger().setLevel(Level.OFF);
   }
@@ -129,7 +127,7 @@ public class TestEditLogToleration {
    * 
    * |- valid bytes -|- padding bytes -|- corrupt byte -|-- padding bytes --|
    */
-  static class PaddingCorruption extends EditFileModifier {
+  static class Padding extends EditFileModifier {
     static final byte[] PAD_BUFFER = new byte[4096];
     final int corruptionLength;
     final int paddingLength;
@@ -140,7 +138,7 @@ public class TestEditLogToleration {
      * @param paddingLength number padding bytes added
      * @param pad what byte is used for padding
      */
-    PaddingCorruption(int corruptionLength, int paddingLength, byte pad) {
+    Padding(int corruptionLength, int paddingLength, byte pad) {
       this.corruptionLength = corruptionLength;
       this.paddingLength = paddingLength;
       this.pad = pad;
@@ -276,7 +274,7 @@ public class TestEditLogToleration {
       final int padding = RANDOM.nextInt(2*TOLERATION_LENGTH);
       final byte pad = PADS[RANDOM.nextInt(PADS.length)];
 
-      final PaddingCorruption p = new PaddingCorruption(0, padding, pad);
+      final Padding p = new Padding(0, padding, pad);
       Assert.assertTrue(p.isTolerable());
       runTest(p);
     }
@@ -293,7 +291,7 @@ public class TestEditLogToleration {
       final int padding = RANDOM.nextInt(2*TOLERATION_LENGTH);
       final byte pad = PADS[RANDOM.nextInt(PADS.length)];
 
-      final PaddingCorruption p = new PaddingCorruption(corruption, padding, pad);
+      final Padding p = new Padding(corruption, padding, pad);
       Assert.assertTrue(p.isTolerable());
       runTest(p);
     }
@@ -309,7 +307,7 @@ public class TestEditLogToleration {
       final int padding = RANDOM.nextInt(2*TOLERATION_LENGTH);
       final byte pad = PADS[RANDOM.nextInt(PADS.length)];
 
-      final PaddingCorruption p = new PaddingCorruption(corruption, padding, pad);
+      final Padding p = new Padding(corruption, padding, pad);
       Assert.assertFalse(p.isTolerable());
       runTest(p);
     }
@@ -326,7 +324,7 @@ public class TestEditLogToleration {
       //padding with zero corruption
       final int padding = RANDOM.nextInt(2*TOLERATION_LENGTH);
       final byte pad = PADS[RANDOM.nextInt(PADS.length)];
-      final PaddingCorruption p = new PaddingCorruption(0, padding, pad);
+      final Padding p = new Padding(0, padding, pad);
 
       //chain: truncate and then pad
       final ChainModifier chain = new ChainModifier(t, p);
@@ -350,7 +348,7 @@ public class TestEditLogToleration {
       Assert.assertTrue(corruption <= TOLERATION_LENGTH/2);
       final int padding = RANDOM.nextInt(2*TOLERATION_LENGTH);
       final byte pad = PADS[RANDOM.nextInt(PADS.length)];
-      final PaddingCorruption p = new PaddingCorruption(corruption, padding, pad);
+      final Padding p = new Padding(corruption, padding, pad);
 
       //chain: truncate and then pad
       final ChainModifier chain = new ChainModifier(t, p);
@@ -372,7 +370,7 @@ public class TestEditLogToleration {
       Assert.assertTrue(corruption > TOLERATION_LENGTH);
       final int padding = RANDOM.nextInt(2*TOLERATION_LENGTH);
       final byte pad = PADS[RANDOM.nextInt(PADS.length)];
-      final PaddingCorruption p = new PaddingCorruption(corruption, padding, pad);
+      final Padding p = new Padding(corruption, padding, pad);
 
       //chain: truncate and then pad
       final ChainModifier chain = new ChainModifier(t, p);

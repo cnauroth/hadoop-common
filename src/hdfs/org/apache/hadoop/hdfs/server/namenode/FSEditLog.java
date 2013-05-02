@@ -25,29 +25,38 @@ import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
-import java.lang.Math;
-import java.nio.channels.FileChannel;
-import java.nio.ByteBuffer;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.fs.permission.PermissionStatus;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.DatanodeID;
 import org.apache.hadoop.hdfs.protocol.FSConstants;
-import org.apache.hadoop.hdfs.security.token.delegation.DelegationTokenIdentifier;
 import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
+import org.apache.hadoop.hdfs.security.token.delegation.DelegationTokenIdentifier;
 import org.apache.hadoop.hdfs.server.common.Storage;
 import org.apache.hadoop.hdfs.server.common.Storage.StorageDirectory;
 import org.apache.hadoop.hdfs.server.namenode.FSImage.NameNodeDirType;
 import org.apache.hadoop.hdfs.server.namenode.metrics.NameNodeInstrumentation;
-import org.apache.hadoop.io.*;
-import org.apache.hadoop.fs.permission.*;
+import org.apache.hadoop.io.ArrayWritable;
+import org.apache.hadoop.io.DataOutputBuffer;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.UTF8;
+import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.io.WritableFactories;
+import org.apache.hadoop.io.WritableFactory;
 import org.apache.hadoop.security.token.delegation.DelegationKey;
 
 /**
@@ -529,7 +538,7 @@ public class FSEditLog {
 
   private static void checkEndOfLog(final EditLogInputStream edits,
       final DataInputStream in,
-      final PositionInputStream pin,
+      final PositionTrackingInputStream pin,
       final int tolerationLength) throws IOException {
     if (tolerationLength < 0) {
       //the checking is disabled.
@@ -538,7 +547,7 @@ public class FSEditLog {
     LOG.info("Start checking end of edit log (" + edits.getName() + ") ...");
 
     in.mark(0); //clear the mark
-    final long readLength = pin.position();
+    final long readLength = pin.getPos();
 
     long firstPadPos = -1; //first padded byte position 
     byte pad = 0;          //padded value; must be either 0 or OP_INVALID
@@ -560,7 +569,7 @@ public class FSEditLog {
         if (firstPadPos == -1) {
           if (b == 0 || b == OP_INVALID) {
             //found the first padded byte
-            firstPadPos = pin.position() - n + i;
+            firstPadPos = pin.getPos() - n + i;
             pad = b;
             
             if (LOG.isDebugEnabled()) {
@@ -592,9 +601,9 @@ public class FSEditLog {
         "Summary: |---------- Read=%d ----------|-- Corrupt=%d --|-- Pad=%d --|",
         readLength, corruptionLength, padLength));
 
-    if (pin.position() != edits.length()) {
+    if (pin.getPos() != edits.length()) {
       throw new IOException("Edit log length mismatched: edits.length() = "
-          + edits.length() + " != input steam position = " + pin.position());
+          + edits.length() + " != input steam position = " + pin.getPos());
     }
     if (corruptionLength > 0) {
       final String err = "Edit log corruption detected: corruption length = " + corruptionLength;
@@ -632,16 +641,15 @@ public class FSEditLog {
 
     long startTime = FSNamesystem.now();
 
+    // Keep track of the file offsets of the last several opcodes.
+    // This is handy when manually recovering corrupted edits files.
+    PositionTrackingInputStream tracker = 
+      new PositionTrackingInputStream(new BufferedInputStream(edits));
+    long recentOpcodeOffsets[] = new long[4];
+    Arrays.fill(recentOpcodeOffsets, -1);
+
     final boolean isTolerationEnabled = tolerationLength >= 0;
-    final PositionInputStream pin;
-    final DataInputStream in;
-    if (isTolerationEnabled) {
-      pin = new PositionInputStream(new BufferedInputStream(edits));
-      in = new DataInputStream(pin);
-    } else {
-      pin = null;
-      in = new DataInputStream(new BufferedInputStream(edits));
-    }
+    DataInputStream in = new DataInputStream(tracker);
     Byte opcode = null;
     try {
       // Read log file version. Could be missing. 
@@ -688,6 +696,8 @@ public class FSEditLog {
           LOG.info("Reading " + edits.getName() + ": " + e);
           break; // no more transactions
         }
+        recentOpcodeOffsets[numEdits % recentOpcodeOffsets.length] =
+          tracker.getPos();
         numEdits++;
         switch (opcode) {
         case OP_ADD:
@@ -991,45 +1001,59 @@ public class FSEditLog {
         }
         }
       }
-    } catch(Exception ex) {
-      String msg = "Failed to parse edit log (" + edits.getName() + ")"
-          + (pin == null? "": " at position " + pin.position())
+    } catch (Throwable t) {
+      String msg = "Failed to parse edit log (" + edits.getName()
+          + ") at position " + tracker.getPos()
           + ", edit log length is " + edits.length()
           + ", opcode=" + opcode
-          + ", isToterationEnabled=" + isTolerationEnabled;
-      // Failed to load 0.20.203 version edits during upgrade. This version has
-      // conflicting opcodes with the later releases. The editlog must be 
-      // emptied by restarting the namenode, before proceeding with the upgrade.
+          + ", isTolerationEnabled=" + isTolerationEnabled;
+
+      // Catch Throwable because in the case of a truly corrupt edits log, any
+      // sort of error might be thrown (NumberFormat, NullPointer, EOF, etc.)
       if (Storage.is203LayoutVersion(logVersion) &&
           logVersion != FSConstants.LAYOUT_VERSION) {
+        // Failed to load 0.20.203 version edits during upgrade. This version has
+        // conflicting opcodes with the later releases. The editlog must be 
+        // emptied by restarting the namenode, before proceeding with the upgrade.
         msg += ": During upgrade, failed to load the editlog version " + 
         logVersion + " from release 0.20.203. Please go back to the old " + 
         " release and restart the namenode. This empties the editlog " +
         " and saves the namespace. Resume the upgrade after this step.";
-        throw new IOException(msg, ex);
+        throw new IOException(msg, t);
+      }
+      if (recentOpcodeOffsets[0] != -1) {
+        Arrays.sort(recentOpcodeOffsets);
+        StringBuilder sb = new StringBuilder(", Recent opcode offsets=[")
+            .append(recentOpcodeOffsets[0]);
+        for (int i = 1; i < recentOpcodeOffsets.length; i++) {
+          if (recentOpcodeOffsets[i] != -1) {
+            sb.append(' ').append(recentOpcodeOffsets[i]);
+          }
+        }
+        msg += sb.append("]");
       }
 
+      LOG.warn(msg, t);
       if (isTolerationEnabled) {
-        LOG.warn(msg, ex);
         in.reset(); //reset to the beginning position of this transaction
       } else {
         //edit log toleration feature is disabled
-        throw new IOException(msg, ex);
+        throw new IOException(msg, t);
       }
       
     } finally {
       try {
-        checkEndOfLog(edits, in, pin, tolerationLength);
+        checkEndOfLog(edits, in, tracker, tolerationLength);
       } finally {
         in.close();
       }
     }
-    FSImage.LOG.info("Edits file " + edits.getName() 
+    LOG.info("Edits file " + edits.getName() 
         + " of size " + edits.length() + " edits # " + numEdits 
         + " loaded in " + (FSNamesystem.now()-startTime)/1000 + " seconds.");
 
-    if (FSImage.LOG.isDebugEnabled()) {
-      FSImage.LOG.debug("numOpAdd = " + numOpAdd + " numOpClose = " + numOpClose 
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("numOpAdd = " + numOpAdd + " numOpClose = " + numOpClose 
           + " numOpDelete = " + numOpDelete + " numOpRename = " + numOpRename 
           + " numOpSetRepl = " + numOpSetRepl + " numOpMkDir = " + numOpMkDir
           + " numOpSetPerm = " + numOpSetPerm 
@@ -1443,7 +1467,7 @@ public class FSEditLog {
         eStream.create();
         editStreams.add(eStream);
       } catch (IOException ioe) {
-        FSImage.LOG.error("error retrying to reopen storage directory '" +
+        LOG.error("error retrying to reopen storage directory '" +
             sd.getRoot().getAbsolutePath() + "'", ioe);
         toRemove.add(sd);
         it.remove();
@@ -1586,5 +1610,53 @@ public class FSEditLog {
       blocks[i].readFields(in);
     }
     return blocks;
+  }
+
+  /**
+   * Stream wrapper that keeps track of the current file position.
+   */
+  private static class PositionTrackingInputStream extends FilterInputStream {
+    private long curPos = 0;
+    private long markPos = -1;
+
+    public PositionTrackingInputStream(InputStream is) {
+      super(is);
+    }
+
+    public int read() throws IOException {
+      int ret = super.read();
+      if (ret != -1) curPos++;
+      return ret;
+    }
+
+    public int read(byte[] data) throws IOException {
+      int ret = super.read(data);
+      if (ret > 0) curPos += ret;
+      return ret;
+    }
+
+    public int read(byte[] data, int offset, int length) throws IOException {
+      int ret = super.read(data, offset, length);
+      if (ret > 0) curPos += ret;
+      return ret;
+    }
+
+    public void mark(int limit) {
+      super.mark(limit);
+      markPos = curPos;
+    }
+
+    public void reset() throws IOException {
+      if (markPos == -1) {
+        throw new IOException("Not marked!");
+      }
+      super.reset();
+      curPos = markPos;
+      markPos = -1;
+    }
+
+    public long getPos() {
+      return curPos;
+    }
   }
 }
