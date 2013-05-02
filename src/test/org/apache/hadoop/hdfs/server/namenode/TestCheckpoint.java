@@ -25,7 +25,6 @@ import java.util.Iterator;
 import java.util.Random;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.protocol.FSConstants.SafeModeAction;
@@ -590,15 +589,10 @@ public class TestCheckpoint extends TestCase {
       writeFile(fileSys, file1, replication);
       checkFile(fileSys, file1, replication);
 
-      //test edit toleration auto disable
-      conf.setInt(DFSConfigKeys.DFS_NAMENODE_EDITS_TOLERATION_LENGTH_KEY, 1024);
-      assertEquals(1024, conf.getInt(DFSConfigKeys.DFS_NAMENODE_EDITS_TOLERATION_LENGTH_KEY, 0));
-      SecondaryNameNode secondary = startSecondaryNameNode(conf);
-      assertEquals(-1, conf.getInt(DFSConfigKeys.DFS_NAMENODE_EDITS_TOLERATION_LENGTH_KEY, 0));
-
       //
       // Take a checkpoint
       //
+      SecondaryNameNode secondary = startSecondaryNameNode(conf);
       ErrorSimulator.initializeErrorSimulationEvent(3);
       secondary.doCheckpoint();
       secondary.shutdown();
