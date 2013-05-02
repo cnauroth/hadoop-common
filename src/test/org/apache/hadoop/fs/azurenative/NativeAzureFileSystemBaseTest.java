@@ -1,20 +1,22 @@
 package org.apache.hadoop.fs.azurenative;
 
+import static org.junit.Assert.*;
+import static org.junit.Assume.*;
+
 import java.io.*;
 import java.util.*;
-
-import junit.framework.*;
 
 import org.apache.hadoop.conf.*;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.security.*;
+import org.junit.*;
 
 /*
  * Tests the Native Azure file system (ASV) against an actual blob store if
  * provided in the environment.
  */
-public abstract class TestNativeAzureFileSystemBase extends TestCase {
+public abstract class NativeAzureFileSystemBaseTest {
 
   private FileSystem fs;
   private AzureBlobStorageTestAccount testAccount;
@@ -22,16 +24,17 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
   protected abstract AzureBlobStorageTestAccount createTestAccount()
       throws Exception;
 
-  @Override
-  protected void setUp() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     testAccount = createTestAccount();
     if (testAccount != null) {
       fs = testAccount.getFileSystem();
     }
+    assumeNotNull(testAccount);
   }
 
-  @Override
-  protected void tearDown() throws Exception {
+  @After
+  public void tearDown() throws Exception {
     if (testAccount != null) {
       testAccount.cleanup();
       testAccount = null;
@@ -39,21 +42,13 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     }
   }
 
-
-  @Override
-  protected void runTest() throws Throwable {
-    if (testAccount != null) {
-      super.runTest();
-    }
-  }
-
+  @Test
   public void testCheckingNonExistentOneLetterFile() throws Exception {
     assertFalse(fs.exists(new Path("/a")));
   }
 
+  @Test
   public void testStoreRetrieveFile() throws Exception {
-    if (fs == null)
-      return;
     Path testFile = new Path("unit-test-file");
     writeString(testFile, "Testing");
     assertTrue(fs.exists(testFile));
@@ -66,6 +61,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     fs.delete(testFile, true);
   }
 
+  @Test
   public void testStoreDeleteFolder() throws Exception {
     Path testFolder = new Path("storeDeleteFolder");
     assertFalse(fs.exists(testFolder));
@@ -85,12 +81,14 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     assertFalse(fs.exists(testFolder));
   }
 
+  @Test
   public void testFileOwnership() throws Exception {
     Path testFile = new Path("ownershipTestFile");
     writeString(testFile, "Testing");
     testOwnership(testFile);
   }
 
+  @Test
   public void testFolderOwnership() throws Exception {
     Path testFolder = new Path("ownershipTestFolder");
     fs.mkdirs(testFolder);
@@ -104,6 +102,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     fs.delete(pathUnderTest, true);
   }
 
+  @Test
   public void testFilePermissions() throws Exception {
     Path testFile = new Path("permissionTestFile");
     FsPermission permission = FsPermission.createImmutable((short) 644);
@@ -113,6 +112,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     fs.delete(testFile, true);
   }
 
+  @Test
   public void testFolderPermissions() throws Exception {
     Path testFolder = new Path("permissionTestFolder");
     FsPermission permission = FsPermission.createImmutable((short) 644);
@@ -122,6 +122,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     fs.delete(testFolder, true);
   }
 
+  @Test
   public void testDeepFileCreation() throws Exception {
     Path testFile = new Path("deep/file/creation/test");
     FsPermission permission = FsPermission.createImmutable((short) 644);
@@ -144,6 +145,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     NormalFileName, SourceInAFolder, SourceWithSpace, SourceWithPlusAndPercent
   }
 
+  @Test
   public void testRename() throws Exception {
     for (RenameVariation variation : RenameVariation.values()) {
       System.out.printf("Rename variation: %s\n", variation);
@@ -177,6 +179,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     }
   }
   
+  @Test
   public void testRenameImplicitFolder() throws Exception {
     Path testFile = new Path("deep/file/rename/test");
     FsPermission permission = FsPermission.createImmutable((short)644);
@@ -193,6 +196,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     CreateFolderAndInnerFile, CreateJustInnerFile, CreateJustFolder
   }
 
+  @Test
   public void testRenameFolder() throws Exception {
     for (RenameFolderVariation variation : RenameFolderVariation.values()) {
       Path originalFolder = new Path("folderToRename");
@@ -212,6 +216,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     }
   }
 
+  @Test
   public void testCopyFromLocalFileSystem() throws Exception {
     Path localFilePath = new Path(System.getProperty("test.build.data",
         "azure_test"));
@@ -230,6 +235,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     }
   }
 
+  @Test
   public void testListDirectory() throws Exception {
     Path rootFolder = new Path("testingList");
     assertTrue(fs.mkdirs(rootFolder));
@@ -251,6 +257,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     assertTrue(fs.delete(rootFolder, true));
   }
 
+  @Test
   public void testStatistics() throws Exception {
     FileSystem.clearStatistics();
     FileSystem.Statistics stats = FileSystem.getStatistics("asv", NativeAzureFileSystem.class);
@@ -269,6 +276,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     assertEquals(8, stats.getBytesWritten());
   }
 
+  @Test
   public void testUriEncoding() throws Exception {
     fs.create(new Path("p/t%5Fe")).close();
     FileStatus[] listing = fs.listStatus(new Path("p"));
@@ -278,6 +286,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     assertTrue(fs.delete(new Path("q"), true));
   }
 
+  @Test
   public void testUriEncodingMoreComplexCharacters() throws Exception {
     // Create a file name with URI reserved characters, plus the percent
     String fileName = "!#$'()*;=[]%";
@@ -295,6 +304,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     assertTrue(fs.delete(new Path(directoryName), true));
   }
 
+  @Test
   public void testReadingDirectoryAsFile() throws Exception {
     Path dir = new Path("/x");
     assertTrue(fs.mkdirs(dir));
@@ -306,6 +316,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     }
   }
 
+  @Test
   public void testCreatingFileOverDirectory() throws Exception {
     Path dir = new Path("/x");
     assertTrue(fs.mkdirs(dir));
@@ -318,6 +329,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     }
   }
 
+  @Test
   public void testSetPermissionOnFile() throws Exception {
     Path newFile = new Path("testPermission");
     OutputStream output = fs.create(newFile);
@@ -336,6 +348,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     assertEquals(1, newStatus.getLen());
   }
 
+  @Test
   public void testSetPermissionOnFolder() throws Exception {
     Path newFolder = new Path("testPermission");
     assertTrue(fs.mkdirs(newFolder));
@@ -347,6 +360,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     assertTrue(newStatus.isDir());
   }
 
+  @Test
   public void testSetOwnerOnFile() throws Exception {
     Path newFile = new Path("testOwner");
     OutputStream output = fs.create(newFile);
@@ -365,6 +379,7 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     assertEquals("newGroup", newStatus.getGroup());
   }
 
+  @Test
   public void testSetOwnerOnFolder() throws Exception {
     Path newFolder = new Path("testOwner");
     assertTrue(fs.mkdirs(newFolder));
@@ -375,18 +390,21 @@ public abstract class TestNativeAzureFileSystemBase extends TestCase {
     assertTrue(newStatus.isDir());
   }
 
+  @Test
   public void testModifiedTimeForFile() throws Exception {
     Path testFile = new Path("testFile");
     fs.create(testFile).close();
     testModifiedTime(testFile);
   }
 
+  @Test
   public void testModifiedTimeForFolder() throws Exception {
     Path testFolder = new Path("testFolder");
     assertTrue(fs.mkdirs(testFolder));
     testModifiedTime(testFolder);
   }
 
+  @Test
   public void testListSlash() throws Exception {
     Path testFolder = new Path("/testFolder");
     Path testFile = new Path(testFolder, "testFile");

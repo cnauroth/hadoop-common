@@ -201,6 +201,13 @@ abstract class StorageInterface {
    */
   public abstract static class CloudBlobContainerWrapper {
     /**
+     * Returns the name of the container.
+     * 
+     * @return A <code>String</code> that represents the name of the container.
+     */
+    public abstract String getName();
+
+    /**
      * Returns a value that indicates whether the container exists, using the specified operation
      * context.
      * 

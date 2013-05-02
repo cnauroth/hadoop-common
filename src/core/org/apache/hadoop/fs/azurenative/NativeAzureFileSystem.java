@@ -66,9 +66,6 @@ public class NativeAzureFileSystem extends FileSystem {
   static final String PATH_DELIMITER = Path.SEPARATOR;
   static final String AZURE_TEMP_FOLDER = "_$azuretmpfolder$";
 
-  private static final int AZURE_MAX_FLUSH_RETRIES = 3;
-  private static final int AZURE_MAX_READ_RETRIES = 3;
-  private static final int AZURE_BACKOUT_TIME = 100;
   private static final int AZURE_LIST_ALL = -1;
   private static final int AZURE_UNBOUNDED_DEPTH = -1;
 
@@ -127,42 +124,11 @@ public class NativeAzureFileSystem extends FileSystem {
     @Override
     public synchronized int read() throws IOException {
       int result = 0;
-      for (int readAttempts = 0; readAttempts < AZURE_MAX_READ_RETRIES; readAttempts++) {
-        try {
-          result = in.read();
-          if (result != -1) {
-            pos++;
-            if (statistics != null) {
-              statistics.incrementBytesRead(1);
-            }
-          }
-
-          // The read completed successfully, break to return with the
-          // result.
-          //
-          break;
-        } catch (IOException e) {
-          // Log the exception and print the stack trace.
-          //
-          LOG.warn("Caught I/O exception on read" + e);
-          if (AZURE_MAX_READ_RETRIES > readAttempts) {
-            // Delay the next attempt with a linear back out.
-            //
-            try {
-              Thread.sleep(readAttempts * AZURE_BACKOUT_TIME);
-            } catch (InterruptedException e1) {
-              // Thread interrupted from sleep. Continue with flush
-              // processing.
-              LOG.warn("Thread interrupted from sleep with exception" + e);
-              LOG.warn("Continuing read operation...");
-            }
-          } else {
-            // Read attempts exhausted so dump the current stack and re-throw
-            // the exception to indicated that the flush failed.
-            //
-            e.printStackTrace();
-            throw new IOException(e);
-          }
+      result = in.read();
+      if (result != -1) {
+        pos++;
+        if (statistics != null) {
+          statistics.incrementBytesRead(1);
         }
       }
 
@@ -194,45 +160,13 @@ public class NativeAzureFileSystem extends FileSystem {
     @Override
     public synchronized int read(byte[] b, int off, int len) throws IOException {
       int result = 0;
+      result = in.read(b, off, len);
+      if (result > 0) {
+        pos += result;
+      }
 
-      for (int readAttempts = 0; readAttempts < AZURE_MAX_READ_RETRIES; readAttempts++) {
-        try {
-          result = in.read(b, off, len);
-          if (result > 0) {
-            pos += result;
-          }
-
-          if (null != statistics) {
-            statistics.incrementBytesRead(result);
-          }
-
-          // The read completed successfully, break to return with the
-          // result.
-          //
-          break;
-        } catch (IOException e) {
-          // Log the exception and print the stack trace.
-          //
-          LOG.warn("Caught I/O exception on read" + e);
-          if (AZURE_MAX_READ_RETRIES > readAttempts) {
-            // Delay the next attempt with a linear back out.
-            //
-            try {
-              Thread.sleep(readAttempts * AZURE_BACKOUT_TIME);
-            } catch (InterruptedException e1) {
-              // Thread interrupted from sleep. Continue with flush
-              // processing.
-              LOG.warn("Thread interrupted from sleep with exception" + e);
-              LOG.warn("Continuing read operation...");
-            }
-          } else {
-            // Read attempts exhausted so dump the current stack and re-throw
-            // the exception to indicated that the flush failed.
-            //
-            e.printStackTrace();
-            throw new IOException(e);
-          }
-        }
+      if (null != statistics) {
+        statistics.incrementBytesRead(result);
       }
 
       // Return to the caller with the result.
@@ -315,79 +249,39 @@ public class NativeAzureFileSystem extends FileSystem {
 
     @Override
     public void flush() throws IOException {
-      // There may be storage or I/O exceptions on the flush. Loop to retry any
-      // failed
-      // flushes and exit when flush is successful.
+      // Flush any remaining buffers in the output stream.
       //
-      boolean isFlushed = false;
-      for (int flushAttempts = 0; !isFlushed
-          && flushAttempts < AZURE_MAX_FLUSH_RETRIES; flushAttempts++) {
-        // Make an attempt to flush the current outstanding buffers out to Azure
-        // storage.
-        //
-        try {
-          // Flush any remaining buffers in the output stream.
-          //
-          out.flush();
+      out.flush();
 
-          // Iterate through the ring buffer from head to tail writing
-          // the byte array output stream buffers to the stream and
-          // removing them.
-          //
-          while (!outRingBuffer.isEmpty()) {
-            ByteArrayOutputStream outByteStream = outRingBuffer.remove();
-            outByteStream.writeTo(out);
-          }
-
-          // Assertion: At this point the ring buffer should be exhausted.
-          //
-          assert outRingBuffer.isEmpty() : 
-            "Empty ring buffer expected after writing all contents to output stream.";
-
-          // Write out the current contents of the current buffer to the stream and
-          // flush again.
-          //
-          if (null != buffer && 0 < buffer.size()) {
-            // Write the current byte array output buffer stream to the output
-            // stream.
-            //
-            buffer.writeTo(out);
-            buffer = new ByteArrayOutputStream(getBufferSize());
-          }
-
-          // Flush the output stream to ensure all the newly added
-          // buffers are written to the Azure blob.
-          //
-          out.flush();
-
-          // The current buffers were successfully flushed to the remote Azure
-          // store.
-          //
-          isFlushed = true;
-        } catch (IOException e) {
-          // Log the exception and print the stack trace.
-          //
-          LOG.warn("Caught I/O exception" + e);
-          if (AZURE_MAX_FLUSH_RETRIES > flushAttempts) {
-            // Delay the next attempt with a linear back out.
-            //
-            try {
-              Thread.sleep(flushAttempts * AZURE_BACKOUT_TIME);
-            } catch (InterruptedException e1) {
-              // Thread interrupted from sleep. Continue with flush
-              // processing.
-              LOG.warn("Thread interrupte from sleep with exception" + e);
-              LOG.warn("Continuing flush operation...");
-            }
-          } else {
-            // Flush attempts exhausted so dump the current stack and re-throw
-            // the exception to indicated that the flush failed.
-            //
-            e.printStackTrace();
-            throw new IOException(e);
-          }
-        }
+      // Iterate through the ring buffer from head to tail writing
+      // the byte array output stream buffers to the stream and
+      // removing them.
+      //
+      while (!outRingBuffer.isEmpty()) {
+        ByteArrayOutputStream outByteStream = outRingBuffer.remove();
+        outByteStream.writeTo(out);
       }
+
+      // Assertion: At this point the ring buffer should be exhausted.
+      //
+      assert outRingBuffer.isEmpty() : 
+        "Empty ring buffer expected after writing all contents to output stream.";
+
+      // Write out the current contents of the current buffer to the stream and
+      // flush again.
+      //
+      if (null != buffer && 0 < buffer.size()) {
+        // Write the current byte array output buffer stream to the output
+        // stream.
+        //
+        buffer.writeTo(out);
+        buffer = new ByteArrayOutputStream(getBufferSize());
+      }
+
+      // Flush the output stream to ensure all the newly added
+      // buffers are written to the Azure blob.
+      //
+      out.flush();
 
       // Create a new byte array output buffer stream for subsequent writes.
       //

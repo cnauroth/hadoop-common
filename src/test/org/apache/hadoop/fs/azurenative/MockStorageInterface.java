@@ -75,7 +75,7 @@ public class MockStorageInterface extends StorageInterface {
   @Override
   public CloudBlobContainerWrapper getContainerReference(String uri)
       throws URISyntaxException, StorageException {
-    MockCloudBlobContainerWrapper container = new MockCloudBlobContainerWrapper();
+    MockCloudBlobContainerWrapper container = new MockCloudBlobContainerWrapper(uri);
     // Check if we have a pre-existing container with that name, and prime
     // the wrapper with that knowledge if it's found.
     for (PreExistingContainer existing : preExistingContainers) {
@@ -99,6 +99,16 @@ public class MockStorageInterface extends StorageInterface {
   class MockCloudBlobContainerWrapper extends CloudBlobContainerWrapper {
     private boolean created = false;
     private HashMap<String, String> metadata;
+    private final String uri;
+
+    public MockCloudBlobContainerWrapper(String uri) {
+      this.uri = uri;
+    }
+
+    @Override
+    public String getName() {
+        return uri;
+    }
 
     @Override
     public boolean exists(OperationContext opContext) throws StorageException {

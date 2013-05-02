@@ -7,10 +7,13 @@ import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.azure.AzureException;
 import org.apache.hadoop.metrics2.*;
 import org.apache.hadoop.metrics2.lib.*;
+import org.junit.*;
 
 import static org.apache.hadoop.test.MetricsAsserts.*;
 import static org.apache.hadoop.fs.azurenative.AzureMetricsTestUtil.*;
 import static org.apache.hadoop.fs.azurenative.AzureFileSystemInstrumentation.*;
+import static org.junit.Assert.*;
+import static org.junit.Assume.*;
 
 import org.hamcrest.*;
 import org.mockito.ArgumentCaptor;
@@ -18,22 +21,22 @@ import org.mockito.ArgumentCaptor;
 import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.*;
 
-import junit.framework.TestCase;
 
-public class TestAzureFileSystemInstrumentation extends TestCase {
+public class TestAzureFileSystemInstrumentation {
   private FileSystem fs;
   private AzureBlobStorageTestAccount testAccount;
 
-  @Override
-  protected void setUp() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     testAccount = AzureBlobStorageTestAccount.create();
     if (testAccount != null) {
       fs = testAccount.getFileSystem();
     }
+    assumeNotNull(testAccount);
   }
 
-  @Override
-  protected void tearDown() throws Exception {
+  @After
+  public void tearDown() throws Exception {
     if (testAccount != null) {
       testAccount.cleanup();
       testAccount = null;
@@ -41,13 +44,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     }
   }
 
-  @Override
-  protected void runTest() throws Throwable {
-    if (testAccount != null) {
-      super.runTest();
-    }
-  }
-
+  @Test
   public void testMetricTags() throws Exception {
     String accountName =
         testAccount.getRealAccount().getBlobEndpoint()
@@ -69,6 +66,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
         ));
   }
 
+  @Test
   public void testMetricsOnMkdirList() throws Exception {
     long base = getBaseWebResponses();
     
@@ -82,7 +80,8 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     // called /user/<name>/a, and then 3 request for the creation of the three
     // levels, and then 2 requests for checking/stamping the version of AS,
     // totaling 11.
-    base = assertWebResponsesInRange(base, 1, 11);
+    // Also, there's the initial 1 request for container check so total is 12.
+    base = assertWebResponsesInRange(base, 1, 12);
     assertEquals(1, getLongCounterValue(getInstrumentation(), ASV_DIRECTORIES_CREATED));
 
     // List the root contents
@@ -98,6 +97,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     return azureStore.getBandwidthGaugeUpdater();
   }
 
+  @Test
   public void testMetricsOnFileCreateRead() throws Exception {
     long base = getBaseWebResponses();
     
@@ -119,7 +119,8 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     
     // The exact number of requests/responses that happen to create a file
     // can vary  - at the time of writing this code it takes 10
-    // requests/responses for the 1000 byte file (33 for 100 MB), but that
+    // requests/responses for the 1000 byte file (33 for 100 MB),
+    // plus the initial container-check request but that
     // can very easily change in the future. Just assert that we do roughly
     // more than 2 but less than 15.
     logOpResponseCount("Creating a 1K file", base);
@@ -208,6 +209,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     assertNoErrors();
   }
 
+  @Test
   public void testMetricsOnBigFileCreateRead() throws Exception {
     long base = getBaseWebResponses();
 
@@ -226,8 +228,9 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     outputStream.close();
 
     // The exact number of requests/responses that happen to create a file
-    // can vary  - at the time of writing this code it takes 3
-    // requests/responses for the 100 MB file, but that
+    // can vary  - at the time of writing this code it takes 34
+    // requests/responses for the 100 MB file,
+    // plus the initial container check request, but that
     // can very easily change in the future. Just assert that we do roughly
     // more than 20 but less than 50.
     logOpResponseCount("Creating a 100 MB file", base);
@@ -274,6 +277,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
         downloadLatency > 0);
   }
 
+  @Test
   public void testMetricsOnFileRename() throws Exception {
     long base = getBaseWebResponses();
 
@@ -296,6 +300,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     assertNoErrors();
   }
 
+  @Test
   public void testMetricsOnFileExistsDelete() throws Exception {
     long base = getBaseWebResponses();
 
@@ -304,9 +309,10 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     // Check existence
     assertFalse(fs.exists(filePath));
     // At the time of writing this code it takes 2 requests/responses to
-    // check existence, which seems excessive. Check for range 1-4 for now.
+    // check existence, which seems excessive, plus initial request for
+    // container check.
     logOpResponseCount("Checking file existence for non-existent file", base);
-    base = assertWebResponsesInRange(base, 1, 2);
+    base = assertWebResponsesInRange(base, 1, 3);
 
     // Create an empty file
     assertTrue(fs.createNewFile(filePath));
@@ -329,6 +335,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     assertNoErrors();
   }
 
+  @Test
   public void testMetricsOnDirRename() throws Exception {
     long base = getBaseWebResponses();
     
@@ -354,6 +361,7 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
     assertNoErrors();
   }
 
+  @Test
   public void testClientErrorMetrics() throws Exception {
     String directoryName = "metricsTestDirectory_ClientError";
     Path directoryPath = new Path("/" + directoryName);
@@ -384,9 +392,8 @@ public class TestAzureFileSystemInstrumentation extends TestCase {
    * after the creation of the file system object.
    */
   private long getBaseWebResponses() {
-    // The number of requests should start at 2
-    // from when we check the existence of the container and its version
-    return assertWebResponsesEquals(0, 2);
+    // The number of requests should start at 0
+    return assertWebResponsesEquals(0, 0);
   }
 
   /**

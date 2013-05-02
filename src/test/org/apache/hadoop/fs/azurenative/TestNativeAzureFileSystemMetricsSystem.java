@@ -1,13 +1,13 @@
 package org.apache.hadoop.fs.azurenative;
 
+import static org.junit.Assert.*;
 import org.apache.hadoop.fs.*;
-
-import junit.framework.*;
+import org.junit.*;
 
 /**
  * Tests that the ASV-specific metrics system is working correctly.
  */
-public class TestNativeAzureFileSystemMetricsSystem extends TestCase {
+public class TestNativeAzureFileSystemMetricsSystem {
   private static final String ASV_FILES_CREATED = "asv_files_created";
 
   private static int getFilesCreated(AzureBlobStorageTestAccount testAccount) {
@@ -19,6 +19,7 @@ public class TestNativeAzureFileSystemMetricsSystem extends TestCase {
    * metrics from each are published correctly.
    * @throws Exception 
    */
+  @Test
   public void testMetricsAcrossFileSystems()
       throws Exception {
     AzureBlobStorageTestAccount a1, a2, a3;
@@ -42,6 +43,7 @@ public class TestNativeAzureFileSystemMetricsSystem extends TestCase {
     assertEquals(0, getFilesCreated(a3));
   }
 
+  @Test
   public void testMetricsSourceNames() {
     // Reset the metrics source name counter to get deterministic results.
     NativeAzureFileSystem.resetMetricsSourceNameCounter();

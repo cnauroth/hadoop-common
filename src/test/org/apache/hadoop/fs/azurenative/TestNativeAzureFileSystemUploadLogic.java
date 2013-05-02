@@ -1,28 +1,29 @@
 package org.apache.hadoop.fs.azurenative;
 
+import static org.junit.Assert.*;
+
 import java.io.*;
 
 import org.apache.hadoop.fs.*;
-
-import junit.framework.*;
+import org.junit.*;
 
 /**
  * Tests for the upload, buffering and flush logic in ASV.
  */
-public class TestNativeAzureFileSystemUploadLogic extends TestCase {
+public class TestNativeAzureFileSystemUploadLogic {
   private AzureBlobStorageTestAccount testAccount;
 
   // Just an arbitrary number so that the values I write have a predictable
   // pattern: 0, 1, 2, .. , 45, 46, 0, 1, 2, ...
   static final int byteValuePeriod = 47;
 
-  @Override
-  protected void setUp() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     testAccount = AzureBlobStorageTestAccount.createMock();
   }
 
-  @Override
-  protected void tearDown() throws Exception {
+  @After
+  public void tearDown() throws Exception {
     if (testAccount != null) {
       testAccount.cleanup();
       testAccount = null;
@@ -52,6 +53,7 @@ public class TestNativeAzureFileSystemUploadLogic extends TestCase {
    * Tests that we upload consistently if we flush after every little
    * bit of data.
    */
+  @Test
   public void testConsistencyAfterSmallFlushes() throws Exception {
     testConsistencyAfterManyFlushes(FlushFrequencyVariation.BeforeSingleBufferFull);
   }
@@ -60,6 +62,7 @@ public class TestNativeAzureFileSystemUploadLogic extends TestCase {
    * Tests that we upload consistently if we flush after every medium-sized
    * bit of data.
    */
+  @Test
   public void testConsistencyAfterMediumFlushes() throws Exception {
     testConsistencyAfterManyFlushes(FlushFrequencyVariation.AfterSingleBufferFull);
   }
@@ -68,6 +71,7 @@ public class TestNativeAzureFileSystemUploadLogic extends TestCase {
    * Tests that we upload consistently if we flush after every large chunk
    * of data.
    */
+  @Test
   public void testConsistencyAfterLargeFlushes() throws Exception {
     testConsistencyAfterManyFlushes(FlushFrequencyVariation.AfterAllRingBufferFull);
   }

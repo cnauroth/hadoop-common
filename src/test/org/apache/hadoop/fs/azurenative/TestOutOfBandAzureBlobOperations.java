@@ -1,31 +1,32 @@
 package org.apache.hadoop.fs.azurenative;
 
+import static org.junit.Assert.*;
+
 import java.util.*;
 
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.azure.AzureException;
 import org.apache.hadoop.fs.permission.*;
-
-import junit.framework.*;
+import org.junit.*;
 
 /**
  * Tests that ASV handles things gracefully when users add blobs to
  * the Azure Storage container from outside ASV's control.
  */
-public class TestOutOfBandAzureBlobOperations extends TestCase {
+public class TestOutOfBandAzureBlobOperations {
   private AzureBlobStorageTestAccount testAccount;
   private FileSystem fs;
   private InMemoryBlockBlobStore backingStore;
 
-  @Override
-  protected void setUp() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     testAccount = AzureBlobStorageTestAccount.createMock();
     fs = testAccount.getFileSystem();
     backingStore = testAccount.getMockStorage().getBackingStore();
   }
 
-  @Override
-  protected void tearDown() throws Exception {
+  @After
+  public void tearDown() throws Exception {
     testAccount.cleanup();
     fs = null;
     backingStore = null;
@@ -38,6 +39,7 @@ public class TestOutOfBandAzureBlobOperations extends TestCase {
         new HashMap<String, String>());
   }
 
+  @Test
   public void testImplicitFolderListed() throws Exception {
     createEmptyBlobOutOfBand("root/b");
 
@@ -62,6 +64,7 @@ public class TestOutOfBandAzureBlobOperations extends TestCase {
     assertEquals("/root", dirStatus.getPath().toUri().getPath());
   }
 
+  @Test
   public void testImplicitFolderDeleted() throws Exception {
     createEmptyBlobOutOfBand("root/b");
     assertTrue(fs.exists(new Path("/root")));
@@ -69,6 +72,7 @@ public class TestOutOfBandAzureBlobOperations extends TestCase {
     assertFalse(fs.exists(new Path("/root")));
   }
 
+  @Test
   public void testFileInImplicitFolderDeleted() throws Exception {
     createEmptyBlobOutOfBand("root/b");
     assertTrue(fs.exists(new Path("/root")));
@@ -76,6 +80,7 @@ public class TestOutOfBandAzureBlobOperations extends TestCase {
     assertTrue(fs.exists(new Path("/root")));
   }
 
+  @Test
   public void testFileAndImplicitFolderSameName() throws Exception {
     createEmptyBlobOutOfBand("root/b");
     createEmptyBlobOutOfBand("root/b/c");
@@ -107,6 +112,7 @@ public class TestOutOfBandAzureBlobOperations extends TestCase {
    * Tests that when we create the file (or folder) x/y/z, we also
    * create explicit folder blobs for x and x/y
    */
+  @Test
   public void testCreatingDeepFileCreatesExplicitFolder() throws Exception {
     for (DeepCreateTestVariation variation: DeepCreateTestVariation.values()) {
       switch (variation) {
@@ -125,6 +131,7 @@ public class TestOutOfBandAzureBlobOperations extends TestCase {
     }
   }
 
+  @Test
   public void testSetPermissionOnImplicitFolder() throws Exception {
     createEmptyBlobOutOfBand("root/b");
     FsPermission newPermission = new FsPermission((short)0600);
@@ -134,6 +141,7 @@ public class TestOutOfBandAzureBlobOperations extends TestCase {
     assertEquals(newPermission, newStatus.getPermission());
   }
 
+  @Test
   public void testSetOwnerOnImplicitFolder() throws Exception {
     createEmptyBlobOutOfBand("root/b");
     fs.setOwner(new Path("/root"), "newOwner", null);

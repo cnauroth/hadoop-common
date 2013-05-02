@@ -1,18 +1,20 @@
 package org.apache.hadoop.fs.azurenative;
 
+import static org.junit.Assert.*;
+import static org.junit.Assume.*;
+
 import java.io.*;
 import java.net.URI;
 import java.util.*;
 
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.azure.AzureException;
+import org.junit.*;
 
+import org.apache.hadoop.fs.azurenative.AzureBlobStorageTestAccount.CreateOptions;
 
-import junit.framework.TestCase;
-
-public class TestASVUriAndConfiguration extends TestCase {
+public class TestASVUriAndConfiguration {
 
   private static final int FILE_SIZE = 4096;
   private static final String PATH_DELIMITER = "/";
@@ -24,8 +26,8 @@ public class TestASVUriAndConfiguration extends TestCase {
   private AzureBlobStorageTestAccount testAccount;
 
 
-  @Override
-  protected void tearDown() throws Exception {
+  @After
+  public void tearDown() throws Exception {
     if (testAccount != null) {
       testAccount.cleanup();
       testAccount = null;
@@ -77,38 +79,49 @@ public class TestASVUriAndConfiguration extends TestCase {
 
   // Positive tests to exercise making a connection with to Azure account using
   // account key.
-  //
+  @Test
   public void testConnectUsingKey() throws Exception {
 
     testAccount = AzureBlobStorageTestAccount.create();
-    if (testAccount == null) {
-      return;
-    }
+    assumeNotNull(testAccount);
 
     // Validate input and output on the connection.
     //
     assertTrue(validateIOStreams(new Path("/asv_scheme")));
   }
 
+  @Test
+  public void testConnectUsingSAS() throws Exception {
+    // Create the test account with SAS credentials.
+    //
+    testAccount = AzureBlobStorageTestAccount.create("",
+        EnumSet.of(CreateOptions.UseSas, CreateOptions.CreateContainer));
+    // Validate input and output on the connection.
+    // NOTE: As of 4/15/2013, Azure Storage has a deficiency that prevents the
+    // full scenario from working (CopyFromBlob doesn't work with SAS), so
+    // just do a minor check until that is corrected.
+    //
+    assertFalse(testAccount.getFileSystem().exists(new Path("/IDontExist")));
+    //assertTrue(validateIOStreams(new Path("/sastest.txt")));
+  }
+
+  @Test
   public void testConnectUsingAnonymous() throws Exception {
 
     // Create test account with anonymous credentials
     //
     testAccount = AzureBlobStorageTestAccount.createAnonymous("testAsv.txt", FILE_SIZE);
-    if (testAccount == null) {
-      return;
-    }
+    assumeNotNull(testAccount);
 
     // Read the file from the public folder using anonymous credentials.
     //
     assertEquals(FILE_SIZE, readInputStream(new Path("/testAsv.txt")));
   }
 
+  @Test
   public void testConnectToEmulator() throws Exception {
     testAccount = AzureBlobStorageTestAccount.createForEmulator();
-    if (testAccount == null) {
-      return;
-    }
+    assumeNotNull(testAccount);
     assertTrue(validateIOStreams(new Path("/testFile")));
   }
 
@@ -116,6 +129,7 @@ public class TestASVUriAndConfiguration extends TestCase {
    * Tests that we can connect to fully qualified accounts outside
    * of blob.core.windows.net
    */
+  @Test
   public void testConnectToFullyQualifiedAccountMock() throws Exception {
     Configuration conf = new Configuration();
     AzureBlobStorageTestAccount.setMockAccountKey(conf,
@@ -136,15 +150,18 @@ public class TestASVUriAndConfiguration extends TestCase {
    * Tests that we can connect to fully qualified accounts outside
    * of blob.core.windows.net
    */
+  @Test
   public void testConnectToFullyQualifiedAccountLive() throws Exception {
     testAccount =
-        AzureBlobStorageTestAccount.create("", true);
-    if (testAccount == null) {
-      return;
-    }
+        AzureBlobStorageTestAccount.create("",
+            EnumSet.of(
+                CreateOptions.UseQualifiedAccountName,
+                CreateOptions.CreateContainer));
+    assumeNotNull(testAccount);
     assertTrue(validateIOStreams(new Path("/testFile")));
   }
 
+  @Test
   public void testConnectToRoot() throws Exception {
 
     // Set up blob names.
@@ -157,9 +174,7 @@ public class TestASVUriAndConfiguration extends TestCase {
     // Create test account with default root access.
     //
     testAccount = AzureBlobStorageTestAccount.createRoot(inblobName, FILE_SIZE);
-    if (testAccount == null) {
-      return;
-    }
+    assumeNotNull(testAccount);
 
 
     // Read the file from the default container.
@@ -213,13 +228,13 @@ public class TestASVUriAndConfiguration extends TestCase {
         expectedValue, byteRead);
   }
 
+  @Test
   public void testMultipleContainers() throws Exception {
     AzureBlobStorageTestAccount
       firstAccount = AzureBlobStorageTestAccount.create("first"),
       secondAccount = AzureBlobStorageTestAccount.create("second");
-    if (firstAccount == null) {
-      return;
-    }
+    assumeNotNull(testAccount);
+    assumeNotNull(secondAccount);
     try {
       FileSystem firstFs = firstAccount.getFileSystem(),
           secondFs = secondAccount.getFileSystem();

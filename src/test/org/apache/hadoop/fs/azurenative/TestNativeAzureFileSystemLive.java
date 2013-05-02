@@ -5,7 +5,7 @@ package org.apache.hadoop.fs.azurenative;
  * provided in the environment.
  */
 public class TestNativeAzureFileSystemLive
-    extends TestNativeAzureFileSystemBase {
+    extends NativeAzureFileSystemBaseTest {
 
   @Override
   protected AzureBlobStorageTestAccount createTestAccount()

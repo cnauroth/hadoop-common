@@ -1,5 +1,7 @@
 package org.apache.hadoop.fs.azurenative;
 
+import static org.junit.Assert.*;
+
 import java.net.URI;
 import java.util.*;
 
@@ -8,25 +10,25 @@ import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.permission.*;
 import org.apache.hadoop.security.UserGroupInformation;
 
-import junit.framework.*;
+import org.junit.*;
 
 /**
  * Tests that we put the correct metadata on blobs created through ASV. 
  */
-public class TestBlobMetadata extends TestCase {
+public class TestBlobMetadata {
   private AzureBlobStorageTestAccount testAccount;
   private FileSystem fs;
   private InMemoryBlockBlobStore backingStore;
 
-  @Override
-  protected void setUp() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     testAccount = AzureBlobStorageTestAccount.createMock();
     fs = testAccount.getFileSystem();
     backingStore = testAccount.getMockStorage().getBackingStore();
   }
 
-  @Override
-  protected void tearDown() throws Exception {
+  @After
+  public void tearDown() throws Exception {
     testAccount.cleanup();
     fs = null;
     backingStore = null;
@@ -48,7 +50,10 @@ public class TestBlobMetadata extends TestCase {
   /**
    * Tests that ASV stamped the version in the container metadata.
    */
+  @Test
   public void testContainerVersionMetadata() throws Exception {
+    // Do a write operation to trigger version stamp
+    fs.createNewFile(new Path("/foo"));
     HashMap<String, String> containerMetadata =
         backingStore.getContainerMetadata();
     assertNotNull(containerMetadata);
@@ -60,6 +65,7 @@ public class TestBlobMetadata extends TestCase {
    * Tests that ASV stamped the version in the container metadata if
    * it does a write operation to a pre-existing container.
    */
+  @Test
   public void testPreExistingContainerVersionMetadata() throws Exception {
     // Create a mock storage with a pre-existing container that has no
     // ASV version metadata on it.
@@ -92,6 +98,7 @@ public class TestBlobMetadata extends TestCase {
         containerMetadata.get(AzureNativeFileSystemStore.VERSION_METADATA_KEY));
   }
 
+  @Test
   public void testPermissionMetadata() throws Exception {
     FsPermission justMe = new FsPermission(
         FsAction.READ_WRITE, FsAction.NONE, FsAction.NONE);
@@ -113,6 +120,7 @@ public class TestBlobMetadata extends TestCase {
         retrievedStatus.getGroup());
   }
 
+  @Test
   public void testFolderMetadata() throws Exception {
     Path folder = new Path("/folder");
     FsPermission justRead = new FsPermission(
