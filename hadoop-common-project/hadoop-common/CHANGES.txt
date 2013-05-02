@@ -161,7 +161,12 @@ Trunk (Unreleased)
 
     HADOOP-9218 Document the Rpc-wrappers used internally (sanjay Radia)
 
-	HADOOP-9258 Add stricter tests to FileSystemContractTestBase (stevel)
+    HADOOP-9258 Add stricter tests to FileSystemContractTestBase (stevel)
+
+    HADOOP-9486. Promoted Windows and Shell related utils from YARN to Hadoop
+    Common. (Chris Nauroth via vinodkv)
+
+    HADOOP-8608. Add Configuration API for parsing time durations. (cdouglas)
 
   BUG FIXES
 
@@ -367,6 +372,10 @@ Trunk (Unreleased)
     HADOOP-9433 TestLocalFileSystem#testHasFileDescriptor leaks file handle
     (Chris Nauroth via sanjay)
 
+    HADOOP-9488. FileUtil#createJarWithClassPath only substitutes environment
+    variables from current process environment/does not support overriding
+    when launching new process (Chris Nauroth via bikas)
+
   OPTIMIZATIONS
 
     HADOOP-7761. Improve the performance of raw comparisons. (todd)
@@ -375,7 +384,7 @@ Trunk (Unreleased)
 
     HADOOP-9190. packaging docs is broken. (Andy Isaacson via atm)
 
-  BREAKDOWN OF HADOOP-8562 SUBTASKS
+  BREAKDOWN OF HADOOP-8562 SUBTASKS AND RELATED JIRAS
 
     HADOOP-8924. Hadoop Common creating package-info.java must not depend on
     sh. (Chris Nauroth via suresh)
@@ -509,6 +518,27 @@ Trunk (Unreleased)
     HADOOP-9437. TestNativeIO#testRenameTo fails on Windows due to assumption
     that POSIX errno is embedded in NativeIOException. (Chris Nauroth via
     suresh)
+
+    HADOOP-9443. Port winutils static code analysis change to trunk.
+    (Chuan Liu via suresh)
+
+    HADOOP-9290. Some tests cannot load native library on windows.
+    (Chris Nauroth via suresh)
+
+    HADOOP-9500. TestUserGroupInformation#testGetServerSideGroups fails on 
+    Windows due to failure to find winutils.exe. (Chris Nauroth via suresh)
+
+    HADOOP-9490. LocalFileSystem#reportChecksumFailure not closing the 
+    checksum file handle before rename. (Ivan Mitic via suresh)
+
+    HADOOP-9524. Fix ShellCommandFencer to work on Windows.
+    (Arpit Agarwal via suresh)
+
+    HADOOP-9413. Add common utils for File#setReadable/Writable/Executable &
+    File#canRead/Write/Execute that work cross-platform. (Ivan Mitic via suresh)
+
+    HADOOP-9532. HADOOP_CLIENT_OPTS is appended twice by Windows cmd scripts.
+    (Chris Nauroth via suresh)
     
 Release 2.0.5-beta - UNRELEASED
 
@@ -520,6 +550,9 @@ Release 2.0.5-beta - UNRELEASED
 
     HADOOP-8415. Add getDouble() and setDouble() in
     org.apache.hadoop.conf.Configuration (Jan van der Lugt via harsh)
+
+    HADOOP-9338. FsShell Copy Commands Should Optionally Preserve File
+    Attributes. (Nick White via atm)
 
   IMPROVEMENTS
 
@@ -545,6 +578,15 @@ Release 2.0.5-beta - UNRELEASED
 
     HADOOP-9401. CodecPool: Add counters for number of (de)compressors 
     leased out. (kkambatl via tucu)
+
+    HADOOP-9450. HADOOP_USER_CLASSPATH_FIRST is not honored; CLASSPATH
+    is PREpended instead of APpended. (Chris Nauroth and harsh via harsh)
+
+    HADOOP-9503. Remove sleep between IPC client connect timeouts.
+    (Varun Sharma via szetszwo)
+
+    HADOOP-9322. LdapGroupsMapping doesn't seem to set a timeout for
+    its directory search. (harsh)
 
   OPTIMIZATIONS
 
@@ -627,6 +669,12 @@ Release 2.0.5-beta - UNRELEASED
     in order to avoid OOME. (Plamen Jeliazkov via shv)
 
     HADOOP-9473. Typo in FileUtil copy() method. (Glen Mazza via suresh)
+
+    HADOOP-9504. MetricsDynamicMBeanBase has concurrency issues in
+    createMBeanInfo (Liang Xie via jlowe)
+
+    HADOOP-9455. HADOOP_CLIENT_OPTS appended twice causes JVM failures.
+    (Chris Nauroth via suresh)
 
 Release 2.0.4-alpha - UNRELEASED
 
@@ -1637,6 +1685,12 @@ Release 0.23.8 - UNRELEASED
 
     HADOOP-9233. Cover package org.apache.hadoop.io.compress.zlib with unit
     tests (Vadim Bondarev via jlowe)
+
+    HADOOP-9469. mapreduce/yarn source jars not included in dist tarball
+    (Robert Parker via tgraves)
+
+    HADOOP-9504. MetricsDynamicMBeanBase has concurrency issues in
+    createMBeanInfo (Liang Xie via jlowe)
 
 Release 0.23.7 - UNRELEASED
 

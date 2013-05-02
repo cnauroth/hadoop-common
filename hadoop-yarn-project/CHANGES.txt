@@ -34,7 +34,14 @@ Trunk - Unreleased
     YARN-487. Modify path manipulation in LocalDirsHandlerService to let
     TestDiskFailures pass on Windows. (Chris Nauroth via vinodkv)
 
-  BREAKDOWN OF HADOOP-8562 SUBTASKS
+    YARN-493. Fixed some shell related flaws in YARN on Windows. (Chris Nauroth
+    via vinodkv)
+
+    YARN-593. container launch on Windows does not correctly populate
+    classpath with new process's environment variables and localized resources
+    (Chris Nauroth via bikas)
+
+  BREAKDOWN OF HADOOP-8562 SUBTASKS AND RELATED JIRAS
 
     YARN-158. Yarn creating package-info.java must not depend on sh.
     (Chris Nauroth via suresh)
@@ -63,6 +70,10 @@ Trunk - Unreleased
 
     YARN-359. Fixing commands for container signalling in Windows. (Chris Nauroth
     via vinodkv)
+
+    YARN-506. Move to common utils FileUtil#setReadable/Writable/Executable and 
+    FileUtil#canRead/Write/Execute. (Ivan Mitic via suresh)
+
     
 Release 2.0.5-beta - UNRELEASED
 
@@ -85,7 +96,20 @@ Release 2.0.5-beta - UNRELEASED
     YARN-444. Moved special container exit codes from YarnConfiguration to API
     where they belong. (Sandy Ryza via vinodkv)
 
+    YARN-441. Removed unused utility methods for collections from two API
+    records. (Xuan Gong via vinodkv)
+
+    YARN-561. Modified NodeManager to set key information into the environment
+    of every container that it launches. (Xuan Gong via vinodkv)
+
+    YARN-579. Stop setting the Application Token in the AppMaster env, in
+    favour of the copy present in the container token field. 
+    (Vinod Kumar Vavilapalli via sseth)
+
   NEW FEATURES
+
+    YARN-482. FS: Extend SchedulingMode to intermediate queues. 
+    (kkambatl via tucu)
 
   IMPROVEMENTS
 
@@ -147,6 +171,38 @@ Release 2.0.5-beta - UNRELEASED
 
     YARN-514. Delayed store operations should not result in RM unavailability
     for app submission (Zhijie Shen via bikas)
+
+    YARN-586. Fixed a typo in ApplicationSubmissionContext#setApplicationId.
+    (Zhijie Shen via vinodkv)
+
+    YARN-542. Changed the default global AM max-attempts value to be not one.
+    (Zhijie Shen via vinodkv)
+
+    YARN-583. Moved application level local resources to be localized under the
+    filecache sub-directory under application directory. (Omkar Vinit Joshi via
+    vinodkv)
+
+    YARN-581. Added a test to verify that app delegation tokens are restored
+    after RM restart. (Jian He via vinodkv)
+
+    YARN-577. Add application-progress also to ApplicationReport. (Hitesh Shah
+    via vinodkv)
+
+    YARN-595. Refactor fair scheduler to use common Resources. (Sandy Ryza
+    via tomwhite)
+
+    YARN-562. Modified NM to reject any containers allocated by a previous
+    ResourceManager. (Jian He via vinodkv)
+
+    YARN-591. Moved RM recovery related records out of public API as they do not
+    belong there. (vinodkv)
+
+    YARN-599. Refactoring submitApplication in ClientRMService and RMAppManager
+    to separate out various validation checks depending on whether they rely on
+    RM configuration or not. (Zhijie Shen via vinodkv)
+
+    YARN-618. Modified RM_INVALID_IDENTIFIER to be -1 instead of zero. (Jian He
+    via vinodkv)
 
   OPTIMIZATIONS
 
@@ -249,6 +305,26 @@ Release 2.0.5-beta - UNRELEASED
 
     YARN-476. ProcfsBasedProcessTree info message confuses users. 
     (sandyr via tucu)
+
+    YARN-585. Fix failure in TestFairScheduler#testNotAllowSubmitApplication
+    caused by YARN-514. (Zhijie Shen via vinodkv)
+
+    YARN-547. Fixed race conditions in public and private resource localization
+    which used to cause duplicate downloads. (Omkar Vinit Joshi via vinodkv)
+
+    YARN-594. Update test and add comments in YARN-534 (Jian He via bikas)
+
+    YARN-549. YarnClient.submitApplication should wait for application to be
+    accepted by the RM (Zhijie Shen via bikas)
+
+    YARN-605. Fix failing unit test in TestNMWebServices when versionInfo has
+    parantheses like when running on a git checkout. (Hitesh Shah via vinodkv)
+
+    YARN-289. Fair scheduler allows reservations that won't fit on node.
+    (Sandy Ryza via tomwhite)
+
+    YARN-576. Modified ResourceManager to reject NodeManagers that don't satisy
+    minimum resource requirements. (Kenji Kikushima via vinodkv)
 
 Release 2.0.4-alpha - UNRELEASED
 
@@ -539,6 +615,9 @@ Release 0.23.8 - UNRELEASED
   OPTIMIZATIONS
 
   BUG FIXES
+
+    YARN-363. Add webapps/proxy directory without which YARN proxy-server fails
+    when started in stand-alone mode. (Kenji Kikushima via vinodkv)
 
 Release 0.23.7 - UNRELEASED
 

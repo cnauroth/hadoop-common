@@ -68,6 +68,7 @@ message ContainerProto {
   optional ResourceProto resource = 4;
   optional PriorityProto priority = 5;
   optional hadoop.common.TokenProto container_token = 6;
+  optional int64 rm_identifier = 7;
 }
 
 enum YarnApplicationStateProto {
@@ -162,6 +163,7 @@ message ApplicationReportProto {
   optional ApplicationResourceUsageReportProto app_resource_Usage = 16;
   optional string originalTrackingUrl = 17;
   optional ApplicationAttemptIdProto currentApplicationAttemptId = 18;
+  optional float progress = 19;
 }
 
 enum NodeStateProto {
@@ -309,17 +311,4 @@ message StringStringMapProto {
 message StringBytesMapProto {
   optional string key = 1;
   optional bytes value = 2;
-}
-
-////////////////////////////////////////////////////////////////////////
-////// From recovery////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-message ApplicationStateDataProto {
-  optional int64 submit_time = 1;
-  optional ApplicationSubmissionContextProto application_submission_context = 2;
-}
-
-message ApplicationAttemptStateDataProto {
-  optional ApplicationAttemptIdProto attemptId = 1;
-  optional ContainerProto master_container = 2;
 }

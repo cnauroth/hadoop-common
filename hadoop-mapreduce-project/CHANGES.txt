@@ -134,6 +134,10 @@ Trunk (Unreleased)
     MAPREDUCE-4885. Streaming tests have multiple failures on Windows. (Chris
     Nauroth via bikas)
 
+    MAPREDUCE-4987. TestMRJobs#testDistributedCache fails on Windows due to
+    classpath problems and unexpected behavior of symlinks (Chris Nauroth via
+    bikas)
+
   BREAKDOWN OF HADOOP-8562 SUBTASKS
 
     MAPREDUCE-4739. Some MapReduce tests fail to find winutils.
@@ -154,6 +158,9 @@ Trunk (Unreleased)
 
     HADOOP-9372. Fix bad timeout annotations on tests.
     (Arpit Agarwal via suresh)
+
+    MAPREDUCE-5177. Use common utils FileUtil#setReadable/Writable/Executable & 
+    FileUtil#canRead/Write/Execute. (Ivan Mitic via suresh)
 
 Release 2.0.5-beta - UNRELEASED
 
@@ -197,6 +204,22 @@ Release 2.0.5-beta - UNRELEASED
 
     MAPREDUCE-4985. Add compression option to TestDFSIO usage.
     (Plamen Jeliazkov via shv)
+
+    MAPREDUCE-5152. Make MR App to simply pass through the container from RM
+    instead of extracting and populating information itself to start any
+    container. (vinodkv)
+
+    MAPREDUCE-5175. Updated MR App to not set envs that will be set by NMs
+    anyways after YARN-561. (Xuan Gong via vinodkv)
+
+    MAPREDUCE-5069. add concrete common implementations of
+    CombineFileInputFormat (Sangjin Lee via bobby)
+
+    MAPREDUCE-5145. Changed default max-attempts to be more than one for MR jobs
+    inline with YARN. (Zhijie Shen via vinodkv)
+
+    MAPREDUCE-5036. Default shuffle handler port should not be 8080.
+    (Sandy Ryza via tomwhite)
 
   OPTIMIZATIONS
 
@@ -309,6 +332,48 @@ Release 2.0.5-beta - UNRELEASED
 
     MAPREDUCE-5128. mapred-default.xml is missing a bunch of history server 
     configs. (sandyr via tucu)
+
+    MAPREDUCE-4898. FileOutputFormat.checkOutputSpecs and 
+    FileOutputFormat.setOutputPath incompatible with MR1. (rkanter via tucu)
+
+    MAPREDUCE-4932. mapreduce.job#getTaskCompletionEvents incompatible with 
+    Hadoop 1. (rkanter via tucu)
+
+    MAPREDUCE-5163. Update MR App to not use API utility methods for collections
+    after YARN-441. (Xuan Gong via vinodkv)
+
+    MAPREDUCE-5066. Added a timeout for the job.end.notification.url. (Ivan
+    Mitic via acmurthy)
+
+    MAPREDUCE-5146. application classloader may be used too early to load
+    classes. (Sangjin Lee via tomwhite)
+
+    MAPREDUCE-4737. Ensure that mapreduce APIs are semantically consistent
+    with mapred API w.r.t Mapper.cleanup and Reducer.cleanup; in the sense that
+    cleanup is now called even if there is an error. The old mapred API
+    already ensures that Mapper.close and Reducer.close are invoked during
+    error handling. Note that it is an incompatible change, however end-users 
+    can override Mapper.run and Reducer.run to get the old (inconsistent) 
+    behaviour. (acmurthy)
+
+    MAPREDUCE-5166. Fix ConcurrentModificationException due to insufficient
+    synchronization on updates to task Counters. (Sandy Ryza via acmurthy)
+
+    MAPREDUCE-5181. RMCommunicator should not use AMToken from the env.
+    (Vinod Kumar Vavilapalli via sseth)
+
+    MAPREDUCE-5178. Update MR App to set progress in ApplicationReport after
+    YARN-577. (Hitesh Shah via vinodkv)
+
+    MAPREDUCE-5167. Update MR App after YARN-562 to use the new builder API
+    for the container. (Jian He via vinodkv)
+
+    MAPREDUCE-5179. Fix unit test in TestHSWebServices which fails when
+    versionInfo has parantheses like when running on a git checkout. (Hitesh Shah
+    via vinodkv)
+
+    MAPREDUCE-5193. A few MR tests use block sizes which are smaller than the
+    default minimum block size. (Andrew Wang via atm)
 
 Release 2.0.4-alpha - UNRELEASED
 
@@ -871,6 +936,9 @@ Release 0.23.8 - UNRELEASED
 
     MAPREDUCE-5015. Coverage fix for org.apache.hadoop.mapreduce.tools.CLI
     (Aleksey Gorshkov via tgraves)
+
+    MAPREDUCE-5147. Maven build should create 
+    hadoop-mapreduce-client-app-VERSION.jar directly (Robert Parker via tgraves)
 
 Release 0.23.7 - UNRELEASED
 

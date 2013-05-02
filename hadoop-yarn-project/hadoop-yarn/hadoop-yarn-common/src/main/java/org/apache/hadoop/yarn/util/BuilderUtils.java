@@ -237,9 +237,9 @@ public class BuilderUtils {
     return containerStatus;
   }
 
-  public static Container newContainer(ContainerId containerId,
-      NodeId nodeId, String nodeHttpAddress,
-      Resource resource, Priority priority, ContainerToken containerToken) {
+  public static Container newContainer(ContainerId containerId, NodeId nodeId,
+      String nodeHttpAddress, Resource resource, Priority priority,
+      ContainerToken containerToken, long rmIdentifier) {
     Container container = recordFactory.newRecordInstance(Container.class);
     container.setId(containerId);
     container.setNodeId(nodeId);
@@ -247,6 +247,7 @@ public class BuilderUtils {
     container.setResource(resource);
     container.setPriority(priority);
     container.setContainerToken(containerToken);
+    container.setRMIdentifier(rmIdentifier);
     return container;
   }
 
@@ -333,7 +334,8 @@ public class BuilderUtils {
       ClientToken clientToken, YarnApplicationState state, String diagnostics,
       String url, long startTime, long finishTime,
       FinalApplicationStatus finalStatus,
-      ApplicationResourceUsageReport appResources, String origTrackingUrl) {
+      ApplicationResourceUsageReport appResources, String origTrackingUrl,
+      float progress) {
     ApplicationReport report = recordFactory
         .newRecordInstance(ApplicationReport.class);
     report.setApplicationId(applicationId);
@@ -352,6 +354,7 @@ public class BuilderUtils {
     report.setFinalApplicationStatus(finalStatus);
     report.setApplicationResourceUsageReport(appResources);
     report.setOriginalTrackingUrl(origTrackingUrl);
+    report.setProgress(progress);
     return report;
   }
 
@@ -393,8 +396,8 @@ public class BuilderUtils {
     allocateRequest.setApplicationAttemptId(applicationAttemptId);
     allocateRequest.setResponseId(responseID);
     allocateRequest.setProgress(appProgress);
-    allocateRequest.addAllAsks(resourceAsk);
-    allocateRequest.addAllReleases(containersToBeReleased);
+    allocateRequest.setAskList(resourceAsk);
+    allocateRequest.setReleaseList(containersToBeReleased);
     return allocateRequest;
   }
   

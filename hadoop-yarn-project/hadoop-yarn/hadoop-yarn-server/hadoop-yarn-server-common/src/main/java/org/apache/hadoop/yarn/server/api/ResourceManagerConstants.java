@@ -16,28 +16,14 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.yarn.server.resourcemanager;
+package org.apache.hadoop.yarn.server.api;
 
-import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
+public interface ResourceManagerConstants {
 
-public class RMAppManagerSubmitEvent extends RMAppManagerEvent {
-
-  private final ApplicationSubmissionContext submissionContext;
-  private final long submitTime;
-
-  public RMAppManagerSubmitEvent(
-      ApplicationSubmissionContext submissionContext, long submitTime) {
-    super(submissionContext.getApplicationId(),
-        RMAppManagerEventType.APP_SUBMIT);
-    this.submissionContext = submissionContext;
-    this.submitTime = submitTime;
-  }
-
-  public ApplicationSubmissionContext getSubmissionContext() {
-    return this.submissionContext;
-  }
-  
-  public long getSubmitTime() {
-    return this.submitTime;
-  }
+  /**
+   * This states the invalid identifier of Resource Manager. This is used as a
+   * default value for initializing RM identifier. Currently, RM is using time
+   * stamp as RM identifier.
+   */
+  public static final long RM_INVALID_IDENTIFIER = -1;
 }

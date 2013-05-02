@@ -62,7 +62,8 @@ public class TestRMAppTransitions {
   static final Log LOG = LogFactory.getLog(TestRMAppTransitions.class);
 
   private RMContext rmContext;
-  private static int maxAppAttempts = 4;
+  private static int maxAppAttempts =
+      YarnConfiguration.DEFAULT_RM_AM_MAX_ATTEMPTS;
   private static int appId = 1;
   private DrainDispatcher rmDispatcher;
 
@@ -178,6 +179,9 @@ public class TestRMAppTransitions {
     if(submissionContext == null) {
       submissionContext = new ApplicationSubmissionContextPBImpl();
     }
+    // applicationId will not be used because RMStateStore is mocked,
+    // but applicationId is still set for safety
+    submissionContext.setApplicationId(applicationId);
 
     RMApp application =
         new RMAppImpl(applicationId, rmContext, conf, name, user, queue,
@@ -496,6 +500,7 @@ public class TestRMAppTransitions {
 
     RMApp application = testCreateAppAccepted(null);
     // ACCEPTED => ACCEPTED event RMAppEventType.RMAppEventType.ATTEMPT_FAILED
+    Assert.assertTrue(maxAppAttempts > 1);
     for (int i=1; i < maxAppAttempts; i++) {
       RMAppEvent event = 
           new RMAppFailedAttemptEvent(application.getApplicationId(), 
@@ -559,6 +564,7 @@ public class TestRMAppTransitions {
     Assert.assertEquals(expectedAttemptId, 
         appAttempt.getAppAttemptId().getAttemptId());
     // RUNNING => FAILED/RESTARTING event RMAppEventType.ATTEMPT_FAILED
+    Assert.assertTrue(maxAppAttempts > 1);
     for (int i=1; i<maxAppAttempts; i++) {
       RMAppEvent event = 
           new RMAppFailedAttemptEvent(application.getApplicationId(), 

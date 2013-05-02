@@ -178,17 +178,7 @@ public class AMLauncher implements Runnable {
     Map<String, String> environment = container.getEnvironment();
     environment.put(ApplicationConstants.APPLICATION_WEB_PROXY_BASE_ENV,
         application.getWebProxyBase());
-    // Set the AppAttemptId, containerId, NMHTTPAdress, AppSubmitTime to be
-    // consumable by the AM.
-    environment.put(ApplicationConstants.AM_CONTAINER_ID_ENV,
-        containerID.toString());
-    environment.put(ApplicationConstants.NM_HOST_ENV, masterContainer
-        .getNodeId().getHost());
-    environment.put(ApplicationConstants.NM_PORT_ENV,
-        String.valueOf(masterContainer.getNodeId().getPort()));
-    String parts[] =
-        masterContainer.getNodeHttpAddress().split(":");
-    environment.put(ApplicationConstants.NM_HTTP_PORT_ENV, parts[1]);
+    // Set AppSubmitTime and MaxAppAttempts to be consumable by the AM.
     ApplicationId applicationId =
         application.getAppAttemptId().getApplicationId();
     environment.put(
@@ -214,7 +204,7 @@ public class AMLauncher implements Runnable {
 
       ApplicationTokenIdentifier id = new ApplicationTokenIdentifier(
           application.getAppAttemptId());
-      Token<ApplicationTokenIdentifier> token =
+      Token<ApplicationTokenIdentifier> appMasterToken =
           new Token<ApplicationTokenIdentifier>(id,
               this.rmContext.getApplicationTokenSecretManager());
       InetSocketAddress serviceAddr = conf.getSocketAddr(
@@ -222,16 +212,11 @@ public class AMLauncher implements Runnable {
           YarnConfiguration.DEFAULT_RM_SCHEDULER_ADDRESS,
           YarnConfiguration.DEFAULT_RM_SCHEDULER_PORT);
       // normally the client should set the service after acquiring the token,
-      // but this token is directly provided to the tasks
-      SecurityUtil.setTokenService(token, serviceAddr);
-      String appMasterTokenEncoded = token.encodeToUrlString();
-      LOG.debug("Putting appMaster token in env : " + token);
-      environment.put(
-          ApplicationConstants.APPLICATION_MASTER_TOKEN_ENV_NAME,
-          appMasterTokenEncoded);
+      // but this token is directly provided to the AMs
+      SecurityUtil.setTokenService(appMasterToken, serviceAddr);
 
-      // Add the RM token
-      credentials.addToken(token.getService(), token);
+      // Add the ApplicationMaster token
+      credentials.addToken(appMasterToken.getService(), appMasterToken);
       DataOutputBuffer dob = new DataOutputBuffer();
       credentials.writeTokenStorageToStream(dob);
       container.setContainerTokens(
