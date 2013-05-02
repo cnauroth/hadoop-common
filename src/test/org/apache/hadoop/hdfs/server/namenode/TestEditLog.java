@@ -31,7 +31,6 @@ import org.apache.hadoop.hdfs.server.common.Storage;
 import org.apache.hadoop.hdfs.server.common.Storage.StorageDirectory;
 import org.apache.hadoop.hdfs.server.namenode.FSImage.NameNodeDirType;
 import org.apache.hadoop.hdfs.server.namenode.FSImage.NameNodeFile;
-import org.apache.hadoop.io.BytesWritable;
 
 /**
  * This class tests the creation and validation of a checkpoint.
