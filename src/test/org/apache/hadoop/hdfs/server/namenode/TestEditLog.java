@@ -106,7 +106,7 @@ public class TestEditLog extends TestCase {
       if (TEST_EDITS.exists()) TEST_EDITS.delete();
     }
   }
-
+    
   /**
    * Tests transaction logging in dfs.
    */
