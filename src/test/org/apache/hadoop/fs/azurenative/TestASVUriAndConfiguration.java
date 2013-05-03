@@ -10,6 +10,7 @@ import java.util.*;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.azure.AzureException;
+import org.apache.hadoop.fs.azure.KeyProviderException;
 import org.junit.*;
 
 import org.apache.hadoop.fs.azurenative.AzureBlobStorageTestAccount.CreateOptions;
@@ -249,6 +250,58 @@ public class TestASVUriAndConfiguration {
     } finally {
       firstAccount.cleanup();
       secondAccount.cleanup();
+    }
+  }
+  
+  public void testDefaultKeyProvider() throws Exception {
+    Configuration conf = new Configuration();
+    String account = "testacct";
+    String key = "testkey";
+    
+    conf.set(SimpleKeyProvider.KEY_ACCOUNT_KEY_PREFIX + account, key);
+    
+    String result =
+        AzureNativeFileSystemStore.getAccountKeyFromConfiguration(account, conf);
+    assertEquals(key, result);
+  }
+  
+  public void testValidKeyProvider() throws Exception {
+    Configuration conf = new Configuration();
+    String account = "testacct";
+    String key = "testkey";
+    
+    conf.set(SimpleKeyProvider.KEY_ACCOUNT_KEY_PREFIX + account, key);
+    conf.setClass("fs.azure.account.keyprovider." + account,
+        SimpleKeyProvider.class, KeyProvider.class);
+    String result =
+        AzureNativeFileSystemStore.getAccountKeyFromConfiguration(account, conf);
+    assertEquals(key, result);
+  }  
+  
+  public void testInvalidKeyProviderNonexistantClass() throws Exception {
+    Configuration conf = new Configuration();
+    String account = "testacct";
+    
+    conf.set("fs.azure.account.keyprovider." + account,
+        "org.apache.Nonexistant.Class");
+    try {
+      AzureNativeFileSystemStore.getAccountKeyFromConfiguration(account, conf);
+      Assert.fail("Nonexistant key provider class should have thrown a " +
+          "KeyProviderException");
+    } catch (KeyProviderException e) {
+    }
+  }
+  
+  public void testInvalidKeyProviderWrongClass() throws Exception {
+    Configuration conf = new Configuration();
+    String account = "testacct";
+    
+    conf.set("fs.azure.account.keyprovider." + account, "java.lang.String");
+    try {
+      AzureNativeFileSystemStore.getAccountKeyFromConfiguration(account, conf);
+      Assert.fail("Key provider class that doesn't implement KeyProvider " +
+          "should have thrown a KeyProviderException");
+    } catch (KeyProviderException e) {
     }
   }
 }

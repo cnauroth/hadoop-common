@@ -8,6 +8,7 @@ import java.util.concurrent.*;
 import org.apache.commons.configuration.SubsetConfiguration;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.azure.KeyProviderException;
 import org.apache.hadoop.metrics2.*;
 
 import com.microsoft.windowsazure.services.blob.client.*;
@@ -274,7 +275,8 @@ public final class AzureBlobStorageTestAccount {
   }
 
   static CloudStorageAccount createStorageAccount(String accountName,
-      Configuration conf, boolean allowAnonymous) throws URISyntaxException {
+      Configuration conf, boolean allowAnonymous)
+          throws URISyntaxException, KeyProviderException {
     String accountKey = AzureNativeFileSystemStore.
         getAccountKeyFromConfiguration(accountName, conf);
     StorageCredentials credentials;
@@ -298,7 +300,7 @@ public final class AzureBlobStorageTestAccount {
   }
 
   static CloudStorageAccount createTestAccount(Configuration conf)
-      throws URISyntaxException {
+      throws URISyntaxException, KeyProviderException {
     String testAccountName = conf.get(TEST_ACCOUNT_NAME_PROPERTY_NAME);
     if (testAccountName == null) {
       System.out

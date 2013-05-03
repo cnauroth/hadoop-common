@@ -28,6 +28,7 @@ import java.util.*;
 import org.apache.commons.logging.*;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.azure.AzureException;
+import org.apache.hadoop.fs.azure.KeyProviderException;
 import org.apache.hadoop.fs.permission.*;
 import org.mortbay.util.ajax.JSON;
 
@@ -52,7 +53,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   
   // Constants local to this class.
   //
-  private static final String KEY_ACCOUNT_KEY_PREFIX = "fs.azure.account.key.";
+  private static final String KEY_ACCOUNT_KEYPROVIDER_PREFIX = 
+      "fs.azure.account.keyprovider.";
   private static final String KEY_ACCOUNT_SAS_PREFIX = "fs.azure.sas.";
   private static final String KEY_CONCURRENT_CONNECTION_VALUE_OUT =
       "fs.azure.concurrentRequestCount.out";
@@ -605,8 +607,34 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
             DEFAULT_STORAGE_EMULATOR_ACCOUNT_NAME));
   }
 
-  static String getAccountKeyFromConfiguration(String accountName, Configuration conf) {
-    return conf.get(KEY_ACCOUNT_KEY_PREFIX + accountName);
+  static String getAccountKeyFromConfiguration(String accountName,
+      Configuration conf) throws KeyProviderException {  
+    String key = null;
+    String keyProviderClass = conf.get(KEY_ACCOUNT_KEYPROVIDER_PREFIX + accountName);
+    KeyProvider keyProvider = null;
+    
+    if (keyProviderClass == null) {
+      // No key provider was provided so use the provided key as is.
+      keyProvider = new SimpleKeyProvider();
+    } else {
+      // create an instance of the key provider class and verify it
+      // implements KeyProvider
+      Object keyProviderObject = null;
+      try {
+        Class<?> clazz = conf.getClassByName(keyProviderClass);
+        keyProviderObject = clazz.newInstance();
+      } catch (Exception e) {
+        throw new KeyProviderException("Unable to load key provider class.", e);
+      }
+      if (!(keyProviderObject instanceof KeyProvider)) {
+        throw new KeyProviderException(keyProviderClass +
+            " specified in config is not a valid KeyProvider class.");
+      }
+      keyProvider = (KeyProvider) keyProviderObject;
+    }
+    key = keyProvider.getStorageAccountKey(accountName, conf);
+
+    return key;
   }
 
   /**
