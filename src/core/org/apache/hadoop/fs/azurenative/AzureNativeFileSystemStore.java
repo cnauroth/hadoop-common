@@ -412,14 +412,19 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
     // Assertion: Target session URI already should have been captured.
     //
-    assert null != sessionUri :
-      "Expected a non-null session URI when configuring storage session";
+    if (sessionUri == null) {
+      throw new AssertionError(
+          "Expected a non-null session URI when configuring storage session");
+    }
 
     // Assertion: A client session already should have been established with Azure.
     //
-    assert null != storageInteractionLayer :
-      String.format("Cannot configure storage session for URI '%s' " + 
-          "if storage session has not been established.", sessionUri.toString());
+    if (storageInteractionLayer == null) {
+      throw new AssertionError(
+        String.format("Cannot configure storage session for URI '%s' " +
+            "if storage session has not been established.",
+            sessionUri.toString()));
+    }
 
     // Set up the minimum stream read block size and the write block
     // size.
@@ -678,9 +683,11 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
       // Assertion: Container name on the session Uri should be non-null.
       //
-      assert null != getContainerFromAuthority(sessionUri) : 
-        String.format("Non-null container expected from session URI: ", 
-            sessionUri.toString());
+      if (getContainerFromAuthority(sessionUri) == null) {
+        throw new AssertionError(String.format(
+            "Non-null container expected from session URI: %s.",
+            sessionUri.toString()));
+      }
 
       // Get the account name.
       //
@@ -690,7 +697,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         // an invalid account name.
         //
         final String errMsg = 
-            String.format("Cannot load ASV file system account name not specified in URI:",
+            String.format("Cannot load ASV file system account name not" +
+                " specified in URI: %s.",
                 sessionUri.toString());
         throw new AzureException(errMsg);
       }
@@ -1892,7 +1900,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
         // Assertion: Listing depth should not be less than zero.
         //
-        assert listingDepth >= 0 : "Non-negative listing depth expected";
+        if (listingDepth < 0) {
+          throw new AssertionError("Non-negative listing depth expected");
+        }
       }
     }
   }

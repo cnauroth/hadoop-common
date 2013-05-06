@@ -264,8 +264,11 @@ public class NativeAzureFileSystem extends FileSystem {
 
       // Assertion: At this point the ring buffer should be exhausted.
       //
-      assert outRingBuffer.isEmpty() : 
-        "Empty ring buffer expected after writing all contents to output stream.";
+      if (!outRingBuffer.isEmpty()) {
+        throw new AssertionError(
+            "Empty ring buffer expected after writing all contents to" +
+            " output stream.");
+      }
 
       // Write out the current contents of the current buffer to the stream and
       // flush again.
@@ -295,8 +298,10 @@ public class NativeAzureFileSystem extends FileSystem {
       // Check if the stream is already closed.
       //
       if (null == buffer) {
-        assert null == outRingBuffer : 
-          "Expected no ring buffer for a stream that's already closed.";
+        if (outRingBuffer != null) {
+          throw new AssertionError(
+              "Expected no ring buffer for a stream that's already closed.");
+        }
 
         // Return to caller because the stream appears to have been
         // closed already.
@@ -310,8 +315,10 @@ public class NativeAzureFileSystem extends FileSystem {
 
       // Assertion: The ring buffer should be empty as a result of the flush.
       //
-      assert (outRingBuffer.isEmpty()) : 
-        "Unexpected non-empty ring buffer after flush.";
+      if (!outRingBuffer.isEmpty()) {
+        throw new AssertionError(
+            "Unexpected non-empty ring buffer after flush.");
+      }
 
       // Close the output stream and decode the key for the output stream
       // before returning to the caller.
@@ -405,8 +412,11 @@ public class NativeAzureFileSystem extends FileSystem {
         // Assertion: At this point the ring buffer should be empty since all
         // the outstanding buffers have been flushed to the output stream
         //
-        assert outRingBuffer.isEmpty() : 
-          "Ring buffer containing residual byte array streams unexpected.";
+        if (!outRingBuffer.isEmpty()) {
+          throw new AssertionError(
+              "Ring buffer containing residual byte array streams" +
+              " unexpected.");
+        }
 
         // Add the current byte array output stream to the ring buffer.
         //
@@ -448,8 +458,10 @@ public class NativeAzureFileSystem extends FileSystem {
 
       // Assertion: The byte array output stream should exist.
       //
-      assert (null != buffer) : 
-        "Unexpected null byte array output stream (1).";
+      if (buffer == null) {
+        throw new AssertionError(
+            "Unexpected null byte array output stream.");
+      }
 
       // if the buffer is full, add it to ring buffer
       // and create a new buffer
@@ -464,8 +476,11 @@ public class NativeAzureFileSystem extends FileSystem {
         // as we are calling processCurrentStreamIfFull
         // before we reach here
         //
-        assert (buffer.size() < getBufferSize()) : 
-          "Unexpected buffer size:" + buffer.size();
+        if (buffer.size() >= getBufferSize()) {
+          throw new AssertionError(String.format(
+              "Unexpected buffer size: %d. Expected a value less then %d.",
+              buffer.size(), getBufferSize()));
+        }
 
         // The byte sub-array writes past the end of the buffer stream.
         // Write what fits and add the current byte array out put buffer

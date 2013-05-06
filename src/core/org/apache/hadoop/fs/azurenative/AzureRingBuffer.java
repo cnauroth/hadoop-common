@@ -283,7 +283,10 @@ public class AzureRingBuffer<E> implements Queue<E> {
           // Assertion: The there should be an element present at this position
           // of the ring buffer.
           //
-          assert iter.hasNext() : "Ring buffer element expected but not found.";
+          if (!iter.hasNext()) {
+            throw new AssertionError(
+                "Ring buffer element expected but not found.");
+          }
 
           temp[i] = iter.next();
         }
@@ -331,7 +334,10 @@ public class AzureRingBuffer<E> implements Queue<E> {
 
     // Assertion: Ring buffer is not empty, so the head should be non-null.
     //
-    assert null != m_data[m_head] : "Ring buffer not empty but head does not exist.";
+    if (m_data[m_head] == null) {
+      throw new AssertionError(
+          "Ring buffer not empty but head does not exist.");
+    }
 
     // Return the head of the ring buffer to the caller.
     //
@@ -351,7 +357,9 @@ public class AzureRingBuffer<E> implements Queue<E> {
       // Assertion: The ring buffer is not empty so its size should be greater
       // than 0.
       //
-      assert m_size > 0 : "Non-empty ring buffer has zero size.";
+      if (m_size == 0) {
+        throw new AssertionError("Non-empty ring buffer has zero size.");
+      }
 
       // The ring buffer is not empty, remove the head element.
       //
