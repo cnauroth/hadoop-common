@@ -97,6 +97,7 @@ public class TestASVUriAndConfiguration {
     //
     testAccount = AzureBlobStorageTestAccount.create("",
         EnumSet.of(CreateOptions.UseSas, CreateOptions.CreateContainer));
+    assumeNotNull(testAccount);
     // Validate input and output on the connection.
     // NOTE: As of 4/15/2013, Azure Storage has a deficiency that prevents the
     // full scenario from working (CopyFromBlob doesn't work with SAS), so
