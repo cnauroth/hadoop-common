@@ -237,24 +237,26 @@ public class TestASVUriAndConfiguration {
       secondAccount.cleanup();
     }
   }
-  
+
+  @Test
   public void testDefaultKeyProvider() throws Exception {
     Configuration conf = new Configuration();
     String account = "testacct";
     String key = "testkey";
-    
+
     conf.set(SimpleKeyProvider.KEY_ACCOUNT_KEY_PREFIX + account, key);
-    
+
     String result =
         AzureNativeFileSystemStore.getAccountKeyFromConfiguration(account, conf);
     assertEquals(key, result);
   }
-  
+
+  @Test
   public void testValidKeyProvider() throws Exception {
     Configuration conf = new Configuration();
     String account = "testacct";
     String key = "testkey";
-    
+
     conf.set(SimpleKeyProvider.KEY_ACCOUNT_KEY_PREFIX + account, key);
     conf.setClass("fs.azure.account.keyprovider." + account,
         SimpleKeyProvider.class, KeyProvider.class);
@@ -262,11 +264,12 @@ public class TestASVUriAndConfiguration {
         AzureNativeFileSystemStore.getAccountKeyFromConfiguration(account, conf);
     assertEquals(key, result);
   }  
-  
+
+  @Test
   public void testInvalidKeyProviderNonexistantClass() throws Exception {
     Configuration conf = new Configuration();
     String account = "testacct";
-    
+
     conf.set("fs.azure.account.keyprovider." + account,
         "org.apache.Nonexistant.Class");
     try {
@@ -276,11 +279,12 @@ public class TestASVUriAndConfiguration {
     } catch (KeyProviderException e) {
     }
   }
-  
+
+  @Test
   public void testInvalidKeyProviderWrongClass() throws Exception {
     Configuration conf = new Configuration();
     String account = "testacct";
-    
+
     conf.set("fs.azure.account.keyprovider." + account, "java.lang.String");
     try {
       AzureNativeFileSystemStore.getAccountKeyFromConfiguration(account, conf);
