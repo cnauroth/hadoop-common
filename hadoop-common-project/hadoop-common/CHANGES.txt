@@ -381,6 +381,9 @@ Trunk (Unreleased)
     variables from current process environment/does not support overriding
     when launching new process (Chris Nauroth via bikas)
 
+    HADOOP-9481. Broken conditional logic with HADOOP_SNAPPY_LIBRARY. (Vadim
+    Bondarev via atm)
+
   OPTIMIZATIONS
 
     HADOOP-7761. Improve the performance of raw comparisons. (todd)
@@ -703,6 +706,9 @@ Release 2.0.5-beta - UNRELEASED
     HADOOP-9550. Remove aspectj dependency. (kkambatl via tucu)
 
     HADOOP-9549. WebHdfsFileSystem hangs on close(). (daryn via kihwal)
+
+    HADOOP-9485. No default value in the code for 
+    hadoop.rpc.socket.factory.class.default. (Colin Patrick McCabe via atm)
 
 Release 2.0.4-alpha - 2013-04-25 
 

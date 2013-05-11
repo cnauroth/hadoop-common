@@ -18,6 +18,7 @@
 
 package org.apache.hadoop.yarn.server.nodemanager;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -213,7 +214,7 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
   }
 
   @VisibleForTesting
-  protected void registerWithRM() throws YarnRemoteException {
+  protected void registerWithRM() throws YarnRemoteException, IOException {
     Configuration conf = getConfig();
     rmConnectWaitMS =
         conf.getInt(
@@ -294,8 +295,12 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
     }
     // if the Resourcemanager instructs NM to shutdown.
     if (NodeAction.SHUTDOWN.equals(regNMResponse.getNodeAction())) {
+      String message =
+          "Message from ResourceManager: "
+              + regNMResponse.getDiagnosticsMessage();
       throw new YarnException(
-          "Recieved SHUTDOWN signal from Resourcemanager ,Registration of NodeManager failed");
+        "Recieved SHUTDOWN signal from Resourcemanager ,Registration of NodeManager failed, "
+            + message);
     }
 
     if (UserGroupInformation.isSecurityEnabled()) {
@@ -481,15 +486,19 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
 
             if (response.getNodeAction() == NodeAction.SHUTDOWN) {
               LOG
-                  .info("Recieved SHUTDOWN signal from Resourcemanager as part of heartbeat," +
-                      " hence shutting down.");
+                .warn("Recieved SHUTDOWN signal from Resourcemanager as part of heartbeat,"
+                    + " hence shutting down.");
+              LOG.warn("Message from ResourceManager: "
+                  + response.getDiagnosticsMessage());
               dispatcher.getEventHandler().handle(
                   new NodeManagerEvent(NodeManagerEventType.SHUTDOWN));
               break;
             }
             if (response.getNodeAction() == NodeAction.RESYNC) {
-              LOG.info("Node is out of sync with ResourceManager,"
+              LOG.warn("Node is out of sync with ResourceManager,"
                   + " hence rebooting.");
+              LOG.warn("Message from ResourceManager: "
+                  + response.getDiagnosticsMessage());
               // Invalidate the RMIdentifier while resync
               NodeStatusUpdaterImpl.this.rmIdentifier =
                   ResourceManagerConstants.RM_INVALID_IDENTIFIER;
