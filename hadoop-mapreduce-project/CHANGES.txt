@@ -166,6 +166,9 @@ Release 2.0.5-beta - UNRELEASED
 
   INCOMPATIBLE CHANGES
 
+    MAPREDUCE-4067. Changed MRClientProtocol api to throw IOException only (Xuan
+    Gong via vinodkv)
+
   NEW FEATURES
 
   IMPROVEMENTS
@@ -226,6 +229,9 @@ Release 2.0.5-beta - UNRELEASED
 
     MAPREDUCE-5157. Bring back old sampler related code so that we can support
     binary compatibility with hadoop-1 sorter example. (Zhijie Shen via vinodkv)
+
+    MAPREDUCE-5222. Bring back some methods and constants in Jobclient for
+    binary compatibility with mapred in 1.x. (Karthik Kambatla via vinodkv)
 
   OPTIMIZATIONS
 
@@ -400,6 +406,15 @@ Release 2.0.5-beta - UNRELEASED
 
     MAPREDUCE-5239. Updated MR App to reflect YarnRemoteException changes after
     YARN-634. (Siddharth Seth via vinodkv)
+
+    MAPREDUCE-5208. Modified ShuffleHandler to use SecureIOUtils for reading
+    local files. (Omkar Vinit Joshi via vinodkv)
+
+    MAPREDUCE-5220. Setter methods in TaskCompletionEvent are public in MR1 and 
+    protected in MR2. (sandyr via tucu)
+
+    MAPREDUCE-5240. Fix a bug in MRAppMaster because of which OutputCommitter
+    could not access credentials set by the user. (vinodkv)
 
 Release 2.0.4-alpha - 2013-04-25
 
