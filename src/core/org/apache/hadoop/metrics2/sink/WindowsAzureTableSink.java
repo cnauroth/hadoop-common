@@ -28,6 +28,7 @@ import java.util.UUID;
 
 import org.apache.commons.configuration.SubsetConfiguration;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.logging.*;
 import org.apache.hadoop.metrics2.Metric;
 import org.apache.hadoop.metrics2.MetricsRecord;
 import org.apache.hadoop.metrics2.MetricsSink;
@@ -36,8 +37,6 @@ import org.apache.hadoop.metrics2.MetricsTag;
 import com.microsoft.windowsazure.serviceruntime.RoleEnvironment;
 import com.microsoft.windowsazure.services.core.storage.*;
 import com.microsoft.windowsazure.services.table.client.*;
-import com.sun.org.apache.commons.logging.Log;
-import com.sun.org.apache.commons.logging.LogFactory;
 
 /**
  * This sink writes the metrics to a Windows Azure Table store. 
