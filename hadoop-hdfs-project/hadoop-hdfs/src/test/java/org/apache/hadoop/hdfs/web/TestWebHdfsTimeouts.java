@@ -245,12 +245,12 @@ public class TestWebHdfsTimeouts {
         OutputStream out = null;
         try {
           clientSocket = serverSocket.accept();
+          URLUtils.SOCKET_TIMEOUT = SHORT_SOCKET_TIMEOUT;
           if (consumeConnectionBacklog) {
             consumeConnectionBacklog();
           }
           out = clientSocket.getOutputStream();
           out.write(temporaryRedirect().getBytes("UTF-8"));
-          URLUtils.SOCKET_TIMEOUT = SHORT_SOCKET_TIMEOUT;
         } catch (IOException e) {
           LOG.error("unexpected IOException in server thread", e);
           fail("unexpected IOException in server thread: " + e);
