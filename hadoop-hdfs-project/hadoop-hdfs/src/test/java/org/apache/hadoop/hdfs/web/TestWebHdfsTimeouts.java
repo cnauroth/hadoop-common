@@ -20,7 +20,10 @@ package org.apache.hadoop.hdfs.web;
 
 import static org.junit.Assert.*;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -243,19 +246,40 @@ public class TestWebHdfsTimeouts {
       public void run() {
         Socket clientSocket = null;
         OutputStream out = null;
+        InputStream in = null;
+        InputStreamReader isr = null;
+        BufferedReader br = null;
         try {
+          // Accept one and only one client connection.
           clientSocket = serverSocket.accept();
+
+          // Immediately setup conditions for subsequent connections.
           URLUtils.SOCKET_TIMEOUT = SHORT_SOCKET_TIMEOUT;
           if (consumeConnectionBacklog) {
             consumeConnectionBacklog();
           }
+
+          // Consume client's HTTP request by reading until EOF or empty line.
+          in = clientSocket.getInputStream();
+          isr = new InputStreamReader(in);
+          br = new BufferedReader(isr);
+          for (;;) {
+            String line = br.readLine();
+            if (line == null || line.isEmpty()) {
+              break;
+            }
+          }
+
+          // Write response.
           out = clientSocket.getOutputStream();
           out.write(temporaryRedirect().getBytes("UTF-8"));
         } catch (IOException e) {
+          // Fail the test on any I/O error in the server thread.
           LOG.error("unexpected IOException in server thread", e);
           fail("unexpected IOException in server thread: " + e);
         } finally {
-          IOUtils.cleanup(LOG, out);
+          // Clean it all up.
+          IOUtils.cleanup(LOG, br, isr, in, out);
           IOUtils.closeSocket(clientSocket);
         }
       }
