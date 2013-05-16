@@ -39,6 +39,15 @@ import static org.apache.hadoop.fs.azurenative.StorageInterface.*;
 
 class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
+  /**
+   * Configuration knob on whether we do block-level MD5 validation on
+   * upload/download.
+   */
+  static final String KEY_CHECK_BLOCK_MD5 = "fs.azure.check.block.md5";
+  /**
+   * Configuration knob on whether we store blob-level MD5 on upload.
+   */
+  static final String KEY_STORE_BLOB_MD5 = "fs.azure.store.blob.md5";
   static final String DEFAULT_STORAGE_EMULATOR_ACCOUNT_NAME =
       "storageemulator";
   static final String STORAGE_EMULATOR_ACCOUNT_NAME_PROPERTY_NAME =
@@ -888,6 +897,24 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     }
   }
 
+  private boolean getUseTransactionalContentMD5() {
+    return sessionConfiguration.getBoolean(KEY_CHECK_BLOCK_MD5, true);
+  }
+
+  private BlobRequestOptions getUploadOptions() {
+    BlobRequestOptions options = new BlobRequestOptions();
+    options.setStoreBlobContentMD5(sessionConfiguration.getBoolean(KEY_STORE_BLOB_MD5, false));
+    options.setUseTransactionalContentMD5(getUseTransactionalContentMD5());
+    options.setConcurrentRequestCount(concurrentWrites);
+    return options;
+  }
+
+  private BlobRequestOptions getDownloadOptions() {
+    BlobRequestOptions options = new BlobRequestOptions();
+    options.setUseTransactionalContentMD5(getUseTransactionalContentMD5());
+    return options;
+  }
+
   @Override
   public DataOutputStream storefile(String key, PermissionStatus permissionStatus)
       throws AzureException {
@@ -959,16 +986,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       CloudBlockBlobWrapper blob = getBlobReference(key);
       storePermissionStatus(blob, permissionStatus);
 
-      // Set up request options.
-      //
-      BlobRequestOptions options = new BlobRequestOptions();
-      options.setStoreBlobContentMD5(true);
-      options.setConcurrentRequestCount(concurrentWrites);
-
       // Create the output stream for the Azure blob.
       //
       OutputStream outputStream = blob.openOutputStream(
-          options, getInstrumentedContext());
+          getUploadOptions(), getInstrumentedContext());
 
       // Return to caller with DataOutput stream.
       //
@@ -1521,7 +1542,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //
       CloudBlockBlobWrapper blob = getBlobReference(key);
       BufferedInputStream inBufStream = new BufferedInputStream(
-          blob.openInputStream(null, getInstrumentedContext()));
+          blob.openInputStream(getDownloadOptions(), getInstrumentedContext()));
 
       // Return a data input stream.
       //
@@ -1554,7 +1575,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
       // Open input stream and seek to the start offset.
       //
-      InputStream in = blob.openInputStream(null, getInstrumentedContext());
+      InputStream in = blob.openInputStream(getDownloadOptions(), getInstrumentedContext());
 
       // Create a data input stream.
       //

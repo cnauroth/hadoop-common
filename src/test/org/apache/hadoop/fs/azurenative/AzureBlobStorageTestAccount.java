@@ -274,6 +274,11 @@ public final class AzureBlobStorageTestAccount {
     return create(containerNameSuffix, EnumSet.of(CreateOptions.CreateContainer));
   }
 
+  public static AzureBlobStorageTestAccount create(Configuration conf)
+      throws Exception {
+    return create("", EnumSet.of(CreateOptions.CreateContainer), conf);
+  }
+
   static CloudStorageAccount createStorageAccount(String accountName,
       Configuration conf, boolean allowAnonymous)
           throws URISyntaxException, KeyProviderException {
@@ -296,7 +301,13 @@ public final class AzureBlobStorageTestAccount {
   }
 
   private static Configuration createTestConfiguration() {
-    Configuration conf = new Configuration();
+    return createTestConfiguration(null);
+  }
+
+  private static Configuration createTestConfiguration(Configuration conf) {
+    if (conf == null) {
+      conf = new Configuration();
+    }
     conf.addResource(TEST_CONFIGURATION_FILE_NAME);
     return conf;
   }
@@ -319,10 +330,16 @@ public final class AzureBlobStorageTestAccount {
 
   public static AzureBlobStorageTestAccount create(String containerNameSuffix,
       EnumSet<CreateOptions> createOptions) throws Exception {
+    return create(containerNameSuffix, createOptions, null);
+  }
+
+  public static AzureBlobStorageTestAccount create(String containerNameSuffix,
+      EnumSet<CreateOptions> createOptions, Configuration initialConfiguration)
+          throws Exception {
     saveMetricsConfigFile();
     NativeAzureFileSystem fs = null;
     CloudBlobContainer container = null;
-    Configuration conf = createTestConfiguration();
+    Configuration conf = createTestConfiguration(initialConfiguration);
     CloudStorageAccount account = createTestAccount(conf);
     if (account == null) {
       return null;
