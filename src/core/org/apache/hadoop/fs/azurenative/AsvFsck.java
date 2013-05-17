@@ -71,9 +71,15 @@ public class AsvFsck extends Configured implements Tool {
     }
     NativeAzureFileSystem asvFs = (NativeAzureFileSystem)fs;
     if (doRecover) {
+      System.out.println("Recovering files with dangling data under: "
+          + pathToCheck);
       asvFs.recoverFilesWithDanglingTempData(pathToCheck, new Path(lostAndFound));
     } else if (doDelete) {
+      System.out.println("Deleting temp files with dangling data under: "
+          + pathToCheck);
       asvFs.deleteFilesWithDanglingTempData(pathToCheck);
+    } else {
+      System.out.println("Please specify -move or -delete");
     }
     return 0;
   }
