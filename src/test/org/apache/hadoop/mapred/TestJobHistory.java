@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.IOException;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
@@ -381,6 +382,23 @@ public class TestJobHistory extends TestCase {
                    (status.equals("SUCCESS") || status.equals("FAILED") ||
                     status.equals("KILLED")));
 
+        // Validate task Avataar
+        String avataar = attempt.get(Keys.AVATAAR);
+        assertTrue("Unexpected LOCALITY \"" + avataar + "\" is seen in " +
+            " history file for task attempt " + id,
+            (avataar.equals("VIRGIN") || avataar.equals("SPECULATIVE"))
+        );
+        
+        // Map Task Attempts should have valid LOCALITY
+        if (type.equals("MAP")) {
+          String locality = attempt.get(Keys.LOCALITY);
+          assertTrue("Unexpected LOCALITY \"" + locality + "\" is seen in " +
+              " history file for task attempt " + id,
+              (locality.equals("NODE_LOCAL") || locality.equals("GROUP_LOCAL") ||
+                  locality.equals("RACK_LOCAL") || locality.equals("OFF_SWITCH"))
+          );
+        }
+ 
         // Reduce Task Attempts should have valid SHUFFLE_FINISHED time and
         // SORT_FINISHED time
         if (type.equals("REDUCE") && status.equals("SUCCESS")) {
@@ -823,6 +841,18 @@ public class TestJobHistory extends TestCase {
     
     // Validate the job queue name
     assertTrue(jobInfo.getJobQueue().equals(conf.getQueueName()));
+
+    // Validate the workflow properties
+    assertTrue(jobInfo.get(Keys.WORKFLOW_ID).equals(
+        conf.get(JobConf.WORKFLOW_ID, "")));
+    assertTrue(jobInfo.get(Keys.WORKFLOW_NAME).equals(
+        conf.get(JobConf.WORKFLOW_NAME, "")));
+    assertTrue(jobInfo.get(Keys.WORKFLOW_NODE_NAME).equals(
+        conf.get(JobConf.WORKFLOW_NODE_NAME, "")));
+    assertTrue(jobInfo.get(Keys.WORKFLOW_ADJACENCIES).equals(
+        JobHistory.JobInfo.getWorkflowAdjacencies(conf)));
+    assertTrue(jobInfo.get(Keys.WORKFLOW_TAGS).equals(
+        conf.get(JobConf.WORKFLOW_TAGS, "")));
   }
 
   public void testDoneFolderOnHDFS() throws IOException {
@@ -980,7 +1010,21 @@ public class TestJobHistory extends TestCase {
       // no queue admins for default queue
       conf.set(QueueManager.toFullPropertyName(
           "default", QueueACL.ADMINISTER_JOBS.getAclName()), " ");
-      
+
+      // set workflow properties
+      conf.set(JobConf.WORKFLOW_ID, "workflowId1");
+      conf.set(JobConf.WORKFLOW_NAME, "workflowName1");
+      String workflowNodeName = "A";
+      conf.set(JobConf.WORKFLOW_NODE_NAME, workflowNodeName);
+      conf.set(JobConf.WORKFLOW_ADJACENCY_PREFIX_STRING + workflowNodeName,
+          "BC");
+      conf.set(JobConf.WORKFLOW_ADJACENCY_PREFIX_STRING + workflowNodeName,
+          "DEF");
+      conf.set(JobConf.WORKFLOW_ADJACENCY_PREFIX_STRING + "DEF", "G");
+      conf.set(JobConf.WORKFLOW_ADJACENCY_PREFIX_STRING + "Z",
+          workflowNodeName);
+      conf.set(JobConf.WORKFLOW_TAGS, "tag1,tag2");
+
       mr = new MiniMRCluster(2, "file:///", 3, null, null, conf);
 
       // run the TCs
@@ -1290,6 +1334,49 @@ public class TestJobHistory extends TestCase {
         cleanupLocalFiles(mr);
         mr.shutdown();
       }
+    }
+  }
+  
+  public void testJobHistoryCleaner() throws Exception {
+    JobConf conf = new JobConf();
+    FileSystem fs = FileSystem.get(conf);
+    JobHistory.DONEDIR_FS = fs;
+    JobHistory.DONE = new Path(TEST_ROOT_DIR + "/done");
+    Path histDirOld = new Path(JobHistory.DONE, "version-1/jtinstid/2013/02/05/000000/");
+    Path histDirOnLine = new Path(JobHistory.DONE, "version-1/jtinstid/2013/02/06/000000/");
+    final int dayMillis = 1000 * 60 * 60 * 24;
+
+    try {
+      Calendar runTime = Calendar.getInstance();
+      runTime.clear();
+      runTime.set(2013, 1, 8, 12, 0);
+      long runTimeMillis = runTime.getTimeInMillis();
+      
+      fs.mkdirs(histDirOld);
+      fs.mkdirs(histDirOnLine);
+      Path histFileOldDir = new Path(histDirOld, "jobfile1.txt");
+      Path histFileOnLineDir = new Path(histDirOnLine, "jobfile1.txt");
+      Path histFileDontDelete = new Path(histDirOnLine, "jobfile2.txt");
+      fs.create(histFileOldDir).close();
+      fs.create(histFileOnLineDir).close();
+      fs.create(histFileDontDelete).close();
+      new File(histFileOnLineDir.toUri()).setLastModified(
+          runTimeMillis - dayMillis * 5 / 2);
+      new File(histFileDontDelete.toUri()).setLastModified(
+          runTimeMillis - dayMillis * 3 / 2);
+      
+      HistoryCleaner.maxAgeOfHistoryFiles = dayMillis * 2; // two days
+      HistoryCleaner historyCleaner = new HistoryCleaner();
+      
+      historyCleaner.clean(runTimeMillis);
+      
+      assertFalse(fs.exists(histDirOld));
+      assertTrue(fs.exists(histDirOnLine));
+      assertFalse(fs.exists(histFileOldDir));
+      assertFalse(fs.exists(histFileOnLineDir));
+      assertTrue(fs.exists(histFileDontDelete));
+    } finally {
+      fs.delete(JobHistory.DONE, true);
     }
   }
 }
