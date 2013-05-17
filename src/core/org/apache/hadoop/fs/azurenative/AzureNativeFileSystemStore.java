@@ -24,20 +24,26 @@ import java.io.*;
 import java.net.*;
 import java.security.InvalidKeyException;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.*;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.azure.AzureException;
 import org.apache.hadoop.fs.azure.KeyProviderException;
+import org.apache.hadoop.fs.azurenative.AzureFileSystemTimer.DefaultTimerTask;
 import org.apache.hadoop.fs.permission.*;
 import org.mortbay.util.ajax.JSON;
 
 import com.microsoft.windowsazure.services.blob.client.*;
+import com.microsoft.windowsazure.services.core.ConfigurationException;
 import com.microsoft.windowsazure.services.core.storage.*;
 
 import static org.apache.hadoop.fs.azurenative.StorageInterface.*;
 
-class AzureNativeFileSystemStore implements NativeFileSystemStore {
+class AzureNativeFileSystemStore implements NativeFileSystemStore,
+        BandwidthThrottleFeedback, ThrottleSendRequestCallback {
 
   static final String DEFAULT_STORAGE_EMULATOR_ACCOUNT_NAME =
       "storageemulator";
@@ -50,10 +56,49 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private CloudBlobDirectoryWrapper rootDirectory;
   private CloudBlobContainerWrapper container;
 
-  
+  /**
+   * Enum defining throttling types.
+   */
+  public enum ThrottleType {
+    UPLOAD(0) , DOWNLOAD (1);
+
+    private final int value;
+    private ThrottleType(int value) { this.value = value; }
+
+    public int getValue() {
+      return value;
+    }
+  }
+
+  // Member variables capturing throttle parameters.
+  // Note: There is no need for member variables for the download and upload block sizes
+  //       since they are captured by the storage session context.
+  //
+  private boolean disableBandwidthThrottling = true;
+  private boolean concurrentReadWrite;
+  private int mapredTaskTimeout;
+  private int successRateInterval;
+  private int bandwidthMinThreshold;
+  private int failureTolerancePeriod;
+  private long minBandwidthRampupDelta;
+  private double bandwidthRampupMultiplier;
+  private double bandwidthRampdownMultiplier;
+
+  private long[] bandwidth;
+  private long [] bandwidthRampupDelta;
+  private AzureFileSystemTimer[] txRampupTimer;
+  private AzureFileSystemTimer[] txRampdownTimer;
+  private DefaultTimerTask[] txRampupTask;
+  private DefaultTimerTask[] txRampdownTask;
+
+  // Member variables to unit test throttling feedback
+  //
+  private ThrottleSendRequestCallback throttleSendCallback;
+  private BandwidthThrottleFeedback throttleBandwidthFeedback;
+
   // Constants local to this class.
   //
-  private static final String KEY_ACCOUNT_KEYPROVIDER_PREFIX = 
+  private static final String KEY_ACCOUNT_KEYPROVIDER_PREFIX =
       "fs.azure.account.keyprovider.";
   private static final String KEY_ACCOUNT_SAS_PREFIX = "fs.azure.sas.";
   private static final String KEY_CONCURRENT_CONNECTION_VALUE_OUT =
@@ -62,12 +107,30 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final String KEY_STORAGE_CONNECTION_TIMEOUT = "fs.azure.storage.timeout";
   private static final String KEY_WRITE_BLOCK_SIZE = "fs.azure.write.request.size";
 
+  private static final String KEY_CONCURRENT_READ_WRITE = "fs.azure.concurrent.read-write";
+  private static final String KEY_MAPRED_TASK_TIMEOUT = "mapred.task.timeout";
+  private static final int FAILURE_TOLERANCE_INTERVAL = 2;// Ramp-up/down after 2 ticks.
+  private static final int ONE_SECOND = 1000; // One second is 1000 ms.
+
+  // Configurable throttling parameter properties. These properties are located in the
+  // core-site.xml configuration file.
+  //
+  private static final String KEY_DISABLE_THROTTLING = "fs.azure.disable.bandwidth.throttling";
+  private static final String KEY_INITIAL_DOWNLOAD_BANDWIDTH = "fs.azure.initial.download.bandwidth";
+  private static final String KEY_INITIAL_UPLOAD_BANDWIDTH = "fs.azure.initial.upload.bandwidth";
+  private static final String KEY_NUMBER_OF_SLOTS = "fs.azure.slots";
+  private static final String KEY_SUCCESS_RATE_INTERVAL = "fs.azure.success.rate.interval";
+  private static final String KEY_MIN_BANDWIDTH_THRESHOLD = "fs.azure.min.bandwidth.threshold";
+  private static final String KEY_FAILURE_TOLERANCE_PERIOD = "fs.azure.failure.tolerance.period";
+  private static final String KEY_BANDWIDTH_RAMPUP_DELTA = "fs.azure.rampup.delta";
+  private static final String KEY_BANDWIDTH_RAMPUP_MULTIPLIER = "fs.azure.rampup.multiplier";
+  private static final String KEY_BANDWIDTH_RAMPDOWN_MULTIPLIER = "fs.azure.rampdown.multiplier";
+
   private static final String PERMISSION_METADATA_KEY = "asv_permission";
   private static final String IS_FOLDER_METADATA_KEY = "asv_isfolder";
   static final String VERSION_METADATA_KEY = "asv_version";
   static final String CURRENT_ASV_VERSION = "2013-01-01";
-  static final String LINK_BACK_TO_UPLOAD_IN_PROGRESS_METADATA_KEY =
-      "asv_tmpupload";
+  static final String LINK_BACK_TO_UPLOAD_IN_PROGRESS_METADATA_KEY = "asv_tmpupload";
 
   private static final String HTTP_SCHEME = "http";
   private static final String HTTPS_SCHEME = "https";
@@ -76,20 +139,61 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final String ASV_AUTHORITY_DELIMITER = "@";
   private static final String AZURE_ROOT_CONTAINER = "$root";
 
-  // Default minimum read size for streams is 4MB.
-  //
-  private static final int DEFAULT_STREAM_MIN_READ_SIZE = 4 * 1024 * 1024;
+  private static final String ASV_TIMER_NAME = "AsvStream";
+  private static final String ASV_RATE_TIMER_SUFFIX = "SuccessRate";
+  private static final String ASV_RAMPUP_TIMER_SUFFIX = "_Rampup";
+  private static final String ASV_RAMPDOWN_TIMER_SUFFIX = "_Rampdown";
 
-  // Default write block size is 4MB.
+  // DEFAULT concurrency for reads and writes.
   //
-  private static final int DEFAULT_WRITE_BLOCK_SIZE = 4194304;
-
-  // DEFAULT concurrency for writes.
-  //
+  private static final int DEFAULT_CONCURRENT_READS  = 1;
   private static final int DEFAULT_CONCURRENT_WRITES = 8;
+  private static final boolean DEFAULT_CONCURRENT_READ_WRITE = false;
+
+  // Set throttling parameter defaults.
+  //
+  private static final int DEFAULT_MAPRED_TASK_TIMEOUT = 300000;
+  private static final int DEFAULT_DOWNLOAD_BLOCK_SIZE = 4 * 1024 * 1024;
+  private static final int DEFAULT_UPLOAD_BLOCK_SIZE = 4 * 1024 * 1024;
+
+
+  private static final boolean DEFAULT_DISABLE_THROTTLING = true;
+  private static final int DEFAULT_NUMBER_OF_SLOTS = 8; // concurrent processes
+  private static final int DEFAULT_INITIAL_DOWNLOAD_BANDWIDTH = 10*2*1024*1024; //10Gbps / 64 nodes
+  private static final int DEFAULT_INITIAL_UPLOAD_BANDWIDTH = 5*2*1024*1024; // 5Gbps / 64 nodes
+  private static final int DEFAULT_SUCCESS_RATE_INTERVAL = 60; // 60 seconds
+  private static final int DEFAULT_MIN_BANDWIDTH_THRESHOLD = 4 * 1024 * 1024; // 4MB/s
+  private static final int DEFAULT_FAILURE_TOLERANCE_PERIOD = 15; // 1 tick period = 30 seconds
+  private static final long DEFAULT_BANDWIDTH_RAMPUP_DELTA = 1024*1024; // MB/s
+  private static final float DEFAULT_BANDWIDTH_RAMPUP_MULTIPLIER  = 1.2f;
+  private static final float DEFAULT_BANDWIDTH_RAMPDOWN_MULTIPLIER = 1.0f;
+  private static final long DEFAULT_DOWNLOAD_LATENCY = 1000; // 1000 milliseconds.
+  private static final long DEFAULT_UPLOAD_LATENCY = 1000; // 1000 milliseconds.
+  private static final int TIMER_SCHEDULER_CONCURRENCY = 5;
+
+  // Default timer constant.
+  //
+  private static final DefaultTimerTask THROTTLE_DEFAULT_TIMER_TASK = new DefaultTimerTask ();
+
+  /**
+   * CLASS VARIBLES
+   */
+
+  // Variables counting the successful and unsuccessful transmissions
+  // process wide.
+  //
+  private static boolean isThrottling = false;
+  private static AzureFileSystemTimer[] txSuccessRateTimer;
+  private static CalculateTxSuccessRateTask[] txSuccessRateTask;
+  private static ScheduledExecutorService timerScheduler;
+
+  /**
+   * MEMBER VARIABLES
+   */
 
   private URI sessionUri;
   private Configuration sessionConfiguration;
+  private int concurrentReads = DEFAULT_CONCURRENT_READS;
   private int concurrentWrites = DEFAULT_CONCURRENT_WRITES;
   private boolean isAnonymousCredentials = false;
   private AzureFileSystemInstrumentation instrumentation;
@@ -208,14 +312,453 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   /**
+   * Check if concurrent reads and writes on the same blob are allowed.
+   *
+   * @return true if concurrent reads and writes have been requested and false otherwise.
+   */
+  private boolean isConcurrentReadWriteAllowed() {
+    return concurrentReadWrite;
+  }
+
+  /**
+   * Capture the bandwidth throttling feedback interface from this object.
+   * Note: This method is not an overkill. It exists to decouple how interface
+   *       is implemented and created from the rest of the code.
+   *
+   * @return the bandwidth throttling feedback interface.
+   */
+  private BandwidthThrottleFeedback getBandwidthThrottleFeedback() {
+
+    // Only return interface if throttling is turned on.
+    //
+    if(!isBandwidthThrottled()) {
+      return null;
+    }
+
+    // If the throttle bandwidth feedback is set by a unit test or external
+    // plug-in return it.
+    //
+    if (null != throttleBandwidthFeedback) {
+      return throttleBandwidthFeedback;
+    }
+
+    // Return the default interface on this object.
+    //
+    return this;
+  }
+
+  /**
+   * Capture the the throttle send request callback interface.
+   *
+   * @return the throttle send request call back interface.
+   */
+  private ThrottleSendRequestCallback getThrottleSendRequestCallback() {
+    // Only return interface if throttling is turned on.
+    //
+    if(!isBandwidthThrottled()) {
+      return null;
+    }
+
+    if (null != throttleSendCallback) {
+      // If the throttle send callback is set by a unit test or external
+      // plug in return it in favor of the default interface implemented
+      // on the AzureNativeFileSystemStore object.
+      //
+      return throttleSendCallback;
+    }
+
+    // Return the default interface on this object.
+    //
+    return this;
+  }
+
+  /**
+   * Check if bandwidth throttling is turned on for ASV file system store instances
+   * for this process.
+   *
+   * @return - true if bandwidth throttling is turned on, false otherwise
+   */
+  private static boolean isBandwidthThrottled() {
+    return isThrottling;
+  }
+
+  /**
+   * Query the timer scheduler.
+   * @return - current timer scheduler if started, null otherwise.
+   */
+  private static ScheduledExecutorService getTimerScheduler() {
+    return timerScheduler;
+  }
+
+  /**
+   * Task to calculate success rates on every timer success rate timer tick.
+   *
+   */
+  private static class CalculateTxSuccessRateTask implements Runnable {
+    // Member variables
+    //
+    private static final Object lock = new Object();
+    private final AtomicInteger succTxCount = new AtomicInteger(0);
+    private final AtomicInteger failTxCount = new AtomicInteger(0);
+    private final AtomicInteger inactiveTxCount = new AtomicInteger(0);
+
+    /**
+     * Accumulate successful transmissions with the success rate timer interval.
+     *
+     * @param successCount - delta in the number of successful transmissions
+     * @return total number of successful transmissions within the interval
+     */
+    public int updateTxSuccess(final int successCount) {
+      return succTxCount.addAndGet(successCount);
+    }
+
+    /**
+     * Accumulate failed transmissions within the success rate timer interval.
+     *
+     * @param failureCount - delta in the number of successful transmissions
+     * @return total number of failed transmissions within the interval
+     */
+    public int updateTxFailure(final int failureCount) {
+      return failTxCount.addAndGet(failureCount);
+    }
+
+    /**
+     * Query the instantaneous success rate instead of waiting for the
+     * expiration of the ramp-down interval.
+     */
+    public float getCurrentTxSuccessRate() {
+      float currSuccessRate = 1.0f;
+      float succCount = (float) succTxCount.get();
+      float failCount = (float) failTxCount.get();
+
+      if (succCount == 0.0f && failCount == 0.0f) {
+        return currSuccessRate;
+      }
+
+      // Calculate the current success rate.
+      //
+      currSuccessRate = succCount / (succCount + failCount);
+      return currSuccessRate;
+    }
+
+    /**
+     * Run method implementation for the CalculateTxSuccessRate task.
+     */
+    @Override
+    public void run() {
+
+      // If there has been no activity over the past interval, increment the
+      // inactivity count and return. We will use this count later on to
+      // quiesce the scheduler and timers if there is no I/O activity.
+      //
+      if (succTxCount.get() == 0 && failTxCount.get () == 0) {
+        inactiveTxCount.incrementAndGet();
+        return;
+      }
+
+      // There has been I/O activity. Calculate the success rate under the
+      // protection of a lock and reset counters
+      //
+      synchronized(lock) {
+        succTxCount.set(0);
+        failTxCount.set(0);
+      }
+    }
+  }
+
+  /**
+   * Bandwidth throttling initializer to start success rate interval timer and
+   * begin accumulated transmission success rates. This method is synchronized
+   * since it is called by all instances of the AzureNativeFileSystemStore class
+   * for this process. Only the first instance of the of this class would perform
+   * the initialization.
+   *
+   * @param period - frequency in seconds at which success rate is calculated.
+   * @throws AzureException - on errors starting timer
+   */
+  private static synchronized void throttleBandwidth(
+      String timerName, final int period) throws AzureException {
+    // Check if the process is already throttling bandwidth.
+    //
+    if (isBandwidthThrottled()) {
+      // Bandwidth throttling is already turned on, return to caller.
+      //
+      return;
+    }
+
+    // Start up timer scheduler if one does not already exist.
+    //
+    if (null == timerScheduler){
+      timerScheduler = Executors.newScheduledThreadPool(TIMER_SCHEDULER_CONCURRENCY);
+    }
+
+    // Create interval timer to count successful and unsuccessful upload/download
+    // transmissions. The timer has no delay time and no automatic cancellation
+    //
+    txSuccessRateTimer = new AzureFileSystemTimer [] {
+        new AzureFileSystemTimer(
+            timerName + "_" + ThrottleType.UPLOAD + "_" + ASV_RATE_TIMER_SUFFIX,
+            getTimerScheduler(), 0, period),
+
+        new AzureFileSystemTimer(
+            timerName + "_" + ThrottleType.DOWNLOAD + "_" + ASV_RATE_TIMER_SUFFIX,
+            getTimerScheduler(), 0, period),
+    };
+
+    // Create task to calculate success rates. Initialize throttling by starting
+    // the ASV success rate timer
+    //
+    txSuccessRateTask = new CalculateTxSuccessRateTask [] {
+        new CalculateTxSuccessRateTask(),
+        new CalculateTxSuccessRateTask()
+    };
+
+    // Turn on the timers.
+    //
+    for (ThrottleType kindOfThrottle : ThrottleType.values()) {
+      txSuccessRateTimer[kindOfThrottle.getValue()].turnOnTimer(
+          txSuccessRateTask[kindOfThrottle.getValue()]);
+    }
+
+    // Throttling has been turned on.
+    //
+    isThrottling = true;
+  }
+
+  /**
+   * Update transmission success counter by delta.
+   * @param delta -- amount to add to successful transmissions for this interval.
+   * @return total accumulated count of successful transmissions for interval.
+   */
+  @Override
+  public int updateTransmissionSuccess(ThrottleType kindOfThrottle, int delta) {
+
+    if (!isBandwidthThrottled()){
+      // This callback should not be called if throttling is not turned on.
+      //
+      throw new AssertionError(
+            "Throttling callback when bandwidth throttling is not turned on.");
+    }
+
+    // Update the number of successful transmission request by delta and return
+    // with the accumulated successes.
+    //
+    return txSuccessRateTask[kindOfThrottle.getValue()].updateTxSuccess(delta);
+  }
+
+  /**
+   * Update transmission failure by delta.
+   * @param delta -- amount to add to failed transmissions for this interval.
+   * @return total accumulated count of failed transmissions for interval.
+   */
+  @Override
+  public int updateTransmissionFailure (ThrottleType kindOfThrottle, int delta) {
+    if (!isBandwidthThrottled()){
+	    // This callback should not be called if throttling is not turned on.
+	    //
+	    throw new AssertionError(
+            "Throttling callback when bandwidth throttling is not turned on.");
+    }
+
+    // Update the total number of failed transmission requests by delta and
+    // return with the accumulated failures.
+    //
+    return txSuccessRateTask[kindOfThrottle.getValue()].updateTxFailure(delta);
+  }
+
+  /**
+   * Throttle send request by delaying this thread.
+   */
+  @Override
+  public void throttleSendRequest(ThrottleType kindOfThrottle, long payloadSize) {
+
+    // Get the latency and current bandwidth from the instrumentation. If there has
+    // been no activity, the latency would be zero. Set the latency to the default
+    // upload/download latency.
+    //
+    long latency = 0;
+    switch(kindOfThrottle) {
+      case UPLOAD:
+        // Get upload latency.
+        //
+        latency = instrumentation.getBlockUploadLatency();
+        if (0 == latency) {
+          latency = DEFAULT_UPLOAD_LATENCY;
+        }
+        break;
+      case DOWNLOAD:
+        // Get download latency.
+        //
+        latency = instrumentation.getBlockDownloadLatency();
+        if (0 == latency) {
+          latency = DEFAULT_DOWNLOAD_LATENCY;
+        }
+        break;
+      default:
+        // The kind of throttle is unexpected or undefined.
+        //
+        throw new AssertionError("Unexpected throttle type in SendRequest callback.");
+    }
+
+    // Capture the current success rate. If the success rate is less than 1 ramp
+    // down the bandwidth, otherwise ramp up the bandwidth.
+    //
+    float successRate =
+        txSuccessRateTask[kindOfThrottle.getValue()].getCurrentTxSuccessRate();
+
+    // Calculate the new bandwidth.
+    //
+    long tmpBandwidth = bandwidth[kindOfThrottle.getValue()];
+    if (successRate < 1.0f) {
+      tmpBandwidth = (long) (successRate * bandwidthRampdownMultiplier *
+                                bandwidth[kindOfThrottle.getValue()]);
+    }
+
+    if (tmpBandwidth < bandwidthMinThreshold) {
+      // The bandwidth cannot be throttled below the minimum bandwidth threshold.
+      // Set the bandwidth to the minimum bandwidth threshold and return.
+      //
+      tmpBandwidth = bandwidthMinThreshold;
+    }
+
+    // Main throttling logic to determine whether to ramp-up, ramp-down or leave things the
+    // the same. In all cases, an attempt is made to throttle when a positive delay period
+    // is calculated.
+    //
+    try{
+      // If the bandwidth is greater or equal to the current bandwidth, attempt to ramp-up.
+      //
+      if (tmpBandwidth >= bandwidth[kindOfThrottle.getValue()]) {
+        // Ramp-up only if the bandwidth ramp-up interval has expired.
+        //
+        if (txRampupTimer[kindOfThrottle.getValue()].isOff()) {
+          LOG.info("Throttle: Transmission ramp-up wait period expired, increasing current "+
+                   "bandwidth = " + bandwidth[kindOfThrottle.getValue()] +
+                   " by " + bandwidthRampupDelta[kindOfThrottle.getValue()] + "b/s.");
+          // Set the new bandwidth and turn on ramp-up interval timer.
+          //
+          bandwidth[kindOfThrottle.getValue()] =
+              (bandwidth[kindOfThrottle.getValue()] +
+                  bandwidthRampupDelta[kindOfThrottle.getValue()]);
+          txRampupTimer[kindOfThrottle.getValue()].turnOnTimer(
+              txRampupTask[kindOfThrottle.getValue()]);
+
+          // Calculate the next bandwidth delta.
+          //
+          bandwidthRampupDelta[kindOfThrottle.getValue()] *= bandwidthRampupMultiplier;
+        }
+      } else {
+        // The new bandwidth is at less than the current bandwidth. Ramp-down,
+        // but only if the  failure tolerance period has expired.
+        //
+        if (txRampdownTimer[kindOfThrottle.getValue()].isOn()) {
+          LOG.info("Throttle: Transmission ramp-down tolerance period not expired, old bandwidth ="
+              + bandwidth[kindOfThrottle.getValue()]);
+        } else {
+          long deltaBandwidth = bandwidth[kindOfThrottle.getValue()] - tmpBandwidth;
+          bandwidth[kindOfThrottle.getValue()] = tmpBandwidth;
+
+          // Set the new bandwidth and turn on the ramp-down interval timer.
+          //
+          // bandwidth[kindOfThrottle.getValue()] = tmpBandwidth;
+          txRampdownTimer[kindOfThrottle.getValue()].turnOnTimer(
+            txRampdownTask[kindOfThrottle.getValue()]);
+
+          LOG.info(
+            "Throttle: Transmission ramp-down tolerance period expired, "+
+            "ramping down to new bandwidth =" + bandwidth[kindOfThrottle.getValue()]);
+
+          // Set the ramp-up delta to a fraction of the range the bandwidth was ramped down.
+          //
+          if (deltaBandwidth / 2 > 0){
+            bandwidthRampupDelta[kindOfThrottle.getValue()] = deltaBandwidth / 2;
+          } else {
+            // The calculated new bandwidth delta is either 0 or negative. Set the bandwidth
+            // ramp-up delta to the default bandwidth ramp-up delta.
+            //
+            bandwidthRampupDelta[kindOfThrottle.getValue()] = minBandwidthRampupDelta;
+          }
+        }
+      }
+
+      // Calculate the delay for the send request. Notice that the bandwidth is never
+      // zero since it is always greater than the non-negative bandwidthMinThreshold.
+      //
+      long delayMs = latency - payloadSize * ONE_SECOND / bandwidth[kindOfThrottle.getValue()];
+      if (bandwidth[kindOfThrottle.getValue()] == bandwidthMinThreshold) {
+        switch(kindOfThrottle) {
+          case UPLOAD:
+            if (latency == DEFAULT_UPLOAD_LATENCY) delayMs = 3000;
+            break;
+          case DOWNLOAD:
+            if (latency == DEFAULT_DOWNLOAD_LATENCY) delayMs = 3000;
+            break;
+          default:
+            // The kind of throttle is unexpected or undefined.
+            //
+            throw new AssertionError("Unexpected throttle type in SendRequest callback.");
+        }
+      }
+
+      // Set a ceiling on the delay to the map reduce timeout period.
+      //
+      if (mapredTaskTimeout < delayMs) {
+        delayMs = mapredTaskTimeout - ONE_SECOND;
+      }
+
+      // Pause the thread only if its delay is greater than zero. Otherwise do not delay.
+      //
+      if (0 < delayMs) {
+        Thread.sleep(delayMs);
+      }
+    } catch (AzureException e) {
+      LOG.info("Received unexpected timer exception.");
+      e.printStackTrace();
+    } catch (InterruptedException e) {
+      // Thread pause interrupted. Simply print stack trace and continue.
+      //
+      e.printStackTrace();
+    }
+  }
+
+  /**
+   * Special initialization routine for testing the throttling callback interfaces.
+   *
+   * @param uri - URI of the target storage blob.
+   * @param conf - reference to the configuration object.
+   * @param instrumentation - the metrics source that will keep track of operations.
+   * @param throttleSendCallback - throttling send callback interface
+   * @param throttleBandwidthFeedback - throttling bandwidth feedback interface.
+   * @throws IllegalArgumentException if URI or job object is null or invalid scheme
+   * @throws AzureException if there is an error establish a connection with Azure
+   * @throws IOException if there are errors reading from/writing to Azure storage.
+   */
+  public void initialize(URI uri, Configuration conf,
+      AzureFileSystemInstrumentation instrumentation,
+      ThrottleSendRequestCallback throttleSendCallback,
+      BandwidthThrottleFeedback throttleBandwidthFeedback)
+          throws IllegalArgumentException, AzureException, IOException {
+
+    // Capture the throttling feedback interfaces and delegate the stoarage
+    // initialization.
+    //
+    this.throttleSendCallback = throttleSendCallback;
+    this.throttleBandwidthFeedback = throttleBandwidthFeedback;
+
+    // Delegate call to initialize the store.
+    //
+    initialize(uri, conf, instrumentation);
+  }
+
+  /**
    * Method for the URI and configuration object necessary to create a storage
    * session with an Azure session. It parses the scheme to ensure it matches
    * the storage protocol supported by this file system.
-   * 
+   *
    * @param uri - URI for target storage blob.
    * @param conf- reference to configuration object.
    * @param instrumentation - the metrics source that will keep track of operations here.
-   * 
+   *
    * @throws IllegalArgumentException if URI or job object is null, or invalid scheme.
    */
   @Override
@@ -242,7 +785,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     //
     if (null == uri.getScheme() || (!ASV_SCHEME.equals(uri.getScheme().toLowerCase()) &&
         !ASV_SECURE_SCHEME.equals(uri.getScheme().toLowerCase()))) {
-      final String errMsg = 
+      final String errMsg =
           String.format(
               "Cannot initialize ASV file system. Scheme is not supported, " +
                   "expected '%s' scheme.", ASV_SCHEME);
@@ -276,7 +819,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
   /**
    * Method to extract the account name from an Azure URI.
-   * 
+   *
    * @param uri -- ASV blob URI
    * @returns accountName -- the account name for the URI.
    * @throws URISyntaxException if the URI does not have an authority it is badly formed.
@@ -292,12 +835,12 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       throw new URISyntaxException(uri.toString(), "Expected URI with a valid authority");
     }
 
-    // Check if authority container the delimiter separating the account name from the 
+    // Check if authority container the delimiter separating the account name from the
     // the container.
     //
     if (!authority.contains (ASV_AUTHORITY_DELIMITER)) {
       return authority;
-    } 
+    }
 
     // Split off the container name and the authority.
     //
@@ -308,7 +851,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     if (authorityParts.length < 2 || "".equals(authorityParts[0])) {
       // Badly formed ASV authority since there is no container.
       //
-      final String errMsg = 
+      final String errMsg =
           String.format("URI '%' has a malformed ASV authority, expected container name." +
               "Authority takes the form" + " asv://[<container name>@]<account name>",
               uri.toString());
@@ -322,7 +865,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
   /**
    * Method to extract the container name from an Azure URI.
-   * 
+   *
    * @param uri -- ASV blob URI
    * @returns containerName -- the container name for the URI. May be null.
    * @throws URISyntaxException if the uri does not have an authority it is badly formed.
@@ -346,7 +889,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // setting the container name to the default Azure root container.
       //
       return AZURE_ROOT_CONTAINER;
-    } 
+    }
 
     // Split off the container name and the authority.
     //
@@ -372,11 +915,11 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   /**
    * Get the appropriate return the appropriate scheme for communicating with
    * Azure depending on whether asv or asvs is specified in the target URI.
-   * 
+   *
    * return scheme - HTTPS if asvs is specified or HTTP if asv is specified.
    * throws URISyntaxException if session URI does not have the appropriate
    * scheme.
-   * @throws AzureException 
+   * @throws AzureException
    */
   private String getHTTPScheme () throws URISyntaxException, AzureException {
     // Determine the appropriate scheme for communicating with Azure storage.
@@ -405,9 +948,11 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
   /**
    * Set the configuration parameters for this client storage session with Azure.
-   * 
+   * @throws AzureException
+   * @throws ConfigurationException
+   *
    */
-  private void configureAzureStorageSession() {
+  private void configureAzureStorageSession() throws ConfigurationException, AzureException {
 
     // Assertion: Target session URI already should have been captured.
     //
@@ -425,16 +970,23 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
             sessionUri.toString()));
     }
 
+    // Determine whether or not concurrent reads and write are allowed on a blob at the
+    // same time.
+    //
+    concurrentReadWrite = sessionConfiguration.getBoolean(
+                                    KEY_CONCURRENT_READ_WRITE,
+                                    DEFAULT_CONCURRENT_READ_WRITE);
+
     // Set up the minimum stream read block size and the write block
     // size.
     //
     storageInteractionLayer.setStreamMinimumReadSizeInBytes(
         sessionConfiguration.getInt(
-            KEY_STREAM_MIN_READ_SIZE, DEFAULT_STREAM_MIN_READ_SIZE));
+                KEY_STREAM_MIN_READ_SIZE, DEFAULT_DOWNLOAD_BLOCK_SIZE));
 
     storageInteractionLayer.setWriteBlockSizeInBytes(
         sessionConfiguration.getInt(
-            KEY_WRITE_BLOCK_SIZE, DEFAULT_WRITE_BLOCK_SIZE));
+                KEY_WRITE_BLOCK_SIZE, DEFAULT_UPLOAD_BLOCK_SIZE));
 
     // The job may want to specify a timeout to use when engaging the
     // storage service. The default is currently 90 seconds. It may
@@ -443,9 +995,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // it,
     // otherwise use the default service client timeout.
     //
-    int storageConnectionTimeout = 
-        sessionConfiguration.getInt(
-            KEY_STORAGE_CONNECTION_TIMEOUT, 0);
+    int storageConnectionTimeout =
+        sessionConfiguration.getInt(KEY_STORAGE_CONNECTION_TIMEOUT, 0);
 
     if (0 < storageConnectionTimeout) {
       storageInteractionLayer.setTimeoutInMs(storageConnectionTimeout * 1000);
@@ -462,13 +1013,251 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     concurrentWrites = sessionConfiguration.getInt(
         KEY_CONCURRENT_CONNECTION_VALUE_OUT,
         Math.min(cpuCores, DEFAULT_CONCURRENT_WRITES));
+
+    // Configure Azure throttling parameters.
+    //
+    configureSessionThrottling();
+  }
+
+
+  /**
+   * Configure the throttling parameters. The throttling parameters are set
+   * in the core-site.xml configuration file. If the parameter is not set in
+   * the configuration object the default is used.
+   *
+   * @throws ConfigurationException if there are errors in configuration.
+   * @throws AzureException if there is a problem creating file system timers.
+   */
+  private void configureSessionThrottling() throws ConfigurationException, AzureException{
+
+    // Disable/Enable throttling.
+    //
+    disableBandwidthThrottling = sessionConfiguration.getBoolean(
+        KEY_DISABLE_THROTTLING, DEFAULT_DISABLE_THROTTLING);
+
+    // Get map reduce task timeout.
+    //
+    mapredTaskTimeout = sessionConfiguration.getInt(
+        KEY_MAPRED_TASK_TIMEOUT, DEFAULT_MAPRED_TASK_TIMEOUT);
+
+
+    // Minimum allowable bandwidth consumption.
+    //
+    bandwidthMinThreshold = sessionConfiguration.getInt(
+        KEY_MIN_BANDWIDTH_THRESHOLD,
+        DEFAULT_MIN_BANDWIDTH_THRESHOLD);
+    if (bandwidthMinThreshold <= 0) {
+      // Throw a configuration exception. The cluster should have at least 1
+      // node.
+      //
+      String errMsg =
+          String.format("Minimum throttled bandwidth threshold is %d bytes/s." +
+              " Node count should be greater than 0.",
+              bandwidthMinThreshold);
+      throw new ConfigurationException(errMsg);
+    }
+
+    // Capture the theoretical download bandwidth from the Azure store.
+    //
+    long storageDownloadBandwidth = sessionConfiguration.getLong(
+        KEY_INITIAL_DOWNLOAD_BANDWIDTH,
+        DEFAULT_INITIAL_DOWNLOAD_BANDWIDTH);
+    if (storageDownloadBandwidth < bandwidthMinThreshold) {
+      // The storage download bandwidth should be at least the minimum bandwidth
+      // threshold.
+      //
+      String errMsg =
+          String.format("Storage download bandwidth is %d bytes/s." +
+              " It should be greater than minimum bandwidth threshold of %d.",
+              storageDownloadBandwidth, bandwidthMinThreshold);
+      throw new ConfigurationException(errMsg);
+    }
+
+    // Capture the theoretical upload bandwidth to the Azure store.
+    //
+    long storageUploadBandwidth = sessionConfiguration.getLong(
+        KEY_INITIAL_UPLOAD_BANDWIDTH,
+        DEFAULT_INITIAL_UPLOAD_BANDWIDTH);
+    if (storageUploadBandwidth < bandwidthMinThreshold) {
+      // The storage upload bandwidth should be at least the minimum bandwidth
+      // threshold.
+      //
+      String errMsg =
+          String.format("Storage upload bandwidth is %d bytes/s." +
+              " It should be greater than minimum bandwidth threshold of %d.",
+              storageDownloadBandwidth, bandwidthMinThreshold);
+      throw new ConfigurationException(errMsg);
+    }
+
+    // Capture the number of nodes in the cluster.
+    //
+    int numNodes = sessionConfiguration.getInt(
+        KEY_NUMBER_OF_SLOTS,
+        DEFAULT_NUMBER_OF_SLOTS);
+    if (numNodes < 1) {
+      // Throw a configuration exception. The cluster should have at least 1
+      // node.
+      //
+      String errMsg =
+          String.format("Cluster is configured with a node count of %d." +
+              " Node count should be greater than or equal to one.",
+              numNodes);
+      throw new ConfigurationException(errMsg);
+    }
+
+    // Initialize upload and download bandwidths.
+    //
+    bandwidth = new long [] {
+        Math.max(bandwidthMinThreshold,
+            storageUploadBandwidth / (numNodes * concurrentWrites)),
+
+        Math.max(bandwidthMinThreshold,
+            storageDownloadBandwidth / (numNodes * concurrentReads))
+    };
+
+    // Interval during which the number of I/O request successes and failures
+    // are computed.
+    //
+    successRateInterval = sessionConfiguration.getInt(
+        KEY_SUCCESS_RATE_INTERVAL,
+        DEFAULT_SUCCESS_RATE_INTERVAL);
+    if (successRateInterval <= 0) {
+      // The success rate interval configuration must be at least 1 second.
+      //
+      String errMsg =
+          String.format("Cluster is configured with a success rate interval of %d" +
+              " The success rate interval should be at least 1 second.",
+              successRateInterval);
+      throw new ConfigurationException(errMsg);
+    }
+
+    // Start bandwidth throttling if it is not disabled.
+    //
+    if (!disableBandwidthThrottling) {
+      throttleBandwidth(ASV_TIMER_NAME, successRateInterval);
+
+      // Set the up the throttling bandwidth retry policy.
+      //
+      storageInteractionLayer.setRetryPolicyFactory(new BandwidthThrottleRetry ());
+    }
+
+    // A thread must see no failures over this tolerance period before ramping
+    // up.
+    //
+    failureTolerancePeriod = sessionConfiguration.getInt(
+        KEY_FAILURE_TOLERANCE_PERIOD,
+        DEFAULT_FAILURE_TOLERANCE_PERIOD);
+    if (failureTolerancePeriod <= 0) {
+      // The failure tolerance period configuration must be at least 1 second.
+      //
+      String errMsg =
+          String.format(
+              "Cluster is configured with a failure tolerance period of %d" +
+                  " The failure tolerance period should be at least 1 second.",
+                  failureTolerancePeriod);
+      throw new ConfigurationException(errMsg);
+    }
+
+    // Delta in bandwidth when ramping up.  The size of this value controls the
+    // ramp up rate.
+    //
+    minBandwidthRampupDelta = sessionConfiguration.getLong(
+        KEY_BANDWIDTH_RAMPUP_DELTA,
+        DEFAULT_BANDWIDTH_RAMPUP_DELTA);
+    if (minBandwidthRampupDelta <= 0) {
+      // The bandwidth ramp-up delta configuration be greater than zero.
+      //
+      String errMsg =
+          String.format(
+              "Cluster is configured with a bandwidth ramp-up delta of %d" +
+                  " The bandwidth ramp-up delta should be greater than zero.",
+                  minBandwidthRampupDelta);
+      throw new ConfigurationException(errMsg);
+    }
+
+    // Create and initialize the bandwidth ramp-up delta for both uploads
+    // and downloads.
+    //
+    bandwidthRampupDelta =
+        new long [] {minBandwidthRampupDelta, minBandwidthRampupDelta};
+
+    // Multiplier on the ramp up delta. This coefficient determines whether ramp
+    // up is sub-linear, linear, or non-linear determining whether ramp-up rate of
+    // change decreases, remains the same, or increases with time across ramp up
+    // intervals.
+    //
+    bandwidthRampupMultiplier = sessionConfiguration.getFloat(
+        KEY_BANDWIDTH_RAMPUP_MULTIPLIER,
+        DEFAULT_BANDWIDTH_RAMPUP_MULTIPLIER);
+    if (bandwidthRampupMultiplier < 0) {
+      // The bandwidth ramp-up multiplier configuration be greater than one.
+      //
+      String errMsg =
+          String.format(
+              "Cluster is configured with a bandwidth ramp-up multiplier of %d" +
+                  " The bandwidth ramp-up multiplier should be greater than one.",
+                  bandwidthRampupMultiplier);
+      throw new ConfigurationException(errMsg);
+    }
+
+    // Multiplier weighting the ramp-down rate.
+    //
+    bandwidthRampdownMultiplier = sessionConfiguration.getFloat(
+        KEY_BANDWIDTH_RAMPDOWN_MULTIPLIER,
+        DEFAULT_BANDWIDTH_RAMPDOWN_MULTIPLIER);
+    if (bandwidthRampdownMultiplier < 0) {
+      // The bandwidth ramp-down multiplier configuration be greater than one.
+      //
+      String errMsg =
+          String.format(
+              "Cluster is configured with a bandwidth ramp-down multiplier of %d" +
+                  " The bandwidth ramp-down multiplier should be greater than one.",
+                  bandwidthRampupMultiplier);
+      throw new ConfigurationException(errMsg);
+    }
+
+    // Create default timer tasks for both rampup and rampdown.
+    //
+    txRampupTask = new DefaultTimerTask[] {
+        THROTTLE_DEFAULT_TIMER_TASK,
+        THROTTLE_DEFAULT_TIMER_TASK
+    };
+
+    txRampdownTask = new DefaultTimerTask[] {
+        THROTTLE_DEFAULT_TIMER_TASK,
+        THROTTLE_DEFAULT_TIMER_TASK
+    };
+
+    // Create and initialize ramp-up timers.
+    //
+    txRampupTimer = new AzureFileSystemTimer [] {
+        new AzureFileSystemTimer(
+            ASV_TIMER_NAME + "_" + ThrottleType.UPLOAD + "_" + ASV_RAMPUP_TIMER_SUFFIX,
+            getTimerScheduler(), 0, failureTolerancePeriod, FAILURE_TOLERANCE_INTERVAL),
+
+        new AzureFileSystemTimer(
+            ASV_TIMER_NAME + "_" + ThrottleType.DOWNLOAD + "_" + ASV_RAMPUP_TIMER_SUFFIX,
+            getTimerScheduler(), 0, failureTolerancePeriod, FAILURE_TOLERANCE_INTERVAL)
+    };
+
+    // Create and initialize ramp-down timers.
+    //
+    txRampdownTimer = new AzureFileSystemTimer [] {
+        new AzureFileSystemTimer(
+            ASV_TIMER_NAME +  "_" + ThrottleType.UPLOAD + "_" + ASV_RAMPDOWN_TIMER_SUFFIX,
+            getTimerScheduler(), 0, failureTolerancePeriod, FAILURE_TOLERANCE_INTERVAL),
+
+        new AzureFileSystemTimer(
+            ASV_TIMER_NAME +  "_" + ThrottleType.DOWNLOAD + "_" + ASV_RAMPDOWN_TIMER_SUFFIX,
+            getTimerScheduler(), 0, failureTolerancePeriod, FAILURE_TOLERANCE_INTERVAL)
+    };
   }
 
   /**
    * Connect to Azure storage using anonymous credentials.
-   * 
+   *
    * @param uri - URI to target blob (R/O access to public blob)
-   * 
+   *
    * @throws StorageException raised on errors communicating with Azure storage.
    * @throws IOException raised on errors performing I/O or setting up the session.
    * @throws URISyntaxExceptions raised on creating mal-formed URI's.
@@ -476,11 +1265,11 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private void connectUsingAnonymousCredentials(final URI uri)
       throws StorageException, IOException, URISyntaxException {
     // Use an HTTP scheme since the URI specifies a publicly accessible
-    // container. Explicitly create a storage URI corresponding to the URI 
+    // container. Explicitly create a storage URI corresponding to the URI
     // parameter for use in creating the service client.
     //
     String accountName = getAccountFromAuthority(uri);
-    URI storageUri = new URI(getHTTPScheme() + ":" + PATH_DELIMITER + PATH_DELIMITER + 
+    URI storageUri = new URI(getHTTPScheme() + ":" + PATH_DELIMITER + PATH_DELIMITER +
         accountName);
 
     // Create the service client with anonymous credentials.
@@ -565,7 +1354,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * Connect to Azure storage using account key credentials.
    */
   private void connectUsingConnectionStringCredentials(
-      final String accountName, final String containerName, final String accountKey) 
+      final String accountName, final String containerName, final String accountKey)
           throws InvalidKeyException, StorageException, IOException, URISyntaxException {
     // If the account name is "acc.blob.core.windows.net", then the
     // rawAccountName is just "acc"
@@ -579,7 +1368,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * Connect to Azure storage using shared access signature credentials.
    */
   private void connectUsingSASCredentials(
-      final String accountName, final String containerName, final String sas) 
+      final String accountName, final String containerName, final String sas)
           throws InvalidKeyException, StorageException, IOException, URISyntaxException {
     StorageCredentials credentials =
         new StorageCredentialsSharedAccessSignature(sas);
@@ -594,11 +1383,11 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   static String getAccountKeyFromConfiguration(String accountName,
-      Configuration conf) throws KeyProviderException {  
+      Configuration conf) throws KeyProviderException {
     String key = null;
     String keyProviderClass = conf.get(KEY_ACCOUNT_KEYPROVIDER_PREFIX + accountName);
     KeyProvider keyProvider = null;
-    
+
     if (keyProviderClass == null) {
       // No key provider was provided so use the provided key as is.
       keyProvider = new SimpleKeyProvider();
@@ -627,11 +1416,11 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * Establish a session with Azure blob storage based on the target URI. The
    * method determines whether or not the URI target contains an explicit
    * account or an implicit default cluster-wide account.
-   * 
+   *
    * @throws AzureException
    * @throws IOException
    */
-  private void createAzureStorageSession () 
+  private void createAzureStorageSession ()
       throws AzureException, IOException {
 
     // Make sure this object was properly initialized with references to
@@ -651,7 +1440,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // start an Azure blob client session using an account key for the
       // the account or anonymously.
       // For all URI's do the following checks in order:
-      // 1. Validate that <account> can be used with the current Hadoop 
+      // 1. Validate that <account> can be used with the current Hadoop
       //    cluster by checking it exists in the list of configured accounts
       //    for the cluster.
       // 2. Look up the AccountKey in the list of configured accounts for the cluster.
@@ -677,7 +1466,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         // Account name is not specified as part of the URI. Throw indicating
         // an invalid account name.
         //
-        final String errMsg = 
+        final String errMsg =
             String.format("Cannot load ASV file system account name not" +
                 " specified in URI: %s.",
                 sessionUri.toString());
@@ -695,7 +1484,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         return;
       }
 
-      // Check whether we have a shared access signature for that container. 
+      // Check whether we have a shared access signature for that container.
       String propertyValue = sessionConfiguration.get(
           KEY_ACCOUNT_SAS_PREFIX + containerName +
           "." + accountName);
@@ -897,8 +1686,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Azure storage server.
       //
       if (null == storageInteractionLayer) {
-        final String errMsg = 
-            String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
+        final String errMsg =
+            String.format(
+                "Storage session expected for URI '%s' but does not exist.",
+                sessionUri);
         throw new AzureException(errMsg);
       }
 
@@ -964,6 +1755,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       BlobRequestOptions options = new BlobRequestOptions();
       options.setStoreBlobContentMD5(true);
       options.setConcurrentRequestCount(concurrentWrites);
+      if (isBandwidthThrottled()){
+          options.setRetryPolicyFactory(new BandwidthThrottleRetry ());
+      }
+
 
       // Create the output stream for the Azure blob.
       //
@@ -1036,7 +1831,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     storeMetadataAttribute(blob,
         LINK_BACK_TO_UPLOAD_IN_PROGRESS_METADATA_KEY, linkTarget);
   }
-  
+
   private static String getLinkAttributeValue(CloudBlockBlobWrapper blob) {
     return getMetadataAttribute(blob,
         LINK_BACK_TO_UPLOAD_IN_PROGRESS_METADATA_KEY);
@@ -1077,8 +1872,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     //
     if (!isAuthenticatedAccess()) {
       // Preemptively raise an exception indicating no uploads are
-      // allowed to
-      // anonymous accounts.
+      // allowed to anonymous accounts.
       //
       throw new AzureException(
           "Uploads to to public accounts using anonymous access is prohibited.");
@@ -1093,8 +1887,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       blob.upload(new ByteArrayInputStream(new byte[0]), getInstrumentedContext());
     } catch (Exception e) {
       // Caught exception while attempting upload. Re-throw as an Azure
-      // storage
-      // exception.
+      // storage exception.
       //
       throw new AzureException(e);
     }
@@ -1118,8 +1911,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     //
     if (!isAuthenticatedAccess()) {
       // Preemptively raise an exception indicating no uploads are
-      // allowed to
-      // anonymous accounts.
+      // allowed to anonymous accounts.
       //
       throw new AzureException(
           "Uploads to to public accounts using anonymous access is prohibited.");
@@ -1170,7 +1962,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
   /**
    * Private method to check for authenticated access.
-   * 
+   *
    * @ returns boolean -- true if access is credentialed and authenticated and
    * false otherwise.
    */
@@ -1192,13 +1984,13 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * original file system object was constructed with a short- or long-form
    * URI. If the root directory is non-null the URI in the file constructor
    * was in the long form.
-   * 
+   *
    * @param includeMetadata if set, the listed items will have their metadata
    *                        populated already.
-   * 
+   *
    * @returns blobItems : iterable collection of blob items.
    * @throws URISyntaxException
-   * 
+   *
    */
   private Iterable<ListBlobItem> listRootBlobs(boolean includeMetadata)
       throws StorageException, URISyntaxException {
@@ -1217,15 +2009,15 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * the directory depending on whether the original file system object was
    * constructed with a short- or long-form URI. If the root directory is
    * non-null the URI in the file constructor was in the long form.
-   * 
+   *
    * @param aPrefix
    *            : string name representing the prefix of containing blobs.
    * @param includeMetadata if set, the listed items will have their metadata
    *                        populated already.
-   * 
+   *
    * @returns blobItems : iterable collection of blob items.
    * @throws URISyntaxException
-   * 
+   *
    */
   private Iterable<ListBlobItem> listRootBlobs(String aPrefix,
       boolean includeMetadata)
@@ -1263,7 +2055,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * constructed with a short- or long-form URI.  It also uses the specified
    * flat or hierarchical option, listing details options, request options,
    * and operation context.
-   * 
+   *
    * @param aPrefix string name representing the prefix of containing blobs.
    * @param useFlatBlobListing - the list is flat if true, or hierarchical otherwise.
    * @param listingDetails - determine whether snapshots, metadata, commmitted/uncommitted data
@@ -1271,9 +2063,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * @param opContext - context of the current operation
    * @returns blobItems : iterable collection of blob items.
    * @throws URISyntaxException
-   * 
+   *
    */
-  private Iterable<ListBlobItem> listRootBlobs(String aPrefix, boolean useFlatBlobListing, 
+  private Iterable<ListBlobItem> listRootBlobs(String aPrefix, boolean useFlatBlobListing,
       EnumSet<BlobListingDetails> listingDetails, BlobRequestOptions options,
       OperationContext opContext) throws StorageException, URISyntaxException {
 
@@ -1294,13 +2086,13 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * system object was constructed with a short- or long-form URI. If the root
    * directory is non-null the URI in the file constructor was in the long
    * form.
-   * 
+   *
    * @param aKey
    *            : a key used to query Azure for the block blob.
    * @returns blob : a reference to the Azure block blob corresponding to the
    *          key.
    * @throws URISyntaxException
-   * 
+   *
    */
   private CloudBlockBlobWrapper getBlobReference(String aKey)
       throws StorageException, URISyntaxException {
@@ -1315,9 +2107,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * This private method normalizes the key by stripping the container
    * name from the path and returns a path relative to the root directory
    * of the container.
-   * 
+   *
    * @param keyUri - adjust this key to a path relative to the root directory
-   * 
+   *
    * @returns normKey
    */
   private String normalizeKey(URI keyUri) {
@@ -1373,14 +2165,33 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
    * @return The OperationContext object to use.
    */
   private OperationContext getInstrumentedContext() {
+
     OperationContext operationContext = new OperationContext();
-    ResponseReceivedMetricUpdater.hook(operationContext, instrumentation,
-        bandwidthGaugeUpdater);
+    ResponseReceivedMetricUpdater.hook(
+       operationContext,
+       instrumentation,
+       bandwidthGaugeUpdater,
+       getBandwidthThrottleFeedback());
+
+    // If bandwidth throttling is enabled, bind the operation context to listen
+    // to SendingRequestEvents. These events call back into the Azure store to
+    // determine whether the thread should be throttled with a delay.
+    //
+    if (isBandwidthThrottled() || isConcurrentReadWriteAllowed()) {
+      SendRequestThrottle.bind(
+        operationContext,
+        getThrottleSendRequestCallback(),
+        isConcurrentReadWriteAllowed());
+    }
+
     if (testHookOperationContext != null) {
       operationContext =
           testHookOperationContext.modifyOperationContext(operationContext);
     }
     ErrorMetricUpdater.hook(operationContext, instrumentation);
+
+    // Return the operation context.
+    //
     return operationContext;
   }
 
@@ -1391,7 +2202,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // check if a session exists, if not create a session with the Azure storage server.
     //
     if (null == storageInteractionLayer) {
-      final String errMsg = 
+      final String errMsg =
           String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
       throw new AssertionError(errMsg);
     }
@@ -1459,8 +2270,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // There is no file with that key name, but maybe it is a folder.
       // Query the underlying folder/container to list the blobs stored
       // there under that key.
-      // TODO: Replace container with generic directory name.
-      // 
+      //
       Iterable<ListBlobItem> objects =
           listRootBlobs(
               key,
@@ -1483,10 +2293,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           //
           BlobProperties properties = blob.getProperties();
 
-          // TODO: Maybe there a directory metadata class which extends the file metadata
-          // TODO: class or an explicit parameter indicating it is a directory rather than
-          // TODO: using polymorphism to distinguish the two.
-          //
           return new FileMetadata(key, properties.getLastModified().getTime(),
               getPermissionStatus(blob),
               BlobMaterialization.Implicit);
@@ -1511,17 +2317,25 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Azure storage server.
       //
       if (null == storageInteractionLayer) {
-        final String errMsg = 
+        final String errMsg =
             String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
         throw new AssertionError(errMsg);
       }
       checkContainer(ContainerAccessType.PureRead);
 
+      // Set up request options for retry policy if it is bandwidth throttled.
+      //
+      BlobRequestOptions options = null;
+      if (isBandwidthThrottled()){
+        options = new BlobRequestOptions();
+        options.setRetryPolicyFactory(new BandwidthThrottleRetry());
+      }
+
       // Get blob reference and open the input buffer stream.
       //
       CloudBlockBlobWrapper blob = getBlobReference(key);
       BufferedInputStream inBufStream = new BufferedInputStream(
-          blob.openInputStream(null, getInstrumentedContext()));
+          blob.openInputStream(options, getInstrumentedContext()));
 
       // Return a data input stream.
       //
@@ -1537,12 +2351,12 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   @Override
   public DataInputStream retrieve(String key, long startByteOffset)
       throws AzureException, IOException {
-    try {  
+    try {
       // Check if a session exists, if not create a session with the
       // Azure storage server.
       //
       if (null == storageInteractionLayer) {
-        final String errMsg = 
+        final String errMsg =
             String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
         throw new AssertionError(errMsg);
       }
@@ -1552,9 +2366,18 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //
       CloudBlockBlobWrapper blob = getBlobReference(key);
 
+
+      // Set up request options for retry policy if it is bandwidth throttled.
+      //
+      BlobRequestOptions options = null;
+      if (isBandwidthThrottled()){
+        options = new BlobRequestOptions();
+        options.setRetryPolicyFactory(new BandwidthThrottleRetry());
+      }
+
       // Open input stream and seek to the start offset.
       //
-      InputStream in = blob.openInputStream(null, getInstrumentedContext());
+      InputStream in = blob.openInputStream(options, getInstrumentedContext());
 
       // Create a data input stream.
       //
@@ -1581,7 +2404,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   @Override
-  public PartialListing listAll(String prefix, final int maxListingCount, 
+  public PartialListing listAll(String prefix, final int maxListingCount,
       final int maxListingDepth, String priorLastKey) throws IOException {
     return list(prefix, null, maxListingCount, maxListingDepth, priorLastKey);
   }
@@ -1589,7 +2412,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   /**
    * Searches the given list of {@link FileMetadata} objects for a directory with
    * the given key.
-   * @param list The list to search. 
+   * @param list The list to search.
    * @param key The key to search for.
    * @return The wanted directory, or null if not found.
    */
@@ -1604,7 +2427,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   private PartialListing list(String prefix, String delimiter,
-      final int maxListingCount, final int maxListingDepth, String priorLastKey) 
+      final int maxListingCount, final int maxListingDepth, String priorLastKey)
           throws IOException {
     try {
       checkContainer(ContainerAccessType.PureRead);
@@ -1630,10 +2453,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         }
 
         if (blobItem instanceof CloudBlockBlobWrapper) {
-          // TODO: Validate that the following code block actually
-          // makes
-          // TODO: sense. Min Wei tagged it as a hack
-          // Fix the scheme on the key.
           String blobKey = null;
           CloudBlockBlobWrapper blob = (CloudBlockBlobWrapper) blobItem;
           BlobProperties properties = blob.getProperties();
@@ -1659,7 +2478,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           }
 
           // Add the metadata to the list, but remove any existing duplicate
-          // entries first that we may have added by finding nested files.  
+          // entries first that we may have added by finding nested files.
           //
           FileMetadata existing = getDirectoryInList(fileMetadata, blobKey);
           if (existing != null) {
@@ -1680,9 +2499,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           // Reached the targeted listing depth. Return metadata for the
           // directory using default permissions.
           //
-          // TODO: Something smarter should be done about permissions. Maybe
-          // TODO: inherit the permissions of the first non-directory blob.
-          // TODO: Also, getting a proper value for last-modified is tricky.
+          // Note: Something smarter should be done about permissions. Maybe
+          //       inherit the permissions of the first non-directory blob.
+          //       Also, getting a proper value for last-modified is tricky.
           //
           FileMetadata directoryMetadata = new FileMetadata(dirKey, 0,
               defaultPermissionNoBlobMetadata(),
@@ -1701,7 +2520,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
               maxListingCount, maxListingDepth - 1);
         }
       }
-      // TODO: Original code indicated that this may be a hack.
+      // Note: Original code indicated that this may be a hack.
       //
       priorLastKey = null;
       return new PartialListing(priorLastKey,
@@ -1715,26 +2534,24 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     }
   }
 
-  /*
+  /**
    * Build up a metadata list of blobs in an Azure blob directory. This method
    * uses a in-order first traversal of blob directory structures to maintain
    * the sorted order of the blob names.
-   * 
+   *
    * @param dir -- Azure blob directory
-   * 
-   * @param list -- a list of file metadata objects for each non-directory
-   * blob.
-   * 
+   *
+   * @param list -- a list of file metadata objects for each non-directory blob.
+   *
    * @param maxListingLength -- maximum length of the built up list.
    */
-
   private void buildUpList(CloudBlobDirectoryWrapper aCloudBlobDirectory,
-      ArrayList<FileMetadata> aFileMetadataList, final int maxListingCount, 
+      ArrayList<FileMetadata> aFileMetadataList, final int maxListingCount,
       final int maxListingDepth) throws Exception {
 
     // Push the blob directory onto the stack.
     //
-    AzureLinkedStack<Iterator<ListBlobItem>> dirIteratorStack = 
+    AzureLinkedStack<Iterator<ListBlobItem>> dirIteratorStack =
         new AzureLinkedStack<Iterator<ListBlobItem>>();
 
     Iterable<ListBlobItem> blobItems = aCloudBlobDirectory.listBlobs(null,
@@ -1802,7 +2619,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
           } else {
             metadata = new FileMetadata(
                 blobKey,
-                properties.getLength(), 
+                properties.getLength(),
                 properties.getLastModified().getTime(),
                 getPermissionStatus(blob));
           }
@@ -1830,7 +2647,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
             ++listingDepth;
 
             // The current blob item represents the new directory. Get
-            // an iterator for this directory and continue by iterating through 
+            // an iterator for this directory and continue by iterating through
             // this directory.
             //
             blobItems = directory.listBlobs(null,
@@ -1847,9 +2664,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
               // Reached the targeted listing depth. Return metadata for the
               // directory using default permissions.
               //
-              // TODO: Something smarter should be done about permissions. Maybe
-              // TODO: inherit the permissions of the first non-directory blob.
-              // TODO: Also, getting a proper value for last-modified is tricky.
+              // Note: Something smarter should be done about permissions. Maybe
+              //       inherit the permissions of the first non-directory blob.
+              //       Also, getting a proper value for last-modified is tricky.
               //
               FileMetadata directoryMetadata = new FileMetadata(dirKey,
                   0,
@@ -1954,7 +2771,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // check if a session exists, if not create a session with the Azure storage server.
       //
       if (null == storageInteractionLayer) {
-        final String errMsg = 
+        final String errMsg =
             String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
         throw new AssertionError(errMsg);
       }
@@ -1969,7 +2786,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         throw new AzureException ("Source blob " + srcKey+ " does not exist.");
       }
 
-      // Get the destination blob. The destination key always needs to be 
+      // Get the destination blob. The destination key always needs to be
       // normalized.
       //
       CloudBlockBlobWrapper dstBlob = getBlobReference(dstKey);
@@ -2011,7 +2828,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // check if a session exists, if not create a session with the Azure storage server.
       //
       if (null == storageInteractionLayer) {
-        final String errMsg = 
+        final String errMsg =
             String.format("Storage session expected for URI '%s' but does not exist.", sessionUri);
         throw new AssertionError(errMsg);
       }

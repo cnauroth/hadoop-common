@@ -118,7 +118,7 @@ public class NativeAzureFileSystem extends FileSystem {
      * because the end of the stream has been reached, the value -1 is returned.
      * This method blocks until input data is available, the end of the stream
      * is detected, or an exception is thrown.
-     * 
+     *
      * @returns int An integer corresponding to the byte read.
      */
     @Override
@@ -147,13 +147,13 @@ public class NativeAzureFileSystem extends FileSystem {
      * one byte. If no byte is available because the stream is at end of file,
      * the value -1 is returned; otherwise, at least one byte is read and stored
      * into b.
-     * 
+     *
      * @param b -- the buffer into which data is read
-     * 
+     *
      * @param off -- the start offset in the array b at which data is written
-     * 
+     *
      * @param len -- the maximum number of bytes read
-     * 
+     *
      * @ returns int The total number of byes read into the buffer, or -1 if
      * there is no more data because the end of stream is reached.
      */
@@ -337,7 +337,7 @@ public class NativeAzureFileSystem extends FileSystem {
      * write is that one byte is written to the output stream. The byte to be
      * written is the eight low-order bits of the argument b. The 24 high-order
      * bits of b are ignored.
-     * 
+     *
      * @param b 32-bit integer of block of 4 bytes
      */
     @Override
@@ -358,7 +358,7 @@ public class NativeAzureFileSystem extends FileSystem {
      * Writes b.length bytes from the specified byte array to this output
      * stream. The general contract for write(b) is that it should have exactly
      * the same effect as the call write(b, 0, b.length).
-     * 
+     *
      * @param b Block of bytes to be written to the output stream.
      */
     @Override
@@ -371,7 +371,7 @@ public class NativeAzureFileSystem extends FileSystem {
     // Adds the current stream buffer to ring buffer
     // if it is full. Also creates a new stream buffer
     // for streaming new writes.
-    // TODO: need a better name for this
+    //
     private void processCurrentStreamIfFull() throws IOException {
       if (buffer.size() >= getBufferSize()) {
         addCurrentStreamToRingBuffer();
@@ -394,9 +394,6 @@ public class NativeAzureFileSystem extends FileSystem {
         // storage. Typically this should be a no-op since most of the buffer
         // would
         // have been written out while filling the ring buffer.
-        //
-        // TODO Rather than wait for flush completion it may be better
-        // TODO to get notification that the first write is completed.
         //
         out.flush();
 
@@ -431,7 +428,7 @@ public class NativeAzureFileSystem extends FileSystem {
      * b</code b> are written to the output stream in order; element
      * <code>b[off]</code> is the first byte written and
      * <code>b[off+len-1]</code> is the last byte written by this operation.
-     * 
+     *
      * @param b Byte array to be written.
      * @param off Write this offset in stream.
      * @param len Number of bytes to be written.
@@ -524,7 +521,7 @@ public class NativeAzureFileSystem extends FileSystem {
 
     /**
      * Get the blob name.
-     * 
+     *
      * @return String Blob name.
      */
     public String getKey() {
@@ -533,7 +530,7 @@ public class NativeAzureFileSystem extends FileSystem {
 
     /**
      * Set the blob name.
-     * 
+     *
      * @param key Blob name.
      */
     public void setKey(String key) {
@@ -542,7 +539,7 @@ public class NativeAzureFileSystem extends FileSystem {
 
     /**
      * Get the blob name.
-     * 
+     *
      * @return String Blob name.
      */
     public String getEncodedKey() {
@@ -551,7 +548,7 @@ public class NativeAzureFileSystem extends FileSystem {
 
     /**
      * Set the blob name.
-     * 
+     *
      * @param anEncodedKey Blob name.
      */
     public void setEncodedKey(String anEncodedKey) {
@@ -565,7 +562,7 @@ public class NativeAzureFileSystem extends FileSystem {
      * The create also includes the name of the original key value which is
      * stored in the m_key member variable. This method should only be called
      * when the stream is closed.
-     * 
+     *
      * @param anEncodedKey Encoding of the original key stored in m_key member.
      */
     private void restoreKey() throws IOException {
@@ -648,7 +645,7 @@ public class NativeAzureFileSystem extends FileSystem {
     store.initialize(uri, conf, instrumentation);
     setConf(conf);
     this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
-    this.workingDir = new Path("/user", 
+    this.workingDir = new Path("/user",
         System.getProperty("user.name")).makeQualified(this);
     this.blockSize = conf.getLong(AZURE_BLOCK_SIZE_PROPERTY_NAME, MAX_AZURE_BLOCK_SIZE);
   }
@@ -662,7 +659,7 @@ public class NativeAzureFileSystem extends FileSystem {
     return actualStore;
   }
 
-  // TODO: The logic for this method is confusing as to whether it strips the
+  // Note: The logic for this method is confusing as to whether it strips the
   // last slash or not (it adds it in the beginning, then strips it at the end).
   // We should revisit that.
   private String pathToKey(Path path) {
@@ -799,7 +796,7 @@ public class NativeAzureFileSystem extends FileSystem {
     // Construct the data output stream from the buffered output stream.
     //
     FSDataOutputStream fsOut = new FSDataOutputStream(bufOutStream, statistics);
-    
+
     // Increment the counter
     instrumentation.fileCreated();
 
@@ -833,7 +830,7 @@ public class NativeAzureFileSystem extends FileSystem {
       //
       return false;
     }
-    
+
     // The path exists, determine if it is a folder containing objects,
     // an empty folder, or a simple file and take the appropriate actions.
     //
@@ -942,7 +939,7 @@ public class NativeAzureFileSystem extends FileSystem {
 
         // Return reference to the directory object.
         //
-        return newDirectory(meta, absolutePath);      
+        return newDirectory(meta, absolutePath);
       }
 
       // The path is a file.
@@ -1194,7 +1191,7 @@ public class NativeAzureFileSystem extends FileSystem {
         LOG.debug("Destination " + dst +
             " is an already existing file, failing the rename.");
       }
-      return false;      
+      return false;
     } else {
       // Check that the parent directory exists.
       FileMetadata parentOfDestMetadata =
@@ -1248,7 +1245,7 @@ public class NativeAzureFileSystem extends FileSystem {
           if (file.getBlobMaterialization() == BlobMaterialization.Explicit) {
             String srcName = file.getKey();
             String suffix  = srcName.substring(srcKey.length());
-            String dstName = dstKey + suffix;  
+            String dstName = dstKey + suffix;
             store.rename(srcName, dstName);
           }
         }
@@ -1513,7 +1510,7 @@ public class NativeAzureFileSystem extends FileSystem {
    * Encode the key with a random prefix for load balancing in Azure storage.
    * Upload data to a random temporary file then do storage side renaming to
    * recover the original key.
-   * 
+   *
    * @param aKey
    * @param numBuckets
    * @return Encoded version of the original key.
