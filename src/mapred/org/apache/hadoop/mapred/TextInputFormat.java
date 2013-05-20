@@ -20,10 +20,12 @@ package org.apache.hadoop.mapred;
 
 import java.io.*;
 
+import org.apache.commons.codec.binary.Base64;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.compress.*;
+
 
 /** An {@link InputFormat} for plain text files.  Files are broken into lines.
  * Either linefeed or carriage-return are used to signal end of line.  Keys are
@@ -46,7 +48,15 @@ public class TextInputFormat extends FileInputFormat<LongWritable, Text>
                                           InputSplit genericSplit, JobConf job,
                                           Reporter reporter)
     throws IOException {
-    
+    String delimiter = job.get("textinputformat.record.delimiter", null);
+    String decodeDelimiter = delimiter;
+    if(null != delimiter){
+      if (org.apache.commons.codec.binary.Base64.isArrayByteBase64(delimiter.getBytes())) {
+        decodeDelimiter = new String(org.apache.commons.codec.binary.Base64.decodeBase64(delimiter.getBytes()));
+        job.set("textinputformat.record.delimiter", decodeDelimiter);
+      }
+      return new LineRecordReader(job, (FileSplit) genericSplit, decodeDelimiter.getBytes());
+    }
     reporter.setStatus(genericSplit.toString());
     return new LineRecordReader(job, (FileSplit) genericSplit);
   }

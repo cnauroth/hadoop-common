@@ -88,6 +88,7 @@ import org.codehaus.jackson.JsonParseException;
 import org.codehaus.jackson.map.JsonMappingException;
 import org.codehaus.jackson.map.ObjectMapper;
 
+
 /**
  * <code>JobClient</code> is the primary interface for the user-job to interact
  * with the {@link JobTracker}.
@@ -908,7 +909,12 @@ public class JobClient extends Configured implements MRConstants, Tool  {
           FSDataOutputStream out = 
             FileSystem.create(fs, submitJobFile,
                 new FsPermission(JobSubmissionFiles.JOB_FILE_PERMISSION));
-
+          String delimiter = jobCopy.get("textinputformat.record.delimiter", null);
+          if(null != delimiter){
+            byte[] b = delimiter.getBytes();
+            byte[] b2 = org.apache.commons.codec.binary.Base64.encodeBase64(b);
+            jobCopy.set("textinputformat.record.delimiter", new String(b2));
+          }
           try {
             jobCopy.writeXml(out);
           } finally {

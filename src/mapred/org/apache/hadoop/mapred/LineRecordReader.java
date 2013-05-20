@@ -45,6 +45,7 @@ public class LineRecordReader implements RecordReader<LongWritable, Text> {
   private long end;
   private LineReader in;
   int maxLineLength;
+  private byte[] recordDelimiterBytes;
 
   /**
    * A class that provides a line reader from an input stream.
@@ -61,6 +62,42 @@ public class LineRecordReader implements RecordReader<LongWritable, Text> {
     public LineReader(InputStream in, Configuration conf) throws IOException {
       super(in, conf);
     }
+  public LineReader(InputStream in, Configuration conf, byte[] lineDelim) throws IOException {
+      super(in, conf, lineDelim);
+    }
+  }
+
+  public LineRecordReader(Configuration job,
+            FileSplit split, byte[] recordDelimiter) throws IOException {
+  this.maxLineLength = job.getInt("mapred.linerecordreader.maxlength",
+                      Integer.MAX_VALUE);
+  this.recordDelimiterBytes = recordDelimiter;
+  start = split.getStart();
+  end = start + split.getLength();
+  final Path file = split.getPath();
+  compressionCodecs = new CompressionCodecFactory(job);
+  final CompressionCodec codec = compressionCodecs.getCodec(file);
+
+  // open the file and seek to the start of the split
+  FileSystem fs = file.getFileSystem(job);
+  FSDataInputStream fileIn = fs.open(split.getPath());
+  boolean skipFirstLine = false;
+  if (codec != null) {
+    in = new LineReader(codec.createInputStream(fileIn), job, recordDelimiter);
+    end = Long.MAX_VALUE;
+  } else {
+    if (start != 0) {
+      skipFirstLine = true;
+      --start;
+      fileIn.seek(start);
+    }
+    in = new LineReader(fileIn, job, recordDelimiter);
+  }
+  if (skipFirstLine) {  // skip first line and re-establish "start".
+    start += in.readLine(new Text(), 0,
+               (int)Math.min((long)Integer.MAX_VALUE, end - start));
+  }
+  this.pos = start;
   }
 
   public LineRecordReader(Configuration job, 
