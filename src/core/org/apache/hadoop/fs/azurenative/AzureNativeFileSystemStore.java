@@ -577,6 +577,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore,
 
   /**
    * Throttle send request by delaying this thread.
+   *
    */
   @Override
   public void throttleSendRequest(ThrottleType kindOfThrottle, long payloadSize) {
@@ -718,15 +719,19 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore,
       // Pause the thread only if its delay is greater than zero. Otherwise do not delay.
       //
       if (0 < delayMs) {
-        Thread.sleep(delayMs);
+        try {
+          Thread.sleep(delayMs);
+        } catch (InterruptedException e) {
+          // Thread pause interrupted. Ignore and continue.
+          //
+        }
       }
     } catch (AzureException e) {
-      LOG.info("Received unexpected timer exception.");
-      e.printStackTrace();
-    } catch (InterruptedException e) {
-      // Thread pause interrupted. Simply print stack trace and continue.
+      // Log the exception then eat it up.  Do not re-throw and let the send request go
+      // through.
       //
-      e.printStackTrace();
+      LOG.info("Received unexpected when throttling send request. Excpetion message: " +
+                e.toString());
     }
   }
 
