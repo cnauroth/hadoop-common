@@ -416,13 +416,7 @@ public class TestAzureFileSystemTimer extends TestCase {
       fail("Fail to trigger AzureException for scheduling a cancellation" +
           "on a timer which has already scheduled a cancellation.");
 
-    } catch (AzureException e) {
-      // Correctly caught AzureException exception while attempting cancellation
-      // after infinite delay.
-      //
-      assertTrue (true);
-    }
-    catch (Exception e) {
+    } catch (Exception e) {
       // Fail test. No other exceptions expected.
       //
       final String errMsg =

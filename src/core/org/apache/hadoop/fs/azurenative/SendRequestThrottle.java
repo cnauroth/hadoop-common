@@ -42,9 +42,8 @@ public class SendRequestThrottle  extends StorageEvent<SendingRequestEvent>  {
 
   public static final Log LOG = LogFactory.getLog(SendRequestThrottle.class);
   private static final long DEFAULT_BLOCK_UPLOAD_SIZE = 4 * 1024 * 1024;
-  private static final String ALLOW_ALL_REQUEST_PRECONDITIONS = "*";
   private final ThrottleSendRequestCallback sendRequestCallback;
-  private final boolean allowConcurrentReadWrite; // Check for blob changes.
+
 
   /**
    * Constructor for SendRequestThrottle.
@@ -52,55 +51,27 @@ public class SendRequestThrottle  extends StorageEvent<SendingRequestEvent>  {
    */
   private SendRequestThrottle(OperationContext opContext,
       ThrottleSendRequestCallback sendRequestCallback) {
-    // Capture the send delay callback interface.
-    //
-    this (opContext, sendRequestCallback, false);
-  }
-
-  /**
-   * Constructor for SendRequestThrottle.
-   * @param sendDelayCallback
-   */
-  private SendRequestThrottle(OperationContext opContext,
-      ThrottleSendRequestCallback sendRequestCallback, boolean allowConcurrentReadWrite) {
     // Capture the send delay callback interface.
     //
     this.sendRequestCallback = sendRequestCallback;
-    this.allowConcurrentReadWrite = allowConcurrentReadWrite;
   }
 
-  /**
-   * Binds a new lister to the operation context so  the ASV file system
-   * can appropriately delay sends and throttle bandwidth in response to
-   * SendingRequest events. Check for the immutability of the blob to ensure
-   * there are no concurrent reads and writes on the blob.
-   *
-   * @param opContext The operation context to bind to listener.
-   * @param sendRequestCalback for delays on current send thread.
-   *
-   */
-  public static void bind(OperationContext opContext,
-      ThrottleSendRequestCallback sendRequestCallback) {
-    bind (opContext, sendRequestCallback, false);
-  }
+
 
   /**
    * Binds a new lister to the operation context so  the ASV file system
    * can appropriately delay sends and throttle bandwidth in response to
    * SendingRequest events. This function allows bypassing the blob immutability
-   * check when reading streams. By bypassing the immutability check, concurrent
-   * reads and writes are allowed on the blob.
+   * check when reading streams.
    *
    * @param opContext The operation context to bind to listener.
    * @param sendRequestCalback for delays on current send thread.
-   * @param allowConcurrentReadWrite do not check for immutability of the blob.
    *
    */
   public static void bind(OperationContext opContext,
-      ThrottleSendRequestCallback sendRequestCallback, boolean allowConcurrentReadWrite) {
+      ThrottleSendRequestCallback sendRequestCallback) {
     SendRequestThrottle sendListener =
-        new SendRequestThrottle(opContext, sendRequestCallback, allowConcurrentReadWrite);
-
+        new SendRequestThrottle(opContext, sendRequestCallback);
     opContext.getSendingRequestEventHandler().addListener(sendListener);
   }
 
@@ -176,15 +147,6 @@ public class SendRequestThrottle  extends StorageEvent<SendingRequestEvent>  {
         // Calculate the payload from the offset range.
         //
         payloadSize = offsetHi - offsetLo  + 1;
-      }
-
-      // If concurrent reads/write are allowed, reset the if-match condition on the
-      // conditional header.
-      //
-      if (allowConcurrentReadWrite) {
-        // Set the if-match conditional header to allow all preconditions.
-        //
-        urlConnection.setRequestProperty(HeaderConstants.IF_MATCH, ALLOW_ALL_REQUEST_PRECONDITIONS);
       }
 
       if (payloadSize > 0) {

@@ -34,7 +34,7 @@ import com.microsoft.windowsazure.services.core.storage.RetryResult;
  */
 public class BandwidthThrottleRetry extends RetryPolicy implements RetryPolicyFactory {
 
-  public static final Log LOG = LogFactory.getLog(AzureNativeFileSystemStore.class);
+  public static final Log LOG = LogFactory.getLog(BandwidthThrottleRetry.class);
 
   // Default absolute maximum number of I/O retries when throttling before giving up.
   //

@@ -1,4 +1,4 @@
-In order to run ASV unit tests against a live Azure Storage account, you need to provide test account details in a config file called azure-site.xml.
+In order to run ASV unit tests against a live Azure Storage account, you need to provide test account details in a config file called azure-test.xml.
 This file must contain a value for "fs.azure.test.account.name" that specifies the account name to use, and a key for that account in fs.azure.account.key.{name}.
 This file must also be in the classpath for the test to run.
 Also, if you have storage emulator setup on your box, you should set fs.azure.test.emulator to true to test against it.

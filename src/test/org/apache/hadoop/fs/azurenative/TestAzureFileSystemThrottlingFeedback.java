@@ -1,5 +1,7 @@
 package org.apache.hadoop.fs.azurenative;
 
+import static org.junit.Assume.assumeNotNull;
+
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
@@ -9,8 +11,6 @@ import java.io.OutputStream;
 
 import junit.framework.TestCase;
 
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.azurenative.AzureNativeFileSystemStore.ThrottleType;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.permission.PermissionStatus;
@@ -41,6 +41,7 @@ implements ThrottleSendRequestCallback, BandwidthThrottleFeedback {
         UPLOAD_BLOCK_SIZE, DOWNLOAD_BLOCK_SIZE,
         (ThrottleSendRequestCallback) this,
         (BandwidthThrottleFeedback) this);
+    assumeNotNull(testAccount);
   }
 
   @Override
@@ -123,7 +124,7 @@ implements ThrottleSendRequestCallback, BandwidthThrottleFeedback {
 
     // Validate throttling feed back interfaces.
     //
-    assertEquals(sumPayload[ThrottleType.UPLOAD.getValue()], BLOB_SIZE);
+    assertTrue(sumPayload[ThrottleType.UPLOAD.getValue()] >= BLOB_SIZE);
     assertEquals(sumPayload[ThrottleType.DOWNLOAD.getValue()], BLOB_SIZE);
 
     assertTrue(sumTxSuccess[ThrottleType.UPLOAD.getValue()] > 0);
@@ -193,7 +194,7 @@ implements ThrottleSendRequestCallback, BandwidthThrottleFeedback {
 
     // Validate throttling feed back interfaces.
     //
-    assertEquals(sumPayload[ThrottleType.UPLOAD.getValue()], UPLOAD_BLOCK_SIZE);
+    assertTrue(sumPayload[ThrottleType.UPLOAD.getValue()] >= UPLOAD_BLOCK_SIZE);
     assertEquals(sumPayload[ThrottleType.DOWNLOAD.getValue()], count * Short.SIZE / Byte.SIZE);
 
     assertTrue(sumTxSuccess[ThrottleType.UPLOAD.getValue()] > 0);

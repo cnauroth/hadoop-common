@@ -142,7 +142,7 @@ public final class AzureFileSystemTimer {
    * @param timerTask - timer task to be executed when alarm fires.
    * @throws AzureException thrown on illegal shutdown actions.
    */
-  public void turnOnTimer (Runnable timerTask) throws AzureException {
+  public void turnOnTimer (Runnable timerTask) {
     // Schedule the new timer task if one is not scheduled already. If a timer is
     // scheduled ignore the request. This implies that turnOnTimer is idempotent
     // it can be issued multiple times without affecting the scheduled timer. To
@@ -191,9 +191,8 @@ public final class AzureFileSystemTimer {
    * the same period, and the same shutdown delay.
    *
    * @param timerTask - timer task to be executed when alarm fires.
-   * @throws AzureException thrown on illegal shutdown actions.
    */
-  public void resetTimer (Runnable timerTask) throws AzureException {
+  public void resetTimer (Runnable timerTask) {
     // Cancel the timer and reschedule.  If the task associated with the current
     // future is running, do not interrupt it. It should run to completion. This
     // implies that tasks should be thread-safe.
@@ -233,9 +232,8 @@ public final class AzureFileSystemTimer {
   /**
    * Turn of a timer after a given delay.
    * @param delayTicks
-   * @throws AzureException thrown on illegal shutdown actions.
    */
-  public void turnOffTimerAfterDelay (final long delayTicks) throws AzureException {
+  public void turnOffTimerAfterDelay (final long delayTicks)  {
     // Check incoming parameter to make sure we are not attempting to automatically
     // turn of timer after an infinite delay.
     //
@@ -255,7 +253,7 @@ public final class AzureFileSystemTimer {
           String.format(
               "Illegal attempt to schedule an automatic cancellation on timer %s " +
                   "because a cancellation is already scheduled.", timerName);
-      throw new AzureException (errMsg);
+      throw new AssertionError (errMsg);
     }
 
     // Schedule timer shutdown.

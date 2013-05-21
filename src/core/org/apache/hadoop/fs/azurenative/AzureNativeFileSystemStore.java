@@ -84,7 +84,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore,
   //       since they are captured by the storage session context.
   //
   private boolean disableBandwidthThrottling = true;
-  private boolean concurrentReadWrite;
   private int mapredTaskTimeout;
   private int successRateInterval;
   private int bandwidthMinThreshold;
@@ -117,7 +116,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore,
   private static final String KEY_WRITE_BLOCK_SIZE = "fs.azure.write.request.size";
 
   private static final String KEY_CONCURRENT_READ_WRITE = "fs.azure.concurrent.read-write";
-  private static final String KEY_MAPRED_TASK_TIMEOUT = "mapred.task.timeout";
   private static final int FAILURE_TOLERANCE_INTERVAL = 2;// Ramp-up/down after 2 ticks.
   private static final int ONE_SECOND = 1000; // One second is 1000 ms.
 
@@ -125,9 +123,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore,
   // core-site.xml configuration file.
   //
   private static final String KEY_DISABLE_THROTTLING = "fs.azure.disable.bandwidth.throttling";
-  private static final String KEY_INITIAL_DOWNLOAD_BANDWIDTH = "fs.azure.initial.download.bandwidth";
-  private static final String KEY_INITIAL_UPLOAD_BANDWIDTH = "fs.azure.initial.upload.bandwidth";
-  private static final String KEY_NUMBER_OF_SLOTS = "fs.azure.slots";
+  private static final String KEY_INITIAL_DOWNLOAD_BANDWIDTH = "fs.azure.initial.download.bandwidth"; // Initial download bandwidth per process
+  private static final String KEY_INITIAL_UPLOAD_BANDWIDTH = "fs.azure.initial.upload.bandwidth"; // Initial upload bandwidth per process.
   private static final String KEY_SUCCESS_RATE_INTERVAL = "fs.azure.success.rate.interval";
   private static final String KEY_MIN_BANDWIDTH_THRESHOLD = "fs.azure.min.bandwidth.threshold";
   private static final String KEY_FAILURE_TOLERANCE_PERIOD = "fs.azure.failure.tolerance.period";
@@ -161,13 +158,11 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore,
 
   // Set throttling parameter defaults.
   //
-  private static final int DEFAULT_MAPRED_TASK_TIMEOUT = 300000;
   private static final int DEFAULT_DOWNLOAD_BLOCK_SIZE = 4 * 1024 * 1024;
   private static final int DEFAULT_UPLOAD_BLOCK_SIZE = 4 * 1024 * 1024;
 
 
   private static final boolean DEFAULT_DISABLE_THROTTLING = true;
-  private static final int DEFAULT_NUMBER_OF_SLOTS = 8; // concurrent processes
   private static final int DEFAULT_INITIAL_DOWNLOAD_BANDWIDTH = 10*2*1024*1024; //10Gbps / 64 nodes
   private static final int DEFAULT_INITIAL_UPLOAD_BANDWIDTH = 5*2*1024*1024; // 5Gbps / 64 nodes
   private static final int DEFAULT_SUCCESS_RATE_INTERVAL = 60; // 60 seconds
@@ -176,9 +171,9 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore,
   private static final long DEFAULT_BANDWIDTH_RAMPUP_DELTA = 1024*1024; // MB/s
   private static final float DEFAULT_BANDWIDTH_RAMPUP_MULTIPLIER  = 1.2f;
   private static final float DEFAULT_BANDWIDTH_RAMPDOWN_MULTIPLIER = 1.0f;
-  private static final long DEFAULT_DOWNLOAD_LATENCY = 1000; // 1000 milliseconds.
-  private static final long DEFAULT_UPLOAD_LATENCY = 1000; // 1000 milliseconds.
-  private static final int TIMER_SCHEDULER_CONCURRENCY = 5;
+  private static final long DEFAULT_DOWNLOAD_LATENCY = 500; // 500 milliseconds.
+  private static final long DEFAULT_UPLOAD_LATENCY = 500; // 500 milliseconds.
+  private static final int TIMER_SCHEDULER_CONCURRENCY = 2;
 
   // Default timer constant.
   //
@@ -202,7 +197,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore,
 
   private URI sessionUri;
   private Configuration sessionConfiguration;
-  private int concurrentReads = DEFAULT_CONCURRENT_READS;
+  private final int concurrentReads = DEFAULT_CONCURRENT_READS; // Keep concurrent reads at default of 1 for now.
   private int concurrentWrites = DEFAULT_CONCURRENT_WRITES;
   private boolean isAnonymousCredentials = false;
   private AzureFileSystemInstrumentation instrumentation;
@@ -318,15 +313,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore,
 
   BandwidthGaugeUpdater getBandwidthGaugeUpdater() {
     return bandwidthGaugeUpdater;
-  }
-
-  /**
-   * Check if concurrent reads and writes on the same blob are allowed.
-   *
-   * @return true if concurrent reads and writes have been requested and false otherwise.
-   */
-  private boolean isConcurrentReadWriteAllowed() {
-    return concurrentReadWrite;
   }
 
   /**
@@ -635,103 +621,95 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore,
     // the same. In all cases, an attempt is made to throttle when a positive delay period
     // is calculated.
     //
-    try{
-      // If the bandwidth is greater or equal to the current bandwidth, attempt to ramp-up.
+    // If the bandwidth is greater or equal to the current bandwidth, attempt to ramp-up.
+    //
+    if (tmpBandwidth >= bandwidth[kindOfThrottle.getValue()]) {
+      // Ramp-up only if the bandwidth ramp-up interval has expired.
       //
-      if (tmpBandwidth >= bandwidth[kindOfThrottle.getValue()]) {
-        // Ramp-up only if the bandwidth ramp-up interval has expired.
+      if (txRampupTimer[kindOfThrottle.getValue()].isOff()) {
+        LOG.info("Throttle: Transmission ramp-up wait period expired, increasing current "+
+                 "bandwidth = " + bandwidth[kindOfThrottle.getValue()] +
+                 " by " + bandwidthRampupDelta[kindOfThrottle.getValue()] + "b/s.");
+        // Set the new bandwidth and turn on ramp-up interval timer.
         //
-        if (txRampupTimer[kindOfThrottle.getValue()].isOff()) {
-          LOG.info("Throttle: Transmission ramp-up wait period expired, increasing current "+
-                   "bandwidth = " + bandwidth[kindOfThrottle.getValue()] +
-                   " by " + bandwidthRampupDelta[kindOfThrottle.getValue()] + "b/s.");
-          // Set the new bandwidth and turn on ramp-up interval timer.
-          //
-          bandwidth[kindOfThrottle.getValue()] =
-              (bandwidth[kindOfThrottle.getValue()] +
-                  bandwidthRampupDelta[kindOfThrottle.getValue()]);
-          txRampupTimer[kindOfThrottle.getValue()].turnOnTimer(
-              txRampupTask[kindOfThrottle.getValue()]);
+        bandwidth[kindOfThrottle.getValue()] =
+            (bandwidth[kindOfThrottle.getValue()] +
+                bandwidthRampupDelta[kindOfThrottle.getValue()]);
+        txRampupTimer[kindOfThrottle.getValue()].turnOnTimer(
+            txRampupTask[kindOfThrottle.getValue()]);
 
-          // Calculate the next bandwidth delta.
-          //
-          bandwidthRampupDelta[kindOfThrottle.getValue()] *= bandwidthRampupMultiplier;
-        }
+        // Calculate the next bandwidth delta.
+        //
+        bandwidthRampupDelta[kindOfThrottle.getValue()] *= bandwidthRampupMultiplier;
+      }
+    } else {
+      // The new bandwidth is at less than the current bandwidth. Ramp-down,
+      // but only if the  failure tolerance period has expired.
+      //
+      if (txRampdownTimer[kindOfThrottle.getValue()].isOn()) {
+        LOG.info("Throttle: Transmission ramp-down tolerance period not expired, old bandwidth ="
+            + bandwidth[kindOfThrottle.getValue()]);
       } else {
-        // The new bandwidth is at less than the current bandwidth. Ramp-down,
-        // but only if the  failure tolerance period has expired.
+        long deltaBandwidth = bandwidth[kindOfThrottle.getValue()] - tmpBandwidth;
+        bandwidth[kindOfThrottle.getValue()] = tmpBandwidth;
+
+        // Set the new bandwidth and turn on the ramp-down interval timer.
         //
-        if (txRampdownTimer[kindOfThrottle.getValue()].isOn()) {
-          LOG.info("Throttle: Transmission ramp-down tolerance period not expired, old bandwidth ="
-              + bandwidth[kindOfThrottle.getValue()]);
+        // bandwidth[kindOfThrottle.getValue()] = tmpBandwidth;
+        txRampdownTimer[kindOfThrottle.getValue()].turnOnTimer(
+          txRampdownTask[kindOfThrottle.getValue()]);
+
+        LOG.info(
+          "Throttle: Transmission ramp-down tolerance period expired, "+
+          "ramping down to new bandwidth =" + bandwidth[kindOfThrottle.getValue()]);
+
+        // Set the ramp-up delta to a fraction of the range the bandwidth was ramped down.
+        //
+        if (deltaBandwidth / 2 > 0){
+          bandwidthRampupDelta[kindOfThrottle.getValue()] = deltaBandwidth / 2;
         } else {
-          long deltaBandwidth = bandwidth[kindOfThrottle.getValue()] - tmpBandwidth;
-          bandwidth[kindOfThrottle.getValue()] = tmpBandwidth;
-
-          // Set the new bandwidth and turn on the ramp-down interval timer.
+          // The calculated new bandwidth delta is either 0 or negative. Set the bandwidth
+          // ramp-up delta to the default bandwidth ramp-up delta.
           //
-          // bandwidth[kindOfThrottle.getValue()] = tmpBandwidth;
-          txRampdownTimer[kindOfThrottle.getValue()].turnOnTimer(
-            txRampdownTask[kindOfThrottle.getValue()]);
-
-          LOG.info(
-            "Throttle: Transmission ramp-down tolerance period expired, "+
-            "ramping down to new bandwidth =" + bandwidth[kindOfThrottle.getValue()]);
-
-          // Set the ramp-up delta to a fraction of the range the bandwidth was ramped down.
-          //
-          if (deltaBandwidth / 2 > 0){
-            bandwidthRampupDelta[kindOfThrottle.getValue()] = deltaBandwidth / 2;
-          } else {
-            // The calculated new bandwidth delta is either 0 or negative. Set the bandwidth
-            // ramp-up delta to the default bandwidth ramp-up delta.
-            //
-            bandwidthRampupDelta[kindOfThrottle.getValue()] = minBandwidthRampupDelta;
-          }
+          bandwidthRampupDelta[kindOfThrottle.getValue()] = minBandwidthRampupDelta;
         }
       }
+    }
 
-      // Calculate the delay for the send request. Notice that the bandwidth is never
-      // zero since it is always greater than the non-negative bandwidthMinThreshold.
-      //
-      long delayMs = latency - payloadSize * ONE_SECOND / bandwidth[kindOfThrottle.getValue()];
-      if (bandwidth[kindOfThrottle.getValue()] == bandwidthMinThreshold) {
-        switch(kindOfThrottle) {
-          case UPLOAD:
-            if (latency == DEFAULT_UPLOAD_LATENCY) delayMs = 3000;
-            break;
-          case DOWNLOAD:
-            if (latency == DEFAULT_DOWNLOAD_LATENCY) delayMs = 3000;
-            break;
-          default:
-            // The kind of throttle is unexpected or undefined.
-            //
-            throw new AssertionError("Unexpected throttle type in SendRequest callback.");
-        }
-      }
-
-      // Set a ceiling on the delay to the map reduce timeout period.
-      //
-      if (mapredTaskTimeout < delayMs) {
-        delayMs = mapredTaskTimeout - ONE_SECOND;
-      }
-
-      // Pause the thread only if its delay is greater than zero. Otherwise do not delay.
-      //
-      if (0 < delayMs) {
-        try {
-          Thread.sleep(delayMs);
-        } catch (InterruptedException e) {
-          // Thread pause interrupted. Ignore and continue.
+    // Calculate the delay for the send request. Notice that the bandwidth is never
+    // zero since it is always greater than the non-negative bandwidthMinThreshold.
+    //
+    long delayMs = latency - payloadSize * ONE_SECOND / bandwidth[kindOfThrottle.getValue()];
+    if (bandwidth[kindOfThrottle.getValue()] == bandwidthMinThreshold) {
+      switch(kindOfThrottle) {
+        case UPLOAD:
+          if (latency == DEFAULT_UPLOAD_LATENCY) delayMs = 3000;
+          break;
+        case DOWNLOAD:
+          if (latency == DEFAULT_DOWNLOAD_LATENCY) delayMs = 3000;
+          break;
+        default:
+          // The kind of throttle is unexpected or undefined.
           //
-        }
+          throw new AssertionError("Unexpected throttle type in SendRequest callback.");
       }
-    } catch (AzureException e) {
-      // Log the exception then eat it up.  Do not re-throw and let the send request go
-      // through.
-      //
-      LOG.info("Received unexpected when throttling send request. Excpetion message: " +
-                e.toString());
+    }
+
+    // Set a ceiling on the delay to the map reduce timeout period.
+    //
+    if (mapredTaskTimeout < delayMs) {
+      delayMs = mapredTaskTimeout - ONE_SECOND;
+    }
+
+    // Pause the thread only if its delay is greater than zero. Otherwise do not delay.
+    //
+    if (0 < delayMs) {
+      try {
+        Thread.sleep(delayMs);
+      } catch (InterruptedException e) {
+        // Thread pause interrupted. Ignore and continue.
+        //
+      }
     }
   }
 
@@ -984,13 +962,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore,
             sessionUri.toString()));
     }
 
-    // Determine whether or not concurrent reads and write are allowed on a blob at the
-    // same time.
-    //
-    concurrentReadWrite = sessionConfiguration.getBoolean(
-                                    KEY_CONCURRENT_READ_WRITE,
-                                    DEFAULT_CONCURRENT_READ_WRITE);
-
     // Set up the minimum stream read block size and the write block
     // size.
     //
@@ -1049,12 +1020,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore,
     disableBandwidthThrottling = sessionConfiguration.getBoolean(
         KEY_DISABLE_THROTTLING, DEFAULT_DISABLE_THROTTLING);
 
-    // Get map reduce task timeout.
-    //
-    mapredTaskTimeout = sessionConfiguration.getInt(
-        KEY_MAPRED_TASK_TIMEOUT, DEFAULT_MAPRED_TASK_TIMEOUT);
-
-
     // Minimum allowable bandwidth consumption.
     //
     bandwidthMinThreshold = sessionConfiguration.getInt(
@@ -1065,8 +1030,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore,
       // node.
       //
       String errMsg =
-          String.format("Minimum throttled bandwidth threshold is %d bytes/s." +
-              " Node count should be greater than 0.",
+          String.format("Minimum throttled bandwidth threshold is %d bytes/s." ,
               bandwidthMinThreshold);
       throw new ConfigurationException(errMsg);
     }
@@ -1099,34 +1063,15 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore,
       String errMsg =
           String.format("Storage upload bandwidth is %d bytes/s." +
               " It should be greater than minimum bandwidth threshold of %d.",
-              storageDownloadBandwidth, bandwidthMinThreshold);
-      throw new ConfigurationException(errMsg);
-    }
-
-    // Capture the number of nodes in the cluster.
-    //
-    int numNodes = sessionConfiguration.getInt(
-        KEY_NUMBER_OF_SLOTS,
-        DEFAULT_NUMBER_OF_SLOTS);
-    if (numNodes < 1) {
-      // Throw a configuration exception. The cluster should have at least 1
-      // node.
-      //
-      String errMsg =
-          String.format("Cluster is configured with a node count of %d." +
-              " Node count should be greater than or equal to one.",
-              numNodes);
+              storageUploadBandwidth, bandwidthMinThreshold);
       throw new ConfigurationException(errMsg);
     }
 
     // Initialize upload and download bandwidths.
     //
     bandwidth = new long [] {
-        Math.max(bandwidthMinThreshold,
-            storageUploadBandwidth / (numNodes * concurrentWrites)),
-
-        Math.max(bandwidthMinThreshold,
-            storageDownloadBandwidth / (numNodes * concurrentReads))
+        Math.max(bandwidthMinThreshold, storageUploadBandwidth / concurrentWrites),
+        Math.max(bandwidthMinThreshold, storageDownloadBandwidth / concurrentReads)
     };
 
     // Interval during which the number of I/O request successes and failures
@@ -2208,11 +2153,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore,
     // to SendingRequestEvents. These events call back into the Azure store to
     // determine whether the thread should be throttled with a delay.
     //
-    if (isBandwidthThrottled() || isConcurrentReadWriteAllowed()) {
-      SendRequestThrottle.bind(
-        operationContext,
-        getThrottleSendRequestCallback(),
-        isConcurrentReadWriteAllowed());
+    if (isBandwidthThrottled()) {
+      SendRequestThrottle.bind(operationContext, getThrottleSendRequestCallback());
     }
 
     if (testHookOperationContext != null) {
