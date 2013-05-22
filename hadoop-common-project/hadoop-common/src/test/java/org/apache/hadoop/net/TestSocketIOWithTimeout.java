@@ -150,9 +150,7 @@ public class TestSocketIOWithTimeout {
       // written data and send it all atomically, thus making it impossible to
       // simulate a partial write scenario.  Attempts were made to switch the
       // test from using a pipe to a network socket and also to use larger and
-      // larger buffers in doIO.  Nothing helped the situation though.  The last
-      // point on this page has some more interesting information:
-      // http://itamarst.org/writings/win32sockets.html
+      // larger buffers in doIO.  Nothing helped the situation though.
       if (!Shell.WINDOWS) {
         try {
           out.write(1);
