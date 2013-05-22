@@ -1,20 +1,21 @@
 package org.apache.hadoop.fs.azurenative;
 
+import static org.junit.Assert.*;
+
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.hadoop.fs.azure.AzureException;
-import org.junit.Test;
+import org.junit.*;
 
-import junit.framework.TestCase;
 
 /**
  * Unit tests for AzureFileSystemTimer class.
  *
  */
 
-public class TestAzureFileSystemTimer extends TestCase {
+public class TestAzureFileSystemTimer {
 
   /**
    * CONSTANTS
@@ -32,7 +33,7 @@ public class TestAzureFileSystemTimer extends TestCase {
 
   // Set up the unit test.
   //
-  @Override
+  @Before
   protected void setUp () throws Exception {
     // Setup the executor framework scheduler service.
     //
@@ -41,7 +42,7 @@ public class TestAzureFileSystemTimer extends TestCase {
 
   // Tears down the unit test.
   //
-  @Override
+  @After
   protected void tearDown() throws Exception {
     // Shutdown the scheduler immediately if a scheduler exists.
     //
@@ -58,12 +59,6 @@ public class TestAzureFileSystemTimer extends TestCase {
       // Reset timer ticks.
       //
       timerTicks = new AtomicInteger(0);
-    }
-
-    public int ResetTicks() {
-      int ticks = getTicks ();
-      timerTicks.set(0);
-      return ticks;
     }
 
     // Get tick count.

@@ -1,22 +1,20 @@
 package org.apache.hadoop.fs.azurenative;
 
+import static org.junit.Assert.*;
 import static org.junit.Assume.assumeNotNull;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-import junit.framework.TestCase;
-
 import org.apache.hadoop.fs.azurenative.BandwidthThrottle.ThrottleType;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.permission.PermissionStatus;
-import org.junit.Test;
+import org.junit.*;
 
-public class TestAzureFileSystemThrottlingFeedback extends TestCase
+public class TestAzureFileSystemThrottlingFeedback
 implements ThrottleSendRequestCallback, BandwidthThrottleFeedback {
 
   // Class constants.
@@ -35,8 +33,8 @@ implements ThrottleSendRequestCallback, BandwidthThrottleFeedback {
 
   // Overridden TestCase methods.
   //
-  @Override
-  protected void setUp() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     testAccount = AzureBlobStorageTestAccount.createThrottledStore(
         UPLOAD_BLOCK_SIZE, DOWNLOAD_BLOCK_SIZE,
         (ThrottleSendRequestCallback) this,
@@ -44,8 +42,8 @@ implements ThrottleSendRequestCallback, BandwidthThrottleFeedback {
     assumeNotNull(testAccount);
   }
 
-  @Override
-  protected void tearDown() throws Exception {
+  @After
+  public void tearDown() throws Exception {
     if (testAccount != null) {
       testAccount.cleanup();
       testAccount = null;
@@ -125,13 +123,13 @@ implements ThrottleSendRequestCallback, BandwidthThrottleFeedback {
     // Validate throttling feed back interfaces.
     //
     assertTrue(sumPayload[ThrottleType.UPLOAD.getValue()] >= BLOB_SIZE);
-    assertEquals(sumPayload[ThrottleType.DOWNLOAD.getValue()], BLOB_SIZE);
+    assertEquals(BLOB_SIZE, sumPayload[ThrottleType.DOWNLOAD.getValue()]);
 
     assertTrue(sumTxSuccess[ThrottleType.UPLOAD.getValue()] > 0);
     assertTrue(sumTxSuccess[ThrottleType.DOWNLOAD.getValue()] > 0);
 
-    assertEquals(sumTxFailure[ThrottleType.UPLOAD.getValue()], 0);
-    assertEquals(sumTxFailure[ThrottleType.DOWNLOAD.getValue()], 0);
+    assertEquals(0, sumTxFailure[ThrottleType.UPLOAD.getValue()]);
+    assertEquals(0, sumTxFailure[ThrottleType.DOWNLOAD.getValue()]);
   }
 
   @Test
@@ -162,45 +160,35 @@ implements ThrottleSendRequestCallback, BandwidthThrottleFeedback {
     int count = 0;
     int c = 0;
     byte buffer[] = new byte[BUFFER_SIZE];
-    try {
-      while (c >= 0) {
-        c = inputStream.read(buffer, 0, BUFFER_SIZE);
-        if (c >= BUFFER_SIZE) {
-          throw new IOException("Exceeded buffer size");
-        } else if (c >= 0) {
-          System.out.println(new String(buffer));
-          count += c * Byte.SIZE / Short.SIZE;
-        }
+    
+    while (c >= 0) {
+      c = inputStream.read(buffer, 0, BUFFER_SIZE);
+      if (c >= BUFFER_SIZE) {
+        throw new IOException("Exceeded buffer size");
+      } else if (c >= 0) {
+        // Counting the number of characters.
+        //
+        count += c;
       }
-    } catch(EOFException e) {
-      // Print a line feed.
-      //
-      System.out.println();
-
-    } catch(Exception e) {
-      // Unexpected exception.
-      //
-      System.out.println("Unexpected exception " + e);
-      e.printStackTrace();
-    } finally {
-      // Close the stream.
-      //
-      inputStream.close();
     }
+    
+    // Close the stream.
+    //
+    inputStream.close();
 
     // Validate that 8 bytes were read.
     //
-    assertEquals(8,count);
+    assertEquals(16, count);
 
     // Validate throttling feed back interfaces.
     //
     assertTrue(sumPayload[ThrottleType.UPLOAD.getValue()] >= UPLOAD_BLOCK_SIZE);
-    assertEquals(sumPayload[ThrottleType.DOWNLOAD.getValue()], count * Short.SIZE / Byte.SIZE);
+    assertEquals(count, sumPayload[ThrottleType.DOWNLOAD.getValue()]);
 
     assertTrue(sumTxSuccess[ThrottleType.UPLOAD.getValue()] > 0);
     assertTrue(sumTxSuccess[ThrottleType.DOWNLOAD.getValue()] > 0);
 
-    assertEquals(sumTxFailure[ThrottleType.UPLOAD.getValue()], 0);
-    assertEquals(sumTxFailure[ThrottleType.DOWNLOAD.getValue()], 0);
+    assertEquals(0, sumTxFailure[ThrottleType.UPLOAD.getValue()]);
+    assertEquals(0, sumTxFailure[ThrottleType.DOWNLOAD.getValue()]);
   }
 }

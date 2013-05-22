@@ -106,9 +106,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final String AZURE_ROOT_CONTAINER = "$root";
 
 
-  // DEFAULT concurrency for reads and writes.
-  //
-  private static final int DEFAULT_CONCURRENT_READS  = 1;
   private static final int DEFAULT_CONCURRENT_WRITES = 8;
 
 
@@ -126,7 +123,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
   private URI sessionUri;
   private Configuration sessionConfiguration;
-  private final int concurrentReads = DEFAULT_CONCURRENT_READS; // Keep concurrent reads at default of 1 for now.
+  private final int concurrentReads = 1; // Keep concurrent reads at default of 1 for now.
   private int concurrentWrites = DEFAULT_CONCURRENT_WRITES;
   private boolean isAnonymousCredentials = false;
   private AzureFileSystemInstrumentation instrumentation;
