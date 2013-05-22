@@ -3,7 +3,7 @@ package org.apache.hadoop.fs.azurenative;
 import java.net.*;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.fs.azurenative.AzureNativeFileSystemStore.ThrottleType;
+import org.apache.hadoop.fs.azurenative.BandwidthThrottle.ThrottleType;
 
 import com.microsoft.windowsazure.services.core.storage.*;
 import com.microsoft.windowsazure.services.core.storage.Constants.HeaderConstants;

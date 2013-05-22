@@ -23,7 +23,7 @@ import java.util.Date;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.fs.azurenative.AzureNativeFileSystemStore.ThrottleType;
+import org.apache.hadoop.fs.azurenative.BandwidthThrottle.ThrottleType;
 
 import com.microsoft.windowsazure.services.core.storage.Constants.HeaderConstants;
 import com.microsoft.windowsazure.services.core.storage.OperationContext;

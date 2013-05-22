@@ -18,7 +18,8 @@
 
 package org.apache.hadoop.fs.azurenative;
 
-import org.apache.hadoop.fs.azurenative.AzureNativeFileSystemStore.ThrottleType;
+import org.apache.hadoop.fs.azurenative.BandwidthThrottle.ThrottleType;
+
 
 /**
  * Throttling feedback interface from AzureSDK to AzureNativeFileSystemStore.

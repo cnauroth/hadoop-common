@@ -11,7 +11,7 @@ import java.io.OutputStream;
 
 import junit.framework.TestCase;
 
-import org.apache.hadoop.fs.azurenative.AzureNativeFileSystemStore.ThrottleType;
+import org.apache.hadoop.fs.azurenative.BandwidthThrottle.ThrottleType;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.permission.PermissionStatus;
 import org.junit.Test;
