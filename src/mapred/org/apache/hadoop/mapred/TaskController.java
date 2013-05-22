@@ -33,6 +33,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.mapred.TaskTracker.LocalStorage;
 import org.apache.hadoop.util.ProcessTree.Signal;
+import org.apache.hadoop.util.Shell;
 
 /**
  * Controls initialization, finalization and clean up of tasks, and
@@ -55,14 +56,14 @@ public abstract class TaskController implements Configurable {
   
   //Name of the executable script that will contain the child
   // JVM command line. See writeCommand for details.
-  protected static final String COMMAND_FILE = "taskjvm.sh";
+  protected static final String COMMAND_FILE = Shell.WINDOWS? "taskjvm.cmd": "taskjvm.sh";
   
   protected LocalDirAllocator allocator;
   protected LocalStorage localStorage;
 
   final public static FsPermission TASK_LAUNCH_SCRIPT_PERMISSION =
   FsPermission.createImmutable((short) 0700); // rwx--------
-  
+
   public Configuration getConf() {
     return conf;
   }
@@ -126,12 +127,40 @@ public abstract class TaskController implements Configurable {
                  String stderr) throws IOException;
   
   /**
+   * Create all of the directories for the task and launches the child jvm.
+   * Uses all items in the classpaths list as the classpath for the task to start
+   * If classPaths is not provided, then it is assumed it is already set as one
+   * of the setup steps, or in jvmArguments
+   * @param user the user name
+   * @param jobId the jobId in question
+   * @param attemptId the attempt id (cleanup attempts have .cleanup suffix)
+   * @param setup list of shell commands to execute before the jvm
+   * @param jvmArguments list of jvm arguments
+   * @param classpaths list of classpath items
+   * @param currentWorkDirectory the full path of the cwd for the task
+   * @param stdout the file to redirect stdout to
+   * @param stderr the file to redirect stderr to
+   * @return the exit code for the task
+   * @throws IOException
+   */
+  public abstract
+  int launchTask(String user, 
+                 String jobId,
+                 String attemptId,
+                 List<String> setup,
+                 List<String> jvmArguments,
+                 List<String> classPaths,
+                 File currentWorkDirectory,
+                 String stdout,
+                 String stderr) throws IOException;
+  
+  /**
    * Send a signal to a task pid as the user.
    * @param user the user name
    * @param taskPid the pid of the task
    * @param signal the id of the signal to send
    */
-  public abstract void signalTask(String user, int taskPid, 
+  public abstract void signalTask(String user, String taskPid, 
                                   Signal signal) throws IOException;
   
   /**
@@ -213,7 +242,7 @@ public abstract class TaskController implements Configurable {
   // could potentially contain strings defined by a user. Hence, to
   // prevent special character attacks, we write the command line to
   // a file and execute it.
-  protected static String writeCommand(String cmdLine, FileSystem fs,
+  protected static File writeCommand(String cmdLine, FileSystem fs,
       Path commandFile) throws IOException {
     PrintWriter pw = null;
     LOG.info("Writing commands to " + commandFile);
@@ -229,7 +258,9 @@ public abstract class TaskController implements Configurable {
         pw.close();
       }
     }
-    return commandFile.makeQualified(fs).toUri().getPath();
+    // Convert the result to a File and let Java convert the path to
+    // an appropriate OS shell path
+    return new File(commandFile.makeQualified(fs).toUri().getPath());
   }
   
   protected void logOutput(String output) {

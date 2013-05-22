@@ -23,6 +23,8 @@
 
   <!-- Load all the default properties, and any the user wants    -->
   <!-- to contribute (without having to type -D or edit this file -->
+  <property environment="env" />
+
   <property file="${user.home}/build.properties" />
   <property file="${basedir}/build.properties" />
  
@@ -31,7 +33,7 @@
   <property name="version" value="1.3.0-SNAPSHOT"/>
   <property name="final.name" value="${name}-${version}"/>
   <property name="test.final.name" value="${name}-test-${version}"/>
-  <property name="year" value="2009"/>
+  <property name="year" value="2012"/>
   <property name="package.release" value="1"/>
   
   <property name="core.final.name" value="${name}-core-${version}"/>
@@ -63,6 +65,9 @@
   <property name="c++.libhdfs.src" value="${c++.src}/libhdfs"/>
   <property name="librecordio.src" value="${c++.src}/librecordio"/>
   <property name="tools.src" value="${basedir}/src/tools"/>
+  <property name="winutils.src.dir" value="${basedir}/src/winutils"/>
+  <property name="wininstaller.root.dir" value="${basedir}/src/packages/win"/>
+  <property name="servicehost.src.dir" value="${basedir}/src/packages/win/HadoopServiceHost"/>
 
   <property name="package.prefix" value="/usr"/>
   <property name="package.conf.dir" value="/etc/hadoop"/>
@@ -79,15 +84,29 @@
   <property name="build.anttasks" value="${build.dir}/ant"/>
   <property name="build.librecordio" value="${build.dir}/librecordio"/>
   <!-- convert spaces to _ so that mac os doesn't break things -->
-  <exec executable="sed" inputstring="${os.name}" 
-        outputproperty="nonspace.os">
-     <arg value="s/ /_/g"/>
-  </exec>
-  <property name="build.platform" 
-            value="${nonspace.os}-${os.arch}-${sun.arch.data.model}"/>
+  <loadresource property="nonspace.os">
+    <propertyresource name="os.name"/>
+    <filterchain>
+      <tokenfilter>
+        <filetokenizer/>
+        <replacestring from=" " to="_"/>
+      </tokenfilter>
+    </filterchain>
+  </loadresource>
+  <condition property="build.platform"
+    value="${env.OS}-${os.arch}-${sun.arch.data.model}"
+    else="${nonspace.os}-${os.arch}-${sun.arch.data.model}">
+    <os family="windows" />
+  </condition>
   <property name="jvm.arch" 
             value="${sun.arch.data.model}"/>
+  <property name="build.winutils" value="${build.dir}/winutils/${env.OS}-${env.Platform}"/>
+  <property name="build.servicehost" value="${build.dir}/servicehost"/>
   <property name="build.native" value="${build.dir}/native/${build.platform}"/>
+  <!-- 'build.native.win' is the path under which Hadoop native libraries for Windows are built -->
+  <!-- We need a special path on Windows because we need a path that can be referenced from MSBuild -->
+  <!-- 'sun.arch.data.model' in build.platform make it fail to satisfy the above requirement -->
+  <property name="build.native.win" value="${build.dir}/native/${env.OS}-${env.Platform}"/>
   <property name="build.c++" value="${build.dir}/c++-build/${build.platform}"/>
   <property name="build.c++.utils" value="${build.c++}/utils"/>
   <property name="build.c++.pipes" value="${build.c++}/pipes"/>
@@ -134,6 +153,7 @@
 
   <property name="test.libhdfs.conf.dir" value="${c++.libhdfs.src}/tests/conf"/>
   <property name="test.libhdfs.dir" value="${test.build.dir}/libhdfs"/>
+  <property name="test.wininstaller.dir" value="${test.build.dir}/wininstaller"/>
 
   <property name="librecordio.test.dir" value="${test.build.dir}/librecordio"/>
   <property name="web.src.dir" value="${basedir}/src/web"/>
@@ -169,6 +189,7 @@
   <property name="grep.cmd" value="grep"/>
   <property name="patch.cmd" value="patch"/>
   <property name="make.cmd" value="make"/>
+  <property name="msbuild.cmd" value="msbuild"/>
 
   <property name="jsvc.build.dir" value="${build.dir}/jsvc.${os.arch}" />
   <property name="jsvc.install.dir" value="${dist.dir}/libexec" /> 
@@ -193,6 +214,12 @@
       <os arch="x86" />
     </or>
   </condition>
+
+  <condition property="windows">
+    <os family="windows" />
+  </condition>
+
+
   <!--<property name="jsvc.location" value="http://archive.apache.org/dist/commons/daemon/binaries/1.0.2/${os-name}/commons-daemon-1.0.2-bin-${os-name}-${os-arch}.tar.gz" />
   -->
   <property name="jsvc.server.url" value="http://archive.apache.org" />  
@@ -395,6 +422,16 @@
       </tar>
     </sequential>
   </macrodef>
+  
+  <macrodef name="macro_zip" description="Worker Macro for zip">
+    <attribute name="param.destfile"/>
+    <element name="param.listofitems"/>
+    <sequential>
+      <zip destfile="@{param.destfile}">
+      <param.listofitems/>
+      </zip>
+    </sequential>
+  </macrodef>
 
   <!-- ====================================================== -->
   <!-- Stuff needed by all targets                            -->
@@ -419,12 +456,14 @@
     <mkdir dir="${test.build.testjar}"/>
     <mkdir dir="${test.build.testshell}"/>
     <mkdir dir="${test.build.extraconf}"/>
+    <!-- Unnecessary edit of checked-in files
     <tempfile property="touch.temp.file" destDir="${java.io.tmpdir}"/>
     <touch millis="0" file="${touch.temp.file}">
       <fileset dir="${conf.dir}" includes="**/*.template"/>
       <fileset dir="${contrib.dir}" includes="**/*.template"/>
     </touch>
     <delete file="${touch.temp.file}"/>
+    -->
     <!-- copy all of the jsp and static files -->
     <copy todir="${build.webapps}">
       <fileset dir="${src.webapps}">
@@ -437,17 +476,17 @@
       <mapper type="glob" from="*.template" to="*"/>
     </copy>
 
-    <copy todir="${contrib.dir}" verbose="true">
+    <copy todir="${contrib.dir}" verbose="true" filtering="true">
       <fileset dir="${contrib.dir}" includes="**/*.template"/>
       <mapper type="glob" from="*.template" to="*"/>
     </copy>
 
-    <exec executable="sh">
-       <arg line="src/saveVersion.sh ${version} ${build.dir}"/>
+    <exec executable="python">
+       <arg line="src/saveVersion.py ${version} ${build.dir}"/>
     </exec>
-	
-   <exec executable="sh">
-       <arg line="src/fixFontsPath.sh ${src.docs.cn}"/>
+
+   <exec executable="python">
+       <arg line="src/fixFontsPath.py ${src.docs.cn}"/>
    </exec>
   </target>
 
@@ -626,11 +665,73 @@
       />
     </copy>
   </target>
+  <target name="compile-ms-winutils" if="windows">
+    <mkdir dir="${build.winutils}"/>
+
+    <exec dir="${build.winutils}" executable="${msbuild.cmd}" failonerror="true">
+      <arg line="${winutils.src.dir}/winutils.sln /p:Configuration=Release;OutDir=${build.winutils}/"/>
+    </exec>
+
+    <copy file="${build.winutils}/winutils.exe" todir="${basedir}/bin"/>
+  </target>
+
+  <target name="compile-ms-servicehost" if="windows">
+    <mkdir dir="${build.servicehost}"/>
+
+    <exec dir="${build.servicehost}" executable="${msbuild.cmd}" failonerror="true">
+      <arg line="${servicehost.src.dir}/HadoopServiceHost.sln /target:clean;build /p:Platform=&quot;Any CPU&quot; /p:Configuration=Release;OutDir=${build.servicehost}/"/>
+    </exec>
+  </target>
+
+  <target name="compile-ms-winutils-debug" if="windows">
+    <mkdir dir="${build.winutils}"/>
+
+    <exec dir="${build.winutils}" executable="${msbuild.cmd}" failonerror="true">
+      <arg line="${winutils.src.dir}/winutils.vcxproj /p:Configuration=Debug;OutDir=${build.winutils}/"/>
+    </exec>
+
+    <copy file="${build.winutils}/winutils.exe" todir="${basedir}/bin"/>
+  </target>
 
   <target name="compile-native">
     <antcall target="compile-core-native">
       <param name="compile.native" value="true"/>
-    </antcall> 
+    </antcall>
+  </target>
+
+  <target name="compile-win-core-native" depends="compile-core-classes"
+    if="windows">
+
+    <mkdir dir="${build.native}/lib"/>
+    <mkdir dir="${build.native.win}/src/org/apache/hadoop/io/compress/zlib"/>
+    <mkdir dir="${build.native.win}/src/org/apache/hadoop/io/nativeio"/>
+
+  	<javah
+  	  classpath="${build.classes}"
+  	  destdir="${build.native.win}/src/org/apache/hadoop/io/compress/zlib"
+      force="yes"
+  	  verbose="yes"
+  	  >
+  	  <class name="org.apache.hadoop.io.compress.zlib.ZlibCompressor" />
+      <class name="org.apache.hadoop.io.compress.zlib.ZlibDecompressor" />
+  	</javah>
+
+    <javah
+      classpath="${build.classes}"
+      destdir="${build.native.win}/src/org/apache/hadoop/io/nativeio"
+      force="yes"
+      verbose="yes"
+      >
+      <class name="org.apache.hadoop.io.nativeio.NativeIO" />
+      <class name="org.apache.hadoop.io.nativeio.NativeIO$POSIX" />
+      <class name="org.apache.hadoop.io.nativeio.NativeIO$Windows" />
+    </javah>
+
+    <exec dir="${build.native.win}" executable="${msbuild.cmd}" failonerror="true">
+      <arg line="${native.src.dir}/native.sln /p:Configuration=Release;OutDir=${build.native.win}/"/>
+    </exec>
+
+    <copy file="${build.native.win}/hadoop.dll" todir="${build.native}/lib"/>
   </target>
 
   <target name="create-native-configure">
@@ -640,9 +741,9 @@
     </exec>
   </target>
 
-  <target name="compile-core-native" depends="create-native-configure, compile-core-classes"
-          if="compile.native">
-  	
+  <target name="compile-core-native" if="compile.native" unless="windows">
+    <antcall target="compile-core-classes"/>
+    <antcall target="create-native-configure"/>
     <mkdir dir="${build.native}/lib"/>
     <mkdir dir="${build.native}/src/org/apache/hadoop/io/compress/zlib"/>
     <mkdir dir="${build.native}/src/org/apache/hadoop/io/compress/snappy"/>
@@ -676,6 +777,8 @@
           verbose="yes"
           >
           <class name="org.apache.hadoop.io.nativeio.NativeIO" />
+          <class name="org.apache.hadoop.io.nativeio.NativeIO$POSIX" />
+          <class name="org.apache.hadoop.io.nativeio.NativeIO$Windows" />
         </javah>
   	<javah
   	  classpath="${build.classes}"
@@ -706,7 +809,7 @@
     <exec dir="${build.native}" executable="${make.cmd}" failonerror="true">
       <env key="OS_NAME" value="${os.name}"/>
       <env key="OS_ARCH" value="${os.arch}"/>
-  	  <env key="JVM_DATA_MODEL" value="${sun.arch.data.model}"/>
+      <env key="JVM_DATA_MODEL" value="${sun.arch.data.model}"/>
   	  <env key="HADOOP_NATIVE_SRCDIR" value="${native.src.dir}"/>
     </exec>
 
@@ -718,7 +821,8 @@
 
   <target name="compile-core"
           depends="clover,compile-core-classes,compile-mapred-classes,
-  	compile-hdfs-classes,compile-core-native,compile-c++" 
+          compile-hdfs-classes,compile-core-native,compile-c++,compile-ms-winutils,
+          compile-win-core-native,compile-ms-servicehost"
   	description="Compile core only">
   </target>
 
@@ -941,6 +1045,8 @@
     <copy file="${test.src.dir}/org/apache/hadoop/mapred/test.tar" todir="${test.cache.data}"/>
     <copy file="${test.src.dir}/org/apache/hadoop/mapred/test.tgz" todir="${test.cache.data}"/>
     <copy file="${test.src.dir}/org/apache/hadoop/mapred/test.tar.gz" todir="${test.cache.data}"/>
+    <copy file="${test.src.dir}/org/apache/hadoop/fs/test-untar.tgz" todir="${test.cache.data}"/>
+    <copy file="${test.src.dir}/org/apache/hadoop/fs/test-untar.tar" todir="${test.cache.data}"/>
     <copy file="${test.src.dir}/org/apache/hadoop/hdfs/hadoop-14-dfs-dir.tgz" todir="${test.cache.data}"/>
     <copy file="${test.src.dir}/org/apache/hadoop/hdfs/hadoop-1.0-multiblock-file.tgz" todir="${test.cache.data}"/>
     <copy file="${test.src.dir}/org/apache/hadoop/hdfs/hadoop-dfs-dir.txt" todir="${test.cache.data}"/>
@@ -1085,6 +1191,7 @@
              timeout="${test.timeout}"
              errorProperty="tests.failed"
              failureProperty="tests.failed">
+        <env key="HADOOP_HOME" value="${basedir}"/>
         <sysproperty key="test.build.data" value="${test.build.data}" />
         <sysproperty key="test.tools.input.dir"
                      value="${test.tools.input.dir}" />
@@ -1100,7 +1207,7 @@
                      value="@{test.krb5.conf.filename}"/>
         <sysproperty key="hadoop.policy.file" value="hadoop-policy.xml" />
         <sysproperty key="java.library.path"
-                     value="${build.native}/lib:${lib.dir}/native/${build.platform}:${lib.file.path}:${snappy.lib}" />
+          value="${build.native}/lib${path.separator}${lib.dir}/native/${build.platform}${path.separator}${lib.file.path}${path.separator}${snappy.lib}" />
         <sysproperty key="install.c++.examples"
                      value="${install.c++.examples}" />
         <sysproperty key="testjar"
@@ -1236,6 +1343,44 @@
       <param name="test.include" value="*"/>
       <param name="test.classpath.id" value="test.cluster.classpath"/>
     </antcall>
+  </target>
+
+  <target name="ms-win-installer-test-zip" description="Mini zip file used for test-ms-win-installer">
+    <delete dir="${test.wininstaller.dir}"/>
+    <mkdir dir="${test.wininstaller.dir}"/>
+    <macro_zip param.destfile="${test.wininstaller.dir}/resources/${final.name}.zip">
+      <param.listofitems>
+        <zipfileset dir="${build.dir}">
+          <include name="${final.name}/bin/*" />
+          <include name="${final.name}/conf/*" />
+          <include name="${final.name}/lib/hadoop-capacity-scheduler*" />
+          <include name="${final.name}/contrib/streaming/*" />
+        </zipfileset>
+      </param.listofitems>
+    </macro_zip>
+  </target>
+
+  <target name="test-ms-win-installer" depends="ms-win-installer-test-zip" if="windows">
+    <copy todir="${test.wininstaller.dir}">
+      <fileset dir="${wininstaller.root.dir}" includes="**/*">
+        <exclude name="servicehost/**/*"/>
+      </fileset>
+      <filterchain>
+        <replacetokens>
+          <token key="version" value="${version}" />
+          <token key="test.wininstaller.username" value="${testusername}" />
+          <token key="test.wininstaller.password" value="${testpassword}" />
+        </replacetokens>
+      </filterchain>
+    </copy>
+    <exec dir="${test.wininstaller.dir}"
+        executable="powershell.exe"
+        failonerror="true">
+      <env key="HADOOP_NODE_INSTALL_ROOT" value="${test.wininstaller.dir}/TestHadoop"/>
+      <env key="WINPKG_LOG" value="${test.wininstaller.dir}/TEST-test-ms-win-installer.log"/>
+      <env key="UNZIP_CMD" value="unzip.exe -o @SRC -d @DEST"/>
+      <arg line="${test.wininstaller.dir}/scripts/TestInstallApi.ps1"/>
+    </exec>
   </target>
 
   <target name="nightly" depends="test, tar">
@@ -1469,12 +1614,10 @@
        </classpath>
     </javadoc>
   </target>
-	
+
   <target name="write-null">
-	<exec executable="touch">
-	   <arg value="${jdiff.home}/Null.java"/>
-        </exec>
-  </target> 
+    <touch file="${jdiff.home}/Null.java"/>
+  </target>
 
   <target name="api-report" depends="ivy-retrieve-jdiff,api-xml">
     <mkdir dir="${jdiff.build.dir}"/>
@@ -1515,7 +1658,7 @@
   <!-- ================================================================== -->
   <!--                                                                    -->
   <!-- ================================================================== -->
-  <target name="package" depends="compile, jar, javadoc, docs, api-report, examples, tools-jar, jar-test, ant-tasks, package-librecordio"
+  <target name="package" depends="compile, jar, api-report, examples, tools-jar, jar-test, ant-tasks, package-librecordio"
 	  description="assembles multi-platform artifacts for distribution">
     <delete dir="${dist.dir}"/>
     <mkdir dir="${dist.dir}"/>
@@ -1545,13 +1688,13 @@
       </fileset>
     </copy>
 
-  	<exec dir="${dist.dir}" executable="sh" failonerror="true">
-	  <env key="BASE_NATIVE_LIB_DIR" value="${lib.dir}/native"/>
-	  <env key="BUILD_NATIVE_DIR" value="${build.dir}/native"/>
-	  <env key="DIST_LIB_DIR" value="${dist.dir}/lib/native"/>
+    <exec dir="${dist.dir}" executable="python" failonerror="true">
+    <env key="BASE_NATIVE_LIB_DIR" value="${lib.dir}/native"/>
+      <env key="BUILD_NATIVE_DIR" value="${build.dir}/native"/>
+      <env key="DIST_LIB_DIR" value="${dist.dir}/lib/native"/>
       <env key="BUNDLE_SNAPPY_LIB" value="${bundle.snappy}"/>
       <env key="SNAPPY_LIB_DIR" value="${snappy.prefix}/lib"/>
-	  <arg line="${native.src.dir}/packageNativeHadoop.sh"/>
+      <arg line="${native.src.dir}/packageNativeHadoop.py"/>
     </exec>
 
     <subant target="package">
@@ -1692,6 +1835,60 @@
       </param.listofitems>
     </macro_tar>
   </target>
+  
+  
+  <!-- ================================================================== -->
+  <!-- Make release zip                                                   -->
+  <!-- ================================================================== -->
+  <target name="zip" depends="package, do-zip" description="Make multi-platform release zip, both source and binary"/>
+  <target name="do-zip" description="Only zips, and expects the package to be already run">
+    <!-- build source tarball -->
+    <macro_zip param.destfile="${build.dir}/${final.name}.zip">
+      <param.listofitems>
+        <zipfileset dir="${build.dir}" filemode="664">
+          <exclude name="${final.name}/bin/*" />
+          <exclude name="${final.name}/sbin/*" />
+          <exclude name="${final.name}/libexec/*" />
+          <exclude name="${final.name}/contrib/*/bin/*" />
+          <exclude name="${final.name}/src/contrib/ec2/bin/*" />
+          <exclude name="${final.name}/src/contrib/ec2/bin/image/*" />
+          <include name="${final.name}/**" />
+          <include name="${final.name}/eclipse.templates/**" />
+        </zipfileset>
+        <zipfileset dir="${build.dir}" filemode="755">
+          <include name="${final.name}/bin/*" />
+          <include name="${final.name}/sbin/*" />
+          <include name="${final.name}/libexec/*" />
+          <include name="${final.name}/contrib/*/bin/*" />
+          <include name="${final.name}/src/contrib/ec2/bin/*" />
+          <include name="${final.name}/src/contrib/ec2/bin/image/*" />
+        </zipfileset>
+      </param.listofitems>
+    </macro_zip>
+    <!-- build multi-platform binary tarball -->
+    <macro_zip param.destfile="${build.dir}/${final.name}-bin.zip">
+      <param.listofitems>
+        <zipfileset dir="${build.dir}" filemode="664">
+          <exclude name="${final.name}/src/**" />
+          <exclude name="${final.name}/docs/**" />
+          <exclude name="${final.name}/bin/*" />
+          <exclude name="${final.name}/sbin/*" />
+          <exclude name="${final.name}/libexec/*" />
+          <exclude name="${final.name}/contrib/*/bin/*" />
+          <include name="${final.name}/**" />
+        </zipfileset>
+        <zipfileset dir="${build.dir}" filemode="755">
+          <include name="${final.name}/bin/*" />
+          <include name="${final.name}/sbin/*" />
+          <include name="${final.name}/libexec/*" />
+          <include name="${final.name}/contrib/*/bin/*" />
+          <include name="${final.name}/src/contrib/ec2/bin/*" />
+          <include name="${final.name}/src/contrib/ec2/bin/image/*" />
+        </zipfileset>
+      </param.listofitems>
+    </macro_zip>
+  </target>
+
 
   <target name="bin-package" depends="compile, jar, examples, tools-jar, jar-test, ant-tasks, package-librecordio" 
 		description="assembles platform-specific artifacts for binary targets">
@@ -1970,6 +2167,76 @@
     </copy>
     <delete dir="${package.buildroot}" quiet="true" verbose="false"/>
   </target>
+  
+  <!-- Keep the old ms-package target in place until we can gracefull deprecate it.
+       This target should be removed prior to submission to Apache -->
+  <target name="ms-package" depends="winpkg"/>
+
+  <!-- builds the binary winpkg, no sources or docs -->
+  <target name="bin-winpkg" depends="zip,just-bin-winpkg" />
+
+  <!-- builds the full win pkg, with sources and docs -->
+  <target name="winpkg" depends="zip,just-winpkg" />
+
+  <!-- builds the winpkg for binaries only -->
+  <target name="just-bin-winpkg" depends="just-winpkg-helper" >
+    <copy file="${build.dir}/${final.name}-bin.zip" tofile="${package.buildroot}/resources/${final.name}.zip"/>
+    <macro_zip param.destfile="${build.dir}/${final.name}.winpkg.zip">
+      <param.listofitems>
+         <zipfileset dir="${package.buildroot}">
+          <include name="**" />
+         </zipfileset>
+      </param.listofitems>
+    </macro_zip>
+  </target>
+
+  <!-- builds the winpkg, with sources and docs -->
+  <target name="just-winpkg" depends="just-winpkg-helper" >
+    <copy file="${build.dir}/${final.name}.zip" todir="${package.buildroot}/resources"/>
+    <macro_zip param.destfile="${build.dir}/${final.name}.winpkg.zip">
+      <param.listofitems>
+         <zipfileset dir="${package.buildroot}">
+          <include name="**" />
+         </zipfileset>
+      </param.listofitems>
+    </macro_zip>
+  </target>
+
+  <target name="just-winpkg-helper" description="Make a package for Windows">
+    <copy todir="${package.buildroot}/scripts">
+      <fileset dir="${src.dir}/packages/win/scripts">
+        <include name="**" />
+      </fileset>
+      <filterchain>
+        <replacetokens>
+          <token key="final.name" value="${final.name}" />
+          <token key="build.arch" value="${os.arch}" />
+          <token key="version" value="${version}" />
+          <token key="package.release" value="${package.release}" />
+          <token key="package.zip" value="${final.name}.zip" />
+        </replacetokens>
+      </filterchain>
+    </copy>
+    <copy todir="${package.buildroot}/resources">
+      <fileset dir="${src.dir}/packages/win/resources">
+        <include name="**" />
+      </fileset>
+    </copy>
+    <copy todir="${package.buildroot}/template">
+      <fileset dir="${src.dir}/packages/win/template">
+        <include name="**" />
+      </fileset>
+      <filterchain>
+        <replacetokens>
+          <token key="final.name" value="${final.name}" />
+          <token key="build.arch" value="${os.arch}" />
+          <token key="version" value="${version}" />
+          <token key="package.release" value="${package.release}" />
+          <token key="package.zip" value="${final.name}.zip" />
+        </replacetokens>
+      </filterchain>
+    </copy>
+  </target>
 
   <!-- ================================================================== -->
   <!-- Perform audit activities for the release                           -->
@@ -1985,7 +2252,7 @@
   <!-- ================================================================== -->
   <!-- Clean.  Delete the build files, and their directories              -->
   <!-- ================================================================== -->
-  <target name="clean" depends="clean-contrib, clean-sign, clean-fi" description="Clean.  Delete the build files, and their directories">
+  <target name="clean" depends="clean-contrib, clean-sign, clean-fi, clean-ms-winutils" description="Clean.  Delete the build files, and their directories">
     <delete dir="${build.dir}" followSymlinks="false"/>
     <delete dir="${docs.src}/build"/>
     <delete dir="${src.docs.cn}/build"/>
@@ -2008,6 +2275,25 @@
   <target name="veryclean" depends="clean" description="Delete mvn ant task jar and ivy ant taks jar">
     <delete file="${ant_task.jar}"/>
     <delete file="${ivy.jar}"/>
+  </target>
+
+  <target name="clean-ms-winutils" if="windows" description="Delete ant and editor generated files for wintuils">
+    <delete file="${basedir}/bin/winutils.exe" failonerror="false"/>
+    <delete dir="${build.winutils}" failonerror="false"/>
+    <delete failonerror="false">
+      <fileset dir="${winutils.src.dir}" includes="**/*">
+        <exclude name="**/*.c"/>
+        <exclude name="**/*.h"/>
+        <exclude name="**/*.sln"/>
+        <exclude name="**/*.vcxproj"/>
+        <exclude name="**/*.vcxproj.user"/>
+        <exclude name="**/*.bat"/>
+      </fileset>
+    </delete>
+    <delete failonerror="false">
+      <dirset dir="${winutils.src.dir}" includes="**/*"/>
+        <exclude name="tests"/>
+    </delete>
   </target>
 
 
@@ -2784,7 +3070,7 @@
   </target>
 
   <!-- taskcontroller targets -->
-  <target name="task-controller" depends="init">
+  <target name="task-controller" depends="init" unless="windows" >
     <exec executable="autoreconf" 
           dir="${c++.task-controller.src}"
           searchpath="yes" failonerror="yes">
@@ -2831,3 +3117,4 @@
  </target>
 
 </project>
+

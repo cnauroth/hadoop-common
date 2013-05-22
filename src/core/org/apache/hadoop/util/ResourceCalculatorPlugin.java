@@ -27,6 +27,18 @@ import org.apache.hadoop.util.ReflectionUtils;
  * 
  */
 public abstract class ResourceCalculatorPlugin extends Configured {
+  
+  protected String processPid = null;
+
+  /**
+   * set the pid of the process for which <code>getProcResourceValues</code>
+   * will be invoked
+   * 
+   * @param pid
+   */
+  public void setProcessPid(String pid) {
+    processPid = pid;
+  }
 
   /**
    * Obtain the total size of the virtual memory present in the system.
@@ -88,6 +100,8 @@ public abstract class ResourceCalculatorPlugin extends Configured {
 
   /**
    * Obtain resource status used by current process tree.
+   * Must call {@link #setProcessPid(String)} to set the process id before 
+   * calling this method
    */
   public abstract ProcResourceValues getProcResourceValues();
 
@@ -147,6 +161,9 @@ public abstract class ResourceCalculatorPlugin extends Configured {
       String osName = System.getProperty("os.name");
       if (osName.startsWith("Linux")) {
         return new LinuxResourceCalculatorPlugin();
+      }
+      if (Shell.WINDOWS) {
+        return new WindowsResourceCalculatorPlugin();
       }
     } catch (SecurityException se) {
       // Failed to get Operating System name.

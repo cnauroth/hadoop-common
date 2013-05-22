@@ -479,6 +479,21 @@ creations/deletions), or "all".</description>
 </property>
 
 <property>
+  <name>dfs.namenode.edits.noeditlogchannelflush</name>
+  <value>false</value>
+  <description>Specifies whether to flush edit log file buffers. When set,
+  expensive FileChannel#force calls are skipped and synchronous disk writes
+  are enabled instead by opening the edit log file with RandomAccessFile("rws")
+  flags. This can significantly improve the performance of edit log writes.
+  Note that the behavior of the "rws" flags is platform and hardware specific
+  and might not provide the same level of guarantees as FileChannel#force.
+  For example, the write will skip the disk-cache on SAS and SCSI devices
+  while it might not on SATA devices. This is an expert level setting,
+  change with caution.
+  </description>
+</property>
+
+<property>
   <name>dfs.datanode.readahead.bytes</name>
   <value>4193404</value>
   <description>

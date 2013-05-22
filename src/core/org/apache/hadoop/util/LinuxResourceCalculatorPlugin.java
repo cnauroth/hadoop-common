@@ -86,7 +86,7 @@ public class LinuxResourceCalculatorPlugin extends ResourceCalculatorPlugin {
   private float cpuUsage = UNAVAILABLE;
   private long sampleTime = UNAVAILABLE;
   private long lastSampleTime = UNAVAILABLE;
-  private ProcfsBasedProcessTree pTree = null;
+  private ResourceCalculatorProcessTree pTree = null;
 
   boolean readMemInfoFile = false;
   boolean readCpuInfoFile = false;
@@ -104,8 +104,6 @@ public class LinuxResourceCalculatorPlugin extends ResourceCalculatorPlugin {
     procfsCpuFile = PROCFS_CPUINFO;
     procfsStatFile = PROCFS_STAT;
     jiffyLengthInMillis = ProcfsBasedProcessTree.JIFFY_LENGTH_IN_MILLIS;
-    String pid = System.getenv().get("JVM_PID");
-    pTree = new ProcfsBasedProcessTree(pid);
   }
   
   /**
@@ -124,8 +122,6 @@ public class LinuxResourceCalculatorPlugin extends ResourceCalculatorPlugin {
     this.procfsCpuFile = procfsCpuFile;
     this.procfsStatFile = procfsStatFile;
     this.jiffyLengthInMillis = jiffyLengthInMillis;
-    String pid = System.getenv().get("JVM_PID");
-    pTree = new ProcfsBasedProcessTree(pid);
   }
 
   /**
@@ -396,9 +392,13 @@ public class LinuxResourceCalculatorPlugin extends ResourceCalculatorPlugin {
     System.out.println("CPU usage % : " + plugin.getCpuUsage());
   }
 
+  /** {@inheritDoc} */
   @Override
   public ProcResourceValues getProcResourceValues() {
-    pTree = pTree.getProcessTree();
+    if(pTree == null) {
+      pTree = new ProcfsBasedProcessTree(processPid);
+    }
+    pTree.getProcessTree();
     long cpuTime = pTree.getCumulativeCpuTime();
     long pMem = pTree.getCumulativeRssmem();
     long vMem = pTree.getCumulativeVmem();

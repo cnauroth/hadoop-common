@@ -30,7 +30,8 @@
   <property file="${user.home}/${name}.build.properties" />
   <property file="${root}/build.properties" />
   <property file="${hadoop.root}/build.properties" />
-
+  <!-- loglevel take values like default|download-only|quiet -->
+  <property name="loglevel" value="quiet"/>
   <property name="src.dir"  location="${root}/src/java"/>
   <property name="src.test" location="${root}/src/test"/>
   <property name="src.test.data" location="${root}/src/test/data"/>
@@ -77,8 +78,6 @@
 
    <!-- IVY properties set here -->
   <property name="ivy.dir" location="ivy" />
-  <!-- loglevel take values like default|download-only|quiet -->
-  <property name="loglevel" value="quiet"/>
   <property name="ivysettings.xml" location="${hadoop.root}/ivy/ivysettings.xml"/>
   <loadproperties srcfile="${ivy.dir}/libraries.properties"/>
   <loadproperties srcfile="${hadoop.root}/ivy/libraries.properties"/>

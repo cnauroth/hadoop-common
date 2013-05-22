@@ -30,7 +30,7 @@
     <conf name="default" extends="master,runtime"/>
     <conf name="master" description="contains the artifact but no dependencies"/>
     <conf name="runtime" description="runtime but not the artifact"
-      extends="client,server,s3-server,kfs"/>
+      extends="client,server,s3-server,kfs,microsoft-windowsazure-api"/>
 
     <conf name="mandatory" description="contains the critical  dependencies"
       extends="commons-logging,log4j"/>
@@ -51,7 +51,7 @@
     <conf name="ftp" description="dependencies for workign with FTP filesytems"
               extends="mandatory"/>
    <conf name="jetty" description="Jetty provides the in-VM HTTP daemon" extends="commons-logging"/>
-
+   
     <!--Private configurations. -->
 
     <conf name="common" visibility="private" extends="runtime,mandatory,httpclient,ftp,jetty"
@@ -70,7 +70,9 @@
     <conf name="lucene" visibility="private"/>
     <conf name="jdiff" visibility="private" extends="log4j,s3-client,jetty,server"/>
     <conf name="checkstyle" visibility="private"/>
-    <conf name="packaging" visibility="private"/>
+	<conf name="microsoft-windowsazure-api" visibility="private" 
+	  description="dependencies for working with Windows Azure infrastructure" />
+
   </configurations>
 
   <publications>
@@ -79,6 +81,11 @@
   </publications>
   <dependencies>
 
+  <dependency org="com.microsoft.windowsazure"
+    name="microsoft-windowsazure-api"
+    rev="0.4.1"
+    conf="microsoft-windowsazure-api->default" />
+  
  <!--used client side-->
     <dependency org="commons-cli"
       name="commons-cli"
@@ -141,6 +148,11 @@
       rev="${commons-math.version}"
       conf="common->default"/>
 
+    <dependency org="org.apache.commons"
+      name="commons-compress"
+      rev="${commons-compress.version}"
+      conf="common->default"/>
+
     <!--Configuration: Jetty -->
 
 <!-- <dependency org="javax.servlet"
@@ -155,7 +167,6 @@
       name="jetty-util"
       rev="${jetty-util.version}"
       conf="jetty->master"/>
-
     <dependency org="asm"
       name="asm"
       rev="${asm.version}"
@@ -172,6 +183,7 @@
       name="jersey-server"
       rev="${jersey-server.version}"
       conf="jetty->master"/>
+
 
     <dependency org="tomcat"
       name="jasper-runtime"

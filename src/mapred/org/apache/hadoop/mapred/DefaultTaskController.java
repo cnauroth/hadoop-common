@@ -34,10 +34,12 @@ import org.apache.hadoop.mapreduce.server.tasktracker.Localizer;
 import org.apache.hadoop.mapred.TaskTracker.LocalStorage;
 import org.apache.hadoop.util.ProcessTree.Signal;
 import org.apache.hadoop.util.ProcessTree;
+import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.Shell.ShellCommandExecutor;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.util.Shell;
 
 /**
  * The default implementation for controlling tasks.
@@ -54,6 +56,8 @@ public class DefaultTaskController extends TaskController {
 
   private static final Log LOG = 
       LogFactory.getLog(DefaultTaskController.class);
+  // Prefix of the Jar file containing the classpath
+  protected static final String JAR_CLASSPATH_PREFIX = "classpath-";
   private FileSystem fs;
   @Override
   public void setConf(Configuration conf) {
@@ -87,6 +91,38 @@ public class DefaultTaskController extends TaskController {
                                   File currentWorkDirectory,
                                   String stdout,
                                   String stderr) throws IOException {
+    // Assume the classpath is already given in setup or jvmArguments
+    return launchTask(user, jobId, attemptId, setup, jvmArguments, null,
+                      currentWorkDirectory, stdout, stderr);
+  }
+  
+  /**
+   * Create all of the directories for the task and launches the child jvm.
+   * Uses all items in the classpaths list as the classpath for the task to start
+   * If classPaths is not provided, then it is assumed it is already set as one
+   * of the setup steps, or in jvmArguments
+   * @param user the user name
+   * @param jobId the jobId in question
+   * @param attemptId the attempt id (cleanup attempts have .cleanup suffix)
+   * @param setup list of shell commands to execute before the jvm
+   * @param jvmArguments list of jvm arguments
+   * @param classpaths list of classpath items
+   * @param currentWorkDirectory the full path of the cwd for the task
+   * @param stdout the file to redirect stdout to
+   * @param stderr the file to redirect stderr to
+   * @return the exit code for the task
+   * @throws IOException
+   */
+  @Override
+  public int launchTask(String user, 
+                                  String jobId,
+                                  String attemptId,
+                                  List<String> setup,
+                                  List<String> jvmArguments,
+                                  List<String> classPaths,
+                                  File currentWorkDirectory,
+                                  String stdout,
+                                  String stderr) throws IOException {
     ShellCommandExecutor shExec = null;
     try {    	            
       FileSystem localFs = FileSystem.getLocal(getConf());
@@ -108,6 +144,30 @@ public class DefaultTaskController extends TaskController {
         throw new IOException("Mkdirs failed to create " 
                    + logLocation);
       }
+      
+      //If provided, use all items in the classpaths list as the classpath for
+      //the task to start
+      if (classPaths != null && classPaths.size() > 0) {
+        String clsPaths;
+          
+        if (Shell.WINDOWS) {
+          // Prepare the path of the Jar file to create
+          File jarFile = File.createTempFile(JAR_CLASSPATH_PREFIX, ".jar", 
+                                             currentWorkDirectory.getParentFile());
+            
+          // Create a Jar file referencing all entries in the classPaths list.
+          clsPaths = FileUtil.createJarWithClassPath(jarFile, classPaths).
+                              getCanonicalPath();
+        } else {
+          // Get the classpath string
+          clsPaths = StringUtils.join(File.pathSeparator, classPaths);  
+        }
+
+        // Add the classpath as the first Java argument
+        jvmArguments.add(1, "-classpath");
+        jvmArguments.add(2, clsPaths);
+      }
+      
       //read the configuration for the job
       FileSystem rawFs = FileSystem.getLocal(getConf()).getRaw();
       long logSize = 0; //TODO MAPREDUCE-1100
@@ -123,23 +183,29 @@ public class DefaultTaskController extends TaskController {
           TaskTracker.getPrivateDirTaskScriptLocation(user, jobId, attemptId),
           getConf()), COMMAND_FILE);
 
-      String commandFile = writeCommand(cmdLine, rawFs, p);
+      String commandFile = writeCommand(cmdLine, rawFs, p).getAbsolutePath();
       rawFs.setPermission(p, TaskController.TASK_LAUNCH_SCRIPT_PERMISSION);
-      /*
-       * MAPREDUCE-2374: if another thread fork(2)ed a child process during the
-       * window when writeCommand (above) had taskjvm.sh open for write, that
-       * child process might still have a writeable fd open to the script.
-       *
-       * If we run the script with "bash -c /path/to/taskjvm.sh", then bash
-       * would try to execve(2) the script and get ETXTBSY.  Instead, just have
-       * bash interpret the script with "bash /path/to/taskjvm.sh".
-       */
-      shExec = new ShellCommandExecutor(new String[]{
-          "bash", commandFile},
-          currentWorkDirectory);
+      if (Shell.WINDOWS) {
+        String[] commandArray = Shell.getRunCommand(commandFile, attemptId);
+        shExec = new ShellCommandExecutor(commandArray, currentWorkDirectory);
+      } else {
+        /*
+         * MAPREDUCE-2374: if another thread fork(2)ed a child process during the
+         * window when writeCommand (above) had taskjvm.sh open for write, that
+         * child process might still have a writeable fd open to the script.
+         *
+         * If we run the script with "bash -c /path/to/taskjvm.sh", then bash
+         * would try to execve(2) the script and get ETXTBSY.  Instead, just have
+         * bash interpret the script with "bash /path/to/taskjvm.sh".
+         */
+        shExec = new ShellCommandExecutor(new String[]{
+            "bash", commandFile},
+            currentWorkDirectory);
+      }
       shExec.execute();
     } catch (Exception e) {
       if (shExec == null) {
+        LOG.warn("Failed to launch the task with: " + e);
         return -1;
       }
       int exitCode = shExec.getExitCode();
@@ -213,11 +279,11 @@ public class DefaultTaskController extends TaskController {
   }
 
   @Override
-  public void signalTask(String user, int taskPid, Signal signal) {
+  public void signalTask(String user, String taskPid, Signal signal) {
     if (ProcessTree.isSetsidAvailable) {
-      ProcessTree.killProcessGroup(Integer.toString(taskPid), signal);
+      ProcessTree.killProcessGroup(taskPid, signal);
     } else {
-      ProcessTree.killProcess(Integer.toString(taskPid), signal);      
+      ProcessTree.killProcess(taskPid, signal);      
     }
   }
 

@@ -35,6 +35,7 @@ import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.examples.SleepJob;
 import org.apache.hadoop.util.MemoryCalculatorPlugin;
 import org.apache.hadoop.util.ProcfsBasedProcessTree;
+import org.apache.hadoop.util.ResourceCalculatorProcessTree;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.TestProcfsBasedProcessTree;
 import org.apache.hadoop.util.ToolRunner;
@@ -55,7 +56,7 @@ public class TestTaskTrackerMemoryManager extends TestCase {
   private MiniMRCluster miniMRCluster;
 
   private String taskOverLimitPatternString =
-      "TaskTree \\[pid=[0-9]*,tipID=.*\\] is running beyond memory-limits. "
+      "TaskTree \\[pid=.*,tipID=.*\\] is running beyond memory-limits. "
           + "Current usage : [0-9]*bytes. Limit : %sbytes. Killing task.";
 
   private void startCluster(JobConf conf)
@@ -119,11 +120,10 @@ public class TestTaskTrackerMemoryManager extends TestCase {
     }
   }
 
-  private boolean isProcfsBasedTreeAvailable() {
+  private boolean isResourceCalculatorTreeAvailable() {
     try {
-      if (!ProcfsBasedProcessTree.isAvailable()) {
-        LOG.info("Currently ProcessTree has only one implementation "
-            + "ProcfsBasedProcessTree, which is not available on this "
+      if (!ResourceCalculatorProcessTree.isAvailable()) {
+        LOG.info("ResourceCalculatorProcessTree is not available on this "
             + "system. Not testing");
         return false;
       }
@@ -143,7 +143,7 @@ public class TestTaskTrackerMemoryManager extends TestCase {
   public void testTTLimitsDisabled()
       throws Exception {
     // Run the test only if memory management is enabled
-    if (!isProcfsBasedTreeAvailable()) {
+    if (!isResourceCalculatorTreeAvailable()) {
       return;
     }
 
@@ -165,7 +165,7 @@ public class TestTaskTrackerMemoryManager extends TestCase {
   public void testTasksWithinLimits()
       throws Exception {
     // Run the test only if memory management is enabled
-    if (!isProcfsBasedTreeAvailable()) {
+    if (!isResourceCalculatorTreeAvailable()) {
       return;
     }
 
@@ -196,7 +196,7 @@ public class TestTaskTrackerMemoryManager extends TestCase {
       throws Exception {
 
     // Run the test only if memory management is enabled
-    if (!isProcfsBasedTreeAvailable()) {
+    if (!isResourceCalculatorTreeAvailable()) {
       return;
     }
 
@@ -225,7 +225,7 @@ public class TestTaskTrackerMemoryManager extends TestCase {
     throws Exception {
     
     // Run the test only if memory management is enabled
-    if (!isProcfsBasedTreeAvailable()) {
+    if (!isResourceCalculatorTreeAvailable()) {
       return;
     }
     // Start cluster with proper configuration.
@@ -316,7 +316,7 @@ public class TestTaskTrackerMemoryManager extends TestCase {
       throws Exception {
 
     // Run the test only if memory management is enabled
-    if (!isProcfsBasedTreeAvailable()) {
+    if (!isResourceCalculatorTreeAvailable()) {
       return;
     }
 

@@ -30,6 +30,8 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Vector;
 import java.util.Map.Entry;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -66,14 +68,16 @@ abstract class TaskRunner extends Thread {
   static final String MAPRED_ADMIN_USER_SHELL =
     "mapreduce.admin.user.shell";
   
-  static final String DEFAULT_SHELL = "/bin/bash";
+  static final String DEFAULT_SHELL = Shell.WINDOWS? "cmd" : "/bin/bash";
   
   static final String MAPRED_ADMIN_USER_HOME_DIR =
     "mapreduce.admin.user.home.dir";
 
-  static final String DEFAULT_HOME_DIR= "/homes/";
+  static final String DEFAULT_HOME_DIR =
+      System.getenv(Shell.WINDOWS ? "USERPROFILE" : "HOME");
   
   static final String HADOOP_WORK_DIR = "HADOOP_WORK_DIR";
+  static final String HADOOP_HOME_DIR = "HADOOP_HOME";
   
   static final String MAPRED_ADMIN_USER_ENV =
     "mapreduce.admin.user.env";
@@ -212,13 +216,13 @@ abstract class TaskRunner extends Thread {
       }
       
       // Accumulates class paths for child.
-      List<String> classPaths = getClassPaths(conf, workDir,
-                                              taskDistributedCacheManager);
+      List<String> classPathsList = getClassPaths(conf, workDir,
+                                                  taskDistributedCacheManager);
 
       long logSize = TaskLog.getTaskLogLength(conf);
       
       //  Build exec child JVM args.
-      Vector<String> vargs = getVMArgs(taskid, workDir, classPaths, logSize);
+      Vector<String> vargs = getVMArgs(taskid, workDir, logSize);
       
       tracker.addToMemoryManager(t.getTaskID(), t.isMapTask(), conf);
 
@@ -232,14 +236,14 @@ abstract class TaskRunner extends Thread {
                  stderr);
       
       Map<String, String> env = new HashMap<String, String>();
-      errorInfo = getVMEnvironment(errorInfo, user, workDir, conf, env, taskid,
-                                   logSize);
+      errorInfo = getVMEnvironment(errorInfo, user, workDir, conf, env,  
+                                   taskid, logSize);
       
       // flatten the env as a set of export commands
       List <String> setupCmds = new ArrayList<String>();
       for(Entry<String, String> entry : env.entrySet()) {
         StringBuffer sb = new StringBuffer();
-        sb.append("export ");
+        sb.append(Shell.WINDOWS? "set " : "export ");
         sb.append(entry.getKey());
         sb.append("=\"");
         sb.append(entry.getValue());
@@ -248,7 +252,7 @@ abstract class TaskRunner extends Thread {
       }
       setupCmds.add(setup);
       
-      launchJvmAndWait(setupCmds, vargs, stdout, stderr, logSize, workDir);
+      launchJvmAndWait(setupCmds, vargs, classPathsList, stdout, stderr, logSize, workDir);
       tracker.getTaskTrackerInstrumentation().reportTaskEnd(t.getTaskID());
       if (exitCodeSet) {
         if (!killed && exitCode != 0) {
@@ -286,11 +290,12 @@ abstract class TaskRunner extends Thread {
     }
   }
 
-  void launchJvmAndWait(List <String> setup, Vector<String> vargs, File stdout,
-      File stderr, long logSize, File workDir)
+  void launchJvmAndWait(List <String> setup, Vector<String> vargs, 
+	  List<String> classPathsList, File stdout, File stderr, long logSize, 
+	  File workDir)
       throws InterruptedException, IOException {
-    jvmManager.launchJvm(this, jvmManager.constructJvmEnv(setup, vargs, stdout,
-        stderr, logSize, workDir, conf));
+    jvmManager.launchJvm(this, jvmManager.constructJvmEnv(setup, vargs, classPathsList,
+        stdout, stderr, logSize, workDir, conf));
     synchronized (lock) {
       while (!done) {
         lock.wait();
@@ -298,6 +303,12 @@ abstract class TaskRunner extends Thread {
     }
   }
 
+  void launchJvmAndWait(List <String> setup, Vector<String> vargs, File stdout,
+      File stderr, long logSize, File workDir)
+      throws InterruptedException, IOException {
+    launchJvmAndWait(setup, vargs, null, stdout, stderr, logSize, workDir);
+  }
+  
   /**
    * Prepare the log files for the task
    * 
@@ -369,7 +380,7 @@ abstract class TaskRunner extends Thread {
    * @throws IOException
    */
   private Vector<String> getVMArgs(TaskAttemptID taskid, File workDir,
-      List<String> classPaths, long logSize)
+      long logSize)
       throws IOException {
     Vector<String> vargs = new Vector<String>(8);
     File jvm =                                  // use same jvm as parent
@@ -425,28 +436,33 @@ abstract class TaskRunner extends Thread {
     } else {
       libraryPath += SYSTEM_PATH_SEPARATOR + workDir;
     }
+
+    // MAPREDUCE-4368
+    // For Windows, " is not a valid character for filenames, but
+    // is often embedded in concatenated path strings for paths
+    // with embedded spaces.  We will wrap the entire path in ",
+    // and embedded " marks cause matching issues and failure to
+    // launch the jar.
+    if (Shell.WINDOWS) {
+      libraryPath = libraryPath.replaceAll("\"", "");
+    }
+
     boolean hasUserLDPath = false;
     for(int i=0; i<javaOptsSplit.length ;i++) { 
       if(javaOptsSplit[i].startsWith("-Djava.library.path=")) {
         javaOptsSplit[i] += SYSTEM_PATH_SEPARATOR + libraryPath;
+        // MAPREDUCE-4377 blocks complete fix for 4368, since this is only
+        // partial library path in the case of quote-escaped strings
         hasUserLDPath = true;
-        break;
       }
+      vargs.add(javaOptsSplit[i]);
     }
     if(!hasUserLDPath) {
       vargs.add("-Djava.library.path=" + libraryPath);
     }
-    for (int i = 0; i < javaOptsSplit.length; i++) {
-      vargs.add(javaOptsSplit[i]);
-    }
 
     Path childTmpDir = createChildTmpDir(workDir, conf, false);
     vargs.add("-Djava.io.tmpdir=" + childTmpDir);
-
-    // Add classpath.
-    vargs.add("-classpath");
-    String classPath = StringUtils.join(SYSTEM_PATH_SEPARATOR, classPaths);
-    vargs.add(classPath);
 
     // Setup the log4j prop
     setupLog4jProperties(vargs, taskid, logSize);
@@ -499,7 +515,11 @@ abstract class TaskRunner extends Thread {
 
     // if temp directory path is not absolute, prepend it with workDir.
     if (!tmpDir.isAbsolute()) {
-      tmpDir = new Path(workDir.toString(), tmp);
+      if (Shell.WINDOWS)
+        // trim leading and trailing quotes on Windows
+        tmpDir = new Path(workDir.toString().replaceAll("^\"|\"$", ""), tmp);
+      else
+        tmpDir = new Path(workDir.toString(), tmp);
       if (createDir) {
         FileSystem localFs = FileSystem.getLocal(conf);
         if (!localFs.mkdirs(tmpDir) && 
@@ -507,6 +527,13 @@ abstract class TaskRunner extends Thread {
           throw new IOException("Mkdirs failed to create " +
               tmpDir.toString());
         }
+      }
+    } else if (createDir) {
+      FileSystem localFs = FileSystem.getLocal(conf);
+      if (!localFs.exists(tmpDir) && !localFs.mkdirs(tmpDir) && 
+          !localFs.getFileStatus(tmpDir).isDir()) {
+            throw new IOException("Mkdirs failed to create " +
+                tmpDir.toString());
       }
     }
     return tmpDir;
@@ -545,7 +572,7 @@ abstract class TaskRunner extends Thread {
     return classPaths;
   }
 
-  private String getVMEnvironment(String errorInfo, String user, File workDir, 
+  private String getVMEnvironment(String errorInfo, String user, File workDir,
                                   JobConf conf, Map<String, String> env, 
                                   TaskAttemptID taskid, long logSize
                                   ) throws Throwable {
@@ -559,6 +586,16 @@ abstract class TaskRunner extends Thread {
     }
     env.put("LD_LIBRARY_PATH", ldLibraryPath.toString());
     env.put(HADOOP_WORK_DIR, workDir.toString());
+
+    try {
+      // When launching tasks, the child may rely on HADOOP_HOME
+      // Make sure it is set even when home is set by 
+      // the -Dhadoop.home.dir flag.
+      env.put(HADOOP_HOME_DIR, Shell.getHadoopHome());
+    } catch (IOException ioe) {
+      LOG.warn("Failed to propagate HADOOP_HOME_DIR to child ENV " + ioe);
+    }
+
     //update user configured login-shell properties
     updateUserLoginEnv(errorInfo, user, conf, env);
     // put jobTokenFile name into env
@@ -610,34 +647,24 @@ abstract class TaskRunner extends Thread {
       for (String cEnv : childEnvs) {
         try {
           String[] parts = cEnv.split("="); // split on '='
-          String value = env.get(parts[0]);
-          
-          if (value != null) {
+          Pattern p = Pattern.compile(Shell.getEnvironmentVariableRegex());
+          Matcher m = p.matcher(parts[1]);
+          StringBuffer sb = new StringBuffer();
+          while (m.find()) {
+            String var = m.group(1);
             // replace $env with the child's env constructed by tt's
-            // example LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp
-            value = parts[1].replace("$" + parts[0], value);
-          } else {
-            // this key is not configured by the tt for the child .. get it
+            String replace = env.get(var);
+            // if this key is not configured by the tt for the child .. get it
             // from the tt's env
-            // example PATH=$PATH:/tmp
-            value = System.getenv(parts[0]);
-            if (value != null) {
-              // the env key is present in the tt's env
-              value = parts[1].replace("$" + parts[0], value);
-            } else {
-              // check for simple variable substitution
-              // for e.g. ROOT=$HOME
-              String envValue = System.getenv(parts[1].substring(1)); 
-              if (envValue != null) {
-                value = envValue;
-              } else {
-                // the env key is note present anywhere .. simply set it
-                // example X=$X:/tmp or X=/tmp
-                value = parts[1].replace("$" + parts[0], "");
-              }
-            }
+            if (replace == null)
+              replace = System.getenv(var);
+            // the env key is note present anywhere .. simply set it
+            if (replace == null)
+              replace = "";
+            m.appendReplacement(sb, Matcher.quoteReplacement(replace));
           }
-          env.put(parts[0], value);
+          m.appendTail(sb);
+          env.put(parts[0], sb.toString());
         } catch (Throwable t) {
           // set the error msg
           errorInfo = "Invalid User environment settings : " + mapredChildEnv
@@ -781,7 +808,11 @@ abstract class TaskRunner extends Thread {
   private static void symlink(File workDir, String target, String link)
       throws IOException {
     if (link != null) {
-      link = workDir.toString() + Path.SEPARATOR + link;
+      if (Shell.WINDOWS)
+        // trim leading and trailing quotes on Windows
+        link = workDir.toString().replaceAll("^\"|\"$", "") + File.separator + link;
+      else
+        link = workDir.toString() + File.separator + link;
       File flink = new File(link);
       if (!flink.exists()) {
         LOG.info(String.format("Creating symlink: %s <- %s", target, link));

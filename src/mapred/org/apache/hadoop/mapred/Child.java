@@ -47,6 +47,8 @@ import org.apache.hadoop.util.Shell;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.log4j.LogManager;
 
+import java.lang.management.ManagementFactory;
+
 /** 
  * The main() for child processes. 
  */
@@ -85,10 +87,15 @@ class Child {
       throw new IOException("Environment variable " + 
                              TaskRunner.HADOOP_WORK_DIR + " is not set");
     }
-
     // file name is passed thru env
     String jobTokenFile = 
       System.getenv().get(UserGroupInformation.HADOOP_TOKEN_FILE_LOCATION);
+    if(Shell.WINDOWS) {
+      if(jobTokenFile.charAt(0)=='"')
+        jobTokenFile = jobTokenFile.substring(1);
+      if(jobTokenFile.charAt(jobTokenFile.length()-1) == '"')
+        jobTokenFile = jobTokenFile.substring(0, jobTokenFile.length()-1);
+    }
     Credentials credentials = 
       TokenCache.loadTokens(jobTokenFile, defaultConf);
     LOG.debug("loading token. # keys =" +credentials.numberOfSecretKeys() + 
@@ -154,8 +161,17 @@ class Child {
     t.start();
     
     String pid = "";
-    if (!Shell.WINDOWS) {
-      pid = System.getenv().get("JVM_PID");
+    pid = System.getenv().get("JVM_PID");
+    if(pid == null || pid.length() == 0) {
+      pid = "";
+      // fallback to using JVM bean if PID is not set in env
+      final String jvmName = ManagementFactory.getRuntimeMXBean().getName();
+      String[] parts = jvmName.split("@");
+      try {
+        pid = Long.toString(Long.parseLong(parts[0]));
+      } catch (NumberFormatException nfe) {
+        LOG.info("Failed to get pid for jvmId:" + jvmId);
+      }
     }
     JvmContext context = new JvmContext(jvmId, pid);
     int idleLoopCount = 0;
@@ -210,7 +226,7 @@ class Child {
 
         // set the jobTokenFile into task
         task.setJobTokenSecret(JobTokenSecretManager.
-            createSecretKey(jt.getPassword()));
+                               createSecretKey(jt.getPassword()));
 
         // setup the child's mapred-local-dir. The child is now sandboxed and
         // can only see files down and under attemtdir only.

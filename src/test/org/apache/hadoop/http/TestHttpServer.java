@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.net.URLConnection;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Arrays;

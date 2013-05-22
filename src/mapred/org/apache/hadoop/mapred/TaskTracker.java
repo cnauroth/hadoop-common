@@ -99,11 +99,13 @@ import org.apache.hadoop.security.authorize.PolicyProvider;
 import org.apache.hadoop.security.authorize.ServiceAuthorizationManager;
 import org.apache.hadoop.util.DiskChecker;
 import org.apache.hadoop.util.MemoryCalculatorPlugin;
+import org.apache.hadoop.util.ProcessTree;
 import org.apache.hadoop.util.ResourceCalculatorPlugin;
 import org.apache.hadoop.util.ProcfsBasedProcessTree;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.security.token.TokenIdentifier;
 import org.apache.hadoop.util.ReflectionUtils;
+import org.apache.hadoop.util.ResourceCalculatorProcessTree;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.VersionInfo;
 import org.apache.hadoop.util.DiskChecker.DiskErrorException;
@@ -112,6 +114,7 @@ import org.apache.hadoop.mapreduce.security.TokenCache;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.metrics2.util.MBeans;
 import org.apache.hadoop.security.Credentials;
+import org.apache.hadoop.util.Shell;
 
 /*******************************************************
  * TaskTracker is a process that starts and tracks MR Tasks
@@ -796,6 +799,11 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     LOG.info("Starting tasktracker with owner as "
         + getMROwner().getShortUserName());
 
+    if(!fConf.processGroupEnabled()) {
+      // override system determined usage of process groups
+      ProcessTree.disableProcessGroups();
+    }
+    
     localFs = FileSystem.getLocal(fConf);
     if (fConf.get("slave.host.name") != null) {
       this.localHostname = fConf.get("slave.host.name");
@@ -4403,15 +4411,15 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     // start the taskMemoryManager thread only if enabled
     setTaskMemoryManagerEnabledFlag();
     if (isTaskMemoryManagerEnabled()) {
-      taskMemoryManager = new TaskMemoryManagerThread(this);
+      taskMemoryManager = new TaskMemoryManagerThread(this, fConf);
       taskMemoryManager.setDaemon(true);
       taskMemoryManager.start();
     }
   }
 
   void setTaskMemoryManagerEnabledFlag() {
-    if (!ProcfsBasedProcessTree.isAvailable()) {
-      LOG.info("ProcessTree implementation is missing on this system. "
+    if (!ResourceCalculatorProcessTree.isAvailable()) {
+      LOG.info("ResourceCalculatorProcessTree implementation is missing on this system. "
           + "TaskMemoryManager is disabled.");
       taskMemoryManagerEnabled = false;
       return;

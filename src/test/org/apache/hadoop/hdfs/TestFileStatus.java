@@ -38,6 +38,7 @@ import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
 import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.util.Shell;
 import org.apache.log4j.Level;
 import org.junit.Test;
 
@@ -234,16 +235,15 @@ public class TestFileStatus {
       assertEquals(file2.toString(), stats[3].getPath().toString());
       assertEquals(file3.toString(), stats[4].getPath().toString());
 
-      { //test permission error on hftp 
-        fs.setPermission(dir, new FsPermission((short)0));
-        try {
-          final String username = UserGroupInformation.getCurrentUser().getShortUserName() + "1";
-          final HftpFileSystem hftp2 = cluster.getHftpFileSystemAs(username, conf, "somegroup");
-          hftp2.getContentSummary(dir);
-          fail();
-        } catch(IOException ioe) {
-          FileSystem.LOG.info("GOOD: getting an exception", ioe);
-        }
+      //test permission error on hftp 
+      fs.setPermission(dir, new FsPermission((short)0));
+      try {
+        final String username = UserGroupInformation.getCurrentUser().getShortUserName() + "1";
+        final HftpFileSystem hftp2 = cluster.getHftpFileSystemAs(username, conf, "somegroup");
+        hftp2.getContentSummary(dir);
+        fail();
+      } catch(IOException ioe) {
+        FileSystem.LOG.info("GOOD: getting an exception", ioe);
       }
     } finally {
       fs.close();

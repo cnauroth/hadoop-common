@@ -22,6 +22,7 @@ import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
@@ -32,6 +33,7 @@ import org.apache.hadoop.io.nativeio.Errno;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.io.nativeio.NativeIOException;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.util.Shell;
 
 /**
  * This class provides secure APIs for opening and creating files on the local
@@ -104,10 +106,7 @@ public class SecureIOUtils {
       return fis;
     }
     if (skipSecurity) {
-      // Subject to race conditions but this is the best we can do
-      FileStatus status =
-        rawFilesystem.getFileStatus(new Path(f.getAbsolutePath()));
-      checkStat(f, status.getOwner(), expectedOwner);
+      checkStatFileSystem(f, expectedOwner);
       return fis;
     }
 
@@ -115,6 +114,7 @@ public class SecureIOUtils {
     try {
       String owner = NativeIO.getOwner(fis.getFD());
       checkStat(f, owner, expectedOwner);
+
       success = true;
       return fis;
     } finally {
@@ -156,26 +156,45 @@ public class SecureIOUtils {
     if (skipSecurity) {
       return insecureCreateForWrite(f, permissions);
     } else {
-      // Use the native wrapper around open(2)
-      try {
-        FileDescriptor fd = NativeIO.open(f.getAbsolutePath(),
-          NativeIO.O_WRONLY | NativeIO.O_CREAT | NativeIO.O_EXCL,
-          permissions);
-        return new FileOutputStream(fd);
-      } catch (NativeIOException nioe) {
-        if (nioe.getErrno() == Errno.EEXIST) {
-          throw new AlreadyExistsException(nioe);
-        }
-        throw nioe;
-      }
+      return NativeIO.getCreateForWriteFileOutputStream(f, permissions);
     }
   }
 
   private static void checkStat(File f, String owner, String expectedOwner) throws IOException {
+    boolean success = true;
     if (expectedOwner != null &&
         !expectedOwner.equals(owner)) {
+      if (Shell.WINDOWS) {
+        UserGroupInformation ugi =
+            UserGroupInformation.createRemoteUser(expectedOwner);
+        final String adminsGroupString = "Administrators";
+        success = owner.equals(adminsGroupString)
+        && Arrays.asList(ugi.getGroupNames()).contains(adminsGroupString);
+      } else {
+        success = false;
+      }
+    }
+    if (!success)
       throw new IOException(
-        "Owner '" + owner + "' for path " + f + " did not match " +
+          "Owner '" + owner + "' for path " + f + " did not match " +
+          "expected owner '" + expectedOwner + "'");
+  }
+
+  private static void checkStatFileSystem(File f, String expectedOwner)
+  throws IOException {
+    // Subject to race conditions but this is the best we can do
+    FileStatus status =
+      rawFilesystem.getFileStatus(new Path(f.getAbsolutePath()));
+    // Create ugi and check file ownership through isOwnedByUser
+    // as there are some specific OS dependent considerations for
+    // checking the ownership.
+    UserGroupInformation ugi =
+      UserGroupInformation.createRemoteUser(expectedOwner);
+
+    if (expectedOwner != null &&
+        !status.isOwnedByUser(ugi.getShortUserName(), ugi.getGroupNames())) {
+      throw new IOException(
+        "Owner '" + status.getOwner() + "' for path " + f + " did not match " +
         "expected owner '" + expectedOwner + "'");
     }
   }

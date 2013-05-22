@@ -67,7 +67,16 @@ public class TaskLog {
     LogFactory.getLog(TaskLog.class);
 
   static final String USERLOGS_DIR_NAME = "userlogs";
-
+  
+  // Windows has relatively small hard limit on the command line length.
+  // On non-Windows platforms, we don't enforce any limits as command
+  // line usually supports over 200k (or even million) characters
+  // and it is very unlikely that we can hit this limit. Another option is
+  // to use "getconf ARG_MAX" to extract this value, however, since this has
+  // perf impact that we'd pay for scenario that is likely not
+  // to happen, we are staying out of it (until proved otherwise).
+  static int MAX_CMD_LINE_LENGTH = Shell.WINDOWS ? 8192 : Integer.MAX_VALUE;
+  
   private static final File LOG_DIR = 
     new File(getBaseLogDir(), USERLOGS_DIR_NAME).getAbsoluteFile();
   
@@ -497,7 +506,10 @@ public class TaskLog {
     }
   }
 
-  private static final String bashCommand = "bash";
+  private static final String shellCommand = (Shell.WINDOWS)? "cmd": "bash";
+  private static final String shellCommandSufix = (Shell.WINDOWS) ? "/c" : "-c";
+  private static final String shellCommandNullOutput =
+      (Shell.WINDOWS) ? "< nul" : "< /dev/null";
   private static final String tailCommand = "tail";
   
   /**
@@ -625,8 +637,8 @@ public class TaskLog {
       boolean useSetsid
      ) throws IOException {
     List<String> result = new ArrayList<String>(3);
-    result.add(bashCommand);
-    result.add("-c");
+    result.add(shellCommand);
+    result.add(shellCommandSufix);
     String mergedCmd = buildCommandLine(setup,
         cmd,
         stdoutFilename,
@@ -647,47 +659,71 @@ public class TaskLog {
     String stdout = FileUtil.makeShellPath(stdoutFilename);
     String stderr = FileUtil.makeShellPath(stderrFilename);
     StringBuilder mergedCmd = new StringBuilder();
-    
+
     if (!Shell.WINDOWS) {
       mergedCmd.append("export JVM_PID=`echo $$`\n");
     }
 
     if (setup != null) {
       for (String s : setup) {
+        if (s.length() > MAX_CMD_LINE_LENGTH) {
+          throw new IOException("Command exceeds the OS command length limit: "
+                                + MAX_CMD_LINE_LENGTH + ", command: \""
+                                + s + "\"");
+        }
+
         mergedCmd.append(s);
         mergedCmd.append("\n");
       }
     }
+    StringBuilder runCommand = new StringBuilder();
+
     if (tailLength > 0) {
-      mergedCmd.append("(");
+      runCommand.append("(");
     } else if (ProcessTree.isSetsidAvailable && useSetSid 
         && !Shell.WINDOWS) {
-      mergedCmd.append("exec setsid ");
+      runCommand.append("exec setsid ");
     } else {
-      mergedCmd.append("exec ");
+      if (!Shell.WINDOWS)
+        runCommand.append("exec ");
     }
-    mergedCmd.append(addCommand(cmd, true));
-    mergedCmd.append(" < /dev/null ");
+    runCommand.append(addCommand(cmd, true));
+    runCommand.append(" ");
+    runCommand.append(shellCommandNullOutput);
+    runCommand.append(" ");
     if (tailLength > 0) {
-      mergedCmd.append(" | ");
-      mergedCmd.append(tailCommand);
-      mergedCmd.append(" -c ");
-      mergedCmd.append(tailLength);
-      mergedCmd.append(" >> ");
-      mergedCmd.append(stdout);
-      mergedCmd.append(" ; exit $PIPESTATUS ) 2>&1 | ");
-      mergedCmd.append(tailCommand);
-      mergedCmd.append(" -c ");
-      mergedCmd.append(tailLength);
-      mergedCmd.append(" >> ");
-      mergedCmd.append(stderr);
-      mergedCmd.append(" ; exit $PIPESTATUS");
+      runCommand.append(" | ");
+      runCommand.append(tailCommand);
+      runCommand.append(" ");
+      runCommand.append(shellCommandSufix);
+      runCommand.append(" ");
+      runCommand.append(tailLength);
+      runCommand.append(" >> ");
+      runCommand.append(stdout);
+      runCommand.append(" ; exit $PIPESTATUS ) 2>&1 | ");
+      runCommand.append(tailCommand);
+      runCommand.append(" ");
+      runCommand.append(shellCommandSufix);
+      runCommand.append(" ");
+      runCommand.append(tailLength);
+      runCommand.append(" >> ");
+      runCommand.append(stderr);
+      runCommand.append(" ; exit $PIPESTATUS");
     } else {
-      mergedCmd.append(" 1>> ");
-      mergedCmd.append(stdout);
-      mergedCmd.append(" 2>> ");
-      mergedCmd.append(stderr);
+      runCommand.append(" 1>> ");
+      runCommand.append(stdout);
+      runCommand.append(" 2>> ");
+      runCommand.append(stderr);
     }
+
+    if (runCommand.length() > MAX_CMD_LINE_LENGTH) {
+      throw new IOException("Command exceeds the OS command length limit: "
+                            + MAX_CMD_LINE_LENGTH + ", command: \""
+                            + runCommand + "\"");
+    }
+
+    mergedCmd.append(runCommand);
+
     return mergedCmd.toString();
   }
 
@@ -703,18 +739,30 @@ public class TaskLog {
   public static String addCommand(List<String> cmd, boolean isExecutable) 
   throws IOException {
     StringBuffer command = new StringBuffer();
+    boolean firstArg = true;
     for(String s: cmd) {
-    	command.append('\'');
+      if (!Shell.WINDOWS) {
+        command.append('\'');
+      } else {
+        if (!firstArg)
+          command.append('"');
+      }
       if (isExecutable) {
         // the executable name needs to be expressed as a shell path for the  
         // shell to find it.
-    	  command.append(FileUtil.makeShellPath(new File(s)));
+        command.append(FileUtil.makeShellPath(new File(s)));
         isExecutable = false; 
       } else {
-    	  command.append(s);
+        command.append(s);
       }
-      command.append('\'');
+      if (!Shell.WINDOWS) {
+        command.append('\'');
+      } else {
+        if (!firstArg)
+          command.append('"');
+      }
       command.append(" ");
+      firstArg = false;
     }
     return command.toString();
   }
@@ -733,8 +781,8 @@ public class TaskLog {
                                             ) throws IOException {
     String debugout = FileUtil.makeShellPath(debugoutFilename);
     List<String> result = new ArrayList<String>(3);
-    result.add(bashCommand);
-    result.add("-c");
+    result.add(shellCommand);
+    result.add(shellCommandSufix);
     StringBuffer mergedCmd = new StringBuffer();
     mergedCmd.append("exec ");
     boolean isExecutable = true;

@@ -220,7 +220,7 @@ public class ClusterWithCapacityScheduler {
         // Check the resourcePath directory
         File file = new File(resourcePath, name);
         if (file.exists()) {
-          return new URL("file://" + file.getAbsolutePath());
+          return new URL("file", null, file.getAbsolutePath());
         }
       } catch (MalformedURLException mue) {
         LOG.warn("exception : " + mue);

@@ -166,6 +166,8 @@ public class JobConf extends Configuration {
   static final String MR_ACLS_ENABLED = "mapred.acls.enabled";
 
   static final String MR_ADMINS = "mapreduce.cluster.administrators";
+  
+  static final String MAPRED_PROCESSGROUP_ENABLED = "mapred.processgroup.enabled";
 
   /**
    * Configuration key to set the java command line options for the child
@@ -269,12 +271,14 @@ public class JobConf extends Configuration {
    * Configuration key to set the environment of the child map/reduce tasks.
    * 
    * The format of the value is <code>k1=v1,k2=v2</code>. Further it can 
-   * reference existing environment variables via <code>$key</code>.
+   * reference existing environment variables via <code>$key</code> on
+   * Linux or <code>%key%</code> on Windows.
    * 
    * Example:
    * <ul>
    *   <li> A=foo - This will set the env variable A to foo. </li>
-   *   <li> B=$X:c This is inherit tasktracker's X env variable. </li>
+   *   <li> B=$X:c This is inherit tasktracker's X env variable on Linux. </li>
+   *   <li> B=%X%;c This is inherit tasktracker's X env variable on Windows. </li>
    * </ul>
    * 
    * @deprecated Use {@link #MAPRED_MAP_TASK_ENV} or 
@@ -284,31 +288,33 @@ public class JobConf extends Configuration {
   public static final String MAPRED_TASK_ENV = "mapred.child.env";
 
   /**
-   * Configuration key to set the maximum virutal memory available to the
-   * map tasks.
+   * Configuration key to set the environment of the child map tasks.
    * 
    * The format of the value is <code>k1=v1,k2=v2</code>. Further it can 
-   * reference existing environment variables via <code>$key</code>.
+   * reference existing environment variables via <code>$key</code> on
+   * Linux or <code>%key%</code> on Windows.
    * 
    * Example:
    * <ul>
    *   <li> A=foo - This will set the env variable A to foo. </li>
-   *   <li> B=$X:c This is inherit tasktracker's X env variable. </li>
+   *   <li> B=$X:c This is inherit tasktracker's X env variable on Linux. </li>
+   *   <li> B=%X%;c This is inherit tasktracker's X env variable on Windows. </li> 
    * </ul>
    */
   public static final String MAPRED_MAP_TASK_ENV = "mapred.map.child.env";
   
   /**
-   * Configuration key to set the maximum virutal memory available to the
-   * reduce tasks.
+   * Configuration key to set the environment of the child reduce tasks.
    * 
    * The format of the value is <code>k1=v1,k2=v2</code>. Further it can 
-   * reference existing environment variables via <code>$key</code>.
+   * reference existing environment variables via <code>$key</code> on
+   * Linux or <code>%key%</code> on Windows..
    * 
    * Example:
    * <ul>
    *   <li> A=foo - This will set the env variable A to foo. </li>
-   *   <li> B=$X:c This is inherit tasktracker's X env variable. </li>
+   *   <li> B=$X:c This is inherit tasktracker's X env variable on Linux. </li>
+   *   <li> B=%X%;c This is inherit tasktracker's X env variable on Windows. </li>
    * </ul>
    */
   public static final String MAPRED_REDUCE_TASK_ENV =
@@ -495,6 +501,22 @@ public class JobConf extends Configuration {
   }
 
 
+  /**
+   * Get if Jobobject should be used for tasks on Windows
+   * 
+   * @return use Windows Jobobject or not
+   */
+  public boolean processGroupEnabled() {
+    return getBoolean(MAPRED_PROCESSGROUP_ENABLED, true);
+  }
+
+  /**
+   * Set whether to use Windows Jobobjects for tasks 
+   * @param value <code>true</code> to use Windows Jobobjects
+   */
+  public void setProcessGroupEnabled(boolean value) {
+    setBoolean(MAPRED_PROCESSGROUP_ENABLED, value);
+  }
   
   /**
    * Set whether the framework should keep the intermediate files for 

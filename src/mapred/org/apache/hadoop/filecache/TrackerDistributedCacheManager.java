@@ -57,6 +57,7 @@ import org.apache.hadoop.mapreduce.JobID;
 import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.RunJar;
+import org.apache.hadoop.util.Shell;
 import org.apache.hadoop.mapreduce.security.TokenCache;
 
 /**
@@ -328,7 +329,17 @@ public class TrackerDistributedCacheManager {
     if (!checkPermissionOfOther(fs, current, FsAction.READ, statCache)) {
       return false;
     }
-    return ancestorsHaveExecutePermissions(fs, current.getParent(), statCache);
+    if (Shell.WINDOWS && fs instanceof LocalFileSystem) {
+      // Relax the requirement for public cache on LFS on Windows since default
+      // permissions are "700" all the way up to the drive letter. In this
+      // model, the only requirement for a user is to give EVERYONE group
+      // permission on the file and the file will be considered public.
+      // This code path is only hit when fs.default.name is file:/// (mainly
+      // in test).
+      return true;
+    } else {
+      return ancestorsHaveExecutePermissions(fs, current.getParent(), statCache);
+    }
   }
 
   /**
@@ -427,7 +438,6 @@ public class TrackerDistributedCacheManager {
     }
     Path workFile = new Path(workDir, parchive.getName());
     sourceFs.copyToLocalFile(sourcePath, workFile);
-    localFs.setPermission(workFile, permission);
     if (isArchive) {
       String tmpArchive = workFile.getName().toLowerCase();
       File srcFile = new File(workFile.toString());
@@ -447,7 +457,6 @@ public class TrackerDistributedCacheManager {
         // else will not do anyhting
         // and copy the file into the dir as it is
       }
-      FileUtil.chmod(destDir.toString(), "ugo+rx", true);
     }
     // promote the output to the final location
     if (!localFs.rename(workDir, finalDir)) {
@@ -458,6 +467,15 @@ public class TrackerDistributedCacheManager {
       }
       // someone else promoted first
       return 0;
+    }
+
+    // chmod after the above rename operation since rename does not transfer
+    // the original permissions to the target on all platforms
+    if (isArchive) {
+      FileUtil.chmod(finalDir.toString(), "ugo+rx", true);
+    } else {
+      Path finalWorkFile = new Path(finalDir, parchive.getName());
+      localFs.setPermission(finalWorkFile, permission);
     }
 
     LOG.info(String.format("Cached %s as %s",

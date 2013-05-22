@@ -58,6 +58,7 @@ import org.apache.hadoop.filecache.TaskDistributedCacheManager;
 import org.apache.hadoop.filecache.TrackerDistributedCacheManager;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.ReflectionUtils;
+import org.apache.hadoop.util.Shell;
 
 public class TestTrackerDistributedCacheManager extends TestCase {
   private static final Log LOG =
@@ -98,19 +99,21 @@ public class TestTrackerDistributedCacheManager extends TestCase {
       FileUtil.fullyDelete(new File(TEST_ROOT_DIR));
     }
     TEST_ROOT.mkdirs();
+    FileUtil.setPermission(TEST_ROOT, new FsPermission("755"));
 
     conf = new Configuration();
     conf.set(FileSystem.FS_DEFAULT_NAME_KEY, "file:///");
     fs = FileSystem.get(conf);
 
     // This test suite will fail if any ancestor directory of the
-    // test directory is not world-searchable (ie +x).
+    // test directory is not public.
     // We prefer to fail the test in an obvious manner up front
     // during setUp() rather than in a subtle way later.
     assertTrue("Test root directory " + TEST_ROOT + " and all of its " +
                "parent directories must have a+x permissions",
-               TrackerDistributedCacheManager.ancestorsHaveExecutePermissions(
-                 fs, new Path(TEST_ROOT.toString()), new HashMap<URI, FileStatus>()));
+               TrackerDistributedCacheManager.isPublic(
+                 conf, new Path(TEST_ROOT.toString()).toUri(),
+                 new HashMap<URI, FileStatus>()));
 
     // Prepare the tests' mapred-local-dir
     ROOT_MAPRED_LOCAL_DIR = new File(TEST_ROOT_DIR, "mapred/local");

@@ -40,6 +40,7 @@ import org.apache.hadoop.mapreduce.server.tasktracker.userlogs.JvmFinishedEvent;
 import org.apache.hadoop.util.ProcessTree;
 import org.apache.hadoop.util.ProcessTree.Signal;
 import org.apache.hadoop.util.Shell.ShellCommandExecutor;
+import org.apache.hadoop.util.Shell;
 
 class JvmManager {
 
@@ -51,9 +52,16 @@ class JvmManager {
   private JvmManagerForType reduceJvmManager;
   
   public JvmEnv constructJvmEnv(List<String> setup, Vector<String>vargs,
+      List<String> classPathsList, File stdout, File stderr, long logSize, 
+      File workDir, JobConf conf) {
+    return new JvmEnv(setup,vargs,classPathsList,stdout,stderr,logSize,
+        workDir,conf);
+  }
+  
+  public JvmEnv constructJvmEnv(List<String> setup, Vector<String>vargs,
       File stdout,File stderr,long logSize, File workDir, 
       JobConf conf) {
-    return new JvmEnv(setup,vargs,stdout,stderr,logSize,workDir,conf);
+    return constructJvmEnv(setup,vargs,null,stdout,stderr,logSize,workDir,conf);
   }
   
   public JvmManager(TaskTracker tracker) {
@@ -496,7 +504,7 @@ class JvmManager {
                   taskAttemptId.toString(); 
                 exitCode = tracker.getTaskController().launchTask(user,
                     jvmId.jobId.toString(), taskAttemptIdStr, env.setup,
-                    env.vargs, env.workDir, env.stdout.toString(),
+                    env.vargs, env.classpaths, env.workDir, env.stdout.toString(),
                     env.stderr.toString());
           }
         } catch (IOException ioe) {
@@ -515,10 +523,10 @@ class JvmManager {
 
       private class DelayedProcessKiller extends Thread {
         private final String user;
-        private final int pid;
+        private final String pid;
         private final long delay;
         private final Signal signal;
-        DelayedProcessKiller(String user, int pid, long delay, Signal signal) {
+        DelayedProcessKiller(String user, String pid, long delay, Signal signal) {
           this.user = user;
           this.pid = pid;
           this.delay = delay;
@@ -545,16 +553,15 @@ class JvmManager {
           // Check inital context before issuing a kill to prevent situations
           // where kill is issued before task is launched.
           String pidStr = jvmIdToPid.get(jvmId);
-          if (pidStr != null) {
+          if (pidStr != null && !pidStr.equals("")){ 
             String user = env.conf.getUser();
-            int pid = Integer.parseInt(pidStr);
             // start a thread that will kill the process dead
             if (sleeptimeBeforeSigkill > 0) {
-              new DelayedProcessKiller(user, pid, sleeptimeBeforeSigkill, 
+              new DelayedProcessKiller(user, pidStr, sleeptimeBeforeSigkill, 
                                        Signal.KILL).start();
-              controller.signalTask(user, pid, Signal.TERM);
+              controller.signalTask(user, pidStr, Signal.TERM);
             } else {
-              controller.signalTask(user, pid, Signal.KILL);
+              controller.signalTask(user, pidStr, Signal.KILL);
             }
           } else {
             LOG.info(String.format("JVM Not killed %s but just removed", jvmId
@@ -592,6 +599,7 @@ class JvmManager {
   static class JvmEnv { //Helper class
     List<String> vargs;
     List<String> setup;
+    List<String> classpaths;
     File stdout;
     File stderr;
     File workDir;
@@ -601,12 +609,19 @@ class JvmManager {
 
     public JvmEnv(List <String> setup, Vector<String> vargs, File stdout, 
         File stderr, long logSize, File workDir, JobConf conf) {
+      this(setup, vargs, null, stdout, stderr, logSize, workDir, conf);
+    }
+        
+    // Construct JvmEnv with classpaths to use
+    public JvmEnv(List <String> setup, Vector<String> vargs, List <String> classpaths, 
+        File stdout, File stderr, long logSize, File workDir, JobConf conf) {
       this.setup = setup;
       this.vargs = vargs;
       this.stdout = stdout;
       this.stderr = stderr;
       this.workDir = workDir;
       this.conf = conf;
+      this.classpaths = classpaths;
     }
   }
 }

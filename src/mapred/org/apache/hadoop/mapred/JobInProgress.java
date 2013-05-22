@@ -63,6 +63,7 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.security.token.TokenIdentifier;
 import org.apache.hadoop.util.StringUtils;
+import org.apache.hadoop.util.Shell;
 
 /*************************************************************
  * JobInProgress maintains all the info for keeping

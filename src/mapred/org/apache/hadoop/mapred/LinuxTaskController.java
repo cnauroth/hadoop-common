@@ -38,6 +38,7 @@ import org.apache.hadoop.util.ProcessTree.Signal;
 import org.apache.hadoop.util.Shell.ExitCodeException;
 import org.apache.hadoop.util.Shell.ShellCommandExecutor;
 import org.apache.hadoop.util.StringUtils;
+import org.apache.hadoop.util.Shell;
 
 /**
  * A {@link TaskController} that runs the task JVMs as the user 
@@ -73,9 +74,14 @@ class LinuxTaskController extends TaskController {
   @Override
   public void setConf(Configuration conf) {
     super.setConf(conf);
-    File hadoopBin = new File(System.getenv("HADOOP_HOME"), "bin");
-    String defaultTaskController = 
-        new File(hadoopBin, "task-controller").getAbsolutePath();
+
+    String defaultTaskController = null;
+    try {
+      defaultTaskController = Shell.getQualifiedBinPath("task-controller");
+    } catch (IOException ioe) {
+      LOG.warn("Could not locate the default native taskcontroller"+ioe);
+    }
+
     taskControllerExe = conf.get(TASK_CONTROLLER_EXEC_KEY, 
                                  defaultTaskController);       
   }
@@ -204,9 +210,31 @@ class LinuxTaskController extends TaskController {
                                   File currentWorkDirectory,
                                   String stdout,
                                   String stderr) throws IOException {
+	return launchTask(user, jobId, attemptId, setup, jvmArguments,
+                      null, currentWorkDirectory, stdout, stderr);
+  }
 
+  @Override
+  public int launchTask(String user, 
+                                  String jobId,
+                                  String attemptId,
+                                  List<String> setup,
+                                  List<String> jvmArguments,
+                                  List<String> classPaths,
+                                  File currentWorkDirectory,
+                                  String stdout,
+                                  String stderr) throws IOException {
     ShellCommandExecutor shExec = null;
     try {
+      if (classPaths != null && classPaths.size() > 0) {
+        // Get the classpath string
+        String clsPaths = StringUtils.join(File.pathSeparator, classPaths);
+
+        // Add the classpath as the first Java argument
+        jvmArguments.add(1, "-classpath");
+        jvmArguments.add(2, clsPaths);
+      }
+
       FileSystem rawFs = FileSystem.getLocal(getConf()).getRaw();
       long logSize = 0; //TODO MAPREDUCE-1100
       // get the JVM command line.
@@ -219,7 +247,7 @@ class LinuxTaskController extends TaskController {
       Path p = new Path(allocator.getLocalPathForWrite(
           TaskTracker.getPrivateDirTaskScriptLocation(user, jobId, attemptId),
           getConf()), COMMAND_FILE);
-      String commandFile = writeCommand(cmdLine, rawFs, p); 
+      String commandFile = writeCommand(cmdLine, rawFs, p).getAbsolutePath(); 
 
       String[] command = 
         new String[]{taskControllerExe, 
@@ -259,7 +287,7 @@ class LinuxTaskController extends TaskController {
     }
     return 0;
   }
-
+  
   @Override
   public void createLogDir(TaskAttemptID taskID,
                            boolean isCleanup) throws IOException {
@@ -316,14 +344,14 @@ class LinuxTaskController extends TaskController {
   }
 
   @Override
-  public void signalTask(String user, int taskPid, 
+  public void signalTask(String user, String taskPid, 
                          Signal signal) throws IOException {
     String[] command = 
       new String[]{taskControllerExe, 
                    user,
                    localStorage.getDirsString(),
                    Integer.toString(Commands.SIGNAL_TASK.getValue()),
-                   Integer.toString(taskPid),
+                   taskPid,
                    Integer.toString(signal.getValue())};
     ShellCommandExecutor shExec = new ShellCommandExecutor(command);
     if (LOG.isDebugEnabled()) {

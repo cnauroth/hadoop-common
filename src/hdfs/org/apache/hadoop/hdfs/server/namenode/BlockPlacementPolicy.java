@@ -113,13 +113,13 @@ public abstract class BlockPlacementPolicy {
    * 
    * @param srcPath the full pathname of the file to be verified
    * @param lBlk block with locations
-   * @param minRacks number of racks the block should be replicated to
+   * @param replication the replication factor for the file
    * @return the difference between the required and the actual number of racks
    * the block is replicated to.
    */
   abstract public int verifyBlockPlacement(String srcPath,
                                            LocatedBlock lBlk,
-                                           int minRacks);
+                                           short replication);
   /**
    * Decide whether deleting the specified replica of the block still makes 
    * the block conform to the configured block placement policy.
@@ -245,6 +245,25 @@ public abstract class BlockPlacementPolicy {
     } else {
       exactlyOne.remove(cur);
     }
+  }
+
+  /**
+   * returns true if a block can be moved from source to 
+   * target for balancing purposes as per the placement policy.
+   * @param block block to be moved
+   * @param source datanode from which the block should be moved
+   * @param target datanode to which the block should be moved
+   * @param locations the current list of all datanodes containing this block
+   * @return
+   */
+  abstract public boolean canMove(Block block, DatanodeInfo source, DatanodeInfo target, List<DatanodeInfo> locations);
+
+  /**
+   * returns true if the policy is compatible with balancer
+   * @return
+   */
+  public boolean isCompatibleWithBalancer() {
+    return false;
   }
 
   /**

@@ -540,8 +540,14 @@ abstract public class Task implements Writable, Configurable {
             .getResourceCalculatorPlugin(clazz, conf);
     LOG.info(" Using ResourceCalculatorPlugin : " + resourceCalculator);
     if (resourceCalculator != null) {
-      initCpuCumulativeTime =
-        resourceCalculator.getProcResourceValues().getCumulativeCpuTime();
+      if (jvmContext != null) {
+        resourceCalculator.setProcessPid(jvmContext.pid);
+        initCpuCumulativeTime = resourceCalculator.getProcResourceValues()
+            .getCumulativeCpuTime();
+      } else {
+        // jvmContext is not set in local job mode
+        resourceCalculator = null;
+      }
     }
   }
   

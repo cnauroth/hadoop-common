@@ -39,6 +39,7 @@ import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.permission.PermissionStatus;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
@@ -161,13 +162,24 @@ public class FSEditLog {
     private FileChannel fc;         // channel of the file stream for sync
     private DataOutputBuffer bufCurrent;  // current buffer for writing
     private DataOutputBuffer bufReady;    // buffer ready for flushing
+    private Configuration conf;
+    private boolean syncWrites;
 
     EditLogFileOutputStream(File name) throws IOException {
       super();
+      conf = new Configuration();
+      syncWrites =
+          conf.getBoolean("dfs.namenode.edits.noeditlogchannelflush", false);
+
       file = name;
       bufCurrent = new DataOutputBuffer(sizeFlushBuffer);
       bufReady = new DataOutputBuffer(sizeFlushBuffer);
-      RandomAccessFile rp = new RandomAccessFile(name, "rw");
+      RandomAccessFile rp = null;
+      if (syncWrites) {
+        rp = new RandomAccessFile(name, "rws");
+      } else {
+        rp = new RandomAccessFile(name, "rw");
+      }
       fp = new FileOutputStream(rp.getFD()); // open for append
       fc = rp.getChannel();
       fc.position(fc.size());
@@ -250,7 +262,13 @@ public class FSEditLog {
       preallocate();            // preallocate file if necessary
       bufReady.writeTo(fp);     // write data to file
       bufReady.reset();         // erase all data in the buffer
-      fc.force(false);          // metadata updates not needed because of preallocation
+      if (syncWrites) {
+        // if writing synchronously, just make sure that the output stream is flushed
+        fp.flush();
+      } else {
+        // metadata updates not needed because of preallocation
+        fc.force(false); 
+      }
     }
 
     /**
@@ -424,7 +442,7 @@ public class FSEditLog {
         eStream.flush();
         eStream.close();
       } catch (IOException ioe) {
-        removeEditsAndStorageDir(idx);
+        fsimage.removeStorageDir(getStorageDirForStream(idx));
         idx--;
       }
     }
@@ -466,22 +484,33 @@ public class FSEditLog {
   }
 
   /**
-   * Remove the given edits stream and its containing storage dir.
+   * For error injection tests only. It closes edit stream, unlocks storage
+   * directory, and reopen the original stream with a different
+   * EditLogFileOutputStream which can inject errors.
    */
-  synchronized void removeEditsAndStorageDir(int idx) {
+  synchronized void replaceEditsStream(FSImage fsimage, File sdRoot,
+      EditLogFileOutputStream stream) {
     exitIfStreamsNotSet();
 
-    assert idx < getNumStorageDirs();
-    assert getNumStorageDirs() == editStreams.size();
-    
-    File dir = getStorageDirForStream(idx);
-    editStreams.remove(idx);
-    exitIfNoStreams();
-    fsimage.removeStorageDir(dir);
+    for (int idx = 0; idx < editStreams.size(); idx++) {
+      File parentDir = getStorageDirForStream(idx);
+      if (parentDir.getAbsolutePath().equals(sdRoot.getAbsolutePath())) {
+        StorageDirectory sd = fsimage.getStorageDir(idx);
+        try {
+          EditLogOutputStream estream = editStreams.get(idx);
+          estream.close();
+          editStreams.set(idx, stream);
+          sd.unlock();
+        } catch (IOException ioe) {
+          ioe.printStackTrace();
+        }
+      }
+    }
   }
-
+  
   /**
    * Remove all edits streams for the given storage directory.
+   * Also close the stream and unlock the storage directory.
    */
   synchronized void removeEditsForStorageDir(StorageDirectory sd) {
     exitIfStreamsNotSet();
@@ -493,7 +522,13 @@ public class FSEditLog {
       File parentDir = getStorageDirForStream(idx);
       if (parentDir.getAbsolutePath().equals(
             sd.getRoot().getAbsolutePath())) {
-        editStreams.remove(idx);
+        EditLogOutputStream s = editStreams.remove(idx);
+        try {
+          s.close();
+          sd.unlock();
+        } catch (IOException e) {
+          LOG.warn("Failed to close the stream or unlock storage dir");
+        }
         idx--;
       }
     }
@@ -514,7 +549,7 @@ public class FSEditLog {
       if (-1 == idx) {
         fatalExit("Unable to find edits stream with IO error");
       }
-      removeEditsAndStorageDir(idx);
+      fsimage.removeStorageDir(getStorageDirForStream(idx));
     }
     fsimage.incrementCheckpointTime();
   }
@@ -1189,7 +1224,7 @@ public class FSEditLog {
       try {
         eStream.write(op, writables);
       } catch (IOException ioe) {
-        removeEditsAndStorageDir(idx);
+        fsimage.removeStorageDir(getStorageDirForStream(idx));
         idx--; 
       }
     }

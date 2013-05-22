@@ -191,6 +191,18 @@
 </property>
 
 <property>
+  <name>fs.asv.impl</name>
+  <value>org.apache.hadoop.fs.azurenative.NativeAzureFileSystem</value>
+  <description>The FileSystem for asv: (Native Azure) uris.</description>
+</property>
+
+<property>
+  <name>fs.asvs.impl</name>
+  <value>org.apache.hadoop.fs.azurenative.NativeAzureFileSystem</value>
+  <description>The FileSystem for asvs: (Native Azure) secured uris.</description>
+</property>
+
+<property>
   <name>fs.kfs.impl</name>
   <value>org.apache.hadoop.fs.kfs.KosmosFileSystem</value>
   <description>The FileSystem for kfs: uris.</description>

@@ -289,7 +289,33 @@ public class RawLocalFileSystem extends FileSystem {
       return true;
     }
     LOG.debug("Falling through to a copy of " + src + " to " + dst);
-    return FileUtil.copy(this, src, this, dst, true, getConf());
+
+    // TODO: What if src and dst are same or subset of another?
+
+    if (this.exists(dst)) {
+      FileStatus sdst = this.getFileStatus(dst);
+      if (sdst.isDir()) {
+        // If dst exists and is a folder, we have to copy the source content, otherwise
+        // we will copy the src folder into the dst folder what is not the desired
+        // behavior for rename
+
+        FileStatus contents[] = this.listStatus(src);
+        for (int i = 0; i < contents.length; i++) {
+          FileUtil.copy(this, contents[i].getPath(), this,
+            new Path(dst, contents[i].getPath().getName()),
+            true, getConf());
+        }
+
+        // Delete the source folder
+        return this.delete(src, true);
+      }
+      else {
+        return FileUtil.copy(this, src, this, dst, true, getConf());
+      }
+    }
+    else {
+      return FileUtil.copy(this, src, this, dst, true, getConf());
+    }
   }
   
   @Deprecated
@@ -408,13 +434,15 @@ public class RawLocalFileSystem extends FileSystem {
      * We recognize if the information is already loaded by check if
      * onwer.equals("").
      */
+    static final String loginUser = System.getProperty("user.name");
+
     private boolean isPermissionLoaded() {
       return !super.getOwner().equals(""); 
     }
     
-    RawLocalFileStatus(File f, long defaultBlockSize, FileSystem fs) {
+    RawLocalFileStatus(File f, long defaultBlockSize, FileSystem fs) { 
       super(f.length(), f.isDirectory(), 1, defaultBlockSize,
-            f.lastModified(), new Path(f.getPath()).makeQualified(fs));
+          f.lastModified(), new Path(f.getPath()).makeQualified(fs));
     }
     
     @Override
@@ -441,13 +469,46 @@ public class RawLocalFileSystem extends FileSystem {
       return super.getGroup();
     }
 
+    @Override
+    public boolean isOwnedByUser(String user, String [] userGroups) {
+      if (user == null) {
+        throw new IllegalArgumentException(
+            "user argument is null");
+      }
+      if (!isPermissionLoaded()) {
+        loadPermissionInfo();
+      }
+
+      String owner = super.getOwner();
+      boolean success = owner.equals(user);
+
+      if (!success && Shell.WINDOWS && userGroups != null) {
+        final String AdminsGroupString = "Administrators";
+
+        // On Windows Server 2003 and later, if a file or a directory is
+        // created by users in the Administrators group, the file owner will be
+        // the Administrators group instead of to the actual user. Since it
+        // would be technically challenging to go against the OS behavior
+        // and update all such cases by explicitly setting the ownership on
+        // Windows (and would have some performance implications), we are
+        // following the OS model. Specifically, if a given user is a member of
+        // the Administrators group and a file is owned by Administrators
+        // group, isOwnedByUser will return true.
+        success = owner.equals(AdminsGroupString)
+            && Arrays.asList(userGroups).contains(AdminsGroupString);
+      }
+
+      return success;
+    }
+
     /// loads permissions, owner, and group from `ls -ld`
     private void loadPermissionInfo() {
       IOException e = null;
       try {
-        StringTokenizer t = new StringTokenizer(
-            FileUtil.execCommand(new File(getPath().toUri()), 
-                                 Shell.getGET_PERMISSION_COMMAND()));
+        String output = FileUtil.execCommand(new File(getPath().toUri()), 
+            Shell.getGetPermissionCommand());
+        StringTokenizer t =
+            new StringTokenizer(output, Shell.TOKEN_SEPARATOR_REGEX);
         //expected format
         //-rw-------    1 username groupname ...
         String permission = t.nextToken();
@@ -456,7 +517,17 @@ public class RawLocalFileSystem extends FileSystem {
         }
         setPermission(FsPermission.valueOf(permission));
         t.nextToken();
-        setOwner(t.nextToken());
+        
+        String owner = t.nextToken();
+        // If on windows domain, token format is DOMAIN\\user and we want to
+        // extract only the user name
+        if (Shell.WINDOWS) {
+          int i = owner.indexOf('\\');
+          if (i != -1)
+            owner = owner.substring(i + 1);
+        }
+        setOwner(owner);
+
         setGroup(t.nextToken());
       } catch (Shell.ExitCodeException ioe) {
         if (ioe.getExitCode() != 1) {
@@ -492,25 +563,14 @@ public class RawLocalFileSystem extends FileSystem {
   @Override
   public void setOwner(Path p, String username, String groupname
       ) throws IOException {
-    if (username == null && groupname == null) {
-      throw new IOException("username == null && groupname == null");
-    }
-
-    if (username == null) {
-      FileUtil.execCommand(pathToFile(p), Shell.SET_GROUP_COMMAND, groupname); 
-    } else {
-      //OWNER[:[GROUP]]
-      String s = username + (groupname == null? "": ":" + groupname);
-      FileUtil.execCommand(pathToFile(p), Shell.SET_OWNER_COMMAND, s);
-    }
+    FileUtil.setOwner(pathToFile(p), username, groupname);
   }
 
   /**
    * Use the command chmod to set permission.
    */
   @Override
-  public void setPermission(Path p, FsPermission permission
-                            ) throws IOException {
+  public void setPermission(Path p, FsPermission permission) throws IOException {
     FileUtil.setPermission(pathToFile(p), permission);
   }
 }

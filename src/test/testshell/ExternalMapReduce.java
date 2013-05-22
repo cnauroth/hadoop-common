@@ -19,8 +19,13 @@
 package testshell;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.jar.Attributes;
+import java.util.jar.JarInputStream;
+import java.util.jar.Manifest;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
@@ -37,6 +42,7 @@ import org.apache.hadoop.mapred.Mapper;
 import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reducer;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.util.Shell;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
@@ -55,6 +61,89 @@ public class ExternalMapReduce extends Configured implements Tool {
 
   }
 
+  // Executes the given shell command. Returns zero on success.
+  private static int execCommandAndCatchEx(String []argv) throws IOException {
+    Process p = Runtime.getRuntime().exec(argv);
+    int ret = -1;
+    try {
+      ret = p.waitFor();
+    } catch(InterruptedException ie) {
+      //do nothing here.
+    }
+    return ret;
+  }
+
+  // Verifies that the given list of files exist on the local file system.
+  // Throws on failure.
+  private static void verifyFilesExist(String [] fileList) throws IOException {
+    // fork off ls to see if the file exists.
+    // java file.exists() does not work on symlinks on java6
+    if (Shell.WINDOWS) {
+      // FIXME: Checking file existence one by one until multiple file
+      // scenario is supported by winutils
+      for (int i = 0; i< fileList.length; ++i) {
+        String[] argv = new String[3];
+        argv[0] = Shell.WINUTILS;
+        argv[1] = "ls";
+        argv[2] = fileList[i];
+
+        int ret = execCommandAndCatchEx(argv);
+        if (ret != 0) {
+          throw new IOException(fileList[i] + " does not exist");
+        }
+      }
+    } else {
+      String[] argv = new String[fileList.length + 1];
+      argv[0] = "ls";
+      for (int i = 0; i < fileList.length; ++i) {
+        argv[i + 1] = fileList[i];
+      }
+
+      int ret = execCommandAndCatchEx(argv);
+      if (ret != 0) {
+        throw new IOException("files_tmp does not exist");
+      }
+    }
+  }
+
+  // Check if the given item exists in classpath
+  private static boolean itemInClasspath(String elementName) 
+    throws FileNotFoundException, IOException {
+    boolean found = false;
+    String classpath = System.getProperty("java.class.path");
+
+    // Check if the element exists in the classpath
+    if (classpath.indexOf(elementName) >= 0) {
+      found = true;
+    } else {
+      // In case of Windows, classpath is embedded in a referencing jar
+      if (Shell.WINDOWS) {
+        String[] cpFiles = classpath.split(File.pathSeparator);
+        if (cpFiles != null && cpFiles.length == 1 && 
+            cpFiles[0].endsWith(".jar")) {
+          // Search for the element in the jar manifest
+          found = itemInJarClasspath(elementName, cpFiles[0]);
+        }
+      }
+    }
+    return found;
+  }
+  
+  // Check if the given item exists as a classpath element in a jar file
+  private static boolean itemInJarClasspath(String elementName, 
+                                            String jarFileName) 
+    throws FileNotFoundException, IOException{
+    // Load the Jar manifest
+    JarInputStream jarStream = new JarInputStream(
+        new FileInputStream(jarFileName));
+    Manifest jarManifest = jarStream.getManifest();
+    String classpath = jarManifest.getMainAttributes().getValue(
+        Attributes.Name.CLASS_PATH.toString());
+    
+    // Check for the element in the classpath list
+    return (classpath.indexOf(elementName) >= 0);
+  }
+  
   public static class MapClass extends MapReduceBase 
     implements Mapper<WritableComparable, Writable,
                       WritableComparable, IntWritable> {
@@ -64,35 +153,19 @@ public class ExternalMapReduce extends Configured implements Tool {
       throws IOException {
       //check for classpath
       String classpath = System.getProperty("java.class.path");
-      if (classpath.indexOf("testjob.jar") == -1) {
+      if (!itemInClasspath("testjob.jar")) {
         throw new IOException("failed to find in the library " + classpath);
       }
-      if (classpath.indexOf("test.jar") == -1) {
+      if (!itemInClasspath("test.jar")) {
         throw new IOException("failed to find the library test.jar in" 
             + classpath);
       }
-      //fork off ls to see if the file exists.
-      // java file.exists() will not work on 
-      // cygwin since it is a symlink
-      String[] argv = new String[8];
-      argv[0] = "ls";
-      argv[1] = "files_tmp";
-      argv[2] = "localfilelink";
-      argv[3] = "dfsfilelink";
-      argv[4] = "tarlink";
-      argv[5] = "ziplink";
-      argv[6] = "test.tgz";
-      argv[7] = "jarlink";
-      Process p = Runtime.getRuntime().exec(argv);
-      int ret = -1;
-      try {
-        ret = p.waitFor();
-      } catch(InterruptedException ie) {
-        //do nothing here.
-      }
-      if (ret != 0) {
-        throw new IOException("files_tmp does not exist");
-      }
+
+      String[] expectedFileList = { "files_tmp", "localfilelink",
+          "dfsfilelink", "tarlink", "ziplink", "test.tgz", "jarlink" }; 
+
+      verifyFilesExist(expectedFileList);
+
       File file = new File("./jarlink/test.txt");
       if (!file.canExecute()) {
         throw new IOException("jarlink/test.txt is not executable");

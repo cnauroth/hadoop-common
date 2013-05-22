@@ -63,8 +63,8 @@ public class TestJobInProgress {
 
   static final String[] racks = new String[] { "/r1", "/r1", "/r2", "/r3" };
 
-  private static Path TEST_DIR = 
-    new Path(System.getProperty("test.build.data","/tmp"), "jip-testing");
+  private static Path TEST_DIR =
+    new Path("/tmp/TestJobInProgress", "jip-testing");
   private static int numSlaves = 4;
 
   public static class FailMapTaskJob extends MapReduceBase implements

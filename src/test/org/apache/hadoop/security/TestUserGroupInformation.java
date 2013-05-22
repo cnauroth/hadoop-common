@@ -39,6 +39,7 @@ import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.security.token.TokenIdentifier;
 import org.junit.Test;
 import static org.apache.hadoop.test.MetricsAsserts.*;
+import org.apache.hadoop.util.Shell;
 
 public class TestUserGroupInformation {
   final private static String USER_NAME = "user1@HADOOP.APACHE.ORG";
@@ -107,19 +108,38 @@ public class TestUserGroupInformation {
     BufferedReader br = new BufferedReader
                           (new InputStreamReader(pp.getInputStream()));
     String userName = br.readLine().trim();
+    // If on windows domain, token format is DOMAIN\\user and we want to
+    // extract only the user name
+    if(Shell.WINDOWS) {
+      int sp = userName.lastIndexOf('\\');
+      if (sp != -1) {
+        userName = userName.substring(sp + 1);
+      }
+      // user names are case insensitive on Windows. Make consistent
+      userName = userName.toLowerCase();
+    }
     // get the groups
-    pp = Runtime.getRuntime().exec("id -Gn");
+    pp = Runtime.getRuntime().exec(Shell.WINDOWS ?
+      Shell.WINUTILS + " groups -F" : "id -Gn");
     br = new BufferedReader(new InputStreamReader(pp.getInputStream()));
     String line = br.readLine();
+
     System.out.println(userName + ":" + line);
    
     Set<String> groups = new LinkedHashSet<String> ();    
-    for(String s: line.split("[\\s]")) {
+    String[] tokens = line.split(Shell.TOKEN_SEPARATOR_REGEX);
+    for(String s: tokens) {
       groups.add(s);
     }
     
     final UserGroupInformation login = UserGroupInformation.getCurrentUser();
-    assertEquals(userName, login.getShortUserName());
+    String loginUserName = login.getShortUserName();
+    if(Shell.WINDOWS) {
+      // user names are case insensitive on Windows. Make consistent
+      loginUserName = loginUserName.toLowerCase();
+    }
+    assertEquals(userName, loginUserName);
+
     String[] gi = login.getGroupNames();
     assertEquals(groups.size(), gi.length);
     for(int i=0; i < gi.length; i++) {
