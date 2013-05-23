@@ -61,8 +61,8 @@ import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.BlockUCState;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState;
 import org.apache.hadoop.hdfs.server.namenode.FSClusterStats;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
-import org.apache.hadoop.hdfs.server.namenode.Namesystem;
 import org.apache.hadoop.hdfs.server.namenode.NameNode.OperationCategory;
+import org.apache.hadoop.hdfs.server.namenode.Namesystem;
 import org.apache.hadoop.hdfs.server.namenode.metrics.NameNodeMetrics;
 import org.apache.hadoop.hdfs.server.protocol.BlockCommand;
 import org.apache.hadoop.hdfs.server.protocol.BlocksWithLocations;
@@ -1029,8 +1029,10 @@ public class BlockManager {
 
   /**
    * Invalidates the given block on the given datanode.
+   * @return true if the block was successfully invalidated and no longer
+   * present in the BlocksMap
    */
-  private void invalidateBlock(BlockToMarkCorrupt b, DatanodeInfo dn
+  private boolean invalidateBlock(BlockToMarkCorrupt b, DatanodeInfo dn
       ) throws IOException {
     blockLog.info("BLOCK* invalidateBlock: " + b + " on " + dn);
     DatanodeDescriptor node = getDatanodeManager().getDatanode(dn);
@@ -1047,7 +1049,7 @@ public class BlockManager {
           nr.replicasOnStaleNodes() + " replica(s) are located on nodes " +
           "with potentially out-of-date block reports");
       postponeBlock(b.corrupted);
-
+      return false;
     } else if (nr.liveReplicas() >= 1) {
       // If we have at least one copy on a live node, then we can delete it.
       addToInvalidates(b.corrupted, dn);
@@ -1056,9 +1058,11 @@ public class BlockManager {
         blockLog.debug("BLOCK* invalidateBlocks: "
             + b + " on " + dn + " listed for deletion.");
       }
+      return true;
     } else {
       blockLog.info("BLOCK* invalidateBlocks: " + b
           + " on " + dn + " is the only copy and was not deleted");
+      return false;
     }
   }
 
@@ -1333,11 +1337,12 @@ public class BlockManager {
   public DatanodeDescriptor[] chooseTarget(final String src,
       final int numOfReplicas, final DatanodeDescriptor client,
       final HashMap<Node, Node> excludedNodes,
-      final long blocksize) throws IOException {
-    // choose targets for the new block to be allocated.
+      final long blocksize, List<String> favoredNodes) throws IOException {
+    List<DatanodeDescriptor> favoredDatanodeDescriptors = 
+        getDatanodeDescriptors(favoredNodes);
     final DatanodeDescriptor targets[] = blockplacement.chooseTarget(src,
-        numOfReplicas, client, new ArrayList<DatanodeDescriptor>(), false,
-        excludedNodes, blocksize);
+        numOfReplicas, client, excludedNodes, blocksize, 
+        favoredDatanodeDescriptors);
     if (targets.length < minReplication) {
       throw new IOException("File " + src + " could only be replicated to "
           + targets.length + " nodes instead of minReplication (="
@@ -1348,6 +1353,24 @@ public class BlockManager {
           + " node(s) are excluded in this operation.");
     }
     return targets;
+  }
+
+  /**
+   * Get list of datanode descriptors for given list of nodes. Nodes are
+   * hostaddress:port or just hostaddress.
+   */
+  List<DatanodeDescriptor> getDatanodeDescriptors(List<String> nodes) {
+    List<DatanodeDescriptor> datanodeDescriptors = null;
+    if (nodes != null) {
+      datanodeDescriptors = new ArrayList<DatanodeDescriptor>(nodes.size());
+      for (int i = 0; i < nodes.size(); i++) {
+        DatanodeDescriptor node = datanodeManager.getDatanodeDescriptor(nodes.get(i));
+        if (node != null) {
+          datanodeDescriptors.add(node);
+        }
+      }
+    }
+    return datanodeDescriptors;
   }
 
   /**
@@ -2191,7 +2214,7 @@ assert storedBlock.findDatanode(dn) < 0 : "Block " + block
    */
   private void invalidateCorruptReplicas(BlockInfo blk) {
     Collection<DatanodeDescriptor> nodes = corruptReplicas.getNodes(blk);
-    boolean gotException = false;
+    boolean removedFromBlocksMap = true;
     if (nodes == null)
       return;
     // make a copy of the array of nodes in order to avoid
@@ -2199,16 +2222,19 @@ assert storedBlock.findDatanode(dn) < 0 : "Block " + block
     DatanodeDescriptor[] nodesCopy = nodes.toArray(new DatanodeDescriptor[0]);
     for (DatanodeDescriptor node : nodesCopy) {
       try {
-        invalidateBlock(new BlockToMarkCorrupt(blk, null), node);
+        if (!invalidateBlock(new BlockToMarkCorrupt(blk, null), node)) {
+          removedFromBlocksMap = false;
+        }
       } catch (IOException e) {
         blockLog.info("invalidateCorruptReplicas "
             + "error in deleting bad block " + blk + " on " + node, e);
-        gotException = true;
+        removedFromBlocksMap = false;
       }
     }
     // Remove the block from corruptReplicasMap
-    if (!gotException)
+    if (removedFromBlocksMap) {
       corruptReplicas.removeFromCorruptReplicasMap(blk);
+    }
   }
 
   /**

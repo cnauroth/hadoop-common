@@ -53,6 +53,7 @@ import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
+import org.apache.hadoop.yarn.server.resourcemanager.ResourceManager;
 import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
 import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
@@ -1243,7 +1244,7 @@ public class LeafQueue implements CSQueue {
     // Create the container
     Container container = BuilderUtils.newContainer(containerId, nodeId,
         node.getRMNode().getHttpAddress(), capability, priority,
-        null);
+        null, ResourceManager.clusterTimeStamp);
   
     return container;
   }
@@ -1295,16 +1296,13 @@ public class LeafQueue implements CSQueue {
         unreserve(application, priority, node, rmContainer);
       }
 
-      // Create container tokens in secure-mode
-      if (UserGroupInformation.isSecurityEnabled()) {
-        ContainerToken containerToken = 
-            createContainerToken(application, container);
-        if (containerToken == null) {
-          // Something went wrong...
-          return Resources.none();
-        }
-        container.setContainerToken(containerToken);
+      ContainerToken containerToken =
+          createContainerToken(application, container);
+      if (containerToken == null) {
+        // Something went wrong...
+        return Resources.none();
       }
+      container.setContainerToken(containerToken);
       
       // Inform the application
       RMContainer allocatedContainer = 

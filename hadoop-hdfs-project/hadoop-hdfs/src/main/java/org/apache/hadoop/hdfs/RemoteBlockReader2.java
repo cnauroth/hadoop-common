@@ -44,6 +44,7 @@ import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
 import org.apache.hadoop.hdfs.protocolPB.PBHelper;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.InvalidBlockTokenException;
+import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.util.DataChecksum;
 
@@ -82,6 +83,7 @@ public class RemoteBlockReader2  implements BlockReader {
   
   final private Peer peer;
   final private DatanodeID datanodeID;
+  final private PeerCache peerCache;
   private final ReadableByteChannel in;
   private DataChecksum checksum;
   
@@ -104,6 +106,11 @@ public class RemoteBlockReader2  implements BlockReader {
    * at the beginning so that the read can begin on a chunk boundary.
    */
   private long bytesNeededToFinish;
+
+  /**
+   * True if we are reading from a local DataNode.
+   */
+  private final boolean isLocal;
 
   private final boolean verifyChecksum;
 
@@ -253,7 +260,9 @@ public class RemoteBlockReader2  implements BlockReader {
   protected RemoteBlockReader2(String file, String bpid, long blockId,
       DataChecksum checksum, boolean verifyChecksum,
       long startOffset, long firstChunkOffset, long bytesToRead, Peer peer,
-      DatanodeID datanodeID) {
+      DatanodeID datanodeID, PeerCache peerCache) {
+    this.isLocal = DFSClient.isLocalAddress(NetUtils.
+        createSocketAddr(datanodeID.getXferAddr()));
     // Path is used only for printing block and file information in debug
     this.peer = peer;
     this.datanodeID = datanodeID;
@@ -262,6 +271,7 @@ public class RemoteBlockReader2  implements BlockReader {
     this.verifyChecksum = verifyChecksum;
     this.startOffset = Math.max( startOffset, 0 );
     this.filename = file;
+    this.peerCache = peerCache;
 
     // The total number of bytes that we need to transfer from the DN is
     // the amount that the user wants (bytesToRead), plus the padding at
@@ -274,8 +284,7 @@ public class RemoteBlockReader2  implements BlockReader {
 
 
   @Override
-  public synchronized void close(PeerCache peerCache,
-      FileInputStreamCache fisCache) throws IOException {
+  public synchronized void close() throws IOException {
     packetReceiver.close();
     startOffset = -1;
     checksum = null;
@@ -365,8 +374,8 @@ public class RemoteBlockReader2  implements BlockReader {
                                      long startOffset, long len,
                                      boolean verifyChecksum,
                                      String clientName,
-                                     Peer peer, DatanodeID datanodeID)
-                                     throws IOException {
+                                     Peer peer, DatanodeID datanodeID,
+                                     PeerCache peerCache) throws IOException {
     // in and out will be closed when sock is closed (by the caller)
     final DataOutputStream out = new DataOutputStream(new BufferedOutputStream(
           peer.getOutputStream()));
@@ -399,7 +408,7 @@ public class RemoteBlockReader2  implements BlockReader {
 
     return new RemoteBlockReader2(file, block.getBlockPoolId(), block.getBlockId(),
         checksum, verifyChecksum, startOffset, firstChunkOffset, len, peer,
-        datanodeID);
+        datanodeID, peerCache);
   }
 
   static void checkSuccess(
@@ -429,5 +438,15 @@ public class RemoteBlockReader2  implements BlockReader {
     // An optimistic estimate of how much data is available
     // to us without doing network I/O.
     return DFSClient.TCP_WINDOW_SIZE;
+  }
+  
+  @Override
+  public boolean isLocal() {
+    return isLocal;
+  }
+  
+  @Override
+  public boolean isShortCircuit() {
+    return false;
   }
 }

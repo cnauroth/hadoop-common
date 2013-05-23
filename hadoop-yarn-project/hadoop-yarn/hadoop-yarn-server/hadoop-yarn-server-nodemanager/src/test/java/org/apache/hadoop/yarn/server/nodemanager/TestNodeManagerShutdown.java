@@ -18,30 +18,28 @@
 
 package org.apache.hadoop.yarn.server.nodemanager;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.ArrayList;
+import java.net.InetSocketAddress;
+import java.security.PrivilegedAction;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.BrokenBarrierException;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CyclicBarrier;
 
 import junit.framework.Assert;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileContext;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.UnsupportedFileSystemException;
+import org.apache.hadoop.net.NetUtils;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.Shell;
+import org.apache.hadoop.yarn.api.ContainerManager;
 import org.apache.hadoop.yarn.api.protocolrecords.GetContainerStatusRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
@@ -51,20 +49,21 @@ import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.ContainerState;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
+import org.apache.hadoop.yarn.api.records.ContainerToken;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.URL;
+import org.apache.hadoop.yarn.api.records.impl.pb.ContainerPBImpl;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.event.Dispatcher;
 import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
-import org.apache.hadoop.yarn.server.nodemanager.DefaultContainerExecutor;
-import org.apache.hadoop.yarn.server.nodemanager.containermanager.ContainerManagerImpl;
-import org.apache.hadoop.yarn.server.nodemanager.metrics.NodeManagerMetrics;
+import org.apache.hadoop.yarn.ipc.YarnRPC;
+import org.apache.hadoop.yarn.server.api.records.MasterKey;
 import org.apache.hadoop.yarn.util.BuilderUtils;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.junit.After;
@@ -86,7 +85,6 @@ public class TestNodeManagerShutdown {
   static final String user = "nobody";
   private FileContext localFS;
   private ContainerId cId;
-  private CyclicBarrier syncBarrier = new CyclicBarrier(2);
 
   @Before
   public void setup() throws UnsupportedFileSystemException {
@@ -106,11 +104,12 @@ public class TestNodeManagerShutdown {
   }
   
   @Test
-  public void testKillContainersOnShutdown() throws IOException {
-    NodeManager nm = getNodeManager();
+  public void testKillContainersOnShutdown() throws IOException,
+      YarnRemoteException {
+    NodeManager nm = new TestNodeManager();
     nm.init(createNMConfig());
     nm.start();
-    startContainers(nm);
+    startContainer(nm, cId, localFS, tmpDir, processStartFile);
     
     final int MAX_TRIES=20;
     int numTries = 0;
@@ -150,39 +149,24 @@ public class TestNodeManagerShutdown {
       reader.close();
     }
   }
-  
-  @SuppressWarnings("unchecked")
-  @Test
-  public void testKillContainersOnResync() throws IOException, InterruptedException {
-    NodeManager nm = new TestNodeManager();
-    YarnConfiguration conf = createNMConfig();
-    nm.init(conf);
-    nm.start();
-    startContainers(nm);
 
-    assert ((TestNodeManager) nm).getNMRegistrationCount() == 1;
-    nm.getNMDispatcher().getEventHandler().
-        handle( new NodeManagerEvent(NodeManagerEventType.RESYNC));
-    try {
-      syncBarrier.await();
-    } catch (BrokenBarrierException e) {
-    }
-    assert ((TestNodeManager) nm).getNMRegistrationCount() == 2;
-  }
-
-  private void startContainers(NodeManager nm) throws IOException {
-    ContainerManagerImpl containerManager = nm.getContainerManager();
-    File scriptFile = createUnhaltingScriptFile();
+  public static void startContainer(NodeManager nm, ContainerId cId,
+      FileContext localFS, File scriptFileDir, File processStartFile)
+      throws IOException, YarnRemoteException {
+    File scriptFile =
+        createUnhaltingScriptFile(cId, scriptFileDir, processStartFile);
     
     ContainerLaunchContext containerLaunchContext =
         recordFactory.newRecordInstance(ContainerLaunchContext.class);
-    Container mockContainer = mock(Container.class);
-    when(mockContainer.getId()).thenReturn(cId);
+    Container mockContainer = new ContainerPBImpl();
+    
+    mockContainer.setId(cId);
 
     NodeId nodeId = BuilderUtils.newNodeId("localhost", 1234);
-    when(mockContainer.getNodeId()).thenReturn(nodeId);
-    when(mockContainer.getNodeHttpAddress()).thenReturn("localhost:12345");
-    containerLaunchContext.setUser(user);
+    mockContainer.setNodeId(nodeId);
+    mockContainer.setNodeHttpAddress("localhost:12345");
+    
+    containerLaunchContext.setUser(cId.toString());
 
     URL localResourceUri =
         ConverterUtils.getYarnUrlFromPath(localFS
@@ -203,11 +187,28 @@ public class TestNodeManagerShutdown {
     List<String> commands = Arrays.asList(Shell.getRunScriptCommand(scriptFile));
     containerLaunchContext.setCommands(commands);
     Resource resource = BuilderUtils.newResource(1024, 1);
-    when(mockContainer.getResource()).thenReturn(resource);
+    mockContainer.setResource(resource);
+    mockContainer.setContainerToken(getContainerToken(nm, cId, nodeId,
+      cId.toString(), resource));
     StartContainerRequest startRequest =
         recordFactory.newRecordInstance(StartContainerRequest.class);
     startRequest.setContainerLaunchContext(containerLaunchContext);
     startRequest.setContainer(mockContainer);
+    UserGroupInformation currentUser = UserGroupInformation
+        .createRemoteUser(cId.toString());
+
+    ContainerManager containerManager =
+        currentUser.doAs(new PrivilegedAction<ContainerManager>() {
+          @Override
+          public ContainerManager run() {
+            Configuration conf = new Configuration();
+            YarnRPC rpc = YarnRPC.create(conf);
+            InetSocketAddress containerManagerBindAddress =
+                NetUtils.createSocketAddrForHost("127.0.0.1", 12345);
+            return (ContainerManager) rpc.getProxy(ContainerManager.class,
+              containerManagerBindAddress, conf);
+          }
+        });
     containerManager.startContainer(startRequest);
     
     GetContainerStatusRequest request =
@@ -218,7 +219,7 @@ public class TestNodeManagerShutdown {
     Assert.assertEquals(ContainerState.RUNNING, containerStatus.getState());
   }
   
-  private ContainerId createContainerId() {
+  public static ContainerId createContainerId() {
     ApplicationId appId = recordFactory.newRecordInstance(ApplicationId.class);
     appId.setClusterTimestamp(0);
     appId.setId(0);
@@ -247,8 +248,9 @@ public class TestNodeManagerShutdown {
    * Creates a script to run a container that will run forever unless
    * stopped by external means.
    */
-  private File createUnhaltingScriptFile() throws IOException {
-    File scriptFile = Shell.appendScriptExtension(tmpDir, "scriptFile");
+  private static File createUnhaltingScriptFile(ContainerId cId,
+      File scriptFileDir, File processStartFile) throws IOException {
+    File scriptFile = Shell.appendScriptExtension(scriptFileDir, "scriptFile");
     PrintWriter fileWriter = new PrintWriter(scriptFile);
     if (Shell.WINDOWS) {
       fileWriter.println("@echo \"Running testscript for delayed kill\"");
@@ -270,60 +272,25 @@ public class TestNodeManagerShutdown {
     fileWriter.close();
     return scriptFile;
   }
-
-  private NodeManager getNodeManager() {
-    return new NodeManager() {
-      @Override
-      protected NodeStatusUpdater createNodeStatusUpdater(Context context,
-          Dispatcher dispatcher, NodeHealthCheckerService healthChecker) {
-        MockNodeStatusUpdater myNodeStatusUpdater = new MockNodeStatusUpdater(
-            context, dispatcher, healthChecker, metrics);
-        return myNodeStatusUpdater;
-      }
-    };
+  
+  public static ContainerToken getContainerToken(NodeManager nm,
+      ContainerId containerId, NodeId nodeId, String user, Resource resource) {
+    return nm.getNMContext().getContainerTokenSecretManager()
+      .createContainerToken(containerId, nodeId, user, resource);
   }
-
+  
   class TestNodeManager extends NodeManager {
-
-    private int registrationCount = 0;
 
     @Override
     protected NodeStatusUpdater createNodeStatusUpdater(Context context,
         Dispatcher dispatcher, NodeHealthCheckerService healthChecker) {
-      return new TestNodeStatusUpdaterImpl(context, dispatcher,
-          healthChecker, metrics);
+      MockNodeStatusUpdater myNodeStatusUpdater =
+          new MockNodeStatusUpdater(context, dispatcher, healthChecker, metrics);
+      return myNodeStatusUpdater;
     }
-
-    public int getNMRegistrationCount() {
-      return registrationCount;
-    }
-
-    class TestNodeStatusUpdaterImpl extends MockNodeStatusUpdater {
-
-      public TestNodeStatusUpdaterImpl(Context context, Dispatcher dispatcher,
-          NodeHealthCheckerService healthChecker, NodeManagerMetrics metrics) {
-        super(context, dispatcher, healthChecker, metrics);
-      }
-
-      @Override
-      protected void registerWithRM() throws YarnRemoteException {
-        super.registerWithRM();
-        registrationCount++;
-      }
-
-      @Override
-      protected void rebootNodeStatusUpdater() {
-        ConcurrentMap<ContainerId, org.apache.hadoop.yarn.server.nodemanager.containermanager.container.Container> containers =
-            getNMContext().getContainers();
-        // ensure that containers are empty before restart nodeStatusUpdater
-        Assert.assertTrue(containers.isEmpty());
-        super.rebootNodeStatusUpdater();
-        try {
-          syncBarrier.await();
-        } catch (InterruptedException e) {
-        } catch (BrokenBarrierException e) {
-        }
-      }
+    
+    public void setMasterKey(MasterKey masterKey) {
+      getNMContext().getContainerTokenSecretManager().setMasterKey(masterKey);
     }
   }
 }

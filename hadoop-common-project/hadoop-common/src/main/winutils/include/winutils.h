@@ -104,11 +104,19 @@ void TaskUsage();
 int Symlink(__in int argc, __in_ecount(argc) wchar_t *argv[]);
 void SymlinkUsage();
 
+int Readlink(__in int argc, __in_ecount(argc) wchar_t *argv[]);
+void ReadlinkUsage();
+
 int SystemInfo();
 void SystemInfoUsage();
 
 DWORD GetFileInformationByName(__in LPCWSTR pathName,  __in BOOL followLink,
   __out LPBY_HANDLE_FILE_INFORMATION lpFileInformation);
+
+DWORD CheckAccessForCurrentUser(
+  __in PCWSTR pathName,
+  __in ACCESS_MASK requestedAccess,
+  __out BOOL *allowed);
 
 DWORD ConvertToLongPath(__in PCWSTR path, __deref_out PWSTR *newPath);
 

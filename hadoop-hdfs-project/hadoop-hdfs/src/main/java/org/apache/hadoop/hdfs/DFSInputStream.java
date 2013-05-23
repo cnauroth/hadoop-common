@@ -81,7 +81,74 @@ public class DFSInputStream extends FSInputStream implements ByteBufferReadable 
   private LocatedBlock currentLocatedBlock = null;
   private long pos = 0;
   private long blockEnd = -1;
+  private final ReadStatistics readStatistics = new ReadStatistics();
 
+  public static class ReadStatistics {
+    public ReadStatistics() {
+      this.totalBytesRead = 0;
+      this.totalLocalBytesRead = 0;
+      this.totalShortCircuitBytesRead = 0;
+    }
+
+    public ReadStatistics(ReadStatistics rhs) {
+      this.totalBytesRead = rhs.getTotalBytesRead();
+      this.totalLocalBytesRead = rhs.getTotalLocalBytesRead();
+      this.totalShortCircuitBytesRead = rhs.getTotalShortCircuitBytesRead();
+    }
+
+    /**
+     * @return The total bytes read.  This will always be at least as
+     * high as the other numbers, since it includes all of them.
+     */
+    public long getTotalBytesRead() {
+      return totalBytesRead;
+    }
+
+    /**
+     * @return The total local bytes read.  This will always be at least
+     * as high as totalShortCircuitBytesRead, since all short-circuit
+     * reads are also local.
+     */
+    public long getTotalLocalBytesRead() {
+      return totalLocalBytesRead;
+    }
+
+    /**
+     * @return The total short-circuit local bytes read.
+     */
+    public long getTotalShortCircuitBytesRead() {
+      return totalShortCircuitBytesRead;
+    }
+
+    /**
+     * @return The total number of bytes read which were not local.
+     */
+    public long getRemoteBytesRead() {
+      return totalBytesRead - totalLocalBytesRead;
+    }
+    
+    void addRemoteBytes(long amt) {
+      this.totalBytesRead += amt;
+    }
+
+    void addLocalBytes(long amt) {
+      this.totalBytesRead += amt;
+      this.totalLocalBytesRead += amt;
+    }
+
+    void addShortCircuitBytes(long amt) {
+      this.totalBytesRead += amt;
+      this.totalLocalBytesRead += amt;
+      this.totalShortCircuitBytesRead += amt;
+    }
+    
+    private long totalBytesRead;
+
+    private long totalLocalBytesRead;
+
+    private long totalShortCircuitBytesRead;
+  }
+  
   private final FileInputStreamCache fileInputStreamCache;
 
   /**
@@ -441,7 +508,7 @@ public class DFSInputStream extends FSInputStream implements ByteBufferReadable 
 
     // Will be getting a new BlockReader.
     if (blockReader != null) {
-      blockReader.close(peerCache, fileInputStreamCache);
+      blockReader.close();
       blockReader = null;
     }
 
@@ -527,7 +594,7 @@ public class DFSInputStream extends FSInputStream implements ByteBufferReadable 
     dfsClient.checkOpen();
 
     if (blockReader != null) {
-      blockReader.close(peerCache, fileInputStreamCache);
+      blockReader.close();
       blockReader = null;
     }
     super.close();
@@ -546,9 +613,25 @@ public class DFSInputStream extends FSInputStream implements ByteBufferReadable 
    * strategy-agnostic.
    */
   private interface ReaderStrategy {
-    public int doRead(BlockReader blockReader, int off, int len) throws ChecksumException, IOException;
+    public int doRead(BlockReader blockReader, int off, int len,
+        ReadStatistics readStatistics) throws ChecksumException, IOException;
   }
 
+  private static void updateReadStatistics(ReadStatistics readStatistics, 
+        int nRead, BlockReader blockReader) {
+    if (nRead <= 0) return;
+    if (blockReader.isShortCircuit()) {
+      readStatistics.totalBytesRead += nRead;
+      readStatistics.totalLocalBytesRead += nRead;
+      readStatistics.totalShortCircuitBytesRead += nRead;
+    } else if (blockReader.isLocal()) {
+      readStatistics.totalBytesRead += nRead;
+      readStatistics.totalLocalBytesRead += nRead;
+    } else {
+      readStatistics.totalBytesRead += nRead;
+    }
+  }
+  
   /**
    * Used to read bytes into a byte[]
    */
@@ -560,8 +643,11 @@ public class DFSInputStream extends FSInputStream implements ByteBufferReadable 
     }
 
     @Override
-    public int doRead(BlockReader blockReader, int off, int len) throws ChecksumException, IOException {      
-        return blockReader.read(buf, off, len);     
+    public int doRead(BlockReader blockReader, int off, int len,
+            ReadStatistics readStatistics) throws ChecksumException, IOException {
+        int nRead = blockReader.read(buf, off, len);
+        updateReadStatistics(readStatistics, nRead, blockReader);
+        return nRead;
     }
   }
 
@@ -575,13 +661,15 @@ public class DFSInputStream extends FSInputStream implements ByteBufferReadable 
     }
 
     @Override
-    public int doRead(BlockReader blockReader, int off, int len) throws ChecksumException, IOException {
+    public int doRead(BlockReader blockReader, int off, int len,
+        ReadStatistics readStatistics) throws ChecksumException, IOException {
       int oldpos = buf.position();
       int oldlimit = buf.limit();
       boolean success = false;
       try {
         int ret = blockReader.read(buf);
         success = true;
+        updateReadStatistics(readStatistics, ret, blockReader);
         return ret;
       } finally {
         if (!success) {
@@ -613,7 +701,7 @@ public class DFSInputStream extends FSInputStream implements ByteBufferReadable 
     while (true) {
       // retry as many times as seekToNewSource allows.
       try {
-        return reader.doRead(blockReader, off, len);
+        return reader.doRead(blockReader, off, len, readStatistics);
       } catch ( ChecksumException ce ) {
         DFSClient.LOG.warn("Found Checksum error for "
             + getCurrentBlock() + " from " + currentNode
@@ -855,7 +943,7 @@ public class DFSInputStream extends FSInputStream implements ByteBufferReadable 
         }
       } finally {
         if (reader != null) {
-          reader.close(peerCache, fileInputStreamCache);
+          reader.close();
         }
       }
       // Put chosen node into dead list, continue
@@ -924,7 +1012,8 @@ public class DFSInputStream extends FSInputStream implements ByteBufferReadable 
             "the FileInputStreamCache.");
       }
       return new BlockReaderLocal(dfsClient.conf, file,
-        block, startOffset, len, fis[0], fis[1], chosenNode, verifyChecksum);
+        block, startOffset, len, fis[0], fis[1], chosenNode, verifyChecksum,
+        fileInputStreamCache);
     }
     
     // If the legacy local block reader is enabled and we are reading a local
@@ -957,7 +1046,8 @@ public class DFSInputStream extends FSInputStream implements ByteBufferReadable 
         reader = BlockReaderFactory.newBlockReader(
             dfsClient.conf, file, block, blockToken, startOffset,
             len, verifyChecksum, clientName, peer, chosenNode, 
-            dsFactory, allowShortCircuitLocalReads);
+            dsFactory, peerCache, fileInputStreamCache,
+            allowShortCircuitLocalReads);
         return reader;
       } catch (IOException ex) {
         DFSClient.LOG.debug("Error making BlockReader with DomainSocket. " +
@@ -978,8 +1068,9 @@ public class DFSInputStream extends FSInputStream implements ByteBufferReadable 
             shortCircuitLocalReads && (!shortCircuitForbidden());
         reader = BlockReaderFactory.newBlockReader(
             dfsClient.conf, file, block, blockToken, startOffset,
-            len, verifyChecksum, clientName, peer, chosenNode, 
-            dsFactory, allowShortCircuitLocalReads);
+            len, verifyChecksum, clientName, peer, chosenNode,
+            dsFactory, peerCache, fileInputStreamCache,
+            allowShortCircuitLocalReads);
         return reader;
       } catch (IOException e) {
         DFSClient.LOG.warn("failed to connect to " + domSock, e);
@@ -1002,7 +1093,7 @@ public class DFSInputStream extends FSInputStream implements ByteBufferReadable 
         reader = BlockReaderFactory.newBlockReader(
             dfsClient.conf, file, block, blockToken, startOffset,
             len, verifyChecksum, clientName, peer, chosenNode, 
-            dsFactory, false);
+            dsFactory, peerCache, fileInputStreamCache, false);
         return reader;
       } catch (IOException ex) {
         DFSClient.LOG.debug("Error making BlockReader. Closing stale " +
@@ -1021,7 +1112,7 @@ public class DFSInputStream extends FSInputStream implements ByteBufferReadable 
     return BlockReaderFactory.newBlockReader(
         dfsClient.conf, file, block, blockToken, startOffset,
         len, verifyChecksum, clientName, peer, chosenNode, 
-        dsFactory, false);
+        dsFactory, peerCache, fileInputStreamCache, false);
   }
 
 
@@ -1271,5 +1362,12 @@ public class DFSInputStream extends FSInputStream implements ByteBufferReadable 
       this.info = info;
       this.addr = addr;
     }
+  }
+
+  /**
+   * Get statistics about the reads which this DFSInputStream has done.
+   */
+  public synchronized ReadStatistics getReadStatistics() {
+    return new ReadStatistics(readStatistics);
   }
 }

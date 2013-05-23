@@ -95,8 +95,10 @@ public class TestRMRestart {
     // start like normal because state is empty
     rm1.start();
     
-    MockNM nm1 = new MockNM("h1:1234", 15120, rm1.getResourceTrackerService());
-    MockNM nm2 = new MockNM("h2:5678", 15120, rm1.getResourceTrackerService());
+    MockNM nm1 =
+        new MockNM("127.0.0.1:1234", 15120, rm1.getResourceTrackerService());
+    MockNM nm2 =
+        new MockNM("127.0.0.2:5678", 15120, rm1.getResourceTrackerService());
     nm1.registerNode();
     nm2.registerNode(); // nm2 will not heartbeat with RM1
     
@@ -145,7 +147,7 @@ public class TestRMRestart {
     am1.registerAppAttempt();
 
     // AM request for containers
-    am1.allocate("h1" , 1000, 1, new ArrayList<ContainerId>());    
+    am1.allocate("127.0.0.1" , 1000, 1, new ArrayList<ContainerId>());    
     // kick the scheduler
     nm1.nodeHeartbeat(true);
     List<Container> conts = am1.allocate(new ArrayList<ResourceRequest>(),
@@ -244,8 +246,8 @@ public class TestRMRestart {
     Assert.assertEquals(NodeAction.RESYNC, hbResponse.getNodeAction());
     
     // new NM to represent NM re-register
-    nm1 = rm2.registerNode("h1:1234", 15120);
-    nm2 = rm2.registerNode("h2:5678", 15120);
+    nm1 = rm2.registerNode("127.0.0.1:1234", 15120);
+    nm2 = rm2.registerNode("127.0.0.2:5678", 15120);
 
     // verify no more reboot response sent
     hbResponse = nm1.nodeHeartbeat(true);
@@ -265,7 +267,8 @@ public class TestRMRestart {
 
     // Nodes on which the AM's run 
     MockNM am1Node = nm1;
-    if(attemptState.getMasterContainer().getNodeId().toString().contains("h2")){
+    if (attemptState.getMasterContainer().getNodeId().toString()
+        .contains("127.0.0.2")) {
       am1Node = nm2;
     }
 
@@ -280,7 +283,8 @@ public class TestRMRestart {
                         attemptState.getMasterContainer().getId());
 
     MockNM am2Node = nm1;
-    if(attemptState.getMasterContainer().getNodeId().toString().contains("h2")){
+    if (attemptState.getMasterContainer().getNodeId().toString()
+        .contains("127.0.0.2")) {
       am2Node = nm2;
     }
     
@@ -292,8 +296,8 @@ public class TestRMRestart {
     am2.registerAppAttempt();
 
     //request for containers
-    am1.allocate("h1" , 1000, 3, new ArrayList<ContainerId>());
-    am2.allocate("h2" , 1000, 1, new ArrayList<ContainerId>());
+    am1.allocate("127.0.0.1" , 1000, 3, new ArrayList<ContainerId>());
+    am2.allocate("127.0.0.2" , 1000, 1, new ArrayList<ContainerId>());
     
     // verify container allocate continues to work
     nm1.nodeHeartbeat(true);
@@ -346,7 +350,8 @@ public class TestRMRestart {
         rmState.getApplicationState();  
     MockRM rm1 = new MockRM(conf, memStore);
     rm1.start();
-    MockNM nm1 = new MockNM("h1:1234", 15120, rm1.getResourceTrackerService());
+    MockNM nm1 =
+        new MockNM("127.0.0.1:1234", 15120, rm1.getResourceTrackerService());
     nm1.registerNode();
 
     // submit an app with maxAppAttempts equals to 1
@@ -404,7 +409,8 @@ public class TestRMRestart {
   }
 
   @Test
-  public void testTokenRestoredOnRMrestart() throws Exception {
+  public void testDelegationTokenRestoredInDelegationTokenRenewer()
+      throws Exception {
     Logger rootLogger = LogManager.getRootLogger();
     rootLogger.setLevel(Level.DEBUG);
     ExitUtil.disableSystemExit();
@@ -423,7 +429,7 @@ public class TestRMRestart {
 
     Map<ApplicationId, ApplicationState> rmAppState =
         rmState.getApplicationState();
-    MockRM rm1 = new MyMockRM(conf, memStore);
+    MockRM rm1 = new TestSecurityMockRM(conf, memStore);
     rm1.start();
 
     HashSet<Token<RMDelegationTokenIdentifier>> tokenSet =
@@ -461,21 +467,26 @@ public class TestRMRestart {
     ApplicationState appState = rmAppState.get(app.getApplicationId());
     Assert.assertNotNull(appState);
 
+    // assert delegation tokens exist in rm1 DelegationTokenRenewr
+    Assert.assertEquals(tokenSet, rm1.getRMContext()
+      .getDelegationTokenRenewer().getDelegationTokens());
+
     // assert delegation tokens are saved
     DataOutputBuffer dob = new DataOutputBuffer();
     ts.writeTokenStorageToStream(dob);
     ByteBuffer securityTokens =
         ByteBuffer.wrap(dob.getData(), 0, dob.getLength());
+    securityTokens.rewind();
     Assert.assertEquals(securityTokens, appState
       .getApplicationSubmissionContext().getAMContainerSpec()
-      .getContainerTokens());
+      .getTokens());
 
     // start new RM
-    MockRM rm2 = new MyMockRM(conf, memStore);
+    MockRM rm2 = new TestSecurityMockRM(conf, memStore);
     rm2.start();
 
-    // verify tokens are properly populated back to DelegationTokenRenewer
-    Assert.assertEquals(tokenSet, rm1.getRMContext()
+    // verify tokens are properly populated back to rm2 DelegationTokenRenewer
+    Assert.assertEquals(tokenSet, rm2.getRMContext()
       .getDelegationTokenRenewer().getDelegationTokens());
 
     // stop the RM
@@ -483,9 +494,92 @@ public class TestRMRestart {
     rm2.stop();
   }
 
-  class MyMockRM extends MockRM {
+  @Test
+  public void testAppAttemptTokensRestoredOnRMRestart() throws Exception {
+    Logger rootLogger = LogManager.getRootLogger();
+    rootLogger.setLevel(Level.DEBUG);
+    ExitUtil.disableSystemExit();
 
-    public MyMockRM(Configuration conf, RMStateStore store) {
+    YarnConfiguration conf = new YarnConfiguration();
+    conf.set(YarnConfiguration.RECOVERY_ENABLED, "true");
+    conf.set(YarnConfiguration.RM_STORE, MemoryRMStateStore.class.getName());
+    conf.setInt(YarnConfiguration.RM_AM_MAX_ATTEMPTS, 2);
+    conf.set(CommonConfigurationKeysPublic.HADOOP_SECURITY_AUTHENTICATION,
+      "kerberos");
+    UserGroupInformation.setConfiguration(conf);
+
+    MemoryRMStateStore memStore = new MemoryRMStateStore();
+    memStore.init(conf);
+    RMState rmState = memStore.getState();
+
+    Map<ApplicationId, ApplicationState> rmAppState =
+        rmState.getApplicationState();
+    MockRM rm1 = new TestSecurityMockRM(conf, memStore);
+    rm1.start();
+    MockNM nm1 =
+        new MockNM("0.0.0.0:4321", 15120, rm1.getResourceTrackerService());
+    nm1.registerNode();
+
+    // submit an app
+    RMApp app1 =
+        rm1.submitApp(200, "name", "user",
+          new HashMap<ApplicationAccessType, String>(), "default");
+
+    // assert app info is saved
+    ApplicationState appState = rmAppState.get(app1.getApplicationId());
+    Assert.assertNotNull(appState);
+
+    // Allocate the AM
+    nm1.nodeHeartbeat(true);
+    RMAppAttempt attempt1 = app1.getCurrentAppAttempt();
+    ApplicationAttemptId attemptId1 = attempt1.getAppAttemptId();
+    rm1.waitForState(attemptId1, RMAppAttemptState.ALLOCATED);
+
+    // assert attempt info is saved
+    ApplicationAttemptState attemptState = appState.getAttempt(attemptId1);
+    Assert.assertNotNull(attemptState);
+    Assert.assertEquals(BuilderUtils.newContainerId(attemptId1, 1),
+      attemptState.getMasterContainer().getId());
+
+    // the appToken and clientToken that are generated when RMAppAttempt is created,
+    HashSet<Token<?>> tokenSet = new HashSet<Token<?>>();
+    tokenSet.add(attempt1.getApplicationToken());
+    tokenSet.add(attempt1.getClientToken());
+
+    // assert application Token is saved
+    HashSet<Token<?>> savedTokens = new HashSet<Token<?>>();
+    savedTokens.addAll(attemptState.getAppAttemptTokens().getAllTokens());
+    Assert.assertEquals(tokenSet, savedTokens);
+
+    // start new RM
+    MockRM rm2 = new TestSecurityMockRM(conf, memStore);
+    rm2.start();
+
+    RMApp loadedApp1 =
+        rm2.getRMContext().getRMApps().get(app1.getApplicationId());
+    RMAppAttempt loadedAttempt1 = loadedApp1.getRMAppAttempt(attemptId1);
+
+    // assert loaded attempt recovered attempt tokens
+    Assert.assertNotNull(loadedAttempt1);
+    savedTokens.clear();
+    savedTokens.add(loadedAttempt1.getApplicationToken());
+    savedTokens.add(loadedAttempt1.getClientToken());
+    Assert.assertEquals(tokenSet, savedTokens);
+
+    // assert clientToken is recovered back to api-versioned clientToken
+    Assert.assertEquals(attempt1.getClientToken(),
+      loadedAttempt1.getClientToken());
+
+    // Not testing ApplicationTokenSecretManager has the password populated back,
+    // that is needed in work-preserving restart
+
+    rm1.stop();
+    rm2.stop();
+  }
+
+  class TestSecurityMockRM extends MockRM {
+
+    public TestSecurityMockRM(Configuration conf, RMStateStore store) {
       super(conf, store);
     }
 

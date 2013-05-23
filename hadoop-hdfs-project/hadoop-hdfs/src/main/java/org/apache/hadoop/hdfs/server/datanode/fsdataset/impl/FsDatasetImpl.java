@@ -755,11 +755,23 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     }
     
     // check replica length
-    if (rbw.getBytesAcked() < minBytesRcvd || rbw.getNumBytes() > maxBytesRcvd){
+    long bytesAcked = rbw.getBytesAcked();
+    long numBytes = rbw.getNumBytes();
+    if (bytesAcked < minBytesRcvd || numBytes > maxBytesRcvd){
       throw new ReplicaNotFoundException("Unmatched length replica " + 
-          replicaInfo + ": BytesAcked = " + rbw.getBytesAcked() + 
-          " BytesRcvd = " + rbw.getNumBytes() + " are not in the range of [" + 
+          replicaInfo + ": BytesAcked = " + bytesAcked + 
+          " BytesRcvd = " + numBytes + " are not in the range of [" + 
           minBytesRcvd + ", " + maxBytesRcvd + "].");
+    }
+
+    // Truncate the potentially corrupt portion.
+    // If the source was client and the last node in the pipeline was lost,
+    // any corrupt data written after the acked length can go unnoticed. 
+    if (numBytes > bytesAcked) {
+      final File replicafile = rbw.getBlockFile();
+      truncateBlock(replicafile, rbw.getMetaFile(), numBytes, bytesAcked);
+      rbw.setNumBytes(bytesAcked);
+      rbw.setLastChecksumAndDataLen(bytesAcked, null);
     }
 
     // bump the replica's generation stamp to newGS
@@ -1706,27 +1718,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
         datafile.getAbsolutePath(), metafile.getAbsolutePath());
     return info;
   }
-  
-  @Override // FsDatasetSpi
-  public FileInputStream[] getShortCircuitFdsForRead(ExtendedBlock block) 
-      throws IOException {
-    File datafile = getBlockFile(block);
-    File metafile = FsDatasetUtil.getMetaFile(datafile,
-        block.getGenerationStamp());
-    FileInputStream fis[] = new FileInputStream[2];
-    boolean success = false;
-    try {
-      fis[0] = new FileInputStream(datafile);
-      fis[1] = new FileInputStream(metafile);
-      success = true;
-      return fis;
-    } finally {
-      if (!success) {
-        IOUtils.cleanup(null, fis);
-      }
-    }
-  }
-    
+
   @Override // FsDatasetSpi
   public HdfsBlocksMetadata getHdfsBlocksMetadata(List<ExtendedBlock> blocks)
       throws IOException {

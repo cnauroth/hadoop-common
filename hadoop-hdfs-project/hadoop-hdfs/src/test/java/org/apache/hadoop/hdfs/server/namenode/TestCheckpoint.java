@@ -28,7 +28,9 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.File;
+import java.io.FilenameFilter;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -37,6 +39,7 @@ import java.util.Collection;
 import java.util.List;
 
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.io.filefilter.FileFilterUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.commons.logging.impl.Log4JLogger;
@@ -61,6 +64,7 @@ import org.apache.hadoop.hdfs.server.common.Storage.StorageDirectory;
 import org.apache.hadoop.hdfs.server.common.StorageInfo;
 import org.apache.hadoop.hdfs.server.namenode.FileJournalManager.EditLogFile;
 import org.apache.hadoop.hdfs.server.namenode.NNStorage.NameNodeDirType;
+import org.apache.hadoop.hdfs.server.namenode.NNStorage.NameNodeFile;
 import org.apache.hadoop.hdfs.server.namenode.SecondaryNameNode.CheckpointStorage;
 import org.apache.hadoop.hdfs.server.protocol.NamenodeProtocol;
 import org.apache.hadoop.hdfs.server.protocol.NamenodeProtocols;
@@ -77,6 +81,7 @@ import org.apache.hadoop.util.ExitUtil.ExitException;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.log4j.Level;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentMatcher;
@@ -107,6 +112,13 @@ public class TestCheckpoint {
   static final int fileSize = 8192;
   static final int numDatanodes = 3;
   short replication = 3;
+
+  static FilenameFilter tmpEditsFilter = new FilenameFilter() {
+    @Override
+    public boolean accept(File dir, String name) {
+      return name.startsWith(NameNodeFile.EDITS_TMP.getName());
+    }
+  };
 
   private CheckpointFaultInjector faultInjector;
     
@@ -156,7 +168,7 @@ public class TestCheckpoint {
       
       try {
         // Simulate the mount going read-only
-        dir.setWritable(false);
+        FileUtil.setWritable(dir, false);
         cluster = new MiniDFSCluster.Builder(conf).numDataNodes(0)
             .format(false).build();
         fail("NN should have failed to start with " + dir + " set unreadable");
@@ -166,7 +178,7 @@ public class TestCheckpoint {
       } finally {
         cleanup(cluster);
         cluster = null;
-        dir.setWritable(true);
+        FileUtil.setWritable(dir, true);
       }
     }
   }
@@ -265,7 +277,7 @@ public class TestCheckpoint {
   /*
    * Simulate 2NN exit due to too many merge failures.
    */
-  @Test(timeout=10000)
+  @Test(timeout=30000)
   public void testTooManyEditReplayFailures() throws IOException {
     Configuration conf = new HdfsConfiguration();
     conf.set(DFSConfigKeys.DFS_NAMENODE_CHECKPOINT_MAX_RETRIES_KEY, "1");
@@ -749,9 +761,12 @@ public class TestCheckpoint {
   @Test
   public void testSeparateEditsDirLocking() throws IOException {
     Configuration conf = new HdfsConfiguration();
-    File editsDir = new File(MiniDFSCluster.getBaseDirectory() +
-        "/testSeparateEditsDirLocking");
-    
+    File nameDir = new File(MiniDFSCluster.getBaseDirectory(), "name");
+    File editsDir = new File(MiniDFSCluster.getBaseDirectory(),
+        "testSeparateEditsDirLocking");
+
+    conf.set(DFSConfigKeys.DFS_NAMENODE_NAME_DIR_KEY,
+        nameDir.getAbsolutePath());
     conf.set(DFSConfigKeys.DFS_NAMENODE_EDITS_DIR_KEY,
         editsDir.getAbsolutePath());
     MiniDFSCluster cluster = null;
@@ -1060,6 +1075,10 @@ public class TestCheckpoint {
       //
       secondary = startSecondaryNameNode(conf);
       secondary.doCheckpoint();
+      
+      FSDirectory secondaryFsDir = secondary.getFSNamesystem().dir;
+      INode rootInMap = secondaryFsDir.getInode(secondaryFsDir.rootDir.getId());
+      Assert.assertSame(rootInMap, secondaryFsDir.rootDir);
       
       fileSys.delete(tmpDir, true);
       fileSys.mkdirs(tmpDir);
@@ -1481,6 +1500,134 @@ public class TestCheckpoint {
   }
 
   /**
+   * Test that a fault while downloading edits does not prevent future
+   * checkpointing
+   */
+  @Test(timeout = 30000)
+  public void testEditFailureBeforeRename() throws IOException {
+    Configuration conf = new HdfsConfiguration();
+    SecondaryNameNode secondary = null;
+    MiniDFSCluster cluster = null;
+    FileSystem fs = null;
+    try {
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(numDatanodes)
+          .build();
+      cluster.waitActive();
+      fs = cluster.getFileSystem();
+      secondary = startSecondaryNameNode(conf);
+      DFSTestUtil.createFile(fs, new Path("tmpfile0"), 1024, (short) 1, 0l);
+      secondary.doCheckpoint();
+
+      // Cause edit rename to fail during next checkpoint
+      Mockito.doThrow(new IOException("Injecting failure before edit rename"))
+          .when(faultInjector).beforeEditsRename();
+      DFSTestUtil.createFile(fs, new Path("tmpfile1"), 1024, (short) 1, 0l);
+
+      try {
+        secondary.doCheckpoint();
+        fail("Fault injection failed.");
+      } catch (IOException ioe) {
+        GenericTestUtils.assertExceptionContains(
+            "Injecting failure before edit rename", ioe);
+      }
+      Mockito.reset(faultInjector);
+      // truncate the tmp edits file to simulate a partial download
+      for (StorageDirectory sd : secondary.getFSImage().getStorage()
+          .dirIterable(NameNodeDirType.EDITS)) {
+        File[] tmpEdits = sd.getCurrentDir().listFiles(tmpEditsFilter);
+        assertTrue(
+            "Expected a single tmp edits file in directory " + sd.toString(),
+            tmpEdits.length == 1);
+        RandomAccessFile randFile = new RandomAccessFile(tmpEdits[0], "rw");
+        randFile.setLength(0);
+        randFile.close();
+      }
+      // Next checkpoint should succeed
+      secondary.doCheckpoint();
+    } finally {
+      if (secondary != null) {
+        secondary.shutdown();
+      }
+      if (fs != null) {
+        fs.close();
+      }
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+      Mockito.reset(faultInjector);
+    }
+  }
+
+  /**
+   * Test that the secondary namenode correctly deletes temporary edits
+   * on startup.
+   */
+
+  @Test(timeout = 30000)
+  public void testDeleteTemporaryEditsOnStartup() throws IOException {
+    Configuration conf = new HdfsConfiguration();
+    SecondaryNameNode secondary = null;
+    MiniDFSCluster cluster = null;
+    FileSystem fs = null;
+
+    try {
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(numDatanodes)
+          .build();
+      cluster.waitActive();
+      fs = cluster.getFileSystem();
+      secondary = startSecondaryNameNode(conf);
+      DFSTestUtil.createFile(fs, new Path("tmpfile0"), 1024, (short) 1, 0l);
+      secondary.doCheckpoint();
+
+      // Cause edit rename to fail during next checkpoint
+      Mockito.doThrow(new IOException("Injecting failure before edit rename"))
+          .when(faultInjector).beforeEditsRename();
+      DFSTestUtil.createFile(fs, new Path("tmpfile1"), 1024, (short) 1, 0l);
+
+      try {
+        secondary.doCheckpoint();
+        fail("Fault injection failed.");
+      } catch (IOException ioe) {
+        GenericTestUtils.assertExceptionContains(
+            "Injecting failure before edit rename", ioe);
+      }
+      Mockito.reset(faultInjector);
+      // Verify that a temp edits file is present
+      for (StorageDirectory sd : secondary.getFSImage().getStorage()
+          .dirIterable(NameNodeDirType.EDITS)) {
+        File[] tmpEdits = sd.getCurrentDir().listFiles(tmpEditsFilter);
+        assertTrue(
+            "Expected a single tmp edits file in directory " + sd.toString(),
+            tmpEdits.length == 1);
+      }
+      // Restart 2NN
+      secondary.shutdown();
+      secondary = startSecondaryNameNode(conf);
+      // Verify that tmp files were deleted
+      for (StorageDirectory sd : secondary.getFSImage().getStorage()
+          .dirIterable(NameNodeDirType.EDITS)) {
+        File[] tmpEdits = sd.getCurrentDir().listFiles(tmpEditsFilter);
+        assertTrue(
+            "Did not expect a tmp edits file in directory " + sd.toString(),
+            tmpEdits.length == 0);
+      }
+      // Next checkpoint should succeed
+      secondary.doCheckpoint();
+    } finally {
+      if (secondary != null) {
+        secondary.shutdown();
+      }
+      if (fs != null) {
+        fs.close();
+      }
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+      Mockito.reset(faultInjector);
+    }
+  }
+
+  /**
    * Test case where two secondary namenodes are checkpointing the same
    * NameNode. This differs from {@link #testMultipleSecondaryNamenodes()}
    * since that test runs against two distinct NNs.
@@ -1817,7 +1964,7 @@ public class TestCheckpoint {
       StorageDirectory sd1 = storage.getStorageDir(1);
       
       currentDir = sd0.getCurrentDir();
-      currentDir.setExecutable(false);
+      FileUtil.setExecutable(currentDir, false);
 
       // Upload checkpoint when NN has a bad storage dir. This should
       // succeed and create the checkpoint in the good dir.
@@ -1827,7 +1974,7 @@ public class TestCheckpoint {
           new File(sd1.getCurrentDir(), NNStorage.getImageFileName(2)));
       
       // Restore the good dir
-      currentDir.setExecutable(true);
+      FileUtil.setExecutable(currentDir, true);
       nn.restoreFailedStorage("true");
       nn.rollEditLog();
 
@@ -1838,7 +1985,7 @@ public class TestCheckpoint {
       assertParallelFilesInvariant(cluster, ImmutableList.of(secondary));
     } finally {
       if (currentDir != null) {
-        currentDir.setExecutable(true);
+        FileUtil.setExecutable(currentDir, true);
       }
       cleanup(secondary);
       secondary = null;
@@ -1888,7 +2035,7 @@ public class TestCheckpoint {
       StorageDirectory sd0 = storage.getStorageDir(0);
       assertEquals(NameNodeDirType.IMAGE, sd0.getStorageDirType());
       currentDir = sd0.getCurrentDir();
-      currentDir.setExecutable(false);
+      FileUtil.setExecutable(currentDir, false);
 
       // Try to upload checkpoint -- this should fail since there are no
       // valid storage dirs
@@ -1901,7 +2048,7 @@ public class TestCheckpoint {
       }
       
       // Restore the good dir
-      currentDir.setExecutable(true);
+      FileUtil.setExecutable(currentDir, true);
       nn.restoreFailedStorage("true");
       nn.rollEditLog();
 
@@ -1912,7 +2059,7 @@ public class TestCheckpoint {
       assertParallelFilesInvariant(cluster, ImmutableList.of(secondary));
     } finally {
       if (currentDir != null) {
-        currentDir.setExecutable(true);
+        FileUtil.setExecutable(currentDir, true);
       }
       cleanup(secondary);
       secondary = null;

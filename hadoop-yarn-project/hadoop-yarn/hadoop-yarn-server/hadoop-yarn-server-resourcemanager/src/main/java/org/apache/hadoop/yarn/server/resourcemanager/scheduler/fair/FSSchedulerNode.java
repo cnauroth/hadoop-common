@@ -25,6 +25,8 @@ import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.classification.InterfaceAudience.Private;
+import org.apache.hadoop.classification.InterfaceStability.Unstable;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.Container;
@@ -39,6 +41,8 @@ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
 import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.SchedulerNode;
 
+@Private
+@Unstable
 public class FSSchedulerNode extends SchedulerNode {
 
   private static final Log LOG = LogFactory.getLog(FSSchedulerNode.class);
@@ -46,7 +50,7 @@ public class FSSchedulerNode extends SchedulerNode {
   private static final RecordFactory recordFactory = RecordFactoryProvider
       .getRecordFactory(null);
 
-  private Resource availableResource = recordFactory.newRecordInstance(Resource.class);
+  private Resource availableResource;
   private Resource usedResource = recordFactory.newRecordInstance(Resource.class);
 
   private volatile int numContainers;
@@ -62,7 +66,7 @@ public class FSSchedulerNode extends SchedulerNode {
 
   public FSSchedulerNode(RMNode node) {
     this.rmNode = node;
-    this.availableResource.setMemory(node.getTotalCapability().getMemory());
+    this.availableResource = Resources.clone(node.getTotalCapability());
   }
 
   public RMNode getRMNode() {

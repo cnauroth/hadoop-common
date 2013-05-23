@@ -671,8 +671,7 @@ class BlockReaderLocalLegacy implements BlockReader {
   }
 
   @Override
-  public synchronized void close(PeerCache peerCache,
-      FileInputStreamCache fisCache) throws IOException {
+  public synchronized void close() throws IOException {
     IOUtils.cleanup(LOG, dataIn, checksumIn);
     if (slowReadBuff != null) {
       bufferPool.returnBuffer(slowReadBuff);
@@ -700,5 +699,15 @@ class BlockReaderLocalLegacy implements BlockReader {
   public int available() throws IOException {
     // We never do network I/O in BlockReaderLocalLegacy.
     return Integer.MAX_VALUE;
+  }
+
+  @Override
+  public boolean isLocal() {
+    return true;
+  }
+  
+  @Override
+  public boolean isShortCircuit() {
+    return true;
   }
 }

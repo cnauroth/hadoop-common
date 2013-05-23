@@ -23,11 +23,11 @@ option java_generate_equals_and_hash = true;
 
 import "Security.proto";
 
-message YarnRemoteExceptionProto {
+message SerializedExceptionProto {
   optional string message = 1;
   optional string trace = 2;
   optional string class_name = 3;
-  optional YarnRemoteExceptionProto cause = 4;
+  optional SerializedExceptionProto cause = 4;
 }
 
 message ApplicationIdProto {
@@ -68,6 +68,7 @@ message ContainerProto {
   optional ResourceProto resource = 4;
   optional PriorityProto priority = 5;
   optional hadoop.common.TokenProto container_token = 6;
+  optional int64 rm_identifier = 7;
 }
 
 enum YarnApplicationStateProto {
@@ -151,18 +152,17 @@ message ApplicationReportProto {
   optional string host = 5;
   optional int32 rpc_port = 6;
   optional hadoop.common.TokenProto client_token = 7;
-  optional ApplicationStatusProto status = 8;
-  optional YarnApplicationStateProto yarn_application_state = 9;
-  optional ContainerProto masterContainer = 10;
-  optional string trackingUrl = 11;
-  optional string diagnostics = 12 [default = "N/A"];
-  optional int64 startTime = 13;
-  optional int64 finishTime = 14;
-  optional FinalApplicationStatusProto final_application_status = 15;
-  optional ApplicationResourceUsageReportProto app_resource_Usage = 16;
-  optional string originalTrackingUrl = 17;
-  optional ApplicationAttemptIdProto currentApplicationAttemptId = 18;
-  optional float progress = 19;
+  optional YarnApplicationStateProto yarn_application_state = 8;
+  optional string trackingUrl = 9;
+  optional string diagnostics = 10 [default = "N/A"];
+  optional int64 startTime = 11;
+  optional int64 finishTime = 12;
+  optional FinalApplicationStatusProto final_application_status = 13;
+  optional ApplicationResourceUsageReportProto app_resource_Usage = 14;
+  optional string originalTrackingUrl = 15;
+  optional ApplicationAttemptIdProto currentApplicationAttemptId = 16;
+  optional float progress = 17;
+  optional string applicationType = 18;
 }
 
 enum NodeStateProto {
@@ -220,6 +220,7 @@ message ApplicationSubmissionContextProto {
   optional bool unmanaged_am = 7 [default = false];
   optional int32 maxAppAttempts = 8 [default = 0];
   optional ResourceProto resource = 9;
+  optional string applicationType = 10 [default = "YARN"];
 }
 
 enum ApplicationAccessTypeProto {
@@ -268,7 +269,7 @@ message QueueUserACLInfoProto {
 message ContainerLaunchContextProto {
   optional string user = 1;
   repeated StringLocalResourceMapProto localResources = 2;
-  optional bytes container_tokens = 3;
+  optional bytes tokens = 3;
   repeated StringBytesMapProto service_data = 4;
   repeated StringStringMapProto environment = 5;
   repeated string command = 6;
@@ -310,17 +311,4 @@ message StringStringMapProto {
 message StringBytesMapProto {
   optional string key = 1;
   optional bytes value = 2;
-}
-
-////////////////////////////////////////////////////////////////////////
-////// From recovery////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-message ApplicationStateDataProto {
-  optional int64 submit_time = 1;
-  optional ApplicationSubmissionContextProto application_submission_context = 2;
-}
-
-message ApplicationAttemptStateDataProto {
-  optional ApplicationAttemptIdProto attemptId = 1;
-  optional ContainerProto master_container = 2;
 }

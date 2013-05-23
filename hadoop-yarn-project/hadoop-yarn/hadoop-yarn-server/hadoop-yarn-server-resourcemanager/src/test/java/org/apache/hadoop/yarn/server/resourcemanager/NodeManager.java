@@ -81,7 +81,7 @@ public class NodeManager implements ContainerManager {
   public NodeManager(String hostName, int containerManagerPort, int httpPort,
       String rackName, Resource capability,
       ResourceTrackerService resourceTrackerService, RMContext rmContext)
-      throws IOException {
+      throws IOException, YarnRemoteException {
     this.containerManagerAddress = hostName + ":" + containerManagerPort;
     this.nodeHttpAddress = hostName + ":" + httpPort;
     this.rackName = rackName;
@@ -144,7 +144,7 @@ public class NodeManager implements ContainerManager {
     }
     return containerStatuses;
   }
-  public void heartbeat() throws IOException {
+  public void heartbeat() throws IOException, YarnRemoteException {
     NodeStatus nodeStatus = 
       org.apache.hadoop.yarn.server.resourcemanager.NodeManager.createNodeStatus(
           nodeId, getContainerStatuses(containers));
@@ -188,6 +188,7 @@ public class NodeManager implements ContainerManager {
             this.nodeId, nodeHttpAddress,
             requestContainer.getResource(),
             null, null                                 // DKDC - Doesn't matter
+            , 0
             );
 
     ContainerStatus containerStatus =
