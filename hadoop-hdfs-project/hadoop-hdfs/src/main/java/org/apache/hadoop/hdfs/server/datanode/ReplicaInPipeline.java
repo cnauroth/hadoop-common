@@ -27,9 +27,7 @@ import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeSpi;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.ReplicaOutputStreams;
 import org.apache.hadoop.io.IOUtils;
-import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.util.DataChecksum;
-import com.google.common.annotations.VisibleForTesting;
 
 /** 
  * This class defines a replica in a pipeline, which
@@ -45,7 +43,6 @@ public class ReplicaInPipeline extends ReplicaInfo
   private long bytesOnDisk;
   private byte[] lastChecksum;  
   private Thread writer;
-  private boolean useShareDeleteBlockFiles = false;
   
   /**
    * Constructor for a zero length replica
@@ -229,17 +226,9 @@ public class ReplicaInPipeline extends ReplicaInfo
     FileOutputStream blockOut = null;
     FileOutputStream crcOut = null;
     try {
-      if (useShareDeleteBlockFiles) {
-        blockOut = NativeIO.getShareDeleteFileOutputStream(blockFile);
-        metaRAF.close();
-        metaRAF = null;
-        crcOut = NativeIO.getShareDeleteFileOutputStream(metaFile);
-      } else {
-        blockOut = new FileOutputStream(
-          new RandomAccessFile(blockFile, "rw").getFD());
-        crcOut = new FileOutputStream(metaRAF.getFD());
-      }
-
+      blockOut = new FileOutputStream(
+          new RandomAccessFile( blockFile, "rw" ).getFD() );
+      crcOut = new FileOutputStream(metaRAF.getFD() );
       if (!isCreate) {
         blockOut.getChannel().position(blockDiskSize);
         crcOut.getChannel().position(crcDiskSize);
@@ -247,11 +236,7 @@ public class ReplicaInPipeline extends ReplicaInfo
       return new ReplicaOutputStreams(blockOut, crcOut, checksum);
     } catch (IOException e) {
       IOUtils.closeStream(blockOut);
-      if (metaRAF != null) {
-        IOUtils.closeStream(metaRAF);
-      } else {
-        IOUtils.closeStream(crcOut);
-      }
+      IOUtils.closeStream(metaRAF);
       throw e;
     }
   }
@@ -261,16 +246,5 @@ public class ReplicaInPipeline extends ReplicaInfo
     return super.toString()
         + "\n  bytesAcked=" + bytesAcked
         + "\n  bytesOnDisk=" + bytesOnDisk;
-  }
-
-  /**
-   * If true, will use share delete permission when opening block file for write.
-   * 
-   * @param useShareDeleteBlockFiles boolean true to use share delete permission
-   *   when opening block file for write
-   */
-  @VisibleForTesting
-  public void setUseShareDeleteBlockFiles(boolean useShareDeleteBlockFiles) {
-    this.useShareDeleteBlockFiles = useShareDeleteBlockFiles;
   }
 }

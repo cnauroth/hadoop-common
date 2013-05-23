@@ -73,10 +73,6 @@ public class TestRBWBlockInvalidation {
     conf.setLong(DFSConfigKeys.DFS_BLOCKREPORT_INTERVAL_MSEC_KEY, 300);
     conf.setLong(DFSConfigKeys.DFS_DATANODE_DIRECTORYSCAN_INTERVAL_KEY, 1);
     conf.setLong(DFSConfigKeys.DFS_HEARTBEAT_INTERVAL_KEY, 1);
-    // Special handling for Windows to open block files allowing share delete,
-    // so that we can corrupt the block files later.
-    conf.setBoolean(DFSConfigKeys.DFS_DATANODE_USE_SHARE_DELETE_BLOCK_FILES_KEY,
-      Path.WINDOWS);
     MiniDFSCluster cluster = new MiniDFSCluster.Builder(conf).numDataNodes(2)
         .build();
     FSDataOutputStream out = null;

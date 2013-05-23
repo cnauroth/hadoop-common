@@ -172,7 +172,6 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
   final ReplicaMap volumeMap;
   final FsDatasetAsyncDiskService asyncDiskService;
   private final int validVolsRequired;
-  private final boolean useShareDeleteBlockFiles;
 
   // Used for synchronizing access to usage stats
   private final Object statsLock = new Object();
@@ -231,10 +230,6 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     }
     asyncDiskService = new FsDatasetAsyncDiskService(datanode, roots);
     registerMBean(storage.getStorageID());
-
-    useShareDeleteBlockFiles = conf.getBoolean(
-      DFSConfigKeys.DFS_DATANODE_USE_SHARE_DELETE_BLOCK_FILES_KEY,
-      DFSConfigKeys.DFS_DATANODE_USE_SHARE_DELETE_BLOCK_FILES_DEFAULT);
   }
 
   /**
@@ -718,7 +713,6 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     File f = v.createRbwFile(b.getBlockPoolId(), b.getLocalBlock());
     ReplicaBeingWritten newReplicaInfo = new ReplicaBeingWritten(b.getBlockId(), 
         b.getGenerationStamp(), v, f.getParentFile());
-    newReplicaInfo.setUseShareDeleteBlockFiles(useShareDeleteBlockFiles);
     volumeMap.add(b.getBlockPoolId(), newReplicaInfo);
     return newReplicaInfo;
   }
