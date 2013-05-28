@@ -82,7 +82,6 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
   private static final long DEFAULT_BANDWIDTH_RAMPUP_DELTA = 1024*1024; // MB/s
   private static final float DEFAULT_BANDWIDTH_RAMPUP_MULTIPLIER  = 1.2f;
   private static final float DEFAULT_BANDWIDTH_RAMPDOWN_MULTIPLIER = 1.0f;
-  private static final long DEFAULT_LATENCY [] = {500 /* upload */, 250 /* download */};
 
   private static final int FAILURE_TOLERANCE_INTERVALS = 2;// Ramp-up/down after 2 ticks.
 
@@ -104,6 +103,8 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
   private double bandwidthRampupMultiplier;
   private double bandwidthRampdownMultiplier;
 
+  private long[] latency;
+  private long[] defaultLatency;
   private long[] bandwidth;
   private long[] maxBandwidth;
   private long[] bandwidthRampupDelta;
@@ -114,12 +115,14 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
    * @throws AzureException
    */
   public BandwidthThrottle (int concurrentReads, int concurrentWrites,
-      Configuration sessionConfiguration) throws ConfigurationException {
+      int uploadBlockSize, int downloadBlockSize, Configuration sessionConfiguration)
+          throws ConfigurationException {
     this.sessionConfiguration = sessionConfiguration;
 
     // Initialize throttling parameters and variables.
     //
-    configureSessionThrottling(concurrentReads, concurrentWrites);
+    configureSessionThrottling(concurrentReads, concurrentWrites, uploadBlockSize,
+        downloadBlockSize);
   }
 
   /**
@@ -131,8 +134,8 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
    * @param concurrentWrites - number of concurrent write threads for overlapping I/O.
    * @throws ConfigurationException if there are errors in configuration.
    */
-  private void configureSessionThrottling(int concurrentReads, int concurrentWrites)
-      throws ConfigurationException {
+  private void configureSessionThrottling(int concurrentReads, int concurrentWrites,
+      int uploadBlockSize, int downloadBlockSize) throws ConfigurationException {
 
 
     // Minimum allowable bandwidth consumption.
@@ -192,6 +195,13 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
     // Initially set the current bandwidth to the maxBandwidth.
     //
     bandwidth = Arrays.copyOf(maxBandwidth, maxBandwidth.length);
+
+    // Initially the latency is set at the time required to transfer blocks at
+    // the maximum bandwidth.
+    //
+    defaultLatency = new long [] {
+        uploadBlockSize / maxBandwidth[0], downloadBlockSize / maxBandwidth[1]};
+    latency = Arrays.copyOf(defaultLatency, defaultLatency.length);
 
     // Interval during which the number of I/O request successes and failures
     // are computed.
@@ -374,20 +384,12 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
    */
   @Override
   public void throttleSendRequest(ThrottleType kindOfThrottle, long payloadSize) {
-    // Get the latency and current bandwidth from the instrumentation. If there has
-    // been no activity, the latency would be zero. Set the latency to the default
-    // upload/download latency.
-    //
-    long latency = throttleSM.getCurrentLatency(kindOfThrottle);
-    if (0 == latency) {
-      latency = throttleSM.getPreviousLatency(kindOfThrottle);
-    }
 
-    // If the latency is still zero use the default latency. This typically occurs at
-    // startup when there is no history of previous latencies.
+    // Assertion: At this point the latency should be positive.
     //
-    if (0 == latency) {
-      latency = DEFAULT_LATENCY[kindOfThrottle.getValue()];
+    if (latency[kindOfThrottle.getValue()] <= 0){
+      throw new AssertionError(
+          "Negative or zero latency unexpected on " + kindOfThrottle);
     }
 
     // If the current throttling state is NORMAL (no throttling events) then check if
@@ -413,6 +415,26 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
                 (bandwidth[kindOfThrottle.getValue()] +
                     bandwidthRampupDelta[kindOfThrottle.getValue()]));
 
+        // Sample the latency.
+        //
+        latency[kindOfThrottle.getValue()] =
+            throttleSM.getCurrentLatency(kindOfThrottle);
+        
+        if (latency[kindOfThrottle.getValue()] == 0){
+          // Get the sampled latency from the previous epoch.
+          //
+          latency[kindOfThrottle.getValue()] =
+              throttleSM.getCurrentLatency(kindOfThrottle);
+          
+          // If the latency is still zero use the default.
+          //
+          latency[kindOfThrottle.getValue()] =
+              defaultLatency[kindOfThrottle.getValue()];
+        }
+        
+
+        // Time the stabilization period at the new bandwidth.
+        //
         bandwidthRampupTimer[kindOfThrottle.getValue()].turnOnTimer();
 
         // Calculate the next bandwidth delta.
@@ -484,7 +506,8 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
     // zero since it is always greater than the non-negative bandwidthMinThreshold.
     //
     long delayMs =
-        payloadSize * ONE_SECOND / bandwidth[kindOfThrottle.getValue()] - latency;
+        payloadSize * ONE_SECOND / bandwidth[kindOfThrottle.getValue()] -
+        latency[kindOfThrottle.getValue()];
 
     // Trace the throttling delay.
     //

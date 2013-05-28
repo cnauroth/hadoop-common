@@ -111,8 +111,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
   // Set throttling parameter defaults.
   //
-  private static final int DEFAULT_DOWNLOAD_BLOCK_SIZE = 4 * 1024 * 1024;
-  private static final int DEFAULT_UPLOAD_BLOCK_SIZE = 4 * 1024 * 1024;
+  public static final int DEFAULT_DOWNLOAD_BLOCK_SIZE = 4 * 1024 * 1024;
+  public static final int DEFAULT_UPLOAD_BLOCK_SIZE = 4 * 1024 * 1024;
 
 
   private static final boolean DEFAULT_DISABLE_THROTTLING = true;
@@ -559,13 +559,13 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // Set up the minimum stream read block size and the write block
     // size.
     //
-    storageInteractionLayer.setStreamMinimumReadSizeInBytes(
-        sessionConfiguration.getInt(
-                KEY_STREAM_MIN_READ_SIZE, DEFAULT_DOWNLOAD_BLOCK_SIZE));
+    int downloadBlockSize = sessionConfiguration.getInt(
+        KEY_STREAM_MIN_READ_SIZE, DEFAULT_DOWNLOAD_BLOCK_SIZE);
+    storageInteractionLayer.setStreamMinimumReadSizeInBytes(downloadBlockSize);
 
-    storageInteractionLayer.setWriteBlockSizeInBytes(
-        sessionConfiguration.getInt(
-                KEY_WRITE_BLOCK_SIZE, DEFAULT_UPLOAD_BLOCK_SIZE));
+    int uploadBlockSize = sessionConfiguration.getInt(
+        KEY_WRITE_BLOCK_SIZE, DEFAULT_UPLOAD_BLOCK_SIZE);
+    storageInteractionLayer.setWriteBlockSizeInBytes(uploadBlockSize);
 
     // The job may want to specify a timeout to use when engaging the
     // storage service. The default is currently 90 seconds. It may
@@ -605,7 +605,8 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Create bandwidth throttling object.
       //
       bandwidthThrottle = new BandwidthThrottle(
-          concurrentReads, concurrentWrites, sessionConfiguration);
+          concurrentReads, concurrentWrites, uploadBlockSize, downloadBlockSize,
+          sessionConfiguration);
 
       // Set the up the throttling bandwidth retry policy.
       //
