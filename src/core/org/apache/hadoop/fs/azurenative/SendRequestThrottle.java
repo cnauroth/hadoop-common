@@ -65,7 +65,7 @@ public class SendRequestThrottle  extends StorageEvent<SendingRequestEvent>  {
    * check when reading streams.
    *
    * @param opContext The operation context to bind to listener.
-   * @param sendRequestCalback for delays on current send thread.
+   * @param sendRequestCallback for delays on current send thread.
    *
    */
   public static void bind(OperationContext opContext,

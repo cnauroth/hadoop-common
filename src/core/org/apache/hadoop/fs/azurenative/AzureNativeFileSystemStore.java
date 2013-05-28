@@ -267,7 +267,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     // Return the BandwidthThrotlleFeedbadk interface implemented on the SendThrottle
     // object.
     //
-    return bandwidthThrottle;
+    return bandwidthThrottle.getBandwidthThrottleFeedback();
   }
 
   /**
@@ -605,7 +605,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Create bandwidth throttling object.
       //
       bandwidthThrottle = new BandwidthThrottle(
-          concurrentReads, concurrentWrites, instrumentation, sessionConfiguration);
+          concurrentReads, concurrentWrites, sessionConfiguration);
 
       // Set the up the throttling bandwidth retry policy.
       //

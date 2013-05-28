@@ -91,6 +91,10 @@ class ResponseReceivedMetricUpdater extends StorageEvent<ResponseReceivedEvent> 
       // Again, typically shouldn't happen, but let it pass
       return;
     }
+
+    long requestLatency = currentResult.getStopDate().getTime() -
+                   currentResult.getStartDate().getTime();
+
     if (currentResult.getStatusCode() == HttpURLConnection.HTTP_CREATED &&
         connection.getRequestMethod().equalsIgnoreCase("PUT")) {
       // If it's a PUT with an HTTP_CREATED status then it's a successful
@@ -102,9 +106,7 @@ class ResponseReceivedMetricUpdater extends StorageEvent<ResponseReceivedEvent> 
             currentResult.getStopDate(),
             length);
         instrumentation.rawBytesUploaded(length);
-        instrumentation.blockUploaded(
-            currentResult.getStopDate().getTime() -
-            currentResult.getStartDate().getTime());
+        instrumentation.blockUploaded(requestLatency);
       }
       // Simply count all upload transmissions including both meta data, block
       // upload operations, and block list upload operations. This will
@@ -114,7 +116,8 @@ class ResponseReceivedMetricUpdater extends StorageEvent<ResponseReceivedEvent> 
       if (null != bandwidthThrottleFeedback) {
         // Send success feedback on upload back to the store.
         //
-        bandwidthThrottleFeedback.updateTransmissionSuccess(ThrottleType.UPLOAD, 1);
+        bandwidthThrottleFeedback.updateTransmissionSuccess(
+            ThrottleType.UPLOAD, 1, requestLatency);
       }
     } else if (currentResult.getStatusCode() == HttpURLConnection.HTTP_PARTIAL &&
         connection.getRequestMethod().equalsIgnoreCase("GET")) {
@@ -127,11 +130,7 @@ class ResponseReceivedMetricUpdater extends StorageEvent<ResponseReceivedEvent> 
             currentResult.getStopDate(),
             length);
         instrumentation.rawBytesDownloaded(length);
-        instrumentation.blockDownloaded(
-            currentResult.getStopDate().getTime() -
-            currentResult.getStartDate().getTime());
-        LOG.info("Block download latency: " + (currentResult.getStopDate().getTime() -
-            currentResult.getStartDate().getTime()) + "ms");
+        instrumentation.blockDownloaded(requestLatency);
       }
 
       // Simply count all successful download transmissions.
@@ -139,7 +138,8 @@ class ResponseReceivedMetricUpdater extends StorageEvent<ResponseReceivedEvent> 
       if (null != bandwidthThrottleFeedback) {
         // Send success feedback on download back to the store.
         //
-        bandwidthThrottleFeedback.updateTransmissionSuccess(ThrottleType.DOWNLOAD, 1);
+        bandwidthThrottleFeedback.updateTransmissionSuccess(
+            ThrottleType.DOWNLOAD, 1, requestLatency);
       }
     } else if (currentResult.getStatusCode() ==
                     HttpURLConnection.HTTP_INTERNAL_ERROR ||
@@ -151,13 +151,15 @@ class ResponseReceivedMetricUpdater extends StorageEvent<ResponseReceivedEvent> 
         if (null != bandwidthThrottleFeedback) {
           // Upload failure, update upload failure count.
           //
-          bandwidthThrottleFeedback.updateTransmissionFailure(ThrottleType.UPLOAD, 1);
+          bandwidthThrottleFeedback.updateTransmissionFailure(
+              ThrottleType.UPLOAD, 1, requestLatency);
         }
       } else if (connection.getRequestMethod().equalsIgnoreCase("GET")){
         if (null != bandwidthThrottleFeedback) {
           // Download failure, update download failure count.
           //
-          bandwidthThrottleFeedback.updateTransmissionFailure(ThrottleType.DOWNLOAD, 1);
+          bandwidthThrottleFeedback.updateTransmissionFailure(
+              ThrottleType.DOWNLOAD, 1, requestLatency);
         }
       }
     }

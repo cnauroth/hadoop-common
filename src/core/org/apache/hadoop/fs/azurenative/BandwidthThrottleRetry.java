@@ -38,9 +38,7 @@ public class BandwidthThrottleRetry extends RetryPolicy implements RetryPolicyFa
 
   // Default absolute maximum number of I/O retries when throttling before giving up.
   //
-  private static final int THROTTLE_MAX_IO_RETRIES = 15;
-  private static final int THROTTLE_YIELD_QUANTUM  = 3;
-  private static final int THROTTLE_RETRY_DELAY    = 3000; // Sleep for 3000ms.
+  private static final int THROTTLE_MAX_IO_RETRIES = 10;
 
   /**
    * Default constructor for BandwithThrottleRetry objects.
@@ -106,7 +104,6 @@ public class BandwidthThrottleRetry extends RetryPolicy implements RetryPolicyFa
     // maximum number of retries.
     //
     boolean canRetry = false;
-    int delayMs = 0;
     if (currentRetryCount < maximumAttempts) {
       canRetry = true;
       final String infoMsg =
@@ -120,19 +117,10 @@ public class BandwidthThrottleRetry extends RetryPolicy implements RetryPolicyFa
       LOG.info(infoMsg);
     }
 
-    if(0 < currentRetryCount && 0 == (currentRetryCount % THROTTLE_YIELD_QUANTUM)) {
-      // When the throttling logic encounters a negative delay, it keeps retrying on the
-      // same error condition.  This exhausts the maximum number of retries leading to
-      // an eventual storage exception and a re-attempt of the task.  We introduce an
-      // yield in the retry logic create an artificial delay.
-      //
-      delayMs = THROTTLE_RETRY_DELAY;
-    }
-
     // If not past the maximum number of retries, retry instantaneously
     // with no back off. The throttling logic will determine the backoff
     // delay.
     //
-    return new RetryResult(delayMs, canRetry);
+    return new RetryResult(0, canRetry);
   }
 }

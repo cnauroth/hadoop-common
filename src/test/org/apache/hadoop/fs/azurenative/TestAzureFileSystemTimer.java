@@ -2,11 +2,11 @@ package org.apache.hadoop.fs.azurenative;
 
 import static org.junit.Assert.*;
 
+import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import org.apache.hadoop.fs.azure.AzureException;
+import org.apache.hadoop.fs.azurenative.AzureFileSystemTimer.AzureFileSystemTimerCallbacks;
 import org.junit.*;
 
 
@@ -15,17 +15,56 @@ import org.junit.*;
  *
  */
 
-public class TestAzureFileSystemTimer {
+public class TestAzureFileSystemTimer  {
 
   /**
    * CONSTANTS
    */
-  private final int NUM_THREADS   = 5;
+  private final int NUM_THREADS   = 1;
   private final int START_AFTER   = 2;
   private final int STOP_AFTER    = 10;
-  private final int TIMER_PERIOD  = 3;
+  private final int TIMER_PERIOD  = 2;
   private final int ONE_SECOND    = 1000;
+  
+  
+  private class TestAzureFileSystemTimerCallback implements 
+    AzureFileSystemTimerCallbacks {
+    
+    private final UUID TIMER_CALLBACK_CONTEXT = UUID.randomUUID();
+    private long tickCount    = 0;
+    
+    
+    /**
+     * Method implementing the Azure file system timer callback interface.
+     */
+    //
+    public void tickEvent (Object timerCallbackContext) {
+      
+      // Validate that the context coming out corresponds to the one sent in.
+      //
+      assertTrue (TIMER_CALLBACK_CONTEXT.equals(timerCallbackContext));
+      
+      // Increment tick count.
+      //
+      tickCount++;
+    }
+    
+    /**
+     * Private getter for the tick count.
+     */
+    private long getTickCount() {
+      return tickCount;
+    }
+    
+    /**
+     * Private getter for the timer callback context.
+     */
+    private Object getTimerContext() {
+      return TIMER_CALLBACK_CONTEXT;
+    }
+  }
 
+  
   /**
    * PRIVATE MEMBER VARIABLES
    */
@@ -34,7 +73,7 @@ public class TestAzureFileSystemTimer {
   // Set up the unit test.
   //
   @Before
-  protected void setUp () throws Exception {
+  public void setUp () throws Exception {
     // Setup the executor framework scheduler service.
     //
     scheduler = Executors.newScheduledThreadPool(NUM_THREADS);
@@ -43,41 +82,14 @@ public class TestAzureFileSystemTimer {
   // Tears down the unit test.
   //
   @After
-  protected void tearDown() throws Exception {
+  public void tearDown() throws Exception {
     // Shutdown the scheduler immediately if a scheduler exists.
     //
     if (null != scheduler) {
       scheduler.shutdownNow ();
     }
   }
-
-  private final class TurnOnAlarmTask implements Runnable {
-
-    private AtomicInteger timerTicks;
-
-    public TurnOnAlarmTask() {
-      // Reset timer ticks.
-      //
-      timerTicks = new AtomicInteger(0);
-    }
-
-    // Get tick count.
-    //
-    public int getTicks() {
-      return timerTicks.get();
-    }
-
-    // Run method implementation.
-    //
-    public void run () {
-      // Increment the timer ticks at the expiration of each
-      // period.
-      //
-      timerTicks.incrementAndGet();
-    }
-  }
-
-
+  
   /**
    * Test AzureFileSystem timer where there is no delay before starting
    * the timer.
@@ -95,20 +107,27 @@ public class TestAzureFileSystemTimer {
 
     // Create alarm task and turn on timer.
     //
-    TurnOnAlarmTask alarmTask = new TurnOnAlarmTask();
-    testTimer.turnOnTimer(alarmTask);
+    testTimer.turnOnTimer();
 
     // Validate the timer is on.
     //
     assertTrue(testTimer.isOn());
 
+    // Validate that timer is not expired.
+    //
+    assertFalse(testTimer.isExpired());
+
+    // Validate that tick count is less than timer expiration ticks.
+    //
+    assertTrue(testTimer.getTicks() < STOP_AFTER);
+
     // Pause for duration of the timer.
     //
     Thread.sleep((STOP_AFTER + 1) * TIMER_PERIOD * ONE_SECOND);
 
-    // Validate a tick count of STOP_AFTER.
+    // Validate that timer is expired after expiration ticks.
     //
-    assertEquals(STOP_AFTER, alarmTask.getTicks());
+    assertTrue(testTimer.isExpired());
 
     // Validate that the timer is off.
     //
@@ -133,28 +152,35 @@ public class TestAzureFileSystemTimer {
 
     // Create alarm task and turn on timer.
     //
-    TurnOnAlarmTask alarmTask = new TurnOnAlarmTask();
-    testTimer.turnOnTimer(alarmTask);
+    testTimer.turnOnTimer();
 
     // Validate the timer is on.
     //
     assertTrue(testTimer.isOn());
 
+    // Validate that timer is not expired.
+    //
+    assertFalse(testTimer.isExpired());
+
+    // Validate that tick count is less than timer expiration ticks.
+    //
+    assertTrue(testTimer.getTicks() < STOP_AFTER + START_AFTER);
+
     // Pause for duration of the timer.
     //
     Thread.sleep(STOP_AFTER * TIMER_PERIOD * ONE_SECOND);
 
-    // Tick count should be less than STOP_AFTER delay.
+    // Test that timer is not expired and accounts for delay
     //
-    assertTrue(alarmTask.getTicks() < STOP_AFTER);
+    assertFalse(testTimer.isExpired());
 
-    // Pause for an additional 5 seconds to account for the delay.
+    // Pause for an additional seconds to account for the delay.
     //
     Thread.sleep((STOP_AFTER - START_AFTER) * TIMER_PERIOD * ONE_SECOND);
 
-    // Validate a tick count.
+    // Test that timer is expired after accounting for delay
     //
-    assertEquals(STOP_AFTER, alarmTask.getTicks());
+    assertTrue(testTimer.isExpired());
 
     // Validate the timer is off.
     //
@@ -179,39 +205,43 @@ public class TestAzureFileSystemTimer {
 
     // Create alarm task and turn on timer.
     //
-    TurnOnAlarmTask alarmTask = new TurnOnAlarmTask();
-    testTimer.turnOnTimer(alarmTask);
+    testTimer.turnOnTimer();
 
     // Validate the timer is on.
     //
     assertTrue(testTimer.isOn());
 
-    // Pause for duration of the timer.
+    // Pause for delay duration of the timer.
     //
     Thread.sleep(START_AFTER * TIMER_PERIOD * ONE_SECOND);
 
+    // Test that timer is not expired.
+    //
+    assertFalse (testTimer.isExpired());
+
     // Reset the timer.
     //
-    assertTrue(alarmTask.getTicks() < STOP_AFTER);
-    testTimer.resetTimer(alarmTask);
+    testTimer.resetTimer();
 
     // Validate the timer is on.
     //
     assertTrue(testTimer.isOn());
+
+    // Test that the timer is not expired.
+    //
+    assertFalse(testTimer.isExpired());
 
     // Pause for the length of the timer including the initial delay.
     //
     Thread.sleep((STOP_AFTER + START_AFTER + 1) * TIMER_PERIOD * ONE_SECOND);
 
+    // Validate the timer has expired.
+    //
+    assertTrue(testTimer.isExpired());
+
     // Validate the timer is off.
     //
     assertTrue(testTimer.isOff());
-
-    // Validate a tick count greater than or equal to the STOP_AFTER period since the
-    // tick count on the alarm task was not reset before rescheduling the
-    // alarm task.
-    //
-    assertTrue(STOP_AFTER <= alarmTask.getTicks());
   }
 
   /**
@@ -232,16 +262,23 @@ public class TestAzureFileSystemTimer {
 
     // Create alarm task and turn on timer.
     //
-    TurnOnAlarmTask alarmTask = new TurnOnAlarmTask();
-    testTimer.turnOnTimer(alarmTask);
+    testTimer.turnOnTimer();
 
     // Validate the timer is on.
     //
     assertTrue(testTimer.isOn());
 
-    // Pause for duration of the timer.
+    // Validate the timer is not expired.
+    //
+    assertFalse(testTimer.isExpired());
+
+    // Pause for something short of the duration of the timer.
     //
     Thread.sleep((STOP_AFTER - 1) * TIMER_PERIOD * ONE_SECOND);
+
+    // Validate the timer is nt expired.
+    //
+    assertFalse(testTimer.isExpired());
 
     // Cancel the timer.
     //
@@ -250,10 +287,6 @@ public class TestAzureFileSystemTimer {
     // Validate the timer is off.
     //
     assertTrue(testTimer.isOff());
-
-    // Tick count should be less than STOP_AFTER.
-    //
-    assertTrue(alarmTask.getTicks() < STOP_AFTER);
   }
 
   /**
@@ -274,28 +307,35 @@ public class TestAzureFileSystemTimer {
 
     // Create alarm task and turn on timer.
     //
-    TurnOnAlarmTask alarmTask = new TurnOnAlarmTask();
-    testTimer.turnOnTimer(alarmTask);
+    testTimer.turnOnTimer();
 
     // Validate the timer is on.
     //
     assertTrue(testTimer.isOn());
 
-    // Pause for duration of the timer.
+    // Validate that timer is not expired.
+    //
+    assertFalse(testTimer.isExpired());
+
+    // Pause for duration short of the expiration of the timer.
     //
     Thread.sleep((START_AFTER - 1) * TIMER_PERIOD * ONE_SECOND);
+
+    // Validate that the timer still is not expired.
+    //
+    assertFalse(testTimer.isExpired());
 
     // Cancel the timer.
     //
     testTimer.turnOffTimer();
 
+    // Validate that timer is expired.
+    //
+    assertTrue(testTimer.isExpired());
+
     // Validate the timer is off.
     //
     assertTrue(testTimer.isOff());
-
-    // Tick count should be less than STOP_AFTER.
-    //
-    assertEquals(0, alarmTask.getTicks());
   }
 
   /**
@@ -311,34 +351,35 @@ public class TestAzureFileSystemTimer {
     // TIMER_PERIOD with no automatic stop.
     //
     AzureFileSystemTimer testTimer = new AzureFileSystemTimer(
-        "testTimerNoDelay", scheduler, START_AFTER, TIMER_PERIOD);
-
-    // Schedule cancellation of the timer after a delay of STOP_AFTER ticks.
-    //
-    testTimer.turnOffTimerAfterDelay(START_AFTER + STOP_AFTER);
+        "testTimerNoDelay", scheduler, START_AFTER, TIMER_PERIOD, AzureFileSystemTimer.INFINITE_DELAY);
 
     // Create alarm task and turn on timer.
     //
-    TurnOnAlarmTask alarmTask = new TurnOnAlarmTask();
-    testTimer.turnOnTimer(alarmTask);
+    testTimer.turnOnTimer();
+    
+    // Schedule cancellation of the timer after a delay of STOP_AFTER ticks.
+    //
+    testTimer.turnOffTimerAfterDelay(START_AFTER + STOP_AFTER);
 
     // Validate the timer is on.
     //
     assertTrue(testTimer.isOn());
 
+    // Validate that the timer is not expired.
+    //
+    assertFalse(testTimer.isExpired());
+
     // Pause for duration of the timer.
     //
     Thread.sleep((START_AFTER + STOP_AFTER + 1) * TIMER_PERIOD * ONE_SECOND);
 
+    // Validate that timer is expired.
+    //
+    assertTrue(testTimer.isExpired());
+
     // Validate the timer is off.
     //
     assertTrue(testTimer.isOff());
-
-    // Tick count should be less than STOP_AFTER.
-    //
-    assertTrue(alarmTask.getTicks() <= STOP_AFTER);
-
-
   }
 
   /**
@@ -347,12 +388,22 @@ public class TestAzureFileSystemTimer {
    */
   @Test
   public void testScheduleTurnOffTimerWithInfiniteDelay () {
+
+    // Create timer object with an initial delay of  START_AFTER, a period of
+    // TIMER_PERIOD with no automatic stop.
+    //
+    AzureFileSystemTimer testTimer = new AzureFileSystemTimer(
+        "testTimerNoDelay", scheduler, 0, TIMER_PERIOD, AzureFileSystemTimer.INFINITE_DELAY);
     try {
-      // Create timer object with an initial delay of  START_AFTER, a period of
-      // TIMER_PERIOD with no automatic stop.
+      testTimer.turnOnTimer();
+
+      // Validate timer is turned on.
       //
-      AzureFileSystemTimer testTimer = new AzureFileSystemTimer(
-          "testTimerNoDelay", scheduler, 0, TIMER_PERIOD, STOP_AFTER);
+      assertTrue(testTimer.isOn());
+
+      // Validate taht timer is not expired.
+      //
+      assertFalse(testTimer.isExpired());
 
       // Schedule cancellation of the timer after a delay of STOP_AFTER ticks.
       //
@@ -368,6 +419,12 @@ public class TestAzureFileSystemTimer {
       // after infinite delay.
       //
       assertTrue (true);
+
+      // Turn off the timer.
+      //
+      testTimer.turnOffTimer();
+
+      // Validate timer is expired.
     }
     catch (Exception e) {
       // Fail test. No other exceptions expected.
@@ -395,12 +452,15 @@ public class TestAzureFileSystemTimer {
     try {
       // Create alarm task and turn on timer.
       //
-      TurnOnAlarmTask alarmTask = new TurnOnAlarmTask();
-      testTimer.turnOnTimer(alarmTask);
+      testTimer.turnOnTimer();
 
       // Validate the timer is on.
       //
       assertTrue(testTimer.isOn());
+
+      // Validate that timer is not expired.
+      //
+      assertFalse(testTimer.isExpired());
 
       // Schedule cancellation of the timer after a delay of STOP_AFTER ticks.
       //
@@ -456,12 +516,15 @@ public class TestAzureFileSystemTimer {
 
     // Create alarm task and turn on timer.
     //
-    TurnOnAlarmTask alarmTask = new TurnOnAlarmTask();
-    testTimer.turnOnTimer(alarmTask);
+    testTimer.turnOnTimer();
 
     // Validate the timer is on.
     //
     assertTrue(testTimer.isOn());
+
+    // Validate timer is not expired.
+    //
+    assertFalse(testTimer.isExpired());
 
     // Pause for duration of two timer ticks.
     //
@@ -470,6 +533,10 @@ public class TestAzureFileSystemTimer {
     // Shutdown scheduler.
     //
     testTimer.shutdownScheduler();
+
+    // Validate that timer is expired.
+    //
+    assertTrue(testTimer.isExpired());
 
     // Validate the timer is off.
     //
@@ -504,8 +571,7 @@ public class TestAzureFileSystemTimer {
 
     // Create alarm task and turn on timer.
     //
-    TurnOnAlarmTask alarmTask = new TurnOnAlarmTask();
-    testTimer.turnOnTimer(alarmTask);
+    testTimer.turnOnTimer();
 
     // Validate the timer is on.
     //
@@ -549,12 +615,15 @@ public class TestAzureFileSystemTimer {
 
       // Create alarm task and turn on timer.
       //
-      TurnOnAlarmTask alarmTask = new TurnOnAlarmTask();
-      testTimer.turnOnTimer(alarmTask);
+      testTimer.turnOnTimer();
 
       // Validate the timer is on.
       //
       assertTrue(testTimer.isOn());
+
+      // Validate the timer is not expired.
+      //
+      assertFalse(testTimer.isExpired());
 
       // Shutdown scheduler after an infinite delay.
       //
@@ -586,6 +655,115 @@ public class TestAzureFileSystemTimer {
         localScheduler.shutdownNow();
       }
     }
+
+    // Validate the timer is off.
+    //
+    assertTrue(testTimer.isOff());
+  }
+
+  /**
+   * Test to that tick counts are being appropriately updated on the timer.
+   */
+  @Test
+  public void testTickCounts ()
+      throws AzureException, InterruptedException {
+    // Create timer object with an initial delay 1 tick, a period of TIMER_PERIOD
+    // second, and with an automatic stop after STOP_AFTER using a local scheduler.
+    //
+    AzureFileSystemTimer testTimer = new AzureFileSystemTimer(
+        "testTimerNoDelay", scheduler, 0, TIMER_PERIOD, STOP_AFTER);
+
+    // Create alarm task and turn on timer.
+    //
+    testTimer.turnOnTimer();
+
+    // Validate the timer is on.
+    //
+    assertTrue(testTimer.isOn());
+    
+    // Introduce short delay to make sure this thread lags the timer thread.
+    //
+    Thread.sleep(ONE_SECOND / 500);
+
+    // Note: There is zero delay so the first tick is instantaneous.  So start
+    //       counting at tick 1.
+    //
+    for (long ticks = 1; ticks < STOP_AFTER; ticks++) {
+      // Validate timer is not expired.
+      //
+      assertFalse(testTimer.isExpired());
+
+      // Check the tick count.
+      //
+      assertEquals (ticks, testTimer.getTicks());
+
+      // Sleep of one tick period.
+      //
+      Thread.sleep(TIMER_PERIOD * ONE_SECOND);
+    }
+    
+    // Validate the timer is expired.
+    //
+    assertTrue(testTimer.isExpired());
+
+    // Validate the timer is off.
+    //
+    assertTrue(testTimer.isOff());
+  }
+  
+  /**
+   * Test to that tick counts are being appropriately updated on the timer.
+   */
+  @Test
+  public void testTimerCallback ()
+      throws AzureException, InterruptedException {
+    // Create timer object with an initial delay 1 tick, a period of TIMER_PERIOD
+    // second, and with an automatic stop after STOP_AFTER using a local scheduler.
+    //
+    AzureFileSystemTimer testTimer = new AzureFileSystemTimer(
+        "testTimerNoDelay", scheduler, 0, TIMER_PERIOD, STOP_AFTER);
+    
+    // Create a test timer callback object.
+    //
+    TestAzureFileSystemTimerCallback timerCallback = 
+                      new TestAzureFileSystemTimerCallback();
+
+    // Create alarm task and turn on timer.
+    //
+    testTimer.turnOnTimer(timerCallback, timerCallback.getTimerContext());
+
+    // Validate the timer is on.
+    //
+    assertTrue(testTimer.isOn());
+    
+    // Introduce short delay to make sure this thread lags the timer thread.
+    //
+    Thread.sleep(ONE_SECOND / 500);
+
+    // Note: There is zero delay so the first tick is instantaneous.  So start
+    //       counting at tick 1.
+    //
+    for (long ticks = 1; ticks < STOP_AFTER; ticks++) {
+      // Validate timer is not expired.
+      //
+      assertFalse(testTimer.isExpired());
+
+      // Check the tick count.
+      //
+      assertEquals (ticks, testTimer.getTicks());
+      
+      // Check the tick count on the object registered on the callback interface.
+      //
+      assertEquals (ticks, timerCallback.getTickCount());
+
+      // Sleep of one tick period.
+      //
+      Thread.sleep(TIMER_PERIOD * ONE_SECOND);
+    }
+    
+    // Validate the timer is expired.
+    //
+    assertTrue(testTimer.isExpired());
 
     // Validate the timer is off.
     //

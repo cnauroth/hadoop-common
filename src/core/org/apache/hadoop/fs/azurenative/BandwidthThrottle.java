@@ -18,6 +18,7 @@
 
 package org.apache.hadoop.fs.azurenative;
 
+import java.util.Arrays;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -25,7 +26,8 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.azure.AzureException;
-import org.apache.hadoop.fs.azurenative.AzureFileSystemTimer.DefaultTimerTask;
+import org.apache.hadoop.fs.azurenative.ThrottleStateMachine.ThrottleState;
+
 import com.microsoft.windowsazure.services.core.ConfigurationException;
 
 /**
@@ -33,7 +35,7 @@ import com.microsoft.windowsazure.services.core.ConfigurationException;
  * BandwidthThrottleFeedback interfaces.  These interfaces are used to calculate the
  * throttling delays and track send transmission successes/failures, respectively.
  */
-public class BandwidthThrottle implements ThrottleSendRequestCallback, BandwidthThrottleFeedback {
+public class BandwidthThrottle implements ThrottleSendRequestCallback {
 
   /**
    * Enum defining throttling types.
@@ -48,23 +50,20 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback, Bandwidth
       return value;
     }
   }
-  
+
   public static final Log LOG = LogFactory.getLog(BandwidthThrottle.class);
 
   // Variables counting the successful and unsuccessful transmissions
   // process wide.
   //
   private static boolean isThrottling = false;
-  private static AzureFileSystemTimer[] txSuccessRateTimer;
-  private static ThrottlerTxSuccessRateTask[] txSuccessRateTask;
+  private static ThrottleStateMachine throttleSM;
   private static ScheduledExecutorService timerScheduler;
 
   // String constants.
   //
   private static final String ASV_TIMER_NAME = "AsvStream";
-  private static final String ASV_RATE_TIMER_SUFFIX = "SuccessRate";
   private static final String ASV_RAMPUP_TIMER_SUFFIX = "_Rampup";
-  private static final String ASV_RAMPDOWN_TIMER_SUFFIX = "_Rampdown";
 
   private static final String KEY_INITIAL_DOWNLOAD_BANDWIDTH = "fs.azure.initial.download.bandwidth"; // Initial download bandwidth per process
   private static final String KEY_INITIAL_UPLOAD_BANDWIDTH = "fs.azure.initial.upload.bandwidth"; // Initial upload bandwidth per process.
@@ -78,19 +77,14 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback, Bandwidth
   private static final int DEFAULT_INITIAL_DOWNLOAD_BANDWIDTH = 10*2*1024*1024; //10Gbps / 64 nodes
   private static final int DEFAULT_INITIAL_UPLOAD_BANDWIDTH = 5*2*1024*1024; // 5Gbps / 64 nodes
   private static final int DEFAULT_SUCCESS_RATE_INTERVAL = 60; // 60 seconds
-  private static final int DEFAULT_MIN_BANDWIDTH_THRESHOLD = 4 * 1024 * 1024; // 4MB/s
-  private static final int DEFAULT_FAILURE_TOLERANCE_PERIOD = 15; // 1 tick period = 30 seconds
+  private static final int DEFAULT_MIN_BANDWIDTH_THRESHOLD = 1 * 1024 * 1024; // 1MB/s
+  private static final int DEFAULT_FAILURE_TOLERANCE_PERIOD = 60; // 1 tick period = 60s
   private static final long DEFAULT_BANDWIDTH_RAMPUP_DELTA = 1024*1024; // MB/s
   private static final float DEFAULT_BANDWIDTH_RAMPUP_MULTIPLIER  = 1.2f;
   private static final float DEFAULT_BANDWIDTH_RAMPDOWN_MULTIPLIER = 1.0f;
-  private static final long DEFAULT_DOWNLOAD_LATENCY = 500; // 500 milliseconds.
-  private static final long DEFAULT_UPLOAD_LATENCY = 500; // 500 milliseconds.
+  private static final long DEFAULT_LATENCY [] = {500 /* upload */, 250 /* download */};
 
-  private static final int FAILURE_TOLERANCE_INTERVAL = 2;// Ramp-up/down after 2 ticks.
-
-  // Default timer constant.
-  //
-  private static final DefaultTimerTask THROTTLE_DEFAULT_TIMER_TASK = new DefaultTimerTask ();
+  private static final int FAILURE_TOLERANCE_INTERVALS = 2;// Ramp-up/down after 2 ticks.
 
   // Other constants.
   //
@@ -98,7 +92,6 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback, Bandwidth
   private static final int TIMER_SCHEDULER_CONCURRENCY = 2; // Number of scheduler threads.
 
   private Configuration sessionConfiguration;
-  private AzureFileSystemInstrumentation instrumentation;
 
   // Member variables capturing throttle parameters.
   // Note: There is no need for member variables for the download and upload block sizes
@@ -112,20 +105,16 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback, Bandwidth
   private double bandwidthRampdownMultiplier;
 
   private long[] bandwidth;
-  private long [] bandwidthRampupDelta;
-  private AzureFileSystemTimer[] txRampupTimer;
-  private AzureFileSystemTimer[] txRampdownTimer;
-  private DefaultTimerTask[] txRampupTask;
-  private DefaultTimerTask[] txRampdownTask;
+  private long[] maxBandwidth;
+  private long[] bandwidthRampupDelta;
+  private AzureFileSystemTimer bandwidthRampupTimer[];
 
   /**
    * Constructor for the ThrottleSendRequest object.
    * @throws AzureException
    */
   public BandwidthThrottle (int concurrentReads, int concurrentWrites,
-      AzureFileSystemInstrumentation instrumentation,
       Configuration sessionConfiguration) throws ConfigurationException {
-    this.instrumentation = instrumentation;
     this.sessionConfiguration = sessionConfiguration;
 
     // Initialize throttling parameters and variables.
@@ -145,7 +134,7 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback, Bandwidth
   private void configureSessionThrottling(int concurrentReads, int concurrentWrites)
       throws ConfigurationException {
 
-    
+
     // Minimum allowable bandwidth consumption.
     //
     bandwidthMinThreshold = sessionConfiguration.getInt(
@@ -195,10 +184,14 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback, Bandwidth
 
     // Initialize upload and download bandwidths.
     //
-    bandwidth = new long [] {
+    maxBandwidth = new long [] {
         Math.max(bandwidthMinThreshold, storageUploadBandwidth / concurrentWrites),
         Math.max(bandwidthMinThreshold, storageDownloadBandwidth / concurrentReads)
     };
+
+    // Initially set the current bandwidth to the maxBandwidth.
+    //
+    bandwidth = Arrays.copyOf(maxBandwidth, maxBandwidth.length);
 
     // Interval during which the number of I/O request successes and failures
     // are computed.
@@ -220,8 +213,7 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback, Bandwidth
     //
     throttleBandwidth(ASV_TIMER_NAME, successRateInterval);
 
-    // A thread must see no failures over this tolerance period before ramping
-    // up.
+    // A thread must see no failures over this tolerance period before ramping up.
     //
     failureTolerancePeriod = sessionConfiguration.getInt(
         KEY_FAILURE_TOLERANCE_PERIOD,
@@ -295,40 +287,16 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback, Bandwidth
       throw new ConfigurationException(errMsg);
     }
 
-    // Create default timer tasks for both ramp-up and ramp-down.
-    //
-    txRampupTask = new DefaultTimerTask[] {
-        THROTTLE_DEFAULT_TIMER_TASK,
-        THROTTLE_DEFAULT_TIMER_TASK
-    };
-
-    txRampdownTask = new DefaultTimerTask[] {
-        THROTTLE_DEFAULT_TIMER_TASK,
-        THROTTLE_DEFAULT_TIMER_TASK
-    };
-
     // Create and initialize ramp-up timers.
     //
-    txRampupTimer = new AzureFileSystemTimer [] {
+    bandwidthRampupTimer = new AzureFileSystemTimer [] {
         new AzureFileSystemTimer(
             ASV_TIMER_NAME + "_" + ThrottleType.UPLOAD + "_" + ASV_RAMPUP_TIMER_SUFFIX,
-            getTimerScheduler(), 0, failureTolerancePeriod, FAILURE_TOLERANCE_INTERVAL),
+            getTimerScheduler(), 0, failureTolerancePeriod, FAILURE_TOLERANCE_INTERVALS),
 
         new AzureFileSystemTimer(
             ASV_TIMER_NAME + "_" + ThrottleType.DOWNLOAD + "_" + ASV_RAMPUP_TIMER_SUFFIX,
-            getTimerScheduler(), 0, failureTolerancePeriod, FAILURE_TOLERANCE_INTERVAL)
-    };
-
-    // Create and initialize ramp-down timers.
-    //
-    txRampdownTimer = new AzureFileSystemTimer [] {
-        new AzureFileSystemTimer(
-            ASV_TIMER_NAME +  "_" + ThrottleType.UPLOAD + "_" + ASV_RAMPDOWN_TIMER_SUFFIX,
-            getTimerScheduler(), 0, failureTolerancePeriod, FAILURE_TOLERANCE_INTERVAL),
-
-        new AzureFileSystemTimer(
-            ASV_TIMER_NAME +  "_" + ThrottleType.DOWNLOAD + "_" + ASV_RAMPDOWN_TIMER_SUFFIX,
-            getTimerScheduler(), 0, failureTolerancePeriod, FAILURE_TOLERANCE_INTERVAL)
+            getTimerScheduler(), 0, failureTolerancePeriod, FAILURE_TOLERANCE_INTERVALS)
     };
   }
 
@@ -365,33 +333,11 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback, Bandwidth
       timerScheduler = Executors.newScheduledThreadPool(TIMER_SCHEDULER_CONCURRENCY);
     }
 
-    // Create interval timer to count successful and unsuccessful upload/download
-    // transmissions. The timer has no delay time and no automatic cancellation
+    // Create throttling state machine to drive throttling events on the bandwidth
+    // throttling engine.
     //
-    txSuccessRateTimer = new AzureFileSystemTimer [] {
-        new AzureFileSystemTimer(
-            timerName + "_" + ThrottleType.UPLOAD + "_" + ASV_RATE_TIMER_SUFFIX,
-            getTimerScheduler(), 0, period),
-
-        new AzureFileSystemTimer(
-            timerName + "_" + ThrottleType.DOWNLOAD + "_" + ASV_RATE_TIMER_SUFFIX,
-            getTimerScheduler(), 0, period),
-    };
-
-    // Create task to calculate success rates. Initialize throttling by starting
-    // the ASV success rate timer
-    //
-    txSuccessRateTask = new ThrottlerTxSuccessRateTask [] {
-        new ThrottlerTxSuccessRateTask(),
-        new ThrottlerTxSuccessRateTask()
-    };
-
-    // Turn on the timers.
-    //
-    for (ThrottleType kindOfThrottle : ThrottleType.values()) {
-      txSuccessRateTimer[kindOfThrottle.getValue()].turnOnTimer(
-          txSuccessRateTask[kindOfThrottle.getValue()]);
-    }
+    throttleSM = new ThrottleStateMachine(
+        timerName, getTimerScheduler(), period, FAILURE_TOLERANCE_INTERVALS);
 
     // Throttling has been turned on.
     //
@@ -407,46 +353,17 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback, Bandwidth
   public static boolean isBandwidthThrottled() {
     return isThrottling;
   }
-  
-  /**
-   * Update transmission success counter by delta.
-   * @param delta -- amount to add to successful transmissions for this interval.
-   * @return total accumulated count of successful transmissions for interval.
-   */
-  @Override
-  public int updateTransmissionSuccess(ThrottleType kindOfThrottle, int delta) {
-
-    if (!isBandwidthThrottled()){
-      // This callback should not be called if throttling is not turned on.
-      //
-      throw new AssertionError(
-            "Throttling callback when bandwidth throttling is not turned on.");
-    }
-
-    // Update the number of successful transmission request by delta and return
-    // with the accumulated successes.
-    //
-    return txSuccessRateTask[kindOfThrottle.getValue()].updateTxSuccess(delta);
-  }
 
   /**
-   * Update transmission failure by delta.
-   * @param delta -- amount to add to failed transmissions for this interval.
-   * @return total accumulated count of failed transmissions for interval.
+   * Return the bandwidth throttling feedback interface on the state machine. This
+   * method is used when binding to receive replay callbacks.
+   *
+   * @return BandwidthThrottleFeedback interface implemented by the state machine.
    */
-  @Override
-  public int updateTransmissionFailure (ThrottleType kindOfThrottle, int delta) {
-    if (!isBandwidthThrottled()){
-      // This callback should not be called if throttling is not turned on.
-      //
-      throw new AssertionError(
-            "Throttling callback when bandwidth throttling is not turned on.");
-    }
-
-    // Update the total number of failed transmission requests by delta and
-    // return with the accumulated failures.
+  public BandwidthThrottleFeedback getBandwidthThrottleFeedback (){
+    // Return the throttling state machine.
     //
-    return txSuccessRateTask[kindOfThrottle.getValue()].updateTxFailure(delta);
+    return throttleSM;
   }
 
   /**
@@ -461,128 +378,117 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback, Bandwidth
     // been no activity, the latency would be zero. Set the latency to the default
     // upload/download latency.
     //
-    long latency = 0;
-    switch(kindOfThrottle) {
-      case UPLOAD:
-        // Get upload latency.
-        //
-        latency = instrumentation.getBlockUploadLatency();
-        if (0 == latency) {
-          latency = DEFAULT_UPLOAD_LATENCY;
-        }
-        break;
-      case DOWNLOAD:
-        // Get download latency.
-        //
-        latency = instrumentation.getBlockDownloadLatency();
-        if (0 == latency) {
-          latency = DEFAULT_DOWNLOAD_LATENCY;
-        }
-        break;
-      default:
-        // The kind of throttle is unexpected or undefined.
-        //
-        throw new AssertionError("Unexpected throttle type in SendRequest callback.");
+    long latency = throttleSM.getCurrentLatency(kindOfThrottle);
+    if (0 == latency) {
+      latency = throttleSM.getPreviousLatency(kindOfThrottle);
     }
 
-    // Capture the current success rate. If the success rate is less than 1 ramp
-    // down the bandwidth, otherwise ramp up the bandwidth.
+    // If the latency is still zero use the default latency. This typically occurs at
+    // startup when there is no history of previous latencies.
     //
-    float successRate =
-        txSuccessRateTask[kindOfThrottle.getValue()].getCurrentTxSuccessRate();
-
-    // Calculate the new bandwidth.
-    //
-    long tmpBandwidth = bandwidth[kindOfThrottle.getValue()];
-    if (successRate < 1.0f) {
-      tmpBandwidth = (long) (successRate * bandwidthRampdownMultiplier *
-                                bandwidth[kindOfThrottle.getValue()]);
+    if (0 == latency) {
+      latency = DEFAULT_LATENCY[kindOfThrottle.getValue()];
     }
 
-    if (tmpBandwidth < bandwidthMinThreshold) {
-      // The bandwidth cannot be throttled below the minimum bandwidth threshold.
-      // Set the bandwidth to the minimum bandwidth threshold and return.
+    // If the current throttling state is NORMAL (no throttling events) then check if
+    // to remain at the current bandwidth or ramp up.
+    //
+    if (throttleSM.getState(kindOfThrottle) == ThrottleState.NORMAL) {
+      // There have been no throttling events in the last timer epoch. If the
+      // ramp up timer is turned on not need to change the bandwidth. The current
+      // bandwidth level is still being stabilized.
       //
-      tmpBandwidth = bandwidthMinThreshold;
-    }
-
-    // Main throttling logic to determine whether to ramp-up, ramp-down or leave things the
-    // the same. In all cases, an attempt is made to throttle when a positive delay period
-    // is calculated.
-    //
-    // If the bandwidth is greater or equal to the current bandwidth, attempt to ramp-up.
-    //
-    if (tmpBandwidth >= bandwidth[kindOfThrottle.getValue()]) {
-      // Ramp-up only if the bandwidth ramp-up interval has expired.
+      // Note: Ramp-up stabilization interval should be a state in the throttling
+      //       state machine. The timer rightfully belongs there but this works also.
       //
-      if (txRampupTimer[kindOfThrottle.getValue()].isOff()) {
+      if (bandwidthRampupTimer[kindOfThrottle.getValue()].isOff()) {
         LOG.info("Throttle: Transmission ramp-up wait period expired, increasing current "+
                  "bandwidth = " + bandwidth[kindOfThrottle.getValue()] +
                  " by " + bandwidthRampupDelta[kindOfThrottle.getValue()] + "b/s.");
+
         // Set the new bandwidth and turn on ramp-up interval timer.
         //
         bandwidth[kindOfThrottle.getValue()] =
-            (bandwidth[kindOfThrottle.getValue()] +
-                bandwidthRampupDelta[kindOfThrottle.getValue()]);
-        txRampupTimer[kindOfThrottle.getValue()].turnOnTimer(
-            txRampupTask[kindOfThrottle.getValue()]);
+            Math.min(maxBandwidth[kindOfThrottle.getValue()],
+                (bandwidth[kindOfThrottle.getValue()] +
+                    bandwidthRampupDelta[kindOfThrottle.getValue()]));
+
+        bandwidthRampupTimer[kindOfThrottle.getValue()].turnOnTimer();
 
         // Calculate the next bandwidth delta.
         //
         bandwidthRampupDelta[kindOfThrottle.getValue()] *= bandwidthRampupMultiplier;
       }
-    } else {
-      // The new bandwidth is at less than the current bandwidth. Ramp-down,
-      // but only if the  failure tolerance period has expired.
+    } else if (throttleSM.getState(kindOfThrottle) ==
+                  ThrottleState.THROTTLING_ADJUST_BANDWIDTH) {
+      // The bandwidth throttler is handling throttle events and is in the throttling
+      // state where bandwidth has still needs to be determined. Capture the current
+      // success rate and ramp down.
       //
-      if (txRampdownTimer[kindOfThrottle.getValue()].isOn()) {
-        LOG.info("Throttle: Transmission ramp-down tolerance period not expired, old bandwidth ="
-            + bandwidth[kindOfThrottle.getValue()]);
+      float successRate = throttleSM.getCurrentTxSuccessRate(kindOfThrottle);
+      long tmpBandwidth =
+          Math.min(maxBandwidth[kindOfThrottle.getValue()],
+              Math.max(bandwidthMinThreshold,
+                   (long) (successRate * bandwidthRampdownMultiplier *
+                           bandwidth[kindOfThrottle.getValue()])));
+
+      // Trace bandwidth metrics.
+      //
+      final String infoMsg = String.format(
+          "Min Bandwidth %d Old bandwidth %d, New Bandwidth %d, SuccessRate %f.",
+          bandwidthMinThreshold, bandwidth[kindOfThrottle.getValue()], tmpBandwidth,
+          successRate);
+      LOG.info (infoMsg);
+
+      long deltaBandwidth = bandwidth[kindOfThrottle.getValue()] - tmpBandwidth;
+      bandwidth[kindOfThrottle.getValue()] = tmpBandwidth;
+
+      // Trace ramp down bandwidth.
+      //
+      LOG.info(
+        "Throttle: ramping down to new bandwidth =" +
+             bandwidth[kindOfThrottle.getValue()]);
+
+      // Set the ramp-up delta to a fraction of the range the bandwidth was ramped down.
+      //
+      if (deltaBandwidth / 2 > 0){
+        bandwidthRampupDelta[kindOfThrottle.getValue()] = deltaBandwidth / 2;
       } else {
-        long deltaBandwidth = bandwidth[kindOfThrottle.getValue()] - tmpBandwidth;
-        bandwidth[kindOfThrottle.getValue()] = tmpBandwidth;
-
-        // Set the new bandwidth and turn on the ramp-down interval timer.
+        // The calculated new bandwidth delta is either 0 or negative. Set the bandwidth
+        // ramp-up delta to the default bandwidth ramp-up delta.
         //
-        // bandwidth[kindOfThrottle.getValue()] = tmpBandwidth;
-        txRampdownTimer[kindOfThrottle.getValue()].turnOnTimer(
-          txRampdownTask[kindOfThrottle.getValue()]);
+        bandwidthRampupDelta[kindOfThrottle.getValue()] = minBandwidthRampupDelta;
+      }
 
-        LOG.info(
-          "Throttle: Transmission ramp-down tolerance period expired, "+
-          "ramping down to new bandwidth =" + bandwidth[kindOfThrottle.getValue()]);
+      // Throttling, so turn off the ramp up timer if it is on.
+      //
+      if (bandwidthRampupTimer[kindOfThrottle.getValue()].isOn()){
+        bandwidthRampupTimer[kindOfThrottle.getValue()].isOff();
+      }
+    } else {
+      // The state machine stabilizing at the current bandwidth. Trace the current
+      // bandwidth.
+      //
+      LOG.info(
+        "Throttle: stabilizing at new bandwidth =" +
+            bandwidth[kindOfThrottle.getValue()]);
 
-        // Set the ramp-up delta to a fraction of the range the bandwidth was ramped down.
-        //
-        if (deltaBandwidth / 2 > 0){
-          bandwidthRampupDelta[kindOfThrottle.getValue()] = deltaBandwidth / 2;
-        } else {
-          // The calculated new bandwidth delta is either 0 or negative. Set the bandwidth
-          // ramp-up delta to the default bandwidth ramp-up delta.
-          //
-          bandwidthRampupDelta[kindOfThrottle.getValue()] = minBandwidthRampupDelta;
-        }
+      // Throttling, so turn off the ramp up timer if it is on.
+      //
+      if (bandwidthRampupTimer[kindOfThrottle.getValue()].isOn()){
+        bandwidthRampupTimer[kindOfThrottle.getValue()].isOff();
       }
     }
 
     // Calculate the delay for the send request. Notice that the bandwidth is never
     // zero since it is always greater than the non-negative bandwidthMinThreshold.
     //
-    long delayMs = latency - payloadSize * ONE_SECOND / bandwidth[kindOfThrottle.getValue()];
-    if (bandwidth[kindOfThrottle.getValue()] == bandwidthMinThreshold) {
-      switch(kindOfThrottle) {
-        case UPLOAD:
-          if (latency == DEFAULT_UPLOAD_LATENCY) delayMs = 3000;
-          break;
-        case DOWNLOAD:
-          if (latency == DEFAULT_DOWNLOAD_LATENCY) delayMs = 3000;
-          break;
-        default:
-          // The kind of throttle is unexpected or undefined.
-          //
-          throw new AssertionError("Unexpected throttle type in SendRequest callback.");
-      }
-    }
+    long delayMs =
+        payloadSize * ONE_SECOND / bandwidth[kindOfThrottle.getValue()] - latency;
+
+    // Trace the throttling delay.
+    //
+    LOG.info("Throttle:  delay send by " + delayMs + " ms.");
 
     // Pause the thread only if its delay is greater than zero. Otherwise do not delay.
     //

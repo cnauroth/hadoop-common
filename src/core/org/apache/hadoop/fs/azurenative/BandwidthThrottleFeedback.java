@@ -30,11 +30,14 @@ import org.apache.hadoop.fs.azurenative.BandwidthThrottle.ThrottleType;
 public interface BandwidthThrottleFeedback {
   /**
    * Azure throttling feedback method: Update transmission success counter by delta.
+   * Also communicate the current latency for the successful request.
    */
-  public int updateTransmissionSuccess (ThrottleType kindOfThrottle, int delta);
+  public long updateTransmissionSuccess (
+      ThrottleType kindOfThrottle, long delta, long requestLatency);
 
   /**
    * Azure throttling feedback method: Update transmission failure by delta.
    */
-  public int updateTransmissionFailure (ThrottleType kindOfThrottle, int delta);
+  public long updateTransmissionFailure (
+      ThrottleType kindOfThrottle, long delta, long requestLatency);
 }

@@ -27,9 +27,9 @@ implements ThrottleSendRequestCallback, BandwidthThrottleFeedback {
   //
   AzureBlobStorageTestAccount testAccount;
 
-  protected int[]sumTxFailure = new int[2];
-  protected int[]sumTxSuccess = new int[2];
-  protected long[]sumPayload  = new long[2];
+  protected long sumTxFailure[] = new long[2];
+  protected long sumTxSuccess[] = new long[2];
+  protected long sumPayload[]   = new long[2];
 
   // Overridden TestCase methods.
   //
@@ -75,7 +75,8 @@ implements ThrottleSendRequestCallback, BandwidthThrottleFeedback {
    * @return accumulated transmission successes this far.
    */
   @Override
-  public int updateTransmissionSuccess(ThrottleType kindOfThrottle, int delta) {
+  public long updateTransmissionSuccess(
+      ThrottleType kindOfThrottle, long delta, long reqLatency) {
     sumTxSuccess[kindOfThrottle.getValue()] += delta;
     return sumTxSuccess[kindOfThrottle.getValue()];
   }
@@ -90,7 +91,8 @@ implements ThrottleSendRequestCallback, BandwidthThrottleFeedback {
    * @return accumulated transmission failures this far.
    */
   @Override
-  public int updateTransmissionFailure(ThrottleType kindOfThrottle, int delta) {
+  public long updateTransmissionFailure(
+      ThrottleType kindOfThrottle, long delta, long reqLatency) {
     sumTxFailure[kindOfThrottle.getValue()] += delta;
     return sumTxFailure[kindOfThrottle.getValue()];
   }
@@ -160,7 +162,7 @@ implements ThrottleSendRequestCallback, BandwidthThrottleFeedback {
     int count = 0;
     int c = 0;
     byte buffer[] = new byte[BUFFER_SIZE];
-    
+
     while (c >= 0) {
       c = inputStream.read(buffer, 0, BUFFER_SIZE);
       if (c >= BUFFER_SIZE) {
@@ -171,7 +173,7 @@ implements ThrottleSendRequestCallback, BandwidthThrottleFeedback {
         count += c;
       }
     }
-    
+
     // Close the stream.
     //
     inputStream.close();
