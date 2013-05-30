@@ -19,6 +19,7 @@
 package org.apache.hadoop.fs.azurenative;
 
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.hadoop.fs.azurenative.AzureFileSystemTimer.AzureFileSystemTimerCallbacks;
@@ -35,7 +36,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
    * Enum defining throttling types.
    */
   public enum ThrottleState {
-    NORMAL(0) , THROTTLING_STABLE (2), THROTTLING_ADJUST_BANDWIDTH (3);
+    THROTTLE_NONE(0) , THROTTLE_RAMPDOWN(1), THROTTLE_RAMPUP(2);
 
     private final int value;
     private ThrottleState(int value) { this.value = value; }
@@ -59,7 +60,12 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
   // Throttling state for uploads and downloads.
   //
   private ThrottleState throttleState[] = new ThrottleState[] {
-      ThrottleState.NORMAL, ThrottleState.NORMAL};
+      ThrottleState.THROTTLE_NONE, ThrottleState.THROTTLE_NONE};
+  
+  // Throttling adjustment can be made for uploads and downloads.
+  //
+  private AtomicBoolean[] canAdjustBandwidth   = new AtomicBoolean[] {
+      new AtomicBoolean (false), new AtomicBoolean (false)};
 
   // Two dimensional accumulators.  Rows correspond to downloads and uploads, and the
   // columns keep track of recent history from most recent to oldest.
@@ -84,16 +90,23 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
       final int period, final int stopAfter) {
 
     // Create interval timer to count successful and unsuccessful upload/download
-    // transmissions. The timer has no delay and automatically stops
+    // transmissions. The timer has no delay and only stops after there are no
+    // throttling events in the current period. After a throttling event, timers
+    // are guaranteed to run for two throttling intervals (denoted by the period).
+    // The first interval is guaranteed to have a success rate less than one and
+    // and the timer only stops after seeing an interval with a success rate of 1.
+    //
+    // Note: The idea here is to ensure that timer threads should not be wasting
+    //       CPU and should only run when something needs timing.
     //
     throttleTimers = new AzureFileSystemTimer [] {
         new AzureFileSystemTimer(
             timerName + "_" + ThrottleType.UPLOAD + "_" + THROTTLE_STATE_MACHINE_SUFFIX,
-            timerScheduler, 0, period, stopAfter),
+            timerScheduler, 0, period),
 
         new AzureFileSystemTimer(
             timerName + "_" + ThrottleType.DOWNLOAD + "_" + THROTTLE_STATE_MACHINE_SUFFIX,
-            timerScheduler, 0, period, stopAfter)
+            timerScheduler, 0, period)
     };
   }
 
@@ -108,26 +121,24 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
   public long updateTransmissionSuccess(
       ThrottleType kindOfThrottle, final long successCount, final long reqLatency) {
 
-    // Accumulate latency for average latency of successful transmissions over
-    // over this period.
+    // Respond to the transmission success event depending on the current state.
     //
-    succLatency[kindOfThrottle.getValue()][CURRENT_INTERVAL].addAndGet(reqLatency);
-
-    // The state machine is a state where it is still making bandwidth adjustments,
-    // set the throttling state to a stabilizing state, since there are successful
-    // transmissions.
-    //
-    // Note: There may be a race between testing with the get and setting the state.
-    //       However, this is expected to be rare and the resulting condition should
-    //       not affect performance.
-    //
-    if (getState (kindOfThrottle) != ThrottleState.THROTTLING_ADJUST_BANDWIDTH){
-      setState(kindOfThrottle, ThrottleState.THROTTLING_STABLE);
+    switch (getState(kindOfThrottle)) {
+    case THROTTLE_NONE:
+    case THROTTLE_RAMPDOWN:
+    case THROTTLE_RAMPUP:
+      // Accumulate latency for average latency of successful transmissions over
+      // over this period.
+      //
+      succLatency[kindOfThrottle.getValue()][CURRENT_INTERVAL].addAndGet(reqLatency);
+      
+      // Accumulate success count and return.
+      //
+      return succTxCount[kindOfThrottle.getValue()][CURRENT_INTERVAL].addAndGet(successCount);
+    default:
+      throw new AssertionError(
+        "Received updateTransmissionSuccess event in an unknown state");
     }
-
-    // Accumulate success count and return.
-    //
-    return succTxCount[kindOfThrottle.getValue()][CURRENT_INTERVAL].addAndGet(successCount);
   }
   
   /**
@@ -138,30 +149,48 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
    * @return total number of failed transmissions within the interval
    */
   @Override
-  public synchronized long updateTransmissionFailure(ThrottleType kindOfThrottle,
+  public long updateTransmissionFailure(ThrottleType kindOfThrottle,
       final long failureCount, final long reqLatency) {
 
-    // Change throttling state with bandwidth adjustment and start timer if it is
-    // not already started.
+    // Use synchronize block to avoid sleeping while holding a monitor.
     //
-    setState(kindOfThrottle, ThrottleState.THROTTLING_ADJUST_BANDWIDTH);
-
-    // Turn on throttling timer if it is not already turned on.
-    //
-    if (throttleTimers[kindOfThrottle.getValue()].isOff ()) {
-
-      // Timer ticks are callback events into the state machine. Ticks are
-      // discriminated based on their upload/download throttle types in the
-      // callback context.
+    synchronized (this) {
+      // Respond to the transmission failure event depending on the current state.
       //
-      throttleTimers[kindOfThrottle.getValue()].turnOnTimer(this, kindOfThrottle);
-
-      // Roll success rate metrics by overwriting previous values with current
-      // values and resetting previous values.
+      switch (getState(kindOfThrottle)) {
+      case THROTTLE_NONE:
+      case THROTTLE_RAMPUP:
+        // Set the state to reflect ramp-down.
+        //
+        setState(kindOfThrottle, ThrottleState.THROTTLE_RAMPDOWN);
+      case THROTTLE_RAMPDOWN:
+        break;
+      default:
+        throw new AssertionError(
+          "Received updateTransmission event in an unknown state");
+      }
+  
+      // Accumulate latency for average latency of successful transmissions over
+      // over this period.
       //
-      rollSuccessRateMetrics(kindOfThrottle);
-    }
+      succLatency[kindOfThrottle.getValue()][CURRENT_INTERVAL].addAndGet(reqLatency);
+      
+      // Turn on throttling timer if it is not already turned on.
+      //
+      if (throttleTimers[kindOfThrottle.getValue()].isOff ()) {
+        // Timer ticks are callback events into the state machine. Ticks are
+        // discriminated based on their upload/download throttle types in the
+        // callback context.
+        //
+        throttleTimers[kindOfThrottle.getValue()].turnOnTimer(this, kindOfThrottle);
     
+        // Roll success rate metrics by overwriting previous values with current
+        // values and resetting previous values.
+        //
+        rollSuccessRateMetrics(kindOfThrottle);
+      }
+    }
+
     // Capture the sampled latency.
     //
     long sampledLatency = getCurrentLatency(kindOfThrottle);
@@ -289,12 +318,8 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
 
   /**
    * Set the state of the simple upload/download state machine.
-   */
-  /**
-   * Get the state of the simple upload/download state machine.
    * @param kindOfThrottle - denotes download or upload throttling.
    * @param newState - set the state of the simple state machine to this state.
-   * @returns previous state of the state machine
    */
   public synchronized ThrottleState setState (ThrottleType kindOfThrottle,
       ThrottleState newState) {
@@ -307,6 +332,8 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
 
   /**
    * Get the state of the simple upload/download state machine.
+   * @param kindOfThrottle - denotes download or upload throttling.
+   * @returns current state of the state machine
    */
   public synchronized ThrottleState getState (ThrottleType kindOfThrottle) {
     // Return the current state.
@@ -316,6 +343,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
 
   /**
    * Implementation of the tickEvent for the AzureFileSytemTimerCallback interface.
+   * @param timerCallbackContext - context to discriminate between timers.
    */
   @Override
   public void tickEvent(Object timerCallbackContext) {
@@ -324,38 +352,152 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
     // the timer callback context.
     //
     ThrottleType kindOfThrottle = (ThrottleType) timerCallbackContext;
-
-    // Determine whether this timer event corresponds to the expiration of a
-    // throttling interval.
+    
+    // Respond to the transmission success event depending on the current state.
     //
-    // Note: The state assertions are not factored out for the expired and non-expired
-    //       cases below since we want to get the current throttle state in one
-    //       atomic operation.
-    //
-    ThrottleState prevState;
+    switch (getState(kindOfThrottle)) {
+    case THROTTLE_NONE:
+      throw new AssertionError(
+          "Received timerTick event when not in a throttling state");
+    case THROTTLE_RAMPDOWN:
+    case THROTTLE_RAMPUP:
+      break;
 
-    if (throttleTimers[kindOfThrottle.getValue()].isExpired()) {
-      // Expiration of a throttling interval. Set the throttling state to NORMAL.
-      //
-      prevState = setState(kindOfThrottle, ThrottleState.NORMAL);
-    } else {
-      // Throttling interval is not expired, simply capture state prior to tick.
-      //
-      prevState = getState(kindOfThrottle);
+    default:
+      throw new AssertionError(
+        "Received updateTransmissionSuccess event in an unknown state");
     }
-
-    // Assertion: Previous state of the state machine must be throttling in
-    //            if it is receiving timer ticks.
+    
+    // At this point the state machine is either ramping up or ramping down
+    // bandwidth.
     //
-    if (ThrottleState.NORMAL == prevState) {
-      throw new AssertionError (prevState +
-          " state unexpected for " + kindOfThrottle + " throttling state machine." +
-          " Expected state: " + ThrottleState.THROTTLING_STABLE + " or " +
-          ThrottleState.THROTTLING_ADJUST_BANDWIDTH);
-    }
-
-    // Roll over success rate metrics and start fresh for the next throttling epoch.
+    // Roll over success rate metrics and start fresh for the next
+    // throttling interval. Remain in the throttling state.
     //
     rollSuccessRateMetrics(kindOfThrottle);
+    
+    // Check for throttling events over the current throttling interval.
+    //
+    if (getCurrentTxSuccessRate(kindOfThrottle) < 1.0) {
+      // Since failure were incurred in the last timer period, change state
+      // to reflect ramp-down.
+      //
+      setState (kindOfThrottle, ThrottleState.THROTTLE_RAMPDOWN);
+    } else {
+      // All transmissions in the previous interval have been successful.
+      //
+      // Note: If there were not transmissions in the current interval, that is also
+      //       treated as 100% successful.
+      //
+      setState(kindOfThrottle, ThrottleState.THROTTLE_RAMPUP);
+    }
+    
+    // Check if the timer has ticked over two intervals and expired.
+    //
+    if (throttleTimers[kindOfThrottle.getValue()].isExpired()) {
+      // Timer expired, restart timer.
+      //
+      throttleTimers[kindOfThrottle.getValue()].turnOnTimer(this, kindOfThrottle);
+      
+      // At the end of a throttling interval, bandwidth adjustments can be made.
+      //
+      canAdjustBandwidth[kindOfThrottle.getValue()].set(true);
+    }
   }
+  
+  /**
+   * Ramp-up upcall from the throttling engine polling to determine whether or not
+   * can ramp-up bandwidth. This is not a simple query since it flips the
+   * canAdjustBandwidth state to false.
+   * 
+   * Note: Introduced polling function to keep the simple state machine completely
+   *       passive and improve safety by not calling back on notifications from other
+   *       potentially unsafe method objects.
+   *
+   * @param kindOfThrottle - upload/download throttle.
+   */
+  public synchronized boolean rampUp (ThrottleType kindOfThrottle) {
+    if (getState(kindOfThrottle) == ThrottleState.THROTTLE_RAMPUP &&
+        canAdjustBandwidth[kindOfThrottle.getValue()].get()) {
+      
+      // Bandwidth adjustments prevented from now on.
+      //
+      canAdjustBandwidth[kindOfThrottle.getValue()].set(false);
+      
+      // It is OK to ramp-up.
+      //
+      return true;
+    }
+    
+    // It is not OK to ramp-up.
+    //
+    return false;
+  }
+  
+  /**
+   * Ramp-down upcall from the throttling engine polling to determine whether or not
+   * can ramp-down bandwidth. This is not a simple query since it flips the
+   * canAdjustBandwidth state to false.
+   * 
+   * Note: Introduced polling function to keep the simple state machine completely
+   *       passive and improve safety by not calling back on notifications from other
+   *       potentially unsafe method objects.
+   *
+   * @param kindOfThrottle - upload/download throttle.
+   */
+  public synchronized boolean rampDown (ThrottleType kindOfThrottle) {
+    if (getState(kindOfThrottle) == ThrottleState.THROTTLE_RAMPDOWN &&
+        canAdjustBandwidth[kindOfThrottle.getValue()].get()) {
+      
+      // Bandwidth adjustments prevented from now on.
+      //
+      canAdjustBandwidth[kindOfThrottle.getValue()].set(false);
+      
+      // It is OK to ramp-up.
+      //
+      return true;
+    }
+    
+    // It is not OK to ramp-up.
+    //
+    return false;
+  }
+  
+  /**
+   * Tell the state machine to stop throttling and return it to the virgin
+   * non-throttling state.
+   *
+   * @param kindOfThrottle - upload/download throttle.
+   */
+  public synchronized void stopThrottling (ThrottleType kindOfThrottle) {
+    // Respond to the transmission success event depending on the current state.
+    //
+    switch (getState(kindOfThrottle)) {
+    case THROTTLE_NONE:
+      // Assert that the timer is turned off then return immediately. This makes
+      // stopThrottling idempotent.
+      //
+      if (throttleTimers[kindOfThrottle.getValue()].isOn()) {
+        throw new AssertionError(
+            "Throttling timer is on when throttling state machine in non-throttling mode.");
+      }
+      break;
+    case THROTTLE_RAMPDOWN:
+    case THROTTLE_RAMPUP:
+      // Turn off throttling timer and rollover metrics.  Note there is no need to
+      // rollover metrics over the current interval. A rollover will occur on the next
+      // throttling event.
+      //
+      throttleTimers[kindOfThrottle.getValue()].turnOffTimer();
+      
+      // Make sure no bandwidth adjustments can be made.
+      //
+      canAdjustBandwidth[kindOfThrottle.getValue()].set(false);
+    default:
+      throw new AssertionError(
+        "Received updateTransmissionSuccess event in an unknown state");
+    }
+  }
+  
+
 }
