@@ -38,7 +38,7 @@ public class BandwidthThrottleRetry extends RetryPolicy implements RetryPolicyFa
 
   // Default absolute maximum number of I/O retries when throttling before giving up.
   //
-  private static final int THROTTLE_MAX_IO_RETRIES = 10;
+  public static final int THROTTLE_MAX_IO_RETRIES = 10;
 
   /**
    * Default constructor for BandwithThrottleRetry objects.

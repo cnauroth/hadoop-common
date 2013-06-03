@@ -85,6 +85,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final String KEY_STREAM_MIN_READ_SIZE = "fs.azure.read.request.size";
   private static final String KEY_STORAGE_CONNECTION_TIMEOUT = "fs.azure.storage.timeout";
   private static final String KEY_WRITE_BLOCK_SIZE = "fs.azure.write.request.size";
+  private static final String KEY_MAX_IO_RETRIES = "fs.azure.max.io.retries";
 
 
   // Configurable throttling parameter properties. These properties are located in the
@@ -123,7 +124,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
   private URI sessionUri;
   private Configuration sessionConfiguration;
-  private final int concurrentReads = 1; // Keep concurrent reads at default of 1 for now.
   private int concurrentWrites = DEFAULT_CONCURRENT_WRITES;
   private boolean isAnonymousCredentials = false;
   private AzureFileSystemInstrumentation instrumentation;
@@ -567,6 +567,7 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
         KEY_WRITE_BLOCK_SIZE, DEFAULT_UPLOAD_BLOCK_SIZE);
     storageInteractionLayer.setWriteBlockSizeInBytes(uploadBlockSize);
 
+
     // The job may want to specify a timeout to use when engaging the
     // storage service. The default is currently 90 seconds. It may
     // be necessary to increase this value for long latencies in larger
@@ -605,12 +606,15 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       // Create bandwidth throttling object.
       //
       bandwidthThrottle = new BandwidthThrottle(
-          concurrentReads, concurrentWrites, uploadBlockSize, downloadBlockSize,
-          sessionConfiguration);
+          uploadBlockSize, downloadBlockSize, sessionConfiguration);
 
       // Set the up the throttling bandwidth retry policy.
       //
-      storageInteractionLayer.setRetryPolicyFactory(new BandwidthThrottleRetry ());
+      int maxRetries = sessionConfiguration.getInt(
+          KEY_MAX_IO_RETRIES, BandwidthThrottleRetry.THROTTLE_MAX_IO_RETRIES);
+
+      storageInteractionLayer.setRetryPolicyFactory(
+          new BandwidthThrottleRetry (maxRetries));
     }
   }
 
