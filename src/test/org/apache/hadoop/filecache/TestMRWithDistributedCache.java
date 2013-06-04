@@ -36,6 +36,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
@@ -179,6 +180,85 @@ public class TestMRWithDistributedCache extends TestCase {
 
   }
 
+  /**
+   * Tests setting job tracker's staging dir to a nondefault filesystem. 
+   * It validates that distributed cache entries are not copied to the staging 
+   * dir for schemes defined in "mapreduce.client.accessible.remote.schemes".
+   */
+  public void testJTStagingOnNondefaultFS() throws Exception {
+    MiniDFSCluster dfs = null;
+    MiniMRCluster mr  = null;
+    try {
+      dfs = new MiniDFSCluster(conf, 1, true, null);
+      FileSystem fileSys = dfs.getFileSystem();
+      mr = new MiniMRCluster(1, fileSys.getUri().toString(), 1);
+      runWithConfJTStagingOnNondefaultFS(mr.createJobConf());
+    } finally { 
+      mr.shutdown();
+      dfs.shutdown();
+    } 
+  }
+  
+  private void runWithConfJTStagingOnNondefaultFS(JobConf conf) 
+      throws IOException, InterruptedException, 
+      ClassNotFoundException, URISyntaxException {
+    // Create a temporary file of length 1.
+    Path first = createTempFile("distributed.first", "x")
+        .makeQualified(localFs);
+    // Create two jars with a single file inside them.
+    Path second =
+        makeJar(new Path(TEST_ROOT_DIR, "distributed.second.jar"), 2)
+            .makeQualified(localFs);
+    Path third =
+        makeJar(new Path(TEST_ROOT_DIR, "distributed.third.jar"), 3)
+            .makeQualified(localFs);
+    // Set configuration properties for this job
+    conf.set("fs.default.name", "file:///");
+    conf.set("tmpfiles", first.toString());
+    conf.set("tmpjars", second.toString());
+    conf.set("tmparchives", third.toString()); 
+    conf.set("mapreduce.client.accessible.remote.schemes", 
+        localFs.getUri().getScheme());
+    conf.setMaxMapAttempts(1); // speed up failures
+    // Submit job
+    Job job = new Job(conf);
+    job.setMapperClass(DistributedCacheCheckerJTStagingOnNondefaultFS.class);
+    job.setOutputFormatClass(NullOutputFormat.class);
+    FileInputFormat.setInputPaths(job, first);
+    job.submit();
+    // Check if the job is successful
+    assertTrue(job.waitForCompletion(false));
+  }
+  
+  public static class DistributedCacheCheckerJTStagingOnNondefaultFS extends
+      Mapper<LongWritable, Text, NullWritable, NullWritable> {
+    @Override
+    public void setup(Context context) throws IOException {
+      Configuration conf = context.getConfiguration();
+      Path[] files = DistributedCache.getLocalCacheFiles(conf);
+      Path[] archives = DistributedCache.getLocalCacheArchives(conf);
+      // Check that 1 file and 2 archives are present
+      assertEquals(1, files.length);
+      assertEquals(2, archives.length);
+      // Check lengths of the file
+      assertEquals(1, localFs.getFileStatus(files[0]).getLen());
+      // Check the existence of the archives
+      assertTrue(localFs
+          .exists(new Path(archives[0], "distributed.jar.inside2")));
+      assertTrue(localFs
+          .exists(new Path(archives[1], "distributed.jar.inside3")));
+      // Check the schemes of the files/archives specified in
+      // "mapred.cache.archives" and "mapred.cache.files". The schemes
+      // must be "file" if we do not copy the files/archives to jt's staging
+      // dir
+      String[] arxSources = conf.getStrings("mapred.cache.archives");
+      String[] fileSources = conf.getStrings("mapred.cache.files");
+      assertEquals("file", (new Path(fileSources[0])).toUri().getScheme());
+      assertEquals("file", (new Path(arxSources[0])).toUri().getScheme());
+      assertEquals("file", (new Path(arxSources[1])).toUri().getScheme());
+    }
+  }
+  
   private Path createTempFile(String filename, String contents)
       throws IOException {
     Path path = new Path(TEST_ROOT_DIR, filename);
