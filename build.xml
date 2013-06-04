@@ -3104,7 +3104,7 @@
 
   <!-- end of task-controller targets -->
 
-  <target name="jsvc" >
+  <target name="jsvc" unless="windows">
     <mkdir dir="${jsvc.build.dir}" />
     <get src="${jsvc.location}" dest="${jsvc.build.dir}/${jsvc.dest.name}" verbose="true" maxtime="300" retries="10"/>
 
