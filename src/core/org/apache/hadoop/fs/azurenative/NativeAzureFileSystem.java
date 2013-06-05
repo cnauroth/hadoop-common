@@ -1378,7 +1378,15 @@ public class NativeAzureFileSystem extends FileSystem {
     // Notify the metrics system that this file system is closed, which may
     // trigger one final metrics push to get the accurate final file system
     // metrics out.
+
+    long startTime = System.currentTimeMillis();
+    
     AzureFileSystemMetricsSystem.fileSystemClosed();
+    
+    if (LOG.isDebugEnabled()) {
+        LOG.debug("Submitting metrics when file system closed took " 
+                + (System.currentTimeMillis() - startTime) + " ms.");
+    }
   }
 
   /**

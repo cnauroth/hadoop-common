@@ -226,7 +226,13 @@ public class WindowsAzureTableSink implements MetricsSink {
 		TableOperation insertMetricOperation = TableOperation.insert(metrics2Entity);
 		
 		try {
+			long startTime = System.currentTimeMillis();
 			tableClient.execute(tableName, insertMetricOperation);
+			
+			if (logger.isDebugEnabled()) {
+				logger.debug("Inserting metrics to azure table took " 
+					+ (System.currentTimeMillis()-startTime) + " ms.");
+			}
 		} catch (StorageException storageException) {
 			logger.error(String.format("tableClient.execute failed. Details: %s, %s", 
 					storageException.getMessage(), storageException));
