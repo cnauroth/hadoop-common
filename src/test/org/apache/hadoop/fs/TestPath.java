@@ -24,6 +24,7 @@ import java.net.URISyntaxException;
 import java.util.Arrays;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.util.Shell;
 
 import junit.framework.TestCase;
 
@@ -180,6 +181,10 @@ public class TestPath extends TestCase {
  }
   
   public void testGlobEscapeStatus() throws Exception {
+    if (Shell.WINDOWS) {
+    	return;
+    }
+    	
     FileSystem lfs = FileSystem.getLocal(new Configuration());
     Path testRoot = lfs.makeQualified(new Path(System.getProperty(
         "test.build.data", "test/build/data"), "testPathGlob"));
