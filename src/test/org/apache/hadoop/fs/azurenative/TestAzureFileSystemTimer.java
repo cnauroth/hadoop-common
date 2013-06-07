@@ -26,8 +26,6 @@ public class TestAzureFileSystemTimer  {
   private final int ONE_SECOND    = 1000;
   private final int TIMER_PERIOD  = ONE_SECOND / 10; // 10 ms.
 
-  
-  
   private class TestAzureFileSystemTimerCallback implements 
     AzureFileSystemTimerCallbacks {
     

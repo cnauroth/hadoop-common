@@ -346,7 +346,9 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
     // Return the previous state.
     //
     ThrottleState prevState = throttleState[kindOfThrottle.getValue()];
+    
     throttleState[kindOfThrottle.getValue()] = newState;
+    
     return prevState;
   }
 
@@ -411,7 +413,15 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
       // Note: If there were not transmissions in the current interval, that is also
       //       treated as 100% successful.
       //
-      setState(kindOfThrottle, ThrottleState.THROTTLE_RAMPUP);
+      ThrottleState prevState = setState(kindOfThrottle, ThrottleState.THROTTLE_RAMPUP);
+      
+      // Assertion: Ramp-up never occurs from a stable THROTTLE_NONE state.
+      //
+      if (ThrottleState.THROTTLE_NONE == prevState) {
+        throw new AssertionError(
+            "Unexpected transition from " + prevState + " to " +
+                   ThrottleState.THROTTLE_RAMPUP);
+      }
     }
     
     // Check if the timer has ticked over two intervals and expired.

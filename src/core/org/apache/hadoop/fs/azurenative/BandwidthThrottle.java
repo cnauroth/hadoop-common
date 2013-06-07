@@ -60,7 +60,6 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
   private static final String ASV_TIMER_NAME = "AsvStream";
   private static final String KEY_THROTTLING_PERIOD = "fs.azure.success.throttling.period";
   private static final String KEY_MAX_THROTTLE_DELAY = "fs.azure.max.throttle.delay";
-  private static final String KEY_BANDWIDTH_RAMPUP_DELTA = "fs.azure.rampup.delta";
   private static final String KEY_BANDWIDTH_RAMPUP_MULTIPLIER = "fs.azure.rampup.multiplier";
   private static final String KEY_BANDWIDTH_RAMPDOWN_MULTIPLIER = "fs.azure.rampdown.multiplier";
   
@@ -70,7 +69,6 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
   private static int ONE_SECOND = 1000;  // 1000 milliseconds
   private static final int DEFAULT_THROTTLING_PERIOD = 60 * ONE_SECOND;  // 60 seconds
   private static final int DEFAULT_MAX_THROTTLE_DELAY = 10 * ONE_SECOND; // 10 seconds.
-  private static final long DEFAULT_BANDWIDTH_RAMPUP_DELTA = 1024*1024 / ONE_SECOND; // MB/ms.
   private static final float DEFAULT_BANDWIDTH_RAMPUP_MULTIPLIER  = 1.15f;
   private static final float DEFAULT_BANDWIDTH_RAMPDOWN_MULTIPLIER = 0.75f;
 
@@ -160,23 +158,6 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
               "Cluster is configured with a throttling period period of %d" +
                   " The failure tolerance period should be at least 1 ms.",
                   throttlingPeriod);
-      throw new ConfigurationException(errMsg);
-    }
-
-    // Delta in bandwidth when ramping up.  The size of this value controls the
-    // ramp up rate.
-    //
-    minBandwidthRampupDelta = sessionConfiguration.getLong(
-        KEY_BANDWIDTH_RAMPUP_DELTA,
-        DEFAULT_BANDWIDTH_RAMPUP_DELTA);
-    if (minBandwidthRampupDelta <= 0) {
-      // The bandwidth ramp-up delta configuration be greater than zero.
-      //
-      String errMsg =
-          String.format(
-              "Cluster is configured with a bandwidth ramp-up delta of %d" +
-                  " The bandwidth ramp-up delta should be greater than zero.",
-                  minBandwidthRampupDelta);
       throw new ConfigurationException(errMsg);
     }
 
