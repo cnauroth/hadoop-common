@@ -25,7 +25,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.fs.azure.AzureException;
 
 /**
  * The AzureFileSystemTimer class schedules periodic tasks using the Java
@@ -128,7 +127,7 @@ public final class AzureFileSystemTimer {
    *
    * @param alarmName - moniker for the timer
    * @param scheduler - executor scheduler initialized by the caller
-   * @param startAfter - delay this number of seconds before starting the timer
+   * @param startAfter - delay this number of milliseconds before starting the timer
    * @param timerPeriod - period of the timer
    */
   public AzureFileSystemTimer (String alarmName, ScheduledExecutorService scheduler,
@@ -148,7 +147,7 @@ public final class AzureFileSystemTimer {
    * @param alarmName - moniker for the timer
    * @param scheduler - executor scheduler initialized by the caller
    * @param startAfter - delay this number timer ticks before starting the timer
-   * @param timerPeriod - period of the timer in seconds
+   * @param timerPeriod - period of the timer in milliseconds
    * @param stopAfter - shutdown timer and scheduler after this number of ticks.
    */
   public AzureFileSystemTimer (String alarmName, ScheduledExecutorService scheduler,
@@ -169,7 +168,7 @@ public final class AzureFileSystemTimer {
    * @param alarmName - moniker for the timer
    * @param scheduler - executor scheduler initialized by the caller
    * @param startAfter - delay this number timer ticks before starting the timer
-   * @param timerPeriod - period of the timer in seconds
+   * @param timerPeriod - period of the timer in milliseconds
    * @param stopAfter - shutdown timer and scheduler after this number of ticks.
    * @param timerCallbacks - timer event callback interface.
    * @param timerCallbackContext - timer callback context.
@@ -223,12 +222,6 @@ public final class AzureFileSystemTimer {
     }
   }
 
-  private final class ShutdownTimerTask implements Runnable {
-    public void run () {
-      shutdownScheduler();
-    }
-  }
-
   /**
    * Start a timer with a default timer task.
    */
@@ -260,7 +253,7 @@ public final class AzureFileSystemTimer {
     timerFuture = scheduler.scheduleAtFixedRate(
         timerTask,
         initialDelayTicks * timerPeriod, timerPeriod,
-        TimeUnit.SECONDS);
+        TimeUnit.MILLISECONDS);
 
     // If the shutdown delay is not infinite schedule a task to automatically
     // stop the timer.  The shutdown delay is relative to the the inital delay.
@@ -439,54 +432,6 @@ public final class AzureFileSystemTimer {
     //
     TurnOffTimerTask turnOffTask = new TurnOffTimerTask();
     shutdownFuture = scheduler.schedule(
-        turnOffTask, delayTicks * timerPeriod, TimeUnit.SECONDS);
-  }
-
-  /**
-   * This method overloads turning off the timer and triggering the scheduler
-   * shutdown.
-   */
-  public void shutdownScheduler () {
-    // Timer is scheduled, cancel it.  This is an optimization if this is the only
-    // timer scheduled by the scheduler leading to an immediate shutdown.
-    //
-    turnOffTimer();
-
-    // Shutdown the scheduler if it is not already in shutdown mode.
-    //
-    if (!scheduler.isShutdown()) {// This guard maybe overkill since shutdown is
-      // idempotent.
-
-      // Shutdown the scheduler.
-      //
-      scheduler.shutdown();
-    }
-  }
-
-  /**
-   * Automatically shutdown the scheduler after a given delay period.
-   *
-   * @param delayTicks - delay before scheduling the shutdown.
-   * @throws AzureException on timer errors.
-   */
-  public void shutdownSchedulerAfterDelay(final long delayTicks) {
-    // Check incoming parameter to make sure we are not attempting to automatically
-    // turn of timer after an infinite delay.
-    //
-    if (INFINITE_DELAY == delayTicks) {
-      final String errMsg =
-          String.format(
-              "Illegal attempt to automatically stop timer %s after infinite delay.",
-              timerName);
-      throw new IllegalArgumentException (errMsg);
-    }
-
-    // Only schedule timer and scheduler shutdown if the scheduler is not being
-    // already shutdown.
-    //
-    if  (!scheduler.isShutdown()){
-      ShutdownTimerTask shutdownTask = new ShutdownTimerTask();
-      scheduler.schedule(shutdownTask, delayTicks * timerPeriod, TimeUnit.SECONDS);
-    }
+        turnOffTask, delayTicks * timerPeriod, TimeUnit.MILLISECONDS);
   }
 }

@@ -23,8 +23,9 @@ public class TestAzureFileSystemTimer  {
   private final int NUM_THREADS   = 1;
   private final int START_AFTER   = 2;
   private final int STOP_AFTER    = 10;
-  private final int TIMER_PERIOD  = 2;
   private final int ONE_SECOND    = 1000;
+  private final int TIMER_PERIOD  = ONE_SECOND / 10; // 10 ms.
+
   
   
   private class TestAzureFileSystemTimerCallback implements 
@@ -123,7 +124,7 @@ public class TestAzureFileSystemTimer  {
 
     // Pause for duration of the timer.
     //
-    Thread.sleep((STOP_AFTER + 1) * TIMER_PERIOD * ONE_SECOND);
+    Thread.sleep((STOP_AFTER + 1) * TIMER_PERIOD);
 
     // Validate that timer is expired after expiration ticks.
     //
@@ -168,7 +169,7 @@ public class TestAzureFileSystemTimer  {
 
     // Pause for duration of the timer.
     //
-    Thread.sleep(STOP_AFTER * TIMER_PERIOD * ONE_SECOND);
+    Thread.sleep(STOP_AFTER * TIMER_PERIOD);
 
     // Test that timer is not expired and accounts for delay
     //
@@ -176,7 +177,7 @@ public class TestAzureFileSystemTimer  {
 
     // Pause for an additional seconds to account for the delay.
     //
-    Thread.sleep((STOP_AFTER - START_AFTER) * TIMER_PERIOD * ONE_SECOND);
+    Thread.sleep((STOP_AFTER - START_AFTER) * TIMER_PERIOD);
 
     // Test that timer is expired after accounting for delay
     //
@@ -213,7 +214,7 @@ public class TestAzureFileSystemTimer  {
 
     // Pause for delay duration of the timer.
     //
-    Thread.sleep(START_AFTER * TIMER_PERIOD * ONE_SECOND);
+    Thread.sleep(START_AFTER * TIMER_PERIOD);
 
     // Test that timer is not expired.
     //
@@ -233,7 +234,7 @@ public class TestAzureFileSystemTimer  {
 
     // Pause for the length of the timer including the initial delay.
     //
-    Thread.sleep((STOP_AFTER + START_AFTER + 1) * TIMER_PERIOD * ONE_SECOND);
+    Thread.sleep((STOP_AFTER + START_AFTER + 1) * TIMER_PERIOD);
 
     // Validate the timer has expired.
     //
@@ -274,7 +275,7 @@ public class TestAzureFileSystemTimer  {
 
     // Pause for something short of the duration of the timer.
     //
-    Thread.sleep((STOP_AFTER - 1) * TIMER_PERIOD * ONE_SECOND);
+    Thread.sleep((STOP_AFTER - 1) * TIMER_PERIOD);
 
     // Validate the timer is nt expired.
     //
@@ -319,7 +320,7 @@ public class TestAzureFileSystemTimer  {
 
     // Pause for duration short of the expiration of the timer.
     //
-    Thread.sleep((START_AFTER - 1) * TIMER_PERIOD * ONE_SECOND);
+    Thread.sleep((START_AFTER - 1) * TIMER_PERIOD);
 
     // Validate that the timer still is not expired.
     //
@@ -371,7 +372,7 @@ public class TestAzureFileSystemTimer  {
 
     // Pause for duration of the timer.
     //
-    Thread.sleep((START_AFTER + STOP_AFTER + 1) * TIMER_PERIOD * ONE_SECOND);
+    Thread.sleep((START_AFTER + STOP_AFTER + 1) * TIMER_PERIOD);
 
     // Validate that timer is expired.
     //
@@ -494,172 +495,6 @@ public class TestAzureFileSystemTimer  {
     assertTrue(testTimer.isOff());
   }
 
-  /**
-   * Test to shutdown Azure file system timer scheduler.
-   *
-   * @throws AzureException if there is a timer error.
-   * @throws InterruptedException if sleep is interrupted.
-   */
-  @Test
-  public void testShutdownScheduler () throws AzureException, InterruptedException {
-
-    // Start up a local scheduler.
-    //
-    ScheduledExecutorService localScheduler =
-        Executors.newScheduledThreadPool(NUM_THREADS);
-
-    // Create timer object with an initial delay of 0, a period of TIMER_PERIOD
-    // second, and with an automatic stop after STOP_AFTER using a local scheduler.
-    //
-    AzureFileSystemTimer testTimer = new AzureFileSystemTimer(
-        "testTimerNoDelay", localScheduler, 0, TIMER_PERIOD, STOP_AFTER);
-
-    // Create alarm task and turn on timer.
-    //
-    testTimer.turnOnTimer();
-
-    // Validate the timer is on.
-    //
-    assertTrue(testTimer.isOn());
-
-    // Validate timer is not expired.
-    //
-    assertFalse(testTimer.isExpired());
-
-    // Pause for duration of two timer ticks.
-    //
-    Thread.sleep(TIMER_PERIOD * 2 * ONE_SECOND);
-
-    // Shutdown scheduler.
-    //
-    testTimer.shutdownScheduler();
-
-    // Validate that timer is expired.
-    //
-    assertTrue(testTimer.isExpired());
-
-    // Validate the timer is off.
-    //
-    assertTrue(testTimer.isOff());
-
-    // Scheduler should be shutdown since the timer is cancelled before
-    // shutting down the scheduler.
-    //
-    assertTrue(localScheduler.isShutdown());
-  }
-
-  /**
-   * Test to schedule shutdown Azure file system timer scheduler after a delay
-   *
-   * @throws AzureException if there is a timer error.
-   * @throws InterruptedException if sleep is interrupted.
-   */
-  @Test
-  public void testShutdownSchedulerAfterDelay ()
-      throws AzureException, InterruptedException {
-
-    // Start up a local scheduler.
-    //
-    ScheduledExecutorService localScheduler =
-        Executors.newScheduledThreadPool(NUM_THREADS);
-
-    // Create timer object with an initial delay of 0, a period of TIMER_PERIOD
-    // second, and with an automatic stop after STOP_AFTER using a local scheduler.
-    //
-    AzureFileSystemTimer testTimer = new AzureFileSystemTimer(
-        "testTimerNoDelay", localScheduler, 0, TIMER_PERIOD, STOP_AFTER);
-
-    // Create alarm task and turn on timer.
-    //
-    testTimer.turnOnTimer();
-
-    // Validate the timer is on.
-    //
-    assertTrue(testTimer.isOn());
-
-    // Shutdown scheduler after a delay of two timer ticks.
-    //
-    testTimer.shutdownSchedulerAfterDelay(2);
-
-    // Sleep for three timer ticks to ensure shutdown was executed.
-    //
-    Thread.sleep(TIMER_PERIOD * 3 * ONE_SECOND);
-
-    // Validate the timer is off.
-    //
-    assertTrue(testTimer.isOff());
-
-    // Scheduler should be shutdown since the timer is cancelled before
-    // shutting down the scheduler.
-    //
-    assertTrue(localScheduler.isShutdown());
-  }
-
-  /**
-   * Negative test to schedule shutdown Azure file system timer scheduler
-   * after infinite delay.
-   */
-  @Test
-  public void testShutdownSchedulerAfterInfiniteDelay () {
-
-    // Start up a local scheduler.
-    //
-    ScheduledExecutorService localScheduler =
-        Executors.newScheduledThreadPool(NUM_THREADS);
-    // Create timer object with an initial delay of 0, a period of TIMER_PERIOD
-    // second, and with an automatic stop after STOP_AFTER using a local scheduler.
-    //
-    AzureFileSystemTimer testTimer = new AzureFileSystemTimer(
-        "testTimerNoDelay", localScheduler, 0, TIMER_PERIOD, STOP_AFTER);
-    try {
-
-      // Create alarm task and turn on timer.
-      //
-      testTimer.turnOnTimer();
-
-      // Validate the timer is on.
-      //
-      assertTrue(testTimer.isOn());
-
-      // Validate the timer is not expired.
-      //
-      assertFalse(testTimer.isExpired());
-
-      // Shutdown scheduler after an infinite delay.
-      //
-      testTimer.shutdownSchedulerAfterDelay(AzureFileSystemTimer.INFINITE_DELAY);
-
-      // Test failed because it did not catch illegal argument exceptions.
-      //
-      fail("Expected illegal argument exception when scheduling" +
-          "timer scheduler shutdowns with infinite delays.");
-    } catch (IllegalArgumentException e) {
-      // Caught illegal argument exception as expected.
-      //
-      assertTrue(true);
-    } catch (Exception e) {
-      // Fail test caught unexpected exception.
-      //
-      final String errMsg =
-          String.format("Exception '%s' is unexpected.", e.getMessage());
-      fail(errMsg);
-    } finally {
-      // Turn of timer if it is on.
-      //
-      if (testTimer.isOn()) {
-        testTimer.turnOffTimer();
-      }
-      // Shutdown local scheduler if not already shutdown.
-      //
-      if (!localScheduler.isShutdown()){
-        localScheduler.shutdownNow();
-      }
-    }
-
-    // Validate the timer is off.
-    //
-    assertTrue(testTimer.isOff());
-  }
 
   /**
    * Test to that tick counts are being appropriately updated on the timer.
@@ -699,7 +534,7 @@ public class TestAzureFileSystemTimer  {
 
       // Sleep of one tick period.
       //
-      Thread.sleep(TIMER_PERIOD * ONE_SECOND);
+      Thread.sleep(TIMER_PERIOD);
     }
     
     // Validate the timer is expired.
@@ -758,7 +593,7 @@ public class TestAzureFileSystemTimer  {
 
       // Sleep of one tick period.
       //
-      Thread.sleep(TIMER_PERIOD * ONE_SECOND);
+      Thread.sleep(TIMER_PERIOD);
     }
     
     // Validate the timer is expired.

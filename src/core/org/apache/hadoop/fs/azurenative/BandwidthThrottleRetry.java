@@ -18,6 +18,8 @@
 
 package org.apache.hadoop.fs.azurenative;
 
+import java.net.HttpURLConnection;
+
 import org.apache.commons.logging.*;
 
 import com.microsoft.windowsazure.services.core.storage.OperationContext;
@@ -99,6 +101,17 @@ public class BandwidthThrottleRetry extends RetryPolicy implements RetryPolicyFa
   @Override
   public RetryResult shouldRetry(int currentRetryCount, int statusCode,
           Exception lastException, OperationContext opContext) {
+
+    // Do not retry non-retriable status codes.  These include the following:
+    // (1) Status codes in the range [HTTP-400, HTTP-500).
+    // (2) HTTP_NOT_IMPLEMENTED.
+    // (3) HTTP_VERSION.
+    //
+    if (statusCode >= 400 && statusCode < 500 || 
+        statusCode == HttpURLConnection.HTTP_NOT_IMPLEMENTED ||
+        statusCode == HttpURLConnection.HTTP_VERSION) {
+      return new RetryResult(0, false);
+    }
 
     // Retry only if the current retry count is less than the absolute
     // maximum number of retries.

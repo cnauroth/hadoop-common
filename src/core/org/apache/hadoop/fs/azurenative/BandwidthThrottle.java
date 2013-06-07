@@ -51,10 +51,8 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
 
   public static final Log LOG = LogFactory.getLog(BandwidthThrottle.class);
 
-  // Variables counting the successful and unsuccessful transmissions
-  // process wide.
+  // Scheduler for timer threads.
   //
-  private static boolean isThrottling = false;
   private static ScheduledExecutorService timerScheduler;
 
   // String constants.
@@ -70,7 +68,7 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
     {500, /*500 ms upload*/ 300 /*300ms download*/};
   
   private static int ONE_SECOND = 1000;  // 1000 milliseconds
-  private static final int DEFAULT_THROTTLING_PERIOD = 60;  // 60 seconds
+  private static final int DEFAULT_THROTTLING_PERIOD = 60 * ONE_SECOND;  // 60 seconds
   private static final int DEFAULT_MAX_THROTTLE_DELAY = 10 * ONE_SECOND; // 10 seconds.
   private static final long DEFAULT_BANDWIDTH_RAMPUP_DELTA = 1024*1024 / ONE_SECOND; // MB/ms.
   private static final float DEFAULT_BANDWIDTH_RAMPUP_MULTIPLIER  = 1.15f;
@@ -252,33 +250,11 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
    * @param period - frequency in seconds at which success rate is calculated.
    */
   private static synchronized void throttleBandwidth() {
-    // Check if the process is already throttling bandwidth.
-    //
-    if (isBandwidthThrottled()) {
-      // Bandwidth throttling is already turned on, return to caller.
-      //
-      return;
-    }
-
     // Start up timer scheduler if one does not already exist.
     //
     if (null == timerScheduler){
       timerScheduler = Executors.newScheduledThreadPool(TIMER_SCHEDULER_CONCURRENCY);
     }
-
-    // Throttling has been turned on.
-    //
-    isThrottling = true;
-  }
-
-  /**
-   * Check if bandwidth throttling is turned on for ASV file system store instances
-   * for this process.
-   *
-   * @return - true if bandwidth throttling is turned on, false otherwise
-   */
-  public static boolean isBandwidthThrottled() {
-    return isThrottling;
   }
 
   /**
@@ -299,7 +275,8 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
    * @param payloadSize - size of the read or write payload on connection.
    */
   @Override
-  public void throttleSendRequest(ThrottleType kindOfThrottle, long payloadSize) {
+  public synchronized void throttleSendRequest(
+      ThrottleType kindOfThrottle, long payloadSize) {
     
     LOG.info("Entering throttleSendRequest...");
     

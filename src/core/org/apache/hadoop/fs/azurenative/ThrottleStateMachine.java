@@ -121,7 +121,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
    * Accumulate successful transmissions with the success rate timer interval.
    *
    * @param successCount - delta in the number of successful transmissions
-   * @param latency - latency for current success feedback
+   * @param reqLatency - latency for current success feedback
    * @return total number of successful transmissions within the interval
    */
   @Override
@@ -180,11 +180,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
         throw new AssertionError(
           "Received updateTransmission event in an unknown state");
       }
-  
-      // Accumulate latency for average latency of successful transmissions over
-      // over this period.
-      //
-      succLatency[kindOfThrottle.getValue()][CURRENT_INTERVAL].addAndGet(reqLatency);
+ 
       
       // Turn on throttling timer if it is not already turned on.
       //
@@ -357,7 +353,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
   /**
    * Get the state of the simple upload/download state machine.
    * @param kindOfThrottle - denotes download or upload throttling.
-   * @returns current state of the state machine
+   * @return current state of the state machine
    */
   public synchronized ThrottleState getState (ThrottleType kindOfThrottle) {
     // Return the current state.
@@ -404,7 +400,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
     
     // Check for throttling events over the current throttling interval.
     //
-    if (getCurrentTxSuccessRate(kindOfThrottle) < 1.0) {
+    if (getPreviousTxSuccessRate(kindOfThrottle) < 1.0) {
       // Since failure were incurred in the last timer period, change state
       // to reflect ramp-down.
       //
