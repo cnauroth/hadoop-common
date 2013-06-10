@@ -533,6 +533,10 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
       }
       break;
     case THROTTLE_RAMPDOWN:
+      // Assertion failed. stopThrottling events are not expected in the ramp down state.
+      //
+      throw new AssertionError(
+         "Unexpected stopThrotlling event in the RAMPDOWN state.");
     case THROTTLE_RAMPUP:
       // Turn off throttling timer and rollover metrics.  Note there is no need to
       // rollover metrics over the current interval. A rollover will occur on the next
