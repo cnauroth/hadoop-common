@@ -59,6 +59,23 @@ public class TestThrottleStateMachine  {
   }
   
   /**
+   * Get the most current latency from the throttling state machine.
+   * 
+   */
+  private long getLatency(ThrottleType kindOfThrottle){
+    long latency = throttleSM.getCurrentLatency(kindOfThrottle);
+    if (latency <= 0) {
+      // Caught latency on a roll over.
+      //
+      latency = throttleSM.getPreviousLatency(kindOfThrottle);
+    }
+    
+    // Return with the most recent valid latency.
+    //
+    return latency;
+  }
+  
+  /**
    * Test which verifies that the throttling state machine remains in
    * the stable state when there are no transmission failure events.
    *
@@ -76,7 +93,7 @@ public class TestThrottleStateMachine  {
     
     // Average latency should be 10.
     //
-    assertEquals(10, throttleSM.getCurrentLatency(ThrottleType.UPLOAD));
+    assertEquals(10, getLatency(ThrottleType.UPLOAD));
     
     // Validate the state machine is still in the equilibrium state.
     //
@@ -111,7 +128,7 @@ public class TestThrottleStateMachine  {
     
     // Average latency should be 10.
     //
-    assertEquals(10, throttleSM.getCurrentLatency(ThrottleType.UPLOAD));
+    assertEquals(10, getLatency(ThrottleType.UPLOAD));
     
     // Validate the state machine is still in the RAMPDOWN state.
     //

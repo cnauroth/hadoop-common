@@ -180,7 +180,7 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
       //
       String errMsg =
           String.format(
-              "Cluster is configured with a bandwidth ramp-up multiplier of %d" +
+              "Cluster is configured with a bandwidth ramp-up multiplier of %f" +
                   " The bandwidth ramp-up multiplier should be greater than one.",
                   bandwidthRampupMultiplier);
       throw new ConfigurationException(errMsg);
@@ -196,9 +196,9 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
       //
       String errMsg =
           String.format(
-              "Cluster is configured with a bandwidth ramp-down multiplier of %d" +
+              "Cluster is configured with a bandwidth ramp-down multiplier of %f" +
                   " The bandwidth ramp-down multiplier should be greater than one.",
-                  bandwidthRampupMultiplier);
+                  bandwidthRampdownMultiplier);
       throw new ConfigurationException(errMsg);
     }
     
@@ -307,8 +307,8 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
       //
       final String infoMsg = String.format(
           "Max Bandwidth %d Old bandwidth %d, New Bandwidth %d, SuccessRate %f.",
-          maxBandwidthTarget, bandwidthTarget[kindOfThrottle.getValue()], tmpBandwidth,
-          successRate);
+          maxBandwidthTarget[kindOfThrottle.getValue()],
+          bandwidthTarget[kindOfThrottle.getValue()], tmpBandwidth, successRate);
       LOG.info (infoMsg);
 
       long deltaBandwidth = bandwidthTarget[kindOfThrottle.getValue()] - tmpBandwidth;
