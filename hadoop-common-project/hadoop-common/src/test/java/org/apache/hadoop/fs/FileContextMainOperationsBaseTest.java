@@ -65,7 +65,8 @@ public abstract class FileContextMainOperationsBaseTest  {
 
   public Path localFsRootPath;
 
-  protected final FileContextTestHelper fileContextTestHelper = createFileContextHelper();
+  protected final FileContextTestHelper fileContextTestHelper =
+    createFileContextHelper();
 
   protected FileContextTestHelper createFileContextHelper() {
     return new FileContextTestHelper();
