@@ -125,7 +125,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
    * @return total number of successful transmissions within the interval
    */
   @Override
-  public long updateTransmissionSuccess(
+  public synchronized long updateTransmissionSuccess(
       ThrottleType kindOfThrottle, final long successCount, final long reqLatency) {
 
     LOG.info("updateTransmissionSuccess event in state" + getState(kindOfThrottle));
@@ -158,7 +158,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
    * @return total number of failed transmissions within the interval
    */
   @Override
-  public long updateTransmissionFailure(ThrottleType kindOfThrottle,
+  public synchronized long updateTransmissionFailure(ThrottleType kindOfThrottle,
       final long failureCount, final long reqLatency) {
 
     LOG.info("updateTransmissionFailure event in state" + getState(kindOfThrottle));
@@ -201,18 +201,19 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
       LOG.info("Leaving updateTransmissionFailure event in state" + getState(kindOfThrottle));
     }
 
-    // Capture the sampled latency.
-    //
-    long sampledLatency = getCurrentLatency(kindOfThrottle);
-    if (sampledLatency <= 0) {
-      sampledLatency = getPreviousLatency(kindOfThrottle);
-    }
-
     // Sleep for the difference between to compensate for low latency of
     // failed requests and only if sleep times differ by a LATENCY_DELTA margin.
     //
     try {
-      long delayMs = sampledLatency - reqLatency;
+      long delayMs = getLatency(kindOfThrottle) - reqLatency;
+      
+      final String infoMsg =
+          String.format ("Thread Id: %d, Period Latency: %d, SampleLatency: %d, " +
+                         "RequestLatency: %d, Delay: %d",
+                         Thread.currentThread().getId(), getLatency(kindOfThrottle), 
+                         getSampleLatency(kindOfThrottle),  reqLatency, delayMs);
+      LOG.info(infoMsg);
+      
       if (delayMs > LATENCY_DELTA) {
         Thread.sleep(delayMs);
       }
@@ -257,7 +258,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
    * @param kindOfThrottle - denotes download or upload throttling.
    * @return the current transmission success rate for this epoch.
    */
-  public float getCurrentTxSuccessRate(ThrottleType kindOfThrottle) {
+  public synchronized float getCurrentTxSuccessRate(ThrottleType kindOfThrottle) {
     float currSuccessRate = 1.0f;
     float succCount = (float) succTxCount[kindOfThrottle.getValue()][0].get();
     float failCount = (float) failTxCount[kindOfThrottle.getValue()][0].get();
@@ -277,7 +278,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
    * @param kindOfThrottle - denotes download or upload throttling.
    * @return the previous transmission success rate for this epoch.
    */
-  public float getPreviousTxSuccessRate(ThrottleType kindOfThrottle) {
+  public synchronized float getPreviousTxSuccessRate(ThrottleType kindOfThrottle) {
     float prevSuccessRate = 1.0f;
     float succCount =
         (float) succTxCount[kindOfThrottle.getValue()][PREVIOUS_INTERVAL].get();
@@ -295,11 +296,29 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
   }
 
   /**
+   * Query the average latency for all successful requests. This chooses the valid
+   * latency from either the current latency values or the previous latency.
+   * @param kindOfThrottle - denotes download or upload throttling.
+   * @return - positive value for valid latencies, otherwise a non-positive value.
+   */
+  public synchronized long getLatency (ThrottleType kindOfThrottle) {
+    long latency = getCurrentLatency(kindOfThrottle);
+    if (latency <= 0) {
+      latency = getPreviousLatency(kindOfThrottle);
+    }
+
+    // Return valid average latency over either the previous interval or
+    // the current interval.
+    //
+    return latency;
+  }
+
+  /**
    * Query the current average latency for all successful requests.
    * @param kindOfThrottle - denotes download or upload throttling.
    * @return - positive value for valid latencies, otherwise a non-positive value.
    */
-  public long getCurrentLatency (ThrottleType kindOfThrottle) {
+  public synchronized long getCurrentLatency (ThrottleType kindOfThrottle) {
     long succCount = succTxCount[kindOfThrottle.getValue()][0].get();
     if (0 == succCount) {
       return -1;
@@ -315,7 +334,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
    * @param kindOfThrottle - denotes download or upload throttling.
    * @return - positive value for valid latencies, otherwise a non-positive value.
    */
-  public long getSampleLatency (ThrottleType kindOfThrottle) {
+  public synchronized long getSampleLatency (ThrottleType kindOfThrottle) {
     // Return current average latency over interval.
     //
     return sampleLatency[kindOfThrottle.getValue()].get();
@@ -326,7 +345,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
    * @param kindOfThrottle - denotes download or upload throttling.
    * @return - positive value for valid latencies, otherwise a non-positive value.
    */
-  public long getPreviousLatency (ThrottleType kindOfThrottle) {
+  public synchronized long getPreviousLatency (ThrottleType kindOfThrottle) {
     long succCount = succTxCount[kindOfThrottle.getValue()][1].get();
     if (0 == succCount) {
       return -1;
@@ -369,7 +388,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
    * @param timerCallbackContext - context to discriminate between timers.
    */
   @Override
-  public void tickEvent(Object timerCallbackContext) {
+  public synchronized void tickEvent(Object timerCallbackContext) {
 
     // First determine if this tick callback for downloads or upload from
     // the timer callback context.
@@ -560,7 +579,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
 
     // Save current latency as the sample latency.
     //
-    sampleLatency[kindOfThrottle.getValue()].set(getCurrentLatency(kindOfThrottle));
+    sampleLatency[kindOfThrottle.getValue()].set(getLatency(kindOfThrottle));
 
     LOG.info("Leaving stopThrottling event in state" + getState(kindOfThrottle));
   }
