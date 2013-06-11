@@ -41,7 +41,7 @@ import org.junit.Test;
 
 public class TestHDFSFileContextMainOperations extends
     FileContextMainOperationsBaseTest {
-  private static FileContextTestHelper fileContextTestHelper = new FileContextTestHelper();
+  private static FileContextTestHelper fileContextTestHelper = new FileContextTestHelper("/tmp/TestHDFSFileContextMainOperations");
   private static MiniDFSCluster cluster;
   private static Path defaultWorkingDirectory;
   private static HdfsConfiguration CONF = new HdfsConfiguration();
