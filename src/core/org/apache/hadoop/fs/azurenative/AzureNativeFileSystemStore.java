@@ -106,14 +106,12 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
   private static final String ASV_AUTHORITY_DELIMITER = "@";
   private static final String AZURE_ROOT_CONTAINER = "$root";
 
-
   private static final int DEFAULT_CONCURRENT_WRITES = 8;
-
 
   // Set throttling parameter defaults.
   //
   public static final int DEFAULT_DOWNLOAD_BLOCK_SIZE = 4 * 1024 * 1024;
-  public static final int DEFAULT_UPLOAD_BLOCK_SIZE = 4 * 1024 * 1024;
+  public static final int DEFAULT_UPLOAD_BLOCK_SIZE   = 4 * 1024 * 1024;
 
 
   private static final boolean DEFAULT_DISABLE_THROTTLING = true;
@@ -1051,11 +1049,17 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
     options.setStoreBlobContentMD5(sessionConfiguration.getBoolean(KEY_STORE_BLOB_MD5, false));
     options.setUseTransactionalContentMD5(getUseTransactionalContentMD5());
     options.setConcurrentRequestCount(concurrentWrites);
+    if (isBandwidthThrottled()){
+      options.setRetryPolicyFactory(new BandwidthThrottleRetry ());
+    }
     return options;
   }
 
   private BlobRequestOptions getDownloadOptions() {
     BlobRequestOptions options = new BlobRequestOptions();
+    if (isBandwidthThrottled()){
+      options.setRetryPolicyFactory(new BandwidthThrottleRetry());
+    }
     options.setUseTransactionalContentMD5(getUseTransactionalContentMD5());
     return options;
   }
@@ -1132,15 +1136,6 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //
       CloudBlockBlobWrapper blob = getBlobReference(key);
       storePermissionStatus(blob, permissionStatus);
-
-      // Set up request options.
-      //
-      BlobRequestOptions options = new BlobRequestOptions();
-      options.setStoreBlobContentMD5(true);
-      options.setConcurrentRequestCount(concurrentWrites);
-      if (isBandwidthThrottled()){
-          options.setRetryPolicyFactory(new BandwidthThrottleRetry ());
-      }
 
       // Create the output stream for the Azure blob.
       //
@@ -1702,21 +1697,11 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       }
       checkContainer(ContainerAccessType.PureRead);
 
-      // Set up request options for retry policy if it is bandwidth throttled.
-      //
-      BlobRequestOptions options = getDownloadOptions();
-      if (isBandwidthThrottled()){
-        if (null == options) {
-          options = new BlobRequestOptions();
-        }
-        options.setRetryPolicyFactory(new BandwidthThrottleRetry());
-      }
-
       // Get blob reference and open the input buffer stream.
       //
       CloudBlockBlobWrapper blob = getBlobReference(key);
       BufferedInputStream inBufStream = new BufferedInputStream(
-          blob.openInputStream(options, getInstrumentedContext()));
+          blob.openInputStream(getDownloadOptions(), getInstrumentedContext()));
 
       // Return a data input stream.
       //
@@ -1747,21 +1732,10 @@ class AzureNativeFileSystemStore implements NativeFileSystemStore {
       //
       CloudBlockBlobWrapper blob = getBlobReference(key);
 
-
-      // Set up request options for retry policy if it is bandwidth throttled.
-      //
-      BlobRequestOptions options = getDownloadOptions();
-      if (isBandwidthThrottled()){
-        if (null != options) {
-          options = new BlobRequestOptions();
-        }
-
-        options.setRetryPolicyFactory(new BandwidthThrottleRetry());
-      }
-
       // Open input stream and seek to the start offset.
       //
-      InputStream in = blob.openInputStream(options, getInstrumentedContext());
+      InputStream in = blob.openInputStream(
+          getDownloadOptions(), getInstrumentedContext());
 
       // Create a data input stream.
       //

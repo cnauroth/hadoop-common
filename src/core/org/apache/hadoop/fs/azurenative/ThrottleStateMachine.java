@@ -35,7 +35,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
                                              AzureFileSystemTimerCallbacks {
 
   public static final Log LOG = LogFactory.getLog(ThrottleStateMachine.class);
-  
+
   /**
    * Enum defining throttling types.
    */
@@ -65,7 +65,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
   //
   private ThrottleState throttleState[] = new ThrottleState[] {
       ThrottleState.THROTTLE_NONE, ThrottleState.THROTTLE_NONE};
-  
+
   // Throttling adjustment can be made for uploads and downloads.
   //
   private AtomicBoolean[] canAdjustBandwidth   = new AtomicBoolean[] {
@@ -85,7 +85,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
   private final AtomicLong succLatency[][] = new AtomicLong [][] {
       {new AtomicLong (0), new AtomicLong (0)},
       {new AtomicLong (0), new AtomicLong (0)}};
-  
+
   private final AtomicLong sampleLatency[] = new AtomicLong [] {
       new AtomicLong (0), new AtomicLong(0)};
 
@@ -129,7 +129,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
       ThrottleType kindOfThrottle, final long successCount, final long reqLatency) {
 
     LOG.info("updateTransmissionSuccess event in state" + getState(kindOfThrottle));
-    
+
     // Respond to the transmission success event depending on the current state.
     //
     switch (getState(kindOfThrottle)) {
@@ -149,7 +149,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
         "Received updateTransmissionSuccess event in an unknown state");
     }
   }
-  
+
   /**
    * Accumulate failed transmissions within the success rate timer interval.
    * Synchronized method for safe state queries and state changes.
@@ -162,7 +162,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
       final long failureCount, final long reqLatency) {
 
     LOG.info("updateTransmissionFailure event in state" + getState(kindOfThrottle));
-    
+
     // Use synchronize block to avoid sleeping while holding a monitor.
     //
     synchronized (this) {
@@ -171,17 +171,18 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
       switch (getState(kindOfThrottle)) {
       case THROTTLE_NONE:
       case THROTTLE_RAMPUP:
-        // Set the state to reflect ramp-down.
+        // Set the state to reflect ramp-down. Bandwidth can be adjusted
+        // when entering te ramp down state.
         //
         setState(kindOfThrottle, ThrottleState.THROTTLE_RAMPDOWN);
+        canAdjustBandwidth[kindOfThrottle.getValue()].set(true);
       case THROTTLE_RAMPDOWN:
         break;
       default:
         throw new AssertionError(
           "Received updateTransmission event in an unknown state");
       }
- 
-      
+
       // Turn on throttling timer if it is not already turned on.
       //
       if (throttleTimers[kindOfThrottle.getValue()].isOff ()) {
@@ -190,13 +191,13 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
         // callback context.
         //
         throttleTimers[kindOfThrottle.getValue()].turnOnTimer(this, kindOfThrottle);
-    
+
         // Roll success rate metrics by overwriting previous values with current
         // values and resetting previous values.
         //
         rollSuccessRateMetrics(kindOfThrottle);
       }
-      
+
       LOG.info("Leaving updateTransmissionFailure event in state" + getState(kindOfThrottle));
     }
 
@@ -206,7 +207,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
     if (sampledLatency <= 0) {
       sampledLatency = getPreviousLatency(kindOfThrottle);
     }
-    
+
     // Sleep for the difference between to compensate for low latency of
     // failed requests and only if sleep times differ by a LATENCY_DELTA margin.
     //
@@ -218,8 +219,8 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
     } catch (InterruptedException e) {
       // Do nothing on interrupted sleeps.
     }
-    
-    // Accumulate success count and return.
+
+    // Accumulate failure count and return.
     //
     return failTxCount[kindOfThrottle.getValue()][CURRENT_INTERVAL].
         addAndGet(failureCount);
@@ -308,7 +309,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
     //
     return succLatency[kindOfThrottle.getValue()][0].get() / succCount;
   }
-  
+
   /**
    * Query the current sample latency for all successful requests.
    * @param kindOfThrottle - denotes download or upload throttling.
@@ -346,9 +347,9 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
     // Return the previous state.
     //
     ThrottleState prevState = throttleState[kindOfThrottle.getValue()];
-    
+
     throttleState[kindOfThrottle.getValue()] = newState;
-    
+
     return prevState;
   }
 
@@ -374,9 +375,9 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
     // the timer callback context.
     //
     ThrottleType kindOfThrottle = (ThrottleType) timerCallbackContext;
-    
+
     LOG.info("Received tickEvent event in state" + getState(kindOfThrottle));
-    
+
     // Respond to the transmission success event depending on the current state.
     //
     switch (getState(kindOfThrottle)) {
@@ -391,7 +392,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
       throw new AssertionError(
         "Received updateTransmissionSuccess event in an unknown state");
     }
-    
+
     // At this point the state machine is either ramping up or ramping down
     // bandwidth.
     //
@@ -399,7 +400,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
     // throttling interval. Remain in the throttling state.
     //
     rollSuccessRateMetrics(kindOfThrottle);
-    
+
     // Check for throttling events over the current throttling interval.
     //
     if (getPreviousTxSuccessRate(kindOfThrottle) < 1.0) {
@@ -414,7 +415,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
       //       treated as 100% successful.
       //
       ThrottleState prevState = setState(kindOfThrottle, ThrottleState.THROTTLE_RAMPUP);
-      
+
       // Assertion: Ramp-up never occurs from a stable THROTTLE_NONE state.
       //
       if (ThrottleState.THROTTLE_NONE == prevState) {
@@ -423,27 +424,27 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
                    ThrottleState.THROTTLE_RAMPUP);
       }
     }
-    
+
     // Check if the timer has ticked over two intervals and expired.
     //
     if (throttleTimers[kindOfThrottle.getValue()].isExpired()) {
       // Timer expired, restart timer.
       //
       throttleTimers[kindOfThrottle.getValue()].turnOnTimer(this, kindOfThrottle);
-      
+
       // At the end of a throttling interval, bandwidth adjustments can be made.
       //
       canAdjustBandwidth[kindOfThrottle.getValue()].set(true);
     }
-    
+
     LOG.info("Leaving tickEvent event in state" + getState(kindOfThrottle));
   }
-  
+
   /**
    * Ramp-up upcall from the throttling engine polling to determine whether or not
    * can ramp-up bandwidth. This is not a simple query since it flips the
    * canAdjustBandwidth state to false.
-   * 
+   *
    * Note: Introduced polling function to keep the simple state machine completely
    *       passive and improve safety by not calling back on notifications from other
    *       potentially unsafe method objects.
@@ -451,35 +452,35 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
    * @param kindOfThrottle - upload/download throttle.
    */
   public synchronized boolean rampUp (ThrottleType kindOfThrottle) {
-    
+
     LOG.info("Received rampUp event in state" + getState(kindOfThrottle));
-    
+
     if (getState(kindOfThrottle) == ThrottleState.THROTTLE_RAMPUP &&
         canAdjustBandwidth[kindOfThrottle.getValue()].get()) {
-      
+
       // Bandwidth adjustments prevented from now on.
       //
       canAdjustBandwidth[kindOfThrottle.getValue()].set(false);
-      
+
       LOG.info("Leaving rampUp event (1) in state" + getState(kindOfThrottle));
-      
+
       // It is OK to ramp-up.
       //
       return true;
     }
-    
+
     LOG.info("Leaving rampUp event (2) in state" + getState(kindOfThrottle));
-    
+
     // It is not OK to ramp-up.
     //
     return false;
   }
-  
+
   /**
    * Ramp-down upcall from the throttling engine polling to determine whether or not
    * can ramp-down bandwidth. This is not a simple query since it flips the
    * canAdjustBandwidth state to false.
-   * 
+   *
    * Note: Introduced polling function to keep the simple state machine completely
    *       passive and improve safety by not calling back on notifications from other
    *       potentially unsafe method objects.
@@ -487,29 +488,29 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
    * @param kindOfThrottle - upload/download throttle.
    */
   public synchronized boolean rampDown (ThrottleType kindOfThrottle) {
-    
+
     LOG.info("Received rampDown event in state" + getState(kindOfThrottle));
-    
+
     if (getState(kindOfThrottle) == ThrottleState.THROTTLE_RAMPDOWN &&
         canAdjustBandwidth[kindOfThrottle.getValue()].get()) {
-      
+
       // Bandwidth adjustments prevented from now on.
       //
       canAdjustBandwidth[kindOfThrottle.getValue()].set(false);
-      
+
       LOG.info("Leaving rampDown event (1) in state" + getState(kindOfThrottle));
-      
+
       // It is OK to ramp-up.
       //
       return true;
     }
     LOG.info("Leaving rampDown event (2) in state" + getState(kindOfThrottle));
-    
+
     // It is not OK to ramp-up.
     //
     return false;
   }
-  
+
   /**
    * Tell the state machine to stop throttling and return it to the virgin
    * non-throttling state.
@@ -517,9 +518,9 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
    * @param kindOfThrottle - upload/download throttle.
    */
   public synchronized void stopThrottling (ThrottleType kindOfThrottle) {
-    
+
     LOG.info("Received stopThrottling event in state" + getState(kindOfThrottle));
-    
+
     // Respond to the transmission success event depending on the current state.
     //
     switch (getState(kindOfThrottle)) {
@@ -543,7 +544,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
       // throttling event.
       //
       throttleTimers[kindOfThrottle.getValue()].turnOffTimer();
-      
+
       // Make sure no bandwidth adjustments can be made.
       //
       canAdjustBandwidth[kindOfThrottle.getValue()].set(false);
@@ -552,15 +553,15 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
       throw new AssertionError(
         "Received stopThrottlingEvent event in an unknown state");
     }
-    
+
     // Set the throttling state THROTTLE_NONE.
     //
     setState(kindOfThrottle, ThrottleState.THROTTLE_NONE);
-    
+
     // Save current latency as the sample latency.
     //
     sampleLatency[kindOfThrottle.getValue()].set(getCurrentLatency(kindOfThrottle));
-    
+
     LOG.info("Leaving stopThrottling event in state" + getState(kindOfThrottle));
   }
 }

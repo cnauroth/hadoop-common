@@ -107,7 +107,7 @@ public class BandwidthThrottleRetry extends RetryPolicy implements RetryPolicyFa
     // (2) HTTP_NOT_IMPLEMENTED.
     // (3) HTTP_VERSION.
     //
-    if (statusCode >= 400 && statusCode < 500 || 
+    if (statusCode >= 400 && statusCode < 500 ||
         statusCode == HttpURLConnection.HTTP_NOT_IMPLEMENTED ||
         statusCode == HttpURLConnection.HTTP_VERSION) {
       return new RetryResult(0, false);

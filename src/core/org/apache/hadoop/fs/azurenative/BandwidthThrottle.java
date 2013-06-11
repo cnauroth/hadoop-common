@@ -62,12 +62,12 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
   private static final String KEY_MAX_THROTTLE_DELAY = "fs.azure.max.throttle.delay";
   private static final String KEY_BANDWIDTH_RAMPUP_MULTIPLIER = "fs.azure.rampup.multiplier";
   private static final String KEY_BANDWIDTH_RAMPDOWN_MULTIPLIER = "fs.azure.rampdown.multiplier";
-  
-  private static final long[] DEFAULT_LATENCY = 
+
+  private static final long[] DEFAULT_LATENCY =
     {500, /*500 ms upload*/ 300 /*300ms download*/};
-  
+
   private static int ONE_SECOND = 1000;  // 1000 milliseconds
-  private static final int DEFAULT_THROTTLING_PERIOD = 60 * ONE_SECOND;  // 60 seconds
+  private static final int DEFAULT_THROTTLING_PERIOD = 30 * ONE_SECOND;  // 30 seconds
   private static final int DEFAULT_MAX_THROTTLE_DELAY = 10 * ONE_SECOND; // 10 seconds.
   private static final float DEFAULT_BANDWIDTH_RAMPUP_MULTIPLIER  = 1.15f;
   private static final float DEFAULT_BANDWIDTH_RAMPDOWN_MULTIPLIER = 0.75f;
@@ -89,18 +89,19 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
   private long   minBandwidthRampupDelta;
   private double bandwidthRampupMultiplier;
   private double bandwidthRampdownMultiplier;
-  
+
+  private long[] blockSize;
   private long[] bandwidthTarget;
   private long[] maxBandwidthTarget;
   private long[] bandwidthRampupDelta;
-  
+
   private ThrottleStateMachine throttleSM;
 
   /**
    * Constructor for the ThrottleSendRequest object.
    * @throws AzureException
    */
-  public BandwidthThrottle (int uploadBlockSize, int downloadBlockSize, 
+  public BandwidthThrottle (int uploadBlockSize, int downloadBlockSize,
       Configuration sessionConfiguration) throws ConfigurationException {
     this.sessionConfiguration = sessionConfiguration;
 
@@ -132,15 +133,20 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
       //
       String errMsg =
           String.format(
-              "Maximum throttling delay must be greater than 0." + 
+              "Maximum throttling delay must be greater than 0." +
               "Current throttling delay is: %d", maxThrottleDelay);
       throw new ConfigurationException(errMsg);
     }
 
+    // Initialize the upload and download block sizes.
+    //
+    blockSize = new long [] {(long) uploadBlockSize, (long) downloadBlockSize};
+
     // Initialize maximum upload and download target bandwidths.
     //
     maxBandwidthTarget = new long [] {
-        uploadBlockSize / DEFAULT_LATENCY[0], downloadBlockSize / DEFAULT_LATENCY[1]};
+        blockSize[0] / DEFAULT_LATENCY[0],
+        blockSize[1] / DEFAULT_LATENCY[1]};
 
     // Initially set the current target bandwidths to the maximum target bandwidths.
     //
@@ -201,7 +207,7 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
                   bandwidthRampdownMultiplier);
       throw new ConfigurationException(errMsg);
     }
-    
+
     // Start bandwidth throttling.
     //
     throttleBandwidth();
@@ -258,9 +264,9 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
   @Override
   public synchronized void throttleSendRequest(
       ThrottleType kindOfThrottle, long payloadSize) {
-    
+
     LOG.info("Entering throttleSendRequest...");
-    
+
     // Determine the current sampled latency.
     //
     long latency = throttleSM.getSampleLatency(kindOfThrottle);
@@ -270,10 +276,11 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
       //
       latency = DEFAULT_LATENCY[kindOfThrottle.getValue()];
     }
-    
+
     // Calculate the maximum bandwidth target.
     //
-    maxBandwidthTarget[kindOfThrottle.getValue()] = payloadSize / latency;
+    maxBandwidthTarget[kindOfThrottle.getValue()] =
+                  blockSize[kindOfThrottle.getValue()] / latency;
 
     // Check if to ramp-up, ramp-down, or stop throttling.
     //
@@ -344,7 +351,7 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
     //
     long delayMs =
         payloadSize / bandwidthTarget[kindOfThrottle.getValue()] - latency;
-    
+
     // The delay should be no greater than the maxThrottleDelay.
     //
     delayMs = Math.min(delayMs, maxThrottleDelay);
@@ -361,19 +368,17 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
       // Thread pause interrupted. Ignore and continue.
       //
     }
-    
+
     // Turn off throttling by setting the state machine to the non-throttled state
     // if the bandwidth target matches the maximum bandwidth target.
     //
     if (bandwidthTarget[kindOfThrottle.getValue()] >=
         maxBandwidthTarget[kindOfThrottle.getValue()]) {
       throttleSM.stopThrottling (kindOfThrottle);
-      bandwidthTarget[kindOfThrottle.getValue()] = 
+      bandwidthTarget[kindOfThrottle.getValue()] =
           maxBandwidthTarget[kindOfThrottle.getValue()];
     }
-    
+
     LOG.info ("Leaving throttleSendRequest...");
   }
-  
-
 }
