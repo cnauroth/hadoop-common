@@ -71,6 +71,7 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
   private static final int DEFAULT_MAX_THROTTLE_DELAY = 10 * ONE_SECOND; // 10 seconds.
   private static final float DEFAULT_BANDWIDTH_RAMPUP_MULTIPLIER  = 1.15f;
   private static final float DEFAULT_BANDWIDTH_RAMPDOWN_MULTIPLIER = 0.75f;
+  private static final float DEFAULT_SUCCESS_RATE = 0.50f; // Default success rate.
 
   private static final int THROTTLING_INTERVALS = 2;//Sample for two throttling intervals.
 
@@ -307,8 +308,9 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
       float successRate = throttleSM.getPreviousTxSuccessRate(kindOfThrottle);
       long tmpBandwidth =
           Math.min(maxBandwidthTarget[kindOfThrottle.getValue()],
-                   (long) (successRate * bandwidthRampdownMultiplier *
-                           bandwidthTarget[kindOfThrottle.getValue()]));
+            (long) (Math.max(DEFAULT_SUCCESS_RATE, successRate) * 
+                    bandwidthRampdownMultiplier * 
+                    bandwidthTarget[kindOfThrottle.getValue()]));
 
       // Trace bandwidth metrics.
       //
