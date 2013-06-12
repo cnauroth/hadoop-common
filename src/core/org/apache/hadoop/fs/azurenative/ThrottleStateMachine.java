@@ -134,6 +134,10 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
     //
     switch (getState(kindOfThrottle)) {
     case THROTTLE_NONE:
+      // Save current latency as the sample latency.
+      //
+      sampleLatency[kindOfThrottle.getValue()].set(getLatency(kindOfThrottle));
+      // Flow through to THROTTLE_RAMPUP.
     case THROTTLE_RAMPDOWN:
     case THROTTLE_RAMPUP:
       // Accumulate latency for average latency of successful transmissions over
@@ -141,6 +145,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
       //
       succLatency[kindOfThrottle.getValue()][CURRENT_INTERVAL].addAndGet(reqLatency);
       LOG.info("Leaving updateTransmissionSuccess event in state" + getState(kindOfThrottle));
+      LOG.info("Cumulative latency: " + succLatency[kindOfThrottle.getValue()][CURRENT_INTERVAL].get());
       // Accumulate success count and return.
       //
       return succTxCount[kindOfThrottle.getValue()][CURRENT_INTERVAL].addAndGet(successCount);
@@ -170,12 +175,17 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
       //
       switch (getState(kindOfThrottle)) {
       case THROTTLE_NONE:
+        // Save current latency as the sample latency.
+        //
+        sampleLatency[kindOfThrottle.getValue()].set(getLatency(kindOfThrottle));
+        // Flow through to THROTTLE_RAMPUP.
       case THROTTLE_RAMPUP:
         // Set the state to reflect ramp-down. Bandwidth can be adjusted
-        // when entering te ramp down state.
+        // when entering the ramp down state.
         //
         setState(kindOfThrottle, ThrottleState.THROTTLE_RAMPDOWN);
         canAdjustBandwidth[kindOfThrottle.getValue()].set(true);
+        break;
       case THROTTLE_RAMPDOWN:
         break;
       default:
@@ -213,10 +223,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
                          Thread.currentThread().getId(), getLatency(kindOfThrottle), 
                          getSampleLatency(kindOfThrottle),  reqLatency, delayMs);
       LOG.info(infoMsg);
-      
-      if (delayMs > LATENCY_DELTA) {
-        Thread.sleep(delayMs);
-      }
+      Thread.sleep(Math.max(delayMs, LATENCY_DELTA));
     } catch (InterruptedException e) {
       // Do nothing on interrupted sleeps.
     }
@@ -245,7 +252,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
     succLatency[kindOfThrottle.getValue()][PREVIOUS_INTERVAL].
       set(succLatency[kindOfThrottle.getValue()][CURRENT_INTERVAL].get());
 
-    // Reset current values/
+    // Reset current values.
     //
     succTxCount[kindOfThrottle.getValue()][CURRENT_INTERVAL].set(0);
     failTxCount[kindOfThrottle.getValue()][CURRENT_INTERVAL].set(0);

@@ -271,7 +271,7 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
     // Determine the current sampled latency.
     //
     long latency = throttleSM.getSampleLatency(kindOfThrottle);
-    if (0 >= latency){
+    if (latency <= 0){
       // Set latency should never be less than or equal to zero.  Set the latency
       // to the default latency.
       //
@@ -306,11 +306,18 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
       // success rate and ramp down.
       //
       float successRate = throttleSM.getPreviousTxSuccessRate(kindOfThrottle);
-      long tmpBandwidth =
+      long tmpBandwidth = 0;
+      if (0 == successRate) {
+        tmpBandwidth =
           Math.min(maxBandwidthTarget[kindOfThrottle.getValue()],
-            (long) (Math.max(DEFAULT_SUCCESS_RATE, successRate) * 
-                    bandwidthRampdownMultiplier * 
+            (long) (DEFAULT_SUCCESS_RATE * 
                     bandwidthTarget[kindOfThrottle.getValue()]));
+      } else {
+        tmpBandwidth =
+            Math.min(maxBandwidthTarget[kindOfThrottle.getValue()],
+              (long) (successRate * 
+                      bandwidthTarget[kindOfThrottle.getValue()]));
+      }
 
       // Trace bandwidth metrics.
       //

@@ -22,10 +22,10 @@ public class TestThrottleStateMachine  {
    * CONSTANTS
    */
   private final String TIMER_NAME = "TestThrottleStateMachineTimer";
-  private final int NUM_THREADS   = 1;
+  private final int LATENCY       = 100; // milliseconds
+  private final int NUM_THREADS   = 3;
   private final int STOP_AFTER    = 2;
-  private final int ONE_SECOND    = 1000;
-  private final int TIMER_PERIOD  = ONE_SECOND / 10; // 0.1 seconds.
+  private final int TIMER_PERIOD  = 1000; // milliseconds.
   
   /**
    * PRIVATE MEMBER VARIABLES
@@ -86,14 +86,14 @@ public class TestThrottleStateMachine  {
   public void testEquilibriumState() throws InterruptedException {
     // Fire success events every 10 milliseconds over a period of one second.
     //
-    for (int i = 0; i < 100; i++) {
-      Thread.sleep(10);
-      throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, 10);
+    for (int i = 0; i < TIMER_PERIOD / LATENCY; i++) {
+      Thread.sleep(LATENCY);
+      throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, LATENCY);
     }
     
     // Average latency should be 10.
     //
-    assertEquals(10, getLatency(ThrottleType.UPLOAD));
+    assertEquals(LATENCY, getLatency(ThrottleType.UPLOAD));
     
     // Validate the state machine is still in the equilibrium state.
     //
@@ -117,18 +117,18 @@ public class TestThrottleStateMachine  {
   public void testTransitionToRampDownState() throws InterruptedException{
     // Fire an equal number of success and failure events over a one second period.
     //
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < TIMER_PERIOD / LATENCY; i++) {
       Thread.sleep(10);
       if (0 == i % 2) {
-        throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, 10);
+        throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, LATENCY);
       } else {
-        throttleSM.updateTransmissionFailure(ThrottleType.UPLOAD, 1, 10);
+        throttleSM.updateTransmissionFailure(ThrottleType.UPLOAD, 1, LATENCY);
       }
     }
     
-    // Average latency should be 10.
+    // Average latency should be LATENCY.
     //
-    assertEquals(10, getLatency(ThrottleType.UPLOAD));
+    assertEquals(LATENCY, getLatency(ThrottleType.UPLOAD));
     
     // Validate the state machine is still in the RAMPDOWN state.
     //
@@ -158,12 +158,12 @@ public class TestThrottleStateMachine  {
   public void testTransitionToRampUpState() throws InterruptedException{
     // Fire an equal number of success and failure events over a one second period.
     //
-    for (int i = 0; i < 100; i++) {
-      Thread.sleep(10);
+    for (int i = 0; i < TIMER_PERIOD / LATENCY; i++) {
+      Thread.sleep(LATENCY);
       if (0 == i % 2) {
-        throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, 10);
+        throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, LATENCY);
       } else {
-        throttleSM.updateTransmissionFailure(ThrottleType.UPLOAD, 1, 10);
+        throttleSM.updateTransmissionFailure(ThrottleType.UPLOAD, 1, LATENCY);
       }
     }
     
@@ -173,9 +173,9 @@ public class TestThrottleStateMachine  {
     
     // State machine should return to RAMPUP state after sustained transmission successes.
     //
-    for (int i = 0; i < 100; i++) {
-      Thread.sleep(10);
-      throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, 10);
+    for (int i = 0; i < TIMER_PERIOD / LATENCY; i++) {
+      Thread.sleep(LATENCY);
+      throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, LATENCY);
     }
     
     // Validate that the state machine is in the RAMPUP state with sustained successes.
@@ -204,12 +204,12 @@ public class TestThrottleStateMachine  {
   public void testTransitionBackToStableState() throws InterruptedException{
     // Fire an equal number of success and failure events over a one second period.
     //
-    for (int i = 0; i < 100; i++) {
-      Thread.sleep(10);
+    for (int i = 0; i < TIMER_PERIOD / LATENCY; i++) {
+      Thread.sleep(LATENCY);
       if (0 == i % 2) {
-        throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, 10);
+        throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, LATENCY);
       } else {
-        throttleSM.updateTransmissionFailure(ThrottleType.UPLOAD, 1, 10);
+        throttleSM.updateTransmissionFailure(ThrottleType.UPLOAD, 1, LATENCY);
       }
     }
     
@@ -219,9 +219,9 @@ public class TestThrottleStateMachine  {
     
     // State machine should return to RAMPUP state after sustained transmission successes.
     //
-    for (int i = 0; i < 100; i++) {
-      Thread.sleep(10);
-      throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, 10);
+    for (int i = 0; i < TIMER_PERIOD / LATENCY; i++) {
+      Thread.sleep(LATENCY);
+      throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, LATENCY);
     }
     
     // Validate that the state machine is in the RAMPUP state with sustained successes.
@@ -254,12 +254,12 @@ public class TestThrottleStateMachine  {
   public void testTransitionFromRampupToRampdownState() throws InterruptedException{
     // Fire an equal number of success and failure events over a one second period.
     //
-    for (int i = 0; i < 100; i++) {
-      Thread.sleep(10);
+    for (int i = 0; i < TIMER_PERIOD / LATENCY; i++) {
+      Thread.sleep(LATENCY);
       if (0 == i % 2) {
-        throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, 10);
+        throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, LATENCY);
       } else {
-        throttleSM.updateTransmissionFailure(ThrottleType.UPLOAD, 1, 10);
+        throttleSM.updateTransmissionFailure(ThrottleType.UPLOAD, 1, LATENCY);
       }
     }
     
@@ -269,15 +269,15 @@ public class TestThrottleStateMachine  {
     
     // State machine should return to RAMPUP state after sustained transmission successes.
     //
-    for (int i = 0; i < 100; i++) {
-      Thread.sleep(10);
-      throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, 10);
+    for (int i = 0; i < TIMER_PERIOD / LATENCY; i++) {
+      Thread.sleep(LATENCY);
+      throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, LATENCY);
     }
     
     // Inject a transmission failure.
     //
-    Thread.sleep(10);
-    throttleSM.updateTransmissionFailure(ThrottleType.UPLOAD, 1, 10);
+    Thread.sleep(LATENCY);
+    throttleSM.updateTransmissionFailure(ThrottleType.UPLOAD, 1, LATENCY);
     
     // Validate that the state machine is in the RAMPDOWN state.
     //
@@ -304,11 +304,11 @@ public class TestThrottleStateMachine  {
    */
   @Test
   public void testStopThrottlingInStableState() throws InterruptedException {
-    // Fire success events every 10 milliseconds over a period of one second.
+    // Fire success events every LATENCY milliseconds over a period of one second.
     //
-    for (int i = 0; i < 100; i++) {
-      Thread.sleep(10);
-      throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, 10);
+    for (int i = 0; i < TIMER_PERIOD / LATENCY; i++) {
+      Thread.sleep(LATENCY);
+      throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, LATENCY);
     }
     
     // Validate the state machine is still in the equilibrium state.
@@ -320,8 +320,8 @@ public class TestThrottleStateMachine  {
     assertFalse(throttleSM.rampDown(ThrottleType.UPLOAD));
     assertFalse(throttleSM.rampUp(ThrottleType.UPLOAD));
     
-    Thread.sleep(10);
-    throttleSM.updateTransmissionFailure(ThrottleType.UPLOAD, 1, 10);
+    Thread.sleep(LATENCY);
+    throttleSM.updateTransmissionFailure(ThrottleType.UPLOAD, 1, LATENCY);
     
     try {
       // Try to stop throttling in the DOWNLOAD state.
