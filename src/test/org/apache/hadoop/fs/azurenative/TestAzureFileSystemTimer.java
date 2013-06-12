@@ -257,7 +257,7 @@ public class TestAzureFileSystemTimer  {
     // TIMER_PERIOD second, and with an automatic stop after STOP_AFTER.
     //
     AzureFileSystemTimer testTimer = new AzureFileSystemTimer(
-        "testTimerNoDelay", scheduler, 0, TIMER_PERIOD, STOP_AFTER);
+        "testTimerNoDelay", scheduler, 1, TIMER_PERIOD, STOP_AFTER);
 
     // Create alarm task and turn on timer.
     //
@@ -504,7 +504,7 @@ public class TestAzureFileSystemTimer  {
     // second, and with an automatic stop after STOP_AFTER using a local scheduler.
     //
     AzureFileSystemTimer testTimer = new AzureFileSystemTimer(
-        "testTimerNoDelay", scheduler, 0, TIMER_PERIOD, STOP_AFTER);
+        "testTimerNoDelay", scheduler, 1, TIMER_PERIOD, STOP_AFTER);
 
     // Create alarm task and turn on timer.
     //
@@ -521,7 +521,7 @@ public class TestAzureFileSystemTimer  {
     // Note: There is zero delay so the first tick is instantaneous.  So start
     //       counting at tick 1.
     //
-    for (long ticks = 1; ticks < STOP_AFTER; ticks++) {
+    for (long ticks = 0; ticks < STOP_AFTER; ticks++) {
       // Validate timer is not expired.
       //
       assertFalse(testTimer.isExpired());
@@ -538,6 +538,7 @@ public class TestAzureFileSystemTimer  {
     // Validate the timer is expired.
     //
     assertTrue(testTimer.isExpired());
+    
 
     // Validate the timer is off.
     //
@@ -554,7 +555,7 @@ public class TestAzureFileSystemTimer  {
     // second, and with an automatic stop after STOP_AFTER using a local scheduler.
     //
     AzureFileSystemTimer testTimer = new AzureFileSystemTimer(
-        "testTimerNoDelay", scheduler, 0, TIMER_PERIOD, STOP_AFTER);
+        "testTimerNoDelay", scheduler, 1, TIMER_PERIOD, STOP_AFTER);
     
     // Create a test timer callback object.
     //
@@ -576,7 +577,7 @@ public class TestAzureFileSystemTimer  {
     // Note: There is zero delay so the first tick is instantaneous.  So start
     //       counting at tick 1.
     //
-    for (long ticks = 1; ticks < STOP_AFTER; ticks++) {
+    for (long ticks = 0; ticks < STOP_AFTER; ticks++) {
       // Validate timer is not expired.
       //
       assertFalse(testTimer.isExpired());

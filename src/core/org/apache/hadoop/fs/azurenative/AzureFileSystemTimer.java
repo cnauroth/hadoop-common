@@ -261,7 +261,7 @@ public final class AzureFileSystemTimer {
     if (null == shutdownFuture && INFINITE_DELAY != shutdownDelayTicks){
       // Schedule a task to shutdown the timer.
       //
-      turnOffTimerAfterDelay (initialDelayTicks + shutdownDelayTicks - 1);
+      turnOffTimerAfterDelay (shutdownDelayTicks);
     }
     
     // Capture the timer task.
@@ -313,7 +313,7 @@ public final class AzureFileSystemTimer {
     // The timer is not expired if the timer tick count is strictly less than
     // the initial delay ticks plus the expiration ticks.
     //
-    if (timerTask.getTicks() < initialDelayTicks + shutdownDelayTicks) {
+    if (timerTask.getTicks() < shutdownDelayTicks) {
       return false;
     }
     

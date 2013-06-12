@@ -109,11 +109,11 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
     throttleTimers = new AzureFileSystemTimer [] {
         new AzureFileSystemTimer(
             timerName + "_" + ThrottleType.UPLOAD + "_" + THROTTLE_STATE_MACHINE_SUFFIX,
-            timerScheduler, 0, period, stopAfter),
+            timerScheduler, 1, period, stopAfter + 1),
 
         new AzureFileSystemTimer(
             timerName + "_" + ThrottleType.DOWNLOAD + "_" + THROTTLE_STATE_MACHINE_SUFFIX,
-            timerScheduler, 0, period, stopAfter)
+            timerScheduler, 1, period, stopAfter + 1)
     };
   }
 
@@ -163,7 +163,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
    * @return total number of failed transmissions within the interval
    */
   @Override
-  public synchronized long updateTransmissionFailure(ThrottleType kindOfThrottle,
+  public long updateTransmissionFailure(ThrottleType kindOfThrottle,
       final long failureCount, final long reqLatency) {
 
     LOG.info("updateTransmissionFailure event in state" + getState(kindOfThrottle));
@@ -434,7 +434,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
       // to reflect ramp-down.
       //
       setState (kindOfThrottle, ThrottleState.THROTTLE_RAMPDOWN);
-    } else {
+    } else if (throttleTimers[kindOfThrottle.getValue()].isExpired()) {
       // All transmissions in the previous interval have been successful.
       //
       // Note: If there were not transmissions in the current interval, that is also
@@ -562,11 +562,10 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
     case THROTTLE_RAMPDOWN:
       // Assertion failed. stopThrottling events are not expected in the ramp down state.
       //
-      throw new AssertionError(
-         "Unexpected stopThrotlling event in the RAMPDOWN state.");
+      throw new AssertionError("Unexpected stopThrotlling event in the RAMPDOWN state.");
     case THROTTLE_RAMPUP:
       // Turn off throttling timer and rollover metrics.  Note there is no need to
-      // rollover metrics over the current interval. A rollover will occur on the next
+      // roll over metrics over the current interval. A rollover will occur on the next
       // throttling event.
       //
       throttleTimers[kindOfThrottle.getValue()].turnOffTimer();

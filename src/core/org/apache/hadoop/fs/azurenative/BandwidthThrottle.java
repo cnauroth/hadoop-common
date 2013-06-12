@@ -359,7 +359,8 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
     // zero since it is always greater than the non-negative bandwidthMinThreshold.
     //
     long delayMs =
-        payloadSize / bandwidthTarget[kindOfThrottle.getValue()] - latency;
+        blockSize[kindOfThrottle.getValue()] / bandwidthTarget[kindOfThrottle.getValue()]
+        - latency;
 
     // The delay should be no greater than the maxThrottleDelay.
     //
