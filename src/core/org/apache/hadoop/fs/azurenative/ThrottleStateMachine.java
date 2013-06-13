@@ -562,7 +562,23 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
     case THROTTLE_RAMPDOWN:
       // Assertion failed. stopThrottling events are not expected in the ramp down state.
       //
-      throw new AssertionError("Unexpected stopThrotlling event in the RAMPDOWN state.");
+      // throw new AssertionError("Unexpected stopThrotlling event in the RAMPDOWN state.");
+      
+      // Expecting to stop throttling on in the THROTTLE_NONE or THROTTLE_RAMPUP state.
+      // However it is possible to reach the maximum bandwidth in the THROTTLE_RAMPDOWN
+      // state triggering a stopThrottling event.  In this case simply ignore until the
+      // end of the throttling period when transition is made to the ramp up state.
+      //
+      // Assertion: Throttling state machine timer should not be expired.
+      //
+      if (throttleTimers[kindOfThrottle.getValue()].isExpired()) {
+        throw new AssertionError("Received a stopthrottleing event in the " +
+                                  "RAMPDOWN state. Expired timer is unexpected.");
+      }
+      
+      // Timer is not expired, so just return to the caller.
+      //
+      return;
     case THROTTLE_RAMPUP:
       // Turn off throttling timer and rollover metrics.  Note there is no need to
       // roll over metrics over the current interval. A rollover will occur on the next

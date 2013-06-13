@@ -22,10 +22,10 @@ public class TestThrottleStateMachine  {
    * CONSTANTS
    */
   private final String TIMER_NAME    = "TestThrottleStateMachineTimer";
-  private final long LATENCY         = 100; // milliseconds
+  private final long LATENCY         = 25; // milliseconds
   private final int NUM_THREADS      = 1;
   private final int STOP_AFTER       = 2;
-  private final int TIMER_PERIOD     = 1000; // milliseconds.
+  private final int TIMER_PERIOD     = 250; // milliseconds.
   private final long THROTTLE_PERIOD = 2 * TIMER_PERIOD;
 
   /**
