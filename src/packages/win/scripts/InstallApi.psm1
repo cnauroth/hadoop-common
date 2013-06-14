@@ -81,10 +81,16 @@ function GiveFullPermissions(
     $folder,
     [String]
     [Parameter( Position=1, Mandatory=$true )]
-    $username)
+    $username,
+    [bool]
+    [Parameter( Position=2, Mandatory=$false )]
+    $recursive = $false)
 {
     Write-Log "Giving user/group `"$username`" full permissions to `"$folder`""
     $cmd = "icacls `"$folder`" /grant ${username}:(OI)(CI)F"
+    if ($recursive) {
+        $cmd += " /T"
+    }
     Invoke-CmdChk $cmd
 }
 
@@ -106,6 +112,118 @@ function CheckRole(
             throw "CheckRole: Passed in role `"$role`" is outside of the supported set `"$supportedRoles`""
         }
     }
+}
+
+### List the non-empty folders defined in property value
+function ListNonEmptyFoldersListedInPropertyValue(
+    [String]
+    [Parameter( Position=0, Mandatory=$true )]
+    $configFile,
+    [String]
+    [Parameter( Position=1, Mandatory=$true )]
+    $propertyName
+    )
+{
+    $nonEmptyFolderList = @()
+    [String]$folders = FindXmlPropertyValue $configFile $propertyName
+    foreach ($folder in $folders.Split(","))
+    {
+        $folder = $folder.Trim()
+        if ( ( $folder -ne $null ) -and ( Test-Path "$folder\*" ) )
+        {
+            $nonEmptyFolderList = $nonEmptyFolderList + $folder
+        }
+    }
+    return $nonEmptyFolderList
+}
+
+### Function to delete data directories conditionally
+function DataDirectoriesDelete-Chk(
+    [String]
+    [Parameter( Position=0, Mandatory=$true )]
+    $configFile,
+    [array]
+    [Parameter( Position=1, Mandatory=$true )]
+    $propertyList,
+    [bool]
+    [Parameter( Position=2, Mandatory=$false )]
+    $throwerror = $true)
+{
+    $dataexists = $false
+    $forceClean = ( (-not (Test-Path ENV:DESTROY_DATA)) -or ($ENV:DESTROY_DATA -eq "yes") )
+    foreach ($property in $propertyList)
+    {
+        $nonEmptyFolderList = @(ListNonEmptyFoldersListedInPropertyValue $configFile $property)
+        if ($forceclean -eq $true)
+        {
+            foreach ($folder in $nonEmptyFolderList)
+            {
+                Write-Log "Removing $property -> $folder"
+                $cmd = "rd /s /q `"$folder`""
+                Invoke-Cmd $cmd > $null
+            }
+        }
+        else
+        {
+            $dataexists = ($nonEmptyFolderList.Length -gt 0)
+            if ( ($throwerror) -and ($dataexists) )
+            {
+                throw "Non-empty $property folders: $($nonEmptyFolderList -Join ',')"
+            }
+        }
+    }
+    return $dataexists
+}
+
+### Function to append a sub-path to a list of paths
+function Get-AppendedPath(
+    [String]
+    [Parameter( Position=0, Mandatory=$true )]
+    $pathList,
+    [String]
+    [Parameter( Position=1, Mandatory=$true )]
+    $subPath,
+    [String]
+    [Parameter( Position=2, Mandatory=$false )]
+    $delimiter = ",")
+{
+    $newPath = @()
+    foreach ($path in $pathList.Split($delimiter))
+    {
+        $path = $path.Trim()
+        if ($path -ne $null)
+        {
+            $apath = Join-Path $path $subPath
+            $newPath = $newPath + $apath
+        }
+    }
+    return ($newPath -Join $delimiter)
+}
+
+###############################################################################
+###
+### If no data is to be preserved clean the data directories
+###
+###############################################################################
+function CheckDataDirectories(
+    [String]
+    [Parameter( Position=0, Mandatory=$true )]
+    $nodeInstallRoot)
+{
+    $throwerror = ( (Test-Path ENV:DESTROY_DATA) -and ($ENV:DESTROY_DATA -eq "undefined") )
+    ### Check the data directories in core-site.xml
+    $xmlFile = Join-Path $nodeInstallRoot "conf\core-site.xml"
+    $csdataexists = (DataDirectoriesDelete-Chk $xmlFile $CorePropertyFolderList $throwerror)
+
+    ### Check the data directories in hdfs-site.xml
+    $xmlFile = Join-Path $nodeInstallRoot "conf\hdfs-site.xml"
+    $hsdataexists = (DataDirectoriesDelete-Chk $xmlFile $HdfsPropertyFolderList $throwerror)
+
+    ### Check the data directories in mapred-site.xml
+    $xmlFile = Join-Path $nodeInstallRoot "conf\mapred-site.xml"
+    $msdataexists = (DataDirectoriesDelete-Chk $xmlFile $MapRedPropertyFolderList $throwerror)
+
+    return ($csdataexists -or $hsdataexists -or $msdataexists)
 }
 
 ###############################################################################
@@ -193,12 +311,27 @@ function InstallCore(
     $xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template\conf\*.xml`" `"$hadoopInstallToDir\conf`""
     Invoke-CmdChk $xcopy_cmd
 
-    $xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template\conf\*.properties`" `"$hadoopInstallToDir\conf`""
+    $xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template\conf\*.properties`" `"$hadoopInstallToDir\bin`""
     Invoke-CmdChk $xcopy_cmd
 
     $xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template\bin`" `"$hadoopInstallToDir\bin`""
     Invoke-CmdChk $xcopy_cmd
-    
+
+    ###
+    ### Copy hdfs configs
+    ###
+    Write-Log "Copying HDFS configs"
+    $xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template\conf\hdfs-site.xml`" `"$hadoopInstallToDir\conf`""
+    Invoke-CmdChk $xcopy_cmd
+
+    ###
+    ### Copy mapred configs
+    ###
+    Write-Log "Copying MapRed configs"
+    $xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template\conf\mapred-site.xml`" `"$hadoopInstallToDir\conf`""
+    Invoke-CmdChk $xcopy_cmd
+
+
     ###
     ### Grant Hadoop user access to $hadoopInstallToDir
     ###
@@ -207,13 +340,18 @@ function InstallCore(
     ###
     ### ACL Hadoop logs directory such that machine users can write to it
     ###
-    if( -not (Test-Path "$hadoopInstallToDir\logs"))
+    $hadooplogdir = "$hadoopInstallToDir\logs"
+    if(Test-Path ENV:HADOOP_LOG_DIR)
+    {
+        $hadooplogdir = $ENV:HADOOP_LOG_DIR
+    }
+    if( -not (Test-Path "$hadooplogdir"))
     {
         Write-Log "Creating Hadoop logs folder"
-        $cmd = "mkdir `"$hadoopInstallToDir\logs`""
+        $cmd = "mkdir `"$hadooplogdir`""
         Invoke-CmdChk $cmd
     }
-    GiveFullPermissions "$hadoopInstallToDir\logs" "Users"
+    GiveFullPermissions "$hadooplogdir" "Users"
 
     Write-Log "Installation of Apache Hadoop Core complete"
 }
@@ -242,22 +380,19 @@ function UninstallCore(
     {
         return
     }
-    
+
     ###
     ### Remove Hadoop Core folders defined in configuration files
     ###
     $xmlFile = Join-Path $hadoopInstallToDir "conf\core-site.xml"
-    foreach ($property in $CorePropertyFolderList)
+    [String]$hadoopTmpDir = FindXmlPropertyValue $xmlFile "hadoop.tmp.dir"
+    if (Test-Path "$hadoopTmpDir")
     {
-        [String]$folder = FindXmlPropertyValue $xmlFile $property
-        $folder = $folder.Trim()
-        if ( ( $folder -ne $null ) -and ( Test-Path $folder ) )
-        {
-            Write-Log "Removing Hadoop `"$property`" located under `"$folder`""
-            $cmd = "rd /s /q `"$folder`""
-            Invoke-Cmd $cmd
-        }
+        Write-Log "Removing hadoop.tmp.dir `"$hadoopTmpDir`""
+        $cmd = "rd /s /q `"$hadoopTmpDir`""
+        Invoke-Cmd $cmd
     }
+    DataDirectoriesDelete-Chk $xmlFile $CorePropertyFolderList $false
 
     ###
     ### Remove all Hadoop binaries
@@ -341,16 +476,16 @@ function StopAndDeleteHadoopService(
 
 ###############################################################################
 ###
-### Installs Hadoop HDFS component.
+### Installs Hadoop Services.
 ###
 ### Arguments:
 ###     nodeInstallRoot: Target install folder (for example "C:\Hadoop")
 ###     serviceCredential: Credential object used for service creation
-###     hdfsRole: Space separated list of HDFS roles that should be installed.
+###     Service: Space separated list of services that should be installed.
 ###               (for example, "namenode secondarynamenode")
 ###
 ###############################################################################
-function InstallHdfs(
+function InstallService(
     [String]
     [Parameter( Position=0, Mandatory=$true )]
     $nodeInstallRoot,
@@ -358,23 +493,14 @@ function InstallHdfs(
     [Parameter( Position=1, Mandatory=$true )]
     $serviceCredential,
     [String]
-    [Parameter( Position=2, Mandatory=$false )]
-    $hdfsRole
+    [Parameter( Position=2, Mandatory=$true )]
+    $services
     )
 {
     $username = $serviceCredential.UserName
    
-    ###
-    ### Setup defaults if not specified
-    ###
-    
-    if( $hdfsRole -eq $null )
-    {
-        $hdfsRole = "namenode datanode secondarynamenode"
-    }
-
-    ### Verify that hdfsRoles are in the supported set
-    CheckRole $hdfsRole @("namenode","datanode","secondarynamenode")
+    $hdfsroles="namenode", "secondarynamenode", "datanode"  
+    $mapredroles="jobtracker", "historyserver", "tasktracker"
 
     $HDP_INSTALL_PATH, $HDP_RESOURCES_DIR = Initialize-InstallationEnv $ScriptDir "hadoop-@version@.winpkg.log"
     Test-JavaHome
@@ -383,50 +509,50 @@ function InstallHdfs(
     $hadoopInstallToDir = Join-Path "$nodeInstallRoot" "hadoop-$HadoopCoreVersion"
     $hadoopInstallToBin = Join-Path "$hadoopInstallToDir" "bin"
     
-    ### Hadoop Core must be installed before HDFS
+    ### Hadoop Core must be installed before InstallService
     if( -not (Test-Path $hadoopInstallToDir ))
     {
-        throw "InstallHdfs: InstallCore must be called before InstallHdfs"
+        throw "InstallService: InstallCore must be called before InstallService"
     }
 
-    Write-Log "HdfsRole: $hdfsRole"
-
-    ###
-    ### Copy hdfs configs
-    ###
-    Write-Log "Copying HDFS configs"
-    $xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template\conf\hdfs-site.xml`" `"$hadoopInstallToDir\conf`""
-    Invoke-CmdChk $xcopy_cmd
+    Write-Log "Services: $Services"
 
     ###
     ### Create Hadoop Windows Services and grant user ACLS to start/stop
     ###
 
-    Write-Log "Node HDFS Role Services: $hdfsRole"
-    $allServices = $hdfsRole
 
-    Write-Log "Installing services $allServices"
-
-    foreach( $service in empty-null $allServices.Split(' '))
+    foreach ($service in empty-null $services.Split(" "))
     {
+      if ( $hdfsroles -contains $service ) {
+        Write-Log "Installing services $service"
         CreateAndConfigureHadoopService $service $HDP_RESOURCES_DIR $hadoopInstallToBin $serviceCredential
+	###
+	### Setup service config
+	###
+	Write-Log "Copying configuration for $service"
+	Write-Log "Creating service config ${hadoopInstallToBin}\$service.xml"
+	$cmd = "$hadoopInstallToBin\hdfs.cmd --service $service > `"$hadoopInstallToBin\$service.xml`""
+	Invoke-CmdChk $cmd
+	Write-Log "Installation of Hadoop $service complete"
+      }
+      elseif ( $mapredroles -contains $service ) {
+        Write-Log "Installing services $service"
+        CreateAndConfigureHadoopService $service $HDP_RESOURCES_DIR $hadoopInstallToBin $serviceCredential
+	###
+	### Setup service config
+	###
+	Write-Log "Copying configuration for $service"
+	Write-Log "Creating service config ${hadoopInstallToBin}\$service.xml"
+	$cmd = "$hadoopInstallToBin\mapred.cmd --service $service > `"$hadoopInstallToBin\$service.xml`""
+	Invoke-CmdChk $cmd
+	Write-Log "Installation of Hadoop $service complete"
+      }
+     else {
+        Write-Log "$service not part of the $hdfsroles or $mapredroles"
+     }
     }
-
-    ###
-    ### Setup HDFS service config
-    ###
-    Write-Log "Copying configuration for $hdfsRole"
-
-    foreach( $service in empty-null $hdfsRole.Split( ' ' ))
-    {
-        Write-Log "Creating service config ${hadoopInstallToBin}\$service.xml"
-        $cmd = "$hadoopInstallToBin\hdfs.cmd --service $service > `"$hadoopInstallToBin\$service.xml`""
-        Invoke-CmdChk $cmd
-    }
-
-    Write-Log "Installation of Hadoop HDFS complete"
 }
-
 ###############################################################################
 ###
 ### Uninstalls Hadoop HDFS component.
@@ -464,106 +590,7 @@ function UninstallHdfs(
     ### Remove Hadoop HDFS folders defined in configuration files
     ###
     $xmlFile = Join-Path $hadoopInstallToDir "conf\hdfs-site.xml"
-    foreach ($property in $HdfsPropertyFolderList)
-    {
-        [String]$folder = FindXmlPropertyValue $xmlFile $property
-        $folder = $folder.Trim()
-        ### TODO: Support for JBOD and NN replication
-        if ( ( $folder -ne $null ) -and ( Test-Path $folder ) )
-        {
-            Write-Log "Removing Hadoop `"$property`" located under `"$folder`""
-            $cmd = "rd /s /q `"$folder`""
-            Invoke-Cmd $cmd
-        }
-    }
-}
-
-###############################################################################
-###
-### Installs Hadoop MapReduce component.
-###
-### Arguments:
-###     nodeInstallRoot: Target install folder (for example "C:\Hadoop")
-###     serviceCredential: Credential object used for service creation
-###     hdfsRole: Space separated list of MapRed roles that should be installed.
-###               (for example, "jobtracker historyserver")
-###
-###############################################################################
-function InstallMapRed(
-    [String]
-    [Parameter( Position=0, Mandatory=$true )]
-    $nodeInstallRoot,
-    [System.Management.Automation.PSCredential]
-    [Parameter( Position=1, Mandatory=$true )]
-    $serviceCredential,
-    [String]
-    [Parameter( Position=2, Mandatory=$false )]
-    $mapredRole
-    )
-{
-    $username = $serviceCredential.UserName
-   
-    ###
-    ### Setup defaults if not specified
-    ###
-    
-    if( $mapredRole -eq $null )
-    {
-        $mapredRole = "jobtracker tasktracker historyserver"
-    }
-    
-    ### Verify that mapredRoles are in the supported set
-    CheckRole $mapredRole @("jobtracker","tasktracker","historyserver")
-
-    $HDP_INSTALL_PATH, $HDP_RESOURCES_DIR = Initialize-InstallationEnv $ScriptDir "hadoop-@version@.winpkg.log"
-    Test-JavaHome
-
-    ### $hadoopInstallDir: the directory that contains the application, after unzipping
-    $hadoopInstallToDir = Join-Path "$nodeInstallRoot" "hadoop-$HadoopCoreVersion"
-    $hadoopInstallToBin = Join-Path "$hadoopInstallToDir" "bin"
-    
-    ### Hadoop Core must be installed before MapRed
-    if( -not (Test-Path $hadoopInstallToDir ))
-    {
-        throw "InstallMapRed: InstallCore must be called before InstallMapRed"
-    }
-
-    Write-Log "MapRedRole: $mapredRole"
-
-    ###
-    ### Copy mapred configs
-    ###
-    Write-Log "Copying MapRed configs"
-    $xcopy_cmd = "xcopy /EIYF `"$HDP_INSTALL_PATH\..\template\conf\mapred-site.xml`" `"$hadoopInstallToDir\conf`""
-    Invoke-CmdChk $xcopy_cmd
-
-    ###
-    ### Create Hadoop Windows Services and grant user ACLS to start/stop
-    ###
-
-    Write-Log "Node MapRed Role Services: $mapredRole"
-    $allServices = $mapredRole
-
-    Write-Log "Installing services $allServices"
-
-    foreach( $service in empty-null $allServices.Split(' '))
-    {
-        CreateAndConfigureHadoopService $service $HDP_RESOURCES_DIR $hadoopInstallToBin $serviceCredential
-    }
-
-    ###
-    ### Setup MapRed service config
-    ###
-    Write-Log "Copying configuration for $mapredRole"
-
-    foreach( $service in empty-null $mapredRole.Split( ' ' ))
-    {
-        Write-Log "Creating service config ${hadoopInstallToBin}\$service.xml"
-        $cmd = "$hadoopInstallToBin\mapred.cmd --service $service > `"$hadoopInstallToBin\$service.xml`""
-        Invoke-CmdChk $cmd
-    }
-
-    Write-Log "Installation of Hadoop MapReduce complete"
+    DataDirectoriesDelete-Chk $xmlFile $HdfsPropertyFolderList $false
 }
 
 ###############################################################################
@@ -603,17 +630,7 @@ function UninstallMapRed(
     ### Remove Hadoop MapRed folders defined in configuration files
     ###
     $xmlFile = Join-Path $hadoopInstallToDir "conf\mapred-site.xml"
-    foreach ($property in $MapRedPropertyFolderList)
-    {
-        [String]$folder = FindXmlPropertyValue $xmlFile $property
-        $folder = $folder.Trim()
-        if ( ( $folder -ne $null ) -and ( Test-Path $folder ) )
-        {
-            Write-Log "Removing Hadoop `"$property`" located under `"$folder`""
-            $cmd = "rd /s /q `"$folder`""
-            Invoke-Cmd $cmd
-        }
-    }
+    DataDirectoriesDelete-Chk $xmlFile $MapRedPropertyFolderList $false
 }
 
 ### Helper routine that updates the given fileName XML file with the given
@@ -632,9 +649,7 @@ function UpdateXmlConfig(
     [parameter( Position=1 )]
     $config = @{} )
 {
-    $xml = New-Object System.Xml.XmlDocument
-    $xml.PreserveWhitespace = $true
-    $xml.Load($fileName)
+    $xml = [xml] (Get-Content $fileName)
 
     foreach( $key in empty-null $config.Keys )
     {
@@ -643,17 +658,12 @@ function UpdateXmlConfig(
         $xml.SelectNodes('/configuration/property') | ? { $_.name -eq $key } | % { $_.value = $value; $found = $True }
         if ( -not $found )
         {
-            $xml["configuration"].AppendChild($xml.CreateWhitespace("`r`n  ")) | Out-Null
             $newItem = $xml.CreateElement("property")
-            $newItem.AppendChild($xml.CreateWhitespace("`r`n    ")) | Out-Null
             $newItem.AppendChild($xml.CreateElement("name")) | Out-Null
-            $newItem.AppendChild($xml.CreateWhitespace("`r`n    ")) | Out-Null
             $newItem.AppendChild($xml.CreateElement("value")) | Out-Null
-            $newItem.AppendChild($xml.CreateWhitespace("`r`n  ")) | Out-Null
             $newItem.name = $key
             $newItem.value = $value
             $xml["configuration"].AppendChild($newItem) | Out-Null
-            $xml["configuration"].AppendChild($xml.CreateWhitespace("`r`n")) | Out-Null
         }
     }
     
@@ -689,32 +699,31 @@ function AclFoldersForUser(
             throw "AclFoldersForUser: Trying to ACLs the folder $key which is not defined in $xmlFileName"
         }
         
-        try
-        {
             ### TODO: Support for JBOD and NN Replication
-            $folderParent = Split-Path $folderName -parent
-
-            if( -not (Test-Path $folderParent))
+        foreach ($folder in $folderName.Split(","))
+        {
+            $folder = $folder.Trim()
+            try
             {
-                Write-Log "AclFoldersForUser: Creating Directory `"$folderParent`" for ACLing"
-                mkdir $folderParent
-            
-                ### TODO: ACL only if the folder does not exist. Otherwise, assume that
-                ### it is ACLed properly.
+                $folderParent = Split-Path $folder -parent
+
+                if( -not (Test-Path $folderParent))
+                {
+                    Write-Log "AclFoldersForUser: Creating Directory `"$folderParent`" for ACLing"
+                    mkdir $folderParent
+                }
                 GiveFullPermissions $folderParent $username
             }
-        }
-        catch
-        {
-            Write-Log "AclFoldersForUser: Skipped folder `"$folderName`", with exception: $_.Exception.ToString()"
+            catch
+            {
+                Write-Log "AclFoldersForUser: Skipped folder `"$folderName`", with exception: $_.Exception.ToString()"
+            }
         }
     }
     
     $xml.ReleasePath
 }
 
-### Runs the given configs thru the alias transformation and returns back
-### the new list of configs with all alias dependent options resolved.
 ###
 ### Supported aliases:
 ###  core-site:
@@ -1010,6 +1019,14 @@ function ConfigureMapRed(
     [hashtable]$configs = ConfigureCapacityScheduler $capacitySchedulerXmlFile $configs
 
     ###
+    ### Apply capacity-scheduler.xml configuration changes. All such configuration properties
+    ### have "mapred.capacity-scheduler" prefix, so it is easy to properly separate them out
+    ### from other Hadoop configs.
+    ###
+    $capacitySchedulerXmlFile = Join-Path $hadoopInstallToDir "conf\capacity-scheduler.xml"
+    [hashtable]$configs = ConfigureCapacityScheduler $capacitySchedulerXmlFile $configs
+
+    ###
     ### Apply configuration changes to mapred-site.xml
     ###
     $xmlFile = Join-Path $hadoopInstallToDir "conf\mapred-site.xml"
@@ -1055,27 +1072,24 @@ function ConfigureMapRed(
 function Install(
     [String]
     [Parameter( Position=0, Mandatory=$true )]
-    $component,
+    $role,
     [String]
     [Parameter( Position=1, Mandatory=$true )]
     $nodeInstallRoot,
     [System.Management.Automation.PSCredential]
     [Parameter( Position=2, Mandatory=$true )]
-    $serviceCredential,
-    [String]
-    [Parameter( Position=3, Mandatory=$false )]
-    $role
+    $serviceCredential
     )
 {
-    if ( $component -eq "core" )
+    if ( $role -eq "NAMENODE" )
     {
-        InstallCore $nodeInstallRoot $serviceCredential
+        InstallHdfsService $nodeInstallRoot $serviceCredential namenode
     }
-    elseif ( $component -eq "hdfs" )
+    elseif ( $role -eq "SECONDARY_NAMENODE" )
     {
-        InstallHdfs $nodeInstallRoot $serviceCredential $role
+        InstallHdfs $nodeInstallRoot $serviceCredential secondarynamenode
     }
-    elseif ( $component -eq "mapreduce" )
+    elseif ( $role -eq "" )
     {
         InstallMapRed $nodeInstallRoot $serviceCredential $role
     }
@@ -1234,104 +1248,70 @@ function ConfigureWithFile(
 ### Start component services.
 ###
 ### Arguments:
-###     component: Component name
 ###     roles: List of space separated service to start
 ###
 ###############################################################################
 function StartService(
     [String]
-    [Parameter( Position=0, Mandatory=$true )]
-    $component,
-    [String]
     [Parameter( Position=1, Mandatory=$true )]
     $roles
     )
 {
-    Write-Log "Starting `"$component`" `"$roles`" services"
+    Write-Log "Starting `"$roles`" services"
 
-    if ( $component -eq "core" )
-    {
-        Write-Log "StartService: Hadoop Core does not have any services"
-    }
-    elseif ( $component -eq "hdfs" )
-    {
-        ### Verify that roles are in the supported set
-        CheckRole $roles @("namenode","datanode","secondarynamenode")
+    ### Verify that roles are in the supported set
+    CheckRole $roles @("namenode","datanode","secondarynamenode", "jobtracker","tasktracker","historyserver")
         
         foreach ( $role in $roles.Split(" ") )
         {
             Write-Log "Starting $role service"
             Start-Service $role
         }
-    }
-    elseif ( $component -eq "mapreduce" )
-    {
-        ### Verify that roles are in the supported set
-        CheckRole $roles @("jobtracker","tasktracker","historyserver")
-        
-        foreach ( $role in $roles.Split(" ") )
-        {
-            Write-Log "Starting $role service"
-            Start-Service $role
-        }
-    }
-    else
-    {
-        throw "StartService: Unsupported compoment argument."
-    }
+    
 }
 
 ###############################################################################
 ###
-### Stop component services.
+### Stop services.
 ###
 ### Arguments:
-###     component: Component name
 ###     roles: List of space separated service to stop
 ###
 ###############################################################################
 function StopService(
     [String]
-    [Parameter( Position=0, Mandatory=$true )]
-    $component,
-    [String]
     [Parameter( Position=1, Mandatory=$true )]
     $roles
     )
 {
-    Write-Log "Stopping `"$component`" `"$roles`" services"
+    Write-Log "Stopping `"$roles`" services"
 
-    if ( $component -eq "core" )
+    ### Verify that roles are in the supported set
+    CheckRole $roles @("namenode","datanode","secondarynamenode", "jobtracker","tasktracker","historyserver")
+    
+    foreach ( $role in $roles.Split(" ") )
     {
-        Write-Log "StopService: Hadoop Core does not have any services"
-    }
-    elseif ( $component -eq "hdfs" )
-    {
-        ### Verify that roles are in the supported set
-        CheckRole $roles @("namenode","datanode","secondarynamenode")
-        
-        foreach ( $role in $roles.Split(" ") )
+        try
         {
-            Write-Log "Stopping $role service"
-            Stop-Service $role
+           Write-Log "Stopping $role "
+           if (Get-Service "$role" -ErrorAction SilentlyContinue)
+            {
+                Write-Log "Service $role exists, stopping it"
+                Stop-Service $role
+            }
+            else
+            {
+            Write-Log "Service $role does not exist, moving to next"
+            }
         }
-    }
-    elseif ( $component -eq "mapreduce" )
-    {
-        ### Verify that roles are in the supported set
-        CheckRole $roles @("jobtracker","tasktracker","historyserver")
-        
-        foreach ( $role in $roles.Split(" ") )
+        catch [Exception]
         {
-            Write-Log "Stopping $role service"
-            Stop-Service $role
+           Write-Host "Can't stop service $role"  
         }
-    }
-    else
-    {
-        throw "StartService: Unsupported compoment argument."
+       
     }
 }
+
 
 ###############################################################################
 ###
@@ -1367,13 +1347,16 @@ function FormatNamenode(
 ###
 ### Public API
 ###
-Export-ModuleMember -Function Install
+Export-ModuleMember -Function InstallService
+Export-ModuleMember -Function InstallCore
 Export-ModuleMember -Function Uninstall
 Export-ModuleMember -Function Configure
 Export-ModuleMember -Function ConfigureWithFile
 Export-ModuleMember -Function StartService
 Export-ModuleMember -Function StopService
 Export-ModuleMember -Function FormatNamenode
+Export-ModuleMember -Function CheckDataDirectories
+Export-ModuleMember -Function Get-AppendedPath
 
 ###
 ### Private API (exposed for test only)

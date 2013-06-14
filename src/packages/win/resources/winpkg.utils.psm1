@@ -26,6 +26,7 @@ param( [parameter( Position=0, Mandatory=$true)]
 
 function Write-Log ($message, $level, $pipelineObj )
 {
+    $message = SanitizeString $message
     switch($level)
     {
         "Failure" 
@@ -63,6 +64,7 @@ function Write-LogRecord( $source, $record )
     if( $record -is [Management.Automation.ErrorRecord])
     {
         $message = "$ComponentName-$source FAILURE: " + $record.Exception.Message
+        $message = SanitizeString $message
 
         if( $message.EndsWith( [Environment]::NewLine ))
         {
@@ -78,9 +80,15 @@ function Write-LogRecord( $source, $record )
     else
     {
         $message = $record
+        $message = SanitizeString $message
         Write-Host $message
         Out-File -FilePath $ENV:WINPKG_LOG -InputObject "$message" -Append -Encoding "UTF8"
     }
+}
+
+function SanitizeString($s)
+{
+    $s -replace "-password([a-z0-9]*) (\S*)", '-password$1 ****'
 }
 
 function Invoke-Cmd ($command)
@@ -114,11 +122,12 @@ function Invoke-Ps ($command)
 function Invoke-PsChk ($command)
 {
     Write-Log $command
-    $out = powershell.exe -InputFormat none -Command "$command" 2>&1
-    #$out | ForEach-Object { Write-LogRecord "PS" $_ }
-    if (-not ($LastExitCode  -eq 0))
+    $out = powershell.exe -InputFormat none -Command $command 2>&1
+    $captureExitCode = $LastExitCode
+	$out | ForEach-Object { Write-LogRecord "PS" $_ }
+	if (-not ($captureExitCode  -eq 0))
     {
-        throw "Command `"$out`" failed with exit code $LastExitCode "
+        throw "Command `"$command`" failed with exit code  $captureExitCode. Output is  `"$out`" "
     }
     return $out
 }
@@ -193,35 +202,91 @@ function Set-ServiceAcl ($service)
     Invoke-Cmd $cmd
 }
 
+function Expand-String([string] $source)
+{
+    return $ExecutionContext.InvokeCommand.ExpandString((($source -replace '"', '`"') -replace '''', '`'''))
+}
+
+function Copy-XmlTemplate( [string][parameter( Position=1, Mandatory=$true)] $Source,
+       [string][parameter( Position=2, Mandatory=$true)] $Destination,
+       [hashtable][parameter( Position=3 )] $TemplateBindings = @{} )
+{
+
+    ### Import template bindings
+    Push-Location Variable:
+
+    foreach( $key in $TemplateBindings.Keys )
+    {
+        $value = $TemplateBindings[$key]
+        New-Item -Path $key -Value $ExecutionContext.InvokeCommand.ExpandString( $value ) | Out-Null
+    }
+
+    Pop-Location
+
+    ### Copy and expand
+    $Source = Resolve-Path $Source
+
+    if( Test-Path $Destination -PathType Container )
+    {
+        $Destination = Join-Path $Destination ([IO.Path]::GetFilename( $Source ))
+    }
+
+    $DestinationDir = Resolve-Path (Split-Path $Destination -Parent)
+    $DestinationFilename = [IO.Path]::GetFilename( $Destination )
+    $Destination = Join-Path $DestinationDir $DestinationFilename
+
+    if( $Destination -eq $Source )
+    {
+        throw "Destination $Destination and Source $Source cannot be the same"
+    }
+
+    $template = [IO.File]::ReadAllText( $Source )
+    $expanded = Expand-String( $template )
+    ### Output xml files as ANSI files (same as original)
+    write-output $expanded | out-file -encoding ascii $Destination
+}
+
 # Convenience method for processing command-line credential objects
 # Assumes $credentialsHash is a hash with one of the following being true:
-#  - keys "username" and "password" are set to strings
+#  - keys "username" and "password"/"passwordBase64" are set to strings
 #  - key "credentialFilePath" is set to the path of a serialized PSCredential object
 function Get-HadoopUserCredentials($credentialsHash)
 {
-	if($credentialsHash["username"])
-	{
-		Write-Log "Using provided credentials for username $($credentialsHash["username"])" | Out-Null
-		$username = $credentialsHash["username"]
-		if($username -notlike "*\*")
-		{
-			$username = "$ENV:COMPUTERNAME\$username"
-		}
-		$securePassword = $credentialsHash["password"] | ConvertTo-SecureString -AsPlainText -Force
-	}
-	else
-	{
-		Write-Log "Reading credentials from $($credentialsHash['credentialFilePath'])" | Out-Null
-		$import = Import-Clixml -Path $credentialsHash["credentialFilePath"]
-		$username = $import.Username
-		$securePassword = $import.Password | ConvertTo-SecureString
-	}
-	
-	$creds = New-Object System.Management.Automation.PSCredential $username, $securePassword
-	return $creds
+    if($credentialsHash["username"])
+    {
+        Write-Log "Using provided credentials for username $($credentialsHash["username"])" | Out-Null
+        $username = $credentialsHash["username"]
+        if($username -notlike "*\*")
+        {
+            $username = "$ENV:COMPUTERNAME\$username"
+        }
+        if($credentialsHash["passwordBase64"])
+        {
+            $base64Password = $credentialsHash["passwordBase64"]
+            $decoded = [System.Convert]::FromBase64String($base64Password);
+            $decodedPassword = [System.Text.Encoding]::UTF8.GetString($decoded);
+            $securePassword = $decodedPassword | ConvertTo-SecureString -AsPlainText -Force
+        }
+        else
+        {
+            $securePassword = $credentialsHash["password"] | ConvertTo-SecureString -AsPlainText -Force
+        }
+    }
+    else
+    {
+        Write-Log "Reading credentials from $($credentialsHash['credentialFilePath'])" | Out-Null
+        $import = Import-Clixml -Path $credentialsHash["credentialFilePath"]
+        $username = $import.Username
+        $securePassword = $import.Password | ConvertTo-SecureString
+    }
+
+    $creds = New-Object System.Management.Automation.PSCredential $username, $securePassword
+    return $creds
 }
 
+Export-ModuleMember -Function Copy-XmlTemplate
 Export-ModuleMember -Function Get-HadoopUserCredentials
+Export-ModuleMember -Function Initialize-WinpkgEnv
 Export-ModuleMember -Function Initialize-InstallationEnv
 Export-ModuleMember -Function Invoke-Cmd
 Export-ModuleMember -Function Invoke-CmdChk
