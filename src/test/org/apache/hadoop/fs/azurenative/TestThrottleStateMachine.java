@@ -22,10 +22,10 @@ public class TestThrottleStateMachine  {
    * CONSTANTS
    */
   private final String TIMER_NAME    = "TestThrottleStateMachineTimer";
-  private final long LATENCY         = 25; // milliseconds
+  private final long LATENCY         = 100; // milliseconds
   private final int NUM_THREADS      = 1;
   private final int STOP_AFTER       = 2;
-  private final int TIMER_PERIOD     = 250; // milliseconds.
+  private final int TIMER_PERIOD     = 1000; // milliseconds.
   private final long THROTTLE_PERIOD = 2 * TIMER_PERIOD;
 
   /**
@@ -175,10 +175,11 @@ public class TestThrottleStateMachine  {
 
     // State machine should return to RAMPUP state after sustained transmission successes.
     //
-    for (int i = 0; i < THROTTLE_PERIOD / LATENCY; i++) {
+    for (int i = 0; i < 2 * THROTTLE_PERIOD / LATENCY; i++) {
       Thread.sleep(LATENCY);
       throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, LATENCY);
     }
+    
     
     // Validate that the state machine is in the RAMPUP state with sustained successes.
     //
@@ -221,12 +222,11 @@ public class TestThrottleStateMachine  {
 
     // State machine should return to RAMPUP state after sustained transmission successes.
     //
-    for (int i = 0; i < THROTTLE_PERIOD / LATENCY; i++) {
+    for (int i = 0; i < 2 * THROTTLE_PERIOD / LATENCY; i++) {
       Thread.sleep(LATENCY);
       throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, LATENCY);
     }
 
-      
     // Validate that the state machine is in the RAMPUP state with sustained successes.
     //
     assertEquals(ThrottleState.THROTTLE_RAMPUP, throttleSM.getState(ThrottleType.UPLOAD));
@@ -330,7 +330,10 @@ public class TestThrottleStateMachine  {
       // Try to stop throttling in the DOWNLOAD state.
       //
       throttleSM.stopThrottling(ThrottleType.UPLOAD);
-      throw new Exception("Should not be possible to stop throttling in RAMPDOWN state.");
+      // throw new Exception("Should not be possible to stop throttling in RAMPDOWN state.");
+      // Validate download state.
+      //
+      assertEquals(ThrottleState.THROTTLE_RAMPDOWN, throttleSM.getState(ThrottleType.UPLOAD));
     } catch (Exception e) {
       // Fail test. No other exceptions expected.
       //

@@ -109,11 +109,11 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
     throttleTimers = new AzureFileSystemTimer [] {
         new AzureFileSystemTimer(
             timerName + "_" + ThrottleType.UPLOAD + "_" + THROTTLE_STATE_MACHINE_SUFFIX,
-            timerScheduler, 1, period, stopAfter + 1),
+            timerScheduler, 1, period, stopAfter),
 
         new AzureFileSystemTimer(
             timerName + "_" + ThrottleType.DOWNLOAD + "_" + THROTTLE_STATE_MACHINE_SUFFIX,
-            timerScheduler, 1, period, stopAfter + 1)
+            timerScheduler, 1, period, stopAfter)
     };
   }
 
@@ -167,7 +167,19 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
       final long failureCount, final long reqLatency) {
 
     LOG.info("updateTransmissionFailure event in state" + getState(kindOfThrottle));
-
+    long periodFailures = 0;
+    
+    // Capture the latency over the current timer period to calculate how much
+    // to delay next request.
+    //
+    long delayMs = getLatency(kindOfThrottle) - reqLatency;
+    final String infoMsg =
+        String.format ("Thread Id: %d, Period Latency: %d, SampleLatency: %d, " +
+                       "RequestLatency: %d, Delay: %d",
+                       Thread.currentThread().getId(), getLatency(kindOfThrottle), 
+                       getSampleLatency(kindOfThrottle),  reqLatency, delayMs);
+    LOG.info(infoMsg);
+    
     // Use synchronize block to avoid sleeping while holding a monitor.
     //
     synchronized (this) {
@@ -192,6 +204,9 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
         throw new AssertionError(
           "Received updateTransmission event in an unknown state");
       }
+      
+      periodFailures = failTxCount[kindOfThrottle.getValue()][CURRENT_INTERVAL].
+                                    addAndGet(failureCount);
 
       // Turn on throttling timer if it is not already turned on.
       //
@@ -215,14 +230,6 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
     // failed requests and only if sleep times differ by a LATENCY_DELTA margin.
     //
     try {
-      long delayMs = getLatency(kindOfThrottle) - reqLatency;
-      
-      final String infoMsg =
-          String.format ("Thread Id: %d, Period Latency: %d, SampleLatency: %d, " +
-                         "RequestLatency: %d, Delay: %d",
-                         Thread.currentThread().getId(), getLatency(kindOfThrottle), 
-                         getSampleLatency(kindOfThrottle),  reqLatency, delayMs);
-      LOG.info(infoMsg);
       Thread.sleep(Math.max(delayMs, LATENCY_DELTA));
     } catch (InterruptedException e) {
       // Do nothing on interrupted sleeps.
@@ -230,8 +237,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
 
     // Accumulate failure count and return.
     //
-    return failTxCount[kindOfThrottle.getValue()][CURRENT_INTERVAL].
-        addAndGet(failureCount);
+    return periodFailures;
   }
 
   /**
@@ -572,7 +578,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
       // Assertion: Throttling state machine timer should not be expired.
       //
       if (throttleTimers[kindOfThrottle.getValue()].isExpired()) {
-        throw new AssertionError("Received a stopthrottleing event in the " +
+        throw new AssertionError("Received a stopThrottling event in the " +
                                   "RAMPDOWN state. Expired timer is unexpected.");
       }
       
