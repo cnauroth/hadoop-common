@@ -39,6 +39,26 @@
   </property>
 
   <property>
+    <name>mapred.system.dir</name>
+    <value>/mapred/system</value>
+    <description>The directory where MapReduce stores control files.
+    </description>
+  </property>
+
+  <property>
+    <name>mapreduce.jobtracker.staging.root.dir</name>
+    <value>/mapred/staging</value>
+    <description>The root of the staging area for users' job files
+    </description>
+  </property>
+
+  <property>
+    <name>mapred.job.tracker.history.completed.location</name>
+    <value>/mapred/history/done</value>
+    <description>No description</description>
+  </property>
+
+  <property>
     <name>mapreduce.history.server.embedded</name>
     <value>false</value>
     <description>Should job history server be embedded within Job tracker process</description>
@@ -56,6 +76,15 @@
     <name>mapred.queue.names</name>
     <value>default</value>
     <description> Comma separated list of queues configured for this jobtracker.</description>
+  </property>
+
+  <property>
+    <name>mapred.child.tmp</name>
+    <value>C:\Hadoop\hdfs\tmp</value>
+    <description> To set the value of tmp directory for map and reduce tasks.
+    If the value is an absolute path, it is directly assigned. Otherwise, it is
+    prepended with task's working directory.
+    </description>
   </property>
 
 </configuration>
