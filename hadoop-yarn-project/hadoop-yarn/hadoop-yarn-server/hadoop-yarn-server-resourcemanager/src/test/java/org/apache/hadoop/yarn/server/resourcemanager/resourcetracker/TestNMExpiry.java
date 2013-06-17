@@ -43,7 +43,7 @@ import org.apache.hadoop.yarn.server.resourcemanager.ResourceTrackerService;
 import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNodeEventType;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.SchedulerEventType;
 import org.apache.hadoop.yarn.server.resourcemanager.security.RMContainerTokenSecretManager;
-import org.apache.hadoop.yarn.util.Records;
+import org.apache.hadoop.yarn.server.utils.BuilderUtils;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -127,13 +127,11 @@ public class TestNMExpiry {
     String hostname1 = "localhost1";
     String hostname2 = "localhost2";
     String hostname3 = "localhost3";
-    Resource capability = recordFactory.newRecordInstance(Resource.class);
+    Resource capability = BuilderUtils.newResource(1024, 1);
 
     RegisterNodeManagerRequest request1 = recordFactory
         .newRecordInstance(RegisterNodeManagerRequest.class);
-    NodeId nodeId1 = Records.newRecord(NodeId.class);
-    nodeId1.setPort(0);
-    nodeId1.setHost(hostname1);
+    NodeId nodeId1 = NodeId.newInstance(hostname1, 0);
     request1.setNodeId(nodeId1);
     request1.setHttpPort(0);
     request1.setResource(capability);
@@ -141,9 +139,7 @@ public class TestNMExpiry {
 
     RegisterNodeManagerRequest request2 = recordFactory
         .newRecordInstance(RegisterNodeManagerRequest.class);
-    NodeId nodeId2 = Records.newRecord(NodeId.class);
-    nodeId2.setPort(0);
-    nodeId2.setHost(hostname2);
+    NodeId nodeId2 = NodeId.newInstance(hostname2, 0);
     request2.setNodeId(nodeId2);
     request2.setHttpPort(0);
     request2.setResource(capability);
@@ -159,9 +155,7 @@ public class TestNMExpiry {
 
     request3 = recordFactory
         .newRecordInstance(RegisterNodeManagerRequest.class);
-    NodeId nodeId3 = Records.newRecord(NodeId.class);
-    nodeId3.setPort(0);
-    nodeId3.setHost(hostname3);
+    NodeId nodeId3 = NodeId.newInstance(hostname3, 0);
     request3.setNodeId(nodeId3);
     request3.setHttpPort(0);
     request3.setResource(capability);

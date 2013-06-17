@@ -216,11 +216,11 @@ public class LinuxContainerExecutor extends ContainerExecutor {
       String user, String appId, Path containerWorkDir,
       List<String> localDirs, List<String> logDirs) throws IOException {
 
-    ContainerId containerId = container.getContainerID();
+    ContainerId containerId = container.getContainerId();
     String containerIdStr = ConverterUtils.toString(containerId);
     
     resourcesHandler.preExecute(containerId,
-            container.getLaunchContext().getResource());
+            container.getResource());
     String resourcesOptions = resourcesHandler.getResourcesOption(
             containerId);
 

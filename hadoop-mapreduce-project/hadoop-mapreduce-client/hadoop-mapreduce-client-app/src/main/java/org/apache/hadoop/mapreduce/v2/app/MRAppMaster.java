@@ -24,9 +24,12 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.io.IOUtils;
@@ -46,6 +49,7 @@ import org.apache.hadoop.mapreduce.MRJobConfig;
 import org.apache.hadoop.mapreduce.OutputCommitter;
 import org.apache.hadoop.mapreduce.OutputFormat;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
+import org.apache.hadoop.mapreduce.TaskAttemptID;
 import org.apache.hadoop.mapreduce.TypeConverter;
 import org.apache.hadoop.mapreduce.jobhistory.AMStartedEvent;
 import org.apache.hadoop.mapreduce.jobhistory.EventReader;
@@ -54,6 +58,9 @@ import org.apache.hadoop.mapreduce.jobhistory.HistoryEvent;
 import org.apache.hadoop.mapreduce.jobhistory.JobHistoryCopyService;
 import org.apache.hadoop.mapreduce.jobhistory.JobHistoryEvent;
 import org.apache.hadoop.mapreduce.jobhistory.JobHistoryEventHandler;
+import org.apache.hadoop.mapreduce.jobhistory.JobHistoryParser;
+import org.apache.hadoop.mapreduce.jobhistory.JobHistoryParser.JobInfo;
+import org.apache.hadoop.mapreduce.jobhistory.JobHistoryParser.TaskAttemptInfo;
 import org.apache.hadoop.mapreduce.jobhistory.JobHistoryParser.TaskInfo;
 import org.apache.hadoop.mapreduce.security.TokenCache;
 import org.apache.hadoop.mapreduce.security.token.JobTokenSecretManager;
@@ -61,6 +68,7 @@ import org.apache.hadoop.mapreduce.task.TaskAttemptContextImpl;
 import org.apache.hadoop.mapreduce.v2.api.records.AMInfo;
 import org.apache.hadoop.mapreduce.v2.api.records.JobId;
 import org.apache.hadoop.mapreduce.v2.api.records.TaskId;
+import org.apache.hadoop.mapreduce.v2.api.records.TaskState;
 import org.apache.hadoop.mapreduce.v2.api.records.TaskType;
 import org.apache.hadoop.mapreduce.v2.app.client.ClientService;
 import org.apache.hadoop.mapreduce.v2.app.client.MRClientService;
@@ -74,6 +82,7 @@ import org.apache.hadoop.mapreduce.v2.app.job.TaskAttempt;
 import org.apache.hadoop.mapreduce.v2.app.job.event.JobEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.JobEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.event.JobFinishEvent;
+import org.apache.hadoop.mapreduce.v2.app.job.event.JobStartEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEvent;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskEvent;
@@ -84,8 +93,6 @@ import org.apache.hadoop.mapreduce.v2.app.launcher.ContainerLauncherEvent;
 import org.apache.hadoop.mapreduce.v2.app.launcher.ContainerLauncherImpl;
 import org.apache.hadoop.mapreduce.v2.app.local.LocalContainerAllocator;
 import org.apache.hadoop.mapreduce.v2.app.metrics.MRAppMetrics;
-import org.apache.hadoop.mapreduce.v2.app.recover.Recovery;
-import org.apache.hadoop.mapreduce.v2.app.recover.RecoveryService;
 import org.apache.hadoop.mapreduce.v2.app.rm.ContainerAllocator;
 import org.apache.hadoop.mapreduce.v2.app.rm.ContainerAllocatorEvent;
 import org.apache.hadoop.mapreduce.v2.app.rm.RMCommunicator;
@@ -94,6 +101,7 @@ import org.apache.hadoop.mapreduce.v2.app.rm.RMHeartbeatHandler;
 import org.apache.hadoop.mapreduce.v2.app.speculate.DefaultSpeculator;
 import org.apache.hadoop.mapreduce.v2.app.speculate.Speculator;
 import org.apache.hadoop.mapreduce.v2.app.speculate.SpeculatorEvent;
+import org.apache.hadoop.mapreduce.v2.jobhistory.JobHistoryUtils;
 import org.apache.hadoop.mapreduce.v2.util.MRApps;
 import org.apache.hadoop.mapreduce.v2.util.MRBuilderUtils;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
@@ -105,9 +113,10 @@ import org.apache.hadoop.util.StringInterner;
 import org.apache.hadoop.yarn.Clock;
 import org.apache.hadoop.yarn.ClusterInfo;
 import org.apache.hadoop.yarn.SystemClock;
-import org.apache.hadoop.yarn.YarnException;
+import org.apache.hadoop.yarn.YarnRuntimeException;
 import org.apache.hadoop.yarn.YarnUncaughtExceptionHandler;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
+import org.apache.hadoop.yarn.api.ApplicationConstants.Environment;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
@@ -167,7 +176,6 @@ public class MRAppMaster extends CompositeService {
   private AppContext context;
   private Dispatcher dispatcher;
   private ClientService clientService;
-  private Recovery recoveryServ;
   private ContainerAllocator containerAllocator;
   private ContainerLauncher containerLauncher;
   private EventHandler<CommitterEvent> committerEventHandler;
@@ -180,7 +188,6 @@ public class MRAppMaster extends CompositeService {
   private OutputCommitter committer;
   private JobEventDispatcher jobEventDispatcher;
   private JobHistoryEventHandler jobHistoryEventHandler;
-  private boolean inRecovery = false;
   private SpeculatorEventDispatcher speculatorEventDispatcher;
 
   private Job job;
@@ -192,6 +199,8 @@ public class MRAppMaster extends CompositeService {
   boolean errorHappenedShutDown = false;
   private String shutDownMessage = null;
   JobStateInternal forcedState = null;
+
+  private long recoveredJobStartTime = 0;
 
   public MRAppMaster(ApplicationAttemptId applicationAttemptId,
       ContainerId containerId, String nmHost, int nmPort, int nmHttpPort,
@@ -292,7 +301,7 @@ public class MRAppMaster extends CompositeService {
         }
       }
     } catch (IOException e) {
-      throw new YarnException("Error while initializing", e);
+      throw new YarnRuntimeException("Error while initializing", e);
     }
     
     if (errorHappenedShutDown) {
@@ -340,34 +349,9 @@ public class MRAppMaster extends CompositeService {
       }
     } else {
       committer = createOutputCommitter(conf);
-      boolean recoveryEnabled = conf.getBoolean(
-          MRJobConfig.MR_AM_JOB_RECOVERY_ENABLE, true);
-      boolean recoverySupportedByCommitter = committer.isRecoverySupported();
 
-      // If a shuffle secret was not provided by the job client then this app
-      // attempt will generate one.  However that disables recovery if there
-      // are reducers as the shuffle secret would be app attempt specific.
-      boolean shuffleKeyValidForRecovery = (numReduceTasks > 0 &&
-          TokenCache.getShuffleSecretKey(fsTokens) != null);
-
-      if (recoveryEnabled && recoverySupportedByCommitter
-          && shuffleKeyValidForRecovery && appAttemptID.getAttemptId() > 1) {
-        LOG.info("Recovery is enabled. "
-            + "Will try to recover from previous life on best effort basis.");
-        recoveryServ = createRecoveryService(context);
-        addIfService(recoveryServ);
-        dispatcher = recoveryServ.getDispatcher();
-        clock = recoveryServ.getClock();
-        inRecovery = true;
-      } else {
-        LOG.info("Not starting RecoveryService: recoveryEnabled: "
-            + recoveryEnabled + " recoverySupportedByCommitter: "
-            + recoverySupportedByCommitter + " shuffleKeyValidForRecovery: "
-            + shuffleKeyValidForRecovery + " ApplicationAttemptID: "
-            + appAttemptID.getAttemptId());
-        dispatcher = createDispatcher();
-        addIfService(dispatcher);
-      }
+      dispatcher = createDispatcher();
+      addIfService(dispatcher);
 
       //service to handle requests from JobClient
       clientService = createClientService(context);
@@ -458,7 +442,7 @@ public class MRAppMaster extends CompositeService {
             .getOutputFormatClass(), conf);
         committer = outputFormat.getOutputCommitter(taskContext);
       } catch (Exception e) {
-        throw new YarnException(e);
+        throw new YarnRuntimeException(e);
       }
     } else {
       committer = ReflectionUtils.newInstance(conf.getClass(
@@ -549,8 +533,14 @@ public class MRAppMaster extends CompositeService {
     }
 
     try {
-      //We are finishing cleanly so this is the last retry
-      isLastAMRetry = true;
+      //if isLastAMRetry comes as true, should never set it to false
+      if ( !isLastAMRetry){
+        if (((JobImpl)job).getInternalState() != JobStateInternal.REBOOT) {
+          LOG.info("We are finishing cleanly so this is the last retry");
+          isLastAMRetry = true;
+        }
+      }
+      notifyIsLastAMRetry(isLastAMRetry);
       // Stop all services
       // This will also send the final report to the ResourceManager
       LOG.info("Calling stop for all the services");
@@ -589,15 +579,6 @@ public class MRAppMaster extends CompositeService {
     return new JobFinishEventHandler();
   }
 
-  /**
-   * Create the recovery service.
-   * @return an instance of the recovery service.
-   */
-  protected Recovery createRecoveryService(AppContext appContext) {
-    return new RecoveryService(appContext.getApplicationAttemptId(),
-        appContext.getClock(), getCommitter(), isNewApiCommitter());
-  }
-
   /** Create and initialize (but don't start) a single job. 
    * @param forcedState a state to force the job into or null for normal operation. 
    * @param diagnostic a diagnostic message to include with the job.
@@ -609,7 +590,8 @@ public class MRAppMaster extends CompositeService {
     Job newJob =
         new JobImpl(jobId, appAttemptID, conf, dispatcher.getEventHandler(),
             taskAttemptListener, jobTokenSecretManager, fsTokens, clock,
-            completedTasksFromPreviousRun, metrics, newApiCommitter,
+            completedTasksFromPreviousRun, metrics,
+            committer, newApiCommitter,
             currentUser.getUserName(), appSubmitTime, amInfos, context, 
             forcedState, diagnostic);
     ((RunningAppContext) context).jobs.put(newJob.getID(), newJob);
@@ -641,7 +623,7 @@ public class MRAppMaster extends CompositeService {
           + jobTokenFile);
       currentUser.addCredentials(fsTokens); // For use by AppMaster itself.
     } catch (IOException e) {
-      throw new YarnException(e);
+      throw new YarnRuntimeException(e);
     }
   }
 
@@ -680,19 +662,19 @@ public class MRAppMaster extends CompositeService {
     } catch (InstantiationException ex) {
       LOG.error("Can't make a speculator -- check "
           + MRJobConfig.MR_AM_JOB_SPECULATOR, ex);
-      throw new YarnException(ex);
+      throw new YarnRuntimeException(ex);
     } catch (IllegalAccessException ex) {
       LOG.error("Can't make a speculator -- check "
           + MRJobConfig.MR_AM_JOB_SPECULATOR, ex);
-      throw new YarnException(ex);
+      throw new YarnRuntimeException(ex);
     } catch (InvocationTargetException ex) {
       LOG.error("Can't make a speculator -- check "
           + MRJobConfig.MR_AM_JOB_SPECULATOR, ex);
-      throw new YarnException(ex);
+      throw new YarnRuntimeException(ex);
     } catch (NoSuchMethodException ex) {
       LOG.error("Can't make a speculator -- check "
           + MRJobConfig.MR_AM_JOB_SPECULATOR, ex);
-      throw new YarnException(ex);
+      throw new YarnRuntimeException(ex);
     }
   }
 
@@ -972,18 +954,8 @@ public class MRAppMaster extends CompositeService {
   public void start() {
 
     amInfos = new LinkedList<AMInfo>();
-
-    // Pull completedTasks etc from recovery
-    if (inRecovery) {
-      completedTasksFromPreviousRun = recoveryServ.getCompletedTasks();
-      amInfos = recoveryServ.getAMInfos();
-    } else {
-      // Get the amInfos anyways irrespective of whether recovery is enabled or
-      // not IF this is not the first AM generation
-      if (appAttemptID.getAttemptId() != 1) {
-        amInfos.addAll(readJustAMInfos());
-      }
-    }
+    completedTasksFromPreviousRun = new HashMap<TaskId, TaskInfo>();
+    processRecovery();
 
     // Current an AMInfo for the current AM generation.
     AMInfo amInfo =
@@ -1045,13 +1017,105 @@ public class MRAppMaster extends CompositeService {
     startJobs();
   }
 
+  private void processRecovery() {
+    if (appAttemptID.getAttemptId() == 1) {
+      return;  // no need to recover on the first attempt
+    }
+
+    boolean recoveryEnabled = getConfig().getBoolean(
+        MRJobConfig.MR_AM_JOB_RECOVERY_ENABLE,
+        MRJobConfig.MR_AM_JOB_RECOVERY_ENABLE_DEFAULT);
+    boolean recoverySupportedByCommitter =
+        committer != null && committer.isRecoverySupported();
+
+    // If a shuffle secret was not provided by the job client then this app
+    // attempt will generate one.  However that disables recovery if there
+    // are reducers as the shuffle secret would be app attempt specific.
+    int numReduceTasks = getConfig().getInt(MRJobConfig.NUM_REDUCES, 0);
+    boolean shuffleKeyValidForRecovery = (numReduceTasks > 0 &&
+        TokenCache.getShuffleSecretKey(fsTokens) != null);
+
+    if (recoveryEnabled && recoverySupportedByCommitter
+          && shuffleKeyValidForRecovery) {
+      LOG.info("Recovery is enabled. "
+          + "Will try to recover from previous life on best effort basis.");
+      try {
+        parsePreviousJobHistory();
+      } catch (IOException e) {
+        LOG.warn("Unable to parse prior job history, aborting recovery", e);
+        // try to get just the AMInfos
+        amInfos.addAll(readJustAMInfos());
+      }
+    } else {
+      LOG.info("Will not try to recover. recoveryEnabled: "
+            + recoveryEnabled + " recoverySupportedByCommitter: "
+            + recoverySupportedByCommitter + " shuffleKeyValidForRecovery: "
+            + shuffleKeyValidForRecovery + " ApplicationAttemptID: "
+            + appAttemptID.getAttemptId());
+      // Get the amInfos anyways whether recovery is enabled or not
+      amInfos.addAll(readJustAMInfos());
+    }
+  }
+
+  private static FSDataInputStream getPreviousJobHistoryStream(
+      Configuration conf, ApplicationAttemptId appAttemptId)
+      throws IOException {
+    Path historyFile = JobHistoryUtils.getPreviousJobHistoryPath(conf,
+        appAttemptId);
+    LOG.info("Previous history file is at " + historyFile);
+    return historyFile.getFileSystem(conf).open(historyFile);
+  }
+
+  private void parsePreviousJobHistory() throws IOException {
+    FSDataInputStream in = getPreviousJobHistoryStream(getConfig(),
+        appAttemptID);
+    JobHistoryParser parser = new JobHistoryParser(in);
+    JobInfo jobInfo = parser.parse();
+    Exception parseException = parser.getParseException();
+    if (parseException != null) {
+      LOG.info("Got an error parsing job-history file" +
+          ", ignoring incomplete events.", parseException);
+    }
+    Map<org.apache.hadoop.mapreduce.TaskID, TaskInfo> taskInfos = jobInfo
+        .getAllTasks();
+    for (TaskInfo taskInfo : taskInfos.values()) {
+      if (TaskState.SUCCEEDED.toString().equals(taskInfo.getTaskStatus())) {
+        Iterator<Entry<TaskAttemptID, TaskAttemptInfo>> taskAttemptIterator =
+            taskInfo.getAllTaskAttempts().entrySet().iterator();
+        while (taskAttemptIterator.hasNext()) {
+          Map.Entry<TaskAttemptID, TaskAttemptInfo> currentEntry = taskAttemptIterator.next();
+          if (!jobInfo.getAllCompletedTaskAttempts().containsKey(currentEntry.getKey())) {
+            taskAttemptIterator.remove();
+          }
+        }
+        completedTasksFromPreviousRun
+            .put(TypeConverter.toYarn(taskInfo.getTaskId()), taskInfo);
+        LOG.info("Read from history task "
+            + TypeConverter.toYarn(taskInfo.getTaskId()));
+      }
+    }
+    LOG.info("Read completed tasks from history "
+        + completedTasksFromPreviousRun.size());
+    recoveredJobStartTime = jobInfo.getLaunchTime();
+
+    // recover AMInfos
+    List<JobHistoryParser.AMInfo> jhAmInfoList = jobInfo.getAMInfos();
+    if (jhAmInfoList != null) {
+      for (JobHistoryParser.AMInfo jhAmInfo : jhAmInfoList) {
+        AMInfo amInfo = MRBuilderUtils.newAMInfo(jhAmInfo.getAppAttemptId(),
+            jhAmInfo.getStartTime(), jhAmInfo.getContainerId(),
+            jhAmInfo.getNodeManagerHost(), jhAmInfo.getNodeManagerPort(),
+            jhAmInfo.getNodeManagerHttpPort());
+        amInfos.add(amInfo);
+      }
+    }
+  }
+
   private List<AMInfo> readJustAMInfos() {
     List<AMInfo> amInfos = new ArrayList<AMInfo>();
     FSDataInputStream inputStream = null;
     try {
-      inputStream =
-          RecoveryService.getPreviousJobHistoryFileStream(getConfig(),
-            appAttemptID);
+      inputStream = getPreviousJobHistoryStream(getConfig(), appAttemptID);
       EventReader jobHistoryEventReader = new EventReader(inputStream);
 
       // All AMInfos are contiguous. Track when the first AMStartedEvent
@@ -1102,7 +1166,8 @@ public class MRAppMaster extends CompositeService {
   @SuppressWarnings("unchecked")
   protected void startJobs() {
     /** create a job-start event to get this ball rolling */
-    JobEvent startJobEvent = new JobEvent(job.getID(), JobEventType.JOB_START);
+    JobEvent startJobEvent = new JobStartEvent(job.getID(),
+        recoveredJobStartTime);
     /** send the job-start event. this triggers the job execution. */
     dispatcher.getEventHandler().handle(startJobEvent);
   }
@@ -1206,22 +1271,22 @@ public class MRAppMaster extends CompositeService {
     try {
       Thread.setDefaultUncaughtExceptionHandler(new YarnUncaughtExceptionHandler());
       String containerIdStr =
-          System.getenv(ApplicationConstants.AM_CONTAINER_ID_ENV);
-      String nodeHostString = System.getenv(ApplicationConstants.NM_HOST_ENV);
-      String nodePortString = System.getenv(ApplicationConstants.NM_PORT_ENV);
+          System.getenv(Environment.CONTAINER_ID.name());
+      String nodeHostString = System.getenv(Environment.NM_HOST.name());
+      String nodePortString = System.getenv(Environment.NM_PORT.name());
       String nodeHttpPortString =
-          System.getenv(ApplicationConstants.NM_HTTP_PORT_ENV);
+          System.getenv(Environment.NM_HTTP_PORT.name());
       String appSubmitTimeStr =
           System.getenv(ApplicationConstants.APP_SUBMIT_TIME_ENV);
       String maxAppAttempts =
           System.getenv(ApplicationConstants.MAX_APP_ATTEMPTS_ENV);
       
       validateInputParam(containerIdStr,
-          ApplicationConstants.AM_CONTAINER_ID_ENV);
-      validateInputParam(nodeHostString, ApplicationConstants.NM_HOST_ENV);
-      validateInputParam(nodePortString, ApplicationConstants.NM_PORT_ENV);
+          Environment.CONTAINER_ID.name());
+      validateInputParam(nodeHostString, Environment.NM_HOST.name());
+      validateInputParam(nodePortString, Environment.NM_PORT.name());
       validateInputParam(nodeHttpPortString,
-          ApplicationConstants.NM_HTTP_PORT_ENV);
+          Environment.NM_HTTP_PORT.name());
       validateInputParam(appSubmitTimeStr,
           ApplicationConstants.APP_SUBMIT_TIME_ENV);
       validateInputParam(maxAppAttempts,
@@ -1239,8 +1304,15 @@ public class MRAppMaster extends CompositeService {
               Integer.parseInt(maxAppAttempts));
       ShutdownHookManager.get().addShutdownHook(
         new MRAppMasterShutdownHook(appMaster), SHUTDOWN_HOOK_PRIORITY);
-      YarnConfiguration conf = new YarnConfiguration(new JobConf());
+      JobConf conf = new JobConf(new YarnConfiguration());
       conf.addResource(new Path(MRJobConfig.JOB_CONF_FILE));
+
+      // log the system properties
+      String systemPropsToLog = MRApps.getSystemPropertiesToLog(conf);
+      if (systemPropsToLog != null) {
+        LOG.info(systemPropsToLog);
+      }
+
       String jobUserName = System
           .getenv(ApplicationConstants.Environment.USER.name());
       conf.set(MRJobConfig.USER_NAME, jobUserName);
@@ -1272,25 +1344,37 @@ public class MRAppMaster extends CompositeService {
       // that they don't take too long in shutting down
       if(appMaster.containerAllocator instanceof ContainerAllocatorRouter) {
         ((ContainerAllocatorRouter) appMaster.containerAllocator)
-        .setSignalled(true);
-        ((ContainerAllocatorRouter) appMaster.containerAllocator)
-        .setShouldUnregister(appMaster.isLastAMRetry);
+          .setSignalled(true);
       }
-      
-      if(appMaster.jobHistoryEventHandler != null) {
-        appMaster.jobHistoryEventHandler
-          .setForcejobCompletion(appMaster.isLastAMRetry);
-      }
+      appMaster.notifyIsLastAMRetry(appMaster.isLastAMRetry);
       appMaster.stop();
     }
   }
 
+  public void notifyIsLastAMRetry(boolean isLastAMRetry){
+    if(containerAllocator instanceof ContainerAllocatorRouter) {
+      LOG.info("Notify RMCommunicator isAMLastRetry: " + isLastAMRetry);
+      ((ContainerAllocatorRouter) containerAllocator)
+        .setShouldUnregister(isLastAMRetry);
+    }
+    if(jobHistoryEventHandler != null) {
+      LOG.info("Notify JHEH isAMLastRetry: " + isLastAMRetry);
+      jobHistoryEventHandler.setForcejobCompletion(isLastAMRetry);
+    }
+  }
+
   protected static void initAndStartAppMaster(final MRAppMaster appMaster,
-      final YarnConfiguration conf, String jobUserName) throws IOException,
+      final JobConf conf, String jobUserName) throws IOException,
       InterruptedException {
     UserGroupInformation.setConfiguration(conf);
+    // Security framework already loaded the tokens into current UGI, just use
+    // them
+    Credentials credentials =
+        UserGroupInformation.getCurrentUser().getCredentials();
     UserGroupInformation appMasterUgi = UserGroupInformation
         .createRemoteUser(jobUserName);
+    appMasterUgi.addCredentials(credentials);
+    conf.getCredentials().addAll(credentials);
     appMasterUgi.doAs(new PrivilegedExceptionAction<Object>() {
       @Override
       public Object run() throws Exception {

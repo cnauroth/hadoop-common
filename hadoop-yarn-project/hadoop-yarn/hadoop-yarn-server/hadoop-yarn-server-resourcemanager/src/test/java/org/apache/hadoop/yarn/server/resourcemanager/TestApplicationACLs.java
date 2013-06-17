@@ -46,15 +46,15 @@ import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
-import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStoreFactory;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.RMAppState;
+import org.apache.hadoop.yarn.server.utils.BuilderUtils;
 import org.apache.hadoop.yarn.service.Service.STATE;
-import org.apache.hadoop.yarn.util.BuilderUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -169,7 +169,7 @@ public class TestApplicationACLs {
     ContainerLaunchContext amContainer = recordFactory
         .newRecordInstance(ContainerLaunchContext.class);
     Resource resource = BuilderUtils.newResource(1024, 1);
-    amContainer.setResource(resource);
+    context.setResource(resource);
     amContainer.setApplicationACLs(acls);
     context.setAMContainerSpec(amContainer);
     submitRequest.setApplicationSubmissionContext(context);
@@ -321,7 +321,7 @@ public class TestApplicationACLs {
     try {
       enemyRmClient.forceKillApplication(finishAppRequest);
       Assert.fail("App killing by the enemy should fail!!");
-    } catch (YarnRemoteException e) {
+    } catch (YarnException e) {
       LOG.info("Got exception while killing app as the enemy", e);
       Assert
           .assertTrue(e.getMessage().contains(

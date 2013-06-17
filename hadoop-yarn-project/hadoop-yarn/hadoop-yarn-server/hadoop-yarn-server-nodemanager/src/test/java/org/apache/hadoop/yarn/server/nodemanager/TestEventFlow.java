@@ -30,10 +30,12 @@ import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.ContainerState;
+import org.apache.hadoop.yarn.api.records.Token;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.event.AsyncDispatcher;
 import org.apache.hadoop.yarn.event.Dispatcher;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.server.api.ResourceTracker;
@@ -42,7 +44,9 @@ import org.apache.hadoop.yarn.server.nodemanager.containermanager.BaseContainerM
 import org.apache.hadoop.yarn.server.nodemanager.metrics.NodeManagerMetrics;
 import org.apache.hadoop.yarn.server.nodemanager.security.NMContainerTokenSecretManager;
 import org.apache.hadoop.yarn.server.security.ApplicationACLsManager;
+import org.apache.hadoop.yarn.server.utils.BuilderUtils;
 import org.junit.Test;
+
 
 public class TestEventFlow {
 
@@ -55,10 +59,11 @@ public class TestEventFlow {
       TestEventFlow.class.getName() + "-localLogDir").getAbsoluteFile();
   private static File remoteLogDir = new File("target",
       TestEventFlow.class.getName() + "-remoteLogDir").getAbsoluteFile();
+  private static final long SIMULATED_RM_IDENTIFIER = 1234;
 
   @Test
   public void testSuccessfulContainerLaunch() throws InterruptedException,
-      IOException {
+      IOException, YarnException {
 
     FileContext localFS = FileContext.getLocalFSFileContext();
 
@@ -70,7 +75,13 @@ public class TestEventFlow {
     remoteLogDir.mkdir();
 
     YarnConfiguration conf = new YarnConfiguration();
-    Context context = new NMContext(new NMContainerTokenSecretManager(conf));
+    
+    Context context = new NMContext(new NMContainerTokenSecretManager(conf)) {
+      @Override
+      public int getHttpPort() {
+        return 1234;
+      }
+    };
 
     conf.set(YarnConfiguration.NM_LOCAL_DIRS, localDir.getAbsolutePath());
     conf.set(YarnConfiguration.NM_LOG_DIRS, localLogDir.getAbsolutePath());
@@ -97,32 +108,41 @@ public class TestEventFlow {
       protected void startStatusUpdater() {
         return; // Don't start any updating thread.
       }
+
+      @Override
+      public long getRMIdentifier() {
+        return SIMULATED_RM_IDENTIFIER;
+      }
     };
 
     DummyContainerManager containerManager =
         new DummyContainerManager(context, exec, del, nodeStatusUpdater,
           metrics, new ApplicationACLsManager(conf), dirsHandler);
+    nodeStatusUpdater.init(conf);
+    ((NMContext)context).setContainerManager(containerManager);
+    nodeStatusUpdater.start();
     containerManager.init(conf);
     containerManager.start();
 
     ContainerLaunchContext launchContext = 
         recordFactory.newRecordInstance(ContainerLaunchContext.class);
-    ContainerId cID = recordFactory.newRecordInstance(ContainerId.class);
-    ApplicationId applicationId =
-        recordFactory.newRecordInstance(ApplicationId.class);
-    applicationId.setClusterTimestamp(0);
-    applicationId.setId(0);
-    ApplicationAttemptId applicationAttemptId = 
-        recordFactory.newRecordInstance(ApplicationAttemptId.class);
-    applicationAttemptId.setApplicationId(applicationId);
-    applicationAttemptId.setAttemptId(0);
-    cID.setApplicationAttemptId(applicationAttemptId);
-    launchContext.setContainerId(cID);
-    launchContext.setUser("testing");
-    launchContext.setResource(recordFactory.newRecordInstance(Resource.class));
+    ApplicationId applicationId = ApplicationId.newInstance(0, 0);
+    ApplicationAttemptId applicationAttemptId =
+        ApplicationAttemptId.newInstance(applicationId, 0);
+    ContainerId cID = ContainerId.newInstance(applicationAttemptId, 0);
+
+    Resource r = BuilderUtils.newResource(1024, 1);
+    String user = "testing";
+    String host = "127.0.0.1";
+    int port = 1234;
+    Token containerToken =
+        BuilderUtils.newContainerToken(cID, host, port, user, r,
+          System.currentTimeMillis() + 10000L, 123, "password".getBytes(),
+          SIMULATED_RM_IDENTIFIER);
     StartContainerRequest request = 
         recordFactory.newRecordInstance(StartContainerRequest.class);
     request.setContainerLaunchContext(launchContext);
+    request.setContainerToken(containerToken);
     containerManager.startContainer(request);
 
     BaseContainerManagerTest.waitForContainerState(containerManager, cID,

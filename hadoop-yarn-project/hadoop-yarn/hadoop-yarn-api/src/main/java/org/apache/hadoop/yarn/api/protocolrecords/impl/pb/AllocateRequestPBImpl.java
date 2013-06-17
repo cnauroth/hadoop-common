@@ -25,14 +25,15 @@ import java.util.List;
 
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateRequest;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
-import org.apache.hadoop.yarn.api.records.Container;
+import org.apache.hadoop.yarn.api.records.ResourceBlacklistRequest;
 import org.apache.hadoop.yarn.api.records.ContainerId;
-import org.apache.hadoop.yarn.api.records.ProtoBase;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.api.records.impl.pb.ApplicationAttemptIdPBImpl;
+import org.apache.hadoop.yarn.api.records.impl.pb.ResourceBlacklistRequestPBImpl;
 import org.apache.hadoop.yarn.api.records.impl.pb.ContainerIdPBImpl;
 import org.apache.hadoop.yarn.api.records.impl.pb.ResourceRequestPBImpl;
 import org.apache.hadoop.yarn.proto.YarnProtos.ApplicationAttemptIdProto;
+import org.apache.hadoop.yarn.proto.YarnProtos.ResourceBlacklistRequestProto;
 import org.apache.hadoop.yarn.proto.YarnProtos.ContainerIdProto;
 import org.apache.hadoop.yarn.proto.YarnProtos.ResourceRequestProto;
 import org.apache.hadoop.yarn.proto.YarnServiceProtos.AllocateRequestProto;
@@ -40,7 +41,7 @@ import org.apache.hadoop.yarn.proto.YarnServiceProtos.AllocateRequestProtoOrBuil
 
 
     
-public class AllocateRequestPBImpl extends ProtoBase<AllocateRequestProto> implements AllocateRequest {
+public class AllocateRequestPBImpl extends AllocateRequest {
   AllocateRequestProto proto = AllocateRequestProto.getDefaultInstance();
   AllocateRequestProto.Builder builder = null;
   boolean viaProto = false;
@@ -48,6 +49,7 @@ public class AllocateRequestPBImpl extends ProtoBase<AllocateRequestProto> imple
   private ApplicationAttemptId applicationAttemptID = null;
   private List<ResourceRequest> ask = null;
   private List<ContainerId> release = null;
+  private ResourceBlacklistRequest blacklistRequest = null;
   
   
   public AllocateRequestPBImpl() {
@@ -66,6 +68,26 @@ public class AllocateRequestPBImpl extends ProtoBase<AllocateRequestProto> imple
     return proto;
   }
 
+  @Override
+  public int hashCode() {
+    return getProto().hashCode();
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (other == null)
+      return false;
+    if (other.getClass().isAssignableFrom(this.getClass())) {
+      return this.getProto().equals(this.getClass().cast(other).getProto());
+    }
+    return false;
+  }
+
+  @Override
+  public String toString() {
+    return getProto().toString().replaceAll("\\n", ", ").replaceAll("\\s+", " ");
+  }
+
   private void mergeLocalToBuilder() {
     if (this.applicationAttemptID != null) {
       builder.setApplicationAttemptId(convertToProtoFormat(this.applicationAttemptID));
@@ -75,6 +97,9 @@ public class AllocateRequestPBImpl extends ProtoBase<AllocateRequestProto> imple
     }
     if (this.release != null) {
       addReleasesToProto();
+    }
+    if (this.blacklistRequest != null) {
+      builder.setBlacklistRequest(convertToProtoFormat(this.blacklistRequest));
     }
   }
 
@@ -143,17 +168,39 @@ public class AllocateRequestPBImpl extends ProtoBase<AllocateRequestProto> imple
     initAsks();
     return this.ask;
   }
+  
   @Override
-  public ResourceRequest getAsk(int index) {
+  public void setAskList(final List<ResourceRequest> resourceRequests) {
+    if(resourceRequests == null) {
+      return;
+    }
     initAsks();
-    return this.ask.get(index);
-  }
-  @Override
-  public int getAskCount() {
-    initAsks();
-    return this.ask.size();
+    this.ask.clear();
+    this.ask.addAll(resourceRequests);
   }
   
+  @Override
+  public ResourceBlacklistRequest getResourceBlacklistRequest() {
+    AllocateRequestProtoOrBuilder p = viaProto ? proto : builder;
+    if (this.blacklistRequest != null) {
+      return this.blacklistRequest;
+    }
+    if (!p.hasBlacklistRequest()) {
+      return null;
+    }
+    this.blacklistRequest = convertFromProtoFormat(p.getBlacklistRequest());
+    return this.blacklistRequest;
+  }
+
+  @Override
+  public void setResourceBlacklistRequest(ResourceBlacklistRequest blacklistRequest) {
+    maybeInitBuilder();
+    if (blacklistRequest == null) {
+      builder.clearBlacklistRequest();
+    }
+    this.blacklistRequest = blacklistRequest;
+  }
+
   private void initAsks() {
     if (this.ask != null) {
       return;
@@ -165,14 +212,6 @@ public class AllocateRequestPBImpl extends ProtoBase<AllocateRequestProto> imple
     for (ResourceRequestProto c : list) {
       this.ask.add(convertFromProtoFormat(c));
     }
-  }
-  
-  @Override
-  public void addAllAsks(final List<ResourceRequest> ask) {
-    if (ask == null)
-      return;
-    initAsks();
-    this.ask.addAll(ask);
   }
   
   private void addAsksToProto() {
@@ -209,34 +248,18 @@ public class AllocateRequestPBImpl extends ProtoBase<AllocateRequestProto> imple
     builder.addAllAsk(iterable);
   }
   @Override
-  public void addAsk(ResourceRequest ask) {
-    initAsks();
-    this.ask.add(ask);
-  }
-  @Override
-  public void removeAsk(int index) {
-    initAsks();
-    this.ask.remove(index);
-  }
-  @Override
-  public void clearAsks() {
-    initAsks();
-    this.ask.clear();
-  }
-  @Override
   public List<ContainerId> getReleaseList() {
     initReleases();
     return this.release;
   }
   @Override
-  public ContainerId getRelease(int index) {
+  public void setReleaseList(List<ContainerId> releaseContainers) {
+    if(releaseContainers == null) {
+      return;
+    }
     initReleases();
-    return this.release.get(index);
-  }
-  @Override
-  public int getReleaseCount() {
-    initReleases();
-    return this.release.size();
+    this.release.clear();
+    this.release.addAll(releaseContainers);
   }
   
   private void initReleases() {
@@ -250,14 +273,6 @@ public class AllocateRequestPBImpl extends ProtoBase<AllocateRequestProto> imple
     for (ContainerIdProto c : list) {
       this.release.add(convertFromProtoFormat(c));
     }
-  }
-  
-  @Override
-  public void addAllReleases(final List<ContainerId> release) {
-    if (release == null)
-      return;
-    initReleases();
-    this.release.addAll(release);
   }
   
   private void addReleasesToProto() {
@@ -293,21 +308,6 @@ public class AllocateRequestPBImpl extends ProtoBase<AllocateRequestProto> imple
     };
     builder.addAllRelease(iterable);
   }
-  @Override
-  public void addRelease(ContainerId release) {
-    initReleases();
-    this.release.add(release);
-  }
-  @Override
-  public void removeRelease(int index) {
-    initReleases();
-    this.release.remove(index);
-  }
-  @Override
-  public void clearReleases() {
-    initReleases();
-    this.release.clear();
-  }
 
   private ApplicationAttemptIdPBImpl convertFromProtoFormat(ApplicationAttemptIdProto p) {
     return new ApplicationAttemptIdPBImpl(p);
@@ -332,4 +332,14 @@ public class AllocateRequestPBImpl extends ProtoBase<AllocateRequestProto> imple
   private ContainerIdProto convertToProtoFormat(ContainerId t) {
     return ((ContainerIdPBImpl)t).getProto();
   }
+  
+  private ResourceBlacklistRequestPBImpl convertFromProtoFormat(ResourceBlacklistRequestProto p) {
+    return new ResourceBlacklistRequestPBImpl(p);
+  }
+
+  private ResourceBlacklistRequestProto convertToProtoFormat(ResourceBlacklistRequest t) {
+    return ((ResourceBlacklistRequestPBImpl)t).getProto();
+  }
+
+
 }  

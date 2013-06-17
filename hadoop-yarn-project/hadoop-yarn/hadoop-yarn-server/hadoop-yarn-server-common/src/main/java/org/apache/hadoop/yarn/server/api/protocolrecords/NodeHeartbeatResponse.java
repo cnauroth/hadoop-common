@@ -42,4 +42,11 @@ public interface NodeHeartbeatResponse {
   void addAllContainersToCleanup(List<ContainerId> containers);
   
   void addAllApplicationsToCleanup(List<ApplicationId> applications);
+
+  long getNextHeartBeatInterval();
+  void setNextHeartBeatInterval(long nextHeartBeatInterval);
+  
+  String getDiagnosticsMessage();
+
+  void setDiagnosticsMessage(String diagnosticsMessage);
 }

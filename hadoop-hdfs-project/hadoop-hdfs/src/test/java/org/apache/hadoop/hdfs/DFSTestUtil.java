@@ -30,9 +30,11 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -48,6 +50,8 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
@@ -91,6 +95,8 @@ import com.google.common.base.Joiner;
 
 /** Utilities for HDFS tests */
 public class DFSTestUtil {
+
+  private static final Log LOG = LogFactory.getLog(DFSTestUtil.class);
   
   private static Random gen = new Random();
   private static String[] dirNames = {
@@ -610,6 +616,25 @@ public class DFSTestUtil {
   }
   
   /**
+   * Append specified length of bytes to a given file
+   * @param fs The file system
+   * @param p Path of the file to append
+   * @param length Length of bytes to append to the file
+   * @throws IOException
+   */
+  public static void appendFile(FileSystem fs, Path p, int length)
+      throws IOException {
+    assert fs.exists(p);
+    assert length >= 0;
+    byte[] toAppend = new byte[length];
+    Random random = new Random();
+    random.nextBytes(toAppend);
+    FSDataOutputStream out = fs.append(p);
+    out.write(toAppend);
+    out.close();
+  }
+  
+  /**
    * @return url content as string (UTF-8 encoding assumed)
    */
   public static String urlGet(URL url) throws IOException {
@@ -723,7 +748,11 @@ public class DFSTestUtil {
     File file = new File(filename);
     DataInputStream in = new DataInputStream(new FileInputStream(file));
     byte[] content = new byte[(int)file.length()];
-    in.readFully(content);
+    try {
+      in.readFully(content);
+    } finally {
+      IOUtils.cleanup(LOG, in);
+    }
     return content;
   }
 
@@ -829,6 +858,25 @@ public class DFSTestUtil {
   public static DatanodeRegistration getLocalDatanodeRegistration() {
     return new DatanodeRegistration(getLocalDatanodeID(),
         new StorageInfo(), new ExportedBlockKeys(), VersionInfo.getVersion());
+  }
+  
+  /** Copy one file's contents into the other **/
+  public static void copyFile(File src, File dest) throws IOException {
+    InputStream in = null;
+    OutputStream out = null;
+    
+    try {
+      in = new FileInputStream(src);
+      out = new FileOutputStream(dest);
+
+      byte [] b = new byte[1024];
+      while( in.read(b)  > 0 ) {
+        out.write(b);
+      }
+    } finally {
+      if(in != null) in.close();
+      if(out != null) out.close();
+    }
   }
 
   public static class Builder {

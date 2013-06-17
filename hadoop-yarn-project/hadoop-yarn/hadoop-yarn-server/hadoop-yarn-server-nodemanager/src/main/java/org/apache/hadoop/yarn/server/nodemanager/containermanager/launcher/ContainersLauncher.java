@@ -31,13 +31,13 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileContext;
 import org.apache.hadoop.fs.UnsupportedFileSystemException;
-import org.apache.hadoop.yarn.YarnException;
+import org.apache.hadoop.yarn.YarnRuntimeException;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.event.Dispatcher;
 import org.apache.hadoop.yarn.event.EventHandler;
 import org.apache.hadoop.yarn.server.nodemanager.ContainerExecutor;
-import org.apache.hadoop.yarn.server.nodemanager.LocalDirsHandlerService;
 import org.apache.hadoop.yarn.server.nodemanager.Context;
+import org.apache.hadoop.yarn.server.nodemanager.LocalDirsHandlerService;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.application.Application;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.container.Container;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.ResourceLocalizationService;
@@ -96,7 +96,7 @@ public class ContainersLauncher extends AbstractService
       //TODO Is this required?
       FileContext.getLocalFSFileContext(conf);
     } catch (UnsupportedFileSystemException e) {
-      throw new YarnException("Failed to start ContainersLauncher", e);
+      throw new YarnRuntimeException("Failed to start ContainersLauncher", e);
     }
     super.init(conf);
   }
@@ -111,15 +111,16 @@ public class ContainersLauncher extends AbstractService
   public void handle(ContainersLauncherEvent event) {
     // TODO: ContainersLauncher launches containers one by one!!
     Container container = event.getContainer();
-    ContainerId containerId = container.getContainerID();
+    ContainerId containerId = container.getContainerId();
     switch (event.getType()) {
       case LAUNCH_CONTAINER:
         Application app =
           context.getApplications().get(
               containerId.getApplicationAttemptId().getApplicationId());
 
-        ContainerLaunch launch = new ContainerLaunch(getConfig(), dispatcher,
-            exec, app, event.getContainer(), dirsHandler);
+        ContainerLaunch launch =
+            new ContainerLaunch(context, getConfig(), dispatcher, exec, app,
+              event.getContainer(), dirsHandler);
         running.put(containerId,
             new RunningContainer(containerLauncher.submit(launch), 
                 launch));

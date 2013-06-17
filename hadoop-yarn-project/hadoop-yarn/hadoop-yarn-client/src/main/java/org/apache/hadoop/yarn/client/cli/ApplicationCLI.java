@@ -20,6 +20,7 @@ package org.apache.hadoop.yarn.client.cli;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.text.DecimalFormat;
 import java.util.List;
 
 import org.apache.commons.cli.CommandLine;
@@ -29,12 +30,12 @@ import org.apache.commons.cli.Options;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
-import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 
 public class ApplicationCLI extends YarnCLI {
   private static final String APPLICATIONS_PATTERN =
-    "%30s\t%20s\t%10s\t%10s\t%18s\t%18s\t%35s" +
+    "%30s\t%20s\t%20s\t%10s\t%10s\t%18s\t%18s\t%15s\t%35s" +
     System.getProperty("line.separator");
 
   public static void main(String[] args) throws Exception {
@@ -89,21 +90,25 @@ public class ApplicationCLI extends YarnCLI {
   /**
    * Lists all the applications present in the Resource Manager
    * 
-   * @throws YarnRemoteException
+   * @throws YarnException
+   * @throws IOException
    */
-  private void listAllApplications() throws YarnRemoteException {
+  private void listAllApplications() throws YarnException, IOException {
     PrintWriter writer = new PrintWriter(sysout);
     List<ApplicationReport> appsReport = client.getApplicationList();
 
     writer.println("Total Applications:" + appsReport.size());
     writer.printf(APPLICATIONS_PATTERN, "Application-Id",
-        "Application-Name", "User", "Queue", "State", "Final-State",
-        "Tracking-URL");
+        "Application-Name","Application-Type", "User", "Queue", 
+        "State", "Final-State","Progress", "Tracking-URL");
     for (ApplicationReport appReport : appsReport) {
+      DecimalFormat formatter = new DecimalFormat("###.##%");
+      String progress = formatter.format(appReport.getProgress());
       writer.printf(APPLICATIONS_PATTERN, appReport.getApplicationId(),
-          appReport.getName(), appReport.getUser(), appReport.getQueue(),
-          appReport.getYarnApplicationState(), appReport
-              .getFinalApplicationStatus(), appReport.getOriginalTrackingUrl());
+          appReport.getName(),appReport.getApplicationType(), appReport.getUser(),
+          appReport.getQueue(),appReport.getYarnApplicationState(),
+          appReport.getFinalApplicationStatus(),progress,
+          appReport.getOriginalTrackingUrl());
     }
     writer.flush();
   }
@@ -112,9 +117,11 @@ public class ApplicationCLI extends YarnCLI {
    * Kills the application with the application id as appId
    * 
    * @param applicationId
-   * @throws YarnRemoteException
+   * @throws YarnException
+   * @throws IOException
    */
-  private void killApplication(String applicationId) throws YarnRemoteException {
+  private void killApplication(String applicationId)
+      throws YarnException, IOException {
     ApplicationId appId = ConverterUtils.toApplicationId(applicationId);
     sysout.println("Killing application " + applicationId);
     client.killApplication(appId);
@@ -124,10 +131,10 @@ public class ApplicationCLI extends YarnCLI {
    * Prints the application report for an application id.
    * 
    * @param applicationId
-   * @throws YarnRemoteException
+   * @throws YarnException
    */
   private void printApplicationReport(String applicationId)
-      throws YarnRemoteException, IOException {
+      throws YarnException, IOException {
     ApplicationReport appReport = client.getApplicationReport(ConverterUtils
         .toApplicationId(applicationId));
     // Use PrintWriter.println, which uses correct platform line ending.
@@ -139,6 +146,8 @@ public class ApplicationCLI extends YarnCLI {
       appReportStr.println(appReport.getApplicationId());
       appReportStr.print("\tApplication-Name : ");
       appReportStr.println(appReport.getName());
+      appReportStr.print("\tApplication-Type : ");
+      appReportStr.println(appReport.getApplicationType());
       appReportStr.print("\tUser : ");
       appReportStr.println(appReport.getUser());
       appReportStr.print("\tQueue : ");
@@ -147,6 +156,10 @@ public class ApplicationCLI extends YarnCLI {
       appReportStr.println(appReport.getStartTime());
       appReportStr.print("\tFinish-Time : ");
       appReportStr.println(appReport.getFinishTime());
+      appReportStr.print("\tProgress : ");
+      DecimalFormat formatter = new DecimalFormat("###.##%");
+      String progress = formatter.format(appReport.getProgress());
+      appReportStr.println(progress);
       appReportStr.print("\tState : ");
       appReportStr.println(appReport.getYarnApplicationState());
       appReportStr.print("\tFinal-State : ");

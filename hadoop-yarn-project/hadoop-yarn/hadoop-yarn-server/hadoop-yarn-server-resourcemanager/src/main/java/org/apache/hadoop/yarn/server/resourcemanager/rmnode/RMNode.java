@@ -36,8 +36,6 @@ import org.apache.hadoop.yarn.server.api.protocolrecords.NodeHeartbeatResponse;
  */
 public interface RMNode {
 
-  public static final String ANY = "*";
-
   /**
    * the node id of of this node.
    * @return the node id of this node.
@@ -76,10 +74,16 @@ public interface RMNode {
   public String getHttpAddress();
   
   /**
-   * the health-status for this node
-   * @return the health-status for this node.
+   * the latest health report received from this node.
+   * @return the latest health report received from this node.
    */
-  public NodeHealthStatus getNodeHealthStatus();
+  public String getHealthReport();
+  
+  /**
+   * the time of the latest health report received from this node.
+   * @return the time of the latest health report received from this node.
+   */
+  public long getLastHealthReportTime();
   
   /**
    * the total available resource.

@@ -38,7 +38,6 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod;
 import org.apache.hadoop.security.authorize.PolicyProvider;
 import org.apache.hadoop.security.token.Token;
-import org.apache.hadoop.util.ExitUtil;
 import org.apache.hadoop.yarn.api.ClientRMProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.CancelDelegationTokenRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.CancelDelegationTokenResponse;
@@ -68,31 +67,29 @@ import org.apache.hadoop.yarn.api.records.ApplicationAccessType;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
-import org.apache.hadoop.yarn.api.records.DelegationToken;
 import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.QueueInfo;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.YarnClusterMetrics;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
-import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.ipc.RPCUtil;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
 import org.apache.hadoop.yarn.security.client.RMDelegationTokenIdentifier;
-import org.apache.hadoop.yarn.server.RMDelegationTokenSecretManager;
 import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger.AuditConstants;
-import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.RMApp;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.RMAppEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.RMAppEventType;
 import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.SchedulerNodeReport;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.YarnScheduler;
+import org.apache.hadoop.yarn.server.resourcemanager.security.RMDelegationTokenSecretManager;
 import org.apache.hadoop.yarn.server.resourcemanager.security.authorize.RMPolicyProvider;
 import org.apache.hadoop.yarn.server.security.ApplicationACLsManager;
+import org.apache.hadoop.yarn.server.utils.BuilderUtils;
 import org.apache.hadoop.yarn.service.AbstractService;
-import org.apache.hadoop.yarn.util.BuilderUtils;
 import org.apache.hadoop.yarn.util.Records;
 
 
@@ -198,7 +195,7 @@ public class ClientRMService extends AbstractService implements
   }
 
   ApplicationId getNewApplicationId() {
-    ApplicationId applicationId = org.apache.hadoop.yarn.util.BuilderUtils
+    ApplicationId applicationId = org.apache.hadoop.yarn.server.utils.BuilderUtils
         .newApplicationId(recordFactory, ResourceManager.clusterTimeStamp,
             applicationCounter.incrementAndGet());
     LOG.info("Allocated new applicationId: " + applicationId.getId());
@@ -207,7 +204,7 @@ public class ClientRMService extends AbstractService implements
 
   @Override
   public GetNewApplicationResponse getNewApplication(
-      GetNewApplicationRequest request) throws YarnRemoteException {
+      GetNewApplicationRequest request) throws YarnException {
     GetNewApplicationResponse response = recordFactory
         .newRecordInstance(GetNewApplicationResponse.class);
     response.setApplicationId(getNewApplicationId());
@@ -226,7 +223,7 @@ public class ClientRMService extends AbstractService implements
    */
   @Override
   public GetApplicationReportResponse getApplicationReport(
-      GetApplicationReportRequest request) throws YarnRemoteException {
+      GetApplicationReportRequest request) throws YarnException {
     ApplicationId applicationId = request.getApplicationId();
 
     UserGroupInformation callerUGI;
@@ -258,51 +255,74 @@ public class ClientRMService extends AbstractService implements
 
   @Override
   public SubmitApplicationResponse submitApplication(
-      SubmitApplicationRequest request) throws YarnRemoteException {
+      SubmitApplicationRequest request) throws YarnException {
     ApplicationSubmissionContext submissionContext = request
         .getApplicationSubmissionContext();
     ApplicationId applicationId = submissionContext.getApplicationId();
-    String user = submissionContext.getUser();
+
+    // ApplicationSubmissionContext needs to be validated for safety - only
+    // those fields that are independent of the RM's configuration will be
+    // checked here, those that are dependent on RM configuration are validated
+    // in RMAppManager.
+
+    String user = null;
     try {
+      // Safety
       user = UserGroupInformation.getCurrentUser().getShortUserName();
-      if (rmContext.getRMApps().get(applicationId) != null) {
-        throw new IOException("Application with id " + applicationId
-            + " is already present! Cannot add a duplicate!");
-      }
+    } catch (IOException ie) {
+      LOG.warn("Unable to get the current user.", ie);
+      RMAuditLogger.logFailure(user, AuditConstants.SUBMIT_APP_REQUEST,
+          ie.getMessage(), "ClientRMService",
+          "Exception in submitting application", applicationId);
+      throw RPCUtil.getRemoteException(ie);
+    }
 
-      // Safety 
-      submissionContext.setUser(user);
+    // Though duplication will checked again when app is put into rmContext,
+    // but it is good to fail the invalid submission as early as possible.
+    if (rmContext.getRMApps().get(applicationId) != null) {
+      String message = "Application with id " + applicationId +
+          " is already present! Cannot add a duplicate!";
+      LOG.warn(message);
+      RMAuditLogger.logFailure(user, AuditConstants.SUBMIT_APP_REQUEST,
+          message, "ClientRMService", "Exception in submitting application",
+          applicationId);
+      throw RPCUtil.getRemoteException(message);
+    }
 
-      // This needs to be synchronous as the client can query 
-      // immediately following the submission to get the application status.
-      // So call handle directly and do not send an event.
-      rmAppManager.handle(new RMAppManagerSubmitEvent(submissionContext, System
-          .currentTimeMillis()));
-      
-      // If recovery is enabled then store the application information in a 
-      // blocking call so make sure that RM has stored the information needed 
-      // to restart the AM after RM restart without further client communication
-      RMStateStore stateStore = rmContext.getStateStore();
-      LOG.info("Storing Application with id " + applicationId);
-      try {
-        stateStore.storeApplication(rmContext.getRMApps().get(applicationId));
-      } catch (Exception e) {
-        // For HA this exception needs to be handled by giving up 
-        // master status if we got fenced
-        LOG.error("Failed to store application:" + applicationId, e);
-        ExitUtil.terminate(1, e);
+    if (submissionContext.getQueue() == null) {
+      submissionContext.setQueue(YarnConfiguration.DEFAULT_QUEUE_NAME);
+    }
+    if (submissionContext.getApplicationName() == null) {
+      submissionContext.setApplicationName(
+          YarnConfiguration.DEFAULT_APPLICATION_NAME);
+    }
+    if (submissionContext.getApplicationType() == null) {
+      submissionContext
+        .setApplicationType(YarnConfiguration.DEFAULT_APPLICATION_TYPE);
+    } else {
+      if (submissionContext.getApplicationType().length() > YarnConfiguration.APPLICATION_TYPE_LENGTH) {
+        submissionContext.setApplicationType(submissionContext
+          .getApplicationType().substring(0,
+            YarnConfiguration.APPLICATION_TYPE_LENGTH));
       }
+    }
+
+    try {
+      // call RMAppManager to submit application directly
+      rmAppManager.submitApplication(submissionContext,
+          System.currentTimeMillis(), false, user);
 
       LOG.info("Application with id " + applicationId.getId() + 
           " submitted by user " + user);
       RMAuditLogger.logSuccess(user, AuditConstants.SUBMIT_APP_REQUEST,
           "ClientRMService", applicationId);
-    } catch (IOException ie) {
-      LOG.info("Exception in submitting application", ie);
-      RMAuditLogger.logFailure(user, AuditConstants.SUBMIT_APP_REQUEST, 
-          ie.getMessage(), "ClientRMService",
+    } catch (YarnException e) {
+      LOG.info("Exception in submitting application with id " +
+          applicationId.getId(), e);
+      RMAuditLogger.logFailure(user, AuditConstants.SUBMIT_APP_REQUEST,
+          e.getMessage(), "ClientRMService",
           "Exception in submitting application", applicationId);
-      throw RPCUtil.getRemoteException(ie);
+      throw e;
     }
 
     SubmitApplicationResponse response = recordFactory
@@ -313,7 +333,7 @@ public class ClientRMService extends AbstractService implements
   @SuppressWarnings("unchecked")
   @Override
   public KillApplicationResponse forceKillApplication(
-      KillApplicationRequest request) throws YarnRemoteException {
+      KillApplicationRequest request) throws YarnException {
 
     ApplicationId applicationId = request.getApplicationId();
 
@@ -362,7 +382,7 @@ public class ClientRMService extends AbstractService implements
 
   @Override
   public GetClusterMetricsResponse getClusterMetrics(
-      GetClusterMetricsRequest request) throws YarnRemoteException {
+      GetClusterMetricsRequest request) throws YarnException {
     GetClusterMetricsResponse response = recordFactory
         .newRecordInstance(GetClusterMetricsResponse.class);
     YarnClusterMetrics ymetrics = recordFactory
@@ -374,7 +394,7 @@ public class ClientRMService extends AbstractService implements
   
   @Override
   public GetAllApplicationsResponse getAllApplications(
-      GetAllApplicationsRequest request) throws YarnRemoteException {
+      GetAllApplicationsRequest request) throws YarnException {
 
     UserGroupInformation callerUGI;
     try {
@@ -399,7 +419,7 @@ public class ClientRMService extends AbstractService implements
 
   @Override
   public GetClusterNodesResponse getClusterNodes(GetClusterNodesRequest request)
-      throws YarnRemoteException {
+      throws YarnException {
     GetClusterNodesResponse response = 
       recordFactory.newRecordInstance(GetClusterNodesResponse.class);
     Collection<RMNode> nodes = this.rmContext.getRMNodes().values();
@@ -413,7 +433,7 @@ public class ClientRMService extends AbstractService implements
 
   @Override
   public GetQueueInfoResponse getQueueInfo(GetQueueInfoRequest request)
-      throws YarnRemoteException {
+      throws YarnException {
     GetQueueInfoResponse response =
       recordFactory.newRecordInstance(GetQueueInfoResponse.class);
     try {
@@ -455,14 +475,15 @@ public class ClientRMService extends AbstractService implements
         rmNode.getState(),
         rmNode.getHttpAddress(), rmNode.getRackName(), used,
         rmNode.getTotalCapability(), numContainers,
-        rmNode.getNodeHealthStatus());
+        rmNode.getHealthReport(),
+        rmNode.getLastHealthReportTime());
 
     return report;
   }
 
   @Override
   public GetQueueUserAclsInfoResponse getQueueUserAcls(
-      GetQueueUserAclsInfoRequest request) throws YarnRemoteException {
+      GetQueueUserAclsInfoRequest request) throws YarnException {
     GetQueueUserAclsInfoResponse response = 
       recordFactory.newRecordInstance(GetQueueUserAclsInfoResponse.class);
     response.setUserAclsInfoList(scheduler.getQueueUserAclInfo());
@@ -472,7 +493,7 @@ public class ClientRMService extends AbstractService implements
 
   @Override
   public GetDelegationTokenResponse getDelegationToken(
-      GetDelegationTokenRequest request) throws YarnRemoteException {
+      GetDelegationTokenRequest request) throws YarnException {
     try {
 
       // Verify that the connection is kerberos authenticated
@@ -510,14 +531,14 @@ public class ClientRMService extends AbstractService implements
 
   @Override
   public RenewDelegationTokenResponse renewDelegationToken(
-      RenewDelegationTokenRequest request) throws YarnRemoteException {
+      RenewDelegationTokenRequest request) throws YarnException {
     try {
       if (!isAllowedDelegationTokenOp()) {
         throw new IOException(
             "Delegation Token can be renewed only with kerberos authentication");
       }
       
-      DelegationToken protoToken = request.getDelegationToken();
+      org.apache.hadoop.yarn.api.records.Token protoToken = request.getDelegationToken();
       Token<RMDelegationTokenIdentifier> token = new Token<RMDelegationTokenIdentifier>(
           protoToken.getIdentifier().array(), protoToken.getPassword().array(),
           new Text(protoToken.getKind()), new Text(protoToken.getService()));
@@ -535,13 +556,13 @@ public class ClientRMService extends AbstractService implements
 
   @Override
   public CancelDelegationTokenResponse cancelDelegationToken(
-      CancelDelegationTokenRequest request) throws YarnRemoteException {
+      CancelDelegationTokenRequest request) throws YarnException {
     try {
       if (!isAllowedDelegationTokenOp()) {
         throw new IOException(
             "Delegation Token can be cancelled only with kerberos authentication");
       }
-      DelegationToken protoToken = request.getDelegationToken();
+      org.apache.hadoop.yarn.api.records.Token protoToken = request.getDelegationToken();
       Token<RMDelegationTokenIdentifier> token = new Token<RMDelegationTokenIdentifier>(
           protoToken.getIdentifier().array(), protoToken.getPassword().array(),
           new Text(protoToken.getKind()), new Text(protoToken.getService()));

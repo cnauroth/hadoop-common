@@ -7,32 +7,12 @@ Trunk (Unreleased)
     HADOOP-8124. Remove the deprecated FSDataOutputStream constructor,
     FSDataOutputStream.sync() and Syncable.sync().  (szetszwo)
 
-    HADOOP-8886. Remove KFS support. (eli)
-    
-    HADOOP-9163 The rpc msg in ProtobufRpcEngine.proto should be moved out to
-    avoid an extra copy (Sanjay Radia)
-
-    HADOOP-9151 Include RPC error info in RpcResponseHeader instead of sending
-    it separately (sanjay Radia)
-
-    HADOOP-9380 Add totalLength to rpc response  (sanjay Radia)
-
-    HADOOP-9194. RPC Support for QoS. (Junping Du via llu)
-
   NEW FEATURES
     
     HADOOP-8561. Introduce HADOOP_PROXY_USER for secure impersonation in child
     hadoop client processes. (Yu Gao via llu)
 
-    HADOOP-8469. Make NetworkTopology class pluggable.  (Junping Du via
-    szetszwo)
-
-    HADOOP-8470. Add NetworkTopologyWithNodeGroup, a 4-layer implementation
-    of NetworkTopology.  (Junping Du via szetszwo)
-
-    HADOOP-8562. Enhancements to support Hadoop on Windows Server and Windows
-    Azure environments. (See breakdown of tasks below for subtasks and
-    contributors)
+    HADOOP-9509. Implement ONCRPC and XDR. (brandonli)
 
   IMPROVEMENTS
 
@@ -152,18 +132,25 @@ Trunk (Unreleased)
     HADOOP-9093. Move all the Exception in PathExceptions to o.a.h.fs package.
     (suresh)
 
-    HADOOP-9140 Cleanup rpc PB protos (sanjay Radia)
-
     HADOOP-9162. Add utility to check native library availability.
     (Binglin Chang via suresh)
 
     HADOOP-9277. Improve javadoc for FileContext. (Andrew Wang via suresh)
 
-    HADOOP-9218 Document the Rpc-wrappers used internally (sanjay Radia)
+    HADOOP-9258 Add stricter tests to FileSystemContractTestBase (stevel)
 
-	HADOOP-9258 Add stricter tests to FileSystemContractTestBase (stevel)
+    HADOOP-9486. Promoted Windows and Shell related utils from YARN to Hadoop
+    Common. (Chris Nauroth via vinodkv)
+
+    HADOOP-8608. Add Configuration API for parsing time durations. (cdouglas)
+
+    HADOOP-9540. Expose the InMemoryS3 and S3N FilesystemStores implementations
+    for Unit testing. (Hari via stevel)
 
   BUG FIXES
+
+    HADOOP-9451. Fault single-layer config if node group topology is enabled.
+    (Junping Du via llu)
 
     HADOOP-8419. Fixed GzipCode NPE reset for IBM JDK. (Yu Li via eyang)
 
@@ -325,9 +312,6 @@ Trunk (Unreleased)
     HADOOP-9131. Turn off TestLocalFileSystem#testListStatusWithColons on
     Windows. (Chris Nauroth via suresh)
 
-    HADOOP-8957. AbstractFileSystem#IsValidName should be overridden for
-    embedded file systems like ViewFs (Chris Nauroth via Sanjay Radia)
-
     HADOOP-9139. improve killKdc.sh (Ivan A. Veselovsky via bobby)
 
     HADOOP-9202. test-patch.sh fails during mvn eclipse:eclipse if patch adds
@@ -346,11 +330,6 @@ Trunk (Unreleased)
 
     HADOOP-9099. NetUtils.normalizeHostName fails on domains where 
     UnknownHost resolves to an IP address. (Ivan Mitic via suresh)
-
-    HADOOP-9397. Incremental dist tar build fails (Chris Nauroth via jlowe)
-
-    HADOOP-9405. TestGridmixSummary#testExecutionSummarizer is broken. (Andrew
-    Wang via atm)
 
     HADOOP-9431 TestSecurityUtil#testLocalHostNameForNullOrWild on systems where hostname
     contains capital letters  (Chris Nauroth via sanjay)
@@ -372,7 +351,238 @@ Trunk (Unreleased)
 
     HADOOP-9190. packaging docs is broken. (Andy Isaacson via atm)
 
-  BREAKDOWN OF HADOOP-8562 SUBTASKS
+
+Release 2.1.0-beta - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+    HADOOP-8886. Remove KFS support. (eli)
+
+    HADOOP-9163. [RPC v9] The rpc msg in ProtobufRpcEngine.proto should be moved out to
+    avoid an extra copy (Sanjay Radia)
+
+    HADOOP-9151. [RPC v9] Include RPC error info in RpcResponseHeader instead of sending
+    it separately (sanjay Radia)
+
+    HADOOP-9380. [RPC v9] Add totalLength to rpc response  (sanjay Radia)
+
+    HADOOP-9425. [RPC v9] Add error codes to rpc-response (sanjay Radia)
+
+    HADOOP-9194. [RPC v9] RPC support for QoS. (Junping Du via llu)
+
+    HADOOP-9630. [RPC v9] Remove IpcSerializationType. (Junping Du via llu)
+
+  NEW FEATURES
+
+    HADOOP-9283. Add support for running the Hadoop client on AIX. (atm)
+
+    HADOOP-8415. Add getDouble() and setDouble() in 
+    org.apache.hadoop.conf.Configuration (Jan van der Lugt via harsh)
+
+    HADOOP-9338. FsShell Copy Commands Should Optionally Preserve File
+    Attributes. (Nick White via atm)
+
+    HADOOP-8562. Enhancements to support Hadoop on Windows Server and Windows
+    Azure environments. (See breakdown of tasks below for subtasks and
+    contributors)
+
+    HADOOP-8469. Make NetworkTopology class pluggable.  (Junping Du via
+    szetszwo)
+
+    HADOOP-8470. Add NetworkTopologyWithNodeGroup, a 4-layer implementation
+    of NetworkTopology.  (Junping Du via szetszwo)
+
+  IMPROVEMENTS
+
+    HADOOP-9253. Capture ulimit info in the logs at service start time.
+    (Arpit Gupta via suresh)
+
+    HADOOP-8924. Add maven plugin alternative to shell script to save
+    package-info.java. (Chris Nauroth via suresh)
+
+    HADOOP-9117. replace protoc ant plugin exec with a maven plugin. (tucu)
+
+    HADOOP-9279. Document the need to build hadoop-maven-plugins for
+    eclipse and separate project builds. (Tsuyoshi Ozawa via suresh)
+
+    HADOOP-9334. Upgrade netty version. (Nicolas Liochon via suresh)
+
+    HADOOP-9343. Allow additional exceptions through the RPC layer. (sseth)
+
+    HADOOP-9318. When exiting on a signal, print the signal name first. (Colin
+    Patrick McCabe via atm)
+
+    HADOOP-9358. "Auth failed" log should include exception string (todd)
+
+    HADOOP-9401. CodecPool: Add counters for number of (de)compressors 
+    leased out. (kkambatl via tucu)
+
+    HADOOP-9450. HADOOP_USER_CLASSPATH_FIRST is not honored; CLASSPATH
+    is PREpended instead of APpended. (Chris Nauroth and harsh via harsh)
+
+    HADOOP-9503. Remove sleep between IPC client connect timeouts.
+    (Varun Sharma via szetszwo)
+
+    HADOOP-9322. LdapGroupsMapping doesn't seem to set a timeout for
+    its directory search. (harsh)
+
+    HADOOP-9523. Provide a generic IBM java vendor flag in PlatformName.java
+    to support non-Sun JREs. (Tian Hong Wang via suresh)
+
+    HADOOP-9511. Adding support for additional input streams (FSDataInputStream
+    and RandomAccessFile) in SecureIOUtils so as to help YARN-578. (Omkar Vinit
+    Joshi via vinodkv)
+
+    HADOOP-9560. metrics2#JvmMetrics should have max memory size of JVM.
+    (Tsuyoshi Ozawa via suresh)
+
+    HADOOP-9140 Cleanup rpc PB protos (sanjay Radia)
+
+    HADOOP-9218 Document the Rpc-wrappers used internally (sanjay Radia)
+
+    HADOOP-9574. Added new methods in AbstractDelegationTokenSecretManager for
+    helping YARN ResourceManager to reuse code for RM restart. (Jian He via
+    vinodkv)
+
+    HADOOP-7391 Document Interface Classification from HADOOP-5073 (sanjay Radia)
+
+    HADOOP-9287. Parallel-testing hadoop-common (Andrey Klochkov via jlowe)
+
+    HADOOP-9604. Javadoc of FSDataOutputStream is slightly inaccurate. (Jingguo
+    Yao via atm)
+    
+    HADOOP-9625. HADOOP_OPTS not picked up by hadoop command.
+    (Paul Han via arpit)
+
+  OPTIMIZATIONS
+
+    HADOOP-9150. Avoid unnecessary DNS resolution attempts for logical URIs
+    (todd)
+
+  BUG FIXES
+
+    HADOOP-9294. GetGroupsTestBase fails on Windows. (Chris Nauroth via suresh)
+
+    HADOOP-9305. Add support for running the Hadoop client on 64-bit AIX. (atm)
+
+    HADOOP-9245. mvn clean without running mvn install before fails.
+    (Karthik Kambatla via suresh)
+
+    HADOOP-9246 Execution phase for hadoop-maven-plugin should be
+    process-resources (Karthik Kambatla and Chris Nauroth via jlowe)
+
+    HADOOP-9297. remove old record IO generation and tests. (tucu)
+
+    HADOOP-9154. SortedMapWritable#putAll() doesn't add key/value classes to
+    the map. (Karthik Kambatla via tomwhite)
+
+    HADOOP-9304. remove addition of avro genreated-sources dirs to build. (tucu)
+
+    HADOOP-9267. hadoop -help, -h, --help should show usage instructions.
+    (Andrew Wang via atm)
+
+    HADOOP-8569. CMakeLists.txt: define _GNU_SOURCE and _LARGEFILE_SOURCE.
+    (Colin Patrick McCabe via atm)
+
+    HADOOP-9323. Fix typos in API documentation. (suresh)
+
+    HADOOP-7487. DF should throw a more reasonable exception when mount cannot
+    be determined. (Andrew Wang via atm)
+
+    HADOOP-8917. add LOCALE.US to toLowerCase in SecurityUtil.replacePattern.
+    (Arpit Gupta via suresh)
+
+    HADOOP-9342. Remove jline from distribution. (thw via tucu)
+
+    HADOOP-9230. TestUniformSizeInputFormat fails intermittently. 
+    (kkambatl via tucu)
+
+    HADOOP-9349. Confusing output when running hadoop version from one hadoop 
+    installation when HADOOP_HOME points to another. (sandyr via tucu)
+
+    HADOOP-9337. org.apache.hadoop.fs.DF.getMount() does not work on Mac OS.
+    (Ivan A. Veselovsky via atm)
+
+    HADOOP-9369. DNS#reverseDns() can return hostname with . appended at the
+    end. (Karthik Kambatla via atm)
+
+    HADOOP-9379. capture the ulimit info after printing the log to the 
+    console. (Arpit Gupta via suresh)
+
+    HADOOP-9399. protoc maven plugin doesn't work on mvn 3.0.2 (todd)
+
+    HADOOP-9407. commons-daemon 1.0.3 dependency has bad group id causing
+    build issues. (Sangjin Lee via suresh)
+
+    HADOOP-9405. TestGridmixSummary#testExecutionSummarizer is broken. (Andrew
+    Wang via atm)
+
+    HADOOP-9430. TestSSLFactory fails on IBM JVM. (Amir Sanjar via suresh)
+
+    HADOOP-9125. LdapGroupsMapping threw CommunicationException after some
+    idle time. (Kai Zheng via atm)
+
+    HADOOP-9429. TestConfiguration fails with IBM JAVA. (Amir Sanjar via
+    suresh)
+
+    HADOOP-9222. Cover package with org.apache.hadoop.io.lz4 unit tests (Vadim 
+    Bondarev via jlowe)
+
+    HADOOP-9233. Cover package org.apache.hadoop.io.compress.zlib with unit
+    tests (Vadim Bondarev via jlowe)
+
+    HADOOP-9211. Set default max heap size in HADOOP_CLIENT_OPTS to 512m
+    in order to avoid OOME. (Plamen Jeliazkov via shv)
+
+    HADOOP-9473. Typo in FileUtil copy() method. (Glen Mazza via suresh)
+
+    HADOOP-9504. MetricsDynamicMBeanBase has concurrency issues in
+    createMBeanInfo (Liang Xie via jlowe)
+
+    HADOOP-9455. HADOOP_CLIENT_OPTS appended twice causes JVM failures.
+    (Chris Nauroth via suresh)
+
+    HADOOP-9550. Remove aspectj dependency. (kkambatl via tucu)
+
+    HADOOP-9549. WebHdfsFileSystem hangs on close(). (daryn via kihwal)
+
+    HADOOP-9485. No default value in the code for
+    hadoop.rpc.socket.factory.class.default. (Colin Patrick McCabe via atm)
+
+    HADOOP-9459. ActiveStandbyElector can join election even before
+    Service HEALTHY, and results in null data at ActiveBreadCrumb.
+    (Vinay and todd via todd)
+
+    HADOOP-9307. BufferedFSInputStream.read returns wrong results
+    after certain seeks. (todd)
+
+    HADOOP-9220. Unnecessary transition to standby in ActiveStandbyElector.
+    (tom and todd via todd)
+
+    HADOOP-9563. Fix incompatibility introduced by HADOOP-9523.
+    (Tian Hong Wang via suresh)
+
+    HADOOP-9566. Performing direct read using libhdfs sometimes raises SIGPIPE
+    (which in turn throws SIGABRT) causing client crashes. (Colin Patrick
+    McCabe via atm)
+
+    HADOOP-9481. Broken conditional logic with HADOOP_SNAPPY_LIBRARY. (Vadim
+    Bondarev via atm)
+
+    HADOOP-9593. stack trace printed at ERROR for all yarn clients without
+    hadoop.home set (stevel)
+
+    HADOOP-8957. AbstractFileSystem#IsValidName should be overridden for
+    embedded file systems like ViewFs (Chris Nauroth via Sanjay Radia)
+
+    HADOOP-9607. Fixes in Javadoc build (Timothy St. Clair via cos)
+
+    HADOOP-9605. Update junit dependency. (Timothy St. Clair via cos)
+
+    HADOOP-9581. hadoop --config non-existent directory should result in error
+    (Ashwin Shankar via jlowe)
+
+  BREAKDOWN OF HADOOP-8562 SUBTASKS AND RELATED JIRAS
 
     HADOOP-8924. Hadoop Common creating package-info.java must not depend on
     sh. (Chris Nauroth via suresh)
@@ -502,103 +712,63 @@ Trunk (Unreleased)
 
     HADOOP-9353. Activate native-win maven profile by default on Windows.
     (Arpit Agarwal via szetszwo)
+
+    HADOOP-9437. TestNativeIO#testRenameTo fails on Windows due to assumption
+    that POSIX errno is embedded in NativeIOException. (Chris Nauroth via
+    suresh)
+
+    HADOOP-9443. Port winutils static code analysis change to trunk.
+    (Chuan Liu via suresh)
+
+    HADOOP-9290. Some tests cannot load native library on windows.
+    (Chris Nauroth via suresh)
+
+    HADOOP-9500. TestUserGroupInformation#testGetServerSideGroups fails on 
+    Windows due to failure to find winutils.exe. (Chris Nauroth via suresh)
+
+    HADOOP-9490. LocalFileSystem#reportChecksumFailure not closing the 
+    checksum file handle before rename. (Ivan Mitic via suresh)
+
+    HADOOP-9524. Fix ShellCommandFencer to work on Windows.
+    (Arpit Agarwal via suresh)
+
+    HADOOP-9413. Add common utils for File#setReadable/Writable/Executable &
+    File#canRead/Write/Execute that work cross-platform. (Ivan Mitic via suresh)
+
+    HADOOP-9532. HADOOP_CLIENT_OPTS is appended twice by Windows cmd scripts.
+    (Chris Nauroth via suresh)
+
+    HADOOP-9043. Disallow in winutils creating symlinks with forwards slashes.
+    (Chris Nauroth and Arpit Agarwal via suresh)
+
+    HADOOP-9483. winutils support for readlink command.
+    (Arpit Agarwal via suresh)
     
-Release 2.0.5-beta - UNRELEASED
+    HADOOP-9488. FileUtil#createJarWithClassPath only substitutes environment
+    variables from current process environment/does not support overriding
+    when launching new process (Chris Nauroth via bikas)
 
-  INCOMPATIBLE CHANGES
+    HADOOP-9556. disable HA tests on Windows that fail due to ZooKeeper client
+    connection management bug. (Chris Nauroth via suresh)
 
-  NEW FEATURES
+    HADOOP-9553. TestAuthenticationToken fails on Windows.
+    (Arpit Agarwal via suresh)
 
-    HADOOP-9283. Add support for running the Hadoop client on AIX. (atm)
+    HADOOP-9397. Incremental dist tar build fails (Chris Nauroth via jlowe)
 
-    HADOOP-8415. Add getDouble() and setDouble() in
-    org.apache.hadoop.conf.Configuration (Jan van der Lugt via harsh)
+    HADOOP-9131. Turn off TestLocalFileSystem#testListStatusWithColons on
+    Windows. (Chris Nauroth via suresh)
 
-  IMPROVEMENTS
+    HADOOP-9526. TestShellCommandFencer and TestShell fail on Windows.
+    (Arpit Agarwal via suresh)
 
-    HADOOP-9253. Capture ulimit info in the logs at service start time.
-    (Arpit Gupta via suresh)
+    HADOOP-8982. TestSocketIOWithTimeout fails on Windows.
+    (Chris Nauroth via suresh)
 
-    HADOOP-8924. Add maven plugin alternative to shell script to save
-    package-info.java. (Chris Nauroth via suresh)
+    HADOOP-9599. hadoop-config.cmd doesn't set JAVA_LIBRARY_PATH correctly.
+    (Mostafa Elhemali via ivanmi)
 
-    HADOOP-9117. replace protoc ant plugin exec with a maven plugin. (tucu)
-
-    HADOOP-9279. Document the need to build hadoop-maven-plugins for
-    eclipse and separate project builds. (Tsuyoshi Ozawa via suresh)
-
-    HADOOP-9334. Upgrade netty version. (Nicolas Liochon via suresh)
-
-    HADOOP-9343. Allow additional exceptions through the RPC layer. (sseth)
-
-    HADOOP-9318. When exiting on a signal, print the signal name first. (Colin
-    Patrick McCabe via atm)
-
-    HADOOP-9358. "Auth failed" log should include exception string (todd)
-
-  OPTIMIZATIONS
-
-  BUG FIXES
-
-    HADOOP-9294. GetGroupsTestBase fails on Windows. (Chris Nauroth via suresh)
-
-    HADOOP-9305. Add support for running the Hadoop client on 64-bit AIX. (atm)
-
-    HADOOP-9245. mvn clean without running mvn install before fails.
-    (Karthik Kambatla via suresh)
-
-    HADOOP-9246 Execution phase for hadoop-maven-plugin should be
-    process-resources (Karthik Kambatla and Chris Nauroth via jlowe)
-
-    HADOOP-9297. remove old record IO generation and tests. (tucu)
-
-    HADOOP-9154. SortedMapWritable#putAll() doesn't add key/value classes to
-    the map. (Karthik Kambatla via tomwhite)
-
-    HADOOP-9304. remove addition of avro genreated-sources dirs to build. (tucu)
-
-    HADOOP-9267. hadoop -help, -h, --help should show usage instructions.
-    (Andrew Wang via atm)
-
-    HADOOP-8569. CMakeLists.txt: define _GNU_SOURCE and _LARGEFILE_SOURCE.
-    (Colin Patrick McCabe via atm)
-
-    HADOOP-9323. Fix typos in API documentation. (suresh)
-
-    HADOOP-7487. DF should throw a more reasonable exception when mount cannot
-    be determined. (Andrew Wang via atm)
-
-    HADOOP-8917. add LOCALE.US to toLowerCase in SecurityUtil.replacePattern.
-    (Arpit Gupta via suresh)
-
-    HADOOP-9342. Remove jline from distribution. (thw via tucu)
-
-    HADOOP-9230. TestUniformSizeInputFormat fails intermittently. 
-    (kkambatl via tucu)
-
-    HADOOP-9349. Confusing output when running hadoop version from one hadoop 
-    installation when HADOOP_HOME points to another. (sandyr via tucu)
-
-    HADOOP-9337. org.apache.hadoop.fs.DF.getMount() does not work on Mac OS.
-    (Ivan A. Veselovsky via atm)
-
-    HADOOP-9369. DNS#reverseDns() can return hostname with . appended at the
-    end. (Karthik Kambatla via atm)
-
-    HADOOP-9379. capture the ulimit info after printing the log to the 
-    console. (Arpit Gupta via suresh)
-
-    HADOOP-9399. protoc maven plugin doesn't work on mvn 3.0.2 (todd)
-
-    HADOOP-9407. commons-daemon 1.0.3 dependency has bad group id causing
-    build issues. (Sangjin Lee via suresh)
-
-    HADOOP-9299.  kerberos name resolution is kicking in even when kerberos
-    is not configured (daryn)
-
-    HADOOP-9430. TestSSLFactory fails on IBM JVM. (Amir Sanjar via suresh)
-
-Release 2.0.4-alpha - UNRELEASED
+Release 2.0.5-alpha - 06/06/2013
 
   INCOMPATIBLE CHANGES
 
@@ -609,14 +779,41 @@ Release 2.0.4-alpha - UNRELEASED
   OPTIMIZATIONS
 
   BUG FIXES
+
+  HADOOP-9407. commons-daemon 1.0.3 dependency has bad group id causing
+  build issues. (Sangjin Lee via suresh)
+
+Release 2.0.4-alpha - 2013-04-25
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+  OPTIMIZATIONS
+
+  BUG FIXES
+
+    HADOOP-9467. Metrics2 record filter should check name as well as tags.
+    (Chris Nauroth and Ganeshan Iyler via llu)
 
     HADOOP-9406. hadoop-client leaks dependency on JDK tools jar. (tucu)
 
     HADOOP-9301. hadoop client servlet/jsp/jetty/tomcat JARs creating
     conflicts in Oozie & HttpFS. (tucu)
 
+    HADOOP-9299.  kerberos name resolution is kicking in even when kerberos
+    is not configured (daryn)
+
     HADOOP-9408. misleading description for net.topology.table.file.name
     property in core-default.xml. (rajeshbabu via suresh)
+
+    HADOOP-9444. Modify hadoop-policy.xml to replace unexpanded variables to a
+    default value of '*'. (Roman Shaposhnik via vinodkv)
+
+    HADOOP-9471. hadoop-client wrongfully excludes jetty-util JAR, 
+    breaking webhdfs. (tucu)
 
 Release 2.0.3-alpha - 2013-02-06 
 
@@ -1581,7 +1778,46 @@ Release 2.0.0-alpha - 05-23-2012
     HADOOP-8655. Fix TextInputFormat for large deliminators. (Gelesh via
     bobby) 
 
-Release 0.23.7 - UNRELEASED
+Release 0.23.9 - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+    
+  IMPROVEMENTS
+    
+  OPTIMIZATIONS
+
+  BUG FIXES
+
+Release 0.23.8 - 2013-06-05
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+  OPTIMIZATIONS
+
+  BUG FIXES
+
+    HADOOP-9222. Cover package with org.apache.hadoop.io.lz4 unit tests (Vadim 
+    Bondarev via jlowe)
+
+    HADOOP-9233. Cover package org.apache.hadoop.io.compress.zlib with unit
+    tests (Vadim Bondarev via jlowe)
+
+    HADOOP-9469. mapreduce/yarn source jars not included in dist tarball
+    (Robert Parker via tgraves)
+
+    HADOOP-9504. MetricsDynamicMBeanBase has concurrency issues in
+    createMBeanInfo (Liang Xie via jlowe)
+
+    HADOOP-9614. smart-test-patch.sh hangs for new version of patch (2.7.1)
+    (Ravi Prakash via jeagles)
+
+Release 0.23.7 - 2013-04-18
 
   INCOMPATIBLE CHANGES
 
@@ -1621,7 +1857,7 @@ Release 0.23.7 - UNRELEASED
     HADOOP-9339. IPC.Server incorrectly sets UGI auth type (Daryn Sharp via 
     kihwal)
 
-Release 0.23.6 - UNRELEASED
+Release 0.23.6 - 2013-02-06
 
   INCOMPATIBLE CHANGES
 

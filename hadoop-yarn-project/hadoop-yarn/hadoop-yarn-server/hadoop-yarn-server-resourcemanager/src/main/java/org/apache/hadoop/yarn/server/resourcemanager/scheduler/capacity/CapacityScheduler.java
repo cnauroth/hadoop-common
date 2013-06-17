@@ -108,7 +108,7 @@ implements ResourceScheduler, CapacitySchedulerContext, Configurable {
     new Comparator<FiCaSchedulerApp>() {
     @Override
     public int compare(FiCaSchedulerApp a1, FiCaSchedulerApp a2) {
-      return a1.getApplicationId().getId() - a2.getApplicationId().getId();
+      return a1.getApplicationId().compareTo(a2.getApplicationId());
     }
   };
 
@@ -472,7 +472,8 @@ implements ResourceScheduler, CapacitySchedulerContext, Configurable {
   @Override
   @Lock(Lock.NoLock.class)
   public Allocation allocate(ApplicationAttemptId applicationAttemptId,
-      List<ResourceRequest> ask, List<ContainerId> release) {
+      List<ResourceRequest> ask, List<ContainerId> release, 
+      List<String> blacklistAdditions, List<String> blacklistRemovals) {
 
     FiCaSchedulerApp application = getApplication(applicationAttemptId);
     if (application == null) {
@@ -483,7 +484,8 @@ implements ResourceScheduler, CapacitySchedulerContext, Configurable {
     
     // Sanity check
     SchedulerUtils.normalizeRequests(
-        ask, calculator, getClusterResources(), minimumAllocation);
+        ask, calculator, getClusterResources(), minimumAllocation,
+        maximumAllocation);
 
     // Release containers
     for (ContainerId releasedContainerId : release) {
@@ -504,6 +506,14 @@ implements ResourceScheduler, CapacitySchedulerContext, Configurable {
 
     synchronized (application) {
 
+      // make sure we aren't stopping/removing the application
+      // when the allocate comes in
+      if (application.isStopped()) {
+        LOG.info("Calling allocate on a stopped " +
+            "application " + applicationAttemptId);
+        return EMPTY_ALLOCATION;
+      }
+
       if (!ask.isEmpty()) {
 
         if(LOG.isDebugEnabled()) {
@@ -514,7 +524,8 @@ implements ResourceScheduler, CapacitySchedulerContext, Configurable {
         application.showRequests();
   
         // Update application requests
-        application.updateResourceRequests(ask);
+        application.updateResourceRequests(ask, 
+            blacklistAdditions, blacklistRemovals);
   
         LOG.debug("allocate: post-update");
         application.showRequests();

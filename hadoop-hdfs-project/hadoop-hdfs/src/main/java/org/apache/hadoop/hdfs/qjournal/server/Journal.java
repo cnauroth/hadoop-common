@@ -32,6 +32,7 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.qjournal.protocol.JournalNotFormattedException;
@@ -133,9 +134,9 @@ class Journal implements Closeable {
    */
   private static final int WARN_SYNC_MILLIS_THRESHOLD = 1000;
 
-  Journal(File logDir, String journalId,
+  Journal(Configuration conf, File logDir, String journalId,
       StorageErrorReporter errorReporter) throws IOException {
-    storage = new JNStorage(logDir, errorReporter);
+    storage = new JNStorage(conf, logDir, errorReporter);
     this.journalId = journalId;
 
     refreshCachedData();
@@ -627,14 +628,14 @@ class Journal implements Closeable {
   /**
    * @see QJournalProtocol#getEditLogManifest(String, long)
    */
-  public RemoteEditLogManifest getEditLogManifest(long sinceTxId)
-      throws IOException {
+  public RemoteEditLogManifest getEditLogManifest(long sinceTxId,
+      boolean forReading) throws IOException {
     // No need to checkRequest() here - anyone may ask for the list
     // of segments.
     checkFormatted();
     
     RemoteEditLogManifest manifest = new RemoteEditLogManifest(
-        fjm.getRemoteEditLogs(sinceTxId));
+        fjm.getRemoteEditLogs(sinceTxId, forReading));
     return manifest;
   }
 

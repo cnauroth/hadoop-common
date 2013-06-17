@@ -18,6 +18,8 @@
 
 package org.apache.hadoop.yarn.api;
 
+import java.io.IOException;
+
 import org.apache.hadoop.classification.InterfaceAudience.Public;
 import org.apache.hadoop.classification.InterfaceStability.Stable;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateRequest;
@@ -28,7 +30,8 @@ import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterReque
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
-import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
 /**
  * <p>The protocol between a live instance of <code>ApplicationMaster</code> 
@@ -56,11 +59,14 @@ public interface AMRMProtocol {
    *  
    * @param request registration request
    * @return registration respose
-   * @throws YarnRemoteException
+   * @throws YarnException
+   * @throws IOException
+   * @see RegisterApplicationMasterRequest
+   * @see RegisterApplicationMasterResponse
    */
   public RegisterApplicationMasterResponse registerApplicationMaster(
       RegisterApplicationMasterRequest request) 
-  throws YarnRemoteException;
+  throws YarnException, IOException;
   
   /**
    * <p>The interface used by an <code>ApplicationMaster</code> to notify the 
@@ -75,11 +81,14 @@ public interface AMRMProtocol {
    * 
    * @param request completion request
    * @return completion response
-   * @throws YarnRemoteException
+   * @throws YarnException
+   * @throws IOException
+   * @see FinishApplicationMasterRequest
+   * @see FinishApplicationMasterResponse
    */
   public FinishApplicationMasterResponse finishApplicationMaster(
       FinishApplicationMasterRequest request) 
-  throws YarnRemoteException;
+  throws YarnException, IOException;
   
   /**
    * <p>The main interface between an <code>ApplicationMaster</code> 
@@ -87,12 +96,16 @@ public interface AMRMProtocol {
    * 
    * <p>The <code>ApplicationMaster</code> uses this interface to provide a list  
    * of {@link ResourceRequest} and returns unused {@link Container} allocated 
-   * to it via {@link AllocateRequest}.</p>
+   * to it via {@link AllocateRequest}. Optionally, the 
+   * <code>ApplicationMaster</code> can also <em>blacklist</em> resources
+   * which it doesn't want to use.</p>
    * 
    * <p>This also doubles up as a <em>heartbeat</em> to let the 
    * <code>ResourceManager</code> know that the <code>ApplicationMaster</code>
    * is alive. Thus, applications should periodically make this call to be kept
-   * alive. The frequency depends on ??</p>
+   * alive. The frequency depends on 
+   * {@link YarnConfiguration#RM_AM_EXPIRY_INTERVAL_MS} which defaults to
+   * {@link YarnConfiguration#DEFAULT_RM_AM_EXPIRY_INTERVAL_MS}.</p>
    * 
    * <p>The <code>ResourceManager</code> responds with list of allocated 
    * {@link Container}, status of completed containers and headroom information 
@@ -104,8 +117,11 @@ public interface AMRMProtocol {
    * 
    * @param request allocation request
    * @return allocation response
-   * @throws YarnRemoteException
+   * @throws YarnException
+   * @throws IOException
+   * @see AllocateRequest
+   * @see AllocateResponse
    */
   public AllocateResponse allocate(AllocateRequest request) 
-  throws YarnRemoteException;
+  throws YarnException, IOException;
 }

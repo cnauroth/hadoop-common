@@ -34,7 +34,7 @@ import org.apache.hadoop.util.ExitUtil;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.ShutdownHookManager;
 import org.apache.hadoop.util.StringUtils;
-import org.apache.hadoop.yarn.YarnException;
+import org.apache.hadoop.yarn.YarnRuntimeException;
 import org.apache.hadoop.yarn.YarnUncaughtExceptionHandler;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
@@ -43,7 +43,6 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.event.AsyncDispatcher;
 import org.apache.hadoop.yarn.event.Dispatcher;
 import org.apache.hadoop.yarn.event.EventHandler;
-import org.apache.hadoop.yarn.server.RMDelegationTokenSecretManager;
 import org.apache.hadoop.yarn.server.resourcemanager.amlauncher.AMLauncherEventType;
 import org.apache.hadoop.yarn.server.resourcemanager.amlauncher.ApplicationMasterLauncher;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.NullRMStateStore;
@@ -69,6 +68,7 @@ import org.apache.hadoop.yarn.server.resourcemanager.security.ApplicationTokenSe
 import org.apache.hadoop.yarn.server.resourcemanager.security.ClientToAMTokenSecretManagerInRM;
 import org.apache.hadoop.yarn.server.resourcemanager.security.DelegationTokenRenewer;
 import org.apache.hadoop.yarn.server.resourcemanager.security.RMContainerTokenSecretManager;
+import org.apache.hadoop.yarn.server.resourcemanager.security.RMDelegationTokenSecretManager;
 import org.apache.hadoop.yarn.server.resourcemanager.webapp.RMWebApp;
 import org.apache.hadoop.yarn.server.security.ApplicationACLsManager;
 import org.apache.hadoop.yarn.server.webproxy.AppReportFetcher;
@@ -223,7 +223,10 @@ public class ResourceManager extends CompositeService implements Recoverable {
 
     this.resourceTracker = createResourceTrackerService();
     addService(resourceTracker);
-  
+
+    DefaultMetricsSystem.initialize("ResourceManager");
+    JvmMetrics.initSingleton("ResourceManager", null);
+
     try {
       this.scheduler.reinitialize(conf, this.rmContext);
     } catch (IOException ioe) {
@@ -239,7 +242,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
     // Register event handler for RMAppManagerEvents
     this.rmDispatcher.register(RMAppManagerEventType.class,
         this.rmAppManager);
-    this.rmDTSecretManager = createRMDelegationTokenSecretManager();
+    this.rmDTSecretManager = createRMDelegationTokenSecretManager(this.rmContext);
     clientRM = createClientRMService();
     addService(clientRM);
     
@@ -297,11 +300,11 @@ public class ResourceManager extends CompositeService implements Recoverable {
         return (ResourceScheduler) ReflectionUtils.newInstance(schedulerClazz,
             this.conf);
       } else {
-        throw new YarnException("Class: " + schedulerClassName
+        throw new YarnRuntimeException("Class: " + schedulerClassName
             + " not instance of " + ResourceScheduler.class.getCanonicalName());
       }
     } catch (ClassNotFoundException e) {
-      throw new YarnException("Could not instantiate Scheduler: "
+      throw new YarnRuntimeException("Could not instantiate Scheduler: "
           + schedulerClassName, e);
     }  }
 
@@ -327,12 +330,52 @@ public class ResourceManager extends CompositeService implements Recoverable {
       this.applicationACLsManager, this.conf);
   }
 
+  // sanity check for configurations
   protected static void validateConfigs(Configuration conf) {
-    int globalMaxAppAttempts = conf.getInt(YarnConfiguration.RM_AM_MAX_ATTEMPTS,
+    // validate max-attempts
+    int globalMaxAppAttempts =
+        conf.getInt(YarnConfiguration.RM_AM_MAX_ATTEMPTS,
         YarnConfiguration.DEFAULT_RM_AM_MAX_ATTEMPTS);
     if (globalMaxAppAttempts <= 0) {
-      throw new YarnException(
-          "The global max attempts should be a positive integer.");
+      throw new YarnRuntimeException("Invalid global max attempts configuration"
+          + ", " + YarnConfiguration.RM_AM_MAX_ATTEMPTS
+          + "=" + globalMaxAppAttempts + ", it should be a positive integer.");
+    }
+
+    // validate scheduler memory allocation setting
+    int minMem = conf.getInt(
+        YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB,
+        YarnConfiguration.DEFAULT_RM_SCHEDULER_MINIMUM_ALLOCATION_MB);
+    int maxMem = conf.getInt(
+        YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_MB,
+        YarnConfiguration.DEFAULT_RM_SCHEDULER_MAXIMUM_ALLOCATION_MB);
+
+    if (minMem <= 0 || minMem > maxMem) {
+      throw new YarnRuntimeException("Invalid resource scheduler memory"
+          + " allocation configuration"
+          + ", " + YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB
+          + "=" + minMem
+          + ", " + YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_MB
+          + "=" + maxMem + ", min and max should be greater than 0"
+          + ", max should be no smaller than min.");
+    }
+
+    // validate scheduler vcores allocation setting
+    int minVcores = conf.getInt(
+        YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES,
+        YarnConfiguration.DEFAULT_RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES);
+    int maxVcores = conf.getInt(
+        YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_VCORES,
+        YarnConfiguration.DEFAULT_RM_SCHEDULER_MAXIMUM_ALLOCATION_VCORES);
+
+    if (minVcores <= 0 || minVcores > maxVcores) {
+      throw new YarnRuntimeException("Invalid resource scheduler vcores"
+          + " allocation configuration"
+          + ", " + YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES
+          + "=" + minVcores
+          + ", " + YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_VCORES
+          + "=" + maxVcores + ", min and max should be greater than 0"
+          + ", max should be no smaller than min.");
     }
   }
 
@@ -411,7 +454,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
       try {
         this.eventProcessor.join();
       } catch (InterruptedException e) {
-        throw new YarnException(e);
+        throw new YarnRuntimeException(e);
       }
       super.stop();
     }
@@ -430,7 +473,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
         }
         this.eventQueue.put(event);
       } catch (InterruptedException e) {
-        throw new YarnException(e);
+        throw new YarnRuntimeException(e);
       }
     }
   }
@@ -538,7 +581,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
     try {
       doSecureLogin();
     } catch(IOException ie) {
-      throw new YarnException("Failed to login", ie);
+      throw new YarnRuntimeException("Failed to login", ie);
     }
 
     this.appTokenSecretManager.start();
@@ -558,12 +601,10 @@ public class ResourceManager extends CompositeService implements Recoverable {
     }
 
     startWepApp();
-    DefaultMetricsSystem.initialize("ResourceManager");
-    JvmMetrics.initSingleton("ResourceManager", null);
     try {
       rmDTSecretManager.startThreads();
     } catch(IOException ie) {
-      throw new YarnException("Failed to start secret manager threads", ie);
+      throw new YarnRuntimeException("Failed to start secret manager threads", ie);
     }
 
     if (getConfig().getBoolean(YarnConfiguration.IS_MINI_YARN_CLUSTER, false)) {
@@ -626,7 +667,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
   }
 
   protected RMDelegationTokenSecretManager
-               createRMDelegationTokenSecretManager() {
+               createRMDelegationTokenSecretManager(RMContext rmContext) {
     long secretKeyInterval = 
         conf.getLong(YarnConfiguration.DELEGATION_KEY_UPDATE_INTERVAL_KEY, 
             YarnConfiguration.DELEGATION_KEY_UPDATE_INTERVAL_DEFAULT);
@@ -638,7 +679,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
             YarnConfiguration.DELEGATION_TOKEN_RENEW_INTERVAL_DEFAULT);
 
     return new RMDelegationTokenSecretManager(secretKeyInterval, 
-        tokenMaxLifetime, tokenRenewInterval, 3600000);
+        tokenMaxLifetime, tokenRenewInterval, 3600000, rmContext);
   }
 
   protected ClientRMService createClientRMService() {
@@ -705,6 +746,9 @@ public class ResourceManager extends CompositeService implements Recoverable {
 
   @Override
   public void recover(RMState state) throws Exception {
+    // recover RMdelegationTokenSecretManager
+    rmDTSecretManager.recover(state);
+
     // recover applications
     rmAppManager.recover(state);
   }

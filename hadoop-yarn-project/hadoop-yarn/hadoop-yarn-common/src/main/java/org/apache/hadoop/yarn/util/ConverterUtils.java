@@ -114,30 +114,24 @@ public class ConverterUtils {
 
   private static ApplicationId toApplicationId(RecordFactory recordFactory,
       Iterator<String> it) {
-    ApplicationId appId =
-        recordFactory.newRecordInstance(ApplicationId.class);
-    appId.setClusterTimestamp(Long.parseLong(it.next()));
-    appId.setId(Integer.parseInt(it.next()));
+    ApplicationId appId = ApplicationId.newInstance(Long.parseLong(it.next()),
+        Integer.parseInt(it.next()));
     return appId;
   }
 
   private static ApplicationAttemptId toApplicationAttemptId(
       Iterator<String> it) throws NumberFormatException {
-    ApplicationId appId = Records.newRecord(ApplicationId.class);
-    appId.setClusterTimestamp(Long.parseLong(it.next()));
-    appId.setId(Integer.parseInt(it.next()));
-    ApplicationAttemptId appAttemptId = Records
-        .newRecord(ApplicationAttemptId.class);
-    appAttemptId.setApplicationId(appId);
-    appAttemptId.setAttemptId(Integer.parseInt(it.next()));
+    ApplicationId appId = ApplicationId.newInstance(Long.parseLong(it.next()),
+        Integer.parseInt(it.next()));
+    ApplicationAttemptId appAttemptId =
+        ApplicationAttemptId.newInstance(appId, Integer.parseInt(it.next()));
     return appAttemptId;
   }
 
   private static ApplicationId toApplicationId(
       Iterator<String> it) throws NumberFormatException {
-    ApplicationId appId = Records.newRecord(ApplicationId.class);
-    appId.setClusterTimestamp(Long.parseLong(it.next()));
-    appId.setId(Integer.parseInt(it.next()));
+    ApplicationId appId = ApplicationId.newInstance(Long.parseLong(it.next()),
+        Integer.parseInt(it.next()));
     return appId;
   }
 
@@ -153,7 +147,7 @@ public class ConverterUtils {
     }
     try {
       NodeId nodeId =
-          BuilderUtils.newNodeId(parts[0], Integer.parseInt(parts[1]));
+          NodeId.newInstance(parts[0], Integer.parseInt(parts[1]));
       return nodeId;
     } catch (NumberFormatException e) {
       throw new IllegalArgumentException("Invalid port: " + parts[1], e);
@@ -168,9 +162,8 @@ public class ConverterUtils {
     }
     try {
       ApplicationAttemptId appAttemptID = toApplicationAttemptId(it);
-      ContainerId containerId = Records.newRecord(ContainerId.class);
-      containerId.setApplicationAttemptId(appAttemptID);
-      containerId.setId(Integer.parseInt(it.next()));
+      ContainerId containerId =
+          ContainerId.newInstance(appAttemptID, Integer.parseInt(it.next()));
       return containerId;
     } catch (NumberFormatException n) {
       throw new IllegalArgumentException("Invalid ContainerId: "

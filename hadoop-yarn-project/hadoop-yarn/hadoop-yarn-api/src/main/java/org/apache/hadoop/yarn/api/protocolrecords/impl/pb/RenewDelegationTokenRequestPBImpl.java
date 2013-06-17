@@ -21,12 +21,10 @@ import org.apache.hadoop.security.proto.SecurityProtos.RenewDelegationTokenReque
 import org.apache.hadoop.security.proto.SecurityProtos.RenewDelegationTokenRequestProtoOrBuilder;
 import org.apache.hadoop.security.proto.SecurityProtos.TokenProto;
 import org.apache.hadoop.yarn.api.protocolrecords.RenewDelegationTokenRequest;
-import org.apache.hadoop.yarn.api.records.DelegationToken;
-import org.apache.hadoop.yarn.api.records.ProtoBase;
-import org.apache.hadoop.yarn.api.records.impl.pb.DelegationTokenPBImpl;
+import org.apache.hadoop.yarn.api.records.Token;
+import org.apache.hadoop.yarn.api.records.impl.pb.TokenPBImpl;
 
 public class RenewDelegationTokenRequestPBImpl extends
-    ProtoBase<RenewDelegationTokenRequestProto> implements
     RenewDelegationTokenRequest {
   RenewDelegationTokenRequestProto proto = 
       RenewDelegationTokenRequestProto.getDefaultInstance();
@@ -43,10 +41,10 @@ public class RenewDelegationTokenRequestPBImpl extends
     this.viaProto = true;
   }
 
-  DelegationToken token;
+  Token token;
 
   @Override
-  public DelegationToken getDelegationToken() {
+  public Token getDelegationToken() {
     RenewDelegationTokenRequestProtoOrBuilder p = viaProto ? proto : builder;
     if (this.token != null) {
       return this.token;
@@ -56,14 +54,13 @@ public class RenewDelegationTokenRequestPBImpl extends
   }
 
   @Override
-  public void setDelegationToken(DelegationToken token) {
+  public void setDelegationToken(Token token) {
     maybeInitBuilder();
     if (token == null) 
       builder.clearToken();
     this.token = token;
   }
 
-  @Override
   public RenewDelegationTokenRequestProto getProto() {
     mergeLocalToProto();
     proto = viaProto ? proto : builder.build();
@@ -71,6 +68,25 @@ public class RenewDelegationTokenRequestPBImpl extends
     return proto;
   }
 
+  @Override
+  public int hashCode() {
+    return getProto().hashCode();
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (other == null)
+      return false;
+    if (other.getClass().isAssignableFrom(this.getClass())) {
+      return this.getProto().equals(this.getClass().cast(other).getProto());
+    }
+    return false;
+  }
+
+  @Override
+  public String toString() {
+    return getProto().toString().replaceAll("\\n", ", ").replaceAll("\\s+", " ");
+  }
 
   private void mergeLocalToBuilder() {
     if (token != null) {
@@ -94,11 +110,11 @@ public class RenewDelegationTokenRequestPBImpl extends
   }
 
 
-  private DelegationTokenPBImpl convertFromProtoFormat(TokenProto p) {
-    return new DelegationTokenPBImpl(p);
+  private TokenPBImpl convertFromProtoFormat(TokenProto p) {
+    return new TokenPBImpl(p);
   }
 
-  private TokenProto convertToProtoFormat(DelegationToken t) {
-    return ((DelegationTokenPBImpl)t).getProto();
+  private TokenProto convertToProtoFormat(Token t) {
+    return ((TokenPBImpl)t).getProto();
   }
 }

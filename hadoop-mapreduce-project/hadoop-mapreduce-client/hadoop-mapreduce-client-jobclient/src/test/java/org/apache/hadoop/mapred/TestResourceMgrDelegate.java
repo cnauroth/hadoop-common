@@ -38,6 +38,7 @@ import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.Records;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -47,6 +48,7 @@ public class TestResourceMgrDelegate {
 
   /**
    * Tests that getRootQueues makes a request for the (recursive) child queues
+   * @throws IOException
    */
   @Test
   public void testGetRootQueues() throws IOException, InterruptedException {
@@ -55,8 +57,12 @@ public class TestResourceMgrDelegate {
     org.apache.hadoop.yarn.api.records.QueueInfo queueInfo =
       Mockito.mock(org.apache.hadoop.yarn.api.records.QueueInfo.class);
     Mockito.when(response.getQueueInfo()).thenReturn(queueInfo);
-    Mockito.when(applicationsManager.getQueueInfo(Mockito.any(
-      GetQueueInfoRequest.class))).thenReturn(response);
+    try {
+      Mockito.when(applicationsManager.getQueueInfo(Mockito.any(
+        GetQueueInfoRequest.class))).thenReturn(response);
+    } catch (YarnException e) {
+      throw new IOException(e);
+    }
 
     ResourceMgrDelegate delegate = new ResourceMgrDelegate(
       new YarnConfiguration()) {
@@ -69,8 +75,12 @@ public class TestResourceMgrDelegate {
 
     ArgumentCaptor<GetQueueInfoRequest> argument =
       ArgumentCaptor.forClass(GetQueueInfoRequest.class);
-    Mockito.verify(applicationsManager).getQueueInfo(
-      argument.capture());
+    try {
+      Mockito.verify(applicationsManager).getQueueInfo(
+        argument.capture());
+    } catch (YarnException e) {
+      throw new IOException(e);
+    }
 
     Assert.assertTrue("Children of root queue not requested",
       argument.getValue().getIncludeChildQueues());
@@ -119,7 +129,7 @@ public class TestResourceMgrDelegate {
     ApplicationResourceUsageReport appResources = Mockito
         .mock(ApplicationResourceUsageReport.class);
     Mockito.when(appReport.getApplicationId()).thenReturn(
-        Records.newRecord(ApplicationId.class));
+        ApplicationId.newInstance(0, 0));
     Mockito.when(appResources.getNeededResources()).thenReturn(
         Records.newRecord(Resource.class));
     Mockito.when(appResources.getReservedResources()).thenReturn(

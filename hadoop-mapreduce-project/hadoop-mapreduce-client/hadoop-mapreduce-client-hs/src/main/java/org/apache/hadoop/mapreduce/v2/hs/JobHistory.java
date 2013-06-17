@@ -40,7 +40,7 @@ import org.apache.hadoop.mapreduce.v2.jobhistory.JHAdminConfig;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.yarn.Clock;
 import org.apache.hadoop.yarn.ClusterInfo;
-import org.apache.hadoop.yarn.YarnException;
+import org.apache.hadoop.yarn.YarnRuntimeException;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.event.EventHandler;
@@ -71,11 +71,10 @@ public class JobHistory extends AbstractService implements HistoryContext {
   private HistoryFileManager hsManager = null;
 
   @Override
-  public void init(Configuration conf) throws YarnException {
+  public void init(Configuration conf) throws YarnRuntimeException {
     LOG.info("JobHistory Init");
     this.conf = conf;
-    this.appID = RecordFactoryProvider.getRecordFactory(conf)
-        .newRecordInstance(ApplicationId.class);
+    this.appID = ApplicationId.newInstance(0, 0);
     this.appAttemptID = RecordFactoryProvider.getRecordFactory(conf)
         .newRecordInstance(ApplicationAttemptId.class);
 
@@ -88,7 +87,7 @@ public class JobHistory extends AbstractService implements HistoryContext {
     try {
       hsManager.initExisting();
     } catch (IOException e) {
-      throw new YarnException("Failed to intialize existing directories", e);
+      throw new YarnRuntimeException("Failed to intialize existing directories", e);
     }
 
     storage = ReflectionUtils.newInstance(conf.getClass(

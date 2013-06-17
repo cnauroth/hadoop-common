@@ -18,15 +18,18 @@
 
 package org.apache.hadoop.yarn;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 
 import junit.framework.Assert;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.io.Text;
 import org.apache.hadoop.ipc.ProtobufRpcEngine;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.ipc.Server;
 import org.apache.hadoop.net.NetUtils;
+import org.apache.hadoop.security.SecurityUtil;
 import org.apache.hadoop.yarn.api.ClientRMProtocol;
 import org.apache.hadoop.yarn.api.ContainerManager;
 import org.apache.hadoop.yarn.api.ContainerManagerPB;
@@ -43,15 +46,17 @@ import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.ContainerState;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
+import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.api.records.Token;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
-import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
-import org.apache.hadoop.yarn.factory.providers.YarnRemoteExceptionFactoryProvider;
 import org.apache.hadoop.yarn.ipc.HadoopYarnProtoRPC;
 import org.apache.hadoop.yarn.ipc.RPCUtil;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
+import org.apache.hadoop.yarn.security.ContainerTokenIdentifier;
 import org.apache.hadoop.yarn.util.Records;
 import org.junit.Test;
 
@@ -81,7 +86,7 @@ public class TestRPC {
       proxy.getNewApplication(Records
           .newRecord(GetNewApplicationRequest.class));
       Assert.fail("Excepted RPC call to fail with unknown method.");
-    } catch (YarnRemoteException e) {
+    } catch (YarnException e) {
       Assert.assertTrue(e.getMessage().matches(
           "Unknown method getNewApplication called on.*"
               + "org.apache.hadoop.yarn.proto.ClientRMProtocol"
@@ -111,33 +116,28 @@ public class TestRPC {
             NetUtils.getConnectAddress(server), conf);
     ContainerLaunchContext containerLaunchContext = 
         recordFactory.newRecordInstance(ContainerLaunchContext.class);
-    containerLaunchContext.setUser("dummy-user");
-    ContainerId containerId = 
-        recordFactory.newRecordInstance(ContainerId.class);
-    ApplicationId applicationId = 
-        recordFactory.newRecordInstance(ApplicationId.class);
+
+    ApplicationId applicationId = ApplicationId.newInstance(0, 0);
     ApplicationAttemptId applicationAttemptId =
-        recordFactory.newRecordInstance(ApplicationAttemptId.class);
-    applicationId.setClusterTimestamp(0);
-    applicationId.setId(0);
-    applicationAttemptId.setApplicationId(applicationId);
-    applicationAttemptId.setAttemptId(0);
-    containerId.setApplicationAttemptId(applicationAttemptId);
-    containerId.setId(100);
-    containerLaunchContext.setContainerId(containerId);
-    containerLaunchContext.setResource(
-        recordFactory.newRecordInstance(Resource.class));
-//    containerLaunchContext.env = new HashMap<CharSequence, CharSequence>();
-//    containerLaunchContext.command = new ArrayList<CharSequence>();
-    
-    StartContainerRequest scRequest = 
+        ApplicationAttemptId.newInstance(applicationId, 0);
+    ContainerId containerId =
+        ContainerId.newInstance(applicationAttemptId, 100);
+    StartContainerRequest scRequest =
         recordFactory.newRecordInstance(StartContainerRequest.class);
     scRequest.setContainerLaunchContext(containerLaunchContext);
+    NodeId nodeId = NodeId.newInstance("localhost", 1234);
+    Resource resource = Resource.newInstance(1234, 2);
+    ContainerTokenIdentifier containerTokenIdentifier =
+        new ContainerTokenIdentifier(containerId, "localhost", "user",
+          resource, System.currentTimeMillis() + 10000, 42, 42);
+    Token containerToken = newContainerToken(nodeId, "password".getBytes(),
+          containerTokenIdentifier);
+    scRequest.setContainerToken(containerToken);
     proxy.startContainer(scRequest);
     
     GetContainerStatusRequest gcsRequest = 
         recordFactory.newRecordInstance(GetContainerStatusRequest.class);
-    gcsRequest.setContainerId(containerLaunchContext.getContainerId());
+    gcsRequest.setContainerId(containerId);
     GetContainerStatusResponse response =  proxy.getContainerStatus(gcsRequest);
     ContainerStatus status = response.getStatus();
     
@@ -145,13 +145,13 @@ public class TestRPC {
     boolean exception = false;
     try {
       StopContainerRequest stopRequest = recordFactory.newRecordInstance(StopContainerRequest.class);
-      stopRequest.setContainerId(containerLaunchContext.getContainerId());
+      stopRequest.setContainerId(containerId);
       proxy.stopContainer(stopRequest);
-    } catch (YarnRemoteException e) {
+    } catch (YarnException e) {
       exception = true;
       Assert.assertTrue(e.getMessage().contains(EXCEPTION_MSG));
       Assert.assertTrue(e.getMessage().contains(EXCEPTION_CAUSE));
-      System.out.println("Test Exception is " + RPCUtil.toString(e));
+      System.out.println("Test Exception is " + e.getMessage());
     } catch (Exception ex) {
       ex.printStackTrace();
     }
@@ -169,7 +169,7 @@ public class TestRPC {
     @Override
     public GetContainerStatusResponse getContainerStatus(
         GetContainerStatusRequest request)
-    throws YarnRemoteException {
+    throws YarnException {
       GetContainerStatusResponse response = 
           recordFactory.newRecordInstance(GetContainerStatusResponse.class);
       response.setStatus(status);
@@ -178,24 +178,54 @@ public class TestRPC {
 
     @Override
     public StartContainerResponse startContainer(StartContainerRequest request) 
-        throws YarnRemoteException {
-      ContainerLaunchContext container = request.getContainerLaunchContext();
+        throws YarnException {
+      Token containerToken = request.getContainerToken();
+      ContainerTokenIdentifier tokenId = null;
+
+      try {
+        tokenId = newContainerTokenIdentifier(containerToken);
+      } catch (IOException e) {
+        throw RPCUtil.getRemoteException(e);
+      }
       StartContainerResponse response = 
           recordFactory.newRecordInstance(StartContainerResponse.class);
       status = recordFactory.newRecordInstance(ContainerStatus.class);
       status.setState(ContainerState.RUNNING);
-      status.setContainerId(container.getContainerId());
+      status.setContainerId(tokenId.getContainerID());
       status.setExitStatus(0);
       return response;
     }
 
     @Override
     public StopContainerResponse stopContainer(StopContainerRequest request) 
-    throws YarnRemoteException {
+    throws YarnException {
       Exception e = new Exception(EXCEPTION_MSG, 
           new Exception(EXCEPTION_CAUSE));
-      throw YarnRemoteExceptionFactoryProvider
-          .getYarnRemoteExceptionFactory(null).createYarnRemoteException(e);
+      throw new YarnException(e);
     }
+  }
+
+  public static ContainerTokenIdentifier newContainerTokenIdentifier(
+      Token containerToken) throws IOException {
+    org.apache.hadoop.security.token.Token<ContainerTokenIdentifier> token =
+        new org.apache.hadoop.security.token.Token<ContainerTokenIdentifier>(
+            containerToken.getIdentifier()
+                .array(), containerToken.getPassword().array(), new Text(
+                containerToken.getKind()),
+            new Text(containerToken.getService()));
+    return token.decodeIdentifier();
+  }
+
+  public static Token newContainerToken(NodeId nodeId, byte[] password,
+      ContainerTokenIdentifier tokenIdentifier) {
+    // RPC layer client expects ip:port as service for tokens
+    InetSocketAddress addr =
+        NetUtils.createSocketAddrForHost(nodeId.getHost(), nodeId.getPort());
+    // NOTE: use SecurityUtil.setTokenService if this becomes a "real" token
+    Token containerToken =
+        Token.newInstance(tokenIdentifier.getBytes(),
+          ContainerTokenIdentifier.KIND.toString(), password, SecurityUtil
+            .buildTokenService(addr).toString());
+    return containerToken;
   }
 }

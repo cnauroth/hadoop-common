@@ -41,7 +41,7 @@ import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
-import org.apache.hadoop.yarn.api.records.ContainerToken;
+import org.apache.hadoop.yarn.api.records.Token;
 import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.QueueACL;
@@ -57,8 +57,8 @@ import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger;
 import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger.AuditConstants;
 import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore.RMState;
-import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
 import org.apache.hadoop.yarn.server.resourcemanager.resource.DefaultResourceCalculator;
+import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceCalculator;
 import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptEventType;
@@ -86,7 +86,7 @@ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.NodeAddedSc
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.NodeRemovedSchedulerEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.NodeUpdateSchedulerEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.SchedulerEvent;
-import org.apache.hadoop.yarn.util.BuilderUtils;
+import org.apache.hadoop.yarn.server.utils.BuilderUtils;
 
 @LimitedPrivate("yarn")
 @Evolving
@@ -222,7 +222,7 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
   @Override
   public Allocation allocate(
       ApplicationAttemptId applicationAttemptId, List<ResourceRequest> ask,
-      List<ContainerId> release) {
+      List<ContainerId> release, List<String> blacklistAdditions, List<String> blacklistRemovals) {
     FiCaSchedulerApp application = getApplication(applicationAttemptId);
     if (application == null) {
       LOG.error("Calling allocate on removed " +
@@ -232,7 +232,7 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
 
     // Sanity check
     SchedulerUtils.normalizeRequests(ask, resourceCalculator, 
-        clusterResource, minimumAllocation);
+        clusterResource, minimumAllocation, maximumAllocation);
 
     // Release containers
     for (ContainerId releasedContainer : release) {
@@ -252,6 +252,15 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
     }
 
     synchronized (application) {
+
+      // make sure we aren't stopping/removing the application
+      // when the allocate comes in
+      if (application.isStopped()) {
+        LOG.info("Calling allocate on a stopped " +
+            "application " + applicationAttemptId);
+        return EMPTY_ALLOCATION;
+      }
+
       if (!ask.isEmpty()) {
         LOG.debug("allocate: pre-update" +
             " applicationId=" + applicationAttemptId + 
@@ -259,7 +268,7 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
         application.showRequests();
 
         // Update application requests
-        application.updateResourceRequests(ask);
+        application.updateResourceRequests(ask, null, null);
 
         LOG.debug("allocate: post-update" +
             " applicationId=" + applicationAttemptId + 
@@ -393,7 +402,7 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
   private int getMaxAllocatableContainers(FiCaSchedulerApp application,
       Priority priority, FiCaSchedulerNode node, NodeType type) {
     ResourceRequest offSwitchRequest = 
-      application.getResourceRequest(priority, FiCaSchedulerNode.ANY);
+      application.getResourceRequest(priority, ResourceRequest.ANY);
     int maxContainers = offSwitchRequest.getNumContainers();
 
     if (type == NodeType.OFF_SWITCH) {
@@ -453,7 +462,7 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
       FiCaSchedulerApp application, Priority priority) {
     int assignedContainers = 0;
     ResourceRequest request = 
-      application.getResourceRequest(priority, node.getRMNode().getNodeAddress());
+      application.getResourceRequest(priority, node.getHostName());
     if (request != null) {
       // Don't allocate on this node if we don't need containers on this rack
       ResourceRequest rackRequest =
@@ -483,7 +492,7 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
     if (request != null) {
       // Don't allocate on this rack if the application doens't need containers
       ResourceRequest offSwitchRequest =
-          application.getResourceRequest(priority, FiCaSchedulerNode.ANY);
+          application.getResourceRequest(priority, ResourceRequest.ANY);
       if (offSwitchRequest.getNumContainers() <= 0) {
         return 0;
       }
@@ -504,7 +513,7 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
       FiCaSchedulerApp application, Priority priority) {
     int assignedContainers = 0;
     ResourceRequest request = 
-      application.getResourceRequest(priority, FiCaSchedulerNode.ANY);
+      application.getResourceRequest(priority, ResourceRequest.ANY);
     if (request != null) {
       assignedContainers = 
         assignContainer(node, application, priority, 
@@ -540,23 +549,20 @@ public class FifoScheduler implements ResourceScheduler, Configurable {
         NodeId nodeId = node.getRMNode().getNodeID();
         ContainerId containerId = BuilderUtils.newContainerId(application
             .getApplicationAttemptId(), application.getNewContainerId());
-        ContainerToken containerToken = null;
+        Token containerToken = null;
 
-        // If security is enabled, send the container-tokens too.
-        if (UserGroupInformation.isSecurityEnabled()) {
-          containerToken =
-              this.rmContext.getContainerTokenSecretManager()
-                .createContainerToken(containerId, nodeId,
-                  application.getUser(), capability);
-          if (containerToken == null) {
-            return i; // Try again later.
-          }
+        containerToken =
+            this.rmContext.getContainerTokenSecretManager()
+              .createContainerToken(containerId, nodeId, application.getUser(),
+                capability);
+        if (containerToken == null) {
+          return i; // Try again later.
         }
 
         // Create the container
-        Container container = BuilderUtils.newContainer(containerId, nodeId,
-            node.getRMNode().getHttpAddress(), capability, priority,
-            containerToken);
+        Container container =
+            BuilderUtils.newContainer(containerId, nodeId, node.getRMNode()
+              .getHttpAddress(), capability, priority, containerToken);
         
         // Allocate!
         

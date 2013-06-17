@@ -22,16 +22,16 @@ import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.Priority;
-import org.apache.hadoop.yarn.api.records.ProtoBase;
+import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.proto.YarnProtos.ApplicationIdProto;
 import org.apache.hadoop.yarn.proto.YarnProtos.ApplicationSubmissionContextProto;
 import org.apache.hadoop.yarn.proto.YarnProtos.ApplicationSubmissionContextProtoOrBuilder;
 import org.apache.hadoop.yarn.proto.YarnProtos.ContainerLaunchContextProto;
 import org.apache.hadoop.yarn.proto.YarnProtos.PriorityProto;
+import org.apache.hadoop.yarn.proto.YarnProtos.ResourceProto;
     
 public class ApplicationSubmissionContextPBImpl 
-extends ProtoBase<ApplicationSubmissionContextProto> 
-implements ApplicationSubmissionContext {
+extends ApplicationSubmissionContext {
   ApplicationSubmissionContextProto proto = 
       ApplicationSubmissionContextProto.getDefaultInstance();
   ApplicationSubmissionContextProto.Builder builder = null;
@@ -40,7 +40,8 @@ implements ApplicationSubmissionContext {
   private ApplicationId applicationId = null;
   private Priority priority = null;
   private ContainerLaunchContext amContainer = null;
-  
+  private Resource resource = null;
+
   public ApplicationSubmissionContextPBImpl() {
     builder = ApplicationSubmissionContextProto.newBuilder();
   }
@@ -58,6 +59,26 @@ implements ApplicationSubmissionContext {
     return proto;
   }
 
+  @Override
+  public int hashCode() {
+    return getProto().hashCode();
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (other == null)
+      return false;
+    if (other.getClass().isAssignableFrom(this.getClass())) {
+      return this.getProto().equals(this.getClass().cast(other).getProto());
+    }
+    return false;
+  }
+
+  @Override
+  public String toString() {
+    return getProto().toString().replaceAll("\\n", ", ").replaceAll("\\s+", " ");
+  }
+
   private void mergeLocalToBuilder() {
     if (this.applicationId != null) {
       builder.setApplicationId(convertToProtoFormat(this.applicationId));
@@ -67,6 +88,11 @@ implements ApplicationSubmissionContext {
     }
     if (this.amContainer != null) {
       builder.setAmContainerSpec(convertToProtoFormat(this.amContainer));
+    }
+    if (this.resource != null &&
+        !((ResourcePBImpl) this.resource).getProto().equals(
+            builder.getResource())) {
+      builder.setResource(convertToProtoFormat(this.resource));
     }
   }
 
@@ -157,6 +183,15 @@ implements ApplicationSubmissionContext {
   }
 
   @Override
+  public String getApplicationType() {
+    ApplicationSubmissionContextProtoOrBuilder p = viaProto ? proto : builder;
+    if (!p.hasApplicationType()) {
+      return null;
+    }
+    return (p.getApplicationType());
+  }
+  
+  @Override
   public void setQueue(String queue) {
     maybeInitBuilder();
     if (queue == null) {
@@ -167,22 +202,13 @@ implements ApplicationSubmissionContext {
   }
   
   @Override
-  public String getUser() {
-    ApplicationSubmissionContextProtoOrBuilder p = viaProto ? proto : builder;
-    if (!p.hasUser()) {
-      return null;
-    }
-    return (p.getUser());
-  }
-
-  @Override
-  public void setUser(String user) {
+  public void setApplicationType(String applicationType) {
     maybeInitBuilder();
-    if (user == null) {
-      builder.clearUser();
+    if (applicationType == null) {
+      builder.clearApplicationType();
       return;
     }
-    builder.setUser((user));
+    builder.setApplicationType((applicationType));
   }
 
   @Override
@@ -244,6 +270,28 @@ implements ApplicationSubmissionContext {
     builder.setMaxAppAttempts(maxAppAttempts);
   }
 
+  @Override
+  public Resource getResource() {
+    ApplicationSubmissionContextProtoOrBuilder p = viaProto ? proto : builder;
+    if (this.resource != null) {
+      return this.resource;
+    }
+    if (!p.hasResource()) {
+      return null;
+    }
+    this.resource = convertFromProtoFormat(p.getResource());
+    return this.resource;
+  }
+
+  @Override
+  public void setResource(Resource resource) {
+    maybeInitBuilder();
+    if (resource == null) {
+      builder.clearResource();
+    }
+    this.resource = resource;
+  }
+
   private PriorityPBImpl convertFromProtoFormat(PriorityProto p) {
     return new PriorityPBImpl(p);
   }
@@ -267,5 +315,13 @@ implements ApplicationSubmissionContext {
 
   private ContainerLaunchContextProto convertToProtoFormat(ContainerLaunchContext t) {
     return ((ContainerLaunchContextPBImpl)t).getProto();
+  }
+
+  private ResourcePBImpl convertFromProtoFormat(ResourceProto p) {
+    return new ResourcePBImpl(p);
+  }
+
+  private ResourceProto convertToProtoFormat(Resource t) {
+    return ((ResourcePBImpl)t).getProto();
   }
 }  

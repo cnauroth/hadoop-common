@@ -23,7 +23,7 @@ import java.text.NumberFormat;
 import org.apache.hadoop.classification.InterfaceAudience.Private;
 import org.apache.hadoop.classification.InterfaceAudience.Public;
 import org.apache.hadoop.classification.InterfaceStability.Stable;
-import org.apache.hadoop.classification.InterfaceStability.Unstable;
+import org.apache.hadoop.yarn.util.Records;
 
 /**
  * <p><code>ApplicationAttemptId</code> denotes the particular <em>attempt</em>
@@ -37,8 +37,19 @@ import org.apache.hadoop.classification.InterfaceStability.Unstable;
 @Stable
 public abstract class ApplicationAttemptId implements
     Comparable<ApplicationAttemptId> {
-  
+
   public static final String appAttemptIdStrPrefix = "appattempt_";
+
+  @Private
+  public static ApplicationAttemptId newInstance(ApplicationId appId,
+      int attemptId) {
+    ApplicationAttemptId appAttemptId =
+        Records.newRecord(ApplicationAttemptId.class);
+    appAttemptId.setApplicationId(appId);
+    appAttemptId.setAttemptId(attemptId);
+    appAttemptId.build();
+    return appAttemptId;
+  }
 
   /**
    * Get the <code>ApplicationId</code> of the <code>ApplicationAttempId</code>. 
@@ -49,8 +60,7 @@ public abstract class ApplicationAttemptId implements
   public abstract ApplicationId getApplicationId();
   
   @Private
-  @Unstable
-  public abstract void setApplicationId(ApplicationId appID);
+  protected abstract void setApplicationId(ApplicationId appID);
   
   /**
    * Get the <code>attempt id</code> of the <code>Application</code>.
@@ -59,8 +69,7 @@ public abstract class ApplicationAttemptId implements
   public abstract int getAttemptId();
   
   @Private
-  @Unstable
-  public abstract void setAttemptId(int attemptId);
+  protected abstract void setAttemptId(int attemptId);
 
   static final ThreadLocal<NumberFormat> attemptIdFormat =
       new ThreadLocal<NumberFormat>() {
@@ -120,4 +129,6 @@ public abstract class ApplicationAttemptId implements
     sb.append("_").append(attemptIdFormat.get().format(getAttemptId()));
     return sb.toString();
   }
+
+  protected abstract void build();
 }

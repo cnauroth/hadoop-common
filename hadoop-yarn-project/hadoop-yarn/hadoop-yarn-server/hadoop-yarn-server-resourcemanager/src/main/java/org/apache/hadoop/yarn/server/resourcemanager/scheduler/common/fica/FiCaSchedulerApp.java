@@ -51,7 +51,6 @@ import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerEven
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerFinishedEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerImpl;
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerReservedEvent;
-import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
 import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNodeCleanContainerEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.ActiveUsersManager;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.AppSchedulingInfo;
@@ -92,6 +91,9 @@ public class FiCaSchedulerApp extends SchedulerApplication {
 
   final Map<Priority, Map<NodeId, RMContainer>> reservedContainers = 
       new HashMap<Priority, Map<NodeId, RMContainer>>();
+
+  private boolean isStopped = false;
+
   
   /**
    * Count how many times the application has been given an opportunity
@@ -132,8 +134,12 @@ public class FiCaSchedulerApp extends SchedulerApplication {
   }
 
   public synchronized void updateResourceRequests(
-      List<ResourceRequest> requests) {
-    this.appSchedulingInfo.updateResourceRequests(requests);
+      List<ResourceRequest> requests, 
+      List<String> blacklistAdditions, List<String> blacklistRemovals) {
+    if (!isStopped) {
+      this.appSchedulingInfo.updateResourceRequests(requests, 
+          blacklistAdditions, blacklistRemovals);
+    }
   }
 
   public Map<String, ResourceRequest> getResourceRequests(Priority priority) {
@@ -148,16 +154,20 @@ public class FiCaSchedulerApp extends SchedulerApplication {
     return this.appSchedulingInfo.getPriorities();
   }
 
-  public ResourceRequest getResourceRequest(Priority priority, String nodeAddress) {
-    return this.appSchedulingInfo.getResourceRequest(priority, nodeAddress);
+  public ResourceRequest getResourceRequest(Priority priority, String resourceName) {
+    return this.appSchedulingInfo.getResourceRequest(priority, resourceName);
   }
 
   public synchronized int getTotalRequiredResources(Priority priority) {
-    return getResourceRequest(priority, RMNode.ANY).getNumContainers();
+    return getResourceRequest(priority, ResourceRequest.ANY).getNumContainers();
   }
   
   public Resource getResource(Priority priority) {
     return this.appSchedulingInfo.getResource(priority);
+  }
+  
+  public boolean isBlacklisted(String resourceName) {
+    return this.appSchedulingInfo.isBlacklisted(resourceName);
   }
 
   /**
@@ -167,6 +177,10 @@ public class FiCaSchedulerApp extends SchedulerApplication {
   @Override
   public boolean isPending() {
     return this.appSchedulingInfo.isPending();
+  }
+
+  public synchronized boolean isStopped() {
+    return this.isStopped;
   }
 
   public String getQueueName() {
@@ -184,6 +198,7 @@ public class FiCaSchedulerApp extends SchedulerApplication {
 
   public synchronized void stop(RMAppAttemptState rmAppAttemptFinalState) {
     // Cleanup all scheduling information
+    this.isStopped = true;
     this.appSchedulingInfo.stop(rmAppAttemptFinalState);
   }
 
@@ -235,6 +250,10 @@ public class FiCaSchedulerApp extends SchedulerApplication {
   synchronized public RMContainer allocate(NodeType type, FiCaSchedulerNode node,
       Priority priority, ResourceRequest request, 
       Container container) {
+
+    if (isStopped) {
+      return null;
+    }
     
     // Required sanity check - AM can call 'allocate' to update resource 
     // request without locking the scheduler, hence we need to check
@@ -319,6 +338,11 @@ public class FiCaSchedulerApp extends SchedulerApplication {
         schedulingOpportunities.count(priority) + 1);
   }
 
+  synchronized public void subtractSchedulingOpportunity(Priority priority) {
+    int count = schedulingOpportunities.count(priority) - 1;
+    this.schedulingOpportunities.setCount(priority, Math.max(count,  0));
+  }
+  
   /**
    * Return the number of times the application has been given an opportunity
    * to schedule a task at the given priority since the last time it

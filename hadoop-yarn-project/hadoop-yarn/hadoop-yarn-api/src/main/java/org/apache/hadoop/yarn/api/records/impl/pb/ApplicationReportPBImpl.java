@@ -23,9 +23,8 @@ import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.ApplicationResourceUsageReport;
-import org.apache.hadoop.yarn.api.records.ClientToken;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
-import org.apache.hadoop.yarn.api.records.ProtoBase;
+import org.apache.hadoop.yarn.api.records.Token;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.proto.YarnProtos.ApplicationAttemptIdProto;
 import org.apache.hadoop.yarn.proto.YarnProtos.ApplicationIdProto;
@@ -36,15 +35,14 @@ import org.apache.hadoop.yarn.proto.YarnProtos.FinalApplicationStatusProto;
 import org.apache.hadoop.yarn.proto.YarnProtos.YarnApplicationStateProto;
 import org.apache.hadoop.yarn.util.ProtoUtils;
 
-public class ApplicationReportPBImpl extends ProtoBase<ApplicationReportProto>
-implements ApplicationReport {
+public class ApplicationReportPBImpl extends ApplicationReport {
   ApplicationReportProto proto = ApplicationReportProto.getDefaultInstance();
   ApplicationReportProto.Builder builder = null;
   boolean viaProto = false;
 
   private ApplicationId applicationId;
   private ApplicationAttemptId currentApplicationAttemptId;
-  private ClientToken clientToken = null;
+  private Token clientToken = null;
 
   public ApplicationReportPBImpl() {
     builder = ApplicationReportProto.newBuilder();
@@ -162,7 +160,7 @@ implements ApplicationReport {
   }
 
   @Override
-  public ClientToken getClientToken() {
+  public Token getClientToken() {
     ApplicationReportProtoOrBuilder p = viaProto ? proto : builder;
     if (this.clientToken != null) {
       return this.clientToken;
@@ -214,18 +212,33 @@ implements ApplicationReport {
   }
 
   @Override
+  public float getProgress() {
+    ApplicationReportProtoOrBuilder p = viaProto ? proto : builder;
+    return p.getProgress();
+  }
+
+  @Override
+  public String getApplicationType() {
+    ApplicationReportProtoOrBuilder p = viaProto ? proto : builder;
+    if (!p.hasApplicationType()) {
+      return null;
+    }
+    return p.getApplicationType();
+  }
+  
+  @Override
   public void setApplicationId(ApplicationId applicationId) {
     maybeInitBuilder();
     if (applicationId == null)
-      builder.clearStatus();
+      builder.clearApplicationId();
     this.applicationId = applicationId;
   }
 
   @Override
   public void setCurrentApplicationAttemptId(ApplicationAttemptId applicationAttemptId) {
     maybeInitBuilder();
-    if (applicationId == null)
-      builder.clearStatus();
+    if (applicationAttemptId == null)
+      builder.clearCurrentApplicationAttemptId();
     this.currentApplicationAttemptId = applicationAttemptId;
   }
 
@@ -296,7 +309,7 @@ implements ApplicationReport {
   }
 
   @Override
-  public void setClientToken(ClientToken clientToken) {
+  public void setClientToken(Token clientToken) {
     maybeInitBuilder();
     if (clientToken == null) 
       builder.clearClientToken();
@@ -311,6 +324,16 @@ implements ApplicationReport {
       return;
     }
     builder.setUser((user));
+  }
+  
+  @Override
+  public void setApplicationType(String applicationType) {
+    maybeInitBuilder();
+    if (applicationType == null) {
+      builder.clearApplicationType();
+      return;
+    }
+    builder.setApplicationType((applicationType));
   }
 
   @Override
@@ -346,11 +369,36 @@ implements ApplicationReport {
   }
 
   @Override
+  public void setProgress(float progress) {
+    maybeInitBuilder();
+    builder.setProgress(progress);
+  }
+
   public ApplicationReportProto getProto() {
     mergeLocalToProto();
     proto = viaProto ? proto : builder.build();
     viaProto = true;
     return proto;
+  }
+
+  @Override
+  public int hashCode() {
+    return getProto().hashCode();
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (other == null)
+      return false;
+    if (other.getClass().isAssignableFrom(this.getClass())) {
+      return this.getProto().equals(this.getClass().cast(other).getProto());
+    }
+    return false;
+  }
+
+  @Override
+  public String toString() {
+    return getProto().toString().replaceAll("\\n", ", ").replaceAll("\\s+", " ");
   }
 
   private void mergeLocalToBuilder() {
@@ -365,7 +413,7 @@ implements ApplicationReport {
       builder.setCurrentApplicationAttemptId(convertToProtoFormat(this.currentApplicationAttemptId));
     }
     if (this.clientToken != null
-        && !((ClientTokenPBImpl) this.clientToken).getProto().equals(
+        && !((TokenPBImpl) this.clientToken).getProto().equals(
             builder.getClientToken())) {
       builder.setClientToken(convertToProtoFormat(this.clientToken));
     }
@@ -428,11 +476,11 @@ implements ApplicationReport {
     return ProtoUtils.convertToProtoFormat(s);
   }
 
-  private ClientTokenPBImpl convertFromProtoFormat(TokenProto p) {
-    return new ClientTokenPBImpl(p);
+  private TokenPBImpl convertFromProtoFormat(TokenProto p) {
+    return new TokenPBImpl(p);
   }
 
-  private TokenProto convertToProtoFormat(ClientToken t) {
-    return ((ClientTokenPBImpl)t).getProto();
+  private TokenProto convertToProtoFormat(Token t) {
+    return ((TokenPBImpl)t).getProto();
   }
 }

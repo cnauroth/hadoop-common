@@ -30,4 +30,12 @@ public interface RegisterNodeManagerResponse {
 
   void setNodeAction(NodeAction nodeAction);
 
+  long getRMIdentifier();
+
+  void setRMIdentifier(long rmIdentifier);
+
+  String getDiagnosticsMessage();
+
+  void setDiagnosticsMessage(String diagnosticsMessage);
+
 }

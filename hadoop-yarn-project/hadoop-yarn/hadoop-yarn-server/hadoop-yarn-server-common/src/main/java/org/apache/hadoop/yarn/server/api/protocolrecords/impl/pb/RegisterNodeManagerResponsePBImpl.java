@@ -19,7 +19,7 @@
 package org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb;
 
 
-import org.apache.hadoop.yarn.api.records.ProtoBase;
+import org.apache.hadoop.yarn.api.records.impl.pb.ProtoBase;
 import org.apache.hadoop.yarn.proto.YarnServerCommonProtos.MasterKeyProto;
 import org.apache.hadoop.yarn.proto.YarnServerCommonProtos.NodeActionProto;
 import org.apache.hadoop.yarn.proto.YarnServerCommonServiceProtos.RegisterNodeManagerResponseProto;
@@ -98,6 +98,26 @@ public class RegisterNodeManagerResponsePBImpl extends ProtoBase<RegisterNodeMan
     if (masterKey == null)
       builder.clearMasterKey();
     this.masterKey = masterKey;
+    rebuild = true;
+  }
+
+  @Override
+  public String getDiagnosticsMessage() {
+    RegisterNodeManagerResponseProtoOrBuilder p = viaProto ? proto : builder;
+    if (!p.hasDiagnosticsMessage()) {
+      return null;
+    }
+    return p.getDiagnosticsMessage();
+  }
+
+  @Override
+  public void setDiagnosticsMessage(String diagnosticsMessage) {
+    maybeInitBuilder();
+    if (diagnosticsMessage == null) {
+      builder.clearDiagnosticsMessage();
+      return;
+    }
+    builder.setDiagnosticsMessage((diagnosticsMessage));
   }
 
   @Override
@@ -114,9 +134,22 @@ public class RegisterNodeManagerResponsePBImpl extends ProtoBase<RegisterNodeMan
     maybeInitBuilder();
     if (nodeAction == null) {
       builder.clearNodeAction();
-      return;
+    } else {
+      builder.setNodeAction(convertToProtoFormat(nodeAction));
     }
-    builder.setNodeAction(convertToProtoFormat(nodeAction));
+    rebuild = true;
+  }
+
+  @Override
+  public long getRMIdentifier() {
+    RegisterNodeManagerResponseProtoOrBuilder p = viaProto ? proto : builder;
+    return (p.getRmIdentifier());
+  }
+
+  @Override
+  public void setRMIdentifier(long rmIdentifier) {
+    maybeInitBuilder();
+    builder.setRmIdentifier(rmIdentifier);
   }
 
   private NodeAction convertFromProtoFormat(NodeActionProto p) {

@@ -31,10 +31,10 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.util.Shell;
 import org.apache.hadoop.util.Shell.ShellCommandExecutor;
-import org.apache.hadoop.yarn.YarnException;
+import org.apache.hadoop.yarn.YarnRuntimeException;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.event.Dispatcher;
-import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.ipc.RPCUtil;
@@ -92,7 +92,7 @@ public class MiniYARNCluster extends CompositeService {
           new Path(targetWorkDir.getAbsolutePath()), true);
     } catch (Exception e) {
       LOG.warn("COULD NOT CLEANUP", e);
-      throw new YarnException("could not cleanup test dir", e);
+      throw new YarnRuntimeException("could not cleanup test dir", e);
     } 
 
     if (Shell.WINDOWS) {
@@ -109,7 +109,7 @@ public class MiniYARNCluster extends CompositeService {
       try {
         FileContext.getLocalFSFileContext().delete(new Path(linkPath), true);
       } catch (IOException e) {
-        throw new YarnException("could not cleanup symlink: " + linkPath, e);
+        throw new YarnRuntimeException("could not cleanup symlink: " + linkPath, e);
       }
 
       // Guarantee target exists before creating symlink.
@@ -120,7 +120,7 @@ public class MiniYARNCluster extends CompositeService {
       try {
         shexec.execute();
       } catch (IOException e) {
-        throw new YarnException(String.format(
+        throw new YarnRuntimeException(String.format(
           "failed to create symlink from %s to %s, shell output: %s", linkPath,
           targetPath, shexec.getOutput()), e);
       }
@@ -216,7 +216,7 @@ public class MiniYARNCluster extends CompositeService {
         }
         super.start();
       } catch (Throwable t) {
-        throw new YarnException(t);
+        throw new YarnRuntimeException(t);
       }
       LOG.info("MiniYARN ResourceManager address: " +
                getConfig().get(YarnConfiguration.RM_ADDRESS));
@@ -321,7 +321,7 @@ public class MiniYARNCluster extends CompositeService {
         }
         super.start();
       } catch (Throwable t) {
-        throw new YarnException(t);
+        throw new YarnRuntimeException(t);
       }
     }
 
@@ -357,15 +357,16 @@ public class MiniYARNCluster extends CompositeService {
 
             @Override
             public NodeHeartbeatResponse nodeHeartbeat(
-                NodeHeartbeatRequest request) throws YarnRemoteException {
+                NodeHeartbeatRequest request) throws YarnException,
+                IOException {
               NodeHeartbeatResponse response = recordFactory.newRecordInstance(
                   NodeHeartbeatResponse.class);
               try {
                 response = rt.nodeHeartbeat(request);
-              } catch (IOException ioe) {
+              } catch (YarnException e) {
                 LOG.info("Exception in heartbeat from node " + 
-                    request.getNodeStatus().getNodeId(), ioe);
-                throw RPCUtil.getRemoteException(ioe);
+                    request.getNodeStatus().getNodeId(), e);
+                throw e;
               }
               return response;
             }
@@ -373,15 +374,15 @@ public class MiniYARNCluster extends CompositeService {
             @Override
             public RegisterNodeManagerResponse registerNodeManager(
                 RegisterNodeManagerRequest request)
-                throws YarnRemoteException {
+                throws YarnException, IOException {
               RegisterNodeManagerResponse response = recordFactory.
                   newRecordInstance(RegisterNodeManagerResponse.class);
               try {
                 response = rt.registerNodeManager(request);
-              } catch (IOException ioe) {
+              } catch (YarnException e) {
                 LOG.info("Exception in node registration from "
-                    + request.getNodeId().toString(), ioe);
-                throw RPCUtil.getRemoteException(ioe);
+                    + request.getNodeId().toString(), e);
+                throw e;
               }
               return response;
             }

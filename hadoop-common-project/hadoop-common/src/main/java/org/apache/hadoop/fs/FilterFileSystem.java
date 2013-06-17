@@ -95,16 +95,18 @@ public class FilterFileSystem extends FileSystem {
   public URI getUri() {
     return fs.getUri();
   }
-
-  /**
-   * Returns a qualified URI whose scheme and authority identify this
-   * FileSystem.
-   */
+  
+  
   @Override
   protected URI getCanonicalUri() {
     return fs.getCanonicalUri();
   }
-  
+
+  @Override
+  protected URI canonicalizeUri(URI uri) {
+    return fs.canonicalizeUri(uri);
+  }
+
   /** Make sure that a path specifies a FileSystem. */
   @Override
   public Path makeQualified(Path path) {
@@ -459,5 +461,23 @@ public class FilterFileSystem extends FileSystem {
   @Override // FileSystem
   public FileSystem[] getChildFileSystems() {
     return new FileSystem[]{fs};
+  }
+
+  @Override // FileSystem
+  public Path createSnapshot(Path path, String snapshotName)
+      throws IOException {
+    return fs.createSnapshot(path, snapshotName);
+  }
+  
+  @Override // FileSystem
+  public void renameSnapshot(Path path, String snapshotOldName,
+      String snapshotNewName) throws IOException {
+    fs.renameSnapshot(path, snapshotOldName, snapshotNewName);
+  }
+  
+  @Override // FileSystem
+  public void deleteSnapshot(Path path, String snapshotName)
+      throws IOException {
+    fs.deleteSnapshot(path, snapshotName);
   }
 }

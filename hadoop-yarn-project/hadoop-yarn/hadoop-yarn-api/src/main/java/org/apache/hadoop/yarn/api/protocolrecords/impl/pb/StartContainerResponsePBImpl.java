@@ -22,17 +22,18 @@ package org.apache.hadoop.yarn.api.protocolrecords.impl.pb;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.List;
-
+import java.util.Map;
 
 import org.apache.hadoop.yarn.api.protocolrecords.StartContainerResponse;
-import org.apache.hadoop.yarn.api.records.ProtoBase;
+import org.apache.hadoop.yarn.proto.YarnProtos.StringBytesMapProto;
 import org.apache.hadoop.yarn.proto.YarnServiceProtos.StartContainerResponseProto;
 import org.apache.hadoop.yarn.proto.YarnServiceProtos.StartContainerResponseProtoOrBuilder;
-import org.apache.hadoop.yarn.proto.YarnProtos.StringBytesMapProto;
+import org.apache.hadoop.yarn.util.ProtoUtils;
+
+import com.google.protobuf.ByteString;
     
-public class StartContainerResponsePBImpl extends ProtoBase<StartContainerResponseProto> implements StartContainerResponse {
+public class StartContainerResponsePBImpl extends StartContainerResponse {
   StartContainerResponseProto proto = StartContainerResponseProto.getDefaultInstance();
   StartContainerResponseProto.Builder builder = null;
   boolean viaProto = false;
@@ -55,12 +56,40 @@ public class StartContainerResponsePBImpl extends ProtoBase<StartContainerRespon
     return proto;
   }
 
+  @Override
+  public int hashCode() {
+    return getProto().hashCode();
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (other == null)
+      return false;
+    if (other.getClass().isAssignableFrom(this.getClass())) {
+      return this.getProto().equals(this.getClass().cast(other).getProto());
+    }
+    return false;
+  }
+
+  @Override
+  public String toString() {
+    return getProto().toString().replaceAll("\\n", ", ").replaceAll("\\s+", " ");
+  }
+
   private synchronized void mergeLocalToBuilder() {
     if (this.serviceResponse != null) {
       addServiceResponseToProto();
     }
   }
   
+  protected final ByteBuffer convertFromProtoFormat(ByteString byteString) {
+    return ProtoUtils.convertFromProtoFormat(byteString);
+  }
+
+  protected final ByteString convertToProtoFormat(ByteBuffer byteBuffer) {
+    return ProtoUtils.convertToProtoFormat(byteBuffer);
+  }
+
   private synchronized void mergeLocalToProto() {
     if (viaProto) {
       maybeInitBuilder();
@@ -84,9 +113,14 @@ public class StartContainerResponsePBImpl extends ProtoBase<StartContainerRespon
     return this.serviceResponse;
   }
   @Override
-  public synchronized ByteBuffer getServiceResponse(String key) {
+  public synchronized void setAllServiceResponse(
+      Map<String, ByteBuffer> serviceResponses) {
+    if(serviceResponses == null) {
+      return;
+    }
     initServiceResponse();
-    return this.serviceResponse.get(key);
+    this.serviceResponse.clear();
+    this.serviceResponse.putAll(serviceResponses);
   }
   
   private synchronized void initServiceResponse() {
@@ -100,14 +134,6 @@ public class StartContainerResponsePBImpl extends ProtoBase<StartContainerRespon
     for (StringBytesMapProto c : list) {
       this.serviceResponse.put(c.getKey(), convertFromProtoFormat(c.getValue()));
     }
-  }
-  
-  @Override
-  public synchronized void addAllServiceResponse(final Map<String, ByteBuffer> serviceResponse) {
-    if (serviceResponse == null)
-      return;
-    initServiceResponse();
-    this.serviceResponse.putAll(serviceResponse);
   }
   
   private synchronized void addServiceResponseToProto() {
@@ -142,20 +168,5 @@ public class StartContainerResponsePBImpl extends ProtoBase<StartContainerRespon
       }
     };
     builder.addAllServiceResponse(iterable);
-  }
-  @Override
-  public synchronized void setServiceResponse(String key, ByteBuffer val) {
-    initServiceResponse();
-    this.serviceResponse.put(key, val);
-  }
-  @Override
-  public synchronized void removeServiceResponse(String key) {
-    initServiceResponse();
-    this.serviceResponse.remove(key);
-  }
-  @Override
-  public synchronized void clearServiceResponse() {
-    initServiceResponse();
-    this.serviceResponse.clear();
   }
 }  

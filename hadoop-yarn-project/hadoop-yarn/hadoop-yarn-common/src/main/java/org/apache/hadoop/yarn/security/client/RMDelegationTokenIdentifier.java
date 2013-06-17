@@ -37,9 +37,8 @@ import org.apache.hadoop.security.token.delegation.AbstractDelegationTokenSecret
 import org.apache.hadoop.yarn.api.ClientRMProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.CancelDelegationTokenRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.RenewDelegationTokenRequest;
-import org.apache.hadoop.yarn.api.records.DelegationToken;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
-import org.apache.hadoop.yarn.util.BuilderUtils;
 import org.apache.hadoop.yarn.util.Records;
 
 /**
@@ -105,6 +104,8 @@ public class RMDelegationTokenIdentifier extends AbstractDelegationTokenIdentifi
               Records.newRecord(RenewDelegationTokenRequest.class);
           request.setDelegationToken(convertToProtoToken(token));
           return rmClient.renewDelegationToken(request).getNextExpirationTime();
+        } catch (YarnException e) {
+          throw new IOException(e);
         } finally {
           RPC.stopProxy(rmClient);
         }
@@ -125,6 +126,8 @@ public class RMDelegationTokenIdentifier extends AbstractDelegationTokenIdentifi
               Records.newRecord(CancelDelegationTokenRequest.class);
           request.setDelegationToken(convertToProtoToken(token));
           rmClient.cancelDelegationToken(request);
+        } catch (YarnException e) {
+          throw new IOException(e);
         } finally {
           RPC.stopProxy(rmClient);
         }
@@ -159,10 +162,11 @@ public class RMDelegationTokenIdentifier extends AbstractDelegationTokenIdentifi
           .getRenewer().toString();
     }
     
-    private static DelegationToken convertToProtoToken(Token<?> token) {
-      return BuilderUtils.newDelegationToken(
-          token.getIdentifier(), token.getKind().toString(),
-          token.getPassword(), token.getService().toString());
+    private static org.apache.hadoop.yarn.api.records.Token
+        convertToProtoToken(Token<?> token) {
+      return org.apache.hadoop.yarn.api.records.Token.newInstance(
+        token.getIdentifier(), token.getKind().toString(), token.getPassword(),
+        token.getService().toString());
     }
   }
 }

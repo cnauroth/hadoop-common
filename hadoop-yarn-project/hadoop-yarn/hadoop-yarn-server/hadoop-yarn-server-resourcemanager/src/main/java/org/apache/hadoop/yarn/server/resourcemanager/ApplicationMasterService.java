@@ -21,7 +21,9 @@ package org.apache.hadoop.yarn.server.resourcemanager;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -41,32 +43,42 @@ import org.apache.hadoop.yarn.api.protocolrecords.FinishApplicationMasterRequest
 import org.apache.hadoop.yarn.api.protocolrecords.FinishApplicationMasterResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
+import org.apache.hadoop.yarn.api.records.AMCommand;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.NodeReport;
+import org.apache.hadoop.yarn.api.records.PreemptionContainer;
+import org.apache.hadoop.yarn.api.records.PreemptionContract;
+import org.apache.hadoop.yarn.api.records.PreemptionMessage;
+import org.apache.hadoop.yarn.api.records.PreemptionResourceRequest;
 import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.api.records.ResourceBlacklistRequest;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
+import org.apache.hadoop.yarn.api.records.StrictPreemptionContract;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
-import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.ipc.RPCUtil;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
 import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger.AuditConstants;
-import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.RMApp;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.AMLivelinessMonitor;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttempt;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.event.RMAppAttemptRegistrationEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.event.RMAppAttemptStatusupdateEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.event.RMAppAttemptUnregistrationEvent;
+import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.Allocation;
+import org.apache.hadoop.yarn.server.resourcemanager.scheduler.InvalidResourceBlacklistRequestException;
+import org.apache.hadoop.yarn.server.resourcemanager.scheduler.InvalidResourceRequestException;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.SchedulerNodeReport;
+import org.apache.hadoop.yarn.server.resourcemanager.scheduler.SchedulerUtils;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.YarnScheduler;
 import org.apache.hadoop.yarn.server.resourcemanager.security.authorize.RMPolicyProvider;
+import org.apache.hadoop.yarn.server.utils.BuilderUtils;
 import org.apache.hadoop.yarn.service.AbstractService;
-import org.apache.hadoop.yarn.util.BuilderUtils;
 
 @SuppressWarnings("unchecked")
 @Private
@@ -81,7 +93,7 @@ public class ApplicationMasterService extends AbstractService implements
       RecordFactoryProvider.getRecordFactory(null);
   private final ConcurrentMap<ApplicationAttemptId, AllocateResponse> responseMap =
       new ConcurrentHashMap<ApplicationAttemptId, AllocateResponse>();
-  private final AllocateResponse reboot =
+  private final AllocateResponse resync =
       recordFactory.newRecordInstance(AllocateResponse.class);
   private final RMContext rmContext;
 
@@ -89,7 +101,7 @@ public class ApplicationMasterService extends AbstractService implements
     super(ApplicationMasterService.class.getName());
     this.amLivelinessMonitor = rmContext.getAMLivelinessMonitor();
     this.rScheduler = scheduler;
-    this.reboot.setReboot(true);
+    this.resync.setAMCommand(AMCommand.AM_RESYNC);
 //    this.reboot.containers = new ArrayList<Container>();
     this.rmContext = rmContext;
   }
@@ -130,7 +142,7 @@ public class ApplicationMasterService extends AbstractService implements
   }
 
   private void authorizeRequest(ApplicationAttemptId appAttemptID)
-      throws YarnRemoteException {
+      throws YarnException {
 
     if (!UserGroupInformation.isSecurityEnabled()) {
       return;
@@ -160,7 +172,8 @@ public class ApplicationMasterService extends AbstractService implements
 
   @Override
   public RegisterApplicationMasterResponse registerApplicationMaster(
-      RegisterApplicationMasterRequest request) throws YarnRemoteException {
+      RegisterApplicationMasterRequest request) throws YarnException,
+      IOException {
 
     ApplicationAttemptId applicationAttemptId = request
         .getApplicationAttemptId();
@@ -209,7 +222,8 @@ public class ApplicationMasterService extends AbstractService implements
 
   @Override
   public FinishApplicationMasterResponse finishApplicationMaster(
-      FinishApplicationMasterRequest request) throws YarnRemoteException {
+      FinishApplicationMasterRequest request) throws YarnException,
+      IOException {
 
     ApplicationAttemptId applicationAttemptId = request
         .getApplicationAttemptId();
@@ -241,7 +255,7 @@ public class ApplicationMasterService extends AbstractService implements
 
   @Override
   public AllocateResponse allocate(AllocateRequest request)
-      throws YarnRemoteException {
+      throws YarnException, IOException {
 
     ApplicationAttemptId appAttemptId = request.getApplicationAttemptId();
     authorizeRequest(appAttemptId);
@@ -252,7 +266,7 @@ public class ApplicationMasterService extends AbstractService implements
     AllocateResponse lastResponse = responseMap.get(appAttemptId);
     if (lastResponse == null) {
       LOG.error("AppAttemptId doesnt exist in cache " + appAttemptId);
-      return reboot;
+      return resync;
     }
     if ((request.getResponseId() + 1) == lastResponse.getResponseId()) {
       /* old heartbeat */
@@ -262,7 +276,7 @@ public class ApplicationMasterService extends AbstractService implements
       // Oh damn! Sending reboot isn't enough. RM state is corrupted. TODO:
       // Reboot is not useful since after AM reboots, it will send register and 
       // get an exception. Might as well throw an exception here.
-      return reboot;
+      return resync;
     } 
     
     // Allow only one thread in AM to do heartbeat at a time.
@@ -275,10 +289,35 @@ public class ApplicationMasterService extends AbstractService implements
 
       List<ResourceRequest> ask = request.getAskList();
       List<ContainerId> release = request.getReleaseList();
-
+      
+      ResourceBlacklistRequest blacklistRequest = request.getResourceBlacklistRequest();
+      List<String> blacklistAdditions = 
+          (blacklistRequest != null) ? 
+              blacklistRequest.getBlacklistAdditions() : null;
+      List<String> blacklistRemovals = 
+          (blacklistRequest != null) ? 
+              blacklistRequest.getBlacklistRemovals() : null;
+      
+      // sanity check
+      try {
+        SchedulerUtils.validateResourceRequests(ask,
+            rScheduler.getMaximumResourceCapability());
+      } catch (InvalidResourceRequestException e) {
+        LOG.warn("Invalid resource ask by application " + appAttemptId, e);
+        throw e;
+      }
+      
+      try {
+        SchedulerUtils.validateBlacklistRequest(blacklistRequest);
+      }  catch (InvalidResourceBlacklistRequestException e) {
+        LOG.warn("Invalid blacklist request by application " + appAttemptId, e);
+        throw e;
+      }
+      
       // Send new requests to appAttempt.
       Allocation allocation =
-          this.rScheduler.allocate(appAttemptId, ask, release);
+          this.rScheduler.allocate(appAttemptId, ask, release, 
+              blacklistAdditions, blacklistRemovals);
 
       RMApp app = this.rmContext.getRMApps().get(
           appAttemptId.getApplicationId());
@@ -304,7 +343,8 @@ public class ApplicationMasterService extends AbstractService implements
               rmNode.getState(),
               rmNode.getHttpAddress(), rmNode.getRackName(), used,
               rmNode.getTotalCapability(), numContainers,
-              rmNode.getNodeHealthStatus());
+              rmNode.getHealthReport(),
+              rmNode.getLastHealthReportTime());
           
           updatedNodeReports.add(report);
         }
@@ -325,12 +365,68 @@ public class ApplicationMasterService extends AbstractService implements
         String message = "App Attempt removed from the cache during allocate"
             + appAttemptId;
         LOG.error(message);
-        return reboot;
+        return resync;
       }
       
       allocateResponse.setNumClusterNodes(this.rScheduler.getNumClusterNodes());
+   
+      // add preemption to the allocateResponse message (if any)
+      allocateResponse.setPreemptionMessage(generatePreemptionMessage(allocation));
+      
       return allocateResponse;
     }
+  }
+  
+  private PreemptionMessage generatePreemptionMessage(Allocation allocation){
+    PreemptionMessage pMsg = null;
+    // assemble strict preemption request
+    if (allocation.getStrictContainerPreemptions() != null) {
+       pMsg =
+        recordFactory.newRecordInstance(PreemptionMessage.class);
+      StrictPreemptionContract pStrict =
+          recordFactory.newRecordInstance(StrictPreemptionContract.class);
+      Set<PreemptionContainer> pCont = new HashSet<PreemptionContainer>();
+      for (ContainerId cId : allocation.getStrictContainerPreemptions()) {
+        PreemptionContainer pc =
+            recordFactory.newRecordInstance(PreemptionContainer.class);
+        pc.setId(cId);
+        pCont.add(pc);
+      }
+      pStrict.setContainers(pCont);
+      pMsg.setStrictContract(pStrict);
+    }
+
+    // assemble negotiable preemption request
+    if (allocation.getResourcePreemptions() != null &&
+        allocation.getResourcePreemptions().size() > 0 &&
+        allocation.getContainerPreemptions() != null &&
+        allocation.getContainerPreemptions().size() > 0) {
+      if (pMsg == null) {
+        pMsg =
+            recordFactory.newRecordInstance(PreemptionMessage.class);
+      }
+      PreemptionContract contract =
+          recordFactory.newRecordInstance(PreemptionContract.class);
+      Set<PreemptionContainer> pCont = new HashSet<PreemptionContainer>();
+      for (ContainerId cId : allocation.getContainerPreemptions()) {
+        PreemptionContainer pc =
+            recordFactory.newRecordInstance(PreemptionContainer.class);
+        pc.setId(cId);
+        pCont.add(pc);
+      }
+      List<PreemptionResourceRequest> pRes = new ArrayList<PreemptionResourceRequest>();
+      for (ResourceRequest crr : allocation.getResourcePreemptions()) {
+        PreemptionResourceRequest prr =
+            recordFactory.newRecordInstance(PreemptionResourceRequest.class);
+        prr.setResourceRequest(crr);
+        pRes.add(prr);
+      }
+      contract.setContainers(pCont);
+      contract.setResourceRequest(pRes);
+      pMsg.setContract(contract);
+    }
+    
+    return pMsg;
   }
 
   public void registerAppAttempt(ApplicationAttemptId attemptId) {

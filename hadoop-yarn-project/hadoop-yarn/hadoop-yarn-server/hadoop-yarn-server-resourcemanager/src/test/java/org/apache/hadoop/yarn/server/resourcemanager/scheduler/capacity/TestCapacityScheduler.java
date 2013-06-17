@@ -19,8 +19,11 @@
 package org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.List;
 
 import junit.framework.Assert;
@@ -28,12 +31,15 @@ import junit.framework.Assert;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.net.NetworkTopology;
+import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.QueueInfo;
 import org.apache.hadoop.yarn.api.records.QueueUserACLInfo;
 import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.event.AsyncDispatcher;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.server.resourcemanager.Application;
 import org.apache.hadoop.yarn.server.resourcemanager.MockNodes;
 import org.apache.hadoop.yarn.server.resourcemanager.RMContextImpl;
@@ -42,6 +48,7 @@ import org.apache.hadoop.yarn.server.resourcemanager.Task;
 import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
 import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.ResourceScheduler;
+import org.apache.hadoop.yarn.server.resourcemanager.scheduler.common.fica.FiCaSchedulerApp;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.NodeAddedSchedulerEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.NodeRemovedSchedulerEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.security.ClientToAMTokenSecretManagerInRM;
@@ -49,6 +56,8 @@ import org.apache.hadoop.yarn.server.resourcemanager.security.RMContainerTokenSe
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mockito;
+
 
 public class TestCapacityScheduler {
   private static final Log LOG = LogFactory.getLog(TestCapacityScheduler.class);
@@ -92,7 +101,7 @@ public class TestCapacityScheduler {
   private org.apache.hadoop.yarn.server.resourcemanager.NodeManager
       registerNode(String hostName, int containerManagerPort, int httpPort,
           String rackName, Resource capability)
-          throws IOException {
+          throws IOException, YarnException {
     return new org.apache.hadoop.yarn.server.resourcemanager.NodeManager(
         hostName, containerManagerPort, httpPort, rackName, capability,
         resourceManager.getResourceTrackerService(), resourceManager
@@ -183,7 +192,7 @@ public class TestCapacityScheduler {
     LOG.info("Adding new tasks...");
     
     Task task_1_1 = new Task(application_1, priority_0, 
-        new String[] {RMNode.ANY});
+        new String[] {ResourceRequest.ANY});
     application_1.addTask(task_1_1);
 
     application_1.schedule();
@@ -451,5 +460,27 @@ public class TestCapacityScheduler {
     }
     return result;
   }
+  
+    
+    @Test (timeout = 5000)
+    public void testApplicationComparator()
+    {
+      CapacityScheduler cs = new CapacityScheduler();
+      Comparator<FiCaSchedulerApp> appComparator= cs.getApplicationComparator();
+      ApplicationId id1 = ApplicationId.newInstance(1, 1);
+      ApplicationId id2 = ApplicationId.newInstance(1, 2);
+      ApplicationId id3 = ApplicationId.newInstance(2, 1);
+      //same clusterId
+      FiCaSchedulerApp app1 = Mockito.mock(FiCaSchedulerApp.class);
+      when(app1.getApplicationId()).thenReturn(id1);
+      FiCaSchedulerApp app2 = Mockito.mock(FiCaSchedulerApp.class);
+      when(app2.getApplicationId()).thenReturn(id2);
+      FiCaSchedulerApp app3 = Mockito.mock(FiCaSchedulerApp.class);
+      when(app3.getApplicationId()).thenReturn(id3);
+      assertTrue(appComparator.compare(app1, app2) < 0);
+      //different clusterId
+      assertTrue(appComparator.compare(app1, app3) < 0);
+      assertTrue(appComparator.compare(app2, app3) < 0);
+    }
 
 }

@@ -26,13 +26,13 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
 
-import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
+import org.apache.hadoop.yarn.api.records.Token;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.event.AsyncDispatcher;
 import org.apache.hadoop.yarn.event.Dispatcher;
@@ -49,7 +49,7 @@ import org.apache.hadoop.yarn.server.nodemanager.containermanager.container.Cont
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState;
 import org.apache.hadoop.yarn.server.nodemanager.metrics.NodeManagerMetrics;
 import org.apache.hadoop.yarn.server.security.ApplicationACLsManager;
-import org.apache.hadoop.yarn.util.BuilderUtils;
+import org.apache.hadoop.yarn.server.utils.BuilderUtils;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.junit.After;
 import org.junit.Assert;
@@ -75,7 +75,7 @@ public class TestNMWebServer {
     FileUtil.fullyDelete(testLogDir);
   }
   
-  private String startNMWebAppServer(String webAddr) {
+  private int startNMWebAppServer(String webAddr) {
     Context nmContext = new NodeManager.NMContext(null);
     ResourceView resourceView = new ResourceView() {
       @Override
@@ -106,20 +106,19 @@ public class TestNMWebServer {
         new ApplicationACLsManager(conf), dirsHandler);
     server.init(conf);
     server.start();
-    String webAppAddr = conf.get(YarnConfiguration.NM_WEBAPP_ADDRESS);
-    return StringUtils.split(webAppAddr, ':')[1];
+    return server.getPort();
   }
   
   @Test
   public void testNMWebAppWithOutPort() throws IOException {
-    String port = startNMWebAppServer("0.0.0.0");
-    Assert.assertTrue("Port is not updated", Integer.parseInt(port) > 0);
+    int port = startNMWebAppServer("0.0.0.0");
+    Assert.assertTrue("Port is not updated", port > 0);
   }
   
   @Test
   public void testNMWebAppWithEphemeralPort() throws IOException {
-    String port = startNMWebAppServer("0.0.0.0:0"); 
-    Assert.assertTrue("Port is not updated", Integer.parseInt(port) > 0);
+    int port = startNMWebAppServer("0.0.0.0:0"); 
+    Assert.assertTrue("Port is not updated", port > 0);
   }
 
   @Test
@@ -179,15 +178,21 @@ public class TestNMWebServer {
       // TODO: Use builder utils
       ContainerLaunchContext launchContext =
           recordFactory.newRecordInstance(ContainerLaunchContext.class);
-      launchContext.setContainerId(containerId);
-      launchContext.setUser(user);
+      long currentTime = System.currentTimeMillis();
+      Token containerToken =
+          BuilderUtils.newContainerToken(containerId, "127.0.0.1", 1234, user,
+            BuilderUtils.newResource(1024, 1), currentTime + 10000L, 123,
+            "password".getBytes(), currentTime);
       Container container =
-          new ContainerImpl(conf, dispatcher, launchContext, null, metrics) {
-        @Override
-        public ContainerState getContainerState() {
-          return ContainerState.RUNNING;
-        };
-      };
+          new ContainerImpl(conf, dispatcher, launchContext,
+            null, metrics,
+            BuilderUtils.newContainerTokenIdentifier(containerToken)) {
+
+            @Override
+            public ContainerState getContainerState() {
+              return ContainerState.RUNNING;
+            };
+          };
       nmContext.getContainers().put(containerId, container);
       //TODO: Gross hack. Fix in code.
       ApplicationId applicationId = 

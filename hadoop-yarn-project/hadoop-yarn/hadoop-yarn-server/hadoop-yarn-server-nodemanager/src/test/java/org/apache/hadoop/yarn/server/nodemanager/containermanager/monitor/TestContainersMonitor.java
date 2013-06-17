@@ -52,14 +52,17 @@ import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.api.records.Token;
 import org.apache.hadoop.yarn.api.records.URL;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.event.AsyncDispatcher;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.server.nodemanager.ContainerExecutor;
 import org.apache.hadoop.yarn.server.nodemanager.ContainerExecutor.ExitCode;
 import org.apache.hadoop.yarn.server.nodemanager.ContainerExecutor.Signal;
 import org.apache.hadoop.yarn.server.nodemanager.Context;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.BaseContainerManagerTest;
+import org.apache.hadoop.yarn.server.utils.BuilderUtils;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.LinuxResourceCalculatorPlugin;
 import org.apache.hadoop.yarn.util.ProcfsBasedProcessTree;
@@ -176,7 +179,7 @@ public class TestContainersMonitor extends BaseContainerManagerTest {
 
   @Test
   public void testContainerKillOnMemoryOverflow() throws IOException,
-      InterruptedException {
+      InterruptedException, YarnException {
 
     if (!ProcfsBasedProcessTree.isAvailable()) {
       return;
@@ -197,22 +200,11 @@ public class TestContainersMonitor extends BaseContainerManagerTest {
 
     ContainerLaunchContext containerLaunchContext =
         recordFactory.newRecordInstance(ContainerLaunchContext.class);
-
     // ////// Construct the Container-id
-    ApplicationId appId =
-        recordFactory.newRecordInstance(ApplicationId.class);
-    appId.setClusterTimestamp(0);
-    appId.setId(0);
-    ApplicationAttemptId appAttemptId =
-        recordFactory.newRecordInstance(ApplicationAttemptId.class);
-    appAttemptId.setApplicationId(appId);
-    appAttemptId.setAttemptId(1);
-    ContainerId cId = recordFactory.newRecordInstance(ContainerId.class);
-    cId.setId(0);
-    cId.setApplicationAttemptId(appAttemptId);
-    containerLaunchContext.setContainerId(cId);
-
-    containerLaunchContext.setUser(user);
+    ApplicationId appId = ApplicationId.newInstance(0, 0);
+    ApplicationAttemptId appAttemptId = ApplicationAttemptId.newInstance(appId, 1);
+    ContainerId cId = ContainerId.newInstance(appAttemptId, 0);
+    int port = 12345;
 
     URL resource_alpha =
         ConverterUtils.getYarnUrlFromPath(localFS
@@ -229,17 +221,19 @@ public class TestContainersMonitor extends BaseContainerManagerTest {
         new HashMap<String, LocalResource>();
     localResources.put(destinationFile, rsrc_alpha);
     containerLaunchContext.setLocalResources(localResources);
-    containerLaunchContext.setUser(containerLaunchContext.getUser());
     List<String> commands = new ArrayList<String>();
     commands.add("/bin/bash");
     commands.add(scriptFile.getAbsolutePath());
     containerLaunchContext.setCommands(commands);
-    containerLaunchContext.setResource(recordFactory
-        .newRecordInstance(Resource.class));
-    containerLaunchContext.getResource().setMemory(8 * 1024 * 1024);
+    Resource r = BuilderUtils.newResource(8 * 1024 * 1024, 1);
     StartContainerRequest startRequest =
         recordFactory.newRecordInstance(StartContainerRequest.class);
     startRequest.setContainerLaunchContext(containerLaunchContext);
+    Token containerToken =
+        BuilderUtils.newContainerToken(cId, context.getNodeId().getHost(),
+          port, user, r, System.currentTimeMillis() + 10000L, 123,
+          "password".getBytes(), super.DUMMY_RM_IDENTIFIER);
+    startRequest.setContainerToken(containerToken);
     containerManager.startContainer(startRequest);
 
     int timeoutSecs = 0;

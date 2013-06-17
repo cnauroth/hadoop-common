@@ -36,21 +36,27 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.regex.Pattern;
+import static java.util.concurrent.TimeUnit.*;
 
 import junit.framework.TestCase;
 import static org.junit.Assert.assertArrayEquals;
+
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration.IntegerRanges;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.net.NetUtils;
+import static org.apache.hadoop.util.PlatformName.IBM_JAVA;
 import org.codehaus.jackson.map.ObjectMapper; 
 
 public class TestConfiguration extends TestCase {
 
   private Configuration conf;
-  final static String CONFIG = new File("./test-config.xml").getAbsolutePath();
-  final static String CONFIG2 = new File("./test-config2.xml").getAbsolutePath();
+  final static String CONFIG = new File("./test-config-TestConfiguration.xml").getAbsolutePath();
+  final static String CONFIG2 = new File("./test-config2-TestConfiguration.xml").getAbsolutePath();
   final static Random RAN = new Random();
+  final static String XMLHEADER = 
+            IBM_JAVA?"<?xml version=\"1.0\" encoding=\"UTF-8\"?><configuration>":
+  "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?><configuration>";
 
   @Override
   protected void setUp() throws Exception {
@@ -327,8 +333,8 @@ public class TestConfiguration extends TestCase {
     ByteArrayOutputStream baos = new ByteArrayOutputStream(); 
     conf.writeXml(baos);
     String result = baos.toString();
-    assertTrue("Result has proper header", result.startsWith(
-        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?><configuration>"));
+    assertTrue("Result has proper header", result.startsWith(XMLHEADER));
+	  
     assertTrue("Result has proper footer", result.endsWith("</configuration>"));
   }
   
@@ -687,6 +693,37 @@ public class TestConfiguration extends TestCase {
       fail = true;
     }
     assertTrue(fail);
+  }
+
+  public void testTimeDuration() {
+    Configuration conf = new Configuration(false);
+    conf.setTimeDuration("test.time.a", 7L, SECONDS);
+    assertEquals("7s", conf.get("test.time.a"));
+    assertEquals(0L, conf.getTimeDuration("test.time.a", 30, MINUTES));
+    assertEquals(7L, conf.getTimeDuration("test.time.a", 30, SECONDS));
+    assertEquals(7000L, conf.getTimeDuration("test.time.a", 30, MILLISECONDS));
+    assertEquals(7000000L,
+        conf.getTimeDuration("test.time.a", 30, MICROSECONDS));
+    assertEquals(7000000000L,
+        conf.getTimeDuration("test.time.a", 30, NANOSECONDS));
+    conf.setTimeDuration("test.time.b", 1, DAYS);
+    assertEquals("1d", conf.get("test.time.b"));
+    assertEquals(1, conf.getTimeDuration("test.time.b", 1, DAYS));
+    assertEquals(24, conf.getTimeDuration("test.time.b", 1, HOURS));
+    assertEquals(MINUTES.convert(1, DAYS),
+        conf.getTimeDuration("test.time.b", 1, MINUTES));
+
+    // check default
+    assertEquals(30L, conf.getTimeDuration("test.time.X", 30, SECONDS));
+    conf.set("test.time.X", "30");
+    assertEquals(30L, conf.getTimeDuration("test.time.X", 40, SECONDS));
+
+    for (Configuration.ParsedTimeDuration ptd :
+         Configuration.ParsedTimeDuration.values()) {
+      conf.setTimeDuration("test.time.unit", 1, ptd.unit());
+      assertEquals(1 + ptd.suffix(), conf.get("test.time.unit"));
+      assertEquals(1, conf.getTimeDuration("test.time.unit", 2, ptd.unit()));
+    }
   }
 
   public void testPattern() throws IOException {

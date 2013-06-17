@@ -18,6 +18,8 @@
 
 package org.apache.hadoop.yarn.api;
 
+import java.io.IOException;
+
 import org.apache.hadoop.classification.InterfaceAudience.Public;
 import org.apache.hadoop.classification.InterfaceStability.Stable;
 import org.apache.hadoop.yarn.api.protocolrecords.GetContainerStatusRequest;
@@ -30,7 +32,7 @@ import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
-import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 
 /**
  * <p>The protocol between an <code>ApplicationMaster</code> and a 
@@ -67,12 +69,13 @@ public interface ContainerManager {
    * @param request request to start a container
    * @return empty response to indicate acceptance of the request 
    *         or an exception
-   * @throws YarnRemoteException
+   * @throws YarnException
+   * @throws IOException
    */
   @Public
   @Stable
   StartContainerResponse startContainer(StartContainerRequest request)
-      throws YarnRemoteException;
+      throws YarnException, IOException;
 
   /**
    * <p>The <code>ApplicationMaster</code> requests a <code>NodeManager</code>
@@ -93,12 +96,13 @@ public interface ContainerManager {
    * @param request request to stop a container
    * @return empty response to indicate acceptance of the request 
    *         or an exception
-   * @throws YarnRemoteException
+   * @throws YarnException
+   * @throws IOException
    */
   @Public
   @Stable
   StopContainerResponse stopContainer(StopContainerRequest request)
-      throws YarnRemoteException;
+      throws YarnException, IOException;
 
   /**
    * <p>The api used by the <code>ApplicationMaster</code> to request for 
@@ -117,10 +121,12 @@ public interface ContainerManager {
    *                with the specified <code>ContainerId</code>
    * @return response containing the <code>ContainerStatus</code> of the
    * container
-   * @throws YarnRemoteException
+   * @throws YarnException
+   * @throws IOException
    */
   @Public
   @Stable
   GetContainerStatusResponse getContainerStatus(
-      GetContainerStatusRequest request) throws YarnRemoteException;
+      GetContainerStatusRequest request) throws YarnException,
+      IOException;
 }

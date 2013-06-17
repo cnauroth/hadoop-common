@@ -20,6 +20,7 @@ package org.apache.hadoop.yarn.server.nodemanager;
 
 import java.util.concurrent.ConcurrentMap;
 
+import org.apache.hadoop.yarn.api.ContainerManager;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.NodeHealthStatus;
@@ -41,6 +42,13 @@ public interface Context {
    */
   NodeId getNodeId();
 
+  /**
+   * Return the node http-address. Usable only after the Webserver is started.
+   * 
+   * @return the http-port
+   */
+  int getHttpPort();
+
   ConcurrentMap<ApplicationId, Application> getApplications();
 
   ConcurrentMap<ContainerId, Container> getContainers();
@@ -48,4 +56,6 @@ public interface Context {
   NMContainerTokenSecretManager getContainerTokenSecretManager();
 
   NodeHealthStatus getNodeHealthStatus();
+
+  ContainerManager getContainerManager();
 }

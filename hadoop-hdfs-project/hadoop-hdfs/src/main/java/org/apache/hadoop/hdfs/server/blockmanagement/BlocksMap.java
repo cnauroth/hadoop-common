@@ -57,7 +57,7 @@ class BlocksMap {
   /** Constant {@link LightWeightGSet} capacity. */
   private final int capacity;
   
-  private GSet<Block, BlockInfo> blocks;
+  private volatile GSet<Block, BlockInfo> blocks;
 
   BlocksMap(final float loadFactor) {
     // Use 2% of total memory to size the GSet capacity
@@ -67,7 +67,10 @@ class BlocksMap {
 
 
   void close() {
-    // Empty blocks once GSet#clear is implemented (HDFS-3940)
+    if (blocks != null) {
+      blocks.clear();
+      blocks = null;
+    }
   }
 
   BlockCollection getBlockCollection(Block b) {

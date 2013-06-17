@@ -789,14 +789,9 @@ public class TestRuntimeEstimators {
     private final Map<JobId, Job> allJobs;
 
     MyAppContext(int numberMaps, int numberReduces) {
-      myApplicationID = recordFactory.newRecordInstance(ApplicationId.class);
-      myApplicationID.setClusterTimestamp(clock.getTime());
-      myApplicationID.setId(1);
+      myApplicationID = ApplicationId.newInstance(clock.getTime(), 1);
 
-      myAppAttemptID = recordFactory
-          .newRecordInstance(ApplicationAttemptId.class);
-      myAppAttemptID.setApplicationId(myApplicationID);
-      myAppAttemptID.setAttemptId(0);
+      myAppAttemptID = ApplicationAttemptId.newInstance(myApplicationID, 0);
       myJobID = recordFactory.newRecordInstance(JobId.class);
       myJobID.setAppId(myApplicationID);
 

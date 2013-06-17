@@ -48,7 +48,7 @@ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.NodeRemoved
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.NodeUpdateSchedulerEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.SchedulerEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.fifo.FifoScheduler;
-import org.apache.hadoop.yarn.util.BuilderUtils;
+import org.apache.hadoop.yarn.server.utils.BuilderUtils;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
@@ -74,8 +74,8 @@ public class TestFifoScheduler {
     rootLogger.setLevel(Level.DEBUG);
     MockRM rm = new MockRM(conf);
     rm.start();
-    MockNM nm1 = rm.registerNode("h1:1234", 6 * GB);
-    MockNM nm2 = rm.registerNode("h2:5678", 4 * GB);
+    MockNM nm1 = rm.registerNode("127.0.0.1:1234", 6 * GB);
+    MockNM nm2 = rm.registerNode("127.0.0.2:5678", 4 * GB);
 
     RMApp app1 = rm.submitApp(2048);
     // kick the scheduling, 2 GB given to AM1, remaining 4GB on nm1
@@ -98,10 +98,10 @@ public class TestFifoScheduler {
     Assert.assertEquals(2 * GB, report_nm2.getUsedResource().getMemory());
 
     // add request for containers
-    am1.addRequests(new String[] { "h1", "h2" }, GB, 1, 1);
+    am1.addRequests(new String[] { "127.0.0.1", "127.0.0.2" }, GB, 1, 1);
     AllocateResponse alloc1Response = am1.schedule(); // send the request
     // add request for containers
-    am2.addRequests(new String[] { "h1", "h2" }, 3 * GB, 0, 1);
+    am2.addRequests(new String[] { "127.0.0.1", "127.0.0.2" }, 3 * GB, 0, 1);
     AllocateResponse alloc2Response = am2.schedule(); // send the request
 
     // kick the scheduler, 1 GB and 3 GB given to AM1 and AM2, remaining 0
@@ -139,8 +139,9 @@ public class TestFifoScheduler {
 
     Container c1 = allocated1.get(0);
     Assert.assertEquals(GB, c1.getResource().getMemory());
-    c1.setState(ContainerState.COMPLETE);
-    nm1.containerStatus(c1);
+    ContainerStatus containerStatus = BuilderUtils.newContainerStatus(
+        c1.getId(), ContainerState.COMPLETE, "", 0);
+    nm1.containerStatus(containerStatus);
     int waitCount = 0;
     while (attempt1.getJustFinishedContainers().size() < 1
         && waitCount++ != 20) {
@@ -162,7 +163,7 @@ public class TestFifoScheduler {
     rm.start();
 
     // Register node1
-    MockNM nm1 = rm.registerNode("h1:1234", 6 * GB);
+    MockNM nm1 = rm.registerNode("127.0.0.1:1234", 6 * GB);
 
     // Submit an application
     RMApp app1 = rm.submitApp(testAlloc);
@@ -197,6 +198,8 @@ public class TestFifoScheduler {
     int allocMB = 1536;
     YarnConfiguration conf = new YarnConfiguration(TestFifoScheduler.conf);
     conf.setInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB, allocMB);
+    conf.setInt(YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_MB,
+        allocMB * 10);
     // Test for something lesser than this.
     testMinimumAllocation(conf, allocMB / 2);
   }
@@ -209,8 +212,10 @@ public class TestFifoScheduler {
     FifoScheduler fs = new FifoScheduler();
     fs.reinitialize(conf, null);
 
-    RMNode n1 = MockNodes.newNodeInfo(0, MockNodes.newResource(4 * GB), 1);
-    RMNode n2 = MockNodes.newNodeInfo(0, MockNodes.newResource(2 * GB), 2);
+    RMNode n1 =
+        MockNodes.newNodeInfo(0, MockNodes.newResource(4 * GB), 1, "127.0.0.2");
+    RMNode n2 =
+        MockNodes.newNodeInfo(0, MockNodes.newResource(2 * GB), 2, "127.0.0.3");
 
     fs.handle(new NodeAddedSchedulerEvent(n1));
     fs.handle(new NodeAddedSchedulerEvent(n2));
@@ -219,7 +224,8 @@ public class TestFifoScheduler {
     Assert.assertEquals(6 * GB, fs.getRootQueueMetrics().getAvailableMB());
 
     // reconnect n1 with downgraded memory
-    n1 = MockNodes.newNodeInfo(0, MockNodes.newResource(2 * GB), 1);
+    n1 =
+        MockNodes.newNodeInfo(0, MockNodes.newResource(2 * GB), 1, "127.0.0.2");
     fs.handle(new NodeRemovedSchedulerEvent(n1));
     fs.handle(new NodeAddedSchedulerEvent(n1));
     fs.handle(new NodeUpdateSchedulerEvent(n1));
@@ -238,7 +244,8 @@ public class TestFifoScheduler {
     FifoScheduler fs = (FifoScheduler) rm.getResourceScheduler();
 
     // Add a node
-    RMNode n1 = MockNodes.newNodeInfo(0, MockNodes.newResource(4 * GB), 1);
+    RMNode n1 =
+        MockNodes.newNodeInfo(0, MockNodes.newResource(4 * GB), 1, "127.0.0.2");
     fs.handle(new NodeAddedSchedulerEvent(n1));
     
     // Add two applications
@@ -264,25 +271,25 @@ public class TestFifoScheduler {
     
     // Ask for a 1 GB container for app 1
     List<ResourceRequest> ask1 = new ArrayList<ResourceRequest>();
-    ask1.add(BuilderUtils.newResourceRequest(BuilderUtils.newPriority(0), "*",
-        BuilderUtils.newResource(GB, 1), 1));
-    fs.allocate(appAttemptId1, ask1, emptyId);
+    ask1.add(BuilderUtils.newResourceRequest(BuilderUtils.newPriority(0),
+        ResourceRequest.ANY, BuilderUtils.newResource(GB, 1), 1));
+    fs.allocate(appAttemptId1, ask1, emptyId, null, null);
 
     // Ask for a 2 GB container for app 2
     List<ResourceRequest> ask2 = new ArrayList<ResourceRequest>();
-    ask2.add(BuilderUtils.newResourceRequest(BuilderUtils.newPriority(0), "*",
-        BuilderUtils.newResource(2 * GB, 1), 1));
-    fs.allocate(appAttemptId2, ask2, emptyId);
+    ask2.add(BuilderUtils.newResourceRequest(BuilderUtils.newPriority(0),
+        ResourceRequest.ANY, BuilderUtils.newResource(2 * GB, 1), 1));
+    fs.allocate(appAttemptId2, ask2, emptyId, null, null);
     
     // Trigger container assignment
     fs.handle(new NodeUpdateSchedulerEvent(n1));
     
     // Get the allocation for the applications and verify headroom
-    Allocation allocation1 = fs.allocate(appAttemptId1, emptyAsk, emptyId);
+    Allocation allocation1 = fs.allocate(appAttemptId1, emptyAsk, emptyId, null, null);
     Assert.assertEquals("Allocation headroom", 1 * GB,
         allocation1.getResourceLimit().getMemory());
 
-    Allocation allocation2 = fs.allocate(appAttemptId2, emptyAsk, emptyId);
+    Allocation allocation2 = fs.allocate(appAttemptId2, emptyAsk, emptyId, null, null);
     Assert.assertEquals("Allocation headroom", 1 * GB,
         allocation2.getResourceLimit().getMemory());
 

@@ -18,21 +18,17 @@
 
 package org.apache.hadoop.yarn.api.records.impl.pb;
 
-import org.apache.hadoop.yarn.api.records.NodeHealthStatus;
 import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.NodeState;
-import org.apache.hadoop.yarn.api.records.ProtoBase;
 import org.apache.hadoop.yarn.api.records.Resource;
-import org.apache.hadoop.yarn.proto.YarnProtos.NodeHealthStatusProto;
 import org.apache.hadoop.yarn.proto.YarnProtos.NodeIdProto;
 import org.apache.hadoop.yarn.proto.YarnProtos.NodeReportProto;
 import org.apache.hadoop.yarn.proto.YarnProtos.NodeReportProtoOrBuilder;
 import org.apache.hadoop.yarn.proto.YarnProtos.ResourceProto;
 import org.apache.hadoop.yarn.util.ProtoUtils;
 
-public class NodeReportPBImpl extends ProtoBase<NodeReportProto>
-    implements NodeReport {
+public class NodeReportPBImpl extends NodeReport {
 
   private NodeReportProto proto = NodeReportProto.getDefaultInstance();
   private NodeReportProto.Builder builder = null;
@@ -40,7 +36,6 @@ public class NodeReportPBImpl extends ProtoBase<NodeReportProto>
   private NodeId nodeId;
   private Resource used;
   private Resource capability;
-  private NodeHealthStatus nodeHealthStatus;
   
   public NodeReportPBImpl() {
     builder = NodeReportProto.newBuilder();
@@ -66,19 +61,33 @@ public class NodeReportPBImpl extends ProtoBase<NodeReportProto>
   }
 
   @Override
-  public NodeHealthStatus getNodeHealthStatus() {
-    if (this.nodeHealthStatus != null) {
-      return this.nodeHealthStatus;
-    }
-
+  public String getHealthReport() {
     NodeReportProtoOrBuilder p = viaProto ? proto : builder;
-    if (!p.hasNodeHealthStatus()) {
-      return null;
-    }
-    this.nodeHealthStatus = convertFromProtoFormat(p.getNodeHealthStatus());
-    return this.nodeHealthStatus;
+    return p.getHealthReport();
   }
-
+  
+  @Override
+  public void setHealthReport(String healthReport) {
+    maybeInitBuilder();
+    if (healthReport == null) {
+      builder.clearHealthReport();
+      return;
+    }
+    builder.setHealthReport(healthReport);
+  }
+  
+  @Override
+  public long getLastHealthReportTime() {
+    NodeReportProtoOrBuilder p = viaProto ? proto : builder;
+    return p.getLastHealthReportTime();
+  }
+  
+  @Override
+  public void setLastHealthReportTime(long lastHealthReportTime) {
+    maybeInitBuilder();
+    builder.setLastHealthReportTime(lastHealthReportTime);
+  }
+  
   @Override
   public String getHttpAddress() {
     NodeReportProtoOrBuilder p = viaProto ? proto : builder;
@@ -161,14 +170,6 @@ public class NodeReportPBImpl extends ProtoBase<NodeReportProto>
   }
 
   @Override
-  public void setNodeHealthStatus(NodeHealthStatus healthStatus) {
-    maybeInitBuilder();
-    if (healthStatus == null)
-      builder.clearNodeHealthStatus();
-    this.nodeHealthStatus = healthStatus;
-  }
-
-  @Override
   public void setHttpAddress(String httpAddress) {
     maybeInitBuilder();
     if (httpAddress == null) {
@@ -206,12 +207,31 @@ public class NodeReportPBImpl extends ProtoBase<NodeReportProto>
     this.used = used;
   }
 
-  @Override
   public NodeReportProto getProto() {
     mergeLocalToProto();
     proto = viaProto ? proto : builder.build();
     viaProto = true;
     return proto;
+  }
+
+  @Override
+  public int hashCode() {
+    return getProto().hashCode();
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (other == null)
+      return false;
+    if (other.getClass().isAssignableFrom(this.getClass())) {
+      return this.getProto().equals(this.getClass().cast(other).getProto());
+    }
+    return false;
+  }
+
+  @Override
+  public String toString() {
+    return getProto().toString().replaceAll("\\n", ", ").replaceAll("\\s+", " ");
   }
 
   private void mergeLocalToBuilder() {
@@ -229,11 +249,6 @@ public class NodeReportPBImpl extends ProtoBase<NodeReportProto>
         && !((ResourcePBImpl) this.capability).getProto().equals(
             builder.getCapability())) {
       builder.setCapability(convertToProtoFormat(this.capability));
-    }
-    if (this.nodeHealthStatus != null
-        && !((NodeHealthStatusPBImpl) this.nodeHealthStatus).getProto().equals(
-            builder.getNodeHealthStatus())) {
-      builder.setNodeHealthStatus(convertToProtoFormat(this.nodeHealthStatus));
     }
   }
 
@@ -269,11 +284,4 @@ public class NodeReportPBImpl extends ProtoBase<NodeReportProto>
     return ((ResourcePBImpl) r).getProto();
   }
 
-  private NodeHealthStatusPBImpl convertFromProtoFormat(NodeHealthStatusProto p) {
-    return new NodeHealthStatusPBImpl(p);
-  }
-
-  private NodeHealthStatusProto convertToProtoFormat(NodeHealthStatus r) {
-    return ((NodeHealthStatusPBImpl) r).getProto();
-  }
 }

@@ -132,8 +132,9 @@ public class Resources {
   }
   
   public static Resource normalize(
-      ResourceCalculator calculator, Resource lhs, Resource factor) {
-    return calculator.normalize(lhs, factor);
+      ResourceCalculator calculator, Resource lhs, Resource factor,
+      Resource limit) {
+    return calculator.normalize(lhs, factor, limit);
   }
   
   public static Resource roundUp(
@@ -206,5 +207,15 @@ public class Resources {
       Resource clusterResource,
       Resource lhs, Resource rhs) {
     return resourceCalculator.compare(clusterResource, lhs, rhs) >= 0 ? lhs : rhs;
+  }
+  
+  public static boolean fitsIn(Resource smaller, Resource bigger) {
+    return smaller.getMemory() <= bigger.getMemory() &&
+        smaller.getVirtualCores() <= bigger.getVirtualCores();
+  }
+  
+  public static Resource componentwiseMin(Resource lhs, Resource rhs) {
+    return createResource(Math.min(lhs.getMemory(), rhs.getMemory()),
+        Math.min(lhs.getVirtualCores(), rhs.getVirtualCores()));
   }
 }

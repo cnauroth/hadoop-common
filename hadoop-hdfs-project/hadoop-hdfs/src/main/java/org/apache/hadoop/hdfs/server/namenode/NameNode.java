@@ -692,13 +692,14 @@ public class NameNode {
       }
     } catch (ServiceFailedException e) {
       LOG.warn("Encountered exception while exiting state ", e);
-    }
-    stopCommonServices();
-    if (metrics != null) {
-      metrics.shutdown();
-    }
-    if (namesystem != null) {
-      namesystem.shutdown();
+    } finally {
+      stopCommonServices();
+      if (metrics != null) {
+        metrics.shutdown();
+      }
+      if (namesystem != null) {
+        namesystem.shutdown();
+      }
     }
   }
 

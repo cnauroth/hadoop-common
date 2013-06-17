@@ -146,18 +146,6 @@ if exist %HADOOP_COMMON_HOME%\%HADOOP_COMMON_LIB_JARS_DIR% (
 set CLASSPATH=!CLASSPATH!;%HADOOP_COMMON_HOME%\%HADOOP_COMMON_DIR%\*
 
 @rem
-@rem add user-specified CLASSPATH last
-@rem
-
-if defined HADOOP_CLASSPATH (
-  if defined HADOOP_USER_CLASSPATH_FIRST (
-    set CLASSPATH=%HADOOP_CLASSPATH%;%CLASSPATH%;
-  ) else (
-    set CLASSPATH=%CLASSPATH%;%HADOOP_CLASSPATH%;
-  )
-)
-
-@rem
 @rem default log directory % file
 @rem
 
@@ -195,13 +183,13 @@ set JAVA_PLATFORM=%JAVA_PLATFORM: =_%
 
 @rem Check if we're running hadoop directly from the build
 set JAVA_LIBRARY_PATH=
-if exist %HADOOP_CORE_HOME%\target\bin (
-  set JAVA_LIBRARY_PATH=%HADOOP_CORE_HOME%\target\bin
+if exist %HADOOP_COMMON_HOME%\target\bin (
+  set JAVA_LIBRARY_PATH=%HADOOP_COMMON_HOME%\target\bin
 )
 
 @rem For the distro case, check the bin folder
-if exist %HADOOP_CORE_HOME%\bin (
-  set JAVA_LIBRARY_PATH=%JAVA_LIBRARY_PATH%;%HADOOP_CORE_HOME%\bin
+if exist %HADOOP_COMMON_HOME%\bin (
+  set JAVA_LIBRARY_PATH=%JAVA_LIBRARY_PATH%;%HADOOP_COMMON_HOME%\bin
 )
 
 @rem
@@ -287,6 +275,18 @@ if not "%HADOOP_MAPRED_HOME%\%MAPRED_DIR%" == "%HADOOP_YARN_HOME%\%YARN_DIR%" (
   )
 
   set CLASSPATH=!CLASSPATH!;%HADOOP_MAPRED_HOME%\%MAPRED_DIR%\*
+)
+
+@rem
+@rem add user-specified CLASSPATH last
+@rem
+
+if defined HADOOP_CLASSPATH (
+  if defined HADOOP_USER_CLASSPATH_FIRST (
+    set CLASSPATH=%HADOOP_CLASSPATH%;%CLASSPATH%;
+  ) else (
+    set CLASSPATH=%CLASSPATH%;%HADOOP_CLASSPATH%;
+  )
 )
 
 :eof

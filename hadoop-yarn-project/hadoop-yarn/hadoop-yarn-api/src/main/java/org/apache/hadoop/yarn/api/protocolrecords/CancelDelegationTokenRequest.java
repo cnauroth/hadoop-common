@@ -20,7 +20,8 @@ package org.apache.hadoop.yarn.api.protocolrecords;
 
 import org.apache.hadoop.classification.InterfaceAudience.Public;
 import org.apache.hadoop.classification.InterfaceStability.Evolving;
-import org.apache.hadoop.yarn.api.records.DelegationToken;
+import org.apache.hadoop.yarn.api.records.Token;
+import org.apache.hadoop.yarn.util.Records;
 
 /**
  * The request issued by the client to the {@code ResourceManager} to cancel a
@@ -28,7 +29,15 @@ import org.apache.hadoop.yarn.api.records.DelegationToken;
  */
 @Public
 @Evolving
-public interface CancelDelegationTokenRequest {
-  DelegationToken getDelegationToken();
-  void setDelegationToken(DelegationToken dToken);
+public abstract class CancelDelegationTokenRequest {
+
+  public static CancelDelegationTokenRequest newInstance(Token dToken) {
+    CancelDelegationTokenRequest request =
+        Records.newRecord(CancelDelegationTokenRequest.class);
+    request.setDelegationToken(dToken);
+    return request;
+  }
+
+  public abstract Token getDelegationToken();
+  public abstract void setDelegationToken(Token dToken);
 }

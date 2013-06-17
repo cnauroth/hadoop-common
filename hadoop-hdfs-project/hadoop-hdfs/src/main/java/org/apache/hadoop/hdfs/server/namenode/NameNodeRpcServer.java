@@ -24,20 +24,26 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_SERVICE_HANDLER_
 import static org.apache.hadoop.hdfs.protocol.HdfsConstants.MAX_PATH_DEPTH;
 import static org.apache.hadoop.hdfs.protocol.HdfsConstants.MAX_PATH_LENGTH;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 
 import org.apache.commons.logging.Log;
+import org.apache.hadoop.HadoopIllegalArgumentException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.CreateFlag;
+import org.apache.hadoop.fs.FileAlreadyExistsException;
 import org.apache.hadoop.fs.FsServerDefaults;
+import org.apache.hadoop.fs.InvalidPathException;
 import org.apache.hadoop.fs.Options;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.ParentNotDirectoryException;
 import org.apache.hadoop.fs.UnresolvedLinkException;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.permission.PermissionStatus;
@@ -50,6 +56,7 @@ import org.apache.hadoop.ha.protocolPB.HAServiceProtocolServerSideTranslatorPB;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DFSUtil;
 import org.apache.hadoop.hdfs.HDFSPolicyProvider;
+import org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException;
 import org.apache.hadoop.hdfs.protocol.BlockListAsLongs;
 import org.apache.hadoop.hdfs.protocol.CorruptFileBlocks;
 import org.apache.hadoop.hdfs.protocol.DatanodeID;
@@ -57,11 +64,15 @@ import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
 import org.apache.hadoop.hdfs.protocol.DirectoryListing;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants;
+import org.apache.hadoop.hdfs.protocol.SnapshotDiffReport;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants.DatanodeReportType;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants.SafeModeAction;
 import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
 import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
+import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
+import org.apache.hadoop.hdfs.protocol.RecoveryInProgressException;
+import org.apache.hadoop.hdfs.protocol.SnapshottableDirectoryStatus;
 import org.apache.hadoop.hdfs.protocol.UnregisteredNodeException;
 import org.apache.hadoop.hdfs.protocol.UnresolvedPathException;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.ClientNamenodeProtocol;
@@ -284,7 +295,18 @@ class NameNodeRpcServer implements NamenodeProtocols {
         DFSConfigKeys.DFS_NAMENODE_MIN_SUPPORTED_DATANODE_VERSION_DEFAULT);
 
     // Set terse exception whose stack trace won't be logged
-    clientRpcServer.addTerseExceptions(SafeModeException.class);
+    clientRpcServer.addTerseExceptions(SafeModeException.class,
+        FileNotFoundException.class,
+        HadoopIllegalArgumentException.class,
+        FileAlreadyExistsException.class,
+        InvalidPathException.class,
+        ParentNotDirectoryException.class,
+        UnresolvedLinkException.class,
+        AlreadyBeingCreatedException.class,
+        QuotaExceededException.class,
+        RecoveryInProgressException.class,
+        AccessControlException.class,
+        InvalidToken.class);
  }
   
   /**
@@ -482,7 +504,8 @@ class NameNodeRpcServer implements NamenodeProtocols {
   
   @Override
   public LocatedBlock addBlock(String src, String clientName,
-      ExtendedBlock previous, DatanodeInfo[] excludedNodes, long fileId)
+      ExtendedBlock previous, DatanodeInfo[] excludedNodes, long fileId,
+      String[] favoredNodes)
       throws IOException {
     if (stateChangeLog.isDebugEnabled()) {
       stateChangeLog.debug("*BLOCK* NameNode.addBlock: file " + src
@@ -495,8 +518,10 @@ class NameNodeRpcServer implements NamenodeProtocols {
         excludedNodesSet.put(node, node);
       }
     }
+    List<String> favoredNodesList = (favoredNodes == null) ? null
+        : Arrays.asList(favoredNodes);
     LocatedBlock locatedBlock = namesystem.getAdditionalBlock(src, fileId,
-        clientName, previous, excludedNodesSet);
+        clientName, previous, excludedNodesSet, favoredNodesList);
     if (locatedBlock != null)
       metrics.incrAddBlockOps();
     return locatedBlock;
@@ -690,7 +715,12 @@ class NameNodeRpcServer implements NamenodeProtocols {
     metrics.incrFileInfoOps();
     return namesystem.getFileInfo(src, true);
   }
-
+  
+  @Override // ClientProtocol
+  public boolean isFileClosed(String src) throws IOException{
+    return namesystem.isFileClosed(src);
+  }
+  
   @Override // ClientProtocol
   public HdfsFileStatus getFileLinkInfo(String src) throws IOException { 
     metrics.incrFileInfoOps();
@@ -1083,5 +1113,65 @@ class NameNodeRpcServer implements NamenodeProtocols {
   @Override
   public DataEncryptionKey getDataEncryptionKey() throws IOException {
     return namesystem.getBlockManager().generateDataEncryptionKey();
+  }
+
+  @Override
+  public String createSnapshot(String snapshotRoot, String snapshotName)
+      throws IOException {
+    if (!checkPathLength(snapshotRoot)) {
+      throw new IOException("createSnapshot: Pathname too long.  Limit "
+          + MAX_PATH_LENGTH + " characters, " + MAX_PATH_DEPTH + " levels.");
+    }
+    metrics.incrCreateSnapshotOps();
+    return namesystem.createSnapshot(snapshotRoot, snapshotName);
+  }
+  
+  @Override
+  public void deleteSnapshot(String snapshotRoot, String snapshotName)
+      throws IOException {
+    metrics.incrDeleteSnapshotOps();
+    namesystem.deleteSnapshot(snapshotRoot, snapshotName);
+  }
+
+  @Override
+  // Client Protocol
+  public void allowSnapshot(String snapshotRoot) throws IOException {
+    metrics.incrAllowSnapshotOps();
+    namesystem.allowSnapshot(snapshotRoot);
+  }
+
+  @Override
+  // Client Protocol
+  public void disallowSnapshot(String snapshot) throws IOException {
+    metrics.incrDisAllowSnapshotOps();
+    namesystem.disallowSnapshot(snapshot);
+  }
+
+  @Override
+  public void renameSnapshot(String snapshotRoot, String snapshotOldName,
+      String snapshotNewName) throws IOException {
+    if (snapshotNewName == null || snapshotNewName.isEmpty()) {
+      throw new IOException("The new snapshot name is null or empty.");
+    }
+    metrics.incrRenameSnapshotOps();
+    namesystem.renameSnapshot(snapshotRoot, snapshotOldName, snapshotNewName);
+  }
+
+  @Override // Client Protocol
+  public SnapshottableDirectoryStatus[] getSnapshottableDirListing()
+      throws IOException {
+    SnapshottableDirectoryStatus[] status = namesystem
+        .getSnapshottableDirListing();
+    metrics.incrListSnapshottableDirOps();
+    return status;
+  }
+
+  @Override
+  public SnapshotDiffReport getSnapshotDiffReport(String snapshotRoot,
+      String earlierSnapshotName, String laterSnapshotName) throws IOException {
+    SnapshotDiffReport report = namesystem.getSnapshotDiffReport(snapshotRoot,
+        earlierSnapshotName, laterSnapshotName);
+    metrics.incrSnapshotDiffReportOps();
+    return report;
   }
 }

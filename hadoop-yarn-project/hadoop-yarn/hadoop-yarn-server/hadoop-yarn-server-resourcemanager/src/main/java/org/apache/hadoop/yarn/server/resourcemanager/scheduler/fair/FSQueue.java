@@ -23,6 +23,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.hadoop.classification.InterfaceAudience.Private;
+import org.apache.hadoop.classification.InterfaceStability.Unstable;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.authorize.AccessControlList;
 import org.apache.hadoop.yarn.api.records.Priority;
@@ -32,9 +34,13 @@ import org.apache.hadoop.yarn.api.records.QueueState;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
+import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
+import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceWeights;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.Queue;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.QueueMetrics;
 
+@Private
+@Unstable
 public abstract class FSQueue extends Schedulable implements Queue {
   private final String name;
   private final QueueManager queueMgr;
@@ -45,6 +51,8 @@ public abstract class FSQueue extends Schedulable implements Queue {
   protected final RecordFactory recordFactory =
       RecordFactoryProvider.getRecordFactory(null);
   
+  protected SchedulingPolicy policy = SchedulingPolicy.getDefault();
+
   public FSQueue(String name, QueueManager queueMgr, 
       FairScheduler scheduler, FSParentQueue parent) {
     this.name = name;
@@ -63,8 +71,21 @@ public abstract class FSQueue extends Schedulable implements Queue {
     return name;
   }
   
+  public SchedulingPolicy getPolicy() {
+    return policy;
+  }
+
+  protected void throwPolicyDoesnotApplyException(SchedulingPolicy policy)
+      throws AllocationConfigurationException {
+    throw new AllocationConfigurationException("SchedulingPolicy " + policy
+        + " does not apply to queue " + getName());
+  }
+
+  public abstract void setPolicy(SchedulingPolicy policy)
+      throws AllocationConfigurationException;
+
   @Override
-  public double getWeight() {
+  public ResourceWeights getWeights() {
     return queueMgr.getQueueWeight(getName());
   }
   
@@ -130,13 +151,27 @@ public abstract class FSQueue extends Schedulable implements Queue {
   }
   
   /**
-   * Recomputes the fair shares for all queues and applications
-   * under this queue.
+   * Recomputes the shares for all child queues and applications based on this
+   * queue's current share
    */
-  public abstract void recomputeFairShares();
+  public abstract void recomputeShares();
   
   /**
    * Gets the children of this queue, if any.
    */
   public abstract Collection<FSQueue> getChildQueues();
+
+  /**
+   * Helper method to check if the queue should attempt assigning resources
+   * 
+   * @return true if check passes (can assign) or false otherwise
+   */
+  protected boolean assignContainerPreCheck(FSSchedulerNode node) {
+    if (!Resources.fitsIn(getResourceUsage(),
+        queueMgr.getMaxResources(getName()))
+        || node.getReservedContainer() != null) {
+      return false;
+    }
+    return true;
+  }
 }

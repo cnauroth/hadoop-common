@@ -19,14 +19,17 @@ package org.apache.hadoop.mapreduce.v2.app.launcher;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.atLeast;
-import org.mockito.ArgumentCaptor;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 
@@ -39,6 +42,7 @@ import org.apache.hadoop.mapreduce.v2.api.records.TaskAttemptId;
 import org.apache.hadoop.mapreduce.v2.api.records.TaskId;
 import org.apache.hadoop.mapreduce.v2.api.records.TaskType;
 import org.apache.hadoop.mapreduce.v2.app.AppContext;
+import org.apache.hadoop.mapreduce.v2.app.MRApp;
 import org.apache.hadoop.mapreduce.v2.app.job.event.TaskAttemptEventType;
 import org.apache.hadoop.mapreduce.v2.app.launcher.ContainerLauncher.EventType;
 import org.apache.hadoop.mapreduce.v2.util.MRBuilderUtils;
@@ -49,22 +53,37 @@ import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.StartContainerResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.StopContainerRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.StopContainerResponse;
+import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
+import org.apache.hadoop.yarn.api.records.NodeId;
+import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.api.records.Token;
 import org.apache.hadoop.yarn.event.Event;
 import org.apache.hadoop.yarn.event.EventHandler;
-import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
-import org.apache.hadoop.yarn.util.BuilderUtils;
+import org.apache.hadoop.yarn.security.ContainerTokenIdentifier;
+import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 
 public class TestContainerLauncherImpl {
   static final Log LOG = LogFactory.getLog(TestContainerLauncherImpl.class);
   private static final RecordFactory recordFactory =
     RecordFactoryProvider.getRecordFactory(null);
 
+  private Map<String, ByteBuffer> serviceResponse =
+      new HashMap<String, ByteBuffer>();
+
+  @Before
+  public void setup() throws IOException {
+    serviceResponse.clear();
+    serviceResponse.put(ShuffleHandler.MAPREDUCE_SHUFFLE_SERVICEID,
+        ShuffleHandler.serializeMetaData(80));
+  }
   
   private static class ContainerLauncherImplUnderTest extends 
     ContainerLauncherImpl {
@@ -106,14 +125,14 @@ public class TestContainerLauncherImpl {
   
   public static ContainerId makeContainerId(long ts, int appId, int attemptId,
       int id) {
-    return BuilderUtils.newContainerId(
-      BuilderUtils.newApplicationAttemptId(
-        BuilderUtils.newApplicationId(ts, appId), attemptId), id);
+    return ContainerId.newInstance(
+      ApplicationAttemptId.newInstance(
+        ApplicationId.newInstance(ts, appId), attemptId), id);
   }
 
   public static TaskAttemptId makeTaskAttemptId(long ts, int appId, int taskId, 
       TaskType taskType, int id) {
-    ApplicationId aID = BuilderUtils.newApplicationId(ts, appId);
+    ApplicationId aID = ApplicationId.newInstance(ts, appId);
     JobId jID = MRBuilderUtils.newJobId(aID, id);
     TaskId tID = MRBuilderUtils.newTaskId(jID, taskId, taskType);
     return MRBuilderUtils.newTaskAttemptId(tID, id);
@@ -145,8 +164,7 @@ public class TestContainerLauncherImpl {
       String cmAddress = "127.0.0.1:8000";
       StartContainerResponse startResp = 
         recordFactory.newRecordInstance(StartContainerResponse.class);
-      startResp.setServiceResponse(ShuffleHandler.MAPREDUCE_SHUFFLE_SERVICEID, 
-          ShuffleHandler.serializeMetaData(80));
+      startResp.setAllServiceResponse(serviceResponse);
       
 
       LOG.info("inserting launch event");
@@ -159,6 +177,8 @@ public class TestContainerLauncherImpl {
       when(mockLaunchEvent.getTaskAttemptID()).thenReturn(taskAttemptId);
       when(mockLaunchEvent.getContainerMgrAddress()).thenReturn(cmAddress);
       when(mockCM.startContainer(any(StartContainerRequest.class))).thenReturn(startResp);
+      when(mockLaunchEvent.getContainerToken()).thenReturn(
+          createNewContainerToken(contId, cmAddress));
       ut.handle(mockLaunchEvent);
       
       ut.waitForPoolToIdle();
@@ -210,8 +230,7 @@ public class TestContainerLauncherImpl {
       String cmAddress = "127.0.0.1:8000";
       StartContainerResponse startResp = 
         recordFactory.newRecordInstance(StartContainerResponse.class);
-      startResp.setServiceResponse(ShuffleHandler.MAPREDUCE_SHUFFLE_SERVICEID, 
-          ShuffleHandler.serializeMetaData(80));
+      startResp.setAllServiceResponse(serviceResponse);
 
       LOG.info("inserting cleanup event");
       ContainerLauncherEvent mockCleanupEvent = 
@@ -238,6 +257,8 @@ public class TestContainerLauncherImpl {
       when(mockLaunchEvent.getTaskAttemptID()).thenReturn(taskAttemptId);
       when(mockLaunchEvent.getContainerMgrAddress()).thenReturn(cmAddress);
       when(mockCM.startContainer(any(StartContainerRequest.class))).thenReturn(startResp);
+      when(mockLaunchEvent.getContainerToken()).thenReturn(
+          createNewContainerToken(contId, cmAddress));
       ut.handle(mockLaunchEvent);
       
       ut.waitForPoolToIdle();
@@ -275,8 +296,7 @@ public class TestContainerLauncherImpl {
       String cmAddress = "127.0.0.1:8000";
       StartContainerResponse startResp =
         recordFactory.newRecordInstance(StartContainerResponse.class);
-      startResp.setServiceResponse(ShuffleHandler.MAPREDUCE_SHUFFLE_SERVICEID,
-          ShuffleHandler.serializeMetaData(80));
+      startResp.setAllServiceResponse(serviceResponse);
 
       LOG.info("inserting launch event");
       ContainerRemoteLaunchEvent mockLaunchEvent =
@@ -288,6 +308,8 @@ public class TestContainerLauncherImpl {
       when(mockLaunchEvent.getTaskAttemptID()).thenReturn(taskAttemptId);
       when(mockLaunchEvent.getContainerMgrAddress()).thenReturn(cmAddress);
       when(mockCM.startContainer(any(StartContainerRequest.class))).thenReturn(startResp);
+      when(mockLaunchEvent.getContainerToken()).thenReturn(
+          createNewContainerToken(contId, cmAddress));
       ut.handle(mockLaunchEvent);
 
       ut.waitForPoolToIdle();
@@ -333,8 +355,7 @@ public class TestContainerLauncherImpl {
       String cmAddress = "127.0.0.1:8000";
       StartContainerResponse startResp = 
         recordFactory.newRecordInstance(StartContainerResponse.class);
-      startResp.setServiceResponse(ShuffleHandler.MAPREDUCE_SHUFFLE_SERVICEID, 
-          ShuffleHandler.serializeMetaData(80));
+      startResp.setAllServiceResponse(serviceResponse);
       
      
       LOG.info("inserting launch event");
@@ -346,6 +367,8 @@ public class TestContainerLauncherImpl {
         .thenReturn(contId);
       when(mockLaunchEvent.getTaskAttemptID()).thenReturn(taskAttemptId);
       when(mockLaunchEvent.getContainerMgrAddress()).thenReturn(cmAddress);
+      when(mockLaunchEvent.getContainerToken()).thenReturn(
+          createNewContainerToken(contId, cmAddress));
       ut.handle(mockLaunchEvent);
       
       startLaunchBarrier.await();
@@ -384,6 +407,16 @@ public class TestContainerLauncherImpl {
     }
   }
   
+  private Token createNewContainerToken(ContainerId contId,
+      String containerManagerAddr) {
+    long currentTime = System.currentTimeMillis();
+    return MRApp.newContainerToken(NodeId.newInstance("127.0.0.1",
+        1234), "password".getBytes(), new ContainerTokenIdentifier(
+        contId, containerManagerAddr, "user",
+        Resource.newInstance(1024, 1),
+        currentTime + 10000L, 123, currentTime));
+  }
+
   private static class ContainerManagerForTest implements ContainerManager {
 
     private CyclicBarrier startLaunchBarrier;
@@ -395,7 +428,7 @@ public class TestContainerLauncherImpl {
     }
     @Override
     public StartContainerResponse startContainer(StartContainerRequest request)
-        throws YarnRemoteException {
+        throws IOException {
       try {
         startLaunchBarrier.await();
         completeLaunchBarrier.await();
@@ -407,39 +440,34 @@ public class TestContainerLauncherImpl {
         e.printStackTrace();
       } 
       
-      throw new ContainerException("Force fail CM");
+      throw new IOException(new ContainerException("Force fail CM"));
       
     }
 
     @Override
     public StopContainerResponse stopContainer(StopContainerRequest request)
-        throws YarnRemoteException {
+        throws IOException {
     
       return null;
     }
 
     @Override
     public GetContainerStatusResponse getContainerStatus(
-        GetContainerStatusRequest request) throws YarnRemoteException {
+        GetContainerStatusRequest request) throws IOException {
     
       return null;
     }
   }
   
   @SuppressWarnings("serial")
-  private static class ContainerException extends YarnRemoteException {
+  private static class ContainerException extends YarnException {
 
     public ContainerException(String message) {
       super(message);
     }
 
     @Override
-    public String getRemoteTrace() {
-      return null;
-    }
-
-    @Override
-    public YarnRemoteException getCause() {
+    public YarnException getCause() {
       return null;
     }
     

@@ -20,7 +20,9 @@ package org.apache.hadoop.yarn.api.protocolrecords;
 
 import org.apache.hadoop.classification.InterfaceAudience.Public;
 import org.apache.hadoop.classification.InterfaceStability.Evolving;
-import org.apache.hadoop.yarn.api.records.DelegationToken;
+import org.apache.hadoop.security.token.delegation.AbstractDelegationTokenIdentifier;
+import org.apache.hadoop.yarn.api.records.Token;
+import org.apache.hadoop.yarn.util.Records;
 
 
 /**
@@ -31,7 +33,20 @@ import org.apache.hadoop.yarn.api.records.DelegationToken;
  */
 @Public
 @Evolving
-public interface GetDelegationTokenResponse {
-  DelegationToken getRMDelegationToken();
-  void setRMDelegationToken(DelegationToken rmDTToken);
+public abstract class GetDelegationTokenResponse {
+
+  public static GetDelegationTokenResponse newInstance(Token rmDTToken) {
+    GetDelegationTokenResponse response =
+        Records.newRecord(GetDelegationTokenResponse.class);
+    response.setRMDelegationToken(rmDTToken);
+    return response;
+  }
+
+  /**
+   * The Delegation tokens have a identifier which maps to
+   * {@link AbstractDelegationTokenIdentifier}.
+   *
+   */
+  public abstract Token getRMDelegationToken();
+  public abstract void setRMDelegationToken(Token rmDTToken);
 }

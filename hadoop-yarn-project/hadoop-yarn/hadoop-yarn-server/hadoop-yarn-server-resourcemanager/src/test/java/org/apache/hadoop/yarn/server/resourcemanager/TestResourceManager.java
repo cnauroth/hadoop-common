@@ -19,6 +19,7 @@
 package org.apache.hadoop.yarn.server.resourcemanager;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
@@ -28,11 +29,13 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.net.NetworkTopology;
-import org.apache.hadoop.yarn.YarnException;
+import org.apache.hadoop.yarn.YarnRuntimeException;
 import org.apache.hadoop.yarn.api.records.NodeHealthStatus;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
 import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNode;
 import org.junit.After;
@@ -49,6 +52,7 @@ public class TestResourceManager {
     Configuration conf = new YarnConfiguration();
     resourceManager = new ResourceManager();
     resourceManager.init(conf);
+    resourceManager.getRMContainerTokenSecretManager().rollMasterKey();
   }
 
   @After
@@ -57,7 +61,8 @@ public class TestResourceManager {
 
   private org.apache.hadoop.yarn.server.resourcemanager.NodeManager
       registerNode(String hostName, int containerManagerPort, int httpPort,
-          String rackName, Resource capability) throws IOException {
+          String rackName, Resource capability) throws IOException,
+          YarnException {
     return new org.apache.hadoop.yarn.server.resourcemanager.NodeManager(
         hostName, containerManagerPort, httpPort, rackName, capability,
         resourceManager.getResourceTrackerService(), resourceManager
@@ -65,7 +70,8 @@ public class TestResourceManager {
   }
 
 //  @Test
-  public void testResourceAllocation() throws IOException {
+  public void testResourceAllocation() throws IOException,
+      YarnException {
     LOG.info("--- START: testResourceAllocation ---");
         
     final int memory = 4 * 1024;
@@ -124,7 +130,7 @@ public class TestResourceManager {
     Task t2 = new Task(application, priority1, new String[] {host1, host2});
     application.addTask(t2);
 
-    Task t3 = new Task(application, priority0, new String[] {RMNode.ANY});
+    Task t3 = new Task(application, priority0, new String[] {ResourceRequest.ANY});
     application.addTask(t3);
 
     // Send resource requests to the scheduler
@@ -170,11 +176,8 @@ public class TestResourceManager {
     nm1.heartbeat();
     nm1.heartbeat();
     Collection<RMNode> values = resourceManager.getRMContext().getRMNodes().values();
-    for (RMNode ni : values)
-    {
-      NodeHealthStatus nodeHealthStatus = ni.getNodeHealthStatus();
-      String healthReport = nodeHealthStatus.getHealthReport();
-      assertNotNull(healthReport);
+    for (RMNode ni : values) {
+      assertNotNull(ni.getHealthReport());
     }
   }
 
@@ -191,9 +194,41 @@ public class TestResourceManager {
     conf.setInt(YarnConfiguration.RM_AM_MAX_ATTEMPTS, -1);
     try {
       resourceManager.init(conf);
-      fail("Exception is expected because the global max attempts is negative.");
-    } catch (YarnException e) {
+      fail("Exception is expected because the global max attempts" +
+          " is negative.");
+    } catch (YarnRuntimeException e) {
       // Exception is expected.
+      assertTrue("The thrown exception is not the expected one.",
+          e.getMessage().startsWith(
+              "Invalid global max attempts configuration"));
+    }
+
+    conf = new YarnConfiguration();
+    conf.setInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB, 2048);
+    conf.setInt(YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_MB, 1024);
+    try {
+      resourceManager.init(conf);
+      fail("Exception is expected because the min memory allocation is" +
+          " larger than the max memory allocation.");
+    } catch (YarnRuntimeException e) {
+      // Exception is expected.
+      assertTrue("The thrown exception is not the expected one.",
+          e.getMessage().startsWith(
+              "Invalid resource scheduler memory"));
+    }
+
+    conf = new YarnConfiguration();
+    conf.setInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES, 2);
+    conf.setInt(YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_VCORES, 1);
+    try {
+      resourceManager.init(conf);
+      fail("Exception is expected because the min vcores allocation is" +
+          " larger than the max vcores allocation.");
+    } catch (YarnRuntimeException e) {
+      // Exception is expected.
+      assertTrue("The thrown exception is not the expected one.",
+          e.getMessage().startsWith(
+              "Invalid resource scheduler vcores"));
     }
   }
 

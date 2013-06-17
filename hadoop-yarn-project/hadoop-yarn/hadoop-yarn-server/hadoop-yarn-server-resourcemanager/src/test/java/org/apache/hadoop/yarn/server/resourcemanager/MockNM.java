@@ -26,7 +26,6 @@ import java.util.Map;
 
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
-import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerState;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.NodeHealthStatus;
@@ -38,7 +37,7 @@ import org.apache.hadoop.yarn.server.api.protocolrecords.RegisterNodeManagerRequ
 import org.apache.hadoop.yarn.server.api.protocolrecords.RegisterNodeManagerResponse;
 import org.apache.hadoop.yarn.server.api.records.MasterKey;
 import org.apache.hadoop.yarn.server.api.records.NodeStatus;
-import org.apache.hadoop.yarn.util.BuilderUtils;
+import org.apache.hadoop.yarn.server.utils.BuilderUtils;
 import org.apache.hadoop.yarn.util.Records;
 
 public class MockNM {
@@ -46,6 +45,7 @@ public class MockNM {
   private int responseId;
   private NodeId nodeId;
   private final int memory;
+  private final int vCores = 1;
   private ResourceTrackerService resourceTracker;
   private final int httpPort = 2;
   private MasterKey currentMasterKey;
@@ -54,9 +54,7 @@ public class MockNM {
     this.memory = memory;
     this.resourceTracker = resourceTracker;
     String[] splits = nodeIdStr.split(":");
-    nodeId = Records.newRecord(NodeId.class);
-    nodeId.setHost(splits[0]);
-    nodeId.setPort(Integer.parseInt(splits[1]));
+    nodeId = BuilderUtils.newNodeId(splits[0], Integer.parseInt(splits[1]));
   }
 
   public NodeId getNodeId() {
@@ -71,11 +69,11 @@ public class MockNM {
     this.resourceTracker = resourceTracker;
   }
 
-  public void containerStatus(Container container) throws Exception {
+  public void containerStatus(ContainerStatus containerStatus) throws Exception {
     Map<ApplicationId, List<ContainerStatus>> conts = 
         new HashMap<ApplicationId, List<ContainerStatus>>();
-    conts.put(container.getId().getApplicationAttemptId().getApplicationId(), 
-        Arrays.asList(new ContainerStatus[] { container.getContainerStatus() }));
+    conts.put(containerStatus.getContainerId().getApplicationAttemptId().getApplicationId(),
+        Arrays.asList(new ContainerStatus[] { containerStatus }));
     nodeHeartbeat(conts, true);
   }
 
@@ -84,8 +82,7 @@ public class MockNM {
         RegisterNodeManagerRequest.class);
     req.setNodeId(nodeId);
     req.setHttpPort(httpPort);
-    Resource resource = Records.newRecord(Resource.class);
-    resource.setMemory(memory);
+    Resource resource = BuilderUtils.newResource(memory, vCores);
     req.setResource(resource);
     RegisterNodeManagerResponse registrationResponse =
         resourceTracker.registerNodeManager(req);

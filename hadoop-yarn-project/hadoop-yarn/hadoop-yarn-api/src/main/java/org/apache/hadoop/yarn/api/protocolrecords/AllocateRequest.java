@@ -20,15 +20,15 @@ package org.apache.hadoop.yarn.api.protocolrecords;
 
 import java.util.List;
 
-import org.apache.hadoop.classification.InterfaceAudience.Private;
 import org.apache.hadoop.classification.InterfaceAudience.Public;
 import org.apache.hadoop.classification.InterfaceStability.Stable;
-import org.apache.hadoop.classification.InterfaceStability.Unstable;
 import org.apache.hadoop.yarn.api.AMRMProtocol;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
+import org.apache.hadoop.yarn.api.records.ResourceBlacklistRequest;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
+import org.apache.hadoop.yarn.util.Records;
 
 /**
  * <p>The core request sent by the <code>ApplicationMaster</code> to the 
@@ -57,7 +57,22 @@ import org.apache.hadoop.yarn.api.records.ResourceRequest;
  */
 @Public
 @Stable
-public interface AllocateRequest {
+public abstract class AllocateRequest {
+
+  public static AllocateRequest newInstance(
+      ApplicationAttemptId applicationAttemptId, int responseID,
+      float appProgress, List<ResourceRequest> resourceAsk,
+      List<ContainerId> containersToBeReleased, 
+      ResourceBlacklistRequest resourceBlacklistRequest) {
+    AllocateRequest allocateRequest = Records.newRecord(AllocateRequest.class);
+    allocateRequest.setApplicationAttemptId(applicationAttemptId);
+    allocateRequest.setResponseId(responseID);
+    allocateRequest.setProgress(appProgress);
+    allocateRequest.setAskList(resourceAsk);
+    allocateRequest.setReleaseList(containersToBeReleased);
+    allocateRequest.setResourceBlacklistRequest(resourceBlacklistRequest);
+    return allocateRequest;
+  }
 
   /**
    * Get the <code>ApplicationAttemptId</code> being managed by the 
@@ -67,7 +82,7 @@ public interface AllocateRequest {
    */
   @Public
   @Stable
-  ApplicationAttemptId getApplicationAttemptId();
+  public abstract ApplicationAttemptId getApplicationAttemptId();
   
   /**
    * Set the <code>ApplicationAttemptId</code> being managed by the 
@@ -77,7 +92,7 @@ public interface AllocateRequest {
    */
   @Public
   @Stable
-  void setApplicationAttemptId(ApplicationAttemptId applicationAttemptId);
+  public abstract void setApplicationAttemptId(ApplicationAttemptId applicationAttemptId);
 
   /**
    * Get the <em>response id</em> used to track duplicate responses.
@@ -85,7 +100,7 @@ public interface AllocateRequest {
    */
   @Public
   @Stable
-  int getResponseId();
+  public abstract int getResponseId();
 
   /**
    * Set the <em>response id</em> used to track duplicate responses.
@@ -93,7 +108,7 @@ public interface AllocateRequest {
    */
   @Public
   @Stable
-  void setResponseId(int id);
+  public abstract void setResponseId(int id);
 
   /**
    * Get the <em>current progress</em> of application. 
@@ -101,7 +116,7 @@ public interface AllocateRequest {
    */
   @Public
   @Stable
-  float getProgress();
+  public abstract float getProgress();
   
   /**
    * Set the <em>current progress</em> of application
@@ -109,47 +124,29 @@ public interface AllocateRequest {
    */
   @Public
   @Stable
-  void setProgress(float progress);
+  public abstract void setProgress(float progress);
 
   /**
    * Get the list of <code>ResourceRequest</code> to update the 
    * <code>ResourceManager</code> about the application's resource requirements.
    * @return the list of <code>ResourceRequest</code>
+   * @see ResourceRequest
    */
   @Public
   @Stable
-  List<ResourceRequest> getAskList();
-  
-  @Private
-  @Unstable
-  ResourceRequest getAsk(int index);
-  
-  @Private
-  @Unstable
-  int getAskCount();
+  public abstract List<ResourceRequest> getAskList();
   
   /**
-   * Add list of <code>ResourceRequest</code> to update the 
+   * Set list of <code>ResourceRequest</code> to update the
    * <code>ResourceManager</code> about the application's resource requirements.
-   * @param resourceRequest list of <code>ResourceRequest</code> to update the 
+   * @param resourceRequests list of <code>ResourceRequest</code> to update the 
    *                        <code>ResourceManager</code> about the application's 
    *                        resource requirements
+   * @see ResourceRequest
    */
   @Public
   @Stable
-  void addAllAsks(List<ResourceRequest> resourceRequest);
-
-  @Private
-  @Unstable
-  void addAsk(ResourceRequest request);
-
-  @Private
-  @Unstable
-  void removeAsk(int index);
-
-  @Private
-  @Unstable
-  void clearAsks();
+  public abstract void setAskList(List<ResourceRequest> resourceRequests);
 
   /**
    * Get the list of <code>ContainerId</code> of containers being 
@@ -159,36 +156,43 @@ public interface AllocateRequest {
    */
   @Public
   @Stable
-  List<ContainerId> getReleaseList();
-  
-  @Private
-  @Unstable
-  ContainerId getRelease(int index);
-  
-  @Private
-  @Unstable
-  int getReleaseCount();
+  public abstract List<ContainerId> getReleaseList();
 
   /**
-   * Add the list of <code>ContainerId</code> of containers being 
+   * Set the list of <code>ContainerId</code> of containers being
    * released by the <code>ApplicationMaster</code>
    * @param releaseContainers list of <code>ContainerId</code> of 
-   *                          containers being released by the <
-   *                          code>ApplicationMaster</code>
+   *                          containers being released by the 
+   *                          <code>ApplicationMaster</code>
    */
   @Public
   @Stable
-  void addAllReleases(List<ContainerId> releaseContainers);
+  public abstract void setReleaseList(List<ContainerId> releaseContainers);
   
-  @Private
-  @Unstable
-  void addRelease(ContainerId container);
+  /**
+   * Get the <code>ResourceBlacklistRequest</code> being sent by the 
+   * <code>ApplicationMaster</code>.
+   * @return the <code>ResourceBlacklistRequest</code> being sent by the 
+   *         <code>ApplicationMaster</code>
+   * @see ResourceBlacklistRequest
+   */
+  @Public
+  @Stable
+  public abstract ResourceBlacklistRequest getResourceBlacklistRequest();
   
-  @Private
-  @Unstable
-  void removeRelease(int index);
-  
-  @Private
-  @Unstable
-  void clearReleases();
+  /**
+   * Set the <code>ResourceBlacklistRequest</code> to inform the 
+   * <code>ResourceManager</code> about the blacklist additions and removals
+   * per the <code>ApplicationMaster</code>.
+   * 
+   * @param resourceBlacklistRequest the <code>ResourceBlacklistRequest</code>  
+   *                         to inform the <code>ResourceManager</code> about  
+   *                         the blacklist additions and removals
+   *                         per the <code>ApplicationMaster</code>
+   * @see ResourceBlacklistRequest
+   */
+  @Public
+  @Stable
+  public abstract void setResourceBlacklistRequest(
+      ResourceBlacklistRequest resourceBlacklistRequest);
 }

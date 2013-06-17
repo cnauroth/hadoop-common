@@ -52,7 +52,7 @@ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.NodeUpdateS
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.SchedulerEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.SchedulerEventType;
 import org.apache.hadoop.yarn.server.resourcemanager.security.DelegationTokenRenewer;
-import org.apache.hadoop.yarn.util.BuilderUtils;
+import org.apache.hadoop.yarn.server.utils.BuilderUtils;
 import org.apache.hadoop.yarn.util.Records;
 import org.junit.After;
 import org.junit.Before;
@@ -346,9 +346,8 @@ public class TestRMNodeTransitions {
 
   private RMNodeImpl getUnhealthyNode() {
     RMNodeImpl node = getRunningNode();
-    NodeHealthStatus status = node.getNodeHealthStatus();
-    status.setHealthReport("sick");
-    status.setIsNodeHealthy(false);
+    NodeHealthStatus status = NodeHealthStatus.newInstance(false, "sick",
+        System.currentTimeMillis());
     node.handle(new RMNodeStatusEvent(node.getNodeID(), status,
         new ArrayList<ContainerStatus>(), null, null));
     Assert.assertEquals(NodeState.UNHEALTHY, node.getState());

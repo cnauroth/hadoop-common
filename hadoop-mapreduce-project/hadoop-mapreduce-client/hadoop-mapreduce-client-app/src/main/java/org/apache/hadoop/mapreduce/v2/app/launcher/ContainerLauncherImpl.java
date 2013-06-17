@@ -48,14 +48,13 @@ import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.util.StringUtils;
-import org.apache.hadoop.yarn.YarnException;
+import org.apache.hadoop.yarn.YarnRuntimeException;
 import org.apache.hadoop.yarn.api.ContainerManager;
 import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.StartContainerResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.StopContainerRequest;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
-import org.apache.hadoop.yarn.api.records.ContainerToken;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
 import org.apache.hadoop.yarn.security.ContainerTokenIdentifier;
 import org.apache.hadoop.yarn.service.AbstractService;
@@ -115,10 +114,11 @@ public class ContainerLauncherImpl extends AbstractService implements
     private TaskAttemptId taskAttemptID;
     private ContainerId containerID;
     final private String containerMgrAddress;
-    private ContainerToken containerToken;
+    private org.apache.hadoop.yarn.api.records.Token containerToken;
     
     public Container(TaskAttemptId taId, ContainerId containerID,
-        String containerMgrAddress, ContainerToken containerToken) {
+        String containerMgrAddress,
+        org.apache.hadoop.yarn.api.records.Token containerToken) {
       this.state = ContainerState.PREP;
       this.taskAttemptID = taId;
       this.containerMgrAddress = containerMgrAddress;
@@ -148,16 +148,18 @@ public class ContainerLauncherImpl extends AbstractService implements
 
         // Construct the actual Container
         ContainerLaunchContext containerLaunchContext =
-          event.getContainer();
+          event.getContainerLaunchContext();
 
         // Now launch the actual container
         StartContainerRequest startRequest = Records
           .newRecord(StartContainerRequest.class);
         startRequest.setContainerLaunchContext(containerLaunchContext);
+        startRequest.setContainerToken(event.getContainerToken());
         StartContainerResponse response = proxy.startContainer(startRequest);
 
-        ByteBuffer portInfo = response
-          .getServiceResponse(ShuffleHandler.MAPREDUCE_SHUFFLE_SERVICEID);
+        ByteBuffer portInfo =
+            response.getAllServiceResponse().get(
+                ShuffleHandler.MAPREDUCE_SHUFFLE_SERVICEID);
         int port = -1;
         if(portInfo != null) {
           port = ShuffleHandler.deserializeMetaData(portInfo);
@@ -343,20 +345,20 @@ public class ContainerLauncherImpl extends AbstractService implements
   }
 
   protected ContainerManager getCMProxy(ContainerId containerID,
-      final String containerManagerBindAddr, ContainerToken containerToken)
+      final String containerManagerBindAddr,
+      org.apache.hadoop.yarn.api.records.Token containerToken)
       throws IOException {
 
     final InetSocketAddress cmAddr =
         NetUtils.createSocketAddr(containerManagerBindAddr);
-    UserGroupInformation user = UserGroupInformation.getCurrentUser();
 
-    if (UserGroupInformation.isSecurityEnabled()) {
-      Token<ContainerTokenIdentifier> token =
-          ProtoUtils.convertFromProtoFormat(containerToken, cmAddr);
-      // the user in createRemoteUser in this context has to be ContainerID
-      user = UserGroupInformation.createRemoteUser(containerID.toString());
-      user.addToken(token);
-    }
+    // the user in createRemoteUser in this context has to be ContainerID
+    UserGroupInformation user =
+        UserGroupInformation.createRemoteUser(containerID.toString());
+
+    Token<ContainerTokenIdentifier> token =
+        ProtoUtils.convertFromProtoFormat(containerToken, cmAddr);
+    user.addToken(token);
 
     ContainerManager proxy = user
         .doAs(new PrivilegedAction<ContainerManager>() {
@@ -421,7 +423,7 @@ public class ContainerLauncherImpl extends AbstractService implements
     try {
       eventQueue.put(event);
     } catch (InterruptedException e) {
-      throw new YarnException(e);
+      throw new YarnRuntimeException(e);
     }
   }
 }

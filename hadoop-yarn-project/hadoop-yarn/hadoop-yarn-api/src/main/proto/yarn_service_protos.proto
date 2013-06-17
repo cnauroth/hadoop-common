@@ -54,21 +54,22 @@ message AllocateRequestProto {
   optional ApplicationAttemptIdProto application_attempt_id = 1;
   repeated ResourceRequestProto ask = 2;
   repeated ContainerIdProto release = 3;
-  optional int32 response_id = 4;
-  optional float progress = 5;
+  optional ResourceBlacklistRequestProto blacklist_request = 4;
+  optional int32 response_id = 5;
+  optional float progress = 6;
 }
 
 message AllocateResponseProto {
-  optional bool reboot = 1;
+  optional AMCommandProto a_m_command = 1;
   optional int32 response_id = 2;
   repeated ContainerProto allocated_containers = 3;
   repeated ContainerStatusProto completed_container_statuses = 4;
   optional ResourceProto limit = 5;
   repeated NodeReportProto updated_nodes = 6;
   optional int32 num_cluster_nodes = 7;
+  optional PreemptionMessageProto preempt = 8;
+  repeated hadoop.common.TokenProto nm_tokens = 9;
 }
-
-
 
 //////////////////////////////////////////////////////
 /////// client_RM_Protocol ///////////////////////////
@@ -151,6 +152,7 @@ message GetQueueUserAclsInfoResponseProto {
 
 message StartContainerRequestProto {
   optional ContainerLaunchContextProto container_launch_context = 1;
+  optional hadoop.common.TokenProto container_token = 2;
 }
 
 message StartContainerResponseProto {

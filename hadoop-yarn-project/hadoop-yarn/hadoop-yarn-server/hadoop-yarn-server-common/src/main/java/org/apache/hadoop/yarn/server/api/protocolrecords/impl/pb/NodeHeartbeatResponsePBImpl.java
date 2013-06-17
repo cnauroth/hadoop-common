@@ -24,9 +24,9 @@ import java.util.Iterator;
 
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
-import org.apache.hadoop.yarn.api.records.ProtoBase;
 import org.apache.hadoop.yarn.api.records.impl.pb.ApplicationIdPBImpl;
 import org.apache.hadoop.yarn.api.records.impl.pb.ContainerIdPBImpl;
+import org.apache.hadoop.yarn.api.records.impl.pb.ProtoBase;
 import org.apache.hadoop.yarn.proto.YarnProtos.ApplicationIdProto;
 import org.apache.hadoop.yarn.proto.YarnProtos.ContainerIdProto;
 import org.apache.hadoop.yarn.proto.YarnServerCommonProtos.MasterKeyProto;
@@ -143,6 +143,25 @@ public class NodeHeartbeatResponsePBImpl extends ProtoBase<NodeHeartbeatResponse
       return;
     }
     builder.setNodeAction(convertToProtoFormat(nodeAction));
+  }
+
+  @Override
+  public String getDiagnosticsMessage() {
+    NodeHeartbeatResponseProtoOrBuilder p = viaProto ? proto : builder;
+    if (!p.hasDiagnosticsMessage()) {
+      return null;
+    }
+    return p.getDiagnosticsMessage();
+  }
+
+  @Override
+  public void setDiagnosticsMessage(String diagnosticsMessage) {
+    maybeInitBuilder();
+    if (diagnosticsMessage == null) {
+      builder.clearDiagnosticsMessage();
+      return;
+    }
+    builder.setDiagnosticsMessage((diagnosticsMessage));
   }
 
   @Override
@@ -269,6 +288,18 @@ public class NodeHeartbeatResponsePBImpl extends ProtoBase<NodeHeartbeatResponse
       }
     };
     builder.addAllApplicationsToCleanup(iterable);
+  }
+
+  @Override
+  public long getNextHeartBeatInterval() {
+    NodeHeartbeatResponseProtoOrBuilder p = viaProto ? proto : builder;
+    return (p.getNextHeartBeatInterval());
+  }
+
+  @Override
+  public void setNextHeartBeatInterval(long nextHeartBeatInterval) {
+    maybeInitBuilder();
+    builder.setNextHeartBeatInterval(nextHeartBeatInterval);
   }
 
   private ContainerIdPBImpl convertFromProtoFormat(ContainerIdProto p) {
