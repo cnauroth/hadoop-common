@@ -168,7 +168,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
 
     LOG.info("updateTransmissionFailure event in state" + getState(kindOfThrottle));
     long periodFailures = 0;
-    
+
     // Capture the latency over the current timer period to calculate how much
     // to delay next request.
     //
@@ -176,10 +176,10 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
     final String infoMsg =
         String.format ("Thread Id: %d, Period Latency: %d, SampleLatency: %d, " +
                        "RequestLatency: %d, Delay: %d",
-                       Thread.currentThread().getId(), getLatency(kindOfThrottle), 
+                       Thread.currentThread().getId(), getLatency(kindOfThrottle),
                        getSampleLatency(kindOfThrottle),  reqLatency, delayMs);
     LOG.info(infoMsg);
-    
+
     // Use synchronize block to avoid sleeping while holding a monitor.
     //
     synchronized (this) {
@@ -204,7 +204,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
         throw new AssertionError(
           "Received updateTransmission event in an unknown state");
       }
-      
+
       periodFailures = failTxCount[kindOfThrottle.getValue()][CURRENT_INTERVAL].
                                     addAndGet(failureCount);
 
@@ -569,7 +569,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
       // Assertion failed. stopThrottling events are not expected in the ramp down state.
       //
       // throw new AssertionError("Unexpected stopThrotlling event in the RAMPDOWN state.");
-      
+
       // Expecting to stop throttling on in the THROTTLE_NONE or THROTTLE_RAMPUP state.
       // However it is possible to reach the maximum bandwidth in the THROTTLE_RAMPDOWN
       // state triggering a stopThrottling event.  In this case simply ignore until the
@@ -581,7 +581,7 @@ public class ThrottleStateMachine implements BandwidthThrottleFeedback,
         throw new AssertionError("Received a stopThrottling event in the " +
                                   "RAMPDOWN state. Expired timer is unexpected.");
       }
-      
+
       // Timer is not expired, so just return to the caller.
       //
       return;

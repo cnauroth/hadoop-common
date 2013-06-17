@@ -37,7 +37,7 @@ import org.apache.commons.logging.LogFactory;
 public final class AzureFileSystemTimer {
 
   public static final Log LOG = LogFactory.getLog(AzureFileSystemTimer.class);
-  
+
   /**
    * Class CONSTANTS
    */
@@ -65,13 +65,13 @@ public final class AzureFileSystemTimer {
     private AtomicLong ticks = new AtomicLong(0); // Timer tick counter.
     private AzureFileSystemTimerCallbacks timerCallbacks; // Timer callback interface.
     private Object timerCallbackContext;  // Timer callback context.
-    
+
     // Default constructor.
     //
     public AzureFileSystemTimerTask (){
       this(null, null);
     }
-    
+
     // Generalized constructor.
     //
     public AzureFileSystemTimerTask (
@@ -81,7 +81,7 @@ public final class AzureFileSystemTimer {
       this.timerCallbacks = timerCallbacks;
       this.timerCallbackContext = timerCallbackContext;
     }
-    
+
     /**
      * Run method implementation for the DefaultTimer task.
      */
@@ -89,7 +89,7 @@ public final class AzureFileSystemTimer {
       // Simply count ticks.
       //
       ticks.getAndIncrement();
-      
+
       // Fire timer events if any are registered.
       //
       if(null != timerCallbacks) {
@@ -98,7 +98,7 @@ public final class AzureFileSystemTimer {
         timerCallbacks.tickEvent(timerCallbackContext);
       }
     }
-    
+
    /**
     * Get the number of ticks since the timer was started.
     */
@@ -106,14 +106,14 @@ public final class AzureFileSystemTimer {
       return ticks.get();
     }
   }
-  
+
   /**
    * Interface time clients registers with the timer to receive tick event.  Tick events
    * stop after the timer has expired.
    *
    */
   public interface AzureFileSystemTimerCallbacks {
-    
+
     // Callback on timer ticks.
     //
     public void tickEvent (Object timerCallbackContext);
@@ -158,7 +158,7 @@ public final class AzureFileSystemTimer {
     initializeAzureFileSystemTimer (
         alarmName, scheduler, startAfter, timerPeriod, stopAfter, null, null);
   }
-  
+
   /**
    * Constructor for the executor Azure file system class capturing the timer name,
    * the executor scheduler, the delay before starting, the period between alarms,
@@ -192,7 +192,7 @@ public final class AzureFileSystemTimer {
       ScheduledExecutorService scheduler, long startAfter, long timerPeriod,
       long stopAfter, AzureFileSystemTimerCallbacks timerCallbacks,
       Object timerCallbackContext) {
-    
+
     if (0 > startAfter){
       // Start delay cannot be less than zero.
       //
@@ -228,15 +228,15 @@ public final class AzureFileSystemTimer {
   public void turnOnTimer (){
     turnOnTimer (new AzureFileSystemTimerTask());
   }
-  
+
   /*
    * Start a timer with a default timer task registering for timer event callbacks.
    */
-  public void turnOnTimer (AzureFileSystemTimerCallbacks timerCallbacks, 
+  public void turnOnTimer (AzureFileSystemTimerCallbacks timerCallbacks,
       Object timerCallbackContext) {
     turnOnTimer (new AzureFileSystemTimerTask(timerCallbacks, timerCallbackContext));
   }
-  
+
   /**
    * Start a timer.
    *
@@ -263,7 +263,7 @@ public final class AzureFileSystemTimer {
       //
       turnOffTimerAfterDelay (shutdownDelayTicks);
     }
-    
+
     // Capture the timer task.
     //
     this.timerTask = timerTask;
@@ -290,10 +290,10 @@ public final class AzureFileSystemTimer {
     //
     return null == timerFuture;
   }
-  
+
   /**
    * Report whether or not the timer has expired.
-   * 
+   *
    * @return boolean - true if timer ticks greater than expiration time.
    */
   public boolean isExpired () {
@@ -302,27 +302,27 @@ public final class AzureFileSystemTimer {
     if (isOff()) {
       return true;
     }
-    
+
     // The timer is on. If the timer expiration period is infinite then there is
     // no expiration.
     //
     if (INFINITE_DELAY == shutdownDelayTicks) {
       return false;
     }
-    
+
     // The timer is not expired if the timer tick count is strictly less than
     // the initial delay ticks plus the expiration ticks.
     //
     if (timerTask.getTicks() < shutdownDelayTicks) {
       return false;
     }
-    
+
     // The timer is expired since the timer tick count is greater than the initial
     // delay plus the expiration ticks
     //
     return true;
   }
-  
+
   /**
    * Get the tick count on the timer.
    * This method will return a negative tick count if the timer is turned off or
@@ -334,16 +334,16 @@ public final class AzureFileSystemTimer {
     if (isOff()) {
       return -1;
     }
-    
+
     // Tick count is negative if timer task is not set.
     //
     if (null == timerTask) {
       return -1;
     }
-    
+
     return timerTask.getTicks();
   }
-  
+
   /**
    * Reset timer with default timer. Cancel existing timer and restart again with the same delay
    * interval, the same period, and the same shutdown delay.
@@ -368,7 +368,7 @@ public final class AzureFileSystemTimer {
       shutdownFuture.cancel(DONT_INTERRUPT_RUNNING_TASKS);
       shutdownFuture = null;
     }
-    
+
     // Cancel the timer and reschedule.  If the task associated with the current
     // future is running, do not interrupt it. It should run to completion. This
     // implies that tasks should be thread-safe.
@@ -395,7 +395,7 @@ public final class AzureFileSystemTimer {
       //
       timerFuture.cancel(DONT_INTERRUPT_RUNNING_TASKS);
     }
-    
+
     timerTask = null;
     timerFuture = null;
     shutdownFuture = null;

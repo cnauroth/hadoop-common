@@ -179,8 +179,8 @@ public class TestThrottleStateMachine  {
       Thread.sleep(LATENCY);
       throttleSM.updateTransmissionSuccess(ThrottleType.UPLOAD, 1, LATENCY);
     }
-    
-    
+
+
     // Validate that the state machine is in the RAMPUP state with sustained successes.
     //
     assertEquals(ThrottleState.THROTTLE_RAMPUP, throttleSM.getState(ThrottleType.UPLOAD));

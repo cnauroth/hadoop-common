@@ -310,12 +310,12 @@ public class BandwidthThrottle implements ThrottleSendRequestCallback {
       if (0 == successRate) {
         tmpBandwidth =
           Math.min(maxBandwidthTarget[kindOfThrottle.getValue()],
-            (long) (DEFAULT_SUCCESS_RATE * 
+            (long) (DEFAULT_SUCCESS_RATE *
                     bandwidthTarget[kindOfThrottle.getValue()]));
       } else {
         tmpBandwidth =
             Math.min(maxBandwidthTarget[kindOfThrottle.getValue()],
-              (long) (successRate * 
+              (long) (successRate *
                       bandwidthTarget[kindOfThrottle.getValue()]));
       }
 
