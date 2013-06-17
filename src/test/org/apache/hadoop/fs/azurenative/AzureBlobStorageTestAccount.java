@@ -10,6 +10,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.azure.KeyProviderException;
 import org.apache.hadoop.metrics2.*;
+import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 
 import com.microsoft.windowsazure.services.blob.client.*;
 import com.microsoft.windowsazure.services.core.storage.*;
@@ -35,15 +36,20 @@ public final class AzureBlobStorageTestAccount {
   public static final String ASV_SCHEME = "asv";
   public static final String PATH_DELIMITER = "/";
   public static final String AZURE_ROOT_CONTAINER = "$root";
-  public static final String MOCK_ASV_URI = "asv://" + MOCK_CONTAINER_NAME + 
+  public static final String MOCK_ASV_URI = "asv://" + MOCK_CONTAINER_NAME +
       ASV_AUTHORITY_DELIMITER + MOCK_ACCOUNT_NAME + "/";
   private static final String USE_EMULATOR_PROPERTY_NAME =
       "fs.azure.test.emulator";
+
+  private static final String KEY_DOWNLOAD_BLOCK_SIZE = "fs.azure.stream.min.read.size";
+  private static final String KEY_UPLOAD_BLOCK_SIZE = "fs.azure.write.block.size";
+  private static final String KEY_DISABLE_THROTTLING = "fs.azure.disable.bandwidth.throttling";
 
   private CloudStorageAccount account;
   private CloudBlobContainer container;
   private CloudBlockBlob blob;
   private NativeAzureFileSystem fs;
+  private AzureNativeFileSystemStore storage;
   private MockStorageInterface mockStorage;
   private static final ConcurrentLinkedQueue<MetricsRecord> allMetrics =
       new ConcurrentLinkedQueue<MetricsRecord>();
@@ -58,8 +64,23 @@ public final class AzureBlobStorageTestAccount {
   }
 
   /**
+   * Create a test account with an initialized storage reference.
+   * @param storage -- store to be accessed by the account
+   * @param account  -- Windows Azure account object
+   * @param container -- Windows Azure container object
+   */
+  private AzureBlobStorageTestAccount(AzureNativeFileSystemStore storage,
+      CloudStorageAccount account,
+      CloudBlobContainer container) {
+    this.account = account;
+    this.container = container;
+    this.storage = storage;
+  }
+
+
+  /**
    * Create a test account sessions with the default root container.
-   * 
+   *
    * @param fs - file system, namely ASV file system
    * @param account - Windows Azure account object
    * @param blob - block blob reference
@@ -70,7 +91,7 @@ public final class AzureBlobStorageTestAccount {
     this.account = account;
     this.blob = blob;
     this.fs = fs;
-  }  
+  }
 
   private AzureBlobStorageTestAccount(NativeAzureFileSystem fs,
       MockStorageInterface mockStorage) {
@@ -99,7 +120,7 @@ public final class AzureBlobStorageTestAccount {
     return toMockUri(path.toUri().getRawPath().substring(1)); // Remove the first /
   }
 
-  public Number getLatestMetricValue(String metricName, Number defaultValue) 
+  public Number getLatestMetricValue(String metricName, Number defaultValue)
       throws IndexOutOfBoundsException{
     boolean found = false;
     Number ret = null;
@@ -236,6 +257,75 @@ public final class AzureBlobStorageTestAccount {
     return testAcct;
   }
 
+  public static AzureBlobStorageTestAccount createThrottledStore(
+      int uploadBlockSize, int downloadBlockSize,
+      ThrottleSendRequestCallback throttleSendCallback,
+      BandwidthThrottleFeedback throttleBandwidthFeedback) throws Exception {
+
+    saveMetricsConfigFile();
+
+    CloudBlobContainer container = null;
+    Configuration conf = createTestConfiguration();
+    CloudStorageAccount account = createTestAccount(conf);
+    if (null == account){
+      return null;
+    }
+
+    NativeAzureFileSystem fs = new NativeAzureFileSystem();
+
+    String containerName = String.format("asvtests-%s-%tQ",
+        System.getProperty("user.name"), new Date());
+
+    // Create the container.
+    //
+    container = account.createCloudBlobClient().getContainerReference(containerName);
+    container.create();
+
+    String accountName = conf.get(TEST_ACCOUNT_NAME_PROPERTY_NAME);
+
+    // Set the block upload and download block size properties.
+    //
+    conf.setInt(KEY_UPLOAD_BLOCK_SIZE, uploadBlockSize);
+    conf.setInt(KEY_DOWNLOAD_BLOCK_SIZE, downloadBlockSize);
+    conf.setBoolean(KEY_DISABLE_THROTTLING, false);
+
+    // Set account URI and initialize Azure file system.
+    //
+    URI accountUri = createAccountUri(accountName, containerName);
+
+    // Set up instrumentation.
+    //
+    AzureFileSystemMetricsSystem.fileSystemStarted();
+    String sourceName = "AzureFileSystemMetrics",
+        sourceDesc = "Azure Storage Volume File System metrics";
+
+    AzureFileSystemInstrumentation instrumentation =
+        DefaultMetricsSystem.INSTANCE.register(sourceName,
+            sourceDesc, new AzureFileSystemInstrumentation(conf));
+
+    AzureFileSystemMetricsSystem.registerSource(
+        sourceName, sourceDesc,instrumentation);
+
+    // Create a new AzureNativeFileSystemStore object.
+    //
+    AzureNativeFileSystemStore testStorage = new AzureNativeFileSystemStore();
+
+    // Initialize the store  with the throttling feedback interfaces.
+    //
+    testStorage.initialize(accountUri, conf, instrumentation,
+        throttleSendCallback, throttleBandwidthFeedback);
+
+    fs.initialize(accountUri, conf);
+
+    // Create test account initializing the appropriate member variables.
+    //
+    AzureBlobStorageTestAccount testAcct =
+        new AzureBlobStorageTestAccount(testStorage, account, container);
+
+    return testAcct;
+  }
+
+
   /**
    * Sets the mock account key in the given configuration.
    * @param conf The configuration.
@@ -272,6 +362,12 @@ public final class AzureBlobStorageTestAccount {
   public static AzureBlobStorageTestAccount create(String containerNameSuffix)
       throws Exception {
     return create(containerNameSuffix, EnumSet.of(CreateOptions.CreateContainer));
+  }
+
+  // Create a test account which uses throttling.
+  //
+  public static AzureBlobStorageTestAccount createThrottled() throws Exception {
+    return create("", EnumSet.of(CreateOptions.useThrottling, CreateOptions.CreateContainer));
   }
 
   public static AzureBlobStorageTestAccount create(Configuration conf)
@@ -325,7 +421,7 @@ public final class AzureBlobStorageTestAccount {
   }
 
   public static enum CreateOptions {
-    UseSas, CreateContainer
+    UseSas, CreateContainer, useThrottling
   }
 
   public static AzureBlobStorageTestAccount create(String containerNameSuffix,
@@ -365,6 +461,14 @@ public final class AzureBlobStorageTestAccount {
       // Set the SAS key.
       conf.set(SAS_PROPERTY_NAME + containerName + "." + accountName,
           sas);
+    }
+
+    // Check if throttling is turned on and set throttling parameters appropriately.
+    //
+    if (createOptions.contains(CreateOptions.useThrottling)) {
+      conf.setBoolean(KEY_DISABLE_THROTTLING, false);
+    } else {
+      conf.setBoolean(KEY_DISABLE_THROTTLING, true);
     }
 
     // Set account URI and initialize Azure file system.
@@ -452,7 +556,7 @@ public final class AzureBlobStorageTestAccount {
     // Create a container if it does not exist. The container name
     // must be lower case.
     //
-    CloudBlobContainer container = 
+    CloudBlobContainer container =
         blobClient.getContainerReference(
             "https://" + accountName + "/" + containerName);
     container.createIfNotExist();
@@ -484,10 +588,10 @@ public final class AzureBlobStorageTestAccount {
 
     // Create a blob output stream.
     //
-    String blobAddressUri = 
+    String blobAddressUri =
         String.format("https://%s/%s/%s",
             accountName, containerName, blobName);
-    CloudBlockBlob blob = blobClient.getBlockBlobReference(blobAddressUri);    
+    CloudBlockBlob blob = blobClient.getBlockBlobReference(blobAddressUri);
     BlobOutputStream outputStream = blob.openOutputStream();
 
     outputStream.write(new byte[fileSize]);
@@ -523,7 +627,7 @@ public final class AzureBlobStorageTestAccount {
     //
     primePublicContainer(blobClient, accountName, containerName, blobName, fileSize);
 
-    // Capture the blob container object. It should exist after generating the 
+    // Capture the blob container object. It should exist after generating the
     // shared access signature.
     //
     container = blobClient.getContainerReference(containerName);
@@ -552,23 +656,23 @@ public final class AzureBlobStorageTestAccount {
     return testAcct;
   }
 
-  private static CloudBlockBlob primeRootContainer(CloudBlobClient blobClient, String accountName, 
+  private static CloudBlockBlob primeRootContainer(CloudBlobClient blobClient, String accountName,
       String blobName, int fileSize) throws Exception {
 
     // Create a container if it does not exist. The container name
     // must be lower case.
     //
-    CloudBlobContainer container = 
+    CloudBlobContainer container =
         blobClient.getContainerReference(
             "https://" + accountName + "/" + "$root");
     container.createIfNotExist();
 
     // Create a blob output stream.
     //
-    String blobAddressUri = 
+    String blobAddressUri =
         String.format("https://%s/$root/%s",
             accountName, blobName);
-    CloudBlockBlob blob = blobClient.getBlockBlobReference(blobAddressUri);    
+    CloudBlockBlob blob = blobClient.getBlockBlobReference(blobAddressUri);
     BlobOutputStream outputStream = blob.openOutputStream();
 
     outputStream.write(new byte[fileSize]);
@@ -604,7 +708,7 @@ public final class AzureBlobStorageTestAccount {
     //
     CloudBlockBlob blobRoot = primeRootContainer (blobClient, accountName, blobName, fileSize);
 
-    // Capture the blob container object. It should exist after generating the 
+    // Capture the blob container object. It should exist after generating the
     // shared access signature.
     //
     container = blobClient.getContainerReference(AZURE_ROOT_CONTAINER);
@@ -663,9 +767,13 @@ public final class AzureBlobStorageTestAccount {
     return fs;
   }
 
+  public AzureNativeFileSystemStore getStore() {
+    return this.storage;
+  }
+
   /**
    * Gets the real blob container backing this account if it's not
-   * a mock. 
+   * a mock.
    * @return A container, or null if it's a mock.
    */
   public CloudBlobContainer getRealContainer() {
@@ -674,7 +782,7 @@ public final class AzureBlobStorageTestAccount {
 
   /**
    * Gets the real blob account backing this account if it's not
-   * a mock. 
+   * a mock.
    * @return An account, or null if it's a mock.
    */
   public CloudStorageAccount getRealAccount() {

@@ -9,7 +9,7 @@ import org.apache.hadoop.metrics2.lib.*;
 /**
  * A metrics source for the ASV file system to track all the metrics we care
  * about for getting a clear picture of the performance/reliability/interaction
- * of the Hadoop cluster with Azure Storage.  
+ * of the Hadoop cluster with Azure Storage.
  */
 final class AzureFileSystemInstrumentation implements MetricsSource {
   static final String ASV_WEB_RESPONSES = "asv_web_responses";
@@ -298,6 +298,39 @@ final class AzureFileSystemInstrumentation implements MetricsSource {
    */
   public void serverErrorEncountered() {
     serverErrors.incr();
+  }
+
+  /**
+   * Get the current rolling average of the upload latency.
+   * @return rolling average of upload latency in milliseconds.
+   */
+  public long getBlockUploadLatency () {
+    return currentBlockUploadLatency.getCurrentAverage();
+  }
+
+  /**
+   * Get the current rolling average of the download latency.
+   * @return rolling average of download latency in milliseconds.
+   */
+  public long getBlockDownloadLatency() {
+    return currentBlockDownloadLatency.getCurrentAverage();
+  }
+
+  /**
+   * Get the current maximum upload bandwidth.
+   * @return maximum upload bandwidth in bytes per second.
+   */
+  public long getCurrentMaximumUploadBandwidth() {
+    return currentMaximumUploadBytesPerSecond;
+  }
+
+  /**
+   * Get the current maximum download bandwidth.
+   * @return maximum download bandwidth in bytes per second.
+   */
+  public long getCurrentMaximumDownloadBandwidth() {
+    return currentMaximumDownloadBytesPerSecond;
+
   }
 
   @Override

@@ -152,7 +152,7 @@ public class TestASVUriAndConfiguration {
 
     // Set up blob names.
     //
-    final String blobPrefix = 
+    final String blobPrefix =
         String.format ("asvtests-%s-%tQ-blob", System.getProperty("user.name"), new Date());
     final String inblobName = blobPrefix + "_In" + ".txt";
     final String outblobName = blobPrefix + "_Out" + ".txt";
@@ -187,6 +187,19 @@ public class TestASVUriAndConfiguration {
       assertTrue(errMsg, false);
     }
   }
+
+  // Positive tests to exercise throttling I/O path.  Connections are made to an
+  // Azure account using account key.
+  //
+  public void testConnectWithThrottling() throws Exception {
+
+    testAccount = AzureBlobStorageTestAccount.createThrottled();
+
+    // Validate input and output on the connection.
+    //
+    assertTrue(validateIOStreams(new Path("/asv_scheme")));
+  }
+
 
   /**
    * Creates a file and writes a single byte with the given value in it.
@@ -263,7 +276,7 @@ public class TestASVUriAndConfiguration {
     String result =
         AzureNativeFileSystemStore.getAccountKeyFromConfiguration(account, conf);
     assertEquals(key, result);
-  }  
+  }
 
   @Test
   public void testInvalidKeyProviderNonexistantClass() throws Exception {
