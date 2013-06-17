@@ -88,7 +88,7 @@ public class TestRMRestart {
     conf.set(YarnConfiguration.RM_STORE, MemoryRMStateStore.class.getName());
   }
 
-  @Test (timeout=60000)
+  @Test (timeout=180000)
   public void testRMRestart() throws Exception {
     Assert.assertTrue(YarnConfiguration.DEFAULT_RM_AM_MAX_ATTEMPTS > 1);
     conf.setInt(YarnConfiguration.RM_AM_MAX_ATTEMPTS,
@@ -534,10 +534,11 @@ public class TestRMRestart {
     Assert.assertEquals(BuilderUtils.newContainerId(attemptId1, 1),
       attemptState.getMasterContainer().getId());
 
-    // the appToken and clientToken that are generated when RMAppAttempt is created,
+    // the appToken and clientToAMToken that are generated when RMAppAttempt
+    // is created,
     HashSet<Token<?>> tokenSet = new HashSet<Token<?>>();
-    tokenSet.add(attempt1.getApplicationToken());
-    tokenSet.add(attempt1.getClientToken());
+    tokenSet.add(attempt1.getAMRMToken());
+    tokenSet.add(attempt1.getClientToAMToken());
 
     // assert application Token is saved
     HashSet<Token<?>> savedTokens = new HashSet<Token<?>>();
@@ -555,13 +556,14 @@ public class TestRMRestart {
     // assert loaded attempt recovered attempt tokens
     Assert.assertNotNull(loadedAttempt1);
     savedTokens.clear();
-    savedTokens.add(loadedAttempt1.getApplicationToken());
-    savedTokens.add(loadedAttempt1.getClientToken());
+    savedTokens.add(loadedAttempt1.getAMRMToken());
+    savedTokens.add(loadedAttempt1.getClientToAMToken());
     Assert.assertEquals(tokenSet, savedTokens);
 
-    // assert clientToken is recovered back to api-versioned clientToken
-    Assert.assertEquals(attempt1.getClientToken(),
-      loadedAttempt1.getClientToken());
+    // assert clientToAMToken is recovered back to api-versioned
+    // clientToAMToken
+    Assert.assertEquals(attempt1.getClientToAMToken(),
+      loadedAttempt1.getClientToAMToken());
 
     // Not testing ApplicationTokenSecretManager has the password populated back,
     // that is needed in work-preserving restart

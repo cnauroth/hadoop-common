@@ -64,7 +64,6 @@ import org.apache.hadoop.security.SecurityUtil;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.authorize.AccessControlList;
 import org.apache.hadoop.security.token.Token;
-import org.apache.hadoop.yarn.YarnRuntimeException;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.ApplicationConstants.Environment;
 import org.apache.hadoop.yarn.api.records.ApplicationAccessType;
@@ -80,9 +79,10 @@ import org.apache.hadoop.yarn.api.records.URL;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.hadoop.yarn.exceptions.YarnRuntimeException;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
-import org.apache.hadoop.yarn.security.client.RMTokenSelector;
+import org.apache.hadoop.yarn.security.client.RMDelegationTokenSelector;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.ProtoUtils;
 
@@ -179,7 +179,7 @@ public class YARNRunner implements ClientProtocol {
   }
 
   @VisibleForTesting
-  void addHistoyToken(Credentials ts) throws IOException, InterruptedException {
+  void addHistoryToken(Credentials ts) throws IOException, InterruptedException {
     /* check if we have a hsproxy, if not, no need */
     MRClientProtocol hsProxy = clientCache.getInitializedHSProxy();
     if (UserGroupInformation.isSecurityEnabled() && (hsProxy != null)) {
@@ -187,7 +187,7 @@ public class YARNRunner implements ClientProtocol {
        * note that get delegation token was called. Again this is hack for oozie
        * to make sure we add history server delegation tokens to the credentials
        */
-      RMTokenSelector tokenSelector = new RMTokenSelector();
+      RMDelegationTokenSelector tokenSelector = new RMDelegationTokenSelector();
       Text service = SecurityUtil.buildTokenService(resMgrDelegate
           .getConnectAddress());
       if (tokenSelector.selectToken(service, ts.getAllTokens()) != null) {
@@ -279,17 +279,8 @@ public class YARNRunner implements ClientProtocol {
   public JobStatus submitJob(JobID jobId, String jobSubmitDir, Credentials ts)
   throws IOException, InterruptedException {
     
-    addHistoyToken(ts);
+    addHistoryToken(ts);
     
-    // Upload only in security mode: TODO
-    Path applicationTokensFile =
-        new Path(jobSubmitDir, MRJobConfig.APPLICATION_TOKENS_FILE);
-    try {
-      ts.writeTokenStorageFile(applicationTokensFile, conf);
-    } catch (IOException e) {
-      throw new YarnRuntimeException(e);
-    }
-
     // Construct necessary information to start the MR AM
     ApplicationSubmissionContext appContext =
       createApplicationSubmissionContext(conf, jobSubmitDir, ts);
@@ -383,8 +374,7 @@ public class YARNRunner implements ClientProtocol {
     // TODO gross hack
     for (String s : new String[] {
         MRJobConfig.JOB_SPLIT,
-        MRJobConfig.JOB_SPLIT_METAINFO,
-        MRJobConfig.APPLICATION_TOKENS_FILE }) {
+        MRJobConfig.JOB_SPLIT_METAINFO }) {
       localResources.put(
           MRJobConfig.JOB_SUBMIT_DIR + "/" + s,
           createApplicationResource(defaultFileContext,

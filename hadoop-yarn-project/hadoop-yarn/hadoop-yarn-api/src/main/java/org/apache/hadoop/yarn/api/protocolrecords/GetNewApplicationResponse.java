@@ -22,7 +22,7 @@ import org.apache.hadoop.classification.InterfaceAudience.Private;
 import org.apache.hadoop.classification.InterfaceAudience.Public;
 import org.apache.hadoop.classification.InterfaceStability.Stable;
 import org.apache.hadoop.classification.InterfaceStability.Unstable;
-import org.apache.hadoop.yarn.api.ClientRMProtocol;
+import org.apache.hadoop.yarn.api.ApplicationClientProtocol;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.util.Records;
@@ -31,7 +31,7 @@ import org.apache.hadoop.yarn.util.Records;
  * <p>The response sent by the <code>ResourceManager</code> to the client for 
  * a request to get a new {@link ApplicationId} for submitting applications.</p>
  * 
- * @see ClientRMProtocol#getNewApplication(GetNewApplicationRequest)
+ * @see ApplicationClientProtocol#getNewApplication(GetNewApplicationRequest)
  */
 @Public
 @Stable
@@ -43,7 +43,6 @@ public abstract class GetNewApplicationResponse {
     GetNewApplicationResponse response =
         Records.newRecord(GetNewApplicationResponse.class);
     response.setApplicationId(applicationId);
-    response.setMinimumResourceCapability(minCapability);
     response.setMaximumResourceCapability(maxCapability);
     return response;
   }
@@ -61,20 +60,7 @@ public abstract class GetNewApplicationResponse {
   @Private
   @Unstable
   public abstract void setApplicationId(ApplicationId applicationId);
-  
-  /**
-   * Get the minimum capability for any {@link Resource} allocated by the 
-   * <code>ResourceManager</code> in the cluster.
-   * @return minimum capability of allocated resources in the cluster
-   */
-  @Public
-  @Stable
-  public abstract Resource getMinimumResourceCapability();
-  
-  @Private
-  @Unstable
-  public abstract void setMinimumResourceCapability(Resource capability);
-  
+
   /**
    * Get the maximum capability for any {@link Resource} allocated by the 
    * <code>ResourceManager</code> in the cluster.

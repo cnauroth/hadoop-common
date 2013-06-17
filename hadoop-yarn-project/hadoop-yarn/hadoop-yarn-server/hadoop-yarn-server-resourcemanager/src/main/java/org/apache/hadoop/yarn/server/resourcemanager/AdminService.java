@@ -32,7 +32,8 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.authorize.AccessControlList;
 import org.apache.hadoop.security.authorize.PolicyProvider;
 import org.apache.hadoop.security.authorize.ProxyUsers;
-import org.apache.hadoop.yarn.api.RMAdminProtocol;
+import org.apache.hadoop.service.AbstractService;
+import org.apache.hadoop.yarn.api.ResourceManagerAdministrationProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.RefreshAdminAclsRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.RefreshAdminAclsResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.RefreshNodesRequest;
@@ -54,9 +55,8 @@ import org.apache.hadoop.yarn.ipc.YarnRPC;
 import org.apache.hadoop.yarn.server.resourcemanager.RMAuditLogger.AuditConstants;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.ResourceScheduler;
 import org.apache.hadoop.yarn.server.resourcemanager.security.authorize.RMPolicyProvider;
-import org.apache.hadoop.yarn.service.AbstractService;
 
-public class AdminService extends AbstractService implements RMAdminProtocol {
+public class AdminService extends AbstractService implements ResourceManagerAdministrationProtocol {
 
   private static final Log LOG = LogFactory.getLog(AdminService.class);
 
@@ -92,8 +92,7 @@ public class AdminService extends AbstractService implements RMAdminProtocol {
   }
 
   @Override
-  public void init(Configuration conf) {
-    super.init(conf);
+  public void serviceInit(Configuration conf) throws Exception {
     masterServiceAddress = conf.getSocketAddr(
         YarnConfiguration.RM_ADMIN_ADDRESS,
         YarnConfiguration.DEFAULT_RM_ADMIN_ADDRESS,
@@ -101,13 +100,15 @@ public class AdminService extends AbstractService implements RMAdminProtocol {
     adminAcl = new AccessControlList(conf.get(
         YarnConfiguration.YARN_ADMIN_ACL,
         YarnConfiguration.DEFAULT_YARN_ADMIN_ACL));
+    super.serviceInit(conf);
   }
 
-  public void start() {
+  @Override
+  protected void serviceStart() throws Exception {
     Configuration conf = getConfig();
     YarnRPC rpc = YarnRPC.create(conf);
     this.server =
-      rpc.getServer(RMAdminProtocol.class, this, masterServiceAddress,
+      rpc.getServer(ResourceManagerAdministrationProtocol.class, this, masterServiceAddress,
           conf, null,
           conf.getInt(YarnConfiguration.RM_ADMIN_CLIENT_THREAD_COUNT, 
               YarnConfiguration.DEFAULT_RM_ADMIN_CLIENT_THREAD_COUNT));
@@ -122,15 +123,15 @@ public class AdminService extends AbstractService implements RMAdminProtocol {
     this.server.start();
     conf.updateConnectAddr(YarnConfiguration.RM_ADMIN_ADDRESS,
                            server.getListenerAddress());
-    super.start();
+    super.serviceStart();
   }
 
   @Override
-  public void stop() {
+  protected void serviceStop() throws Exception {
     if (this.server != null) {
       this.server.stop();
     }
-    super.stop();
+    super.serviceStop();
   }
 
   private UserGroupInformation checkAcls(String method) throws YarnException {

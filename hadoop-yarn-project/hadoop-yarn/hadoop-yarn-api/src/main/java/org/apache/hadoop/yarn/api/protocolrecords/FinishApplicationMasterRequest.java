@@ -20,7 +20,7 @@ package org.apache.hadoop.yarn.api.protocolrecords;
 
 import org.apache.hadoop.classification.InterfaceAudience.Public;
 import org.apache.hadoop.classification.InterfaceStability.Stable;
-import org.apache.hadoop.yarn.api.AMRMProtocol;
+import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.util.Records;
@@ -44,7 +44,7 @@ import org.apache.hadoop.yarn.util.Records;
  *   </ul>
  * </p>
  *
- * @see AMRMProtocol#finishApplicationMaster(FinishApplicationMasterRequest)
+ * @see ApplicationMasterProtocol#finishApplicationMaster(FinishApplicationMasterRequest)
  */
 public abstract class FinishApplicationMasterRequest {
 
@@ -54,7 +54,7 @@ public abstract class FinishApplicationMasterRequest {
     FinishApplicationMasterRequest request =
         Records.newRecord(FinishApplicationMasterRequest.class);
     request.setAppAttemptId(appAttemptId);
-    request.setFinishApplicationStatus(finalAppStatus);
+    request.setFinalApplicationStatus(finalAppStatus);
     request.setDiagnostics(diagnostics);
     request.setTrackingUrl(url);
     return request;
@@ -89,12 +89,12 @@ public abstract class FinishApplicationMasterRequest {
   public abstract FinalApplicationStatus getFinalApplicationStatus();
 
   /**
-   * Set the <em>finish state</em> of the <code>ApplicationMaster</code>
-   * @param finishState <em>finish state</em> of the <code>ApplicationMaster</code>
+   * Set the <em>final state</em> of the <code>ApplicationMaster</code>
+   * @param finalState <em>final state</em> of the <code>ApplicationMaster</code>
    */
   @Public
   @Stable
-  public abstract void setFinishApplicationStatus(FinalApplicationStatus finishState);
+  public abstract void setFinalApplicationStatus(FinalApplicationStatus finalState);
 
   /**
    * Get <em>diagnostic information</em> on application failure.

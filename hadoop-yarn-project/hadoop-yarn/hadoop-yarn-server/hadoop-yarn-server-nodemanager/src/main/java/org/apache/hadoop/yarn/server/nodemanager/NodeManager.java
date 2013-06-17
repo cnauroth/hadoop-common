@@ -32,29 +32,30 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.security.SecurityUtil;
+import org.apache.hadoop.service.CompositeService;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.ShutdownHookManager;
 import org.apache.hadoop.util.StringUtils;
-import org.apache.hadoop.yarn.YarnRuntimeException;
 import org.apache.hadoop.yarn.YarnUncaughtExceptionHandler;
-import org.apache.hadoop.yarn.api.ContainerManager;
+import org.apache.hadoop.yarn.api.ContainerManagementProtocol;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
-import org.apache.hadoop.yarn.api.records.NodeHealthStatus;
 import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.event.AsyncDispatcher;
 import org.apache.hadoop.yarn.event.Dispatcher;
 import org.apache.hadoop.yarn.event.EventHandler;
+import org.apache.hadoop.yarn.exceptions.YarnRuntimeException;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
+import org.apache.hadoop.yarn.server.api.records.NodeHealthStatus;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.ContainerManagerImpl;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.application.Application;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.container.Container;
 import org.apache.hadoop.yarn.server.nodemanager.metrics.NodeManagerMetrics;
 import org.apache.hadoop.yarn.server.nodemanager.security.NMContainerTokenSecretManager;
+import org.apache.hadoop.yarn.server.nodemanager.security.NMTokenSecretManagerInNM;
 import org.apache.hadoop.yarn.server.nodemanager.webapp.WebServer;
 import org.apache.hadoop.yarn.server.security.ApplicationACLsManager;
-import org.apache.hadoop.yarn.service.CompositeService;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -118,8 +119,10 @@ public class NodeManager extends CompositeService
     return new DeletionService(exec);
   }
 
-  protected NMContext createNMContext(NMContainerTokenSecretManager containerTokenSecretManager) {
-    return new NMContext(containerTokenSecretManager);
+  protected NMContext createNMContext(
+      NMContainerTokenSecretManager containerTokenSecretManager,
+      NMTokenSecretManagerInNM nmTokenSecretManager) {
+    return new NMContext(containerTokenSecretManager, nmTokenSecretManager);
   }
 
   protected void doSecureLogin() throws IOException {
@@ -128,14 +131,18 @@ public class NodeManager extends CompositeService
   }
 
   @Override
-  public void init(Configuration conf) {
+  protected void serviceInit(Configuration conf) throws Exception {
 
     conf.setBoolean(Dispatcher.DISPATCHER_EXIT_ON_ERROR_KEY, true);
 
     NMContainerTokenSecretManager containerTokenSecretManager =
         new NMContainerTokenSecretManager(conf);
 
-    this.context = createNMContext(containerTokenSecretManager);
+    NMTokenSecretManagerInNM nmTokenSecretManager =
+        new NMTokenSecretManagerInNM();
+    
+    this.context =
+        createNMContext(containerTokenSecretManager, nmTokenSecretManager);
 
     this.aclsManager = new ApplicationACLsManager(conf);
 
@@ -192,29 +199,34 @@ public class NodeManager extends CompositeService
             YarnConfiguration.DEFAULT_NM_PROCESS_KILL_WAIT_MS) +
         SHUTDOWN_CLEANUP_SLOP_MS;
     
-    super.init(conf);
+    super.serviceInit(conf);
     // TODO add local dirs to del
   }
 
   @Override
-  public void start() {
+  protected void serviceStart() throws Exception {
     try {
       doSecureLogin();
     } catch (IOException e) {
       throw new YarnRuntimeException("Failed NodeManager login", e);
     }
-    super.start();
+    super.serviceStart();
   }
 
   @Override
-  public void stop() {
+  protected void serviceStop() throws Exception {
     if (isStopping.getAndSet(true)) {
       return;
     }
-
-    cleanupContainers(NodeManagerEventType.SHUTDOWN);
-    super.stop();
+    if (context != null) {
+      cleanupContainers(NodeManagerEventType.SHUTDOWN);
+    }
+    super.serviceStop();
     DefaultMetricsSystem.shutdown();
+  }
+
+  public String getName() {
+    return "NodeManager";
   }
 
   protected void resyncWithRM() {
@@ -294,13 +306,16 @@ public class NodeManager extends CompositeService
         new ConcurrentSkipListMap<ContainerId, Container>();
 
     private final NMContainerTokenSecretManager containerTokenSecretManager;
-    private ContainerManager containerManager;
+    private final NMTokenSecretManagerInNM nmTokenSecretManager;
+    private ContainerManagementProtocol containerManager;
     private WebServer webServer;
     private final NodeHealthStatus nodeHealthStatus = RecordFactoryProvider
         .getRecordFactory(null).newRecordInstance(NodeHealthStatus.class);
 
-    public NMContext(NMContainerTokenSecretManager containerTokenSecretManager) {
+    public NMContext(NMContainerTokenSecretManager containerTokenSecretManager,
+        NMTokenSecretManagerInNM nmTokenSecretManager) {
       this.containerTokenSecretManager = containerTokenSecretManager;
+      this.nmTokenSecretManager = nmTokenSecretManager;
       this.nodeHealthStatus.setIsNodeHealthy(true);
       this.nodeHealthStatus.setHealthReport("Healthy");
       this.nodeHealthStatus.setLastHealthReportTime(System.currentTimeMillis());
@@ -333,17 +348,23 @@ public class NodeManager extends CompositeService
     public NMContainerTokenSecretManager getContainerTokenSecretManager() {
       return this.containerTokenSecretManager;
     }
+    
+    @Override
+    public NMTokenSecretManagerInNM getNMTokenSecretManager() {
+      return this.nmTokenSecretManager;
+    }
+    
     @Override
     public NodeHealthStatus getNodeHealthStatus() {
       return this.nodeHealthStatus;
     }
 
     @Override
-    public ContainerManager getContainerManager() {
+    public ContainerManagementProtocol getContainerManager() {
       return this.containerManager;
     }
 
-    public void setContainerManager(ContainerManager containerManager) {
+    public void setContainerManager(ContainerManagementProtocol containerManager) {
       this.containerManager = containerManager;
     }
 

@@ -28,14 +28,13 @@ import java.util.Map.Entry;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.service.AbstractService;
+import org.apache.hadoop.service.Service;
+import org.apache.hadoop.service.ServiceStateChangeListener;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
-import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.event.EventHandler;
-import org.apache.hadoop.yarn.service.AbstractService;
-import org.apache.hadoop.yarn.service.Service;
-import org.apache.hadoop.yarn.service.ServiceStateChangeListener;
 
 public class AuxServices extends AbstractService
     implements ServiceStateChangeListener, EventHandler<AuxServicesEvent> {
@@ -82,7 +81,7 @@ public class AuxServices extends AbstractService
   }
 
   @Override
-  public void init(Configuration conf) {
+  public void serviceInit(Configuration conf) throws Exception {
     Collection<String> auxNames = conf.getStringCollection(
         YarnConfiguration.NM_AUX_SERVICES);
     for (final String sName : auxNames) {
@@ -110,33 +109,33 @@ public class AuxServices extends AbstractService
         throw e;
       }
     }
-    super.init(conf);
+    super.serviceInit(conf);
   }
 
   @Override
-  public void start() {
+  public void serviceStart() throws Exception {
     // TODO fork(?) services running as configured user
     //      monitor for health, shutdown/restart(?) if any should die
     for (Map.Entry<String, AuxiliaryService> entry : serviceMap.entrySet()) {
       AuxiliaryService service = entry.getValue();
       String name = entry.getKey();
       service.start();
-      service.register(this);
+      service.registerServiceListener(this);
       ByteBuffer meta = service.getMeta();
       if(meta != null) {
         serviceMeta.put(name, meta);
       }
     }
-    super.start();
+    super.serviceStart();
   }
 
   @Override
-  public void stop() {
+  public void serviceStop() throws Exception {
     try {
       synchronized (serviceMap) {
         for (Service service : serviceMap.values()) {
           if (service.getServiceState() == Service.STATE.STARTED) {
-            service.unregister(this);
+            service.unregisterServiceListener(this);
             service.stop();
           }
         }
@@ -144,7 +143,7 @@ public class AuxServices extends AbstractService
         serviceMeta.clear();
       }
     } finally {
-      super.stop();
+      super.serviceStop();
     }
   }
 

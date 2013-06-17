@@ -84,10 +84,7 @@ import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.security.SecurityUtil;
 import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.hadoop.yarn.Clock;
-import org.apache.hadoop.yarn.ClusterInfo;
-import org.apache.hadoop.yarn.SystemClock;
-import org.apache.hadoop.yarn.YarnRuntimeException;
+import org.apache.hadoop.service.Service;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.Container;
@@ -96,10 +93,12 @@ import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.Token;
 import org.apache.hadoop.yarn.event.EventHandler;
+import org.apache.hadoop.yarn.exceptions.YarnRuntimeException;
 import org.apache.hadoop.yarn.security.ContainerTokenIdentifier;
-import org.apache.hadoop.yarn.service.Service;
 import org.apache.hadoop.yarn.state.StateMachine;
 import org.apache.hadoop.yarn.state.StateMachineFactory;
+import org.apache.hadoop.yarn.util.Clock;
+import org.apache.hadoop.yarn.util.SystemClock;
 
 
 /**
@@ -141,7 +140,7 @@ public class MRApp extends MRAppMaster {
   }
   
   @Override
-  protected void downloadTokensAndSetupUGI(Configuration conf) {
+  protected void initJobCredentialsAndUGI(Configuration conf) {
     // Fake a shuffle secret that normally is provided by the job client.
     String shuffleSecret = "fake-shuffle-secret";
     TokenCache.setShuffleSecretKey(shuffleSecret.getBytes(), getCredentials());
@@ -207,7 +206,7 @@ public class MRApp extends MRAppMaster {
   }
 
   @Override
-  public void init(Configuration conf) {
+  protected void serviceInit(Configuration conf) throws Exception {
     try {
       //Create the staging directory if it does not exist
       String user = UserGroupInformation.getCurrentUser().getShortUserName();
@@ -218,15 +217,11 @@ public class MRApp extends MRAppMaster {
       throw new YarnRuntimeException("Error creating staging dir", e);
     }
     
-    super.init(conf);
+    super.serviceInit(conf);
     if (this.clusterInfo != null) {
-      getContext().getClusterInfo().setMinContainerCapability(
-          this.clusterInfo.getMinContainerCapability());
       getContext().getClusterInfo().setMaxContainerCapability(
           this.clusterInfo.getMaxContainerCapability());
     } else {
-      getContext().getClusterInfo().setMinContainerCapability(
-          Resource.newInstance(1024, 1));
       getContext().getClusterInfo().setMaxContainerCapability(
           Resource.newInstance(10240, 1));
     }

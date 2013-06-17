@@ -22,7 +22,7 @@ import org.apache.hadoop.classification.InterfaceAudience.Private;
 import org.apache.hadoop.classification.InterfaceAudience.Public;
 import org.apache.hadoop.classification.InterfaceStability.Stable;
 import org.apache.hadoop.classification.InterfaceStability.Unstable;
-import org.apache.hadoop.yarn.api.ClientRMProtocol;
+import org.apache.hadoop.yarn.api.ApplicationClientProtocol;
 import org.apache.hadoop.yarn.util.Records;
 
 /**
@@ -37,12 +37,10 @@ import org.apache.hadoop.yarn.util.Records;
  *     <li>Used {@link Resource} on the node.</li>
  *     <li>Total available {@link Resource} of the node.</li>
  *     <li>Number of running containers on the node.</li>
- *     <li>{@link NodeHealthStatus} of the node.</li>
  *   </ul>
  * </p>
  *
- * @see NodeHealthStatus
- * @see ClientRMProtocol#getClusterNodes(org.apache.hadoop.yarn.api.protocolrecords.GetClusterNodesRequest)
+ * @see ApplicationClientProtocol#getClusterNodes(org.apache.hadoop.yarn.api.protocolrecords.GetClusterNodesRequest)
  */
 @Public
 @Stable

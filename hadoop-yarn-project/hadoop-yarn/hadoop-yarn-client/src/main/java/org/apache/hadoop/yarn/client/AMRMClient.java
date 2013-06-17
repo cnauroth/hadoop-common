@@ -21,42 +21,83 @@ package org.apache.hadoop.yarn.client;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.ConcurrentMap;
 
 import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.classification.InterfaceAudience.Private;
+import org.apache.hadoop.classification.InterfaceAudience.Public;
 import org.apache.hadoop.classification.InterfaceStability;
-import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
+import org.apache.hadoop.service.AbstractService;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
+import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
+import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.api.records.Token;
 import org.apache.hadoop.yarn.exceptions.YarnException;
-import org.apache.hadoop.yarn.service.Service;
 
 import com.google.common.collect.ImmutableList;
 
 @InterfaceAudience.Public
 @InterfaceStability.Unstable
-public interface AMRMClient<T extends AMRMClient.ContainerRequest> extends Service {
+public abstract class AMRMClient<T extends AMRMClient.ContainerRequest> extends
+    AbstractService {
 
   /**
-   * Object to represent container request for resources.
-   * Resources may be localized to nodes and racks.
-   * Resources may be assigned priorities.
-   * All getters return unmodifiable collections.
-   * Can ask for multiple containers of a given type.
+   * Create a new instance of AMRMClient.
+   * For usage:
+   * <pre>
+   * {@code
+   * AMRMClient.<T>createAMRMClientContainerRequest(appAttemptId)
+   * }</pre>
+   * @param appAttemptId the appAttemptId associated with the AMRMClient
+   * @return the newly create AMRMClient instance.
+   */
+  @Public
+  public static <T extends ContainerRequest> AMRMClient<T> createAMRMClient(
+      ApplicationAttemptId appAttemptId) {
+    AMRMClient<T> client = new AMRMClientImpl<T>(appAttemptId);
+    return client;
+  }
+
+  @Private
+  protected AMRMClient(String name) {
+    super(name);
+  }
+
+  /**
+   * Object to represent container request for resources. Scheduler
+   * documentation should be consulted for the specifics of how the parameters
+   * are honored.
+   * All getters return immutable values.
+   * 
+   * @param capability
+   *    The {@link Resource} to be requested for each container.
+   * @param nodes
+   *    Any hosts to request that the containers are placed on.
+   * @param racks
+   *    Any racks to request that the containers are placed on. The racks
+   *    corresponding to any hosts requested will be automatically added to
+   *    this list.
+   * @param priority
+   *    The priority at which to request the containers. Higher priorities have
+   *    lower numerical values.
+   * @param containerCount
+   *    The number of containers to request.
    */
   public static class ContainerRequest {
     final Resource capability;
-    final ImmutableList<String> hosts;
-    final ImmutableList<String> racks;
+    final List<String> nodes;
+    final List<String> racks;
     final Priority priority;
     final int containerCount;
         
-    public ContainerRequest(Resource capability, String[] hosts,
+    public ContainerRequest(Resource capability, String[] nodes,
         String[] racks, Priority priority, int containerCount) {
       this.capability = capability;
-      this.hosts = (hosts != null ? ImmutableList.copyOf(hosts) : null);
+      this.nodes = (nodes != null ? ImmutableList.copyOf(nodes) : null);
       this.racks = (racks != null ? ImmutableList.copyOf(racks) : null);
       this.priority = priority;
       this.containerCount = containerCount;
@@ -66,8 +107,8 @@ public interface AMRMClient<T extends AMRMClient.ContainerRequest> extends Servi
       return capability;
     }
     
-    public List<String> getHosts() {
-      return hosts;
+    public List<String> getNodes() {
+      return nodes;
     }
     
     public List<String> getRacks() {
@@ -101,9 +142,9 @@ public interface AMRMClient<T extends AMRMClient.ContainerRequest> extends Servi
    * AMRMClient can remove it from its internal store.
    */
   public static class StoredContainerRequest extends ContainerRequest {    
-    public StoredContainerRequest(Resource capability, String[] hosts,
+    public StoredContainerRequest(Resource capability, String[] nodes,
         String[] racks, Priority priority) {
-      super(capability, hosts, racks, priority, 1);
+      super(capability, nodes, racks, priority, 1);
     }
   }
   
@@ -117,7 +158,7 @@ public interface AMRMClient<T extends AMRMClient.ContainerRequest> extends Servi
    * @throws YarnException
    * @throws IOException
    */
-  public RegisterApplicationMasterResponse 
+  public abstract RegisterApplicationMasterResponse 
                registerApplicationMaster(String appHostName,
                                          int appHostPort,
                                          String appTrackingUrl) 
@@ -138,7 +179,7 @@ public interface AMRMClient<T extends AMRMClient.ContainerRequest> extends Servi
    * @throws YarnException
    * @throws IOException
    */
-  public AllocateResponse allocate(float progressIndicator) 
+  public abstract AllocateResponse allocate(float progressIndicator) 
                            throws YarnException, IOException;
   
   /**
@@ -149,7 +190,7 @@ public interface AMRMClient<T extends AMRMClient.ContainerRequest> extends Servi
    * @throws YarnException
    * @throws IOException
    */
-  public void unregisterApplicationMaster(FinalApplicationStatus appStatus,
+  public abstract void unregisterApplicationMaster(FinalApplicationStatus appStatus,
                                            String appMessage,
                                            String appTrackingUrl) 
                throws YarnException, IOException;
@@ -158,7 +199,7 @@ public interface AMRMClient<T extends AMRMClient.ContainerRequest> extends Servi
    * Request containers for resources before calling <code>allocate</code>
    * @param req Resource request
    */
-  public void addContainerRequest(T req);
+  public abstract void addContainerRequest(T req);
   
   /**
    * Remove previous container request. The previous container request may have 
@@ -167,7 +208,7 @@ public interface AMRMClient<T extends AMRMClient.ContainerRequest> extends Servi
    * even after the remove request
    * @param req Resource request
    */
-  public void removeContainerRequest(T req);
+  public abstract void removeContainerRequest(T req);
   
   /**
    * Release containers assigned by the Resource Manager. If the app cannot use
@@ -176,21 +217,21 @@ public interface AMRMClient<T extends AMRMClient.ContainerRequest> extends Servi
    * it still needs it. eg. it released non-local resources
    * @param containerId
    */
-  public void releaseAssignedContainer(ContainerId containerId);
+  public abstract void releaseAssignedContainer(ContainerId containerId);
   
   /**
    * Get the currently available resources in the cluster.
    * A valid value is available after a call to allocate has been made
    * @return Currently available resources
    */
-  public Resource getClusterAvailableResources();
+  public abstract Resource getClusterAvailableResources();
   
   /**
    * Get the current number of nodes in the cluster.
    * A valid values is available after a call to allocate has been made
    * @return Current number of nodes in the cluster
    */
-  public int getClusterNodeCount();
+  public abstract int getClusterNodeCount();
 
   /**
    * Get outstanding <code>StoredContainerRequest</code>s matching the given 
@@ -203,9 +244,18 @@ public interface AMRMClient<T extends AMRMClient.ContainerRequest> extends Servi
    * collection, requests will be returned in the same order as they were added.
    * @return Collection of request matching the parameters
    */
-  public List<? extends Collection<T>> getMatchingRequests(
+  public abstract List<? extends Collection<T>> getMatchingRequests(
                                            Priority priority, 
                                            String resourceName, 
                                            Resource capability);
 
+  /**
+   * It returns the NMToken received on allocate call. It will not communicate
+   * with RM to get NMTokens. On allocate call whenever we receive new token
+   * along with container AMRMClient will cache this NMToken per node manager.
+   * This map returned should be shared with any application which is
+   * communicating with NodeManager (ex. NMClient) using NMTokens. If a new
+   * NMToken is received for the same node manager then it will be replaced. 
+   */
+  public abstract ConcurrentMap<String, Token> getNMTokens();
 }

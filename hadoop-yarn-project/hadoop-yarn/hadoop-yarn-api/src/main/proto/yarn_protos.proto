@@ -131,7 +131,7 @@ message ApplicationReportProto {
   optional string name = 4;
   optional string host = 5;
   optional int32 rpc_port = 6;
-  optional hadoop.common.TokenProto client_token = 7;
+  optional hadoop.common.TokenProto client_to_am_token = 7;
   optional YarnApplicationStateProto yarn_application_state = 8;
   optional string trackingUrl = 9;
   optional string diagnostics = 10 [default = "N/A"];
@@ -157,12 +157,6 @@ enum NodeStateProto {
 message NodeIdProto {
   optional string host = 1;
   optional int32 port = 2;
-}
-
-message NodeHealthStatusProto {
-  optional bool is_node_healthy = 1;
-  optional string health_report = 2;
-  optional int64 last_health_report_time = 3;
 }
 
 message NodeReportProto {

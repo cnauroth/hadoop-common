@@ -22,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -38,11 +39,12 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import junit.framework.Assert;
 
+import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.security.authorize.AccessControlList;
-import org.apache.hadoop.yarn.Clock;
 import org.apache.hadoop.yarn.MockApps;
+import org.apache.hadoop.yarn.exceptions.YarnRuntimeException;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
@@ -59,6 +61,7 @@ import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.server.resourcemanager.ApplicationMasterService;
 import org.apache.hadoop.yarn.server.resourcemanager.MockNodes;
+import org.apache.hadoop.yarn.server.resourcemanager.RMContextImpl;
 import org.apache.hadoop.yarn.server.resourcemanager.ResourceManager;
 import org.apache.hadoop.yarn.server.resourcemanager.resource.Resources;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.RMApp;
@@ -78,7 +81,10 @@ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.NodeRemoved
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.NodeUpdateSchedulerEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.fair.policies.DominantResourceFairnessPolicy;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.fair.policies.FifoPolicy;
+import org.apache.hadoop.yarn.server.resourcemanager.security.ClientToAMTokenSecretManagerInRM;
+import org.apache.hadoop.yarn.server.resourcemanager.security.RMContainerTokenSecretManager;
 import org.apache.hadoop.yarn.server.utils.BuilderUtils;
+import org.apache.hadoop.yarn.util.Clock;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -117,7 +123,9 @@ public class TestFairScheduler {
   public void setUp() throws IOException {
     scheduler = new FairScheduler();
     Configuration conf = createConfiguration();
-    conf.setInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB, 1024);
+    conf.setInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB, 0);
+    conf.setInt(FairSchedulerConfiguration.RM_SCHEDULER_INCREMENT_ALLOCATION_MB,
+      1024);
     conf.setInt(YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_MB, 10240);
     // All tests assume only one assignment per node update
     conf.set(FairSchedulerConfiguration.ASSIGN_MULTIPLE, "false");
@@ -135,6 +143,39 @@ public class TestFairScheduler {
     resourceManager = null;
     QueueMetrics.clearQueueMetrics();
     DefaultMetricsSystem.shutdown();
+  }
+
+
+  @Test (timeout = 30000)
+  public void testConfValidation() throws Exception {
+    ResourceScheduler scheduler = new FairScheduler();
+    Configuration conf = new YarnConfiguration();
+    conf.setInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB, 2048);
+    conf.setInt(YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_MB, 1024);
+    try {
+      scheduler.reinitialize(conf, null);
+      fail("Exception is expected because the min memory allocation is" +
+        " larger than the max memory allocation.");
+    } catch (YarnRuntimeException e) {
+      // Exception is expected.
+      assertTrue("The thrown exception is not the expected one.",
+        e.getMessage().startsWith(
+          "Invalid resource scheduler memory"));
+    }
+
+    conf = new YarnConfiguration();
+    conf.setInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES, 2);
+    conf.setInt(YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_VCORES, 1);
+    try {
+      scheduler.reinitialize(conf, null);
+      fail("Exception is expected because the min vcores allocation is" +
+        " larger than the max vcores allocation.");
+    } catch (YarnRuntimeException e) {
+      // Exception is expected.
+      assertTrue("The thrown exception is not the expected one.",
+        e.getMessage().startsWith(
+          "Invalid resource scheduler vcores"));
+    }
   }
 
   private Configuration createConfiguration() {
@@ -219,6 +260,13 @@ public class TestFairScheduler {
     createSchedulingRequestExistingApplication(request, attId);
   }
   
+  private void createSchedulingRequestExistingApplication(int memory, int vcores,
+      int priority, ApplicationAttemptId attId) {
+	ResourceRequest request = createResourceRequest(memory, vcores, ResourceRequest.ANY,
+		priority, 1, true);
+	createSchedulingRequestExistingApplication(request, attId);
+  }
+  
   private void createSchedulingRequestExistingApplication(ResourceRequest request,
       ApplicationAttemptId attId) {
     List<ResourceRequest> ask = new ArrayList<ResourceRequest>();
@@ -238,6 +286,8 @@ public class TestFairScheduler {
     conf.setDouble(FairSchedulerConfiguration.LOCALITY_THRESHOLD_RACK, .7);
     conf.setInt(YarnConfiguration.RM_SCHEDULER_MAXIMUM_ALLOCATION_MB, 1024);
     conf.setInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB, 512);
+    conf.setInt(FairSchedulerConfiguration.RM_SCHEDULER_INCREMENT_ALLOCATION_MB, 
+      128);
     scheduler.reinitialize(conf, resourceManager.getRMContext());
     Assert.assertEquals(true, scheduler.assignMultiple);
     Assert.assertEquals(3, scheduler.maxAssign);
@@ -246,7 +296,43 @@ public class TestFairScheduler {
     Assert.assertEquals(.7, scheduler.rackLocalityThreshold, .01);
     Assert.assertEquals(1024, scheduler.getMaximumResourceCapability().getMemory());
     Assert.assertEquals(512, scheduler.getMinimumResourceCapability().getMemory());
+    Assert.assertEquals(128, 
+      scheduler.getIncrementResourceCapability().getMemory());
   }
+  
+  @Test  
+  public void testNonMinZeroResourcesSettings() throws IOException {
+    FairScheduler fs = new FairScheduler();
+    YarnConfiguration conf = new YarnConfiguration();
+    conf.setInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB, 256);
+    conf.setInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES, 1);
+    conf.setInt(
+      FairSchedulerConfiguration.RM_SCHEDULER_INCREMENT_ALLOCATION_MB, 512);
+    conf.setInt(
+      FairSchedulerConfiguration.RM_SCHEDULER_INCREMENT_ALLOCATION_VCORES, 2);
+    fs.reinitialize(conf, null);
+    Assert.assertEquals(256, fs.getMinimumResourceCapability().getMemory());
+    Assert.assertEquals(1, fs.getMinimumResourceCapability().getVirtualCores());
+    Assert.assertEquals(512, fs.getIncrementResourceCapability().getMemory());
+    Assert.assertEquals(2, fs.getIncrementResourceCapability().getVirtualCores());
+  }  
+  
+  @Test  
+  public void testMinZeroResourcesSettings() throws IOException {  
+    FairScheduler fs = new FairScheduler();  
+    YarnConfiguration conf = new YarnConfiguration();
+    conf.setInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB, 0);
+    conf.setInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES, 0);
+    conf.setInt(
+      FairSchedulerConfiguration.RM_SCHEDULER_INCREMENT_ALLOCATION_MB, 512);
+    conf.setInt(
+      FairSchedulerConfiguration.RM_SCHEDULER_INCREMENT_ALLOCATION_VCORES, 2);
+    fs.reinitialize(conf, null);  
+    Assert.assertEquals(0, fs.getMinimumResourceCapability().getMemory());  
+    Assert.assertEquals(0, fs.getMinimumResourceCapability().getVirtualCores());
+    Assert.assertEquals(512, fs.getIncrementResourceCapability().getMemory());
+    Assert.assertEquals(2, fs.getIncrementResourceCapability().getVirtualCores());
+  }  
   
   @Test
   public void testAggregateCapacityTracking() throws Exception {
@@ -352,25 +438,25 @@ public class TestFairScheduler {
     // Add a node
     RMNode node1 =
         MockNodes
-            .newNodeInfo(1, Resources.createResource(1024), 1, "127.0.0.1");
+            .newNodeInfo(1, Resources.createResource(1024, 4), 1, "127.0.0.1");
     NodeAddedSchedulerEvent nodeEvent1 = new NodeAddedSchedulerEvent(node1);
     scheduler.handle(nodeEvent1);
 
     // Add another node
     RMNode node2 =
-        MockNodes.newNodeInfo(1, Resources.createResource(512), 2, "127.0.0.2");
+        MockNodes.newNodeInfo(1, Resources.createResource(512, 2), 2, "127.0.0.2");
     NodeAddedSchedulerEvent nodeEvent2 = new NodeAddedSchedulerEvent(node2);
     scheduler.handle(nodeEvent2);
 
-    createSchedulingRequest(512, "queue1", "user1", 2);
+    createSchedulingRequest(512, 2, "queue1", "user1", 2);
 
     scheduler.update();
 
     NodeUpdateSchedulerEvent updateEvent = new NodeUpdateSchedulerEvent(node1);
     scheduler.handle(updateEvent);
 
-    // Asked for less than min_allocation.
-    assertEquals(YarnConfiguration.DEFAULT_RM_SCHEDULER_MINIMUM_ALLOCATION_MB,
+    // Asked for less than increment allocation.
+    assertEquals(FairSchedulerConfiguration.DEFAULT_RM_SCHEDULER_INCREMENT_ALLOCATION_MB,
         scheduler.getQueueManager().getQueue("queue1").
         getResourceUsage().getMemory());
 
@@ -379,13 +465,18 @@ public class TestFairScheduler {
 
     assertEquals(1024, scheduler.getQueueManager().getQueue("queue1").
       getResourceUsage().getMemory());
+    assertEquals(2, scheduler.getQueueManager().getQueue("queue1").
+      getResourceUsage().getVirtualCores());
 
     // verify metrics
     QueueMetrics queue1Metrics = scheduler.getQueueManager().getQueue("queue1")
         .getMetrics();
     assertEquals(1024, queue1Metrics.getAllocatedMB());
+    assertEquals(2, queue1Metrics.getAllocatedVirtualCores());
     assertEquals(1024, scheduler.getRootQueueMetrics().getAllocatedMB());
+    assertEquals(2, scheduler.getRootQueueMetrics().getAllocatedVirtualCores());
     assertEquals(512, scheduler.getRootQueueMetrics().getAvailableMB());
+    assertEquals(4, scheduler.getRootQueueMetrics().getAvailableVirtualCores());
   }
 
   @Test (timeout = 5000)
@@ -523,7 +614,8 @@ public class TestFairScheduler {
     ApplicationAttemptId id22 = createAppAttemptId(2, 2);
     scheduler.addApplication(id22, "root.queue2", "user1");
 
-    int minReqSize = YarnConfiguration.DEFAULT_RM_SCHEDULER_MINIMUM_ALLOCATION_MB;
+    int minReqSize = 
+        FairSchedulerConfiguration.DEFAULT_RM_SCHEDULER_INCREMENT_ALLOCATION_MB;
     
     // First ask, queue1 requests 1 large (minReqSize * 2).
     List<ResourceRequest> ask1 = new ArrayList<ResourceRequest>();
@@ -1334,11 +1426,11 @@ public class TestFairScheduler {
     // Add a node
     RMNode node1 =
         MockNodes
-            .newNodeInfo(1, Resources.createResource(1024), 1, "127.0.0.1");
+            .newNodeInfo(1, Resources.createResource(1024, 4), 1, "127.0.0.1");
     NodeAddedSchedulerEvent nodeEvent1 = new NodeAddedSchedulerEvent(node1);
     scheduler.handle(nodeEvent1);
 
-    ApplicationAttemptId attId = createSchedulingRequest(1024, "queue1",
+    ApplicationAttemptId attId = createSchedulingRequest(1024, 4, "queue1",
         "user1", 1, 2);
     scheduler.update();
     NodeUpdateSchedulerEvent updateEvent = new NodeUpdateSchedulerEvent(node1);
@@ -1351,15 +1443,16 @@ public class TestFairScheduler {
         .getLiveContainers().iterator().next().getContainerId();
 
     // Cause reservation to be created
-    createSchedulingRequestExistingApplication(1024, 2, attId);
+    createSchedulingRequestExistingApplication(1024, 4, 2, attId);
     scheduler.update();
     scheduler.handle(updateEvent);
 
     assertEquals(1, app.getLiveContainers().size());
     assertEquals(0, scheduler.getRootQueueMetrics().getAvailableMB());
+    assertEquals(0, scheduler.getRootQueueMetrics().getAvailableVirtualCores());
     
     // Create request at higher priority
-    createSchedulingRequestExistingApplication(1024, 1, attId);
+    createSchedulingRequestExistingApplication(1024, 4, 1, attId);
     scheduler.update();
     scheduler.handle(updateEvent);
     
@@ -1373,6 +1466,7 @@ public class TestFairScheduler {
     scheduler.allocate(attId, new ArrayList<ResourceRequest>(),
         Arrays.asList(containerId), null, null);
     assertEquals(1024, scheduler.getRootQueueMetrics().getAvailableMB());
+    assertEquals(4, scheduler.getRootQueueMetrics().getAvailableVirtualCores());
     
     // Schedule at opening
     scheduler.update();
@@ -1385,6 +1479,7 @@ public class TestFairScheduler {
       Assert.assertEquals(2, liveContainer.getContainer().getPriority().getPriority());
     }
     assertEquals(0, scheduler.getRootQueueMetrics().getAvailableMB());
+    assertEquals(0, scheduler.getRootQueueMetrics().getAvailableVirtualCores());
   }
   
   @Test
@@ -1708,22 +1803,27 @@ public class TestFairScheduler {
   @Test
   public void testRemoveNodeUpdatesRootQueueMetrics() {
     assertEquals(0, scheduler.getRootQueueMetrics().getAvailableMB());
+	assertEquals(0, scheduler.getRootQueueMetrics().getAvailableVirtualCores());
     
-    RMNode node1 = MockNodes.newNodeInfo(1, Resources.createResource(1024), 1,
+    RMNode node1 = MockNodes.newNodeInfo(1, Resources.createResource(1024, 4), 1,
         "127.0.0.1");
     NodeAddedSchedulerEvent addEvent = new NodeAddedSchedulerEvent(node1);
     scheduler.handle(addEvent);
     
     assertEquals(1024, scheduler.getRootQueueMetrics().getAvailableMB());
+    assertEquals(4, scheduler.getRootQueueMetrics().getAvailableVirtualCores());
     scheduler.update(); // update shouldn't change things
     assertEquals(1024, scheduler.getRootQueueMetrics().getAvailableMB());
+    assertEquals(4, scheduler.getRootQueueMetrics().getAvailableVirtualCores());
     
     NodeRemovedSchedulerEvent removeEvent = new NodeRemovedSchedulerEvent(node1);
     scheduler.handle(removeEvent);
     
     assertEquals(0, scheduler.getRootQueueMetrics().getAvailableMB());
+    assertEquals(0, scheduler.getRootQueueMetrics().getAvailableVirtualCores());
     scheduler.update(); // update shouldn't change things
     assertEquals(0, scheduler.getRootQueueMetrics().getAvailableMB());
+    assertEquals(0, scheduler.getRootQueueMetrics().getAvailableVirtualCores());
 }
 
   @Test

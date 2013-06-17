@@ -40,9 +40,9 @@ import org.apache.hadoop.mapreduce.v2.app.MRApp;
 import org.apache.hadoop.mapreduce.v2.app.job.Job;
 import org.apache.hadoop.mapreduce.v2.app.job.Task;
 import org.apache.hadoop.mapreduce.v2.app.job.TaskAttempt;
+import org.apache.hadoop.service.Service;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.event.EventHandler;
-import org.apache.hadoop.yarn.service.Service;
 import org.junit.Test;
 
 public class TestJobHistoryEvents {
@@ -206,7 +206,7 @@ public class TestJobHistoryEvents {
         AppContext context) {
       return new JobHistoryEventHandler(context, getStartCount()) {
         @Override
-        public void start() {
+        protected void serviceStart() {
           // Don't start any event draining thread.
           super.eventHandlingThread = new Thread();
           super.eventHandlingThread.start();

@@ -32,7 +32,8 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.hadoop.yarn.api.ContainerManager;
+import org.apache.hadoop.service.AbstractService;
+import org.apache.hadoop.yarn.api.ContainerManagementProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.GetContainerStatusRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.GetContainerStatusResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest;
@@ -42,13 +43,12 @@ import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
-import org.apache.hadoop.yarn.api.records.Token;
 import org.apache.hadoop.yarn.api.records.NodeId;
+import org.apache.hadoop.yarn.api.records.Token;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.ipc.RPCUtil;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
 import org.apache.hadoop.yarn.security.ContainerTokenIdentifier;
-import org.apache.hadoop.yarn.service.AbstractService;
 import org.apache.hadoop.yarn.util.ProtoUtils;
 import org.apache.hadoop.yarn.util.Records;
 
@@ -76,7 +76,7 @@ import org.apache.hadoop.yarn.util.Records;
  * {@link #stopContainer}.
  * </p>
  */
-public class NMClientImpl extends AbstractService implements NMClient {
+public class NMClientImpl extends NMClient {
 
   private static final Log LOG = LogFactory.getLog(NMClientImpl.class);
 
@@ -86,7 +86,7 @@ public class NMClientImpl extends AbstractService implements NMClient {
       new ConcurrentHashMap<ContainerId, StartedContainer>();
 
   //enabled by default
-  protected AtomicBoolean cleanupRunningContainers = new AtomicBoolean(true);
+  protected final AtomicBoolean cleanupRunningContainers = new AtomicBoolean(true);
 
   public NMClientImpl() {
     super(NMClientImpl.class.getName());
@@ -97,13 +97,13 @@ public class NMClientImpl extends AbstractService implements NMClient {
   }
 
   @Override
-  public void stop() {
+  protected void serviceStop() throws Exception {
     // Usually, started-containers are stopped when this client stops. Unless
     // the flag cleanupRunningContainers is set to false.
     if (cleanupRunningContainers.get()) {
       cleanupRunningContainers();
     }
-    super.stop();
+    super.serviceStop();
   }
 
   protected synchronized void cleanupRunningContainers() {
@@ -160,7 +160,7 @@ public class NMClientImpl extends AbstractService implements NMClient {
     private ContainerId containerId;
     private NodeId nodeId;
     private Token containerToken;
-    private ContainerManager containerManager;
+    private ContainerManagementProtocol containerManager;
 
     public NMCommunicator(ContainerId containerId, NodeId nodeId,
         Token containerToken) {
@@ -171,7 +171,7 @@ public class NMClientImpl extends AbstractService implements NMClient {
     }
 
     @Override
-    public synchronized void start() {
+    protected void serviceStart() throws Exception {
       final YarnRPC rpc = YarnRPC.create(getConfig());
 
       final InetSocketAddress containerAddress =
@@ -186,19 +186,20 @@ public class NMClientImpl extends AbstractService implements NMClient {
       currentUser.addToken(token);
 
       containerManager = currentUser
-          .doAs(new PrivilegedAction<ContainerManager>() {
+          .doAs(new PrivilegedAction<ContainerManagementProtocol>() {
             @Override
-            public ContainerManager run() {
-              return (ContainerManager) rpc.getProxy(ContainerManager.class,
+            public ContainerManagementProtocol run() {
+              return (ContainerManagementProtocol) rpc.getProxy(ContainerManagementProtocol.class,
                   containerAddress, getConfig());
             }
           });
 
       LOG.debug("Connecting to ContainerManager at " + containerAddress);
+      super.serviceStart();
     }
 
     @Override
-    public synchronized void stop() {
+    protected void serviceStop() throws Exception {
       if (this.containerManager != null) {
         RPC.stopProxy(this.containerManager);
 
@@ -209,6 +210,7 @@ public class NMClientImpl extends AbstractService implements NMClient {
               containerAddress);
         }
       }
+      super.serviceStop();
     }
 
     public synchronized Map<String, ByteBuffer> startContainer(

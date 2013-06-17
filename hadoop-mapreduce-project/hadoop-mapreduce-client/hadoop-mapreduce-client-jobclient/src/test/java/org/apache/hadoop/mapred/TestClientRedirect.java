@@ -68,8 +68,8 @@ import org.apache.hadoop.mapreduce.v2.api.records.JobState;
 import org.apache.hadoop.mapreduce.v2.jobhistory.JHAdminConfig;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.net.NetUtils;
-import org.apache.hadoop.yarn.YarnRuntimeException;
-import org.apache.hadoop.yarn.api.ClientRMProtocol;
+import org.apache.hadoop.service.AbstractService;
+import org.apache.hadoop.yarn.api.ApplicationClientProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.CancelDelegationTokenRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.CancelDelegationTokenResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.GetAllApplicationsRequest;
@@ -99,10 +99,10 @@ import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
+import org.apache.hadoop.yarn.exceptions.YarnRuntimeException;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
-import org.apache.hadoop.yarn.service.AbstractService;
 import org.junit.Test;
 
 public class TestClientRedirect {
@@ -223,7 +223,7 @@ public class TestClientRedirect {
     Assert.assertEquals(1, counters.countCounters());
   }
 
-  class RMService extends AbstractService implements ClientRMProtocol {
+  class RMService extends AbstractService implements ApplicationClientProtocol {
     private String clientServiceBindAddress;
     InetSocketAddress clientBindAddress;
     private Server server;
@@ -233,7 +233,7 @@ public class TestClientRedirect {
     }
 
     @Override
-    public void init(Configuration conf) {
+    protected void serviceInit(Configuration conf) throws Exception {
       clientServiceBindAddress = RMADDRESS;
       /*
       clientServiceBindAddress = conf.get(
@@ -241,19 +241,19 @@ public class TestClientRedirect {
           YarnConfiguration.DEFAULT_APPSMANAGER_BIND_ADDRESS);
           */
       clientBindAddress = NetUtils.createSocketAddr(clientServiceBindAddress);
-      super.init(conf);
+      super.serviceInit(conf);
     }
 
     @Override
-    public void start() {
+    protected void serviceStart() throws Exception {
       // All the clients to appsManager are supposed to be authenticated via
       // Kerberos if security is enabled, so no secretManager.
       YarnRPC rpc = YarnRPC.create(getConfig());
       Configuration clientServerConf = new Configuration(getConfig());
-      this.server = rpc.getServer(ClientRMProtocol.class, this,
+      this.server = rpc.getServer(ApplicationClientProtocol.class, this,
           clientBindAddress, clientServerConf, null, 1);
       this.server.start();
-      super.start();
+      super.serviceStart();
     }
 
     @Override
@@ -416,9 +416,12 @@ public class TestClientRedirect {
        amRunning = true;
     }
 
-    public void stop() {
-      server.stop();
-      super.stop();
+    @Override
+    protected void serviceStop() throws Exception {
+      if (server != null) {
+        server.stop();
+      }
+      super.serviceStop();
       amRunning = false;
     }
 

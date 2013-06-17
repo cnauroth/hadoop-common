@@ -41,8 +41,8 @@ import org.apache.hadoop.yarn.api.records.impl.pb.ApplicationSubmissionContextPB
 import org.apache.hadoop.yarn.event.AsyncDispatcher;
 import org.apache.hadoop.yarn.event.Dispatcher;
 import org.apache.hadoop.yarn.event.EventHandler;
-import org.apache.hadoop.yarn.security.ApplicationTokenIdentifier;
-import org.apache.hadoop.yarn.security.client.ClientTokenIdentifier;
+import org.apache.hadoop.yarn.security.AMRMTokenIdentifier;
+import org.apache.hadoop.yarn.security.client.ClientToAMTokenIdentifier;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.records.impl.pb.ApplicationAttemptStateDataPBImpl;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.records.impl.pb.ApplicationStateDataPBImpl;
 import org.apache.hadoop.yarn.security.client.RMDelegationTokenIdentifier;
@@ -378,13 +378,14 @@ public abstract class RMStateStore {
 
   private Credentials getTokensFromAppAttempt(RMAppAttempt appAttempt) {
     Credentials credentials = new Credentials();
-    Token<ApplicationTokenIdentifier> appToken = appAttempt.getApplicationToken();
+    Token<AMRMTokenIdentifier> appToken = appAttempt.getAMRMToken();
     if(appToken != null){
       credentials.addToken(appToken.getService(), appToken);
     }
-    Token<ClientTokenIdentifier> clientToken = appAttempt.getClientToken();
-    if(clientToken != null){
-      credentials.addToken(clientToken.getService(), clientToken);
+    Token<ClientToAMTokenIdentifier> clientToAMToken =
+        appAttempt.getClientToAMToken();
+    if(clientToAMToken != null){
+      credentials.addToken(clientToAMToken.getService(), clientToAMToken);
     }
     return credentials;
   }

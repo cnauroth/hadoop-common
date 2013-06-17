@@ -26,13 +26,13 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
 import org.apache.hadoop.ipc.Server;
 import org.apache.hadoop.net.Node;
-import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.authorize.PolicyProvider;
-import org.apache.hadoop.yarn.YarnRuntimeException;
+import org.apache.hadoop.service.AbstractService;
 import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.hadoop.yarn.exceptions.YarnRuntimeException;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
@@ -51,9 +51,9 @@ import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNodeImpl;
 import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNodeReconnectEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.rmnode.RMNodeStatusEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.security.RMContainerTokenSecretManager;
+import org.apache.hadoop.yarn.server.resourcemanager.security.NMTokenSecretManagerInRM;
 import org.apache.hadoop.yarn.server.resourcemanager.security.authorize.RMPolicyProvider;
 import org.apache.hadoop.yarn.server.utils.YarnServerBuilderUtils;
-import org.apache.hadoop.yarn.service.AbstractService;
 import org.apache.hadoop.yarn.util.RackResolver;
 
 public class ResourceTrackerService extends AbstractService implements
@@ -68,6 +68,7 @@ public class ResourceTrackerService extends AbstractService implements
   private final NodesListManager nodesListManager;
   private final NMLivelinessMonitor nmLivelinessMonitor;
   private final RMContainerTokenSecretManager containerTokenSecretManager;
+  private final NMTokenSecretManagerInRM nmTokenSecretManager;
 
   private long nextHeartBeatInterval;
   private Server server;
@@ -90,16 +91,18 @@ public class ResourceTrackerService extends AbstractService implements
   public ResourceTrackerService(RMContext rmContext,
       NodesListManager nodesListManager,
       NMLivelinessMonitor nmLivelinessMonitor,
-      RMContainerTokenSecretManager containerTokenSecretManager) {
+      RMContainerTokenSecretManager containerTokenSecretManager,
+      NMTokenSecretManagerInRM nmTokenSecretManager) {
     super(ResourceTrackerService.class.getName());
     this.rmContext = rmContext;
     this.nodesListManager = nodesListManager;
     this.nmLivelinessMonitor = nmLivelinessMonitor;
     this.containerTokenSecretManager = containerTokenSecretManager;
+    this.nmTokenSecretManager = nmTokenSecretManager;
   }
 
   @Override
-  public synchronized void init(Configuration conf) {
+  protected void serviceInit(Configuration conf) throws Exception {
     resourceTrackerAddress = conf.getSocketAddr(
         YarnConfiguration.RM_RESOURCE_TRACKER_ADDRESS,
         YarnConfiguration.DEFAULT_RM_RESOURCE_TRACKER_ADDRESS,
@@ -122,12 +125,12 @@ public class ResourceTrackerService extends AbstractService implements
     	YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES,
     	YarnConfiguration.DEFAULT_RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES);
     
-    super.init(conf);
+    super.serviceInit(conf);
   }
 
   @Override
-  public synchronized void start() {
-    super.start();
+  protected void serviceStart() throws Exception {
+    super.serviceStart();
     // ResourceTrackerServer authenticates NodeManager via Kerberos if
     // security is enabled, so no secretManager.
     Configuration conf = getConfig();
@@ -151,11 +154,11 @@ public class ResourceTrackerService extends AbstractService implements
   }
 
   @Override
-  public synchronized void stop() {
+  protected void serviceStop() throws Exception {
     if (this.server != null) {
       this.server.stop();
     }
-    super.stop();
+    super.serviceStop();
   }
 
   @SuppressWarnings("unchecked")
@@ -197,9 +200,10 @@ public class ResourceTrackerService extends AbstractService implements
       return response;
     }
 
-    MasterKey nextMasterKeyForNode =
-        this.containerTokenSecretManager.getCurrentKey();
-    response.setMasterKey(nextMasterKeyForNode);
+    response.setContainerTokenMasterKey(containerTokenSecretManager
+        .getCurrentKey());
+    response.setNMTokenMasterKey(nmTokenSecretManager
+        .getCurrentKey());    
 
     RMNode rmNode = new RMNodeImpl(nodeId, rmContext, host, cmPort, httpPort,
         resolve(host), capability);
@@ -214,7 +218,9 @@ public class ResourceTrackerService extends AbstractService implements
       this.rmContext.getDispatcher().getEventHandler().handle(
           new RMNodeReconnectEvent(nodeId, rmNode));
     }
-
+    // On every node manager register we will be clearing NMToken keys if
+    // present for any running application.
+    this.nmTokenSecretManager.removeNodeKey(nodeId);
     this.nmLivelinessMonitor.register(nodeId);
 
     String message =
@@ -292,27 +298,11 @@ public class ResourceTrackerService extends AbstractService implements
     // Heartbeat response
     NodeHeartbeatResponse nodeHeartBeatResponse = YarnServerBuilderUtils
         .newNodeHeartbeatResponse(lastNodeHeartbeatResponse.
-            getResponseId() + 1, NodeAction.NORMAL, null, null, null,
+            getResponseId() + 1, NodeAction.NORMAL, null, null, null, null,
             nextHeartBeatInterval);
     rmNode.updateNodeHeartbeatResponseForCleanup(nodeHeartBeatResponse);
 
-    // Check if node's masterKey needs to be updated and if the currentKey has
-    // roller over, send it across
-    boolean shouldSendMasterKey = false;
-
-    MasterKey nextMasterKeyForNode =
-        this.containerTokenSecretManager.getNextKey();
-    if (nextMasterKeyForNode != null) {
-      // nextMasterKeyForNode can be null if there is no outstanding key that
-      // is in the activation period.
-      MasterKey nodeKnownMasterKey = request.getLastKnownMasterKey();
-      if (nodeKnownMasterKey.getKeyId() != nextMasterKeyForNode.getKeyId()) {
-        shouldSendMasterKey = true;
-      }
-    }
-    if (shouldSendMasterKey) {
-      nodeHeartBeatResponse.setMasterKey(nextMasterKeyForNode);
-    }
+    populateKeys(request, nodeHeartBeatResponse);
 
     // 4. Send status to RMNode, saving the latest response.
     this.rmContext.getDispatcher().getEventHandler().handle(
@@ -321,6 +311,32 @@ public class ResourceTrackerService extends AbstractService implements
             remoteNodeStatus.getKeepAliveApplications(), nodeHeartBeatResponse));
 
     return nodeHeartBeatResponse;
+  }
+
+  private void populateKeys(NodeHeartbeatRequest request,
+      NodeHeartbeatResponse nodeHeartBeatResponse) {
+
+    // Check if node's masterKey needs to be updated and if the currentKey has
+    // roller over, send it across
+
+    // ContainerTokenMasterKey
+
+    MasterKey nextMasterKeyForNode =
+        this.containerTokenSecretManager.getNextKey();
+    if (nextMasterKeyForNode != null
+        && (request.getLastKnownContainerTokenMasterKey().getKeyId()
+            != nextMasterKeyForNode.getKeyId())) {
+      nodeHeartBeatResponse.setContainerTokenMasterKey(nextMasterKeyForNode);
+    }
+
+    // NMTokenMasterKey
+
+    nextMasterKeyForNode = this.nmTokenSecretManager.getNextKey();
+    if (nextMasterKeyForNode != null
+        && (request.getLastKnownNMTokenMasterKey().getKeyId() 
+            != nextMasterKeyForNode.getKeyId())) {
+      nodeHeartBeatResponse.setNMTokenMasterKey(nextMasterKeyForNode);
+    }
   }
 
   /**

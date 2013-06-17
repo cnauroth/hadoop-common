@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -31,7 +32,7 @@ import org.apache.hadoop.classification.InterfaceAudience.Private;
 import org.apache.hadoop.classification.InterfaceStability.Evolving;
 import org.apache.hadoop.classification.InterfaceStability.Unstable;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.yarn.YarnRuntimeException;
+import org.apache.hadoop.service.AbstractService;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
@@ -42,9 +43,10 @@ import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.api.records.Token;
 import org.apache.hadoop.yarn.client.AMRMClient.ContainerRequest;
 import org.apache.hadoop.yarn.exceptions.YarnException;
-import org.apache.hadoop.yarn.service.AbstractService;
+import org.apache.hadoop.yarn.exceptions.YarnRuntimeException;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -118,7 +120,7 @@ public class AMRMClientAsync<T extends ContainerRequest> extends AbstractService
   
   @Private
   @VisibleForTesting
-  public AMRMClientAsync(AMRMClient<T> client, int intervalMs,
+  protected AMRMClientAsync(AMRMClient<T> client, int intervalMs,
       CallbackHandler callbackHandler) {
     super(AMRMClientAsync.class.getName());
     this.client = client;
@@ -132,16 +134,16 @@ public class AMRMClientAsync<T extends ContainerRequest> extends AbstractService
   }
     
   @Override
-  public void init(Configuration conf) {
-    super.init(conf);
+  protected void serviceInit(Configuration conf) throws Exception {
+    super.serviceInit(conf);
     client.init(conf);
   }  
   
   @Override
-  public void start() {
+  protected void serviceStart() throws Exception {
     handlerThread.start();
     client.start();
-    super.start();
+    super.serviceStart();
   }
   
   /**
@@ -150,7 +152,7 @@ public class AMRMClientAsync<T extends ContainerRequest> extends AbstractService
    * deadlock, and thus should be avoided.
    */
   @Override
-  public void stop() {
+  protected void serviceStop() throws Exception {
     if (Thread.currentThread() == handlerThread) {
       throw new YarnRuntimeException("Cannot call stop from callback handler thread!");
     }
@@ -167,7 +169,7 @@ public class AMRMClientAsync<T extends ContainerRequest> extends AbstractService
     } catch (InterruptedException ex) {
       LOG.error("Error joining with hander thread", ex);
     }
-    super.stop();
+    super.serviceStop();
   }
   
   public void setHeartbeatInterval(int interval) {
@@ -259,6 +261,19 @@ public class AMRMClientAsync<T extends ContainerRequest> extends AbstractService
    */
   public int getClusterNodeCount() {
     return client.getClusterNodeCount();
+  }
+
+  /**
+   * It returns the NMToken received on allocate call. It will not communicate
+   * with RM to get NMTokens. On allocate call whenever we receive new token
+   * along with new container AMRMClientAsync will cache this NMToken per node
+   * manager. This map returned should be shared with any application which is
+   * communicating with NodeManager (ex. NMClient / NMClientAsync) using
+   * NMTokens. If a new NMToken is received for the same node manager
+   * then it will be replaced. 
+   */
+  public ConcurrentMap<String, Token> getNMTokens() {
+    return client.getNMTokens();
   }
   
   private class HeartbeatThread extends Thread {

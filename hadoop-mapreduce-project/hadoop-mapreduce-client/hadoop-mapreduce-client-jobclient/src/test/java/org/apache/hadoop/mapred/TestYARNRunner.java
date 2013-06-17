@@ -59,7 +59,7 @@ import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.security.SecurityUtil;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
-import org.apache.hadoop.yarn.api.ClientRMProtocol;
+import org.apache.hadoop.yarn.api.ApplicationClientProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.GetAllApplicationsRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.GetAllApplicationsResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.GetApplicationReportRequest;
@@ -197,10 +197,10 @@ public class TestYARNRunner extends TestCase {
   @Test(timeout=20000)
   public void testResourceMgrDelegate() throws Exception {
     /* we not want a mock of resource mgr delegate */
-    final ClientRMProtocol clientRMProtocol = mock(ClientRMProtocol.class);
+    final ApplicationClientProtocol clientRMProtocol = mock(ApplicationClientProtocol.class);
     ResourceMgrDelegate delegate = new ResourceMgrDelegate(conf) {
       @Override
-      public synchronized void start() {
+      protected void serviceStart() {
         this.rmClient = clientRMProtocol;
       }
     };
@@ -306,13 +306,13 @@ public class TestYARNRunner extends TestCase {
       YARNRunner yarnRunner = new YARNRunner(conf, rmDelegate, clientCache);
 
       // No HS token if no RM token
-      yarnRunner.addHistoyToken(creds);
+      yarnRunner.addHistoryToken(creds);
       verify(mockHsProxy, times(0)).getDelegationToken(
           any(GetDelegationTokenRequest.class));
 
       // No HS token if RM token, but secirity disabled.
       creds.addToken(new Text("rmdt"), token);
-      yarnRunner.addHistoyToken(creds);
+      yarnRunner.addHistoryToken(creds);
       verify(mockHsProxy, times(0)).getDelegationToken(
           any(GetDelegationTokenRequest.class));
 
@@ -322,18 +322,18 @@ public class TestYARNRunner extends TestCase {
       creds = new Credentials();
 
       // No HS token if no RM token, security enabled
-      yarnRunner.addHistoyToken(creds);
+      yarnRunner.addHistoryToken(creds);
       verify(mockHsProxy, times(0)).getDelegationToken(
           any(GetDelegationTokenRequest.class));
 
       // HS token if RM token present, security enabled
       creds.addToken(new Text("rmdt"), token);
-      yarnRunner.addHistoyToken(creds);
+      yarnRunner.addHistoryToken(creds);
       verify(mockHsProxy, times(1)).getDelegationToken(
           any(GetDelegationTokenRequest.class));
 
       // No additional call to get HS token if RM and HS token present
-      yarnRunner.addHistoyToken(creds);
+      yarnRunner.addHistoryToken(creds);
       verify(mockHsProxy, times(1)).getDelegationToken(
           any(GetDelegationTokenRequest.class));
     } finally {
@@ -407,10 +407,6 @@ public class TestYARNRunner extends TestCase {
     out = new FileOutputStream(jobsplitmetainfo);
     out.close();
     
-    File appTokens = new File(testWorkDir, MRJobConfig.APPLICATION_TOKENS_FILE);
-    out = new FileOutputStream(appTokens);
-    out.close();
-    
     ApplicationSubmissionContext submissionContext = 
         yarnRunner.createApplicationSubmissionContext(jobConf, testWorkDir.toString(), new Credentials());
     
@@ -475,10 +471,6 @@ public class TestYARNRunner extends TestCase {
     
     File jobsplitmetainfo = new File(testWorkDir, MRJobConfig.JOB_SPLIT_METAINFO);
     out = new FileOutputStream(jobsplitmetainfo);
-    out.close();
-    
-    File appTokens = new File(testWorkDir, MRJobConfig.APPLICATION_TOKENS_FILE);
-    out = new FileOutputStream(appTokens);
     out.close();
     
     @SuppressWarnings("unused")

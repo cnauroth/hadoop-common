@@ -33,6 +33,7 @@ import java.util.TreeSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.DataOutputBuffer;
 import org.apache.hadoop.security.Credentials;
+import org.apache.hadoop.service.Service.STATE;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.SubmitApplicationRequest;
@@ -54,7 +55,6 @@ import org.apache.hadoop.yarn.client.AMRMClient.ContainerRequest;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.server.MiniYARNCluster;
-import org.apache.hadoop.yarn.service.Service.STATE;
 import org.apache.hadoop.yarn.util.Records;
 import org.junit.After;
 import org.junit.Before;
@@ -82,7 +82,7 @@ public class TestNMClient {
     assertEquals(STATE.STARTED, yarnCluster.getServiceState());
 
     // start rm client
-    yarnClient = new YarnClientImpl();
+    yarnClient = (YarnClientImpl) YarnClient.createYarnClient();
     yarnClient.init(conf);
     yarnClient.start();
     assertNotNull(yarnClient);
@@ -136,14 +136,16 @@ public class TestNMClient {
     }
 
     // start am rm client
-    rmClient = new AMRMClientImpl<ContainerRequest>(attemptId);
+    rmClient =
+        (AMRMClientImpl<ContainerRequest>) AMRMClient
+          .<ContainerRequest> createAMRMClient(attemptId);
     rmClient.init(conf);
     rmClient.start();
     assertNotNull(rmClient);
     assertEquals(STATE.STARTED, rmClient.getServiceState());
 
     // start am nm client
-    nmClient = new NMClientImpl();
+    nmClient = (NMClientImpl) NMClient.createNMClient();
     nmClient.init(conf);
     nmClient.start();
     assertNotNull(nmClient);
@@ -153,24 +155,37 @@ public class TestNMClient {
   @After
   public void tearDown() {
     rmClient.stop();
+    yarnClient.stop();
+    yarnCluster.stop();
+  }
 
+  private void stopNmClient(boolean stopContainers) {
+    assertNotNull("Null nmClient", nmClient);
     // leave one unclosed
     assertEquals(1, nmClient.startedContainers.size());
     // default true
     assertTrue(nmClient.cleanupRunningContainers.get());
-    // don't stop the running containers
-    nmClient.cleanupRunningContainersOnStop(false);
-    assertFalse(nmClient.cleanupRunningContainers.get());
+    nmClient.cleanupRunningContainersOnStop(stopContainers);
+    assertEquals(stopContainers, nmClient.cleanupRunningContainers.get());
     nmClient.stop();
-    assertTrue(nmClient.startedContainers.size() > 0);
-    // stop the running containers
-    nmClient.cleanupRunningContainersOnStop(true);
-    assertTrue(nmClient.cleanupRunningContainers.get());
-    nmClient.stop();
-    assertEquals(0, nmClient.startedContainers.size());
+  }
 
-    yarnClient.stop();
-    yarnCluster.stop();
+  @Test (timeout = 60000)
+  public void testNMClientNoCleanupOnStop()
+      throws YarnException, IOException {
+
+    rmClient.registerApplicationMaster("Host", 10000, "");
+
+    testContainerManagement(nmClient, allocateContainers(rmClient, 5));
+
+    rmClient.unregisterApplicationMaster(FinalApplicationStatus.SUCCEEDED,
+                                         null, null);
+    // don't stop the running containers
+    stopNmClient(false);
+    assertFalse(nmClient.startedContainers. isEmpty());
+    //now cleanup
+    nmClient.cleanupRunningContainers();
+    assertEquals(0, nmClient.startedContainers.size());
   }
 
   @Test (timeout = 60000)
@@ -183,6 +198,11 @@ public class TestNMClient {
 
     rmClient.unregisterApplicationMaster(FinalApplicationStatus.SUCCEEDED,
         null, null);
+    // stop the running containers on close
+    assertFalse(nmClient.startedContainers.isEmpty());
+    nmClient.cleanupRunningContainersOnStop(true);
+    assertTrue(nmClient.cleanupRunningContainers.get());
+    nmClient.stop();
   }
 
   private Set<Container> allocateContainers(
@@ -250,9 +270,12 @@ public class TestNMClient {
             container.getContainerToken());
         fail("Exception is expected");
       } catch (YarnException e) {
-        assertTrue("The thrown exception is not expected",
-            e.getMessage().contains(
-                "is either not started yet or already stopped"));
+        if (!e.getMessage()
+              .contains("is either not started yet or already stopped")) {
+          throw (AssertionError)
+            (new AssertionError("Exception is not expected: " + e).initCause(
+              e));
+        }
       }
 
       Credentials ts = new Credentials();
@@ -266,7 +289,8 @@ public class TestNMClient {
       try {
         nmClient.startContainer(container, clc);
       } catch (YarnException e) {
-        fail("Exception is not expected");
+        throw (AssertionError)
+          (new AssertionError("Exception is not expected: " + e).initCause(e));
       }
 
       // leave one container unclosed
@@ -279,7 +303,9 @@ public class TestNMClient {
           nmClient.stopContainer(container.getId(), container.getNodeId(),
               container.getContainerToken());
         } catch (YarnException e) {
-          fail("Exception is not expected");
+          throw (AssertionError)
+            (new AssertionError("Exception is not expected: " + e)
+               .initCause(e));
         }
 
         // getContainerStatus can be called after stopContainer

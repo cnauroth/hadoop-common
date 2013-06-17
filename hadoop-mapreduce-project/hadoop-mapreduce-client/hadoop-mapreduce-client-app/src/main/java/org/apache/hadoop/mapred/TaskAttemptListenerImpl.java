@@ -51,9 +51,9 @@ import org.apache.hadoop.mapreduce.v2.app.rm.RMHeartbeatHandler;
 import org.apache.hadoop.mapreduce.v2.app.security.authorize.MRAMPolicyProvider;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.authorize.PolicyProvider;
+import org.apache.hadoop.service.CompositeService;
 import org.apache.hadoop.util.StringInterner;
-import org.apache.hadoop.yarn.YarnRuntimeException;
-import org.apache.hadoop.yarn.service.CompositeService;
+import org.apache.hadoop.yarn.exceptions.YarnRuntimeException;
 
 /**
  * This class is responsible for talking to the task umblical.
@@ -95,17 +95,17 @@ public class TaskAttemptListenerImpl extends CompositeService
   }
 
   @Override
-  public void init(Configuration conf) {
+  protected void serviceInit(Configuration conf) throws Exception {
    registerHeartbeatHandler(conf);
    commitWindowMs = conf.getLong(MRJobConfig.MR_AM_COMMIT_WINDOW_MS,
        MRJobConfig.DEFAULT_MR_AM_COMMIT_WINDOW_MS);
-   super.init(conf);
+   super.serviceInit(conf);
   }
 
   @Override
-  public void start() {
+  protected void serviceStart() throws Exception {
     startRpcServer();
-    super.start();
+    super.serviceStart();
   }
 
   protected void registerHeartbeatHandler(Configuration conf) {
@@ -144,13 +144,15 @@ public class TaskAttemptListenerImpl extends CompositeService
   }
 
   @Override
-  public void stop() {
+  protected void serviceStop() throws Exception {
     stopRpcServer();
-    super.stop();
+    super.serviceStop();
   }
 
   protected void stopRpcServer() {
-    server.stop();
+    if (server != null) {
+      server.stop();
+    }
   }
 
   @Override

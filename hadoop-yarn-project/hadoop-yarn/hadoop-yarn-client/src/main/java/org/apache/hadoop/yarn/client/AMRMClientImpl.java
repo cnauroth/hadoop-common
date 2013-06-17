@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -33,15 +34,16 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.classification.InterfaceAudience.Private;
 import org.apache.hadoop.classification.InterfaceStability.Unstable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.hadoop.yarn.YarnRuntimeException;
-import org.apache.hadoop.yarn.api.AMRMProtocol;
+import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.FinishApplicationMasterRequest;
@@ -50,22 +52,27 @@ import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterRespo
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
+import org.apache.hadoop.yarn.api.records.NMToken;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
+import org.apache.hadoop.yarn.api.records.Token;
 import org.apache.hadoop.yarn.client.AMRMClient.ContainerRequest;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.hadoop.yarn.exceptions.YarnRuntimeException;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
-import org.apache.hadoop.yarn.service.AbstractService;
+import org.apache.hadoop.yarn.util.RackResolver;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 
 // TODO check inputs for null etc. YARN-654
 
 @Unstable
-public class AMRMClientImpl<T extends ContainerRequest> 
-                          extends AbstractService implements AMRMClient<T> {
+public class AMRMClientImpl<T extends ContainerRequest> extends AMRMClient<T> {
 
   private static final Log LOG = LogFactory.getLog(AMRMClientImpl.class);
   
@@ -73,8 +80,9 @@ public class AMRMClientImpl<T extends ContainerRequest>
       RecordFactoryProvider.getRecordFactory(null);
   
   private int lastResponseId = 0;
+  private ConcurrentHashMap<String, Token> nmTokens;
 
-  protected AMRMProtocol rmClient;
+  protected ApplicationMasterProtocol rmClient;
   protected final ApplicationAttemptId appAttemptId;  
   protected Resource clusterAvailableResources;
   protected int clusterNodeCount;
@@ -132,7 +140,7 @@ public class AMRMClientImpl<T extends ContainerRequest>
   
   //Key -> Priority
   //Value -> Map
-  //Key->ResourceName (e.g., hostname, rackname, *)
+  //Key->ResourceName (e.g., nodename, rackname, *)
   //Value->Map
   //Key->Resource Capability
   //Value->ResourceRequest
@@ -148,15 +156,17 @@ public class AMRMClientImpl<T extends ContainerRequest>
   public AMRMClientImpl(ApplicationAttemptId appAttemptId) {
     super(AMRMClientImpl.class.getName());
     this.appAttemptId = appAttemptId;
+    this.nmTokens = new ConcurrentHashMap<String, Token>();
   }
 
   @Override
-  public synchronized void init(Configuration conf) {
-    super.init(conf);
+  protected void serviceInit(Configuration conf) throws Exception {
+    RackResolver.init(conf);
+    super.serviceInit(conf);
   }
 
   @Override
-  public synchronized void start() {
+  protected void serviceStart() throws Exception {
     final YarnConfiguration conf = new YarnConfiguration(getConfig());
     final YarnRPC rpc = YarnRPC.create(conf);
     final InetSocketAddress rmAddress = conf.getSocketAddr(
@@ -172,23 +182,23 @@ public class AMRMClientImpl<T extends ContainerRequest>
     }
 
     // CurrentUser should already have AMToken loaded.
-    rmClient = currentUser.doAs(new PrivilegedAction<AMRMProtocol>() {
+    rmClient = currentUser.doAs(new PrivilegedAction<ApplicationMasterProtocol>() {
       @Override
-      public AMRMProtocol run() {
-        return (AMRMProtocol) rpc.getProxy(AMRMProtocol.class, rmAddress,
+      public ApplicationMasterProtocol run() {
+        return (ApplicationMasterProtocol) rpc.getProxy(ApplicationMasterProtocol.class, rmAddress,
             conf);
       }
     });
     LOG.debug("Connecting to ResourceManager at " + rmAddress);
-    super.start();
+    super.serviceStart();
   }
 
   @Override
-  public synchronized void stop() {
+  protected void serviceStop() throws Exception {
     if (this.rmClient != null) {
       RPC.stopProxy(this.rmClient);
     }
-    super.stop();
+    super.serviceStop();
   }
   
   @Override
@@ -238,6 +248,9 @@ public class AMRMClientImpl<T extends ContainerRequest>
         clusterNodeCount = allocateResponse.getNumClusterNodes();
         lastResponseId = allocateResponse.getResponseId();
         clusterAvailableResources = allocateResponse.getAvailableResources();
+        if (!allocateResponse.getNMTokens().isEmpty()) {
+          populateNMTokens(allocateResponse);
+        }
       }
     } finally {
       // TODO how to differentiate remote yarn exception vs error in rpc
@@ -265,6 +278,20 @@ public class AMRMClientImpl<T extends ContainerRequest>
     return allocateResponse;
   }
 
+  @Private
+  @VisibleForTesting
+  protected void populateNMTokens(AllocateResponse allocateResponse) {
+    for (NMToken token : allocateResponse.getNMTokens()) {
+      String nodeId = token.getNodeId().toString();
+      if (nmTokens.containsKey(nodeId)) {
+        LOG.debug("Replacing token for : " + nodeId);
+      } else {
+        LOG.debug("Received new token for : " + nodeId);
+      }
+      nmTokens.put(nodeId, token.getToken());
+    }
+  }
+
   @Override
   public void unregisterApplicationMaster(FinalApplicationStatus appStatus,
       String appMessage, String appTrackingUrl) throws YarnException,
@@ -272,7 +299,7 @@ public class AMRMClientImpl<T extends ContainerRequest>
     FinishApplicationMasterRequest request = recordFactory
                   .newRecordInstance(FinishApplicationMasterRequest.class);
     request.setAppAttemptId(appAttemptId);
-    request.setFinishApplicationStatus(appStatus);
+    request.setFinalApplicationStatus(appStatus);
     if(appMessage != null) {
       request.setDiagnostics(appMessage);
     }
@@ -284,20 +311,35 @@ public class AMRMClientImpl<T extends ContainerRequest>
   
   @Override
   public synchronized void addContainerRequest(T req) {
-    // Create resource requests
-    // add check for dup locations
-    if (req.hosts != null) {
-      for (String host : req.hosts) {
-        addResourceRequest(req.priority, host, req.capability,
+    Set<String> allRacks = new HashSet<String>();
+    if (req.racks != null) {
+      allRacks.addAll(req.racks);
+      if(req.racks.size() != allRacks.size()) {
+        Joiner joiner = Joiner.on(',');
+        LOG.warn("ContainerRequest has duplicate racks: "
+            + joiner.join(req.racks));
+      }
+    }
+    allRacks.addAll(resolveRacks(req.nodes));
+    
+    if (req.nodes != null) {
+      HashSet<String> dedupedNodes = new HashSet<String>(req.nodes);
+      if(dedupedNodes.size() != req.nodes.size()) {
+        Joiner joiner = Joiner.on(',');
+        LOG.warn("ContainerRequest has duplicate nodes: "
+            + joiner.join(req.nodes));        
+      }
+      for (String node : dedupedNodes) {
+        // Ensure node requests are accompanied by requests for
+        // corresponding rack
+        addResourceRequest(req.priority, node, req.capability,
             req.containerCount, req);
       }
     }
 
-    if (req.racks != null) {
-      for (String rack : req.racks) {
-        addResourceRequest(req.priority, rack, req.capability,
-            req.containerCount, req);
-      }
+    for (String rack : allRacks) {
+      addResourceRequest(req.priority, rack, req.capability,
+          req.containerCount, req);
     }
 
     // Off-switch
@@ -307,19 +349,23 @@ public class AMRMClientImpl<T extends ContainerRequest>
 
   @Override
   public synchronized void removeContainerRequest(T req) {
+    Set<String> allRacks = new HashSet<String>();
+    if (req.racks != null) {
+      allRacks.addAll(req.racks);
+    }
+    allRacks.addAll(resolveRacks(req.nodes));
+
     // Update resource requests
-    if (req.hosts != null) {
-      for (String hostName : req.hosts) {
-        decResourceRequest(req.priority, hostName, req.capability,
+    if (req.nodes != null) {
+      for (String node : new HashSet<String>(req.nodes)) {
+        decResourceRequest(req.priority, node, req.capability,
             req.containerCount, req);
       }
     }
 
-    if (req.racks != null) {
-      for (String rack : req.racks) {
-        decResourceRequest(req.priority, rack, req.capability,
-            req.containerCount, req);
-      }
+    for (String rack : allRacks) {
+      decResourceRequest(req.priority, rack, req.capability,
+          req.containerCount, req);
     }
 
     decResourceRequest(req.priority, ResourceRequest.ANY, req.capability,
@@ -377,6 +423,24 @@ public class AMRMClientImpl<T extends ContainerRequest>
     
     // no match found
     return list;          
+  }
+  
+  private Set<String> resolveRacks(List<String> nodes) {
+    Set<String> racks = new HashSet<String>();    
+    if (nodes != null) {
+      for (String node : nodes) {
+        // Ensure node requests are accompanied by requests for
+        // corresponding rack
+        String rack = RackResolver.resolve(node).getNetworkLocation();
+        if (rack == null) {
+          LOG.warn("Failed to resolve rack for node " + node + ".");
+        } else {
+          racks.add(rack);
+        }
+      }
+    }
+    
+    return racks;
   }
   
   private void addResourceRequestToAsk(ResourceRequest remoteRequest) {
@@ -512,4 +576,8 @@ public class AMRMClientImpl<T extends ContainerRequest>
     }
   }
 
+  @Override
+  public ConcurrentHashMap<String, Token> getNMTokens() {
+    return nmTokens;
+  }
 }

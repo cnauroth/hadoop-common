@@ -35,8 +35,9 @@ import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
 import org.apache.hadoop.ipc.Server;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.authorize.PolicyProvider;
+import org.apache.hadoop.service.AbstractService;
 import org.apache.hadoop.util.StringUtils;
-import org.apache.hadoop.yarn.api.AMRMProtocol;
+import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.FinishApplicationMasterRequest;
@@ -78,12 +79,11 @@ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.SchedulerUtils;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.YarnScheduler;
 import org.apache.hadoop.yarn.server.resourcemanager.security.authorize.RMPolicyProvider;
 import org.apache.hadoop.yarn.server.utils.BuilderUtils;
-import org.apache.hadoop.yarn.service.AbstractService;
 
 @SuppressWarnings("unchecked")
 @Private
 public class ApplicationMasterService extends AbstractService implements
-    AMRMProtocol {
+    ApplicationMasterProtocol {
   private static final Log LOG = LogFactory.getLog(ApplicationMasterService.class);
   private final AMLivelinessMonitor amLivelinessMonitor;
   private YarnScheduler rScheduler;
@@ -107,7 +107,7 @@ public class ApplicationMasterService extends AbstractService implements
   }
 
   @Override
-  public void start() {
+  protected void serviceStart() throws Exception {
     Configuration conf = getConfig();
     YarnRPC rpc = YarnRPC.create(conf);
 
@@ -117,8 +117,8 @@ public class ApplicationMasterService extends AbstractService implements
         YarnConfiguration.DEFAULT_RM_SCHEDULER_PORT);
 
     this.server =
-      rpc.getServer(AMRMProtocol.class, this, masterServiceAddress,
-          conf, this.rmContext.getApplicationTokenSecretManager(),
+      rpc.getServer(ApplicationMasterProtocol.class, this, masterServiceAddress,
+          conf, this.rmContext.getAMRMTokenSecretManager(),
           conf.getInt(YarnConfiguration.RM_SCHEDULER_CLIENT_THREAD_COUNT, 
               YarnConfiguration.DEFAULT_RM_SCHEDULER_CLIENT_THREAD_COUNT));
     
@@ -133,7 +133,7 @@ public class ApplicationMasterService extends AbstractService implements
     this.bindAddress =
         conf.updateConnectAddr(YarnConfiguration.RM_SCHEDULER_ADDRESS,
                                server.getListenerAddress());
-    super.start();
+    super.serviceStart();
   }
 
   @Private
@@ -210,12 +210,16 @@ public class ApplicationMasterService extends AbstractService implements
       // Pick up min/max resource from scheduler...
       RegisterApplicationMasterResponse response = recordFactory
           .newRecordInstance(RegisterApplicationMasterResponse.class);
-      response.setMinimumResourceCapability(rScheduler
-          .getMinimumResourceCapability());
       response.setMaximumResourceCapability(rScheduler
           .getMaximumResourceCapability());
       response.setApplicationACLs(app.getRMAppAttempt(applicationAttemptId)
           .getSubmissionContext().getAMContainerSpec().getApplicationACLs());
+      if (UserGroupInformation.isSecurityEnabled()) {
+        LOG.info("Setting client token master key");
+        response.setClientToAMTokenMasterKey(java.nio.ByteBuffer.wrap(rmContext
+            .getClientToAMTokenSecretManager()
+            .getMasterKey(applicationAttemptId).getEncoded()));        
+      }
       return response;
     }
   }
@@ -373,6 +377,12 @@ public class ApplicationMasterService extends AbstractService implements
       // add preemption to the allocateResponse message (if any)
       allocateResponse.setPreemptionMessage(generatePreemptionMessage(allocation));
       
+      // Adding NMTokens for allocated containers.
+      if (!allocation.getContainers().isEmpty()) {
+        allocateResponse.setNMTokens(rmContext.getNMTokenSecretManager()
+            .getNMTokens(app.getUser(), appAttemptId,
+                allocation.getContainers()));
+      }
       return allocateResponse;
     }
   }
@@ -433,12 +443,15 @@ public class ApplicationMasterService extends AbstractService implements
     AllocateResponse response =
         recordFactory.newRecordInstance(AllocateResponse.class);
     response.setResponseId(0);
-    LOG.info("Registering " + attemptId);
+    LOG.info("Registering app attempt : " + attemptId);
     responseMap.put(attemptId, response);
+    rmContext.getNMTokenSecretManager().registerApplicationAttempt(attemptId);
   }
 
   public void unregisterAttempt(ApplicationAttemptId attemptId) {
+    LOG.info("Unregistering app attempt : " + attemptId);
     responseMap.remove(attemptId);
+    rmContext.getNMTokenSecretManager().unregisterApplicationAttempt(attemptId);
   }
 
   public void refreshServiceAcls(Configuration configuration, 
@@ -447,10 +460,10 @@ public class ApplicationMasterService extends AbstractService implements
   }
   
   @Override
-  public void stop() {
+  protected void serviceStop() throws Exception {
     if (this.server != null) {
       this.server.stop();
     }
-    super.stop();
+    super.serviceStop();
   }
 }

@@ -19,6 +19,7 @@
 package org.apache.hadoop.yarn.api.protocolrecords.impl.pb;
 
 
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -34,6 +35,8 @@ import org.apache.hadoop.yarn.proto.YarnServiceProtos.RegisterApplicationMasterR
 import org.apache.hadoop.yarn.proto.YarnServiceProtos.RegisterApplicationMasterResponseProtoOrBuilder;
 import org.apache.hadoop.yarn.util.ProtoUtils;
 
+import com.google.protobuf.ByteString;
+
 
 public class RegisterApplicationMasterResponsePBImpl extends
     RegisterApplicationMasterResponse {
@@ -42,7 +45,6 @@ public class RegisterApplicationMasterResponsePBImpl extends
   RegisterApplicationMasterResponseProto.Builder builder = null;
   boolean viaProto = false;
 
-  private Resource minimumResourceCapability;
   private Resource maximumResourceCapability;
   private Map<ApplicationAccessType, String> applicationACLS = null;
 
@@ -91,10 +93,6 @@ public class RegisterApplicationMasterResponsePBImpl extends
   }
 
   private void mergeLocalToBuilder() {
-    if (this.minimumResourceCapability != null) {
-      builder.setMinimumCapability(
-          convertToProtoFormat(this.minimumResourceCapability));
-    }
     if (this.maximumResourceCapability != null) {
       builder.setMaximumCapability(
           convertToProtoFormat(this.maximumResourceCapability));
@@ -128,21 +126,6 @@ public class RegisterApplicationMasterResponsePBImpl extends
   }
 
   @Override
-  public Resource getMinimumResourceCapability() {
-    if (this.minimumResourceCapability != null) {
-      return this.minimumResourceCapability;
-    }
-
-    RegisterApplicationMasterResponseProtoOrBuilder p = viaProto ? proto : builder;
-    if (!p.hasMinimumCapability()) {
-      return null;
-    }
-
-    this.minimumResourceCapability = convertFromProtoFormat(p.getMinimumCapability());
-    return this.minimumResourceCapability;
-  }
-
-  @Override
   public void setMaximumResourceCapability(Resource capability) {
     maybeInitBuilder();
     if(maximumResourceCapability == null) {
@@ -150,16 +133,6 @@ public class RegisterApplicationMasterResponsePBImpl extends
     }
     this.maximumResourceCapability = capability;
   }
-
-  @Override
-  public void setMinimumResourceCapability(Resource capability) {
-    maybeInitBuilder();
-    if(minimumResourceCapability == null) {
-      builder.clearMinimumCapability();
-    }
-    this.minimumResourceCapability = capability;
-  }
-
 
   @Override
   public Map<ApplicationAccessType, String> getApplicationACLs() {
@@ -230,7 +203,23 @@ public class RegisterApplicationMasterResponsePBImpl extends
     this.applicationACLS.clear();
     this.applicationACLS.putAll(appACLs);
   }
-
+  
+  @Override
+  public void setClientToAMTokenMasterKey(ByteBuffer key) {
+    if (key == null) {
+      return;
+    }
+    maybeInitBuilder();
+    builder.setClientToAmTokenMasterKey(ByteString.copyFrom(key));
+  }
+  
+  @Override
+  public ByteBuffer getClientToAMTokenMasterKey() {
+    ByteBuffer key =
+        ByteBuffer.wrap(builder.getClientToAmTokenMasterKey().toByteArray());
+    return key;
+  }
+  
   private Resource convertFromProtoFormat(ResourceProto resource) {
     return new ResourcePBImpl(resource);
   }

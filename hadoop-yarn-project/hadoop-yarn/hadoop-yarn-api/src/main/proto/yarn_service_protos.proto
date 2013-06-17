@@ -35,8 +35,8 @@ message RegisterApplicationMasterRequestProto {
 }
 
 message RegisterApplicationMasterResponseProto {
-  optional ResourceProto minimumCapability = 1;
-  optional ResourceProto maximumCapability = 2;
+  optional ResourceProto maximumCapability = 1;
+  optional bytes client_to_am_token_master_key = 2;
   repeated ApplicationACLMapProto application_ACLs = 3;
 }
 
@@ -59,6 +59,11 @@ message AllocateRequestProto {
   optional float progress = 6;
 }
 
+message NMTokenProto {
+  optional NodeIdProto nodeId = 1; 
+  optional hadoop.common.TokenProto token = 2;
+}
+
 message AllocateResponseProto {
   optional AMCommandProto a_m_command = 1;
   optional int32 response_id = 2;
@@ -68,7 +73,7 @@ message AllocateResponseProto {
   repeated NodeReportProto updated_nodes = 6;
   optional int32 num_cluster_nodes = 7;
   optional PreemptionMessageProto preempt = 8;
-  repeated hadoop.common.TokenProto nm_tokens = 9;
+  repeated NMTokenProto nm_tokens = 9;
 }
 
 //////////////////////////////////////////////////////
@@ -80,8 +85,7 @@ message GetNewApplicationRequestProto {
 
 message GetNewApplicationResponseProto {
   optional ApplicationIdProto application_id = 1;
-  optional ResourceProto minimumCapability = 2;
-  optional ResourceProto maximumCapability = 3;
+  optional ResourceProto maximumCapability = 2;
 }
 
 message GetApplicationReportRequestProto {

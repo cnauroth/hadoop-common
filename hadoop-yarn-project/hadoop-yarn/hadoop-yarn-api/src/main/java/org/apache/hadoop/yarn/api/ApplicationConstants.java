@@ -28,10 +28,6 @@ import org.apache.hadoop.util.Shell;
  * TODO: Investigate the semantics and security of each cross-boundary refs.
  */
 public interface ApplicationConstants {
-
-  // TODO: They say tokens via env isn't good.
-  public static final String APPLICATION_CLIENT_SECRET_ENV_NAME =
-    "AppClientSecretEnv";
   
   /**
    * The environment variable for APP_SUBMIT_TIME. Set in AppMaster environment
@@ -177,7 +173,15 @@ public interface ApplicationConstants {
      * $LOCAL_DIRS
      * Final, exported by NodeManager and non-modifiable by users.
      */
-    LOCAL_DIRS("LOCAL_DIRS");
+    LOCAL_DIRS("LOCAL_DIRS"),
+
+    /**
+     * $LOG_DIRS
+     * Final, exported by NodeManager and non-modifiable by users.
+     * Comma separate list of directories that the container should use for
+     * logging.
+     */
+    LOG_DIRS("LOG_DIRS");
 
     private final String variable;
     private Environment(String variable) {

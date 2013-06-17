@@ -25,12 +25,18 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
+
+import junit.framework.Assert;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.yarn.api.AMRMProtocol;
+import org.apache.hadoop.service.Service.STATE;
+import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
@@ -49,13 +55,13 @@ import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
+import org.apache.hadoop.yarn.api.records.Token;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.client.AMRMClient.ContainerRequest;
 import org.apache.hadoop.yarn.client.AMRMClient.StoredContainerRequest;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.server.MiniYARNCluster;
-import org.apache.hadoop.yarn.service.Service.STATE;
 import org.apache.hadoop.yarn.util.Records;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -68,7 +74,7 @@ import org.mockito.stubbing.Answer;
 public class TestAMRMClient {
   static Configuration conf = null;
   static MiniYARNCluster yarnCluster = null;
-  static YarnClientImpl yarnClient = null;
+  static YarnClient yarnClient = null;
   static List<NodeReport> nodeReports = null;
   static ApplicationAttemptId attemptId = null;
   static int nodeCount = 3;
@@ -89,7 +95,7 @@ public class TestAMRMClient {
     yarnCluster.start();
 
     // start rm client
-    yarnClient = new YarnClientImpl();
+    yarnClient = YarnClient.createYarnClient();
     yarnClient.init(conf);
     yarnClient.start();
 
@@ -163,10 +169,10 @@ public class TestAMRMClient {
   
   @Test (timeout=60000)
   public void testAMRMClientMatchingFit() throws YarnException, IOException {
-    AMRMClientImpl<StoredContainerRequest> amClient = null;
+    AMRMClient<StoredContainerRequest> amClient = null;
     try {
       // start am rm client
-      amClient = new AMRMClientImpl<StoredContainerRequest>(attemptId);
+      amClient = AMRMClient.<StoredContainerRequest>createAMRMClient(attemptId);
       amClient.init(conf);
       amClient.start();
       amClient.registerApplicationMaster("Host", 10000, "");
@@ -261,13 +267,60 @@ public class TestAMRMClient {
     assertTrue(matches.size() == 1);
     assertTrue(matches.get(0).size() == matchSize);    
   }
+  
+  @Test (timeout=60000)
+  public void testAMRMClientMatchingFitInferredRack() throws YarnException, IOException {
+    AMRMClientImpl<StoredContainerRequest> amClient = null;
+    try {
+      // start am rm client
+      amClient = new AMRMClientImpl<StoredContainerRequest>(attemptId);
+      amClient.init(conf);
+      amClient.start();
+      amClient.registerApplicationMaster("Host", 10000, "");
+      
+      Resource capability = Resource.newInstance(1024, 2);
+
+      StoredContainerRequest storedContainer1 = 
+          new StoredContainerRequest(capability, nodes, null, priority);
+      amClient.addContainerRequest(storedContainer1);
+
+      // verify matching with original node and inferred rack
+      List<? extends Collection<StoredContainerRequest>> matches;
+      StoredContainerRequest storedRequest;
+      // exact match node
+      matches = amClient.getMatchingRequests(priority, node, capability);
+      verifyMatches(matches, 1);
+      storedRequest = matches.get(0).iterator().next();
+      assertTrue(storedContainer1 == storedRequest);
+      // inferred match rack
+      matches = amClient.getMatchingRequests(priority, rack, capability);
+      verifyMatches(matches, 1);
+      storedRequest = matches.get(0).iterator().next();
+      assertTrue(storedContainer1 == storedRequest);
+      
+      // inferred rack match no longer valid after request is removed
+      amClient.removeContainerRequest(storedContainer1);
+      matches = amClient.getMatchingRequests(priority, rack, capability);
+      assertTrue(matches.isEmpty());
+      
+      amClient.unregisterApplicationMaster(FinalApplicationStatus.SUCCEEDED,
+          null, null);
+
+    } finally {
+      if (amClient != null && amClient.getServiceState() == STATE.STARTED) {
+        amClient.stop();
+      }
+    }
+  }
 
   @Test (timeout=60000)
   public void testAMRMClientMatchStorage() throws YarnException, IOException {
     AMRMClientImpl<StoredContainerRequest> amClient = null;
     try {
       // start am rm client
-      amClient = new AMRMClientImpl<StoredContainerRequest>(attemptId);
+      amClient =
+          (AMRMClientImpl<StoredContainerRequest>) AMRMClient
+            .<StoredContainerRequest> createAMRMClient(attemptId);
       amClient.init(conf);
       amClient.start();
       amClient.registerApplicationMaster("Host", 10000, "");
@@ -385,16 +438,16 @@ public class TestAMRMClient {
 
   @Test (timeout=60000)
   public void testAMRMClient() throws YarnException, IOException {
-    AMRMClientImpl<ContainerRequest> amClient = null;
+    AMRMClient<ContainerRequest> amClient = null;
     try {
       // start am rm client
-      amClient = new AMRMClientImpl<ContainerRequest>(attemptId);
+      amClient = AMRMClient.<ContainerRequest>createAMRMClient(attemptId);
       amClient.init(conf);
       amClient.start();
 
       amClient.registerApplicationMaster("Host", 10000, "");
 
-      testAllocation(amClient);
+      testAllocation((AMRMClientImpl<ContainerRequest>)amClient);
 
       amClient.unregisterApplicationMaster(FinalApplicationStatus.SUCCEEDED,
           null, null);
@@ -437,6 +490,11 @@ public class TestAMRMClient {
     int allocatedContainerCount = 0;
     int iterationsLeft = 2;
     Set<ContainerId> releases = new TreeSet<ContainerId>();
+    
+    ConcurrentHashMap<String, Token> nmTokens = amClient.getNMTokens();
+    Assert.assertEquals(0, nmTokens.size());
+    HashMap<String, Token> receivedNMTokens = new HashMap<String, Token>();
+    
     while (allocatedContainerCount < containersRequestedAny
         && iterationsLeft-- > 0) {
       AllocateResponse allocResponse = amClient.allocate(0.1f);
@@ -450,12 +508,32 @@ public class TestAMRMClient {
         releases.add(rejectContainerId);
         amClient.releaseAssignedContainer(rejectContainerId);
       }
+      Assert.assertEquals(nmTokens.size(), amClient.getNMTokens().size());
+      Iterator<String> nodeI = nmTokens.keySet().iterator();
+      while (nodeI.hasNext()) {
+        String nodeId = nodeI.next();
+        if (!receivedNMTokens.containsKey(nodeId)) {
+          receivedNMTokens.put(nodeId, nmTokens.get(nodeId));
+        } else {
+          Assert.fail("Received token again for : " + nodeId);
+        }
+      }
+      nodeI = receivedNMTokens.keySet().iterator();
+      while (nodeI.hasNext()) {
+        nmTokens.remove(nodeI.next());
+      }
+      
       if(allocatedContainerCount < containersRequestedAny) {
         // sleep to let NM's heartbeat to RM and trigger allocations
         sleep(1000);
       }
     }
-
+    
+    Assert.assertEquals(0, amClient.getNMTokens().size());
+    // Should receive atleast 1 token
+    Assert.assertTrue(receivedNMTokens.size() > 0
+        && receivedNMTokens.size() <= nodeCount);
+    
     assertTrue(allocatedContainerCount == containersRequestedAny);
     assertTrue(amClient.release.size() == 2);
     assertTrue(amClient.ask.size() == 0);
@@ -474,9 +552,9 @@ public class TestAMRMClient {
     snoopRequest = amClient.ask.iterator().next();
     assertTrue(snoopRequest.getNumContainers() == 2);
     
-    AMRMProtocol realRM = amClient.rmClient;
+    ApplicationMasterProtocol realRM = amClient.rmClient;
     try {
-      AMRMProtocol mockRM = mock(AMRMProtocol.class);
+      ApplicationMasterProtocol mockRM = mock(ApplicationMasterProtocol.class);
       when(mockRM.allocate(any(AllocateRequest.class))).thenAnswer(
           new Answer<AllocateResponse>() {
             public AllocateResponse answer(InvocationOnMock invocation)
@@ -523,7 +601,6 @@ public class TestAMRMClient {
         sleep(1000);
       }
     }
-    
     assertTrue(amClient.ask.size() == 0);
     assertTrue(amClient.release.size() == 0);
   }

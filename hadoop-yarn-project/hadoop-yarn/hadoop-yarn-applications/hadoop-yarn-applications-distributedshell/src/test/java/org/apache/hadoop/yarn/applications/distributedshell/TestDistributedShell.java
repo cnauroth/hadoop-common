@@ -18,6 +18,7 @@
 
 package org.apache.hadoop.yarn.applications.distributedshell;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -63,9 +64,16 @@ public class TestDistributedShell {
       if (url == null) {
         throw new RuntimeException("Could not find 'yarn-site.xml' dummy file in classpath");
       }
-      yarnCluster.getConfig().set("yarn.application.classpath", new File(url.getPath()).getParent());
+      Configuration yarnClusterConfig = yarnCluster.getConfig();
+      yarnClusterConfig.set("yarn.application.classpath", new File(url.getPath()).getParent());
+      //write the document to a buffer (not directly to the file, as that
+      //can cause the file being written to get read -which will then fail.
+      ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
+      yarnClusterConfig.writeXml(bytesOut);
+      bytesOut.close();
+      //write the bytes to the file in the classpath
       OutputStream os = new FileOutputStream(new File(url.getPath()));
-      yarnCluster.getConfig().writeXml(os);
+      os.write(bytesOut.toByteArray());
       os.close();
     }
     try {
@@ -78,8 +86,11 @@ public class TestDistributedShell {
   @AfterClass
   public static void tearDown() throws IOException {
     if (yarnCluster != null) {
-      yarnCluster.stop();
-      yarnCluster = null;
+      try {
+        yarnCluster.stop();
+      } finally {
+        yarnCluster = null;
+      }
     }
   }
 
@@ -112,21 +123,76 @@ public class TestDistributedShell {
   }
 
   @Test(timeout=30000)
-  public void testDSShellWithNoArgs() throws Exception {
-
-    String[] args = {};
+  public void testDSShellWithInvalidArgs() throws Exception {
+    Client client = new Client(new Configuration(yarnCluster.getConfig()));
 
     LOG.info("Initializing DS Client with no args");
-    Client client = new Client(new Configuration(yarnCluster.getConfig()));
-    boolean exceptionThrown = false;
     try {
-      boolean initSuccess = client.init(args);
-      Assert.assertTrue(initSuccess);
+      client.init(new String[]{});
+      Assert.fail("Exception is expected");
+    } catch (IllegalArgumentException e) {
+      Assert.assertTrue("The throw exception is not expected",
+          e.getMessage().contains("No args"));
     }
-    catch (IllegalArgumentException e) {
-      exceptionThrown = true;
+
+    LOG.info("Initializing DS Client with no jar file");
+    try {
+      String[] args = {
+          "--num_containers",
+          "2",
+          "--shell_command",
+          Shell.WINDOWS ? "dir" : "ls",
+          "--master_memory",
+          "512",
+          "--container_memory",
+          "128"
+      };
+      client.init(args);
+      Assert.fail("Exception is expected");
+    } catch (IllegalArgumentException e) {
+      Assert.assertTrue("The throw exception is not expected",
+          e.getMessage().contains("No jar"));
     }
-    Assert.assertTrue(exceptionThrown);
+
+    LOG.info("Initializing DS Client with no shell command");
+    try {
+      String[] args = {
+          "--jar",
+          APPMASTER_JAR,
+          "--num_containers",
+          "2",
+          "--master_memory",
+          "512",
+          "--container_memory",
+          "128"
+      };
+      client.init(args);
+      Assert.fail("Exception is expected");
+    } catch (IllegalArgumentException e) {
+      Assert.assertTrue("The throw exception is not expected",
+          e.getMessage().contains("No shell command"));
+    }
+
+    LOG.info("Initializing DS Client with invalid no. of containers");
+    try {
+      String[] args = {
+          "--jar",
+          APPMASTER_JAR,
+          "--num_containers",
+          "-1",
+          "--shell_command",
+          Shell.WINDOWS ? "dir" : "ls",
+          "--master_memory",
+          "512",
+          "--container_memory",
+          "128"
+      };
+      client.init(args);
+      Assert.fail("Exception is expected");
+    } catch (IllegalArgumentException e) {
+      Assert.assertTrue("The throw exception is not expected",
+          e.getMessage().contains("Invalid no. of containers"));
+    }
   }
 
 }

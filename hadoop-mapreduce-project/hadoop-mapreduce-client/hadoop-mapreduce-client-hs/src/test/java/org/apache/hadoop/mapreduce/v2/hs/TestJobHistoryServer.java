@@ -45,11 +45,11 @@ import org.apache.hadoop.mapreduce.v2.app.job.TaskAttempt;
 import org.apache.hadoop.mapreduce.v2.hs.TestJobHistoryEvents.MRAppWithHistory;
 import org.apache.hadoop.mapreduce.v2.hs.TestJobHistoryParsing.MyResolver;
 import org.apache.hadoop.net.DNSToSwitchMapping;
+import org.apache.hadoop.service.Service;
+import org.apache.hadoop.service.Service.STATE;
 import org.apache.hadoop.util.ExitUtil;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
-import org.apache.hadoop.yarn.service.Service;
-import org.apache.hadoop.yarn.service.Service.STATE;
 import org.apache.hadoop.yarn.util.RackResolver;
 import org.junit.After;
 import org.junit.Test;
@@ -76,12 +76,15 @@ public class TestJobHistoryServer {
     historyServer.init(config);
     assertEquals(STATE.INITED, historyServer.getServiceState());
     assertEquals(3, historyServer.getServices().size());
+    HistoryClientService historyService = historyServer.getClientService();
+    assertNotNull(historyServer.getClientService());
+    assertEquals(STATE.INITED, historyService.getServiceState());
+
     historyServer.start();
     assertEquals(STATE.STARTED, historyServer.getServiceState());
+    assertEquals(STATE.STARTED, historyService.getServiceState());
     historyServer.stop();
     assertEquals(STATE.STOPPED, historyServer.getServiceState());
-    assertNotNull(historyServer.getClientService());
-    HistoryClientService historyService = historyServer.getClientService();
     assertNotNull(historyService.getClientHandler().getConnectAddress());
 
     
@@ -202,7 +205,7 @@ public class TestJobHistoryServer {
   
   @After
   public void stop(){
-    if(historyServer !=null && !STATE.STOPPED.equals(historyServer.getServiceState())){
+    if(historyServer != null) {
       historyServer.stop();
     }
   }

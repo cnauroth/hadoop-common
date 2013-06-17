@@ -126,11 +126,65 @@ Release 2.1.0-beta - UNRELEASED
     YARN-724. Moved ProtoBase from api.records to api.records.impl.pb. (Jian He
     via vinodkv)
 
+    YARN-759. Create Command enum in AllocateResponse (bikas)
+
     YARN-777. Removed unreferenced objects from .proto files. (Jian He via
     vinodkv) 
 
     YARN-642. Removed health parameter from ResourceManager /nodes web-service
     and cleaned the behaviour of the status parameter. (Sandy Ryza vid vinodkv)
+
+    YARN-530. Defined Service model strictly, implemented AbstractService for
+    robust subclassing and migrated yarn-common services. (Steve Loughran via
+    vinodkv)
+
+    YARN-746. Renamed Service.register() and Service.unregister() to
+    registerServiceListener() & unregisterServiceListener() respectively.
+    (Steve Loughran via vinodkv)
+
+    YARN-792. Moved NodeHealthStatus from yarn.api.record to
+    yarn.server.api.record. (Jian He via vinodkv)
+
+    YARN-806. Moved ContainerExitStatus from yarn.api to yarn.api.records. (Jian
+    He via vinodkv)
+
+    YARN-821. Renamed setFinishApplicationStatus to setFinalApplicationStatus in
+    FinishApplicationMasterRequest for consistency. (Jian He via vinodkv)
+
+    YARN-787. Removed minimum resource from RegisterApplicationMasterResponse.
+    (tucu via acmurthy)
+
+    YARN-829. Renamed RMTokenSelector to be RMDelegationTokenSelector. (Zhijie
+    Shen via vinodkv)
+
+    YARN-828. Removed the unsed YarnVersionAnnotation. (Zhijie Shen via vinodkv)
+
+    YARN-823. Moved RMAdmin from yarn.client to yarn.client.cli and renamed it to
+    be RMAdminCLI. (Jian He via vinodkv)
+
+    YARN-387. Renamed YARN protocols for consistency.
+    ClientRMProtocol -> ApplicationClientProtocol
+    AMRMProtocol -> ApplicationMasterProtocol
+    ContainerManager -> ContainerManagementProtocol
+    (vinodkv via acmurthy)
+
+    YARN-831. Removed minimum resource from GetNewApplicationResponse as a
+    follow-up to YARN-787. (Jian He via acmurthy)
+
+    YARN-824. Added static factory methods to hadoop-yarn-client interfaces. 
+    (Jian He via acmurthy)
+
+    YARN-826. Moved Clock and SystemClock into yarn.util package. (Zhijie Shen
+    via vinodkv)
+
+    YARN-837. Moved yarn.ClusterInfo into MapReduce project as it doesn't belong
+    to YARN. (Zhijie Shen via vinodkv)
+
+    YARN-822. Renamed ApplicationToken to be AMRMToken, and similarly the
+    corresponding TokenSelector and SecretManager. (Omkar Vinit Joshi via vinodkv)
+
+    YARN-610. ClientToken is no longer set in the environment of the Containers.
+    (Omkar Vinit Joshi via vinodkv)
 
   NEW FEATURES
 
@@ -158,6 +212,9 @@ Release 2.1.0-beta - UNRELEASED
 
     YARN-398. Make it possible to specify hard locality constraints in resource
     requests for CapacityScheduler. (acmurthy)
+
+    YARN-781. Exposing LOGDIR in all containers' environment which should be used
+    by containers for logging purposes. (Jian He via vinodkv)
 
   IMPROVEMENTS
 
@@ -314,6 +371,40 @@ Release 2.1.0-beta - UNRELEASED
 
     YARN-731. RPCUtil.unwrapAndThrowException should unwrap remote
     RuntimeExceptions. (Zhijie Shen via sseth)
+
+    YARN-600. Hook up cgroups CPU settings to the number of virtual cores 
+    allocated. (sandyr via tucu)
+
+    YARN-648. FS: Add documentation for pluggable policy. (kkambatl via tucu)
+
+    YARN-773. Moved YarnRuntimeException from package api.yarn to
+    api.yarn.exceptions. (Jian He via vinodkv)
+
+    YARN-692. Creating NMToken master key on RM and sharing it with NM as a part
+    of RM-NM heartbeat. (Omkar Vinit Joshi via vinodkv)
+
+    YARN-782. vcores-pcores ratio functions differently from vmem-pmem ratio in 
+    misleading way. (sandyr via tucu)
+
+    YARN-803. factor out scheduler config validation from the ResourceManager 
+    to each scheduler implementation. (tucu)
+
+    YARN-789. Enable zero capabilities resource requests in fair scheduler. 
+    (tucu)
+
+    YARN-639. Modified Distributed Shell application to start using the new
+    NMClient library. (Zhijie Shen via vinodkv)
+
+    YARN-693. Modified RM to send NMTokens on allocate call so that AMs can then
+    use them for authentication with NMs. (Omkar Vinit Joshi via vinodkv)
+
+    YARN-752. In AMRMClient, automatically add corresponding rack requests for 
+    requested nodes. (sandyr via tucu)
+
+    YARN-825. Fixed javadoc and annotations for yarn-common module. (vinodkv)
+
+    YARN-833. Moved Graph and VisualizeStateMachine into yarn.state package.
+    (Zhijie Shen via vinodkv)
 
   OPTIMIZATIONS
 
@@ -494,6 +585,15 @@ Release 2.1.0-beta - UNRELEASED
     YARN-767. Initialize application metrics at RM bootup. (Jian He via
     acmurthy) 
 
+    YARN-700. TestInfoBlock fails on Windows because of line ending missmatch.
+    (Ivan Mitic via cnauroth)
+
+    YARN-117. Migrated rest of YARN to the new service model. (Steve Louhran via
+    vinodkv)
+
+    YARN-812. Set default logger for application summary logger to
+    hadoop.root.logger. (sseth via acmurthy)
+
   BREAKDOWN OF HADOOP-8562 SUBTASKS AND RELATED JIRAS
 
     YARN-158. Yarn creating package-info.java must not depend on sh.
@@ -543,6 +643,12 @@ Release 2.1.0-beta - UNRELEASED
 
     YARN-493. Fixed some shell related flaws in YARN on Windows. (Chris Nauroth
     via vinodkv)
+
+    YARN-839. TestContainerLaunch.testContainerEnvVariables fails on Windows.
+    (Chuan Liu via cnauroth)
+
+    YARN-795. Fair scheduler queue metrics should subtract allocated vCores from 
+    available vCores. (ywskycn via tucu) 
 
 Release 2.0.5-alpha - 06/06/2013
 
@@ -841,6 +947,9 @@ Release 0.23.9 - UNRELEASED
   NEW FEATURES
     
   IMPROVEMENTS
+
+    YARN-427. Coverage fix for org.apache.hadoop.yarn.server.api.* (Aleksey
+    Gorshkov via jeagles)
     
   OPTIMIZATIONS
 

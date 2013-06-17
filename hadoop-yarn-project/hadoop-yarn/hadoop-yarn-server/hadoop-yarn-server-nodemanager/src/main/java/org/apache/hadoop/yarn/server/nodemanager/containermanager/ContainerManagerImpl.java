@@ -18,7 +18,7 @@
 
 package org.apache.hadoop.yarn.server.nodemanager.containermanager;
 
-import static org.apache.hadoop.yarn.service.Service.STATE.STARTED;
+import static org.apache.hadoop.service.Service.STATE.STARTED;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -40,8 +40,11 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.authorize.PolicyProvider;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.security.token.TokenIdentifier;
+import org.apache.hadoop.service.CompositeService;
+import org.apache.hadoop.service.Service;
+import org.apache.hadoop.service.ServiceStateChangeListener;
 import org.apache.hadoop.util.StringUtils;
-import org.apache.hadoop.yarn.api.ContainerManager;
+import org.apache.hadoop.yarn.api.ContainerManagementProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.GetContainerStatusRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.GetContainerStatusResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest;
@@ -100,14 +103,11 @@ import org.apache.hadoop.yarn.server.nodemanager.metrics.NodeManagerMetrics;
 import org.apache.hadoop.yarn.server.nodemanager.security.authorize.NMPolicyProvider;
 import org.apache.hadoop.yarn.server.security.ApplicationACLsManager;
 import org.apache.hadoop.yarn.server.utils.BuilderUtils;
-import org.apache.hadoop.yarn.service.CompositeService;
-import org.apache.hadoop.yarn.service.Service;
-import org.apache.hadoop.yarn.service.ServiceStateChangeListener;
 
 import com.google.common.annotations.VisibleForTesting;
 
 public class ContainerManagerImpl extends CompositeService implements
-    ServiceStateChangeListener, ContainerManager,
+    ServiceStateChangeListener, ContainerManagementProtocol,
     EventHandler<ContainerManagerEvent> {
 
   private static final Log LOG = LogFactory.getLog(ContainerManagerImpl.class);
@@ -156,7 +156,7 @@ public class ContainerManagerImpl extends CompositeService implements
 
     // Start configurable services
     auxiliaryServices = new AuxServices();
-    auxiliaryServices.register(this);
+    auxiliaryServices.registerServiceListener(this);
     addService(auxiliaryServices);
 
     this.containersMonitor =
@@ -177,13 +177,13 @@ public class ContainerManagerImpl extends CompositeService implements
   }
 
   @Override
-  public void init(Configuration conf) {
+  public void serviceInit(Configuration conf) throws Exception {
     LogHandler logHandler =
       createLogHandler(conf, this.context, this.deletionService);
     addIfService(logHandler);
     dispatcher.register(LogHandlerEventType.class, logHandler);
     
-    super.init(conf);
+    super.serviceInit(conf);
   }
 
   private void addIfService(Object object) {
@@ -220,7 +220,7 @@ public class ContainerManagerImpl extends CompositeService implements
   }
 
   @Override
-  public void start() {
+  protected void serviceStart() throws Exception {
 
     // Enqueue user dirs in deletion context
 
@@ -233,7 +233,7 @@ public class ContainerManagerImpl extends CompositeService implements
         YarnConfiguration.DEFAULT_NM_PORT);
 
     server =
-        rpc.getServer(ContainerManager.class, this, initialAddress, conf,
+        rpc.getServer(ContainerManagementProtocol.class, this, initialAddress, conf,
             this.context.getContainerTokenSecretManager(),
             conf.getInt(YarnConfiguration.NM_CONTAINER_MGR_THREAD_COUNT, 
                 YarnConfiguration.DEFAULT_NM_CONTAINER_MGR_THREAD_COUNT));
@@ -254,7 +254,7 @@ public class ContainerManagerImpl extends CompositeService implements
       connectAddress.getPort());
     ((NodeManager.NMContext)context).setNodeId(nodeId);
     LOG.info("ContainerManager started at " + connectAddress);
-    super.start();
+    super.serviceStart();
   }
 
   void refreshServiceAcls(Configuration configuration, 
@@ -263,14 +263,14 @@ public class ContainerManagerImpl extends CompositeService implements
   }
 
   @Override
-  public void stop() {
+  public void serviceStop() throws Exception {
     if (auxiliaryServices.getServiceState() == STARTED) {
-      auxiliaryServices.unregister(this);
+      auxiliaryServices.unregisterServiceListener(this);
     }
     if (server != null) {
       server.stop();
     }
-    super.stop();
+    super.serviceStop();
   }
 
   // Get the remoteUGI corresponding to the api call.

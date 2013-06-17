@@ -31,8 +31,8 @@ import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
-import org.apache.hadoop.yarn.api.records.NodeHealthStatus;
 import org.apache.hadoop.yarn.api.records.NodeState;
+import org.apache.hadoop.yarn.server.api.records.NodeHealthStatus;
 import org.apache.hadoop.yarn.server.resourcemanager.MockNM;
 import org.apache.hadoop.yarn.server.resourcemanager.MockRM;
 import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
@@ -78,6 +78,8 @@ public class TestRMWebServicesNodes extends JerseyTest {
       bind(RMWebServices.class);
       bind(GenericExceptionHandler.class);
       rm = new MockRM(new Configuration());
+      rm.getRMContainerTokenSecretManager().rollMasterKey();
+      rm.getRMNMTokenSecretManager().rollMasterKey();
       bind(ResourceManager.class).toInstance(rm);
       bind(RMContext.class).toInstance(rm.getRMContext());
       bind(ApplicationACLsManager.class).toInstance(

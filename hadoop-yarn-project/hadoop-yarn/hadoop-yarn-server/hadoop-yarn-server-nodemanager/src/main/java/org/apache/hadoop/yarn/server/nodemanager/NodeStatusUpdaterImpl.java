@@ -34,17 +34,17 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience.Private;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.hadoop.yarn.YarnRuntimeException;
+import org.apache.hadoop.service.AbstractService;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerState;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
-import org.apache.hadoop.yarn.api.records.NodeHealthStatus;
 import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.event.Dispatcher;
 import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.hadoop.yarn.exceptions.YarnRuntimeException;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
@@ -56,11 +56,11 @@ import org.apache.hadoop.yarn.server.api.protocolrecords.RegisterNodeManagerRequ
 import org.apache.hadoop.yarn.server.api.protocolrecords.RegisterNodeManagerResponse;
 import org.apache.hadoop.yarn.server.api.records.MasterKey;
 import org.apache.hadoop.yarn.server.api.records.NodeAction;
+import org.apache.hadoop.yarn.server.api.records.NodeHealthStatus;
 import org.apache.hadoop.yarn.server.api.records.NodeStatus;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.ContainerManagerImpl;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.container.Container;
 import org.apache.hadoop.yarn.server.nodemanager.metrics.NodeManagerMetrics;
-import org.apache.hadoop.yarn.service.AbstractService;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -80,7 +80,7 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
   private InetSocketAddress rmAddress;
   private Resource totalResource;
   private int httpPort;
-  private boolean isStopped;
+  private volatile boolean isStopped;
   private RecordFactory recordFactory = RecordFactoryProvider.getRecordFactory(null);
   private boolean tokenKeepAliveEnabled;
   private long tokenRemovalDelayMs;
@@ -109,7 +109,7 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
   }
 
   @Override
-  public synchronized void init(Configuration conf) {
+  protected void serviceInit(Configuration conf) throws Exception {
     this.rmAddress = conf.getSocketAddr(
         YarnConfiguration.RM_RESOURCE_TRACKER_ADDRESS,
         YarnConfiguration.DEFAULT_RM_RESOURCE_TRACKER_ADDRESS,
@@ -124,14 +124,9 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
             YarnConfiguration.DEFAULT_NM_VMEM_PMEM_RATIO); 
     int virtualMemoryMb = (int)Math.ceil(memoryMb * vMemToPMem);
     
-    int cpuCores =
+    int virtualCores =
         conf.getInt(
             YarnConfiguration.NM_VCORES, YarnConfiguration.DEFAULT_NM_VCORES);
-    float vCoresToPCores =             
-        conf.getFloat(
-            YarnConfiguration.NM_VCORES_PCORES_RATIO, 
-            YarnConfiguration.DEFAULT_NM_VCORES_PCORES_RATIO); 
-    int virtualCores = (int)Math.ceil(cpuCores * vCoresToPCores); 
 
     this.totalResource = recordFactory.newRecordInstance(Resource.class);
     this.totalResource.setMemory(memoryMb);
@@ -144,13 +139,13 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
     
     LOG.info("Initialized nodemanager for " + nodeId + ":" +
         " physical-memory=" + memoryMb + " virtual-memory=" + virtualMemoryMb +
-        " physical-cores=" + cpuCores + " virtual-cores=" + virtualCores);
+        " virtual-cores=" + virtualCores);
     
-    super.init(conf);
+    super.serviceInit(conf);
   }
 
   @Override
-  public void start() {
+  protected void serviceStart() throws Exception {
 
     // NodeManager is the last service to start, so NodeId is available.
     this.nodeId = this.context.getNodeId();
@@ -159,7 +154,7 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
       // Registration has to be in start so that ContainerManager can get the
       // perNM tokens needed to authenticate ContainerTokens.
       registerWithRM();
-      super.start();
+      super.serviceStart();
       startStatusUpdater();
     } catch (Exception e) {
       String errorMessage = "Unexpected error starting NodeStatusUpdater";
@@ -169,10 +164,10 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
   }
 
   @Override
-  public synchronized void stop() {
+  protected void serviceStop() throws Exception {
     // Interrupt the updater.
     this.isStopped = true;
-    super.stop();
+    super.serviceStop();
   }
 
   protected void rebootNodeStatusUpdater() {
@@ -297,13 +292,18 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
             + message);
     }
 
-    MasterKey masterKey = regNMResponse.getMasterKey();
+    MasterKey masterKey = regNMResponse.getContainerTokenMasterKey();
     // do this now so that its set before we start heartbeating to RM
     // It is expected that status updater is started by this point and
     // RM gives the shared secret in registration during
     // StatusUpdater#start().
     if (masterKey != null) {
       this.context.getContainerTokenSecretManager().setMasterKey(masterKey);
+    }
+    
+    masterKey = regNMResponse.getNMTokenMasterKey();
+    if (masterKey != null) {
+      this.context.getNMTokenSecretManager().setMasterKey(masterKey);
     }
 
     LOG.info("Registered with ResourceManager as " + this.nodeId
@@ -434,8 +434,12 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
             NodeHeartbeatRequest request = recordFactory
                 .newRecordInstance(NodeHeartbeatRequest.class);
             request.setNodeStatus(nodeStatus);
-            request.setLastKnownMasterKey(NodeStatusUpdaterImpl.this.context
-              .getContainerTokenSecretManager().getCurrentKey());
+            request
+              .setLastKnownContainerTokenMasterKey(NodeStatusUpdaterImpl.this.context
+                .getContainerTokenSecretManager().getCurrentKey());
+            request
+              .setLastKnownNMTokenMasterKey(NodeStatusUpdaterImpl.this.context
+                .getNMTokenSecretManager().getCurrentKey());
             while (!isStopped) {
               try {
                 rmRetryCount++;
@@ -463,13 +467,7 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
             }
             //get next heartbeat interval from response
             nextHeartBeatInterval = response.getNextHeartBeatInterval();
-            // See if the master-key has rolled over
-            MasterKey updatedMasterKey = response.getMasterKey();
-            if (updatedMasterKey != null) {
-              // Will be non-null only on roll-over on RM side
-              context.getContainerTokenSecretManager().setMasterKey(
-                updatedMasterKey);
-            }
+            updateMasterKeys(response);
 
             if (response.getNodeAction() == NodeAction.SHUTDOWN) {
               LOG
@@ -531,6 +529,20 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
               }
             }
           }
+        }
+      }
+
+      private void updateMasterKeys(NodeHeartbeatResponse response) {
+        // See if the master-key has rolled over
+        MasterKey updatedMasterKey = response.getContainerTokenMasterKey();
+        if (updatedMasterKey != null) {
+          // Will be non-null only on roll-over on RM side
+          context.getContainerTokenSecretManager().setMasterKey(updatedMasterKey);
+        }
+        
+        updatedMasterKey = response.getNMTokenMasterKey();
+        if (updatedMasterKey != null) {
+          context.getNMTokenSecretManager().setMasterKey(updatedMasterKey);
         }
       }
     };

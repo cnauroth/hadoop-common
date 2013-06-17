@@ -24,14 +24,19 @@ import java.util.TimerTask;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.classification.InterfaceAudience.Private;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.AccessControlException;
+import org.apache.hadoop.service.AbstractService;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
-import org.apache.hadoop.yarn.service.AbstractService;
 
+/**
+ * A service that periodically deletes aggregated logs.
+ */
+@Private
 public class AggregatedLogDeletionService extends AbstractService {
   private static final Log LOG = LogFactory.getLog(AggregatedLogDeletionService.class);
   
@@ -125,8 +130,9 @@ public class AggregatedLogDeletionService extends AbstractService {
   public AggregatedLogDeletionService() {
     super(AggregatedLogDeletionService.class.getName());
   }
-  
-  public void start() {
+
+  @Override
+  protected void serviceStart() throws Exception {
     Configuration conf = getConfig();
     if (!conf.getBoolean(YarnConfiguration.LOG_AGGREGATION_ENABLED,
         YarnConfiguration.DEFAULT_LOG_AGGREGATION_ENABLED)) {
@@ -150,14 +156,14 @@ public class AggregatedLogDeletionService extends AbstractService {
     TimerTask task = new LogDeletionTask(conf, retentionSecs);
     timer = new Timer();
     timer.scheduleAtFixedRate(task, 0, checkIntervalMsecs);
-    super.start();
+    super.serviceStart();
   }
 
   @Override
-  public void stop() {
+  protected void serviceStop() throws Exception {
     if(timer != null) {
       timer.cancel();
     }
-    super.stop();
+    super.serviceStop();
   }
 }

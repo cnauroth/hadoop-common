@@ -30,14 +30,14 @@ import org.apache.hadoop.mapreduce.v2.jobhistory.JHAdminConfig;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.metrics2.source.JvmMetrics;
 import org.apache.hadoop.security.SecurityUtil;
+import org.apache.hadoop.service.CompositeService;
 import org.apache.hadoop.util.ShutdownHookManager;
 import org.apache.hadoop.util.StringUtils;
-import org.apache.hadoop.yarn.YarnRuntimeException;
 import org.apache.hadoop.yarn.YarnUncaughtExceptionHandler;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.event.Dispatcher;
+import org.apache.hadoop.yarn.exceptions.YarnRuntimeException;
 import org.apache.hadoop.yarn.logaggregation.AggregatedLogDeletionService;
-import org.apache.hadoop.yarn.service.CompositeService;
 
 /******************************************************************
  * {@link JobHistoryServer} is responsible for servicing all job history
@@ -65,7 +65,7 @@ public class JobHistoryServer extends CompositeService {
   }
 
   @Override
-  public synchronized void init(Configuration conf) {
+  protected void serviceInit(Configuration conf) throws Exception {
     Configuration config = new YarnConfiguration(conf);
 
     config.setBoolean(Dispatcher.DISPATCHER_EXIT_ON_ERROR_KEY, true);
@@ -84,7 +84,7 @@ public class JobHistoryServer extends CompositeService {
     addService(jobHistoryService);
     addService(clientService);
     addService(aggLogDelService);
-    super.init(config);
+    super.serviceInit(config);
   }
 
   protected JHSDelegationTokenSecretManager createJHSSecretManager(
@@ -109,23 +109,25 @@ public class JobHistoryServer extends CompositeService {
   }
 
   @Override
-  public void start() {
+  protected void serviceStart() throws Exception {
     DefaultMetricsSystem.initialize("JobHistoryServer");
     JvmMetrics.initSingleton("JobHistoryServer", null);
     try {
       jhsDTSecretManager.startThreads();
     } catch(IOException io) {
       LOG.error("Error while starting the Secret Manager threads", io);
-      throw new RuntimeException(io);
+      throw io;
     }
-    super.start();
+    super.serviceStart();
   }
   
   @Override
-  public void stop() {
-    jhsDTSecretManager.stopThreads();
+  protected void serviceStop() throws Exception {
+    if (jhsDTSecretManager != null) {
+      jhsDTSecretManager.stopThreads();
+    }
     DefaultMetricsSystem.shutdown();
-    super.stop();
+    super.serviceStop();
   }
 
   @Private

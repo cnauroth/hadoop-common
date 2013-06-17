@@ -48,7 +48,6 @@ import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
-import org.apache.hadoop.yarn.api.records.NodeHealthStatus;
 import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.NodeState;
@@ -224,7 +223,7 @@ public class BuilderUtils {
     return newToken(Token.class, identifier, kind, password, service);
   }
 
-  public static Token newClientToken(byte[] identifier, String kind,
+  public static Token newClientToAMToken(byte[] identifier, String kind,
       byte[] password, String service) {
     return newToken(Token.class, identifier, kind, password, service);
   }
@@ -299,7 +298,7 @@ public class BuilderUtils {
   public static ApplicationReport newApplicationReport(
       ApplicationId applicationId, ApplicationAttemptId applicationAttemptId,
       String user, String queue, String name, String host, int rpcPort,
-      Token clientToken, YarnApplicationState state, String diagnostics,
+      Token clientToAMToken, YarnApplicationState state, String diagnostics,
       String url, long startTime, long finishTime,
       FinalApplicationStatus finalStatus,
       ApplicationResourceUsageReport appResources, String origTrackingUrl,
@@ -313,7 +312,7 @@ public class BuilderUtils {
     report.setName(name);
     report.setHost(host);
     report.setRpcPort(rpcPort);
-    report.setClientToken(clientToken);
+    report.setClientToAMToken(clientToAMToken);
     report.setYarnApplicationState(state);
     report.setDiagnostics(diagnostics);
     report.setTrackingUrl(url);

@@ -14,6 +14,8 @@ Trunk (Unreleased)
 
     HADOOP-9509. Implement ONCRPC and XDR. (brandonli)
 
+    HADOOP-9515. Add general interface for NFS and Mount. (brandonli)
+
   IMPROVEMENTS
 
     HADOOP-8017. Configure hadoop-main pom to get rid of M2E plugin execution
@@ -454,6 +456,12 @@ Release 2.1.0-beta - UNRELEASED
     HADOOP-9625. HADOOP_OPTS not picked up by hadoop command.
     (Paul Han via arpit)
 
+    HADOOP-9649. Promoted YARN service life-cycle libraries into Hadoop Common
+    for usage across all Hadoop projects. (Zhijie Shen via vinodkv)
+
+    HADOOP-9517. Documented various aspects of compatibility for Apache
+    Hadoop. (Karthik Kambatla via acmurthy)
+
   OPTIMIZATIONS
 
     HADOOP-9150. Avoid unnecessary DNS resolution attempts for logical URIs
@@ -581,6 +589,12 @@ Release 2.1.0-beta - UNRELEASED
 
     HADOOP-9581. hadoop --config non-existent directory should result in error
     (Ashwin Shankar via jlowe)
+
+    HADOOP-9638. Parallel test changes caused invalid test path for several HDFS
+    tests on Windows (Andrey Klochkov via cnauroth)
+
+    HADOOP-9632. TestShellCommandFencer will fail if there is a 'host' machine in
+    the network. (Chuan Liu via cnauroth)
 
   BREAKDOWN OF HADOOP-8562 SUBTASKS AND RELATED JIRAS
 
