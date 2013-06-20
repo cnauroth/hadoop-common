@@ -1705,7 +1705,9 @@ public class JobTracker implements MRConstants, InterTrackerProtocol,
       try {
         fs = getMROwner().doAs(new PrivilegedExceptionAction<FileSystem>() {
           public FileSystem run() throws IOException {
-            return FileSystem.get(conf);
+            Path systemDir = new Path(conf.get("mapred.system.dir",
+              "/tmp/hadoop/mapred/system"));
+            return FileSystem.get(systemDir.toUri(), conf);
           }});
       } catch (IOException ie) {
         fs = null;

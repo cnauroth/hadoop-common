@@ -268,6 +268,17 @@ Branch-hadoop-1-win (branched from branch-1 at r1293509 on 2012-02-24 17:46:42)
     HADOOP-9043. disallow in winutils creating symlinks with forwards slashes.
     (Chris Nauroth via suresh)
 
+    HADOOP-9579. Contrib ant test target not setting the java.library.path.
+    (ivanmi)
+
+    HADOOP-9552. Windows log4j template should suppress info messages from
+    mortbay.log. (ivanmi)
+
+    HDFS-4677. Editlog should support synchronous writes. (ivanmi)
+
+    MAPREDUCE-5224. JobTracker should allow the system directory to be in
+    non-default FS. (Xi Fang via ivanmi)
+
   Merged from branch-1
 
     HDFS-385. Backport: Add support for an experimental API that allows a
@@ -396,3 +407,15 @@ Branch-hadoop-1-win (branched from branch-1 at r1293509 on 2012-02-24 17:46:42)
 
     HDFS-4782. Backport edit log corruption toleration. (Chris Nauroth via
     szetszwo)
+
+    HADOOP-8745. Incorrect version numbers in hadoop-core POM.
+    (Matthias Friedrich via eli)
+
+    HADOOP-8981. TestMetricsSystemImpl fails on Windows. (Xuan Gong, backported
+    by Chris Nauroth via suresh)
+
+    HADOOP-9624. TestFSMainOperationsLocalFileSystem failed when the Hadoop test
+    root path has "X" in its name. (Xi Fang via cnauroth)
+
+    HDFS-4261. Fix bugs in Balaner causing infinite loop and
+    TestBalancerWithNodeGroup timeing out.  (Junping Du via szetszwo)
