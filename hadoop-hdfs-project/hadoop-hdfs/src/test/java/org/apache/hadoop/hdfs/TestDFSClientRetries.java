@@ -252,12 +252,12 @@ public class TestDFSClientRetries {
     Mockito.doReturn(
             new HdfsFileStatus(0, false, 1, 1024, 0, 0, new FsPermission(
                 (short) 777), "owner", "group", new byte[0], new byte[0],
-                1010)).when(mockNN).getFileInfo(anyString());
+                1010, 0)).when(mockNN).getFileInfo(anyString());
     
     Mockito.doReturn(
             new HdfsFileStatus(0, false, 1, 1024, 0, 0, new FsPermission(
                 (short) 777), "owner", "group", new byte[0], new byte[0],
-                1010))
+                1010, 0))
         .when(mockNN)
         .create(anyString(), (FsPermission) anyObject(), anyString(),
             (EnumSetWritable<CreateFlag>) anyObject(), anyBoolean(),
@@ -423,7 +423,7 @@ public class TestDFSClientRetries {
           }
         }
       }).when(spyNN).complete(Mockito.anyString(), Mockito.anyString(),
-          Mockito.<ExtendedBlock>any());
+          Mockito.<ExtendedBlock>any(), anyLong());
       
       OutputStream stm = client.create(file.toString(), true);
       try {
@@ -441,7 +441,7 @@ public class TestDFSClientRetries {
           Mockito.anyLong(), Mockito.<String[]> any());
       Mockito.verify(spyNN, Mockito.atLeastOnce()).complete(
           Mockito.anyString(), Mockito.anyString(),
-          Mockito.<ExtendedBlock>any());
+          Mockito.<ExtendedBlock>any(), anyLong());
       
       AppendTestUtil.check(fs, file, 10000);
     } finally {

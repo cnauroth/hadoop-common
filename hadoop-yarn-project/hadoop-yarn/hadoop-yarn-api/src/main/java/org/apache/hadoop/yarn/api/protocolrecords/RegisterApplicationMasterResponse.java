@@ -36,8 +36,9 @@ import org.apache.hadoop.yarn.util.Records;
  * 
  * <p>The response contains critical details such as:
  * <ul>
- *   <li>Minimum capability for allocated resources in the cluster.</li>
  *   <li>Maximum capability for allocated resources in the cluster.</li>
+ *   <li><code>ApplicationACL</code>s for the application.</li>
+ *   <li>ClientToAMToken master key.</li>
  * </ul>
  * </p>
  * 
@@ -46,17 +47,19 @@ import org.apache.hadoop.yarn.util.Records;
 @Public
 @Stable
 public abstract class RegisterApplicationMasterResponse {
-
+  @Private
+  @Unstable
   public static RegisterApplicationMasterResponse newInstance(
       Resource minCapability, Resource maxCapability,
-      Map<ApplicationAccessType, String> acls) {
+      Map<ApplicationAccessType, String> acls, ByteBuffer key) {
     RegisterApplicationMasterResponse response =
         Records.newRecord(RegisterApplicationMasterResponse.class);
     response.setMaximumResourceCapability(maxCapability);
     response.setApplicationACLs(acls);
+    response.setClientToAMTokenMasterKey(key);
     return response;
   }
-  
+
   /**
    * Get the maximum capability for any {@link Resource} allocated by the 
    * <code>ResourceManager</code> in the cluster.
@@ -85,18 +88,21 @@ public abstract class RegisterApplicationMasterResponse {
   @Private
   @Unstable
   public abstract void setApplicationACLs(Map<ApplicationAccessType, String> acls);
-  
+
+  /**
+   * <p>Get ClientToAMToken master key.</p>
+   * <p>The ClientToAMToken master key is sent to <code>ApplicationMaster</code>
+   * by <code>ResourceManager</code> via {@link RegisterApplicationMasterResponse}
+   * , used to verify corresponding ClientToAMToken.</p>
+   */
+  @Public
+  @Stable
+  public abstract ByteBuffer getClientToAMTokenMasterKey();
+
   /**
    * Set ClientToAMToken master key.
    */
   @Public
   @Stable
   public abstract void setClientToAMTokenMasterKey(ByteBuffer key);
-  
-  /**
-   * Get ClientToAMToken master key.
-   */
-  @Public
-  @Stable
-  public abstract ByteBuffer getClientToAMTokenMasterKey();
 }

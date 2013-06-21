@@ -137,6 +137,33 @@ Trunk (Unreleased)
     MAPREDUCE-5191. TestQueue#testQueue fails with timeout on Windows. (Ivan
     Mitic via hitesh)
 
+Release 2.3.0 - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+  OPTIMIZATIONS
+
+  BUG FIXES
+
+    MAPREDUCE-5316. job -list-attempt-ids command does not handle illegal
+    task-state (Ashwin Shankar via jlowe)
+
+Release 2.2.0 - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+  OPTIMIZATIONS
+
+  BUG FIXES
+
 Release 2.1.0-beta - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -290,6 +317,8 @@ Release 2.1.0-beta - UNRELEASED
 
     MAPREDUCE-5184. Document compatibility for MapReduce applications in
     hadoop-2 vis-a-vis hadoop-1. (Zhijie Shen via acmurthy)
+
+    MAPREDUCE-5194. Heed interrupts during Fetcher shutdown. (cdouglas)
 
   OPTIMIZATIONS
 
@@ -522,6 +551,9 @@ Release 2.1.0-beta - UNRELEASED
 
     MAPREDUCE-4019. -list-attempt-ids is not working (Ashwin Shankar,
     Devaraj K, and B Anil Kumar via jlowe)
+
+    MAPREDUCE-5334. Fix failing unit tests - TestContainerLauncher,
+    TestContainerLauncherImpl. (Vinod Kumar Vavilapalli via sseth)
 
   BREAKDOWN OF HADOOP-8562 SUBTASKS
 
@@ -1133,6 +1165,9 @@ Release 0.23.9 - UNRELEASED
 
   IMPROVEMENTS
 
+    MAPREDUCE-5084. fix coverage org.apache.hadoop.mapreduce.v2.app.webapp and
+    org.apache.hadoop.mapreduce.v2.hs.webapp (Aleksey Gorshkov via jeagles)
+
   OPTIMIZATIONS
 
     MAPREDUCE-5268. Improve history server startup performance (Karthik
@@ -1148,6 +1183,9 @@ Release 0.23.9 - UNRELEASED
 
     MAPREDUCE-4019. -list-attempt-ids is not working (Ashwin Shankar,
     Devaraj K, and B Anil Kumar via jlowe)
+
+    MAPREDUCE-5316. job -list-attempt-ids command does not handle illegal
+    task-state (Ashwin Shankar via jlowe)
 
 Release 0.23.8 - 2013-06-05
 

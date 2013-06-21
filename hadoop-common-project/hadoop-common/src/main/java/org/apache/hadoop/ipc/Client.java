@@ -62,6 +62,7 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.retry.RetryPolicies;
 import org.apache.hadoop.io.retry.RetryPolicy;
 import org.apache.hadoop.io.retry.RetryPolicy.RetryAction;
+import org.apache.hadoop.ipc.Server.AuthProtocol;
 import org.apache.hadoop.ipc.protobuf.RpcHeaderProtos.RpcRequestHeaderProto;
 import org.apache.hadoop.ipc.protobuf.RpcHeaderProtos.RpcRequestHeaderProto.OperationProto;
 import org.apache.hadoop.ipc.protobuf.RpcHeaderProtos.RpcResponseHeaderProto;
@@ -110,6 +111,8 @@ public class Client {
   private int refCount = 1;
 
   private final int connectionTimeout;
+
+  private final boolean fallbackAllowed;
   
   final static int PING_CALL_ID = -1;
   
@@ -456,7 +459,8 @@ public class Client {
     private synchronized boolean setupSaslConnection(final InputStream in2, 
         final OutputStream out2) 
         throws IOException {
-      saslRpcClient = new SaslRpcClient(authMethod, token, serverPrincipal);
+      saslRpcClient = new SaslRpcClient(authMethod, token, serverPrincipal,
+          fallbackAllowed);
       return saslRpcClient.saslConnect(in2, out2);
     }
 
@@ -748,7 +752,7 @@ public class Client {
      * +----------------------------------+
      * |  Service Class (1 byte)          |
      * +----------------------------------+
-     * |  Authmethod (1 byte)             |      
+     * |  AuthProtocol (1 byte)           |      
      * +----------------------------------+
      */
     private void writeConnectionHeader(OutputStream outStream)
@@ -758,7 +762,15 @@ public class Client {
       out.write(Server.HEADER.array());
       out.write(Server.CURRENT_VERSION);
       out.write(serviceClass);
-      authMethod.write(out);
+      final AuthProtocol authProtocol;
+      switch (authMethod) {
+        case SIMPLE:
+          authProtocol = AuthProtocol.NONE;
+          break;
+        default:
+          authProtocol = AuthProtocol.SASL;
+      }
+      out.write(authProtocol.callId);
       out.flush();
     }
     
@@ -1078,6 +1090,8 @@ public class Client {
     this.socketFactory = factory;
     this.connectionTimeout = conf.getInt(CommonConfigurationKeys.IPC_CLIENT_CONNECT_TIMEOUT_KEY,
         CommonConfigurationKeys.IPC_CLIENT_CONNECT_TIMEOUT_DEFAULT);
+    this.fallbackAllowed = conf.getBoolean(CommonConfigurationKeys.IPC_CLIENT_FALLBACK_TO_SIMPLE_AUTH_ALLOWED_KEY,
+        CommonConfigurationKeys.IPC_CLIENT_FALLBACK_TO_SIMPLE_AUTH_ALLOWED_DEFAULT);
   }
 
   /**

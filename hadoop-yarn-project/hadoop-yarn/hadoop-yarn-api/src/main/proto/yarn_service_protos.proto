@@ -16,6 +16,12 @@
  * limitations under the License.
  */
 
+/**
+ * These .proto interfaces are public and stable.
+ * Please see http://wiki.apache.org/hadoop/Compatibility
+ * for what changes are allowed for a *stable* .proto interface.
+ */
+
 option java_package = "org.apache.hadoop.yarn.proto";
 option java_outer_classname = "YarnServiceProtos";
 option java_generic_services = true;
@@ -160,7 +166,7 @@ message StartContainerRequestProto {
 }
 
 message StartContainerResponseProto {
-  repeated StringBytesMapProto service_response = 1;
+  repeated StringBytesMapProto services_meta_data = 1;
 }
 
 message StopContainerRequestProto {

@@ -24,9 +24,6 @@ import java.nio.ByteBuffer;
 import java.security.PrivilegedAction;
 import java.util.Map;
 
-import javax.crypto.SecretKey;
-
-import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -59,7 +56,7 @@ import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttempt;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptEventType;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.event.RMAppAttemptLaunchFailedEvent;
-import org.apache.hadoop.yarn.util.ProtoUtils;
+import org.apache.hadoop.yarn.util.ConverterUtils;
 
 /**
  * The launch of the AM itself.
@@ -134,21 +131,30 @@ public class AMLauncher implements Runnable {
 
     final YarnRPC rpc = YarnRPC.create(conf); // TODO: Don't create again and again.
 
-    UserGroupInformation currentUser = UserGroupInformation
-        .createRemoteUser(containerId.toString());
-    if (UserGroupInformation.isSecurityEnabled()) {
-      Token<ContainerTokenIdentifier> token =
-          ProtoUtils.convertFromProtoFormat(masterContainer
-              .getContainerToken(), containerManagerBindAddress);
-      currentUser.addToken(token);
-    }
-    return currentUser.doAs(new PrivilegedAction<ContainerManagementProtocol>() {
-      @Override
-      public ContainerManagementProtocol run() {
-        return (ContainerManagementProtocol) rpc.getProxy(ContainerManagementProtocol.class,
-            containerManagerBindAddress, conf);
-      }
-    });
+    UserGroupInformation currentUser =
+        UserGroupInformation.createRemoteUser(containerId
+            .getApplicationAttemptId().toString());
+
+    String user =
+        rmContext.getRMApps()
+            .get(containerId.getApplicationAttemptId().getApplicationId())
+            .getUser();
+    org.apache.hadoop.yarn.api.records.Token token =
+        rmContext.getNMTokenSecretManager().createNMToken(
+            containerId.getApplicationAttemptId(), node, user);
+    currentUser.addToken(ConverterUtils.convertFromYarn(token,
+        containerManagerBindAddress));
+
+    return currentUser
+        .doAs(new PrivilegedAction<ContainerManagementProtocol>() {
+
+          @Override
+          public ContainerManagementProtocol run() {
+            return (ContainerManagementProtocol) rpc.getProxy(
+                ContainerManagementProtocol.class,
+                containerManagerBindAddress, conf);
+          }
+        });
   }
 
   private ContainerLaunchContext createAMContainerLaunchContext(
@@ -237,7 +243,13 @@ public class AMLauncher implements Runnable {
       } catch(IOException ie) {
         LOG.info("Error cleaning master ", ie);
       } catch (YarnException e) {
-        LOG.info("Error cleaning master ", e);
+        StringBuilder sb = new StringBuilder("Container ");
+        sb.append(masterContainer.getId().toString());
+        sb.append(" is not handled by this NodeManager");
+        if (!e.getMessage().contains(sb.toString())) {
+          // Ignoring if container is already killed by Node Manager.
+          LOG.info("Error cleaning master ", e);          
+        }
       }
       break;
     default:

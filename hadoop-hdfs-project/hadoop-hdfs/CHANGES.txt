@@ -237,6 +237,20 @@ Trunk (Unreleased)
     HDFS-3934. duplicative dfs_hosts entries handled wrong. (Colin Patrick
     McCabe)
 
+Release 2.2.0 - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+    HDFS-4908. Reduce snapshot inode memory usage.  (szetszwo)
+
+  OPTIMIZATIONS
+
+  BUG FIXES
+
 Release 2.1.0-beta - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -289,6 +303,9 @@ Release 2.1.0-beta - UNRELEASED
     (Junping Du via szetszwo)
     
   IMPROVEMENTS
+
+    HDFS-4461. DirectoryScanner: volume path prefix takes up memory for every
+    block that is scanned (Colin Patrick McCabe)
 
     HDFS-4222. NN is unresponsive and loses heartbeats from DNs when 
     configured to use LDAP and LDAP has issues. (Xiaobo Peng, suresh)
@@ -379,9 +396,18 @@ Release 2.1.0-beta - UNRELEASED
     HDFS-4880. Print the image and edits file loaded by the namenode in the
     logs. (Arpit Agarwal via suresh)
 
+    HDFS-4914. Use DFSClient.Conf instead of Configuration.  (szetszwo)
+
+    HDFS-4883. complete() should verify fileId. (Tao Luo via shv)
+
+    HDFS-4772. Add number of children in HdfsFileStatus. (brandonli)
+
   OPTIMIZATIONS
 
   BUG FIXES
+
+    HDFS-4626. ClientProtocol#getLinkTarget should throw an exception for
+    non-symlink and non-existent paths.  (Andrew Wang via cmccabe)
     
     HDFS-4470. Several HDFS tests attempt file operations on invalid HDFS
     paths when running on Windows. (Chris Nauroth via suresh)
@@ -579,6 +605,12 @@ Release 2.1.0-beta - UNRELEASED
     HDFS-4845. FSNamesystem.deleteInternal should acquire write-lock before
     changing the inode map.  (Arpit Agarwal via szetszwo)
 
+    HDFS-4906. HDFS Output streams should not accept writes after being
+    closed. (atm)
+
+    HDFS-4917. Start-dfs.sh cannot pass the parameters correctly.
+    (Fengdong Yu via suresh)
+
   BREAKDOWN OF HDFS-347 SUBTASKS AND RELATED JIRAS
 
     HDFS-4353. Encapsulate connections to peers in Peer and PeerServer classes.
@@ -713,6 +745,9 @@ Release 2.1.0-beta - UNRELEASED
 
     HDFS-4783. TestDelegationTokensWithHA#testHAUtilClonesDelegationTokens fails
     on Windows. (cnauroth)
+
+    HDFS-4818. Several HDFS tests that attempt to make directories unusable do
+    not work correctly on Windows. (cnauroth)
 
   BREAKDOWN OF HDFS-2802 HDFS SNAPSHOT SUBTASKS AND RELATED JIRAS
 

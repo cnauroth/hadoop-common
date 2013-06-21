@@ -33,7 +33,7 @@ import com.google.common.base.Preconditions;
 @InterfaceAudience.Private
 public abstract class INodeWithAdditionalFields extends INode
     implements LinkedElement {
-  private static enum PermissionStatusFormat {
+  static enum PermissionStatusFormat {
     MODE(0, 16),
     GROUP(MODE.OFFSET + MODE.LENGTH, 25),
     USER(GROUP.OFFSET + GROUP.LENGTH, 23);
@@ -130,6 +130,7 @@ public abstract class INodeWithAdditionalFields extends INode
   }
 
   /** Get inode id */
+  @Override
   public final long getId() {
     return this.id;
   }
@@ -197,11 +198,11 @@ public abstract class INodeWithAdditionalFields extends INode
       return getSnapshotINode(snapshot).getFsPermission();
     }
 
-    return new FsPermission(
-        (short)PermissionStatusFormat.MODE.retrieve(permission));
+    return new FsPermission(getFsPermissionShort());
   }
 
-  final short getFsPermissionShort() {
+  @Override
+  public final short getFsPermissionShort() {
     return (short)PermissionStatusFormat.MODE.retrieve(permission);
   }
   @Override
@@ -211,9 +212,14 @@ public abstract class INodeWithAdditionalFields extends INode
   }
 
   @Override
+  public long getPermissionLong() {
+    return permission;
+  }
+
+  @Override
   final long getModificationTime(Snapshot snapshot) {
     if (snapshot != null) {
-      return getSnapshotINode(snapshot).getModificationTime(null);
+      return getSnapshotINode(snapshot).getModificationTime();
     }
 
     return this.modificationTime;
@@ -221,6 +227,7 @@ public abstract class INodeWithAdditionalFields extends INode
 
 
   /** Update modification time if it is larger than the current value. */
+  @Override
   public final INode updateModificationTime(long mtime, Snapshot latest,
       final INodeMap inodeMap) throws QuotaExceededException {
     Preconditions.checkState(isDirectory());
@@ -242,7 +249,7 @@ public abstract class INodeWithAdditionalFields extends INode
   @Override
   final long getAccessTime(Snapshot snapshot) {
     if (snapshot != null) {
-      return getSnapshotINode(snapshot).getAccessTime(null);
+      return getSnapshotINode(snapshot).getAccessTime();
     }
 
     return accessTime;
@@ -251,6 +258,7 @@ public abstract class INodeWithAdditionalFields extends INode
   /**
    * Set last access time of inode.
    */
+  @Override
   public final void setAccessTime(long accessTime) {
     this.accessTime = accessTime;
   }

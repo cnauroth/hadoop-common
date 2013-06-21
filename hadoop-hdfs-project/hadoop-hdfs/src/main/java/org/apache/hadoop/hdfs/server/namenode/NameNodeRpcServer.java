@@ -569,13 +569,14 @@ class NameNodeRpcServer implements NamenodeProtocols {
   }
 
   @Override // ClientProtocol
-  public boolean complete(String src, String clientName, ExtendedBlock last)
+  public boolean complete(String src, String clientName,
+                          ExtendedBlock last,  long fileId)
       throws IOException {
     if(stateChangeLog.isDebugEnabled()) {
       stateChangeLog.debug("*DIR* NameNode.complete: "
-          + src + " for " + clientName);
+          + src + " fileId=" + fileId +" for " + clientName);
     }
-    return namesystem.completeFile(src, clientName, last);
+    return namesystem.completeFile(src, clientName, last, fileId);
   }
 
   /**
@@ -889,19 +890,21 @@ class NameNodeRpcServer implements NamenodeProtocols {
   @Override // ClientProtocol
   public String getLinkTarget(String path) throws IOException {
     metrics.incrGetLinkTargetOps();
+    HdfsFileStatus stat = null;
     try {
-      HdfsFileStatus stat = namesystem.getFileInfo(path, false);
-      if (stat != null) {
-        // NB: getSymlink throws IOException if !stat.isSymlink() 
-        return stat.getSymlink();
-      }
+      stat = namesystem.getFileInfo(path, false);
     } catch (UnresolvedPathException e) {
       return e.getResolvedPath().toString();
     } catch (UnresolvedLinkException e) {
       // The NameNode should only throw an UnresolvedPathException
       throw new AssertionError("UnresolvedLinkException thrown");
     }
-    return null;
+    if (stat == null) {
+      throw new FileNotFoundException("File does not exist: " + path);
+    } else if (!stat.isSymlink()) {
+      throw new IOException("Path " + path + " is not a symbolic link");
+    }
+    return stat.getSymlink();
   }
 
 

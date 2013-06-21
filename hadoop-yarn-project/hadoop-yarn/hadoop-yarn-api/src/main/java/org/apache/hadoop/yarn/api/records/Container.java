@@ -44,18 +44,16 @@ import org.apache.hadoop.yarn.util.Records;
  *     <li>HTTP uri of the node.</li>
  *     <li>{@link Resource} allocated to the container.</li>
  *     <li>{@link Priority} at which the container was allocated.</li>
- *     <li>{@link ContainerState} of the container.</li>
  *     <li>
- *       Container Token {@link Token} of the container, used to securely verify
+ *       Container {@link Token} of the container, used to securely verify
  *       authenticity of the allocation. 
  *     </li>
- *     <li>{@link ContainerStatus} of the container.</li>
  *   </ul>
  * </p>
  * 
  * <p>Typically, an <code>ApplicationMaster</code> receives the 
  * <code>Container</code> from the <code>ResourceManager</code> during
- * resource-negotiation and then talks to the <code>NodManager</code> to 
+ * resource-negotiation and then talks to the <code>NodeManager</code> to 
  * start/stop containers.</p>
  * 
  * @see ApplicationMasterProtocol#allocate(org.apache.hadoop.yarn.api.protocolrecords.AllocateRequest)
@@ -67,6 +65,7 @@ import org.apache.hadoop.yarn.util.Records;
 public abstract class Container implements Comparable<Container> {
 
   @Private
+  @Unstable
   public static Container newInstance(ContainerId containerId, NodeId nodeId,
       String nodeHttpAddress, Resource resource, Priority priority,
       Token containerToken) {
@@ -134,6 +133,8 @@ public abstract class Container implements Comparable<Container> {
    * @return <code>Priority</code> at which the <code>Container</code> was
    *         allocated
    */
+  @Public
+  @Stable
   public abstract Priority getPriority();
   
   @Private

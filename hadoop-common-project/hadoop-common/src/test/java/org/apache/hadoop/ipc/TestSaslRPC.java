@@ -674,6 +674,7 @@ public class TestSaslRPC {
     try {
       return internalGetAuthMethod(clientAuth, serverAuth, false, false);
     } catch (Exception e) {
+      LOG.warn("Auth method failure", e);
       return e.toString();
     }
   }
@@ -685,6 +686,7 @@ public class TestSaslRPC {
     try {
       return internalGetAuthMethod(clientAuth, serverAuth, true, useValidToken);
     } catch (Exception e) {
+      LOG.warn("Auth method failure", e);
       return e.toString();
     }
   }
@@ -702,7 +704,7 @@ public class TestSaslRPC {
     UserGroupInformation.setConfiguration(serverConf);
     
     final UserGroupInformation serverUgi =
-        UserGroupInformation.createRemoteUser(currentUser + "-SERVER");
+        UserGroupInformation.createRemoteUser(currentUser + "-SERVER/localhost@NONE");
     serverUgi.setAuthenticationMethod(serverAuth);
 
     final TestTokenSecretManager sm = new TestTokenSecretManager();
@@ -729,6 +731,9 @@ public class TestSaslRPC {
     final Configuration clientConf = new Configuration(conf);
     SecurityUtil.setAuthenticationMethod(clientAuth, clientConf);
     UserGroupInformation.setConfiguration(clientConf);
+    clientConf.setBoolean(
+        CommonConfigurationKeys.IPC_CLIENT_FALLBACK_TO_SIMPLE_AUTH_ALLOWED_KEY,
+        true);
     
     final UserGroupInformation clientUgi =
         UserGroupInformation.createRemoteUser(currentUser + "-CLIENT");

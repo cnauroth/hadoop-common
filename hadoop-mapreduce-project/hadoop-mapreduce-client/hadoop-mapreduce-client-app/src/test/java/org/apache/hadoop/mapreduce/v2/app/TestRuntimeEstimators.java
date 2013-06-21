@@ -68,6 +68,7 @@ import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.NodeId;
+import org.apache.hadoop.yarn.api.records.Token;
 import org.apache.hadoop.yarn.event.AsyncDispatcher;
 import org.apache.hadoop.yarn.event.EventHandler;
 import org.apache.hadoop.yarn.factories.RecordFactory;
@@ -857,8 +858,8 @@ public class TestRuntimeEstimators {
       return null;
     }
     
+    @Override
     public ClientToAMTokenSecretManager getClientToAMTokenSecretManager() {
-      // Not Implemented
       return null;
     }
   }

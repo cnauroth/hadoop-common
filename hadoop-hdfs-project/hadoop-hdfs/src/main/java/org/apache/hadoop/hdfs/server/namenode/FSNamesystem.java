@@ -185,8 +185,6 @@ import org.apache.hadoop.hdfs.server.namenode.ha.HAState;
 import org.apache.hadoop.hdfs.server.namenode.ha.StandbyCheckpointer;
 import org.apache.hadoop.hdfs.server.namenode.metrics.FSNamesystemMBean;
 import org.apache.hadoop.hdfs.server.namenode.metrics.NameNodeMetrics;
-import org.apache.hadoop.hdfs.server.namenode.snapshot.FileWithSnapshot;
-import org.apache.hadoop.hdfs.server.namenode.snapshot.FileWithSnapshot.FileDiff;
 import org.apache.hadoop.hdfs.server.namenode.snapshot.INodeDirectorySnapshottable;
 import org.apache.hadoop.hdfs.server.namenode.snapshot.INodeDirectorySnapshottable.SnapshotDiffInfo;
 import org.apache.hadoop.hdfs.server.namenode.snapshot.INodeFileWithSnapshot;
@@ -2599,7 +2597,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
    *         (e.g if not all blocks have reached minimum replication yet)
    * @throws IOException on error (eg lease mismatch, file not open, file deleted)
    */
-  boolean completeFile(String src, String holder, ExtendedBlock last) 
+  boolean completeFile(String src, String holder,
+                       ExtendedBlock last, long fileId)
     throws SafeModeException, UnresolvedLinkException, IOException {
     if (NameNode.stateChangeLog.isDebugEnabled()) {
       NameNode.stateChangeLog.debug("DIR* NameSystem.completeFile: " +
@@ -2616,8 +2615,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
         throw new SafeModeException("Cannot complete file " + src, safeMode);
       }
       src = FSDirectory.resolvePath(src, pathComponents, dir);
-      success = completeFileInternal(src, holder, 
-        ExtendedBlock.getLocalBlock(last));
+      success = completeFileInternal(src, holder,
+        ExtendedBlock.getLocalBlock(last), fileId);
     } finally {
       writeUnlock();
     }
@@ -2628,14 +2627,13 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
   }
 
   private boolean completeFileInternal(String src, 
-      String holder, Block last) throws SafeModeException,
+      String holder, Block last, long fileId) throws SafeModeException,
       UnresolvedLinkException, IOException {
     assert hasWriteLock();
     final INodesInPath iip = dir.getLastINodeInPath(src);
     final INodeFileUnderConstruction pendingFile;
     try {
-      pendingFile = checkLease(src, INodeId.GRANDFATHER_INODE_ID,
-          holder, iip.getINode(0)); 
+      pendingFile = checkLease(src, fileId, holder, iip.getINode(0));
     } catch (LeaseExpiredException lee) {
       final INode inode = dir.getINode(src);
       if (inode != null

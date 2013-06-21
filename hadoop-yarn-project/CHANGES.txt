@@ -17,9 +17,6 @@ Trunk - Unreleased
     YARN-524 TestYarnVersionInfo failing if generated properties doesn't
     include an SVN URL. (stevel)
 
-    YARN-597. TestFSDownload fails on Windows due to dependencies on
-    tar/gzip/jar tools. (Ivan Mitic via acmurthy) 
-
 Release 2.3.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -39,6 +36,8 @@ Release 2.2.0 - UNRELEASED
   NEW FEATURES
 
   IMPROVEMENTS
+
+    YARN-866. Add test for class ResourceWeights. (ywskycn via tucu)
 
   OPTIMIZATIONS
 
@@ -185,6 +184,31 @@ Release 2.1.0-beta - UNRELEASED
 
     YARN-610. ClientToken is no longer set in the environment of the Containers.
     (Omkar Vinit Joshi via vinodkv)
+
+    YARN-834. Fixed annotations for yarn-client module, reorganized packages and
+    clearly differentiated *Async apis. (Arun C Murthy and Zhijie Shen via
+    vinodkv)
+
+    YARN-840. Moved ProtoUtils to yarn.api.records.pb.impl. (Jian He via
+    acmurthy) 
+
+    YARN-841. Move Auxiliary service to yarn-api, annotate and document it.
+    (vinodkv)
+
+    YARN-850. Rename getClusterAvailableResources to getAvailableResources in
+    AMRMClients (Jian He via bikas)
+
+    YARN-694. Starting to use NMTokens to authenticate all communication with
+    NodeManagers. (Omkar Vinit Joshi via vinodkv) 
+
+    YARN-553. Replaced YarnClient.getNewApplication with
+    YarnClient.createApplication which provides a directly usable
+    ApplicationSubmissionContext to simplify the api. (Karthik Kambatla via
+    acmurthy) 
+
+    YARN-851. Share NMTokens using NMTokenCache (api-based) between AMRMClient
+    and NMClient instead of memory based approach which is used currently. (Omkar
+    Vinit Joshi via vinodkv)
 
   NEW FEATURES
 
@@ -406,6 +430,15 @@ Release 2.1.0-beta - UNRELEASED
     YARN-833. Moved Graph and VisualizeStateMachine into yarn.state package.
     (Zhijie Shen via vinodkv)
 
+    YARN-805. Fix javadoc and annotations on classes in the yarn-api
+    package. (Jian He via sseth)
+
+    YARN-846.  Move pb Impl classes from yarn-api to yarn-common. (Jian He via
+    vinodkv)
+
+    YARN-827. Need to make Resource arithmetic methods accessible (Jian He via
+    bikas)
+
   OPTIMIZATIONS
 
     YARN-512. Log aggregation root directory check is more expensive than it
@@ -594,6 +627,15 @@ Release 2.1.0-beta - UNRELEASED
     YARN-812. Set default logger for application summary logger to
     hadoop.root.logger. (sseth via acmurthy)
 
+    YARN-848. Nodemanager does not register with RM using the fully qualified
+    hostname. (Hitesh Shah via sseth)
+
+    YARN-854. Fixing YARN bugs that are failing applications in secure
+    environment. (Omkar Vinit Joshi via vinodkv)
+
+    YARN-861. TestContainerManager is failing. (Vinod Kumar Vavilapalli via
+    hitesh)
+
   BREAKDOWN OF HADOOP-8562 SUBTASKS AND RELATED JIRAS
 
     YARN-158. Yarn creating package-info.java must not depend on sh.
@@ -647,8 +689,17 @@ Release 2.1.0-beta - UNRELEASED
     YARN-839. TestContainerLaunch.testContainerEnvVariables fails on Windows.
     (Chuan Liu via cnauroth)
 
+    YARN-597. TestFSDownload fails on Windows due to dependencies on
+    tar/gzip/jar tools. (Ivan Mitic via acmurthy) 
+
+    YARN-852. TestAggregatedLogFormat.testContainerLogsFileAccess fails on
+    Windows. (Chuan Liu via cnauroth)
+
     YARN-795. Fair scheduler queue metrics should subtract allocated vCores from 
     available vCores. (ywskycn via tucu) 
+
+    YARN-799. Fix CgroupsLCEResourcesHandler to use /tasks instead of
+    /cgroup.procs. (Chris Riccomini via acmurthy) 
 
 Release 2.0.5-alpha - 06/06/2013
 
@@ -950,6 +1001,9 @@ Release 0.23.9 - UNRELEASED
 
     YARN-427. Coverage fix for org.apache.hadoop.yarn.server.api.* (Aleksey
     Gorshkov via jeagles)
+
+    YARN-478. fix coverage org.apache.hadoop.yarn.webapp.log (Aleksey Gorshkov
+    via jeagles)
     
   OPTIMIZATIONS
 
