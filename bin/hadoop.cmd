@@ -76,7 +76,7 @@ call :updatepath %HADOOP_BIN_PATH%
 
   call :make_command_arguments %*
 
-  set hdfscommands=namenode secondarynamenode datanode fs dfs dfsadmin fsck balancer fetchdt
+  set hdfscommands=namenode secondarynamenode datanode fs dfs dfsadmin fsck balancer snapshotDiff lsSnapshottableDir oiv fetchdt
   for %%i in ( %hdfscommands% ) do (
     if %hadoop-command% == %%i set hdfscommand=true
   )
@@ -103,7 +103,7 @@ call :updatepath %HADOOP_BIN_PATH%
     goto :eof
   )
   
-  set corecommands=fs version jar distcp daemonlog archive
+  set corecommands=fs version jar distcp distcp2 daemonlog archive
   for %%i in ( %corecommands% ) do (
     if %hadoop-command% == %%i set corecommand=true  
   )
@@ -131,6 +131,12 @@ call :updatepath %HADOOP_BIN_PATH%
 
 :distcp
   set CLASS=org.apache.hadoop.tools.DistCp
+  set CLASSPATH=%CLASSPATH%;%TOOL_PATH%
+  set HADOOP_OPTS=%HADOOP_OPTS% %HADOOP_CLIENT_OPTS%
+  goto :eof
+
+:distcp2
+  set CLASS=org.apache.hadoop.tools.distcp2.DistCp
   set CLASSPATH=%CLASSPATH%;%TOOL_PATH%
   set HADOOP_OPTS=%HADOOP_OPTS% %HADOOP_CLIENT_OPTS%
   goto :eof
@@ -204,6 +210,10 @@ call :updatepath %HADOOP_BIN_PATH%
   @echo   fsck                 run a DFS filesystem checking utility
   @echo   fs                   run a generic filesystem user client
   @echo   balancer             run a cluster balancing utility
+  @echo   snapshotDiff         diff two snapshots of a directory or diff the
+  @echo                        current directory contents with a snapshot
+  @echo   lsSnapshottableDir   list all snapshottable dirs owned by the current user
+  @echo   oiv                  apply the offline fsimage viewer to an fsimage
   @echo   fetchdt              fetch a delegation token from the NameNode
   @echo   jobtracker           run the MapReduce job Tracker node
   @echo   pipes                run a Pipes job
@@ -215,6 +225,7 @@ call :updatepath %HADOOP_BIN_PATH%
   @echo   jar ^<jar^>            run a jar file
   @echo.
   @echo   distcp ^<srcurl^> ^<desturl^> copy file or directories recursively
+  @echo   distcp2 <srcurl> <desturl> DistCp version 2
   @echo   archive -archiveName NAME ^<src^>* ^<dest^> create a hadoop archive
   @echo   daemonlog            get/set the log level for each daemon
   @echo  or

@@ -107,6 +107,14 @@ goto :eof
   set HADOOP_OPTS=%HADOOP_OPTS% %HADOOP_BALANCER_OPTS%
   goto :eof
 
+:snapshotDiff
+  set CLASS=org.apache.hadoop.hdfs.tools.snapshot.SnapshotDiff
+  goto :eof
+
+:lsSnapshottableDir
+  set CLASS=org.apache.hadoop.hdfs.tools.snapshot.LsSnapshottableDir
+  goto :eof
+
 :jmxget
   set CLASS=org.apache.hadoop.hdfs.tools.JMXGet
   goto :eof
