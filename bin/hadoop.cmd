@@ -225,7 +225,7 @@ call :updatepath %HADOOP_BIN_PATH%
   @echo   jar ^<jar^>            run a jar file
   @echo.
   @echo   distcp ^<srcurl^> ^<desturl^> copy file or directories recursively
-  @echo   distcp2 <srcurl> <desturl> DistCp version 2
+  @echo   distcp2 ^<srcurl^> ^<desturl^> DistCp version 2
   @echo   archive -archiveName NAME ^<src^>* ^<dest^> create a hadoop archive
   @echo   daemonlog            get/set the log level for each daemon
   @echo  or
