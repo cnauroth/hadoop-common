@@ -295,6 +295,11 @@ Release 2.2.0 - UNRELEASED
 
   IMPROVEMENTS
 
+    HADOOP-9661. Allow metrics sources to be extended. (sandyr via tucu)
+
+    HADOOP-9370.  Write FSWrapper class to wrap FileSystem and FileContext for
+    better test coverage.  (Andrew Wang via Colin Patrick McCabe)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -550,6 +555,12 @@ Release 2.1.0-beta - UNRELEASED
 
     HADOOP-9624. TestFSMainOperationsLocalFileSystem failed when the Hadoop test
     root path has "X" in its name. (Xi Fang via cnauroth)
+
+    HADOOP-9439.  JniBasedUnixGroupsMapping: fix some crash bugs (Colin Patrick
+    McCabe)
+
+    HADOOP-9656. Gridmix unit tests fail on Windows and Linux. (Chuan Liu via
+    cnauroth)
 
   BREAKDOWN OF HADOOP-8562 SUBTASKS AND RELATED JIRAS
 
