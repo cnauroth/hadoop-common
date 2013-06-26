@@ -17,10 +17,8 @@
  */
 package org.apache.hadoop.hdfs.server.namenode.startupprogress;
 
-import static org.apache.hadoop.hdfs.server.namenode.startupprogress.Phase.*;
 import static org.apache.hadoop.util.Time.monotonicNow;
 
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
