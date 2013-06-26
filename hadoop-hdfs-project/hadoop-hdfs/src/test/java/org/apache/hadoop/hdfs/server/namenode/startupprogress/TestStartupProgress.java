@@ -215,7 +215,7 @@ public class TestStartupProgress {
       assertEquals(0L, view.getElapsedTime(phase));
       assertNull(view.getFile(phase));
       assertEquals(0.0f, view.getPercentComplete(phase), 0.001f);
-      assertNull(view.getSize(phase));
+      assertEquals(Long.MIN_VALUE, view.getSize(phase));
       assertEquals(PENDING, view.getStatus(phase));
       assertEquals(0L, view.getTotal(phase));
 
@@ -379,7 +379,7 @@ public class TestStartupProgress {
     StartupProgressView view = startupProgress.createView();
     assertNotNull(view);
     assertEquals("file1", view.getFile(LOADING_FSIMAGE));
-    assertEquals(Long.valueOf(1000L), view.getSize(LOADING_FSIMAGE));
+    assertEquals(1000L, view.getSize(LOADING_FSIMAGE));
     assertEquals(10000L, view.getTotal(LOADING_FSIMAGE, new Step(INODES)));
     assertEquals(2500L, view.getCount(LOADING_FSIMAGE, new Step(INODES)));
     assertEquals(20000L, view.getTotal(LOADING_FSIMAGE,
@@ -388,7 +388,7 @@ public class TestStartupProgress {
       new Step(DELEGATION_KEYS)));
 
     assertEquals("file2", view.getFile(LOADING_EDITS));
-    assertEquals(Long.valueOf(2000L), view.getSize(LOADING_EDITS));
+    assertEquals(2000L, view.getSize(LOADING_EDITS));
     assertEquals(30000L, view.getTotal(LOADING_EDITS, new Step(INODES)));
     assertEquals(2500L, view.getCount(LOADING_EDITS, new Step(INODES)));
     assertEquals(40000L, view.getTotal(LOADING_EDITS,

@@ -24,18 +24,15 @@ import org.apache.hadoop.classification.InterfaceAudience;
  * Internal data structure used to track progress of a {@link Step}.
  */
 @InterfaceAudience.Private
-class StepTracking implements Cloneable {
-  Long beginTime;
+final class StepTracking extends AbstractTracking {
   AtomicLong count = new AtomicLong();
-  Long endTime;
-  Long total;
+  long total = Long.MIN_VALUE;
 
   @Override
   public StepTracking clone() {
     StepTracking clone = new StepTracking();
-    clone.beginTime = beginTime;
+    super.copy(clone);
     clone.count = new AtomicLong(count.get());
-    clone.endTime = endTime;
     clone.total = total;
     return clone;
   }

@@ -34,6 +34,9 @@ import org.apache.hadoop.util.Time;
  * read operations.  Calculations that require aggregation, such as overall
  * percent complete, will not be impacted by mutations performed in other threads
  * mid-way through the calculation.
+ * 
+ * Methods that return primitive long may return {@link Long#MIN_VALUE} as a
+ * sentinel value to indicate that the property is undefined.
  */
 @InterfaceAudience.Private
 public class StartupProgressView {
@@ -73,9 +76,8 @@ public class StartupProgressView {
    * @return long elapsed time
    */
   public long getElapsedTime() {
-    Long begin = phases.get(Phase.LOADING_FSIMAGE).beginTime;
-    Long end = phases.get(Phase.SAFEMODE).endTime;
-    return getElapsedTime(begin, end);
+    return getElapsedTime(phases.get(Phase.LOADING_FSIMAGE),
+      phases.get(Phase.SAFEMODE));
   }
 
   /**
@@ -87,8 +89,7 @@ public class StartupProgressView {
    * @return long elapsed time
    */
   public long getElapsedTime(Phase phase) {
-    PhaseTracking tracking = phases.get(phase);
-    return getElapsedTime(tracking.beginTime, tracking.endTime);
+    return getElapsedTime(phases.get(phase));
   }
 
   /**
@@ -101,10 +102,7 @@ public class StartupProgressView {
    * @return long elapsed time
    */
   public long getElapsedTime(Phase phase, Step step) {
-    StepTracking tracking = getStepTracking(phase, step);
-    Long begin = tracking != null ? tracking.beginTime : null;
-    Long end = tracking != null ? tracking.endTime : null;
-    return getElapsedTime(begin, end);
+    return getElapsedTime(getStepTracking(phase, step));
   }
 
   /**
@@ -199,12 +197,12 @@ public class StartupProgressView {
 
   /**
    * Returns the optional size in bytes associated with the specified phase,
-   * possibly null.
+   * possibly Long.MIN_VALUE if undefined.
    * 
    * @param phase Phase to get
-   * @return Long optional size in bytes, possibly null
+   * @return long optional size in bytes, possibly Long.MIN_VALUE
    */
-  public Long getSize(Phase phase) {
+  public long getSize(Phase phase) {
     return phases.get(phase).size;
   }
 
@@ -216,9 +214,9 @@ public class StartupProgressView {
    */
   public Status getStatus(Phase phase) {
     PhaseTracking tracking = phases.get(phase);
-    if (tracking.beginTime == null) {
+    if (tracking.beginTime == Long.MIN_VALUE) {
       return Status.PENDING;
-    } else if (tracking.endTime == null) {
+    } else if (tracking.endTime == Long.MIN_VALUE) {
       return Status.RUNNING;
     } else {
       return Status.COMPLETE;
@@ -234,7 +232,7 @@ public class StartupProgressView {
   public long getTotal(Phase phase) {
     long sum = 0;
     for (StepTracking tracking: phases.get(phase).steps.values()) {
-      if (tracking.total != null) {
+      if (tracking.total != Long.MIN_VALUE) {
         sum += tracking.total;
       }
     }
@@ -250,8 +248,8 @@ public class StartupProgressView {
    */
   public long getTotal(Phase phase, Step step) {
     StepTracking tracking = getStepTracking(phase, step);
-    Long total = tracking != null ? tracking.total : null;
-    return total != null ? total : 0;
+    return tracking != null && tracking.total != Long.MIN_VALUE ?
+      tracking.total : 0;
   }
 
   /**
@@ -269,14 +267,34 @@ public class StartupProgressView {
 
   /**
    * Returns elapsed time, calculated as (end - begin) if both are defined or
-   * (now - begin) if end is undefined or 0 if both are undefined.
+   * (now - begin) if end is undefined or 0 if both are undefined.  Begin and end
+   * time come from the same AbstractTracking instance.
+   * 
+   * @param tracking AbstractTracking containing begin and end time
+   * @return long elapsed time
    */
-  private long getElapsedTime(Long begin, Long end) {
+  private long getElapsedTime(AbstractTracking tracking) {
+    return getElapsedTime(tracking, tracking);
+  }
+
+  /**
+   * Returns elapsed time, calculated as (end - begin) if both are defined or
+   * (now - begin) if end is undefined or 0 if both are undefined.  Begin and end
+   * time may come from different AbstractTracking instances.
+   * 
+   * @param beginTracking AbstractTracking containing begin time
+   * @param endTracking AbstractTracking containing end time
+   * @return long elapsed time
+   */
+  private long getElapsedTime(AbstractTracking beginTracking,
+      AbstractTracking endTracking) {
     final long elapsed;
-    if (begin != null && end != null) {
-      elapsed = end - begin;
-    } else if (begin != null) {
-      elapsed = Time.monotonicNow() - begin;
+    if (beginTracking != null && beginTracking.beginTime != Long.MIN_VALUE &&
+        endTracking != null && endTracking.endTime != Long.MIN_VALUE) {
+      elapsed = endTracking.endTime - beginTracking.beginTime;
+    } else if (beginTracking != null &&
+        beginTracking.beginTime != Long.MIN_VALUE) {
+      elapsed = Time.monotonicNow() - beginTracking.beginTime;
     } else {
       elapsed = 0;
     }

@@ -16,31 +16,26 @@
  */
 package org.apache.hadoop.hdfs.server.namenode.startupprogress;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-
 import org.apache.hadoop.classification.InterfaceAudience;
 
 /**
- * Internal data structure used to track progress of a {@link Phase}.
+ * Abstract base of internal data structures used for tracking progress.  For
+ * primitive long properties, {@link Long#MIN_VALUE} is used as a sentinel value
+ * to indicate that the property is undefined.
  */
 @InterfaceAudience.Private
-final class PhaseTracking extends AbstractTracking {
-  String file;
-  long size = Long.MIN_VALUE;
-  ConcurrentMap<Step, StepTracking> steps =
-    new ConcurrentHashMap<Step, StepTracking>();
+abstract class AbstractTracking implements Cloneable {
+  long beginTime = Long.MIN_VALUE;
+  long endTime = Long.MIN_VALUE;
 
-  @Override
-  public PhaseTracking clone() {
-    PhaseTracking clone = new PhaseTracking();
-    super.copy(clone);
-    clone.file = file;
-    clone.size = size;
-    for (Map.Entry<Step, StepTracking> entry: steps.entrySet()) {
-      clone.steps.put(entry.getKey(), entry.getValue().clone());
-    }
-    return clone;
+  /**
+   * Subclass instances may call this method during cloning to copy the values of
+   * all properties stored in this base class.
+   * 
+   * @param dest AbstractTracking destination for copying properties
+   */
+  protected void copy(AbstractTracking dest) {
+    dest.beginTime = beginTime;
+    dest.endTime = endTime;
   }
 }

@@ -126,9 +126,9 @@ public class StartupProgress {
    */
   public Status getStatus(Phase phase) {
     PhaseTracking tracking = phases.get(phase);
-    if (tracking.beginTime == null) {
+    if (tracking.beginTime == Long.MIN_VALUE) {
       return Status.PENDING;
-    } else if (tracking.endTime == null) {
+    } else if (tracking.endTime == Long.MIN_VALUE) {
       return Status.RUNNING;
     } else {
       return Status.COMPLETE;
