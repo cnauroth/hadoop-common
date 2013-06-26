@@ -170,6 +170,17 @@ public class StartupProgress {
   }
 
   /**
+   * Sets counter to the specified value.
+   * 
+   * @param phase Phase to set
+   * @param step Step to set
+   * @param count long to set
+   */
+  public void setCount(Phase phase, Step step, long count) {
+    lazyInitStep(phase, step).count.set(count);
+  }
+
+  /**
    * Sets the optional file name associated with the specified phase.  For
    * example, this can be used while loading fsimage to indicate the full path to
    * the fsimage file.

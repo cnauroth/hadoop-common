@@ -323,6 +323,9 @@ public class FSImageFormat {
 
         loadFilesUnderConstruction(in, supportSnapshot, step, counter);
         prog.endStep(Phase.LOADING_FSIMAGE, step);
+        // Now that the step is finished, set counter equal to total to adjust
+        // for possible under-counting due to reference inodes.
+        prog.setCount(Phase.LOADING_FSIMAGE, step, numFiles);
 
         loadSecretManagerState(in);
 
