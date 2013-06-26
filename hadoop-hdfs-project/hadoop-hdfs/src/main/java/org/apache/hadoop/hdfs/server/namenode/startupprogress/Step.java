@@ -32,7 +32,7 @@ public class Step implements Comparable<Step> {
 
   private final String file;
   private final int sequenceNumber;
-  private final Long size;
+  private final long size;
   private final StepType type;
 
   /**
@@ -41,7 +41,7 @@ public class Step implements Comparable<Step> {
    * @param type StepType type of step
    */
   public Step(StepType type) {
-    this(type, null, null);
+    this(type, null, Long.MIN_VALUE);
   }
 
   /**
@@ -50,11 +50,14 @@ public class Step implements Comparable<Step> {
    * @param file String file
    */
   public Step(String file) {
-    this(null, file, null);
+    this(null, file, Long.MIN_VALUE);
   }
 
   /**
    * Creates a new Step.
+   * 
+   * @param file String file
+   * @param size long size in bytes
    */
   public Step(String file, long size) {
     this(null, file, size);
@@ -67,7 +70,7 @@ public class Step implements Comparable<Step> {
    * @param file String file
    */
   public Step(StepType type, String file) {
-    this(type, file, null);
+    this(type, file, Long.MIN_VALUE);
   }
 
   /**
@@ -75,9 +78,9 @@ public class Step implements Comparable<Step> {
    * 
    * @param type StepType type of step
    * @param file String file
-   * @param size Long size in bytes
+   * @param size long size in bytes
    */
-  public Step(StepType type, String file, Long size) {
+  public Step(StepType type, String file, long size) {
     this.file = file;
     this.sequenceNumber = SEQUENCE.incrementAndGet();
     this.size = size;
@@ -114,11 +117,11 @@ public class Step implements Comparable<Step> {
   }
 
   /**
-   * Returns the optional size in bytes, possibly null.
+   * Returns the optional size in bytes, possibly Long.MIN_VALUE if undefined.
    * 
-   * @return Long optional size in bytes, possibly null
+   * @return long optional size in bytes, possibly Long.MIN_VALUE
    */
-  public Long getSize() {
+  public long getSize() {
     return size;
   }
 
