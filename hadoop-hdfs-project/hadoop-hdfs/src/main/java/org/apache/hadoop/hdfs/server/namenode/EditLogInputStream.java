@@ -168,14 +168,9 @@ public abstract class EditLogInputStream implements Closeable {
   public abstract long getPosition();
 
   /**
-   * Returns true if the stream length is known.
+   * Return the size of the current edits log or -1 if unknown.
    * 
-   * @return boolean true if the stream length is known
-   */
-  public abstract boolean isLengthKnown();
-
-  /**
-   * Return the size of the current edits log.
+   * @return long size of the current edits log or -1 if unknown
    */
   public abstract long length() throws IOException;
   

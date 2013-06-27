@@ -107,11 +107,6 @@ class EditLogBackupInputStream extends EditLogInputStream {
   }
 
   @Override
-  public boolean isLengthKnown() {
-    return true;
-  }
-
-  @Override
   public long length() throws IOException {
     // file size + size of both buffers
     return inner.length();

@@ -123,11 +123,6 @@ class BookKeeperEditLogInputStream extends EditLogInputStream {
   }
 
   @Override
-  public boolean isLengthKnown() {
-    return true;
-  }
-
-  @Override
   public long length() throws IOException {
     return lh.getLength();
   }

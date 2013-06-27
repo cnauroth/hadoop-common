@@ -876,8 +876,8 @@ public class FSEditLogLoader {
    */
   private static Step createStartupProgressStep(EditLogInputStream edits)
       throws IOException {
-    return edits.isLengthKnown() ?
-      new Step(edits.getCurrentStreamName(), edits.length()) :
-      new Step(edits.getCurrentStreamName());
+    long length = edits.length();
+    String name = edits.getCurrentStreamName();
+    return length != -1 ? new Step(name, length) : new Step(name);
   }
 }
