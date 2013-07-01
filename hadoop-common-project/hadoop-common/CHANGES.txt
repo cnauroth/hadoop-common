@@ -775,6 +775,9 @@ Release 2.1.0-beta - 2013-07-02
     HADOOP-9264. Port change to use Java untar API on Windows from 
     branch-1-win to trunk. (Chris Nauroth via suresh)
 
+    HADOOP-9665. Fixed BlockDecompressorStream#decompress to return -1 rather
+    than throw EOF at end of file. (Zhijie Shen via acmurthy)
+
 Release 2.0.5-alpha - 06/06/2013
 
   INCOMPATIBLE CHANGES
@@ -1855,7 +1858,19 @@ Release 2.0.0-alpha - 05-23-2012
     HADOOP-7606. Upgrade Jackson to version 1.7.1 to match the version required
     by Jersey (Alejandro Abdelnur via atm)
 
-Release 0.23.9 - UNRELEASED
+Release 0.23.10 - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+  OPTIMIZATIONS
+
+  BUG FIXES
+
+Release 0.23.9 - 2013-07-08
 
   INCOMPATIBLE CHANGES
 

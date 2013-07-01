@@ -41,6 +41,9 @@ Release 2.2.0 - UNRELEASED
 
     YARN-736. Add a multi-resource fair sharing metric. (sandyr via tucu)
 
+    YARN-883. Expose Fair Scheduler-specific queue metrics. (sandyr via tucu)
+
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -404,6 +407,9 @@ Release 2.1.0-beta - 2013-07-02
 
     YARN-750. Allow for black-listing resources in YARN API and Impl in CS
     (acmurthy via bikas)
+
+    YARN-877. Support resource blacklisting for FifoScheduler.
+    (Junping Du via llu)
 
     YARN-686. Flatten NodeReport. (sandyr via tucu)
 
@@ -1012,7 +1018,19 @@ Release 2.0.2-alpha - 2012-09-07
     YARN-138. Ensure default values for minimum/maximum container sizes is
     sane. (harsh & sseth via acmurthy)
 
-Release 0.23.9 - UNRELEASED
+Release 0.23.10 - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+  OPTIMIZATIONS
+
+  BUG FIXES
+
+Release 0.23.9 - 2013-07-08
 
   INCOMPATIBLE CHANGES
 
