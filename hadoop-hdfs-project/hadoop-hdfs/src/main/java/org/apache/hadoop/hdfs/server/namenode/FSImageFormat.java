@@ -949,6 +949,11 @@ public class FSImageFormat {
         saveINode2Image(fsDir.rootDir, out, false, referenceMap, counter);
         // save the rest of the nodes
         saveImage(fsDir.rootDir, out, true, counter);
+        prog.endStep(Phase.SAVING_CHECKPOINT, step);
+        // Now that the step is finished, set counter equal to total to adjust
+        // for possible under-counting due to reference inodes.
+        prog.setCount(Phase.SAVING_CHECKPOINT, step,
+          fsDir.rootDir.numItemsInTree());
         // save files under construction
         sourceNamesystem.saveFilesUnderConstruction(out);
         context.checkCancelled();
@@ -1081,7 +1086,12 @@ public class FSImageFormat {
         Counter counter) throws IOException {
       FSImageSerialization.saveINode2Image(inode, out, writeUnderConstruction,
         referenceMap);
-      counter.increment();
+      // Intentionally do not increment counter for reference inodes, because it
+      // is too difficult at this point to assess whether or not this is a
+      // reference that counts toward quota.
+      if (!(inode instanceof INodeReference)) {
+        counter.increment();
+      }
     }
   }
 }
