@@ -313,15 +313,15 @@ public class FSImageFormat {
         if (LayoutVersion.supports(Feature.FSIMAGE_NAME_OPTIMIZATION,
             imgVersion)) {
           if (supportSnapshot) {
-            loadLocalNameINodesWithSnapshot(numFiles, in, step, counter);
+            loadLocalNameINodesWithSnapshot(numFiles, in, counter);
           } else {
-            loadLocalNameINodes(numFiles, in, step, counter);
+            loadLocalNameINodes(numFiles, in, counter);
           }
         } else {
-          loadFullNameINodes(numFiles, in, step, counter);
+          loadFullNameINodes(numFiles, in, counter);
         }
 
-        loadFilesUnderConstruction(in, supportSnapshot, step, counter);
+        loadFilesUnderConstruction(in, supportSnapshot, counter);
         prog.endStep(Phase.LOADING_FSIMAGE, step);
         // Now that the step is finished, set counter equal to total to adjust
         // for possible under-counting due to reference inodes.
@@ -361,19 +361,18 @@ public class FSImageFormat {
      * 
      * @param numFiles number of files expected to be read
      * @param in Image input stream
-     * @param step Step of namenode startup progress
      * @param counter Counter to increment for namenode startup progress
      */
     private void loadLocalNameINodesWithSnapshot(long numFiles, DataInput in,
-        Step step, Counter counter) throws IOException {
+        Counter counter) throws IOException {
       assert LayoutVersion.supports(Feature.FSIMAGE_NAME_OPTIMIZATION,
           getLayoutVersion());
       assert LayoutVersion.supports(Feature.SNAPSHOT, getLayoutVersion());
       
       // load root
-      loadRoot(in, step, counter);
+      loadRoot(in, counter);
       // load rest of the nodes recursively
-      loadDirectoryWithSnapshot(in, step, counter);
+      loadDirectoryWithSnapshot(in, counter);
     }
     
   /** 
@@ -381,24 +380,23 @@ public class FSImageFormat {
    *   
    * @param numFiles number of files expected to be read
    * @param in image input stream
-   * @param step Step of namenode startup progress
    * @param counter Counter to increment for namenode startup progress
    * @throws IOException
    */  
-   private void loadLocalNameINodes(long numFiles, DataInput in, Step step,
-       Counter counter) throws IOException {
+   private void loadLocalNameINodes(long numFiles, DataInput in, Counter counter)
+       throws IOException {
      assert LayoutVersion.supports(Feature.FSIMAGE_NAME_OPTIMIZATION,
          getLayoutVersion());
      assert numFiles > 0;
 
      // load root
-     loadRoot(in, step, counter);
+     loadRoot(in, counter);
      // have loaded the first file (the root)
      numFiles--; 
 
      // load rest of the nodes directory by directory
      while (numFiles > 0) {
-       numFiles -= loadDirectory(in, step, counter);
+       numFiles -= loadDirectory(in, counter);
      }
      if (numFiles != 0) {
        throw new IOException("Read unexpect number of files: " + -numFiles);
@@ -409,28 +407,27 @@ public class FSImageFormat {
      * Load information about root, and use the information to update the root
      * directory of NameSystem.
      * @param in The {@link DataInput} instance to read.
-     * @param step Step of namenode startup progress
      * @param counter Counter to increment for namenode startup progress
      */
-    private void loadRoot(DataInput in, Step step, Counter counter)
+    private void loadRoot(DataInput in, Counter counter)
         throws IOException {
       // load root
       if (in.readShort() != 0) {
         throw new IOException("First node is not root");
       }
-      final INodeDirectory root = loadINode(null, false, in, step, counter)
+      final INodeDirectory root = loadINode(null, false, in, counter)
         .asDirectory();
       // update the root's attributes
       updateRootAttr(root);
     }
    
     /** Load children nodes for the parent directory. */
-    private int loadChildren(INodeDirectory parent, DataInput in, Step step,
+    private int loadChildren(INodeDirectory parent, DataInput in,
         Counter counter) throws IOException {
       int numChildren = in.readInt();
       for (int i = 0; i < numChildren; i++) {
         // load single inode
-        INode newNode = loadINodeWithLocalName(false, in, true, step, counter);
+        INode newNode = loadINodeWithLocalName(false, in, true, counter);
         addToParent(parent, newNode);
       }
       return numChildren;
@@ -439,11 +436,10 @@ public class FSImageFormat {
     /**
      * Load a directory when snapshot is supported.
      * @param in The {@link DataInput} instance to read.
-     * @param step Step of namenode startup progress
      * @param counter Counter to increment for namenode startup progress
      */
-    private void loadDirectoryWithSnapshot(DataInput in, Step step,
-        Counter counter) throws IOException {
+    private void loadDirectoryWithSnapshot(DataInput in, Counter counter)
+        throws IOException {
       // Step 1. Identify the parent INode
       long inodeId = in.readLong();
       final INodeDirectory parent = this.namesystem.dir.getInode(inodeId)
@@ -473,7 +469,7 @@ public class FSImageFormat {
       }
 
       // Step 3. Load children nodes under parent
-      loadChildren(parent, in, step, counter);
+      loadChildren(parent, in, counter);
       
       // Step 4. load Directory Diff List
       SnapshotFSImageFormat.loadDirectoryDiffList(parent, in, this);
@@ -482,7 +478,7 @@ public class FSImageFormat {
       // directories
       int numSubTree = in.readInt();
       for (int i = 0; i < numSubTree; i++) {
-        loadDirectoryWithSnapshot(in, step, counter);
+        loadDirectoryWithSnapshot(in, counter);
       }
     }
     
@@ -490,17 +486,15 @@ public class FSImageFormat {
     * Load all children of a directory
     * 
     * @param in
-    * @param step Step of namenode startup progress
     * @param counter Counter to increment for namenode startup progress
     * @return number of child inodes read
     * @throws IOException
     */
-   private int loadDirectory(DataInput in, Step step, Counter counter)
-       throws IOException {
+   private int loadDirectory(DataInput in, Counter counter) throws IOException {
      String parentPath = FSImageSerialization.readString(in);
      final INodeDirectory parent = INodeDirectory.valueOf(
          namesystem.dir.rootDir.getNode(parentPath, true), parentPath);
-     return loadChildren(parent, in, step, counter);
+     return loadChildren(parent, in, counter);
    }
 
   /**
@@ -508,12 +502,11 @@ public class FSImageFormat {
    * 
    * @param numFiles total number of files to load
    * @param in data input stream
-   * @param step Step of namenode startup progress
    * @param counter Counter to increment for namenode startup progress
    * @throws IOException if any error occurs
    */
-  private void loadFullNameINodes(long numFiles, DataInput in, Step step,
-      Counter counter) throws IOException {
+  private void loadFullNameINodes(long numFiles, DataInput in, Counter counter)
+      throws IOException {
     byte[][] pathComponents;
     byte[][] parentPath = {{}};      
     FSDirectory fsDir = namesystem.dir;
@@ -521,7 +514,7 @@ public class FSImageFormat {
     for (long i = 0; i < numFiles; i++) {
       pathComponents = FSImageSerialization.readPathComponents(in);
       final INode newNode = loadINode(
-          pathComponents[pathComponents.length-1], false, in, step, counter);
+          pathComponents[pathComponents.length-1], false, in, counter);
 
       if (isRoot(pathComponents)) { // it is the root
         // update the root's attributes
@@ -590,14 +583,14 @@ public class FSImageFormat {
 
     public INode loadINodeWithLocalName(boolean isSnapshotINode, DataInput in,
         boolean updateINodeMap) throws IOException {
-      return loadINodeWithLocalName(isSnapshotINode, in, updateINodeMap, null, null);
+      return loadINodeWithLocalName(isSnapshotINode, in, updateINodeMap, null);
     }
 
     public INode loadINodeWithLocalName(boolean isSnapshotINode,
-        DataInput in, boolean updateINodeMap, Step step, Counter counter)
+        DataInput in, boolean updateINodeMap, Counter counter)
         throws IOException {
       final byte[] localName = FSImageSerialization.readLocalName(in);
-      INode inode = loadINode(localName, isSnapshotINode, in, step, counter);
+      INode inode = loadINode(localName, isSnapshotINode, in, counter);
       if (updateINodeMap
           && LayoutVersion.supports(Feature.ADD_INODE_ID, getLayoutVersion())) {
         namesystem.dir.addToInodeMap(inode);
@@ -609,12 +602,11 @@ public class FSImageFormat {
    * load an inode from fsimage except for its name
    * 
    * @param in data input stream from which image is read
-   * @param step Step of namenode startup progress
    * @param counter Counter to increment for namenode startup progress
    * @return an inode
    */
   INode loadINode(final byte[] localName, boolean isSnapshotINode,
-      DataInput in, Step step, Counter counter) throws IOException {
+      DataInput in, Counter counter) throws IOException {
     final int imgVersion = getLayoutVersion();
     if (LayoutVersion.supports(Feature.SNAPSHOT, imgVersion)) {
       namesystem.getFSDirectory().verifyINodeName(localName);
@@ -789,7 +781,7 @@ public class FSImageFormat {
     }
   
     private void loadFilesUnderConstruction(DataInput in,
-        boolean supportSnapshot, Step step, Counter counter) throws IOException {
+        boolean supportSnapshot, Counter counter) throws IOException {
       FSDirectory fsDir = namesystem.dir;
       int size = in.readInt();
 
@@ -956,7 +948,7 @@ public class FSImageFormat {
         // save the root
         saveINode2Image(fsDir.rootDir, out, false, referenceMap, counter);
         // save the rest of the nodes
-        saveImage(fsDir.rootDir, out, true, step, counter);
+        saveImage(fsDir.rootDir, out, true, counter);
         // save files under construction
         sourceNamesystem.saveFilesUnderConstruction(out);
         context.checkCancelled();
@@ -981,12 +973,11 @@ public class FSImageFormat {
      * Save children INodes.
      * @param children The list of children INodes
      * @param out The DataOutputStream to write
-     * @param step Step of namenode startup progress
      * @param counter Counter to increment for namenode startup progress
      * @return Number of children that are directory
      */
     private int saveChildren(ReadOnlyList<INode> children, DataOutputStream out,
-        Step step, Counter counter) throws IOException {
+        Counter counter) throws IOException {
       // Write normal children INode. 
       out.writeInt(children.size());
       int dirNum = 0;
@@ -1016,11 +1007,10 @@ public class FSImageFormat {
      * @param toSaveSubtree Whether or not to save the subtree to fsimage. For
      *                      reference node, its subtree may already have been
      *                      saved before.
-     * @param step Step of namenode startup progress
      * @param counter Counter to increment for namenode startup progress
      */
     private void saveImage(INodeDirectory current, DataOutputStream out,
-        boolean toSaveSubtree, Step step, Counter counter) throws IOException {
+        boolean toSaveSubtree, Counter counter) throws IOException {
       // write the inode id of the directory
       out.writeLong(current.getId());
       
@@ -1049,7 +1039,7 @@ public class FSImageFormat {
       }
 
       // 3. Write children INode 
-      dirNum += saveChildren(children, out, step, counter);
+      dirNum += saveChildren(children, out, counter);
       
       // 4. Write DirectoryDiff lists, if there is any.
       SnapshotFSImageFormat.saveDirectoryDiffList(current, out, referenceMap);
@@ -1064,14 +1054,14 @@ public class FSImageFormat {
         // make sure we only save the subtree under a reference node once
         boolean toSave = child.isReference() ? 
             referenceMap.toProcessSubtree(child.getId()) : true;
-        saveImage(child.asDirectory(), out, toSave, step, counter);
+        saveImage(child.asDirectory(), out, toSave, counter);
       }
       if (snapshotDirs != null) {
         for (INodeDirectory subDir : snapshotDirs) {
           // make sure we only save the subtree under a reference node once
           boolean toSave = subDir.getParentReference() != null ? 
               referenceMap.toProcessSubtree(subDir.getId()) : true;
-          saveImage(subDir, out, toSave, step, counter);
+          saveImage(subDir, out, toSave, counter);
         }
       }
     }
