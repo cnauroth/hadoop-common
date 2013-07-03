@@ -283,7 +283,18 @@ public abstract class Server {
    * after the call returns.
    */
   private static final ThreadLocal<Call> CurCall = new ThreadLocal<Call>();
-  
+
+  /**
+   * Returns the currently active RPC call's sequential ID number, or null if
+   * there is no active RPC call.
+   * 
+   * @return Integer sequential ID number of currently active RPC call
+   */
+  public static Integer getCallId() {
+    Call call = CurCall.get();
+    return call != null ? call.callId : null;
+  }
+
   /** Returns the remote side ip address when invoked inside an RPC 
    *  Returns null incase of an error.
    */

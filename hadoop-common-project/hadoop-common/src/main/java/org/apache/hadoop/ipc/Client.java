@@ -45,6 +45,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.net.SocketFactory;
@@ -103,7 +104,7 @@ public class Client {
     new Hashtable<ConnectionId, Connection>();
 
   private Class<? extends Writable> valueClass;   // class of call values
-  private int counter;                            // counter for call ids
+  private final AtomicInteger counter = new AtomicInteger(); // call ID sequence
   private AtomicBoolean running = new AtomicBoolean(true); // if client runs
   final private Configuration conf;
 
@@ -215,9 +216,7 @@ public class Client {
     protected Call(RPC.RpcKind rpcKind, Writable param) {
       this.rpcKind = rpcKind;
       this.rpcRequest = param;
-      synchronized (Client.this) {
-        this.id = counter++;
-      }
+      this.id = counter.getAndIncrement();
     }
 
     /** Indicate when the call is complete and the
