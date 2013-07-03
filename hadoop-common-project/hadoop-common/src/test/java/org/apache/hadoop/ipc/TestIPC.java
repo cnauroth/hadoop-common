@@ -684,7 +684,7 @@ public class TestIPC {
     // contains every expected value.
     Collections.sort(callIds);
     for (int i = 0; i < expectedCallCount; ++i) {
-      assertEquals(Integer.valueOf(i), callIds.get(i));
+      assertEquals(i, callIds.get(i).intValue());
     }
   }
 

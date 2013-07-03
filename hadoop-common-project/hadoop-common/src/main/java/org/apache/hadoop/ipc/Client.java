@@ -216,7 +216,7 @@ public class Client {
     protected Call(RPC.RpcKind rpcKind, Writable param) {
       this.rpcKind = rpcKind;
       this.rpcRequest = param;
-      this.id = counter.getAndIncrement();
+      this.id = nextCallId();
     }
 
     /** Indicate when the call is complete and the
@@ -1558,4 +1558,18 @@ public class Client {
       return serverPrincipal + "@" + address;
     }
   }  
+
+  /**
+   * Returns the next valid sequential call ID by incrementing an atomic counter
+   * and masking off the sign bit.  Valid call IDs are non-negative integers in
+   * the range [ 0, 2^31 - 1 ].  Negative numbers are reserved for special
+   * purposes.  The values can overflow back to 0 and be reused.  Note that prior
+   * versions of the client did not mask off the sign bit, so a server may still
+   * see a negative call ID if it receives connections from an old client.
+   * 
+   * @return int next valid call ID
+   */
+  private int nextCallId() {
+    return counter.getAndIncrement() & 0x7FFFFFFF;
+  }
 }
