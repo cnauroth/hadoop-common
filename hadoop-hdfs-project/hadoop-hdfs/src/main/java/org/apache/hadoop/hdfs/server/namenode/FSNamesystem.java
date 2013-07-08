@@ -156,12 +156,7 @@ import org.apache.hadoop.hdfs.security.token.block.BlockTokenSecretManager;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenSecretManager.AccessMode;
 import org.apache.hadoop.hdfs.security.token.delegation.DelegationTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.delegation.DelegationTokenSecretManager;
-import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
-import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoUnderConstruction;
-import org.apache.hadoop.hdfs.server.blockmanagement.BlockManager;
-import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeDescriptor;
-import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeManager;
-import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeStatistics;
+import org.apache.hadoop.hdfs.server.blockmanagement.*;
 import org.apache.hadoop.hdfs.server.common.GenerationStamp;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.BlockUCState;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.NamenodeRole;
@@ -171,6 +166,7 @@ import org.apache.hadoop.hdfs.server.common.Storage.StorageDirType;
 import org.apache.hadoop.hdfs.server.common.Storage.StorageDirectory;
 import org.apache.hadoop.hdfs.server.common.Util;
 import org.apache.hadoop.hdfs.server.namenode.INode.BlocksMapUpdateInfo;
+import org.apache.hadoop.hdfs.server.namenode.JournalSet.JournalAndStream;
 import org.apache.hadoop.hdfs.server.namenode.LeaseManager.Lease;
 import org.apache.hadoop.hdfs.server.namenode.NameNode.OperationCategory;
 import org.apache.hadoop.hdfs.server.namenode.ha.EditLogTailer;
@@ -210,6 +206,7 @@ import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.security.token.delegation.DelegationKey;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.DataChecksum;
+import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.Time;
 import org.apache.hadoop.util.VersionInfo;
 import org.mortbay.util.ajax.JSON;
@@ -377,9 +374,32 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
   private final long maxBlocksPerFile;     // maximum # of blocks per file
 
   /**
-   * The global generation stamp for this file system. 
+   * The global generation stamp for legacy blocks with randomly
+   * generated block IDs.
    */
-  private final GenerationStamp generationStamp = new GenerationStamp();
+  private final GenerationStamp generationStampV1 = new GenerationStamp();
+
+  /**
+   * The global generation stamp for this file system.
+   */
+  private final GenerationStamp generationStampV2 = new GenerationStamp();
+
+  /**
+   * The value of the generation stamp when the first switch to sequential
+   * block IDs was made. Blocks with generation stamps below this value
+   * have randomly allocated block IDs. Blocks with generation stamps above
+   * this value had sequentially allocated block IDs. Read from the fsImage
+   * (or initialized as an offset from the V1 (legacy) generation stamp on
+   * upgrade).
+   */
+  private long generationStampV1Limit =
+      GenerationStamp.GRANDFATHER_GENERATION_STAMP;
+
+  /**
+   * The global block ID space for this file system.
+   */
+  @VisibleForTesting
+  private final SequentialBlockIdGenerator blockIdGenerator;
 
   // precision of access times.
   private final long accessTimePrecision;
@@ -439,7 +459,11 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
   void clear() {
     dir.reset();
     dtSecretManager.reset();
-    generationStamp.setCurrentValue(GenerationStamp.LAST_RESERVED_STAMP);
+    generationStampV1.setCurrentValue(GenerationStamp.LAST_RESERVED_STAMP);
+    generationStampV2.setCurrentValue(GenerationStamp.LAST_RESERVED_STAMP);
+    blockIdGenerator.setCurrentValue(
+        SequentialBlockIdGenerator.LAST_RESERVED_BLOCK_ID);
+    generationStampV1Limit = GenerationStamp.GRANDFATHER_GENERATION_STAMP;
     leaseManager.removeAllLeases();
     inodeId.setCurrentValue(INodeId.LAST_RESERVED_ID);
   }
@@ -541,9 +565,9 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
    * 
    * Note that this does not load any data off of disk -- if you would
    * like that behavior, use {@link #loadFromDisk(Configuration)}
-
-   * @param fnImage The FSImage to associate with
+   *
    * @param conf configuration
+   * @param fsImage The FSImage to associate with
    * @throws IOException on bad configuration
    */
   FSNamesystem(Configuration conf, FSImage fsImage) throws IOException {
@@ -554,6 +578,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
 
       this.blockManager = new BlockManager(this, this, conf);
       this.datanodeStatistics = blockManager.getDatanodeManager().getDatanodeStatistics();
+      this.blockIdGenerator = new SequentialBlockIdGenerator(this.blockManager);
 
       this.fsOwner = UserGroupInformation.getCurrentUser();
       this.fsOwnerShortUserName = fsOwner.getShortUserName();
@@ -2673,9 +2698,9 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
    */
   Block createNewBlock() throws IOException {
     assert hasWriteLock();
-    Block b = new Block(getFSImage().getUniqueBlockId(), 0, 0); 
+    Block b = new Block(nextBlockId(), 0, 0);
     // Increment the generation stamp for every new block.
-    b.setGenerationStamp(nextGenerationStamp());
+    b.setGenerationStamp(nextGenerationStamp(false));
     return b;
   }
 
@@ -3371,7 +3396,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
         uc.setExpectedLocations(blockManager.getNodes(lastBlock));
       }
       // start recovery of the last block for this file
-      long blockRecoveryId = nextGenerationStamp();
+      long blockRecoveryId = nextGenerationStamp(isLegacyBlock(uc));
       lease = reassignLease(lease, src, recoveryLeaseHolder, pendingFile);
       uc.initializeBlockRecovery(blockRecoveryId);
       leaseManager.renewLease(lease);
@@ -4993,6 +5018,28 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
   }
   
   @Override // FSNamesystemMBean
+  public int getNumDecomLiveDataNodes() {
+    final List<DatanodeDescriptor> live = new ArrayList<DatanodeDescriptor>();
+    getBlockManager().getDatanodeManager().fetchDatanodes(live, null, true);
+    int liveDecommissioned = 0;
+    for (DatanodeDescriptor node : live) {
+      liveDecommissioned += node.isDecommissioned() ? 1 : 0;
+    }
+    return liveDecommissioned;
+  }
+
+  @Override // FSNamesystemMBean
+  public int getNumDecomDeadDataNodes() {
+    final List<DatanodeDescriptor> dead = new ArrayList<DatanodeDescriptor>();
+    getBlockManager().getDatanodeManager().fetchDatanodes(dead, null, true);
+    int deadDecommissioned = 0;
+    for (DatanodeDescriptor node : dead) {
+      deadDecommissioned += node.isDecommissioned() ? 1 : 0;
+    }
+    return deadDecommissioned;
+  }
+
+  @Override // FSNamesystemMBean
   @Metric({"StaleDataNodes", 
     "Number of datanodes marked stale due to delayed heartbeat"})
   public int getNumStaleDataNodes() {
@@ -5000,32 +5047,162 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
   }
 
   /**
-   * Sets the generation stamp for this filesystem
+   * Sets the current generation stamp for legacy blocks
    */
-  void setGenerationStamp(long stamp) {
-    generationStamp.setCurrentValue(stamp);
+  void setGenerationStampV1(long stamp) {
+    generationStampV1.setCurrentValue(stamp);
   }
 
   /**
-   * Gets the generation stamp for this filesystem
+   * Gets the current generation stamp for legacy blocks
    */
-  long getGenerationStamp() {
-    return generationStamp.getCurrentValue();
+  long getGenerationStampV1() {
+    return generationStampV1.getCurrentValue();
+  }
+
+  /**
+   * Gets the current generation stamp for this filesystem
+   */
+  void setGenerationStampV2(long stamp) {
+    generationStampV2.setCurrentValue(stamp);
+  }
+
+  /**
+   * Gets the current generation stamp for this filesystem
+   */
+  long getGenerationStampV2() {
+    return generationStampV2.getCurrentValue();
+  }
+
+  /**
+   * Upgrades the generation stamp for the filesystem
+   * by reserving a sufficient range for all existing blocks.
+   * Should be invoked only during the first upgrade to
+   * sequential block IDs.
+   */
+  long upgradeGenerationStampToV2() {
+    Preconditions.checkState(generationStampV2.getCurrentValue() ==
+        GenerationStamp.LAST_RESERVED_STAMP);
+
+    generationStampV2.skipTo(
+        generationStampV1.getCurrentValue() +
+        HdfsConstants.RESERVED_GENERATION_STAMPS_V1);
+
+    generationStampV1Limit = generationStampV2.getCurrentValue();
+    return generationStampV2.getCurrentValue();
+  }
+
+  /**
+   * Sets the generation stamp that delineates random and sequentially
+   * allocated block IDs.
+   * @param stamp
+   */
+  void setGenerationStampV1Limit(long stamp) {
+    Preconditions.checkState(generationStampV1Limit ==
+                             GenerationStamp.GRANDFATHER_GENERATION_STAMP);
+    generationStampV1Limit = stamp;
+  }
+
+  /**
+   * Gets the value of the generation stamp that delineates sequential
+   * and random block IDs.
+   */
+  long getGenerationStampAtblockIdSwitch() {
+    return generationStampV1Limit;
+  }
+
+  @VisibleForTesting
+  SequentialBlockIdGenerator getBlockIdGenerator() {
+    return blockIdGenerator;
+  }
+
+  /**
+   * Sets the maximum allocated block ID for this filesystem. This is
+   * the basis for allocating new block IDs.
+   */
+  void setLastAllocatedBlockId(long blockId) {
+    blockIdGenerator.skipTo(blockId);
+  }
+
+  /**
+   * Gets the maximum sequentially allocated block ID for this filesystem
+   */
+  long getLastAllocatedBlockId() {
+    return blockIdGenerator.getCurrentValue();
   }
 
   /**
    * Increments, logs and then returns the stamp
    */
-  private long nextGenerationStamp() throws SafeModeException {
+  long nextGenerationStamp(boolean legacyBlock)
+      throws IOException, SafeModeException {
     assert hasWriteLock();
     if (isInSafeMode()) {
       throw new SafeModeException(
           "Cannot get next generation stamp", safeMode);
     }
-    final long gs = generationStamp.nextValue();
-    getEditLog().logGenerationStamp(gs);
+
+    long gs;
+    if (legacyBlock) {
+      gs = getNextGenerationStampV1();
+      getEditLog().logGenerationStampV1(gs);
+    } else {
+      gs = getNextGenerationStampV2();
+      getEditLog().logGenerationStampV2(gs);
+    }
+
     // NB: callers sync the log
     return gs;
+  }
+
+  @VisibleForTesting
+  long getNextGenerationStampV1() throws IOException {
+    long genStampV1 = generationStampV1.nextValue();
+
+    if (genStampV1 >= generationStampV1Limit) {
+      // We ran out of generation stamps for legacy blocks. In practice, it
+      // is extremely unlikely as we reserved 1T v1 generation stamps. The
+      // result is that we can no longer append to the legacy blocks that
+      // were created before the upgrade to sequential block IDs.
+      throw new OutOfV1GenerationStampsException();
+    }
+
+    return genStampV1;
+  }
+
+  @VisibleForTesting
+  long getNextGenerationStampV2() {
+    return generationStampV2.nextValue();
+  }
+
+  long getGenerationStampV1Limit() {
+    return generationStampV1Limit;
+  }
+
+  /**
+   * Determine whether the block ID was randomly generated (legacy) or
+   * sequentially generated. The generation stamp value is used to
+   * make the distinction.
+   * @param block
+   * @return true if the block ID was randomly generated, false otherwise.
+   */
+  boolean isLegacyBlock(Block block) {
+    return block.getGenerationStamp() < getGenerationStampV1Limit();
+  }
+
+  /**
+   * Increments, logs and then returns the block ID
+   */
+  private long nextBlockId() throws SafeModeException {
+    assert hasWriteLock();
+    if (isInSafeMode()) {
+      throw new SafeModeException(
+          "Cannot get next block ID", safeMode);
+    }
+    final long blockId = blockIdGenerator.nextValue();
+    getEditLog().logAllocateBlockId(blockId);
+    // NB: callers sync the log
+    return blockId;
   }
 
   private INodeFileUnderConstruction checkUCBlock(ExtendedBlock block,
@@ -5108,7 +5285,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       checkUCBlock(block, clientName);
   
       // get a new generation stamp and an access token
-      block.setGenerationStamp(nextGenerationStamp());
+      block.setGenerationStamp(
+          nextGenerationStamp(isLegacyBlock(block.getLocalBlock())));
       locatedBlock = new LocatedBlock(block, new DatanodeInfo[0]);
       blockManager.setBlockToken(locatedBlock, AccessMode.WRITE);
     } finally {
@@ -5123,7 +5301,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
    * Update a pipeline for a block under construction
    * 
    * @param clientName the name of the client
-   * @param oldblock and old block
+   * @param oldBlock and old block
    * @param newBlock a new block with a new generation stamp and length
    * @param newNodes datanodes in the pipeline
    * @throws IOException if any error occurs
@@ -5804,6 +5982,91 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     return JSON.toString(statusMap);
   }
 
+  @Override // NameNodeMXBean
+  public String getNodeUsage() {
+    float median = 0;
+    float max = 0;
+    float min = 0;
+    float dev = 0;
+
+    final Map<String, Map<String,Object>> info =
+        new HashMap<String, Map<String,Object>>();
+    final List<DatanodeDescriptor> live = new ArrayList<DatanodeDescriptor>();
+    blockManager.getDatanodeManager().fetchDatanodes(live, null, true);
+
+    if (live.size() > 0) {
+      float totalDfsUsed = 0;
+      float[] usages = new float[live.size()];
+      int i = 0;
+      for (DatanodeDescriptor dn : live) {
+        usages[i++] = dn.getDfsUsedPercent();
+        totalDfsUsed += dn.getDfsUsedPercent();
+      }
+      totalDfsUsed /= live.size();
+      Arrays.sort(usages);
+      median = usages[usages.length / 2];
+      max = usages[usages.length - 1];
+      min = usages[0];
+
+      for (i = 0; i < usages.length; i++) {
+        dev += (usages[i] - totalDfsUsed) * (usages[i] - totalDfsUsed);
+      }
+      dev = (float) Math.sqrt(dev / usages.length);
+    }
+
+    final Map<String, Object> innerInfo = new HashMap<String, Object>();
+    innerInfo.put("min", StringUtils.format("%.2f%%", min));
+    innerInfo.put("median", StringUtils.format("%.2f%%", median));
+    innerInfo.put("max", StringUtils.format("%.2f%%", max));
+    innerInfo.put("stdDev", StringUtils.format("%.2f%%", dev));
+    info.put("nodeUsage", innerInfo);
+
+    return JSON.toString(info);
+  }
+
+  @Override  // NameNodeMXBean
+  public String getNameJournalStatus() {
+    List<Map<String, String>> jasList = new ArrayList<Map<String, String>>();
+    FSEditLog log = getFSImage().getEditLog();
+    if (log != null) {
+      boolean openForWrite = log.isOpenForWrite();
+      for (JournalAndStream jas : log.getJournals()) {
+        final Map<String, String> jasMap = new HashMap<String, String>();
+        String manager = jas.getManager().toString();
+
+        jasMap.put("required", String.valueOf(jas.isRequired()));
+        jasMap.put("disabled", String.valueOf(jas.isDisabled()));
+        jasMap.put("manager", manager);
+
+        if (jas.isDisabled()) {
+          jasMap.put("stream", "Failed");
+        } else if (openForWrite) {
+          EditLogOutputStream elos = jas.getCurrentStream();
+          if (elos != null) {
+            jasMap.put("stream", elos.generateHtmlReport());
+          } else {
+            jasMap.put("stream", "not currently writing");
+          }
+        } else {
+          jasMap.put("stream", "open for read");
+        }
+        jasList.add(jasMap);
+      }
+    }
+    return JSON.toString(jasList);
+  }
+
+  @Override  // NameNodeMXBean
+  public String getNNStarted() {
+    return getStartTime().toString();
+  }
+
+  @Override  // NameNodeMXBean
+  public String getCompileInfo() {
+    return VersionInfo.getDate() + " by " + VersionInfo.getUser() +
+        " from " + VersionInfo.getBranch();
+  }
+
   /** @return the block manager. */
   public BlockManager getBlockManager() {
     return blockManager;
@@ -5825,9 +6088,14 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
   }
   
   @Override
-  public boolean isGenStampInFuture(long genStamp) {
-    return (genStamp > getGenerationStamp());
+  public boolean isGenStampInFuture(Block block) {
+    if (isLegacyBlock(block)) {
+      return block.getGenerationStamp() > getGenerationStampV1();
+    } else {
+      return block.getGenerationStamp() > getGenerationStampV2();
+    }
   }
+
   @VisibleForTesting
   public EditLogTailer getEditLogTailer() {
     return editLogTailer;

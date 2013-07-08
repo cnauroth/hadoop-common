@@ -15,31 +15,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.fs;
 
-import java.net.URI;
+package org.apache.hadoop.hdfs.server.blockmanagement;
 
+import java.io.IOException;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 
 /**
- * FileSystem related constants.
+ * This exception is thrown when the name node runs out of V1 generation
+ * stamps.
+ *
  */
-@InterfaceAudience.Public
-@InterfaceStability.Stable
-public interface FsConstants {
-  // URI for local filesystem
-  public static final URI LOCAL_FS_URI = URI.create("file:///");
-  
-  // URI scheme for FTP
-  public static final String FTP_SCHEME = "ftp";
+@InterfaceAudience.Private
+@InterfaceStability.Evolving
+public class OutOfV1GenerationStampsException extends IOException {
+  private static final long serialVersionUID = 1L;
 
-  // Maximum number of symlinks to recursively resolve in a path
-  static final int MAX_PATH_LINKS = 32;
-
-  /**
-   * ViewFs: viewFs file system (ie the mount file system on client side)
-   */
-  public static final URI VIEWFS_URI = URI.create("viewfs:///");
-  public static final String VIEWFS_SCHEME = "viewfs";
+  public OutOfV1GenerationStampsException() {
+    super("Out of V1 (legacy) generation stamps\n");
+  }
 }

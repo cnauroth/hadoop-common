@@ -102,6 +102,9 @@ Trunk (Unreleased)
     HADOOP-9540. Expose the InMemoryS3 and S3N FilesystemStores implementations
     for Unit testing. (Hari via stevel)
 
+    HADOOP-8844. Add a plaintext fs -text test-case.
+    (Akira AJISAKA via harsh)
+
   BUG FIXES
 
     HADOOP-9451. Fault single-layer config if node group topology is enabled.
@@ -309,6 +312,9 @@ Release 2.2.0 - UNRELEASED
     HADOOP-9414.  Refactor out FSLinkResolver and relevant helper methods.
     (Andrew Wang via Colin Patrick McCabe)
 
+    HADOOP-9416.  Add new symlink resolution methods in FileSystem and
+    FileSystemLinkResolver.  (Andrew Wang via Colin Patrick McCabe)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -347,6 +353,8 @@ Release 2.1.0-beta - 2013-07-02
 
     HADOOP-9421. [RPC v9] Convert SASL to use ProtoBuf and provide
     negotiation capabilities (daryn)
+
+    HADOOP-9688. Add globally unique Client ID to RPC requests. (suresh)
 
   NEW FEATURES
 
