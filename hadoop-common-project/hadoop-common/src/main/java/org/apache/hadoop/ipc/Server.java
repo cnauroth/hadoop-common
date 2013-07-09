@@ -270,8 +270,6 @@ public abstract class Server {
    */
   private static final ThreadLocal<Call> CurCall = new ThreadLocal<Call>();
   
-  private static final int INVALID_CALL_ID = -2;
-
   /**
    * Returns the currently active RPC call's sequential ID number.  A negative
    * call ID indicates an invalid value, such as if there is no currently active
@@ -281,7 +279,7 @@ public abstract class Server {
    */
   public static int getCallId() {
     Call call = CurCall.get();
-    return call != null ? call.callId : INVALID_CALL_ID;
+    return call != null ? call.callId : RpcConstants.INVALID_CALL_ID;
   }
 
   /** Returns the remote side ip address when invoked inside an RPC 
