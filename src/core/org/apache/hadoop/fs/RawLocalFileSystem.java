@@ -285,10 +285,37 @@ public class RawLocalFileSystem extends FileSystem {
   }
 
   public boolean rename(Path src, Path dst) throws IOException {
-    if (pathToFile(src).renameTo(pathToFile(dst))) {
+    // Attempt rename using Java API.
+    File dstFile = pathToFile(dst);
+    if (pathToFile(src).renameTo(dstFile)) {
       return true;
     }
-    LOG.debug("Falling through to a copy of " + src + " to " + dst);
+
+    // Enforce POSIX rename behavior that a source directory replaces an existing
+    // destination if the destination is an empty directory.  On most platforms,
+    // this is already handled by the Java API call above.  Some platforms
+    // (notably Windows) do not provide this behavior, so the Java API call above
+    // fails.  Copy source content to destination and delete source.
+    if (this.exists(dst)) {
+      FileStatus sdst = this.getFileStatus(dst);
+      if (sdst.isDir() && dstFile.list().length == 0) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Copying contents of " + src + " to " + dst);
+        }
+        FileStatus contents[] = this.listStatus(src);
+        for (int i = 0; i < contents.length; i++) {
+          FileUtil.copy(this, contents[i].getPath(), this,
+            new Path(dst, contents[i].getPath().getName()),
+            true, getConf());
+        }
+        return this.delete(src, true);
+      }
+    }
+
+    // The fallback behavior accomplishes the rename by a full copy.
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Falling through to a copy of " + src + " to " + dst);
+    }
     return FileUtil.copy(this, src, this, dst, true, getConf());
   }
   
