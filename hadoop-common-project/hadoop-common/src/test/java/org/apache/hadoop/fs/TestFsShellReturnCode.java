@@ -20,11 +20,13 @@ package org.apache.hadoop.fs;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.PrintStream;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -407,6 +409,60 @@ public class TestFsShellReturnCode {
     assertEquals(2, InterruptCommand.processed);
     assertEquals(130, exitCode);
   }
+
+  /**
+   * Tests combinations of valid and invalid user and group arguments to chown.
+   */
+  @Test
+  public void testChownUserAndGroupValidity() {
+    // This test only covers argument parsing, so override to skip processing.
+    FsCommand chown = new FsShellPermissions.Chown() {
+      @Override
+      protected void processArgument(PathData item) {
+      }
+    };
+    chown.setConf(new Configuration());
+
+    // The following are valid (no exception expected).
+    chown.run("user", "/path");
+    chown.run("user:group", "/path");
+    chown.run("User With Spaces", "/path");
+    chown.run("User With Spaces:group", "/path");
+    chown.run("User With Spaces:Group With Spaces", "/path");
+    chown.run("user:Group With Spaces", "/path");
+    chown.run(":group", "/path");
+    chown.run(":Group With Spaces", "/path");
+
+    // The following are invalid (exception expected).
+    assertIllegalArguments(chown, "us!er", "/path");
+    assertIllegalArguments(chown, "us^er", "/path");
+    assertIllegalArguments(chown, "user:gr#oup", "/path");
+    assertIllegalArguments(chown, "user:gr%oup", "/path");
+    assertIllegalArguments(chown, ":gr#oup", "/path");
+    assertIllegalArguments(chown, ":gr%oup", "/path");
+  }
+
+  /**
+   * Tests valid and invalid group arguments to chgrp.
+   */
+  @Test
+  public void testChgrpGroupValidity() {
+    // This test only covers argument parsing, so override to skip processing.
+    FsCommand chgrp = new FsShellPermissions.Chgrp() {
+      @Override
+      protected void processArgument(PathData item) {
+      }
+    };
+    chgrp.setConf(new Configuration());
+
+    // The following are valid (no exception expected).
+    chgrp.run("group", "/path");
+    chgrp.run("Group With Spaces", "/path");
+
+    // The following are invalid (exception expected).
+    assertIllegalArguments(chgrp, ":gr#oup", "/path");
+    assertIllegalArguments(chgrp, ":gr%oup", "/path");
+  }
   
   static class LocalFileSystemExtn extends LocalFileSystem {
     public LocalFileSystemExtn() {
@@ -480,4 +536,21 @@ public class TestFsShellReturnCode {
       }
     }
   }  
+
+  /**
+   * Asserts that for the given command, the given arguments are considered
+   * invalid.  The expectation is that the command will throw
+   * IllegalArgumentException.
+   * 
+   * @param cmd FsCommand to check
+   * @param args String... arguments to check
+   */
+  private static void assertIllegalArguments(FsCommand cmd, String... args) {
+    try {
+      cmd.run(args);
+      fail("Expected IllegalArgumentException from args: " +
+        Arrays.toString(args));
+    } catch (IllegalArgumentException e) {
+    }
+  }
 }
