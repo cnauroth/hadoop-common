@@ -428,19 +428,14 @@ public class TestLocalFileSystem {
    */
   @Test
   public void testRenameDirectory() throws IOException {
-    FileSystem fs = FileSystem.getLocal(new Configuration());
     Path src = new Path(TEST_ROOT_DIR, "dir1");
     Path dst = new Path(TEST_ROOT_DIR, "dir2");
-    try {
-      fs.delete(src, true);
-      fs.delete(dst, true);
-      assertTrue(fs.mkdirs(src));
-      assertTrue(fs.rename(src, dst));
-      assertTrue(fs.exists(dst));
-      assertFalse(fs.exists(src));
-    } finally {
-      cleanupFileSystem(fs, src, dst);
-    }
+    fileSys.delete(src, true);
+    fileSys.delete(dst, true);
+    assertTrue(fileSys.mkdirs(src));
+    assertTrue(fileSys.rename(src, dst));
+    assertTrue(fileSys.exists(dst));
+    assertFalse(fileSys.exists(src));
   }
 
   /**
@@ -460,24 +455,19 @@ public class TestLocalFileSystem {
    */
   @Test
   public void testRenameReplaceExistingEmptyDirectory() throws IOException {
-    FileSystem fs = FileSystem.getLocal(new Configuration());
     Path src = new Path(TEST_ROOT_DIR, "dir1");
     Path dst = new Path(TEST_ROOT_DIR, "dir2");
-    try {
-      fs.delete(src, true);
-      fs.delete(dst, true);
-      assertTrue(fs.mkdirs(src));
-      writeFile(fs, new Path(src, "file1"), 1);
-      writeFile(fs, new Path(src, "file2"), 1);
-      assertTrue(fs.mkdirs(dst));
-      assertTrue(fs.rename(src, dst));
-      assertTrue(fs.exists(dst));
-      assertTrue(fs.exists(new Path(dst, "file1")));
-      assertTrue(fs.exists(new Path(dst, "file2")));
-      assertFalse(fs.exists(src));
-    } finally {
-      cleanupFileSystem(fs, src, dst);
-    }
+    fileSys.delete(src, true);
+    fileSys.delete(dst, true);
+    assertTrue(fileSys.mkdirs(src));
+    writeFile(fileSys, new Path(src, "file1"), 1);
+    writeFile(fileSys, new Path(src, "file2"), 1);
+    assertTrue(fileSys.mkdirs(dst));
+    assertTrue(fileSys.rename(src, dst));
+    assertTrue(fileSys.exists(dst));
+    assertTrue(fileSys.exists(new Path(dst, "file1")));
+    assertTrue(fileSys.exists(new Path(dst, "file2")));
+    assertFalse(fileSys.exists(src));
   }
 
   /**
@@ -499,25 +489,20 @@ public class TestLocalFileSystem {
    */
   @Test
   public void testRenameMoveToExistingNonEmptyDirectory() throws IOException {
-    FileSystem fs = FileSystem.getLocal(new Configuration());
     Path src = new Path(TEST_ROOT_DIR, "dir1/dir2/dir3");
     Path dst = new Path(TEST_ROOT_DIR, "dir1");
-    try {
-      fs.delete(src, true);
-      fs.delete(dst, true);
-      assertTrue(fs.mkdirs(src));
-      writeFile(fs, new Path(src, "file1"), 1);
-      writeFile(fs, new Path(src, "file2"), 1);
-      assertTrue(fs.exists(dst));
-      assertTrue(fs.rename(src, dst));
-      assertTrue(fs.exists(dst));
-      assertTrue(fs.exists(new Path(dst, "dir3")));
-      assertTrue(fs.exists(new Path(dst, "dir3/file1")));
-      assertTrue(fs.exists(new Path(dst, "dir3/file2")));
-      assertFalse(fs.exists(src));
-    } finally {
-      cleanupFileSystem(fs, src, dst);
-    }
+    fileSys.delete(src, true);
+    fileSys.delete(dst, true);
+    assertTrue(fileSys.mkdirs(src));
+    writeFile(fileSys, new Path(src, "file1"), 1);
+    writeFile(fileSys, new Path(src, "file2"), 1);
+    assertTrue(fileSys.exists(dst));
+    assertTrue(fileSys.rename(src, dst));
+    assertTrue(fileSys.exists(dst));
+    assertTrue(fileSys.exists(new Path(dst, "dir3")));
+    assertTrue(fileSys.exists(new Path(dst, "dir3/file1")));
+    assertTrue(fileSys.exists(new Path(dst, "dir3/file2")));
+    assertFalse(fileSys.exists(src));
   }
   
   private void verifyRead(FSDataInputStream stm, byte[] fileContents,
@@ -533,33 +518,6 @@ public class TestLocalFileSystem {
           StringUtils.byteToHexString(out) + 
           "\noff=" + seekOff + " len=" + toRead;
       fail(s);
-    }
-  }
-
-  /**
-   * Cleans up the file system by deleting the given paths and closing the file
-   * system.
-   * 
-   * @param fs FileSystem to clean up
-   * @param paths Path... any number of paths to delete
-   */
-  private static void cleanupFileSystem(FileSystem fs, Path... paths) {
-    for (Path path: paths) {
-      deleteQuietly(fs, path);
-    }
-    IOUtils.cleanup(null, fs);
-  }
-
-  /**
-   * Deletes the given path and silences any exceptions.
-   * 
-   * @param fs FileSystem to perform the delete
-   * @param path Path to delete
-   */
-  private static void deleteQuietly(FileSystem fs, Path path) {
-    try {
-      fs.delete(path, true);
-    } catch (IOException e) {
     }
   }
 }
