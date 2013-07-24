@@ -72,7 +72,7 @@ class FsShellPermissions {
 
   /*========== chown ==========*/
   
-  static private String allowedChars = "[-_./@a-zA-Z0-9]";
+  static private String allowedChars = "[-_./@a-zA-Z0-9 ]";
   ///allows only "allowedChars" above in names for owner and group
   static private Pattern chownPattern = 
          Pattern.compile("^\\s*(" + allowedChars + "+)?" +
@@ -83,7 +83,7 @@ class FsShellPermissions {
   static String CHOWN_USAGE = "-chown [-R] [OWNER][:[GROUP]] PATH...";
   static String CHGRP_USAGE = "-chgrp [-R] GROUP PATH...";  
 
-  private static class ChownHandler extends CmdHandler {
+  static class ChownHandler extends CmdHandler {
     protected String owner = null;
     protected String group = null;
 
@@ -125,7 +125,7 @@ class FsShellPermissions {
 
   /*========== chgrp ==========*/    
   
-  private static class ChgrpHandler extends ChownHandler {
+  static class ChgrpHandler extends ChownHandler {
     ChgrpHandler(FileSystem fs, String groupStr) throws IOException {
       super("chgrp", fs);
 

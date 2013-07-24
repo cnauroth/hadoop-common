@@ -19,6 +19,9 @@
 package org.apache.hadoop.fs;
 
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import java.io.IOException;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -254,5 +257,74 @@ public class TestFsShellReturnCode {
     shell.setConf(conf);
     int run = shell.run(args);
     assertTrue("Return code should be 0", run == 0);
+  }
+
+  /**
+   * Tests combinations of valid and invalid user and group arguments to chown.
+   */
+  @Test
+  public void testChownUserAndGroupValidity() throws IOException {
+    // The following are valid (no exception expected).
+    new FsShellPermissions.ChownHandler(fs, "user");
+    new FsShellPermissions.ChownHandler(fs, "user:group");
+    new FsShellPermissions.ChownHandler(fs, "User With Spaces");
+    new FsShellPermissions.ChownHandler(fs, "User With Spaces:group");
+    new FsShellPermissions.ChownHandler(fs,
+      "User With Spaces:Group With Spaces");
+    new FsShellPermissions.ChownHandler(fs, "user:Group With Spaces");
+    new FsShellPermissions.ChownHandler(fs, ":group");
+    new FsShellPermissions.ChownHandler(fs, ":Group With Spaces");
+
+    // The following are invalid (exception expected).
+    assertChownIllegalArguments(fs, "us!er");
+    assertChownIllegalArguments(fs, "us^er");
+    assertChownIllegalArguments(fs, "user:gr#oup");
+    assertChownIllegalArguments(fs, "user:gr%oup");
+    assertChownIllegalArguments(fs, ":gr#oup");
+    assertChownIllegalArguments(fs, ":gr%oup");
+  }
+
+  /**
+   * Tests valid and invalid group arguments to chgrp.
+   */
+  @Test
+  public void testChgrpGroupValidity() throws IOException {
+    // The following are valid (no exception expected).
+    new FsShellPermissions.ChgrpHandler(fs, "group");
+    new FsShellPermissions.ChgrpHandler(fs, "Group With Spaces");
+
+    // The following are invalid (exception expected).
+    assertChgrpIllegalArguments(fs, ":gr#oup");
+    assertChgrpIllegalArguments(fs, ":gr%oup");
+  }
+
+  /**
+   * Asserts that chgrp considers the given arguments invalid.  The expectation
+   * is that the command will throw IOException.
+   * 
+   * @param fs FileSystem argument
+   * @param group String argument
+   */
+  private static void assertChgrpIllegalArguments(FileSystem fs, String group) {
+    try {
+      new FsShellPermissions.ChgrpHandler(fs, group);
+      fail("Expected IOException from group: " + group);
+    } catch (IOException e) {
+    }
+  }
+
+  /**
+   * Asserts that chown considers the given arguments invalid.  The expectation
+   * is that the command will throw IOException.
+   * 
+   * @param fs FileSystem argument
+   * @param owner String argument
+   */
+  private static void assertChownIllegalArguments(FileSystem fs, String owner) {
+    try {
+      new FsShellPermissions.ChownHandler(fs, owner);
+      fail("Expected IOException from owner: " + owner);
+    } catch (IOException e) {
+    }
   }
 }
