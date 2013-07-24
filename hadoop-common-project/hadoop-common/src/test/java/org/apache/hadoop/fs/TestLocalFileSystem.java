@@ -426,6 +426,7 @@ public class TestLocalFileSystem {
   /**
    * Tests a simple rename of a directory.
    */
+  @Test
   public void testRenameDirectory() throws IOException {
     FileSystem fs = FileSystem.getLocal(new Configuration());
     Path src = new Path(TEST_ROOT_DIR, "dir1");
@@ -457,6 +458,7 @@ public class TestLocalFileSystem {
    *     /file1
    *     /file2
    */
+  @Test
   public void testRenameReplaceExistingEmptyDirectory() throws IOException {
     FileSystem fs = FileSystem.getLocal(new Configuration());
     Path src = new Path(TEST_ROOT_DIR, "dir1");
@@ -495,6 +497,7 @@ public class TestLocalFileSystem {
    *       /file1
    *       /file2
    */
+  @Test
   public void testRenameMoveToExistingNonEmptyDirectory() throws IOException {
     FileSystem fs = FileSystem.getLocal(new Configuration());
     Path src = new Path(TEST_ROOT_DIR, "dir1/dir2/dir3");
