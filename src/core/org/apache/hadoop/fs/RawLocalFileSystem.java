@@ -304,7 +304,7 @@ public class RawLocalFileSystem extends FileSystem {
           LOG.debug("Deleting empty destination and renaming " + src + " to " +
             dst);
         }
-        if (this.delete(dst, true) && srcFile.renameTo(dstFile)) {
+        if (this.delete(dst) && srcFile.renameTo(dstFile)) {
           return true;
         }
       }
