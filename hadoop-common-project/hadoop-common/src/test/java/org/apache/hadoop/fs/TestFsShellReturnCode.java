@@ -40,6 +40,7 @@ import org.apache.hadoop.fs.shell.FsCommand;
 import org.apache.hadoop.fs.shell.PathData;
 import org.apache.hadoop.io.IOUtils;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
+import org.apache.hadoop.util.Shell;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -426,12 +427,15 @@ public class TestFsShellReturnCode {
     // The following are valid (no exception expected).
     chown.run("user", "/path");
     chown.run("user:group", "/path");
-    chown.run("User With Spaces", "/path");
-    chown.run("User With Spaces:group", "/path");
-    chown.run("User With Spaces:Group With Spaces", "/path");
-    chown.run("user:Group With Spaces", "/path");
     chown.run(":group", "/path");
-    chown.run(":Group With Spaces", "/path");
+
+    // The following are valid only on Windows.
+    assertValidArgumentsOnWindows(chown, "User With Spaces", "/path");
+    assertValidArgumentsOnWindows(chown, "User With Spaces:group", "/path");
+    assertValidArgumentsOnWindows(chown, "User With Spaces:Group With Spaces",
+      "/path");
+    assertValidArgumentsOnWindows(chown, "user:Group With Spaces", "/path");
+    assertValidArgumentsOnWindows(chown, ":Group With Spaces", "/path");
 
     // The following are invalid (exception expected).
     assertIllegalArguments(chown, "us!er", "/path");
@@ -457,7 +461,9 @@ public class TestFsShellReturnCode {
 
     // The following are valid (no exception expected).
     chgrp.run("group", "/path");
-    chgrp.run("Group With Spaces", "/path");
+
+    // The following are valid only on Windows.
+    assertValidArgumentsOnWindows(chgrp, "Group With Spaces", "/path");
 
     // The following are invalid (exception expected).
     assertIllegalArguments(chgrp, ":gr#oup", "/path");
@@ -551,6 +557,22 @@ public class TestFsShellReturnCode {
       fail("Expected IllegalArgumentException from args: " +
         Arrays.toString(args));
     } catch (IllegalArgumentException e) {
+    }
+  }
+
+  /**
+   * Asserts that for the given command, the given arguments are considered valid
+   * on Windows, but invalid elsewhere.
+   * 
+   * @param cmd FsCommand to check
+   * @param args String... arguments to check
+   */
+  private static void assertValidArgumentsOnWindows(FsCommand cmd,
+      String... args) {
+    if (Shell.WINDOWS) {
+      cmd.run(args);
+    } else {
+      assertIllegalArguments(cmd, args);
     }
   }
 }
