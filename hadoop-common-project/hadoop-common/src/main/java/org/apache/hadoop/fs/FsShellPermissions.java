@@ -127,7 +127,7 @@ public class FsShellPermissions extends FsCommand {
       "\tIf only owner or group is specified then only owner or\n" +
       "\tgroup is modified.\n\n" +
       "\tThe owner and group names may only cosists of digits, alphabet,\n"+
-      "\tand any of '-_.@/' i.e. [-_.@/a-zA-Z0-9]. The names are case\n" +
+      "\tand any of '-_.@/ ' i.e. " + allowedChars + ". The names are case\n" +
       "\tsensitive.\n\n" +
       "\tWARNING: Avoid using '.' to separate user name and group though\n" +
       "\tLinux allows it. If user names have dots in them and you are\n" +
