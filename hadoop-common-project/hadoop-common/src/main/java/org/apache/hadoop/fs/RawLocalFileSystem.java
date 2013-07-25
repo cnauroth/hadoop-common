@@ -332,7 +332,7 @@ public class RawLocalFileSystem extends FileSystem {
     // fails.  Copy source content to destination and delete source.
     if (this.exists(dst)) {
       FileStatus sdst = this.getFileStatus(dst);
-      if (sdst.isDir() && dstFile.list().length == 0) {
+      if (sdst.isDirectory() && dstFile.list().length == 0) {
         if (LOG.isDebugEnabled()) {
           LOG.debug("Copying contents of " + src + " to " + dst);
         }
