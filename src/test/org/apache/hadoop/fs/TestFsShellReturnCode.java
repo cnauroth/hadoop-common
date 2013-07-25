@@ -27,6 +27,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.util.Shell;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -267,13 +268,14 @@ public class TestFsShellReturnCode {
     // The following are valid (no exception expected).
     new FsShellPermissions.ChownHandler(fs, "user");
     new FsShellPermissions.ChownHandler(fs, "user:group");
-    new FsShellPermissions.ChownHandler(fs, "User With Spaces");
-    new FsShellPermissions.ChownHandler(fs, "User With Spaces:group");
-    new FsShellPermissions.ChownHandler(fs,
-      "User With Spaces:Group With Spaces");
-    new FsShellPermissions.ChownHandler(fs, "user:Group With Spaces");
     new FsShellPermissions.ChownHandler(fs, ":group");
-    new FsShellPermissions.ChownHandler(fs, ":Group With Spaces");
+
+    // The following are valid only on Windows.
+    assertChownValidArgumentsOnWindows(fs, "User With Spaces");
+    assertChownValidArgumentsOnWindows(fs, "User With Spaces:group");
+    assertChownValidArgumentsOnWindows(fs, "User With Spaces:Group With Spaces");
+    assertChownValidArgumentsOnWindows(fs, "user:Group With Spaces");
+    assertChownValidArgumentsOnWindows(fs, ":Group With Spaces");
 
     // The following are invalid (exception expected).
     assertChownIllegalArguments(fs, "us!er");
@@ -291,7 +293,9 @@ public class TestFsShellReturnCode {
   public void testChgrpGroupValidity() throws IOException {
     // The following are valid (no exception expected).
     new FsShellPermissions.ChgrpHandler(fs, "group");
-    new FsShellPermissions.ChgrpHandler(fs, "Group With Spaces");
+
+    // The following are valid only on Windows.
+    assertChgrpValidArgumentsOnWindows(fs, "Group With Spaces");
 
     // The following are invalid (exception expected).
     assertChgrpIllegalArguments(fs, ":gr#oup");
@@ -314,6 +318,23 @@ public class TestFsShellReturnCode {
   }
 
   /**
+   * Asserts that chgrp considers the given arguments valid on Windows, but
+   * invalid elsewhere.
+   * 
+   * @param fs FileSystem argument
+   * @param group String argument
+   * @throws IOException if there is an I/O error running the command
+   */
+  private static void assertChgrpValidArgumentsOnWindows(FileSystem fs,
+      String group) throws IOException {
+    if (Shell.WINDOWS) {
+      new FsShellPermissions.ChgrpHandler(fs, group);
+    } else {
+      assertChgrpIllegalArguments(fs, group);
+    }
+  }
+
+  /**
    * Asserts that chown considers the given arguments invalid.  The expectation
    * is that the command will throw IOException.
    * 
@@ -325,6 +346,23 @@ public class TestFsShellReturnCode {
       new FsShellPermissions.ChownHandler(fs, owner);
       fail("Expected IOException from owner: " + owner);
     } catch (IOException e) {
+    }
+  }
+
+  /**
+   * Asserts that chown considers the given arguments valid on Windows, but
+   * invalid elsewhere.
+   * 
+   * @param fs FileSystem argument
+   * @param owner String argument
+   * @throws IOException if there is an I/O error running the command
+   */
+  private static void assertChownValidArgumentsOnWindows(FileSystem fs,
+      String owner) throws IOException {
+    if (Shell.WINDOWS) {
+      new FsShellPermissions.ChownHandler(fs, owner);
+    } else {
+      assertChownIllegalArguments(fs, owner);
     }
   }
 }

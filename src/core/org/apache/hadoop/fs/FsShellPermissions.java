@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
 import org.apache.hadoop.fs.FsShell.CmdHandler;
 import org.apache.hadoop.fs.permission.ChmodParser;
 import org.apache.hadoop.fs.permission.FsPermission;
-
+import org.apache.hadoop.util.Shell;
 
 /**
  * This class is the home for file permissions related commands.
@@ -72,7 +72,8 @@ class FsShellPermissions {
 
   /*========== chown ==========*/
   
-  static private String allowedChars = "[-_./@a-zA-Z0-9 ]";
+  static String allowedChars = Shell.WINDOWS ? "[-_./@a-zA-Z0-9 ]" :
+    "[-_./@a-zA-Z0-9]";
   ///allows only "allowedChars" above in names for owner and group
   static private Pattern chownPattern = 
          Pattern.compile("^\\s*(" + allowedChars + "+)?" +
