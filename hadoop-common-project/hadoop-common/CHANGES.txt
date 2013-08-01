@@ -269,6 +269,9 @@ Trunk (Unreleased)
     HADOOP-9433 TestLocalFileSystem#testHasFileDescriptor leaks file handle
     (Chris Nauroth via sanjay)
 
+    HADOOP-9806 PortmapInterface should check if the procedure is out-of-range
+    (brandonli)
+
   OPTIMIZATIONS
 
     HADOOP-7761. Improve the performance of raw comparisons. (todd)
@@ -297,6 +300,9 @@ Release 2.3.0 - UNRELEASED
     HADOOP-9435.  Support building the JNI code against the IBM JVM.
     (Tian Hong Wang via Colin Patrick McCabe)
 
+    HADOOP-9758.  Provide configuration option for FileSystem/FileContext
+    symlink resolution.  (Andrew Wang via Colin Patrick McCabe)
+
   OPTIMIZATIONS
 
     HADOOP-9748. Reduce blocking on UGI.ensureInitialized (daryn)
@@ -313,6 +319,12 @@ Release 2.1.1-beta - UNRELEASED
   NEW FEATURES
 
   IMPROVEMENTS
+ 
+    HADOOP-9787. ShutdownHelper util to shutdown threads and threadpools.
+    (Karthik Kambatla via Sandy Ryza)
+
+    HADOOP-9803. Add a generic type parameter to RetryInvocationHandler.
+    (szetszwo)
 
   OPTIMIZATIONS
 
