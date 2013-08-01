@@ -185,6 +185,7 @@ set JAVA_PLATFORM=%JAVA_PLATFORM: =_%
 set JAVA_LIBRARY_PATH=
 if exist %HADOOP_COMMON_HOME%\target\bin (
   set JAVA_LIBRARY_PATH=%HADOOP_COMMON_HOME%\target\bin
+  set JAVA_LIBRARY_PATH=%JAVA_LIBRARY_PATH%;%HADOOP_COMMON_HOME%\target\bin
 )
 
 @rem For the distro case, check the bin folder
