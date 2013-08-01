@@ -20,7 +20,6 @@
 #include "org_apache_hadoop_io_compress_snappy.h"
 
 #if defined HADOOP_SNAPPY_LIBRARY
-#pragma message ( "compiling SnappyCompressor.c" )
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -162,7 +161,4 @@ Java_org_apache_hadoop_io_compress_snappy_SnappyCompressor_getLibraryName(JNIEnv
 
   return (*env)->NewStringUTF(env, HADOOP_SNAPPY_LIBRARY);
 }
-
-#else
-#pragma message ( "not compiling SnappyCompressor.c" )
 #endif //define HADOOP_SNAPPY_LIBRARY
