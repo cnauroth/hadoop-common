@@ -49,8 +49,8 @@
     <IntDir>..\..\..\target\native\$(Configuration)\</IntDir>
     <TargetName>hadoop</TargetName>
   </PropertyGroup>
-  <PropertyGroup>
-    <IncludePath>$(SNAPPY_HOME);$(IncludePath)</IncludePath>
+  <PropertyGroup Condition="'$(SnappyInclude)' != ''">
+    <IncludePath>$(SnappyInclude);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -74,10 +74,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src\org\apache\hadoop\io\compress\snappy\SnappyCompressor.c" Condition="Exists('$(SNAPPY_HOME)')">
+    <ClCompile Include="src\org\apache\hadoop\io\compress\snappy\SnappyCompressor.c" Condition="Exists('$(SnappyLib)')">
       <AdditionalOptions>/D HADOOP_SNAPPY_LIBRARY=L\"snappy.dll\"</AdditionalOptions>
     </ClCompile>
-    <ClCompile Include="src\org\apache\hadoop\io\compress\snappy\SnappyDecompressor.c" Condition="Exists('$(SNAPPY_HOME)')">
+    <ClCompile Include="src\org\apache\hadoop\io\compress\snappy\SnappyDecompressor.c" Condition="Exists('$(SnappyLib)')">
       <AdditionalOptions>/D HADOOP_SNAPPY_LIBRARY=L\"snappy.dll\"</AdditionalOptions>
     </ClCompile>
     <ClCompile Include="src\org\apache\hadoop\io\compress\lz4\lz4.c" />
@@ -88,7 +88,7 @@
     <ClCompile Include="src\org\apache\hadoop\security\JniBasedUnixGroupsMappingWin.c" />
     <ClCompile Include="src\org\apache\hadoop\util\bulk_crc32.c" />
     <ClCompile Include="src\org\apache\hadoop\util\NativeCodeLoader.c">
-      <AdditionalOptions Condition="Exists('$(SNAPPY_HOME)')">/D HADOOP_SNAPPY_LIBRARY=L\"snappy.dll\"</AdditionalOptions>
+      <AdditionalOptions Condition="Exists('$(SnappyLib)')">/D HADOOP_SNAPPY_LIBRARY=L\"snappy.dll\"</AdditionalOptions>
     </ClCompile>
     <ClCompile Include="src\org\apache\hadoop\util\NativeCrc32.c" />
   </ItemGroup>

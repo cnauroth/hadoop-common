@@ -665,6 +665,8 @@
                     <argument>/nologo</argument>
                     <argument>/p:Configuration=Release</argument>
                     <argument>/p:OutDir=${project.build.directory}/bin/</argument>
+                    <argument>/p:SnappyLib=${snappy.lib}</argument>
+                    <argument>/p:SnappyInclude=${snappy.include}</argument>
                   </arguments>
                 </configuration>
               </execution>
