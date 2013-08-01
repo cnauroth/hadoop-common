@@ -116,27 +116,33 @@ public class TestConfiguration extends TestCase {
    * and asserts that the same values were read.
    */
   public void testMultiByteCharacters() throws IOException {
-    String name = "multi_byte_\u611b_name";
-    String value = "multi_byte_\u0641_value";
-    out = new BufferedWriter(new OutputStreamWriter(
-      new FileOutputStream(CONFIG_MULTI_BYTE), "UTF-8"));
-    startConfig();
-    declareProperty(name, value, value);
-    endConfig();
-
-    Configuration conf = new Configuration(false);
-    conf.addResource(new Path(CONFIG_MULTI_BYTE));
-    assertEquals(value, conf.get(name));
-    FileOutputStream fos = new FileOutputStream(CONFIG_MULTI_BYTE_SAVED);
+    String priorDefaultEncoding = System.getProperty("file.encoding");
     try {
-      conf.writeXml(fos);
-    } finally {
-      IOUtils.closeStream(fos);
-    }
+      System.setProperty("file.encoding", "US-ASCII");
+      String name = "multi_byte_\u611b_name";
+      String value = "multi_byte_\u0641_value";
+      out = new BufferedWriter(new OutputStreamWriter(
+        new FileOutputStream(CONFIG_MULTI_BYTE), "UTF-8"));
+      startConfig();
+      declareProperty(name, value, value);
+      endConfig();
 
-    conf = new Configuration(false);
-    conf.addResource(new Path(CONFIG_MULTI_BYTE_SAVED));
-    assertEquals(value, conf.get(name));
+      Configuration conf = new Configuration(false);
+      conf.addResource(new Path(CONFIG_MULTI_BYTE));
+      assertEquals(value, conf.get(name));
+      FileOutputStream fos = new FileOutputStream(CONFIG_MULTI_BYTE_SAVED);
+      try {
+        conf.writeXml(fos);
+      } finally {
+        IOUtils.closeStream(fos);
+      }
+
+      conf = new Configuration(false);
+      conf.addResource(new Path(CONFIG_MULTI_BYTE_SAVED));
+      assertEquals(value, conf.get(name));
+    } finally {
+      System.setProperty("file.encoding", priorDefaultEncoding);
+    }
   }
 
   public void testVariableSubstitution() throws IOException {
