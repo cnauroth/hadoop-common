@@ -17,7 +17,7 @@
    limitations under the License.
 -->
 
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="CheckRequireSnappy;Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Release|x64">
       <Configuration>Release</Configuration>
@@ -49,7 +49,33 @@
     <IntDir>..\..\..\target\native\$(Configuration)\</IntDir>
     <TargetName>hadoop</TargetName>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(SnappyInclude)' != ''">
+  <PropertyGroup Condition="Exists('$(CustomSnappyPrefix)\snappy.dll')">
+    <SnappyLib>$(CustomSnappyPrefix)</SnappyLib>
+  </PropertyGroup>
+  <PropertyGroup Condition="Exists('$(CustomSnappyPrefix)\lib\snappy.dll') And '$(SnappyLib)' == ''">
+    <SnappyLib>$(CustomSnappyPrefix)\lib</SnappyLib>
+  </PropertyGroup>
+  <PropertyGroup Condition="Exists('$(CustomSnappyLib)') And '$(SnappyLib)' == ''">
+    <SnappyLib>$(CustomSnappyLib)</SnappyLib>
+  </PropertyGroup>
+  <PropertyGroup Condition="Exists('$(CustomSnappyPrefix)\snappy.h')">
+    <SnappyInclude>$(CustomSnappyPrefix)</SnappyInclude>
+  </PropertyGroup>
+  <PropertyGroup Condition="Exists('$(CustomSnappyPrefix)\include\snappy.h') And '$(SnappyInclude)' == ''">
+    <SnappyInclude>$(CustomSnappyPrefix)\include</SnappyInclude>
+  </PropertyGroup>
+  <PropertyGroup Condition="Exists('$(CustomSnappyInclude)') And '$(SnappyInclude)' == ''">
+    <SnappyInclude>$(CustomSnappyInclude)</SnappyInclude>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SnappyLib)' != '' And '$(SnappyInclude)' != ''">
+    <SnappyEnabled>true</SnappyEnabled>
+  </PropertyGroup>
+  <Target Name="CheckRequireSnappy">
+    <Error
+      Text="Required snappy library could not be found.  SnappyLibrary=$(SnappyLibrary), SnappyInclude=$(SnappyInclude), CustomSnappyLib=$(CustomSnappyLib), CustomSnappyInclude=$(CustomSnappyInclude), CustomSnappyPrefix=$(CustomSnappyPrefix)"
+      Condition="'$(RequireSnappy)' == 'true' And '$(SnappyEnabled)' != 'true'" />
+  </Target>
+  <PropertyGroup Condition="'$(SnappyEnabled)' == 'true'">
     <IncludePath>$(SnappyInclude);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -74,10 +100,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src\org\apache\hadoop\io\compress\snappy\SnappyCompressor.c" Condition="Exists('$(SnappyLib)')">
+    <ClCompile Include="src\org\apache\hadoop\io\compress\snappy\SnappyCompressor.c" Condition="'$(SnappyEnabled)' == 'true'">
       <AdditionalOptions>/D HADOOP_SNAPPY_LIBRARY=L\"snappy.dll\"</AdditionalOptions>
     </ClCompile>
-    <ClCompile Include="src\org\apache\hadoop\io\compress\snappy\SnappyDecompressor.c" Condition="Exists('$(SnappyLib)')">
+    <ClCompile Include="src\org\apache\hadoop\io\compress\snappy\SnappyDecompressor.c" Condition="'$(SnappyEnabled)' == 'true'">
       <AdditionalOptions>/D HADOOP_SNAPPY_LIBRARY=L\"snappy.dll\"</AdditionalOptions>
     </ClCompile>
     <ClCompile Include="src\org\apache\hadoop\io\compress\lz4\lz4.c" />
@@ -88,7 +114,7 @@
     <ClCompile Include="src\org\apache\hadoop\security\JniBasedUnixGroupsMappingWin.c" />
     <ClCompile Include="src\org\apache\hadoop\util\bulk_crc32.c" />
     <ClCompile Include="src\org\apache\hadoop\util\NativeCodeLoader.c">
-      <AdditionalOptions Condition="Exists('$(SnappyLib)')">/D HADOOP_SNAPPY_LIBRARY=L\"snappy.dll\"</AdditionalOptions>
+      <AdditionalOptions Condition="'$(SnappyEnabled)' == 'true'">/D HADOOP_SNAPPY_LIBRARY=L\"snappy.dll\"</AdditionalOptions>
     </ClCompile>
     <ClCompile Include="src\org\apache\hadoop\util\NativeCrc32.c" />
   </ItemGroup>

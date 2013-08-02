@@ -581,6 +581,12 @@
           <family>Windows</family>
         </os>
       </activation>
+      <properties>
+        <snappy.prefix></snappy.prefix>
+        <snappy.lib></snappy.lib>
+        <snappy.include></snappy.include>
+        <require.snappy>false</require.snappy>
+      </properties>
       <build>
         <plugins>
           <plugin>
@@ -665,8 +671,10 @@
                     <argument>/nologo</argument>
                     <argument>/p:Configuration=Release</argument>
                     <argument>/p:OutDir=${project.build.directory}/bin/</argument>
-                    <argument>/p:SnappyLib=${snappy.lib}</argument>
-                    <argument>/p:SnappyInclude=${snappy.include}</argument>
+                    <argument>/p:CustomSnappyPrefix=${snappy.prefix}</argument>
+                    <argument>/p:CustomSnappyLib=${snappy.lib}</argument>
+                    <argument>/p:CustomSnappyInclude=${snappy.include}</argument>
+                    <argument>/p:RequireSnappy=${require.snappy}</argument>
                   </arguments>
                 </configuration>
               </execution>
