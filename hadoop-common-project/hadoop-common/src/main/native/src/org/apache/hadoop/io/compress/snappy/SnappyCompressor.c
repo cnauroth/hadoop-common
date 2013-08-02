@@ -30,6 +30,10 @@
 #include "config.h"
 #endif // UNIX
 
+#ifdef WINDOWS
+#include "winutils.h"
+#endif
+
 #include "org_apache_hadoop_io_compress_snappy_SnappyCompressor.h"
 
 #define JINT_MAX 0x7fffffff
@@ -153,12 +157,23 @@ Java_org_apache_hadoop_io_compress_snappy_SnappyCompressor_getLibraryName(JNIEnv
       return (*env)->NewStringUTF(env, dl_info.dli_fname);
     }
   }
+
+  return (*env)->NewStringUTF(env, HADOOP_SNAPPY_LIBRARY);
 #endif
 
 #ifdef WINDOWS
-  // TODO
+  LPWSTR filename = NULL;
+  GetLibraryName(
+    Java_org_apache_hadoop_io_compress_snappy_SnappyCompressor_getLibraryName,
+    &filename);
+  if (filename != NULL)
+  {
+    return (*env)->NewString(env, filename, (jsize) wcslen(filename));
+  }
+  else
+  {
+    return (*env)->NewStringUTF(env, "Unavailable");
+  }
 #endif
-
-  return (*env)->NewStringUTF(env, HADOOP_SNAPPY_LIBRARY);
 }
 #endif //define HADOOP_SNAPPY_LIBRARY
