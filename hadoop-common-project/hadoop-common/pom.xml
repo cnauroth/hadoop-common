@@ -586,7 +586,6 @@
         <snappy.lib></snappy.lib>
         <snappy.include></snappy.include>
         <require.snappy>false</require.snappy>
-        <bundle.snappy.in.bin>true</bundle.snappy.in.bin>
       </properties>
       <build>
         <plugins>

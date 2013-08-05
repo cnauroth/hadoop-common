@@ -885,6 +885,9 @@
           <family>Windows</family>
         </os>
       </activation>
+      <properties>
+        <bundle.snappy.in.bin>true</bundle.snappy.in.bin>
+      </properties>
       <build>
         <plugins>
           <plugin>
