@@ -269,9 +269,6 @@ Trunk (Unreleased)
     HADOOP-9433 TestLocalFileSystem#testHasFileDescriptor leaks file handle
     (Chris Nauroth via sanjay)
 
-    HADOOP-9806 PortmapInterface should check if the procedure is out-of-range
-    (brandonli)
-
   OPTIMIZATIONS
 
     HADOOP-7761. Improve the performance of raw comparisons. (todd)
@@ -285,6 +282,8 @@ Release 2.3.0 - UNRELEASED
   NEW FEATURES
 
   IMPROVEMENTS
+
+    HADOOP-9319. Update bundled LZ4 source to r99. (Binglin Chang via llu)
 
     HADOOP-9241. DU refresh interval is not configurable (harsh)
 
@@ -315,6 +314,9 @@ Release 2.3.0 - UNRELEASED
     HADOOP-9761.  ViewFileSystem#rename fails when using DistributedFileSystem.
     (Andrew Wang via Colin Patrick McCabe)
 
+    HADOOP-9817. FileSystem#globStatus and FileContext#globStatus need to work
+    with symlinks. (Colin Patrick McCabe via Andrew Wang)
+
 Release 2.1.1-beta - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -329,6 +331,9 @@ Release 2.1.1-beta - UNRELEASED
     HADOOP-9803. Add a generic type parameter to RetryInvocationHandler.
     (szetszwo)
 
+    HADOOP-9821. ClientId should have getMsb/getLsb methods. 
+    (Tsuyoshi OZAWA via jing9)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -338,6 +343,9 @@ Release 2.1.1-beta - UNRELEASED
 
     HADOOP-9801. Configuration#writeXml uses platform defaulting encoding, which
     may mishandle multi-byte characters. (cnauroth)
+
+    HADOOP-9806 PortmapInterface should check if the procedure is out-of-range
+    (brandonli)
 
 Release 2.1.0-beta - 2013-08-06
 
@@ -367,6 +375,8 @@ Release 2.1.0-beta - 2013-08-06
     HADOOP-9683. [RPC v9] Wrap IpcConnectionContext in RPC headers (daryn)
 
     HADOOP-9698. [RPC v9] Client must honor server's SASL negotiate response (daryn)
+
+    HADOOP-9832. [RPC v9] Add RPC header to client ping (daryn)
 
   NEW FEATURES
 
@@ -683,6 +693,8 @@ Release 2.1.0-beta - 2013-08-06
 
     HADOOP-9507. LocalFileSystem rename() is broken in some cases when
     destination exists. (cnauroth)
+
+    HADOOP-9816. RPC Sasl QOP is broken (daryn)
 
   BREAKDOWN OF HADOOP-8562 SUBTASKS AND RELATED JIRAS
 
