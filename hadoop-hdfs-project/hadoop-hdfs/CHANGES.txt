@@ -273,6 +273,10 @@ Release 2.1.1-beta - UNRELEASED
 
     HDFS-4962 Use enum for nfs constants (Nicholas SZE via jing9)
 
+    HDFS-5071 Change hdfs-nfs parent project to hadoop-project (brandonli)
+
+    HDFS-4763 Add script changes/utility for starting NFS gateway (brandonli)
+
   IMPROVEMENTS
 
     HDFS-4513. Clarify in the WebHDFS REST API that all JSON respsonses may
@@ -284,6 +288,12 @@ Release 2.1.1-beta - UNRELEASED
     HDFS-4905. Add appendToFile command to "hdfs dfs". (Arpit Agarwal via
     cnauroth)
 
+    HDFS-4926. Namenode webserver's page has a tooltip that is inconsistent 
+    with the datanode HTML link. (Vivek Ganesan via jing9)
+
+    HDFS-5047. Supress logging of full stack trace of quota and lease
+    exceptions. (Robert Parker via kihwal)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -293,6 +303,9 @@ Release 2.1.1-beta - UNRELEASED
 
     HDFS-5043. For HdfsFileStatus, set default value of childrenNum to -1
     instead of 0 to avoid confusing applications. (brandonli)
+
+    HDFS-4993. Fsck can fail if a file is renamed or deleted. (Robert Parker
+    via kihwal)
 
 Release 2.1.0-beta - 2013-08-06
 

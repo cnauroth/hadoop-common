@@ -38,6 +38,8 @@ Release 2.1.1-beta - UNRELEASED
 
   IMPROVEMENTS
 
+    YARN-589. Expose a REST API for monitoring the fair scheduler (Sandy Ryza).
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -512,6 +514,9 @@ Release 2.1.0-beta - 2013-08-06
 
     YARN-84. Use Builder to build RPC server. (Brandon Li via suresh)
 
+    YARN-1046. Disable mem monitoring by default in MiniYARNCluster. (Karthik
+    Kambatla via Sandy Ryza)
+
   OPTIMIZATIONS
 
     YARN-512. Log aggregation root directory check is more expensive than it
@@ -795,6 +800,9 @@ Release 2.1.0-beta - 2013-08-06
     YARN-945. Removed setting of AMRMToken's service from ResourceManager
     and changed client libraries do it all the time and correctly. (vinodkv)
 
+    YARN-656. In scheduler UI, including reserved memory in Memory Total can 
+    make it exceed cluster capacity. (Sandy Ryza)
+
   BREAKDOWN OF HADOOP-8562/YARN-191 SUBTASKS AND RELATED JIRAS
 
     YARN-158. Yarn creating package-info.java must not depend on sh.
@@ -859,6 +867,8 @@ Release 2.1.0-beta - 2013-08-06
 
     YARN-909. Disable TestLinuxContainerExecutorWithMocks on Windows. (Chuan Liu
     via cnauroth)
+
+    YARN-1043. Push all metrics consistently. (Jian He via acmurthy) 
 
 Release 2.0.5-alpha - 06/06/2013
 
@@ -1157,6 +1167,9 @@ Release 0.23.10 - UNRELEASED
   NEW FEATURES
 
   IMPROVEMENTS
+
+    YARN-985. Nodemanager should log where a resource was localized (Ravi
+    Prakash via jeagles)
 
   OPTIMIZATIONS
 
