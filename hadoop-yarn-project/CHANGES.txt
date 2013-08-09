@@ -514,6 +514,9 @@ Release 2.1.0-beta - 2013-08-06
 
     YARN-84. Use Builder to build RPC server. (Brandon Li via suresh)
 
+    YARN-1046. Disable mem monitoring by default in MiniYARNCluster. (Karthik
+    Kambatla via Sandy Ryza)
+
   OPTIMIZATIONS
 
     YARN-512. Log aggregation root directory check is more expensive than it
@@ -796,6 +799,9 @@ Release 2.1.0-beta - 2013-08-06
 
     YARN-945. Removed setting of AMRMToken's service from ResourceManager
     and changed client libraries do it all the time and correctly. (vinodkv)
+
+    YARN-656. In scheduler UI, including reserved memory in Memory Total can 
+    make it exceed cluster capacity. (Sandy Ryza)
 
   BREAKDOWN OF HADOOP-8562/YARN-191 SUBTASKS AND RELATED JIRAS
 
