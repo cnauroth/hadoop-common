@@ -887,6 +887,10 @@
         </os>
       </activation>
       <properties>
+        <!-- We must use this exact string for egd on Windows, because the -->
+        <!-- JVM will check for an exact string match on this.  If found, it -->
+        <!-- will use a native entropy provider.  This will not really -->
+        <!-- attempt to open a file at this path. -->
         <java.security.egd>file:/dev/urandom</java.security.egd>
       </properties>
       <build>
