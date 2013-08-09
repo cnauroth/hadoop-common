@@ -163,15 +163,10 @@ Java_org_apache_hadoop_io_compress_snappy_SnappyCompressor_getLibraryName(JNIEnv
 
 #ifdef WINDOWS
   LPWSTR filename = NULL;
-  GetLibraryName(
-    Java_org_apache_hadoop_io_compress_snappy_SnappyCompressor_getLibraryName,
-    &filename);
-  if (filename != NULL)
-  {
+  GetLibraryName(dlsym_snappy_compress, &filename);
+  if (filename != NULL) {
     return (*env)->NewString(env, filename, (jsize) wcslen(filename));
-  }
-  else
-  {
+  } else {
     return (*env)->NewStringUTF(env, "Unavailable");
   }
 #endif
