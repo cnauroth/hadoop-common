@@ -366,9 +366,9 @@ public class DistributedFileSystem extends FileSystem {
   public void close() throws IOException {
     try {
       super.processDeleteOnExit();
-      dfs.close();
-    } finally {
       super.close();
+    } finally {
+      dfs.close();
     }
   }
 
