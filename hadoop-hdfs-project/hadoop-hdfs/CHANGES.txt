@@ -322,6 +322,8 @@ Release 2.3.0 - UNRELEASED
     HDFS-5031. BlockScanner scans the block multiple times. (Vinay via Arpit
     Agarwal)
 
+    HDFS-5266. ElasticByteBufferPool#Key does not implement equals. (cnauroth)
+
 Release 2.2.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
