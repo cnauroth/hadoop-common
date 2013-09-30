@@ -56,7 +56,7 @@
 <% } %>
 <%= NamenodeJspHelper.getVersionTable(fsn) %>
 <br />
-<% if (isActive) { %> 
+<% if (isActive && fsn != null) { %> 
   <b><a href="/nn_browsedfscontent.jsp">Browse the filesystem</a></b><br>
 <% } %> 
 <b><a href="/logs/"><%=namenodeRole%> Logs</a></b>

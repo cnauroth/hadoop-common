@@ -25,6 +25,7 @@
 	import="org.apache.hadoop.fs.Path"
 	import="org.apache.hadoop.ha.HAServiceProtocol.HAServiceState"
 	import="java.util.Collection"
+	import="java.util.Collections"
 	import="java.util.Arrays" %>
 <%!//for java.io.Serializable
   private static final long serialVersionUID = 1L;%>
@@ -34,21 +35,31 @@
   HAServiceState nnHAState = nn.getServiceState();
   boolean isActive = (nnHAState == HAServiceState.ACTIVE);
   String namenodeRole = nn.getRole().toString();
-  String namenodeLabel = nn.getNameNodeAddressHostPortString();
-  Collection<FSNamesystem.CorruptFileBlockInfo> corruptFileBlocks = 
-	fsn.listCorruptFileBlocks("/", null);
+  String namenodeLabel = nn.getRpcServer() != null ?
+    nn.getNameNodeAddressHostPortString() : null;
+  Collection<FSNamesystem.CorruptFileBlockInfo> corruptFileBlocks = fsn != null ?
+    fsn.listCorruptFileBlocks("/", null) :
+    Collections.<FSNamesystem.CorruptFileBlockInfo>emptyList();
   int corruptFileCount = corruptFileBlocks.size();
 %>
 
 <!DOCTYPE html>
 <html>
 <link rel="stylesheet" type="text/css" href="/static/hadoop.css">
+<% if (namenodeLabel != null) { %>
 <title>Hadoop <%=namenodeRole%>&nbsp;<%=namenodeLabel%></title>
+<% } else { %>
+<title>Hadoop <%=namenodeRole%></title>
+<% } %>
 <body>
+<% if (namenodeLabel != null) { %>
 <h1><%=namenodeRole%> '<%=namenodeLabel%>'</h1>
+<% } else { %>
+<h1><%=namenodeRole%></h1>
+<% } %>
 <%=NamenodeJspHelper.getVersionTable(fsn)%>
 <br>
-<% if (isActive) { %> 
+<% if (isActive && fsn != null) { %> 
   <b><a href="/nn_browsedfscontent.jsp">Browse the filesystem</a></b>
   <br>
 <% } %> 
