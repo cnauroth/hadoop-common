@@ -122,6 +122,31 @@ public class TestNameNodeJspHelper {
   }
 
   /**
+   * Tests for non-null, non-empty NameNode label.
+   */
+  @Test
+  public void testGetNameNodeLabel() {
+    String nameNodeLabel = NamenodeJspHelper.getNameNodeLabel(
+      cluster.getNameNode());
+    Assert.assertNotNull(nameNodeLabel);
+    Assert.assertFalse(nameNodeLabel.isEmpty());
+  }
+
+  /**
+   * Tests for non-null, non-empty NameNode label when called before
+   * initialization of the NameNode RPC server.
+   */
+  @Test
+  public void testGetNameNodeLabelNullRpcServer() {
+    NameNode nn = mock(NameNode.class);
+    when(nn.getRpcServer()).thenReturn(null);
+    String nameNodeLabel = NamenodeJspHelper.getNameNodeLabel(
+      cluster.getNameNode());
+    Assert.assertNotNull(nameNodeLabel);
+    Assert.assertFalse(nameNodeLabel.isEmpty());
+  }
+
+  /**
    * Tests that passing a null FSNamesystem to generateSnapshotReport does not
    * throw NullPointerException.
    */
