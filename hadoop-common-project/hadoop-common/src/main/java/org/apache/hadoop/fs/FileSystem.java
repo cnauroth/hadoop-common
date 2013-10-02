@@ -1484,6 +1484,20 @@ public abstract class FileSystem extends Configured implements Closeable {
     return listStatus(f);
   }
 
+  /**
+   * List the statuses of the files/directories/links in the given path if 
+   * the path is a directory and resolves symlinks.  This is a helper method for
+   * use by subclasses where the underlying filesystem supports symlinks.  The
+   * subclass overrides {@link #listLinkStatus(Path)} and also overrides
+   * {@link #listStatus(Path)} to call this method.
+   * 
+   * @param f given path
+   * @return the statuses of the files/directories in the given patch
+   * @throws FileNotFoundException when the path does not exist;
+   *         IOException see specific implementation
+   * @throws DirectoryContentsResolutionException if a symlink contained in 
+   *    the directory cannot be resolved.
+   */
   protected final FileStatus[] listStatusAndResolveSymlinks(Path f)
       throws FileNotFoundException, IOException,
       DirectoryContentsResolutionException {
