@@ -693,6 +693,19 @@ public class DistributedFileSystem extends FileSystem {
    * undergoes changes between the calls.
    */
   @Override
+  public FileStatus[] listStatus(Path p) throws IOException {
+    return listStatusAndResolveSymlinks(p);
+  }
+
+  /**
+   * List all the entries of a directory
+   *
+   * Note that this operation is not atomic for a large directory.
+   * The entries of a directory may be fetched from NameNode multiple times.
+   * It only guarantees that  each name occurs once if a directory
+   * undergoes changes between the calls.
+   */
+  @Override
   public FileStatus[] listLinkStatus(Path p) throws IOException {
     Path absF = fixRelativePart(p);
     return new FileSystemLinkResolver<FileStatus[]>() {

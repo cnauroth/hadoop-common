@@ -187,7 +187,7 @@ public class S3FileSystem extends FileSystem {
   }
 
   @Override
-  public FileStatus[] listLinkStatus(Path f) throws IOException {
+  public FileStatus[] listStatus(Path f) throws IOException {
     Path absolutePath = makeAbsolute(f);
     INode inode = store.retrieveINode(absolutePath);
     if (inode == null) {

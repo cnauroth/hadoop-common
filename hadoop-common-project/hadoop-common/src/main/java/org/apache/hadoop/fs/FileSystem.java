@@ -1460,15 +1460,33 @@ public abstract class FileSystem extends Configured implements Closeable {
   };
 
   /**
-   * Same as {{@link #listLinkStatus(Path)}, but resolves symlinks contained
-   * in the directory.
+   * Same as {{@link #listLinkStatus(Path)}, but if the underlying filesystem
+   * supports symlinks, then resolves symlinks contained in the directory.
    *
    * @throws DirectoryContentsResolutionException if a symlink contained in 
    *    the directory cannot be resolved.
    */
-  public FileStatus[] listStatus(Path f) 
-      throws FileNotFoundException, IOException, 
-          DirectoryContentsResolutionException {
+  public abstract FileStatus[] listStatus(Path f) throws FileNotFoundException, 
+                                                         IOException;
+    
+  /**
+   * List the statuses of the files/directories/links in the given path if 
+   * the path is a directory.  If the underlying filesystem supports
+   * symlinks, then symlinks will not be resolved.
+   *
+   * @param f given path
+   * @return the statuses of the files/directories in the given patch
+   * @throws FileNotFoundException when the path does not exist;
+   *         IOException see specific implementation
+   */
+  public FileStatus[] listLinkStatus(Path f)
+      throws FileNotFoundException, IOException {
+    return listStatus(f);
+  }
+
+  protected final FileStatus[] listStatusAndResolveSymlinks(Path f)
+      throws FileNotFoundException, IOException,
+      DirectoryContentsResolutionException {
     FileStatus[] statuses = listLinkStatus(f);
     if (statuses != null) {
       for (int i = 0; i < statuses.length; i++) {
@@ -1486,19 +1504,6 @@ public abstract class FileSystem extends Configured implements Closeable {
     }
     return statuses;
   }
-
-  /**
-   * List the statuses of the files/directories/links in the given path if 
-   * the path is a directory.  If the underlying filesystem supports
-   * symlinks, then symlinks will not be resolved.
-   *
-   * @param f given path
-   * @return the statuses of the files/directories in the given patch
-   * @throws FileNotFoundException when the path does not exist;
-   *         IOException see specific implementation
-   */
-  public abstract FileStatus[] listLinkStatus(Path f) 
-      throws FileNotFoundException, IOException;
 
   /*
    * Filter files/directories in the given path using the user-supplied path

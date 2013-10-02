@@ -370,6 +370,17 @@ public class RawLocalFileSystem extends FileSystem {
     }
     return FileUtil.fullyDelete(f);
   }
+
+  /**
+   * {@inheritDoc}
+   *
+   * (<b>Note</b>: Returned list is not sorted in any given order,
+   * due to reliance on Java's {@link File#list()} API.)
+   */
+  @Override
+  public FileStatus[] listStatus(Path f) throws IOException {
+    return listStatusAndResolveSymlinks(f);
+  }
  
   /**
    * {@inheritDoc}

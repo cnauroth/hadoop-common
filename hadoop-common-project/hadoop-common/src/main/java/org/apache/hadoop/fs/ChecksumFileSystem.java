@@ -560,8 +560,8 @@ public abstract class ChecksumFileSystem extends FilterFileSystem {
    * @throws IOException
    */
   @Override
-  public FileStatus[] listLinkStatus(Path f) throws IOException {
-    return fs.listLinkStatus(f, DEFAULT_FILTER);
+  public FileStatus[] listStatus(Path f) throws IOException {
+    return fs.listStatus(f, DEFAULT_FILTER);
   }
   
   /**

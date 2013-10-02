@@ -347,7 +347,7 @@ public class TestFileSystemCanonicalization {
     }
 
     @Override
-    public FileStatus[] listLinkStatus(Path f) throws IOException {
+    public FileStatus[] listStatus(Path f) throws IOException {
       throw new IOException("not supposed to be here");
     }
 
