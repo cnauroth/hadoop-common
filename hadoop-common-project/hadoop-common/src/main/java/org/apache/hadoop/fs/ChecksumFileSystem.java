@@ -563,6 +563,20 @@ public abstract class ChecksumFileSystem extends FilterFileSystem {
   public FileStatus[] listStatus(Path f) throws IOException {
     return fs.listStatus(f, DEFAULT_FILTER);
   }
+
+  /**
+   * List the statuses of the files/directories in the given path if the path is
+   * a directory.
+   * 
+   * @param f
+   *          given path
+   * @return the statuses of the files/directories in the given patch
+   * @throws IOException
+   */
+  @Override
+  public FileStatus[] listLinkStatus(Path f) throws IOException {
+    return fs.listLinkStatus(f, DEFAULT_FILTER);
+  }
   
   /**
    * List the statuses of the files/directories in the given path if the path is

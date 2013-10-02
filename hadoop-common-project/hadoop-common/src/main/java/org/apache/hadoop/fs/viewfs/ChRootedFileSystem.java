@@ -227,6 +227,12 @@ class ChRootedFileSystem extends FilterFileSystem {
       throws IOException {
     return super.listStatus(fullPath(f));
   }
+
+  @Override
+  public FileStatus[] listLinkStatus(final Path f) 
+      throws IOException {
+    return super.listLinkStatus(fullPath(f));
+  }
   
   @Override
   public boolean mkdirs(final Path f, final FsPermission permission)
