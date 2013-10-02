@@ -28,6 +28,8 @@ import org.apache.hadoop.test.GenericTestUtils;
 
 import static org.junit.Assert.*;
 import static org.junit.Assume.assumeTrue;
+
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.Before;
 import org.junit.After;
@@ -1395,5 +1397,23 @@ public abstract class SymlinkBaseTest {
       assertEquals(3, wrapper.getFileStatus(file).getAccessTime());
       assertEquals(2, wrapper.getFileStatus(file).getModificationTime());
     }
+  }
+  @Test(timeout=10000)
+  /** Stat a link to a file */
+  public void testListingDirectoryWithDanglingSymlinks() throws IOException {
+    Path dangleDir = new Path(testBaseDir1(), "dangleDir");
+    wrapper.mkdir(dangleDir, FileContext.DEFAULT_PERM, true);
+    Path dangler = new Path(dangleDir, "dangler");
+    wrapper.createSymlink(new Path("nonexistent"), dangler, false);
+    try {
+      wrapper.listStatus(dangleDir);
+      Assert.fail("expected listStatus to throw an exception when there " +
+          "was a dangling symlink.");
+    } catch (DirectoryContentsResolutionException e) {
+      GenericTestUtils.assertExceptionContains("dangler", e);
+    }
+    String base = dangleDir.toUri().getPath() + Path.SEPARATOR;
+    Assert.assertEquals(base + "dangler",
+        TestPath.mergeStatuses(wrapper.listLinkStatus(dangleDir)));
   }
 }

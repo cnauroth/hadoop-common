@@ -364,11 +364,11 @@ public class TestFSDownload {
     Assert.assertTrue(pending.get(rsrc).isDone());
     
     try {
-      FileStatus[] filesstatus = files.getDefaultFileSystem().listStatus(
+      FileStatus[] filesstatus = files.getDefaultFileSystem().listLinkStatus(
           basedir);
       for (FileStatus filestatus : filesstatus) {
         if (filestatus.isDirectory()) {
-          FileStatus[] childFiles = files.getDefaultFileSystem().listStatus(
+          FileStatus[] childFiles = files.getDefaultFileSystem().listLinkStatus(
               filestatus.getPath());
           for (FileStatus childfile : childFiles) {
             if (childfile.getPath().getName().equalsIgnoreCase("1.tar.tmp")) {
@@ -421,11 +421,11 @@ public class TestFSDownload {
     Assert.assertTrue(pending.get(rsrcjar).isDone());
 
     try {
-      FileStatus[] filesstatus = files.getDefaultFileSystem().listStatus(
+      FileStatus[] filesstatus = files.getDefaultFileSystem().listLinkStatus(
           basedir);
       for (FileStatus filestatus : filesstatus) {
         if (filestatus.isDirectory()) {
-          FileStatus[] childFiles = files.getDefaultFileSystem().listStatus(
+          FileStatus[] childFiles = files.getDefaultFileSystem().listLinkStatus(
               filestatus.getPath());
           for (FileStatus childfile : childFiles) {
             if (childfile.getPath().getName().equalsIgnoreCase("1.jar.tmp")) {
@@ -477,11 +477,11 @@ public class TestFSDownload {
     Assert.assertTrue(pending.get(rsrczip).isDone());
 
     try {
-      FileStatus[] filesstatus = files.getDefaultFileSystem().listStatus(
+      FileStatus[] filesstatus = files.getDefaultFileSystem().listLinkStatus(
           basedir);
       for (FileStatus filestatus : filesstatus) {
         if (filestatus.isDirectory()) {
-          FileStatus[] childFiles = files.getDefaultFileSystem().listStatus(
+          FileStatus[] childFiles = files.getDefaultFileSystem().listLinkStatus(
               filestatus.getPath());
           for (FileStatus childfile : childFiles) {
             if (childfile.getPath().getName().equalsIgnoreCase("1.gz.tmp")) {

@@ -384,7 +384,7 @@ public class ViewFsBaseTest {
     
     // list on Slash
     
-    FileStatus[] dirPaths = fcView.util().listStatus(new Path("/"));
+    FileStatus[] dirPaths = fcView.util().listLinkStatus(new Path("/"));
     FileStatus fs;
     Assert.assertEquals(7, dirPaths.length);
     fs = fileContextTestHelper.containsPath(fcView, "/user", dirPaths);
@@ -406,7 +406,7 @@ public class ViewFsBaseTest {
       
       
       // list on internal dir
-      dirPaths = fcView.util().listStatus(new Path("/internalDir"));
+      dirPaths = fcView.util().listLinkStatus(new Path("/internalDir"));
       Assert.assertEquals(2, dirPaths.length);
 
       fs = fileContextTestHelper.containsPath(fcView,

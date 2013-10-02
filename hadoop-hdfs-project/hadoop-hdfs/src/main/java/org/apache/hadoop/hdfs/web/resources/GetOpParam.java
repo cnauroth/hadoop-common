@@ -26,7 +26,10 @@ public class GetOpParam extends HttpOpParam<GetOpParam.Op> {
     OPEN(true, HttpURLConnection.HTTP_OK),
 
     GETFILESTATUS(false, HttpURLConnection.HTTP_OK),
+
+    // note: LISTSTATUS doesn't resolve links.
     LISTSTATUS(false, HttpURLConnection.HTTP_OK),
+
     GETCONTENTSUMMARY(false, HttpURLConnection.HTTP_OK),
     GETFILECHECKSUM(true, HttpURLConnection.HTTP_OK),
 

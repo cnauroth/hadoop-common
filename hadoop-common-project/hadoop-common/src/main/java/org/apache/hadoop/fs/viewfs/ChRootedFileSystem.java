@@ -223,9 +223,9 @@ class ChRootedFileSystem extends FilterFileSystem {
   }
 
   @Override
-  public FileStatus[] listStatus(final Path f) 
+  public FileStatus[] listLinkStatus(final Path f) 
       throws IOException {
-    return super.listStatus(fullPath(f));
+    return super.listLinkStatus(fullPath(f));
   }
   
   @Override

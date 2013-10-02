@@ -506,10 +506,10 @@ public abstract class ChecksumFs extends FilterFs {
   }
 
   @Override
-  public FileStatus[] listStatus(Path f) throws IOException,
+  public FileStatus[] listLinkStatus(Path f) throws IOException,
       UnresolvedLinkException {
     ArrayList<FileStatus> results = new ArrayList<FileStatus>();
-    FileStatus[] listing = getMyFs().listStatus(f);
+    FileStatus[] listing = getMyFs().listLinkStatus(f);
     if (listing != null) {
       for (int i = 0; i < listing.length; i++) {
         if (!isChecksumFile(listing[i].getPath())) {

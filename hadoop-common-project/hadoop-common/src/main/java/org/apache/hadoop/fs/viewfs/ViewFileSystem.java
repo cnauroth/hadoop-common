@@ -358,12 +358,12 @@ public class ViewFileSystem extends FileSystem {
   
   
   @Override
-  public FileStatus[] listStatus(final Path f) throws AccessControlException,
+  public FileStatus[] listLinkStatus(final Path f) throws AccessControlException,
       FileNotFoundException, IOException {
     InodeTree.ResolveResult<FileSystem> res =
       fsState.resolve(getUriPath(f), true);
     
-    FileStatus[] statusLst = res.targetFileSystem.listStatus(res.remainingPath);
+    FileStatus[] statusLst = res.targetFileSystem.listLinkStatus(res.remainingPath);
     if (!res.isInternalDir()) {
       // We need to change the name in the FileStatus as described in
       // {@link #getFileStatus }
@@ -676,7 +676,7 @@ public class ViewFileSystem extends FileSystem {
     
 
     @Override
-    public FileStatus[] listStatus(Path f) throws AccessControlException,
+    public FileStatus[] listLinkStatus(Path f) throws AccessControlException,
         FileNotFoundException, IOException {
       checkPathIsSlash(f);
       FileStatus[] result = new FileStatus[theInternalDir.children.size()];

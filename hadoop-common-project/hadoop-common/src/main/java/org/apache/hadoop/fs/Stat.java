@@ -99,10 +99,10 @@ public class Stat extends Shell {
     }
     if (Shell.LINUX) {
       return new String[] {
-          "stat", derefFlag + "c", "%s,%F,%Y,%X,%a,%U,%G,%N", path.toString() };
+          "stat", derefFlag + "c", "%s,%F,%Y,%X,%a,%U,%G,%n,%N", path.toString() };
     } else if (Shell.FREEBSD || Shell.MAC) {
       return new String[] {
-          "stat", derefFlag + "f", "%z,%HT,%m,%a,%Op,%Su,%Sg,`link' -> `%Y'",
+          "stat", derefFlag + "f", "%z,%HT,%m,%a,%Op,%Su,%Sg,%N,`%N' -> `%Y'",
           path.toString() };
     } else {
       throw new UnsupportedOperationException(
@@ -145,21 +145,32 @@ public class Stat extends Shell {
       FsPermission perms = new FsPermission(Short.parseShort(octalPerms, 8));
       String owner = tokens.nextToken();
       String group = tokens.nextToken();
+      String fileName = tokens.nextToken();
+
+      //
+      // It would be nice if there was a Linux stat() escape sequence that
+      // just returned the symlink target, but there isn't.
+      // Instead, we have %N, which returns a string like this:
+      // 'source' -> 'target'
+      // 
+      // The quotes may be single quotes as shown, or fancy unicode curly
+      // quotes, depending on the locale.  Since file names may themselves
+      // contain quotes, we have to rely on counting unicode code points to 
+      // find where 'target' begins.  Luckily, we know the length of the 
+      // 'source' string.
+      //
+      // On other platforms, we emulate %N using `link' -> `%Y'.
+      // In this case, we need to handle the case where the inode is not a
+      // symlink.  In that case, %Y is the empty string.
+      // 
       String symStr = tokens.nextToken();
-      // 'notalink'
-      // 'link' -> `target'
-      // '' -> ''
+      int targetStart = fileName.length() + 7;
       Path symlink = null;
-      StringTokenizer symTokens = new StringTokenizer(symStr, "`");
-      symTokens.nextToken();
-      try {
-        String target = symTokens.nextToken();
-        target = target.substring(0, target.length()-1);
-        if (!target.isEmpty()) {
-          symlink = new Path(target);
+      if (symStr.length() > targetStart) {
+        String symlinkText = symStr.substring(targetStart, symStr.length() - 1);
+        if (!symlinkText.isEmpty()) {
+          symlink = new Path(symlinkText);
         }
-      } catch (NoSuchElementException e) {
-        // null if not a symlink
       }
       // Set stat
       stat = new FileStatus(length, isDir, 1, blockSize, modTime, accessTime,

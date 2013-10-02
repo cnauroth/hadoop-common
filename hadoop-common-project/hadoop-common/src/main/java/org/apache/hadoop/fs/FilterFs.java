@@ -168,10 +168,10 @@ public abstract class FilterFs extends AbstractFileSystem {
   }
   
   @Override
-  public FileStatus[] listStatus(Path f) 
+  public FileStatus[] listLinkStatus(Path f) 
       throws IOException, UnresolvedLinkException {
     checkPath(f);
-    return myFs.listStatus(f);
+    return myFs.listLinkStatus(f);
   }
 
   @Override

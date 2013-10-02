@@ -504,7 +504,7 @@ public class HftpFileSystem extends FileSystem
   }
 
   @Override
-  public FileStatus[] listStatus(Path f) throws IOException {
+  public FileStatus[] listLinkStatus(Path f) throws IOException {
     LsParser lsparser = new LsParser();
     return lsparser.listStatus(f);
   }

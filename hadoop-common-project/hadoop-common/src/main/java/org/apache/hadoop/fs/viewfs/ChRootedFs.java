@@ -218,9 +218,9 @@ class ChRootedFs extends AbstractFileSystem {
   }
 
   @Override
-  public FileStatus[] listStatus(final Path f) 
+  public FileStatus[] listLinkStatus(final Path f) 
       throws IOException, UnresolvedLinkException {
-    return myFs.listStatus(fullPath(f));
+    return myFs.listLinkStatus(fullPath(f));
   }
 
   @Override

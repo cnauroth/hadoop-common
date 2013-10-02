@@ -123,7 +123,7 @@ public class TestAfsCheckPath {
     }
 
     @Override
-    public FileStatus[] listStatus(Path f) throws IOException {
+    public FileStatus[] listLinkStatus(Path f) throws IOException {
       // deliberately empty
       return null;
     }

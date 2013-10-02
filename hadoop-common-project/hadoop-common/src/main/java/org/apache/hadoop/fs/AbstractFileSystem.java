@@ -709,7 +709,7 @@ public abstract class AbstractFileSystem {
       }
       // Delete the destination that is a file or an empty directory
       if (dstStatus.isDirectory()) {
-        RemoteIterator<FileStatus> list = listStatusIterator(dst);
+        RemoteIterator<FileStatus> list = listLinkStatusIterator(dst);
         if (list != null && list.hasNext()) {
           throw new IOException(
               "Rename cannot overwrite non empty destination directory " + dst);
@@ -846,15 +846,15 @@ public abstract class AbstractFileSystem {
 
   /**
    * The specification of this method matches that of
-   * {@link FileContext#listStatus(Path)} except that Path f must be for this
-   * file system.
+   * {@link FileContext#listLinkStatus(Path)} except that Path f must be for
+   * this file system.
    */
-  public RemoteIterator<FileStatus> listStatusIterator(final Path f)
+  public RemoteIterator<FileStatus> listLinkStatusIterator(final Path f)
       throws AccessControlException, FileNotFoundException,
       UnresolvedLinkException, IOException {
     return new RemoteIterator<FileStatus>() {
       private int i = 0;
-      private FileStatus[] statusList = listStatus(f);
+      private FileStatus[] statusList = listLinkStatus(f);
       
       @Override
       public boolean hasNext() {
@@ -873,14 +873,14 @@ public abstract class AbstractFileSystem {
 
   /**
    * The specification of this method matches that of
-   * {@link FileContext#listLocatedStatus(Path)} except that Path f 
+   * {@link FileContext#listLocatedLinkStatus(Path)} except that Path f 
    * must be for this file system.
    */
-  public RemoteIterator<LocatedFileStatus> listLocatedStatus(final Path f)
+  public RemoteIterator<LocatedFileStatus> listLocatedLinkStatus(final Path f)
       throws AccessControlException, FileNotFoundException,
       UnresolvedLinkException, IOException {
     return new RemoteIterator<LocatedFileStatus>() {
-      private RemoteIterator<FileStatus> itor = listStatusIterator(f);
+      private RemoteIterator<FileStatus> itor = listLinkStatusIterator(f);
       
       @Override
       public boolean hasNext() throws IOException {
@@ -905,10 +905,10 @@ public abstract class AbstractFileSystem {
 
   /**
    * The specification of this method matches that of
-   * {@link FileContext.Util#listStatus(Path)} except that Path f must be 
+   * {@link FileContext.Util#listLinkStatus(Path)} except that Path f must be 
    * for this file system.
    */
-  public abstract FileStatus[] listStatus(final Path f)
+  public abstract FileStatus[] listLinkStatus(final Path f)
       throws AccessControlException, FileNotFoundException,
       UnresolvedLinkException, IOException;
 

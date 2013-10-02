@@ -617,7 +617,7 @@ public class HttpFSFileSystem extends FileSystem
    * @throws IOException
    */
   @Override
-  public FileStatus[] listStatus(Path f) throws IOException {
+  public FileStatus[] listLinkStatus(Path f) throws IOException {
     Map<String, String> params = new HashMap<String, String>();
     params.put(OP_PARAM, Operation.LISTSTATUS.toString());
     HttpURLConnection conn = getConnection(Operation.LISTSTATUS.getMethod(),

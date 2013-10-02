@@ -850,6 +850,12 @@ public class TestGlobPaths {
    * Test globbing through symlinks.
    */
   private static class TestGlobWithSymlinks implements FSTestWrapperGlobTest {
+    private final boolean resolveLinks;
+    
+    TestGlobWithSymlinks (boolean resolveLinks) {
+      this.resolveLinks = resolveLinks;
+    }
+
     public void run(FSTestWrapper wrap, FSTestWrapper unprivilegedWrap,
         FileSystem fs, FileContext fc) throws Exception {
       // Test that globbing through a symlink to a directory yields a path
@@ -870,8 +876,13 @@ public class TestGlobPaths {
       statuses = wrap.globStatus(new Path(USER_DIR + "/alphaLink/*"),
           new AcceptAllPathFilter());
       Assert.assertEquals(1, statuses.length);
-      Assert.assertEquals(USER_DIR + "/alphaLink/beta", statuses[0].getPath()
-          .toUri().getPath());
+      if (resolveLinks) {
+        Assert.assertEquals(USER_DIR + "/alpha/beta", statuses[0].getPath()
+            .toUri().getPath());
+      } else {
+        Assert.assertEquals(USER_DIR + "/alphaLink/beta", statuses[0].getPath()
+            .toUri().getPath());
+      }
       // If the terminal path component in a globbed path is a symlink,
       // we don't dereference that link.
       wrap.createSymlink(new Path("beta"), new Path(USER_DIR
@@ -879,31 +890,91 @@ public class TestGlobPaths {
       statuses = wrap.globStatus(new Path(USER_DIR + "/alpha/betaLi*"),
           new AcceptAllPathFilter());
       Assert.assertEquals(1, statuses.length);
-      Assert.assertEquals(USER_DIR + "/alpha/betaLink", statuses[0].getPath()
-          .toUri().getPath());
+      if (resolveLinks) {
+        Assert.assertEquals(USER_DIR + "/alpha/beta", statuses[0].getPath()
+            .toUri().getPath());
+      } else {
+        Assert.assertEquals(USER_DIR + "/alpha/betaLink", statuses[0].getPath()
+            .toUri().getPath());
+      }
       // todo: test symlink-to-symlink-to-dir, etc.
     }
   }
 
-  @Ignore
   @Test
   public void testGlobWithSymlinksOnFS() throws Exception {
-    testOnFileSystem(new TestGlobWithSymlinks());
+    testOnFileSystem(new TestGlobWithSymlinks(true));
   }
 
-  @Ignore
   @Test
   public void testGlobWithSymlinksOnFC() throws Exception {
-    testOnFileContext(new TestGlobWithSymlinks());
+    testOnFileContext(new TestGlobWithSymlinks(true));
+  }
+
+    /**
+   * Test globbing with dangling symlinks.
+   */
+  private static class TestGlobWithDanglingSymlinks implements
+      FSTestWrapperGlobTest {
+    private final boolean resolveLinks;
+    
+    TestGlobWithDanglingSymlinks(boolean resolveLinks) {
+      this.resolveLinks = resolveLinks;
+    }
+
+    public void run(FSTestWrapper wrap, FSTestWrapper unprivilegedWrap,
+        FileSystem fs, FileContext fc) throws Exception {
+      Path dangle = new Path(USER_DIR, "dangle");
+      wrap.mkdir(dangle, FsPermission.getDirDefault(), false);
+      wrap.createSymlink(new Path(dangle, "bogusTarget"),
+          new Path(dangle, "dangler"), false);
+      wrap.createFile(new Path(dangle, "normal"));
+
+      FileStatus statuses[];
+      statuses = wrap.globStatus(new Path(dangle, "*"), trueFilter);
+      if (resolveLinks) {
+        Assert.assertEquals(USER_DIR + "/dangle/normal",
+            TestPath.mergeStatuses(statuses));
+      } else {
+        Assert.assertEquals(USER_DIR + "/dangle/dangler;" +
+          USER_DIR + "/dangle/normal", TestPath.mergeStatuses(statuses));
+      }
+      // create the target of the dangling symlink.
+      wrap.createFile(new Path(dangle, "bogusTarget"));
+      statuses = wrap.globStatus(new Path(dangle, "*"), trueFilter);
+      if (resolveLinks) {
+        Assert.assertEquals(USER_DIR + "/dangle/bogusTarget;" +
+          USER_DIR + "/dangle/bogusTarget;" +
+          USER_DIR + "/dangle/normal", TestPath.mergeStatuses(statuses));
+      } else {
+        Assert.assertEquals(USER_DIR + "/dangle/bogusTarget;" +
+          USER_DIR + "/dangle/dangler;" +
+          USER_DIR + "/dangle/normal", TestPath.mergeStatuses(statuses));
+      }
+    }
+  }
+
+  @Test
+  public void testGlobWithDanglingSymlinksOnFS() throws Exception {
+    testOnFileSystem(new TestGlobWithDanglingSymlinks(true));
+  }
+
+  @Test
+  public void testGlobWithDanglingSymlinksOnFC() throws Exception {
+    testOnFileContext(new TestGlobWithDanglingSymlinks(true));
   }
 
   /**
    * Test globbing symlinks to symlinks.
-   *
-   * Also test globbing dangling symlinks.  It should NOT throw any exceptions!
    */
   private static class TestGlobWithSymlinksToSymlinks implements
       FSTestWrapperGlobTest {
+    private final boolean resolveLinks;
+    
+    TestGlobWithSymlinksToSymlinks(boolean resolveLinks) {
+      this.resolveLinks = resolveLinks;
+    }
+
     public void run(FSTestWrapper wrap, FSTestWrapper unprivilegedWrap,
         FileSystem fs, FileContext fc) throws Exception {
       // Test that globbing through a symlink to a symlink to a directory
@@ -920,38 +991,60 @@ public class TestGlobPaths {
       FileStatus statuses[] = wrap.globStatus(new Path(USER_DIR
           + "/alphaLinkLink"), new AcceptAllPathFilter());
       Assert.assertEquals(1, statuses.length);
-      Assert.assertEquals(USER_DIR + "/alphaLinkLink", statuses[0].getPath()
-          .toUri().getPath());
+      if (resolveLinks) {
+        Assert.assertEquals(USER_DIR + "/alpha", statuses[0].getPath()
+            .toUri().getPath());
+      } else {
+        Assert.assertEquals(USER_DIR + "/alphaLinkLink", statuses[0].getPath()
+            .toUri().getPath());
+      }
       statuses = wrap.globStatus(new Path(USER_DIR + "/alphaLinkLink/*"),
           new AcceptAllPathFilter());
       Assert.assertEquals(1, statuses.length);
-      Assert.assertEquals(USER_DIR + "/alphaLinkLink/beta", statuses[0]
-          .getPath().toUri().getPath());
+      if (resolveLinks) {
+        Assert.assertEquals(USER_DIR + "/alpha/beta", statuses[0]
+            .getPath().toUri().getPath());
+      } else {
+        Assert.assertEquals(USER_DIR + "/alphaLinkLink/beta", statuses[0]
+            .getPath().toUri().getPath());
+      }
       // Test glob of dangling symlink (theta does not actually exist)
-      wrap.createSymlink(new Path(USER_DIR + "theta"), new Path(USER_DIR
+      wrap.createSymlink(new Path(USER_DIR, "theta"), new Path(USER_DIR
           + "/alpha/kappa"), false);
       statuses = wrap.globStatus(new Path(USER_DIR + "/alpha/kappa/kappa"),
           new AcceptAllPathFilter());
       Assert.assertNull(statuses);
       // Test glob of symlinks
       wrap.createFile(USER_DIR + "/alpha/beta/gamma");
-      wrap.createSymlink(new Path(USER_DIR + "gamma"), new Path(USER_DIR
-          + "/alpha/beta/gammaLink"), false);
-      wrap.createSymlink(new Path(USER_DIR + "gammaLink"), new Path(USER_DIR
-          + "/alpha/beta/gammaLinkLink"), false);
-      wrap.createSymlink(new Path(USER_DIR + "gammaLinkLink"), new Path(
+      wrap.createSymlink(new Path("gamma"), new Path(
+          USER_DIR + "/alpha/beta/gammaLink"), false);
+      wrap.createSymlink(new Path("gammaLink"), new Path(
+          USER_DIR + "/alpha/beta/gammaLinkLink"), false);
+      wrap.createSymlink(new Path("gammaLinkLink"), new Path(
           USER_DIR + "/alpha/beta/gammaLinkLinkLink"), false);
       statuses = wrap.globStatus(new Path(USER_DIR
           + "/alpha/*/gammaLinkLinkLink"), new AcceptAllPathFilter());
       Assert.assertEquals(1, statuses.length);
-      Assert.assertEquals(USER_DIR + "/alpha/beta/gammaLinkLinkLink",
-          statuses[0].getPath().toUri().getPath());
+      if (resolveLinks) {
+        Assert.assertEquals(USER_DIR + "/alpha/beta/gamma",
+            statuses[0].getPath().toUri().getPath());
+      } else {
+        Assert.assertEquals(USER_DIR + "/alpha/beta/gammaLinkLinkLink",
+            statuses[0].getPath().toUri().getPath());
+      }
       statuses = wrap.globStatus(new Path(USER_DIR + "/alpha/beta/*"),
           new AcceptAllPathFilter());
-      Assert.assertEquals(USER_DIR + "/alpha/beta/gamma;" + USER_DIR
-          + "/alpha/beta/gammaLink;" + USER_DIR + "/alpha/beta/gammaLinkLink;"
-          + USER_DIR + "/alpha/beta/gammaLinkLinkLink",
-          TestPath.mergeStatuses(statuses));
+      if (resolveLinks) {
+        Assert.assertEquals(USER_DIR + "/alpha/beta/gamma;" + USER_DIR
+            + "/alpha/beta/gamma;" + USER_DIR + "/alpha/beta/gamma;"
+            + USER_DIR + "/alpha/beta/gamma",
+            TestPath.mergeStatuses(statuses));
+      } else {
+        Assert.assertEquals(USER_DIR + "/alpha/beta/gamma;" + USER_DIR
+            + "/alpha/beta/gammaLink;" + USER_DIR + "/alpha/beta/gammaLinkLink;"
+            + USER_DIR + "/alpha/beta/gammaLinkLinkLink",
+            TestPath.mergeStatuses(statuses));
+      }
       // Let's create two symlinks that point to each other, and glob on them.
       wrap.createSymlink(new Path(USER_DIR + "tweedledee"), new Path(USER_DIR
           + "/tweedledum"), false);
@@ -964,16 +1057,14 @@ public class TestGlobPaths {
     }
   }
 
-  @Ignore
   @Test
   public void testGlobWithSymlinksToSymlinksOnFS() throws Exception {
-    testOnFileSystem(new TestGlobWithSymlinksToSymlinks());
+    testOnFileSystem(new TestGlobWithSymlinksToSymlinks(true));
   }
 
-  @Ignore
   @Test
   public void testGlobWithSymlinksToSymlinksOnFC() throws Exception {
-    testOnFileContext(new TestGlobWithSymlinksToSymlinks());
+    testOnFileContext(new TestGlobWithSymlinksToSymlinks(true));
   }
 
   /**
@@ -981,6 +1072,12 @@ public class TestGlobPaths {
    */
   private static class TestGlobSymlinksWithCustomPathFilter implements
       FSTestWrapperGlobTest {
+    private final boolean resolveLinks;
+
+    public TestGlobSymlinksWithCustomPathFilter(boolean resolveLinks) {
+      this.resolveLinks = resolveLinks;
+    }
+
     public void run(FSTestWrapper wrap, FSTestWrapper unprivilegedWrap,
         FileSystem fs, FileContext fc) throws Exception {
       // Test that globbing through a symlink to a symlink to a directory
@@ -1001,36 +1098,56 @@ public class TestGlobPaths {
       statuses = wrap.globStatus(new Path(USER_DIR + "/alphaLinkz/betaz"),
           new AcceptPathsEndingInZ());
       Assert.assertEquals(1, statuses.length);
-      Assert.assertEquals(USER_DIR + "/alphaLinkz/betaz", statuses[0].getPath()
-          .toUri().getPath());
+      if (resolveLinks) {
+        Assert.assertEquals(USER_DIR + "/alpha/betaz", statuses[0].getPath()
+            .toUri().getPath());
+      } else {
+        Assert.assertEquals(USER_DIR + "/alphaLinkz/betaz", statuses[0].getPath()
+            .toUri().getPath());
+      }
       statuses = wrap.globStatus(new Path(USER_DIR + "/*/*"),
           new AcceptPathsEndingInZ());
-      Assert.assertEquals(USER_DIR + "/alpha/betaz;" + USER_DIR
-          + "/alphaLinkz/betaz", TestPath.mergeStatuses(statuses));
+      if (resolveLinks) {
+        Assert.assertEquals(USER_DIR + "/alpha/betaz;" + USER_DIR
+            + "/alpha/betaz", TestPath.mergeStatuses(statuses));
+      } else {
+        Assert.assertEquals(USER_DIR + "/alpha/betaz;" + USER_DIR
+            + "/alphaLinkz/betaz", TestPath.mergeStatuses(statuses));
+      }
       statuses = wrap.globStatus(new Path(USER_DIR + "/*/*"),
           new AcceptAllPathFilter());
-      Assert.assertEquals(USER_DIR + "/alpha/beta;" + USER_DIR
-          + "/alpha/betaz;" + USER_DIR + "/alphaLinkz/beta;" + USER_DIR
-          + "/alphaLinkz/betaz", TestPath.mergeStatuses(statuses));
+      if (resolveLinks) {
+        Assert.assertEquals(USER_DIR + "/alpha/beta;" + USER_DIR
+            + "/alpha/beta;" + USER_DIR + "/alpha/betaz;" + USER_DIR
+            + "/alpha/betaz", TestPath.mergeStatuses(statuses));
+      } else {
+        Assert.assertEquals(USER_DIR + "/alpha/beta;" + USER_DIR
+            + "/alpha/betaz;" + USER_DIR + "/alphaLinkz/beta;" + USER_DIR
+            + "/alphaLinkz/betaz", TestPath.mergeStatuses(statuses));
+      }
     }
   }
 
-  @Ignore
   @Test
   public void testGlobSymlinksWithCustomPathFilterOnFS() throws Exception {
-    testOnFileSystem(new TestGlobSymlinksWithCustomPathFilter());
+    testOnFileSystem(new TestGlobSymlinksWithCustomPathFilter(true));
   }
 
-  @Ignore
   @Test
   public void testGlobSymlinksWithCustomPathFilterOnFC() throws Exception {
-    testOnFileContext(new TestGlobSymlinksWithCustomPathFilter());
+    testOnFileContext(new TestGlobSymlinksWithCustomPathFilter(true));
   }
 
   /**
    * Test that globStatus fills in the scheme even when it is not provided.
    */
   private static class TestGlobFillsInScheme implements FSTestWrapperGlobTest {
+    private final boolean resolveLinks;
+
+    TestGlobFillsInScheme(boolean resolveLinks) {
+      this.resolveLinks = resolveLinks;
+    }
+
     public void run(FSTestWrapper wrap, FSTestWrapper unprivilegedWrap,
         FileSystem fs, FileContext fc) throws Exception {
       // Verify that the default scheme is hdfs, when we don't supply one.
@@ -1042,7 +1159,11 @@ public class TestGlobPaths {
           new Path(USER_DIR + "/alphaLink"), new AcceptAllPathFilter());
       Assert.assertEquals(1, statuses.length);
       Path path = statuses[0].getPath();
-      Assert.assertEquals(USER_DIR + "/alpha", path.toUri().getPath());
+      if (resolveLinks) {
+        Assert.assertEquals(USER_DIR + "/alpha", path.toUri().getPath());
+      } else {
+        Assert.assertEquals(USER_DIR + "/alphaLink", path.toUri().getPath());
+      }
       Assert.assertEquals("hdfs", path.toUri().getScheme());
       if (fc != null) {
         // If we're using FileContext, then we can list a file:/// URI.
@@ -1062,12 +1183,12 @@ public class TestGlobPaths {
 
   @Test
   public void testGlobFillsInSchemeOnFS() throws Exception {
-    testOnFileSystem(new TestGlobFillsInScheme());
+    testOnFileSystem(new TestGlobFillsInScheme(true));
   }
 
   @Test
   public void testGlobFillsInSchemeOnFC() throws Exception {
-    testOnFileContext(new TestGlobFillsInScheme());
+    testOnFileContext(new TestGlobFillsInScheme(true));
   }
 
   /**

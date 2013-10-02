@@ -179,7 +179,7 @@ class PseudoLocalFs extends FileSystem {
   }
 
   @Override
-  public FileStatus[] listStatus(Path path) throws FileNotFoundException,
+  public FileStatus[] listLinkStatus(Path path) throws FileNotFoundException,
       IOException {
     return new FileStatus[] {getFileStatus(path)};
   }

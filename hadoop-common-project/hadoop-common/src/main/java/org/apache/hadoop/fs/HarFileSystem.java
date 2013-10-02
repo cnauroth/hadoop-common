@@ -735,7 +735,7 @@ public class HarFileSystem extends FileSystem {
    * after looking up the index files.
    */
   @Override
-  public FileStatus[] listStatus(Path f) throws IOException {
+  public FileStatus[] listLinkStatus(Path f) throws IOException {
     //need to see if the file is an index in file
     //get the filestatus of the archive directory
     // we will create fake filestatuses to return

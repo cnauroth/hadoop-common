@@ -24,8 +24,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -1291,7 +1289,7 @@ public abstract class FileSystem extends Configured implements Closeable {
       }
       // Delete the destination that is a file or an empty directory
       if (dstStatus.isDirectory()) {
-        FileStatus[] list = listStatus(dst);
+        FileStatus[] list = listLinkStatus(dst);
         if (list != null && list.length != 0) {
           throw new IOException(
               "rename cannot overwrite non empty destination directory " + dst);
@@ -1460,26 +1458,56 @@ public abstract class FileSystem extends Configured implements Closeable {
       return true;
     }
   };
-    
+
   /**
-   * List the statuses of the files/directories in the given path if the path is
-   * a directory.
-   * 
+   * Same as {{@link #listLinkStatus(Path)}, but resolves symlinks contained
+   * in the directory.
+   *
+   * @throws DirectoryContentsResolutionException if a symlink contained in 
+   *    the directory cannot be resolved.
+   */
+  public FileStatus[] listStatus(Path f) 
+      throws FileNotFoundException, IOException, 
+          DirectoryContentsResolutionException {
+    FileStatus[] statuses = listLinkStatus(f);
+    if (statuses != null) {
+      for (int i = 0; i < statuses.length; i++) {
+        FileStatus status = statuses[i];
+        if (status.isSymlink()) {
+          Path path = status.getPath();
+          try {
+            statuses[i] = getFileStatus(path);
+          } catch (IOException e) {
+            throw new DirectoryContentsResolutionException("Error resolving " +
+                "symlink " + path, e);
+          }
+        }
+      }
+    }
+    return statuses;
+  }
+
+  /**
+   * List the statuses of the files/directories/links in the given path if 
+   * the path is a directory.  If the underlying filesystem supports
+   * symlinks, then symlinks will not be resolved.
+   *
    * @param f given path
    * @return the statuses of the files/directories in the given patch
    * @throws FileNotFoundException when the path does not exist;
    *         IOException see specific implementation
    */
-  public abstract FileStatus[] listStatus(Path f) throws FileNotFoundException, 
-                                                         IOException;
-    
+  public abstract FileStatus[] listLinkStatus(Path f) 
+      throws FileNotFoundException, IOException;
+
   /*
    * Filter files/directories in the given path using the user-supplied path
    * filter. Results are added to the given array <code>results</code>.
    */
-  private void listStatus(ArrayList<FileStatus> results, Path f,
-      PathFilter filter) throws FileNotFoundException, IOException {
-    FileStatus listing[] = listStatus(f);
+  private void listStatusInternal(ArrayList<FileStatus> results, Path f,
+      PathFilter filter, boolean resolveLinks) 
+          throws FileNotFoundException, IOException {
+    FileStatus listing[] = resolveLinks ? listStatus(f) : listLinkStatus(f);
     if (listing == null) {
       throw new IOException("Error accessing " + f);
     }
@@ -1504,8 +1532,23 @@ public abstract class FileSystem extends Configured implements Closeable {
   }
 
   /**
+   * Same as {{#listLinkStatus(Path, PathFilter}}, but resolves links
+   * before applying the path filter.
+   *
+   * @throws DirectoryContentsResolutionException if there was an error
+   *    resolving a symlink contained in this directory.
+   */
+  public FileStatus[] listStatus(Path f, PathFilter filter) 
+      throws FileNotFoundException, DirectoryContentsResolutionException,
+          IOException {
+    ArrayList<FileStatus> results = new ArrayList<FileStatus>();
+    listStatusInternal(results, f, filter, true);
+    return results.toArray(new FileStatus[results.size()]);
+  }
+
+  /**
    * Filter files/directories in the given path using the user-supplied path
-   * filter.
+   * filter.  Symlinks contained in the directory will be returned as symlinks.
    * 
    * @param f
    *          a path name
@@ -1516,16 +1559,28 @@ public abstract class FileSystem extends Configured implements Closeable {
    * @throws FileNotFoundException when the path does not exist;
    *         IOException see specific implementation   
    */
-  public FileStatus[] listStatus(Path f, PathFilter filter) 
+  public FileStatus[] listLinkStatus(Path f, PathFilter filter) 
                                    throws FileNotFoundException, IOException {
     ArrayList<FileStatus> results = new ArrayList<FileStatus>();
-    listStatus(results, f, filter);
+    listStatusInternal(results, f, filter, false);
     return results.toArray(new FileStatus[results.size()]);
   }
 
   /**
-   * Filter files/directories in the given list of paths using default
-   * path filter.
+   * Same as {{#listLinkStatus(Path[]}}, but resolves links.
+   *
+   * @throws DirectoryContentsResolutionException if there was an error
+   *     resolving a symlink contained in this directory.
+   */
+  public FileStatus[] listStatus(Path[] files)
+      throws FileNotFoundException, DirectoryContentsResolutionException,
+          IOException {
+    return listStatus(files, DEFAULT_FILTER);
+  }
+
+  /**
+   * Filter files/directories in the given list of paths using default path
+   * filter.  Symlinks contained in the directory will be returned as symlinks.
    * 
    * @param files
    *          a list of paths
@@ -1534,14 +1589,31 @@ public abstract class FileSystem extends Configured implements Closeable {
    * @throws FileNotFoundException when the path does not exist;
    *         IOException see specific implementation
    */
-  public FileStatus[] listStatus(Path[] files)
+  public FileStatus[] listLinkStatus(Path[] files)
       throws FileNotFoundException, IOException {
-    return listStatus(files, DEFAULT_FILTER);
+    return listLinkStatus(files, DEFAULT_FILTER);
+  }
+
+  /**
+   * Same as {{#listLinkStatus(Path[], PathFilter}}, but resolves links
+   * before applying the path filter.
+   *
+   * @throws DirectoryContentsResolutionException if there was an error
+   *     resolving a symlink contained in this directory.
+   */
+  public FileStatus[] listStatus(Path[] files, PathFilter filter)
+      throws FileNotFoundException, DirectoryContentsResolutionException,
+          IOException {
+    ArrayList<FileStatus> results = new ArrayList<FileStatus>();
+    for (int i = 0; i < files.length; i++) {
+      listStatusInternal(results, files[i], filter, true);
+    }
+    return results.toArray(new FileStatus[results.size()]);
   }
 
   /**
    * Filter files/directories in the given list of paths using user-supplied
-   * path filter.
+   * path filter.  Symlinks will not be resolved.
    * 
    * @param files
    *          a list of paths
@@ -1552,11 +1624,11 @@ public abstract class FileSystem extends Configured implements Closeable {
    * @throws FileNotFoundException when the path does not exist;
    *         IOException see specific implementation
    */
-  public FileStatus[] listStatus(Path[] files, PathFilter filter)
+  public FileStatus[] listLinkStatus(Path[] files, PathFilter filter)
       throws FileNotFoundException, IOException {
     ArrayList<FileStatus> results = new ArrayList<FileStatus>();
     for (int i = 0; i < files.length; i++) {
-      listStatus(results, files[i], filter);
+      listStatusInternal(results, files[i], filter, false);
     }
     return results.toArray(new FileStatus[results.size()]);
   }
@@ -2006,7 +2078,7 @@ public abstract class FileSystem extends Configured implements Closeable {
   /** Return the total size of all files in the filesystem.*/
   public long getUsed() throws IOException{
     long used = 0;
-    FileStatus[] files = listStatus(new Path("/"));
+    FileStatus[] files = listLinkStatus(new Path("/"));
     for(FileStatus file:files){
       used += file.getLen();
     }

@@ -633,7 +633,7 @@ public class DistributedFileSystem extends FileSystem {
     }.resolve(this, absF);
   }
 
-  private FileStatus[] listStatusInternal(Path p) throws IOException {
+  private FileStatus[] listLinkStatusInternal(Path p) throws IOException {
     String src = getPathName(p);
 
     // fetch the first batch of entries in the directory
@@ -693,18 +693,18 @@ public class DistributedFileSystem extends FileSystem {
    * undergoes changes between the calls.
    */
   @Override
-  public FileStatus[] listStatus(Path p) throws IOException {
+  public FileStatus[] listLinkStatus(Path p) throws IOException {
     Path absF = fixRelativePart(p);
     return new FileSystemLinkResolver<FileStatus[]>() {
       @Override
       public FileStatus[] doCall(final Path p)
           throws IOException, UnresolvedLinkException {
-        return listStatusInternal(p);
+        return listLinkStatusInternal(p);
       }
       @Override
       public FileStatus[] next(final FileSystem fs, final Path p)
           throws IOException {
-        return fs.listStatus(p);
+        return fs.listLinkStatus(p);
       }
     }.resolve(this, absF);
   }

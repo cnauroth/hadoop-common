@@ -399,6 +399,12 @@ public final class FileSystemTestWrapper extends FSTestWrapper {
   }
 
   @Override
+  public FileStatus[] listLinkStatus(Path f) throws AccessControlException,
+      FileNotFoundException, UnsupportedFileSystemException, IOException {
+    return fs.listLinkStatus(f);
+  }
+
+  @Override
   public FileStatus[] globStatus(Path pathPattern, PathFilter filter)
       throws IOException {
     return fs.globStatus(pathPattern, filter);

@@ -399,7 +399,7 @@ public class ViewFileSystemBaseTest {
     
     // list on Slash
     
-    FileStatus[] dirPaths = fsView.listStatus(new Path("/"));
+    FileStatus[] dirPaths = fsView.listLinkStatus(new Path("/"));
     FileStatus fs;
     Assert.assertEquals(getExpectedDirPaths(), dirPaths.length);
     fs = fileSystemTestHelper.containsPath(fsView, "/user", dirPaths);
@@ -421,7 +421,7 @@ public class ViewFileSystemBaseTest {
       
       
       // list on internal dir
-      dirPaths = fsView.listStatus(new Path("/internalDir"));
+      dirPaths = fsView.listLinkStatus(new Path("/internalDir"));
       Assert.assertEquals(2, dirPaths.length);
 
       fs = fileSystemTestHelper.containsPath(fsView, "/internalDir/internalDir2", dirPaths);

@@ -151,7 +151,7 @@ public class Hdfs extends AbstractFileSystem {
   }
 
   @Override
-  public RemoteIterator<LocatedFileStatus> listLocatedStatus(
+  public RemoteIterator<LocatedFileStatus> listLocatedLinkStatus(
       final Path p)
       throws FileNotFoundException, IOException {
     return new DirListingIterator<LocatedFileStatus>(p, true) {
@@ -165,7 +165,7 @@ public class Hdfs extends AbstractFileSystem {
   }
   
   @Override
-  public RemoteIterator<FileStatus> listStatusIterator(final Path f)
+  public RemoteIterator<FileStatus> listLinkStatusIterator(final Path f)
     throws AccessControlException, FileNotFoundException,
     UnresolvedLinkException, IOException {
     return new DirListingIterator<FileStatus>(f, false) {
@@ -240,7 +240,7 @@ public class Hdfs extends AbstractFileSystem {
   }
 
   @Override
-  public FileStatus[] listStatus(Path f) 
+  public FileStatus[] listLinkStatus(Path f) 
       throws IOException, UnresolvedLinkException {
     String src = getUriPath(f);
 

@@ -95,10 +95,10 @@ public class TestStat extends FileSystemTestHelper {
   public void testStatLinux() throws Exception {
     StatOutput linux = new StatOutput(
         "stat: cannot stat `watermelon': No such file or directory",
-        "4096,directory,1373584236,1373586485,755,andrew,root,`.'",
-        "0,regular empty file,1373584228,1373584228,644,andrew,andrew,`target'",
-        "6,symbolic link,1373584236,1373584236,777,andrew,andrew,`link' -> `target'",
-        "4096,directory,1374622334,1375124212,1755,andrew,andrew,`stickydir'");
+        "4096,directory,1373584236,1373586485,755,andrew,root,.,`.'",
+        "0,regular empty file,1373584228,1373584228,644,andrew,andrew,target,`target'",
+        "6,symbolic link,1373584236,1373584236,777,andrew,andrew,link,`link' -> `target'",
+        "4096,directory,1374622334,1375124212,1755,andrew,andrew,stickydir,`stickydir'");
     linux.test();
   }
 
@@ -106,10 +106,10 @@ public class TestStat extends FileSystemTestHelper {
   public void testStatFreeBSD() throws Exception {
     StatOutput freebsd = new StatOutput(
         "stat: symtest/link: stat: No such file or directory",
-        "512,Directory,1373583695,1373583669,40755,awang,awang,`link' -> `'",
-        "0,Regular File,1373508937,1373508937,100644,awang,awang,`link' -> `'",
-        "6,Symbolic Link,1373508941,1373508941,120755,awang,awang,`link' -> `target'",
-        "512,Directory,1375139537,1375139537,41755,awang,awang,`link' -> `'");
+        "512,Directory,1373583695,1373583669,40755,awang,awang,link,`link' -> `'",
+        "0,Regular File,1373508937,1373508937,100644,awang,awang,link,`link' -> `'",
+        "6,Symbolic Link,1373508941,1373508941,120755,awang,awang,link,`link' -> `target'",
+        "512,Directory,1375139537,1375139537,41755,awang,awang,link,`link' -> `'");
     freebsd.test();
   }
 

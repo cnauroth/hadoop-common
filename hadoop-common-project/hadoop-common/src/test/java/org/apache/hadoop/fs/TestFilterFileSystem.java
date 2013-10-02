@@ -22,6 +22,7 @@ import static org.junit.Assert.*;
 import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.*;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -161,8 +162,11 @@ public class TestFilterFileSystem {
     public ContentSummary getContentSummary(Path f) { return null; }
     public FsStatus getStatus() { return null; }
     public FileStatus[] listStatus(Path f, PathFilter filter) { return null; }
+    public FileStatus[] listLinkStatus(Path f, PathFilter filter) { return null; }
     public FileStatus[] listStatus(Path[] files) { return null; }
+    public FileStatus[] listLinkStatus(Path[] files) { return null; }
     public FileStatus[] listStatus(Path[] files, PathFilter filter) { return null; }
+    public FileStatus[] listLinkStatus(Path[] files, PathFilter filter) { return null; }
     public FileStatus[] globStatus(Path pathPattern) { return null; }
     public FileStatus[] globStatus(Path pathPattern, PathFilter filter) {
       return null;
@@ -171,10 +175,22 @@ public class TestFilterFileSystem {
         final Path path, final boolean isRecursive) {
       return null;
     }
+    public FileStatus[] listStatus(Path f) 
+        throws FileNotFoundException, IOException, 
+            DirectoryContentsResolutionException {
+      return null;
+    }
     public Iterator<LocatedFileStatus> listLocatedStatus(Path f) {
       return null;
     }
+    public Iterator<LocatedFileStatus> listLocatedLinkStatus(Path f) {
+      return null;
+    }
     public Iterator<LocatedFileStatus> listLocatedStatus(Path f,
+        final PathFilter filter) {
+      return null;
+    }
+    public Iterator<LocatedFileStatus> listLocatedLinkStatus(Path f,
         final PathFilter filter) {
       return null;
     }

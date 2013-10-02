@@ -459,7 +459,7 @@ public class NativeS3FileSystem extends FileSystem {
    * </p>
    */
   @Override
-  public FileStatus[] listStatus(Path f) throws IOException {
+  public FileStatus[] listLinkStatus(Path f) throws IOException {
 
     Path absolutePath = makeAbsolute(f);
     String key = pathToKey(absolutePath);

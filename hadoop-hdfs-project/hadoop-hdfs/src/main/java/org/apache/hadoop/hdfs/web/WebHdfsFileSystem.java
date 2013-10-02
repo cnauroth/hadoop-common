@@ -985,7 +985,7 @@ public class WebHdfsFileSystem extends FileSystem
   }
 
   @Override
-  public FileStatus[] listStatus(final Path f) throws IOException {
+  public FileStatus[] listLinkStatus(final Path f) throws IOException {
     statistics.incrementReadOps(1);
 
     final HttpOpParam.Op op = GetOpParam.Op.LISTSTATUS;

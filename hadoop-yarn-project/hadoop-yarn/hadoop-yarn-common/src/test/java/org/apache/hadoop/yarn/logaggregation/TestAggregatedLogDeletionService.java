@@ -67,7 +67,7 @@ public class TestAggregatedLogDeletionService {
     Path userDir = new Path(remoteRootLogPath, "me");
     FileStatus userDirStatus = new FileStatus(0, true, 0, 0, toKeepTime, userDir); 
     
-    when(mockFs.listStatus(remoteRootLogPath)).thenReturn(
+    when(mockFs.listLinkStatus(remoteRootLogPath)).thenReturn(
         new FileStatus[]{userDirStatus});
     
     Path userLogDir = new Path(userDir, suffix);
@@ -83,10 +83,10 @@ public class TestAggregatedLogDeletionService {
     Path app4Dir = new Path(userLogDir, "application_1_4");
     FileStatus app4DirStatus = new FileStatus(0, true, 0, 0, toDeleteTime, app4Dir);
     
-    when(mockFs.listStatus(userLogDir)).thenReturn(
+    when(mockFs.listLinkStatus(userLogDir)).thenReturn(
         new FileStatus[]{app1DirStatus, app2DirStatus, app3DirStatus, app4DirStatus});
     
-    when(mockFs.listStatus(app1Dir)).thenReturn(
+    when(mockFs.listLinkStatus(app1Dir)).thenReturn(
         new FileStatus[]{});
     
     Path app2Log1 = new Path(app2Dir, "host1");
@@ -95,7 +95,7 @@ public class TestAggregatedLogDeletionService {
     Path app2Log2 = new Path(app2Dir, "host2");
     FileStatus app2Log2Status = new FileStatus(10, false, 1, 1, toKeepTime, app2Log2);
     
-    when(mockFs.listStatus(app2Dir)).thenReturn(
+    when(mockFs.listLinkStatus(app2Dir)).thenReturn(
         new FileStatus[]{app2Log1Status, app2Log2Status});
     
     Path app3Log1 = new Path(app3Dir, "host1");
@@ -106,7 +106,7 @@ public class TestAggregatedLogDeletionService {
     
     when(mockFs.delete(app3Dir, true)).thenThrow(new AccessControlException("Injected Error\nStack Trace :("));
     
-    when(mockFs.listStatus(app3Dir)).thenReturn(
+    when(mockFs.listLinkStatus(app3Dir)).thenReturn(
         new FileStatus[]{app3Log1Status, app3Log2Status});
     
     Path app4Log1 = new Path(app4Dir, "host1");
@@ -115,7 +115,7 @@ public class TestAggregatedLogDeletionService {
     Path app4Log2 = new Path(app4Dir, "host2");
     FileStatus app4Log2Status = new FileStatus(10, false, 1, 1, toDeleteTime, app4Log2);
     
-    when(mockFs.listStatus(app4Dir)).thenReturn(
+    when(mockFs.listLinkStatus(app4Dir)).thenReturn(
         new FileStatus[]{app4Log1Status, app4Log2Status});
     
     AggregatedLogDeletionService.LogDeletionTask task = 
@@ -158,7 +158,7 @@ public class TestAggregatedLogDeletionService {
     FileStatus userDirStatus = new FileStatus(0, true, 0, 0, before50Secs,
         userDir);
 
-    when(mockFs.listStatus(remoteRootLogPath)).thenReturn(
+    when(mockFs.listLinkStatus(remoteRootLogPath)).thenReturn(
         new FileStatus[] { userDirStatus });
 
     Path userLogDir = new Path(userDir, suffix);
@@ -173,21 +173,21 @@ public class TestAggregatedLogDeletionService {
     FileStatus app2DirStatus = new FileStatus(0, true, 0, 0, before50Secs,
         app2Dir);
 
-    when(mockFs.listStatus(userLogDir)).thenReturn(
+    when(mockFs.listLinkStatus(userLogDir)).thenReturn(
         new FileStatus[] { app1DirStatus, app2DirStatus });
 
     Path app1Log1 = new Path(app1Dir, "host1");
     FileStatus app1Log1Status = new FileStatus(10, false, 1, 1, before2000Secs,
         app1Log1);
 
-    when(mockFs.listStatus(app1Dir)).thenReturn(
+    when(mockFs.listLinkStatus(app1Dir)).thenReturn(
         new FileStatus[] { app1Log1Status });
 
     Path app2Log1 = new Path(app2Dir, "host1");
     FileStatus app2Log1Status = new FileStatus(10, false, 1, 1, before50Secs,
         app2Log1);
 
-    when(mockFs.listStatus(app2Dir)).thenReturn(
+    when(mockFs.listLinkStatus(app2Dir)).thenReturn(
         new FileStatus[] { app2Log1Status });
 
     AggregatedLogDeletionService deletionSvc = new AggregatedLogDeletionService() {
@@ -250,20 +250,20 @@ public class TestAggregatedLogDeletionService {
     Path userDir = new Path(remoteRootLogPath, "me");
     FileStatus userDirStatus = new FileStatus(0, true, 0, 0, now, userDir);
 
-    when(mockFs.listStatus(remoteRootLogPath)).thenReturn(
+    when(mockFs.listLinkStatus(remoteRootLogPath)).thenReturn(
         new FileStatus[]{userDirStatus});
 
     Path userLogDir = new Path(userDir, suffix);
     Path app1Dir = new Path(userLogDir, "application_1_1");
     FileStatus app1DirStatus = new FileStatus(0, true, 0, 0, now, app1Dir);
 
-    when(mockFs.listStatus(userLogDir)).thenReturn(
+    when(mockFs.listLinkStatus(userLogDir)).thenReturn(
         new FileStatus[]{app1DirStatus});
 
     Path app1Log1 = new Path(app1Dir, "host1");
     FileStatus app1Log1Status = new FileStatus(10, false, 1, 1, now, app1Log1);
 
-    when(mockFs.listStatus(app1Dir)).thenReturn(
+    when(mockFs.listLinkStatus(app1Dir)).thenReturn(
         new FileStatus[]{app1Log1Status});
 
     AggregatedLogDeletionService deletionSvc =
@@ -271,15 +271,15 @@ public class TestAggregatedLogDeletionService {
     deletionSvc.init(conf);
     deletionSvc.start();
  
-    verify(mockFs, timeout(10000).atLeast(4)).listStatus(any(Path.class));
+    verify(mockFs, timeout(10000).atLeast(4)).listLinkStatus(any(Path.class));
     verify(mockFs, never()).delete(app1Dir, true);
 
     // modify the timestamp of the logs and verify it's picked up quickly
     app1DirStatus = new FileStatus(0, true, 0, 0, toDeleteTime, app1Dir);
     app1Log1Status = new FileStatus(10, false, 1, 1, toDeleteTime, app1Log1);
-    when(mockFs.listStatus(userLogDir)).thenReturn(
+    when(mockFs.listLinkStatus(userLogDir)).thenReturn(
         new FileStatus[]{app1DirStatus});
-    when(mockFs.listStatus(app1Dir)).thenReturn(
+    when(mockFs.listLinkStatus(app1Dir)).thenReturn(
         new FileStatus[]{app1Log1Status});
 
     verify(mockFs, timeout(10000)).delete(app1Dir, true);

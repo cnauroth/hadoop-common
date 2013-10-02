@@ -144,9 +144,9 @@ public abstract class DelegateToFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  public FileStatus[] listStatus(Path f) throws IOException {
+  public FileStatus[] listLinkStatus(Path f) throws IOException {
     checkPath(f);
-    return fsImpl.listStatus(f);
+    return fsImpl.listLinkStatus(f);
   }
 
   @Override

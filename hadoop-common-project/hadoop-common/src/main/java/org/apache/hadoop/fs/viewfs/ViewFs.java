@@ -363,13 +363,13 @@ public class ViewFs extends AbstractFileSystem {
   }
 
   @Override
-  public RemoteIterator<FileStatus> listStatusIterator(final Path f)
+  public RemoteIterator<FileStatus> listLinkStatusIterator(final Path f)
     throws AccessControlException, FileNotFoundException,
     UnresolvedLinkException, IOException {
     final InodeTree.ResolveResult<AbstractFileSystem> res =
       fsState.resolve(getUriPath(f), true);
     final RemoteIterator<FileStatus> fsIter =
-      res.targetFileSystem.listStatusIterator(res.remainingPath);
+      res.targetFileSystem.listLinkStatusIterator(res.remainingPath);
     if (res.isInternalDir()) {
       return fsIter;
     }
@@ -398,12 +398,12 @@ public class ViewFs extends AbstractFileSystem {
   }
   
   @Override
-  public FileStatus[] listStatus(final Path f) throws AccessControlException,
+  public FileStatus[] listLinkStatus(final Path f) throws AccessControlException,
       FileNotFoundException, UnresolvedLinkException, IOException {
     InodeTree.ResolveResult<AbstractFileSystem> res =
       fsState.resolve(getUriPath(f), true);
     
-    FileStatus[] statusLst = res.targetFileSystem.listStatus(res.remainingPath);
+    FileStatus[] statusLst = res.targetFileSystem.listLinkStatus(res.remainingPath);
     if (!res.isInternalDir()) {
       // We need to change the name in the FileStatus as described in
       // {@link #getFileStatus }
@@ -726,7 +726,7 @@ public class ViewFs extends AbstractFileSystem {
     }
 
     @Override
-    public FileStatus[] listStatus(final Path f) throws AccessControlException,
+    public FileStatus[] listLinkStatus(final Path f) throws AccessControlException,
         IOException {
       checkPathIsSlash(f);
       FileStatus[] result = new FileStatus[theInternalDir.children.size()];

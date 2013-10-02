@@ -314,7 +314,7 @@ public class FTPFileSystem extends FileSystem {
     if (fileStat.isFile()) {
       return client.deleteFile(pathName);
     }
-    FileStatus[] dirEntries = listStatus(client, absolute);
+    FileStatus[] dirEntries = listLinkStatus(client, absolute);
     if (dirEntries != null && dirEntries.length > 0 && !(recursive)) {
       throw new IOException("Directory: " + file + " is not empty.");
     }
@@ -354,10 +354,10 @@ public class FTPFileSystem extends FileSystem {
   }
 
   @Override
-  public FileStatus[] listStatus(Path file) throws IOException {
+  public FileStatus[] listLinkStatus(Path file) throws IOException {
     FTPClient client = connect();
     try {
-      FileStatus[] stats = listStatus(client, file);
+      FileStatus[] stats = listLinkStatus(client, file);
       return stats;
     } finally {
       disconnect(client);
@@ -369,7 +369,7 @@ public class FTPFileSystem extends FileSystem {
    * method from within another method. Otherwise every API invocation incurs
    * the overhead of opening/closing a TCP connection.
    */
-  private FileStatus[] listStatus(FTPClient client, Path file)
+  private FileStatus[] listLinkStatus(FTPClient client, Path file)
       throws IOException {
     Path workDir = new Path(client.printWorkingDirectory());
     Path absolute = makeAbsolute(workDir, file);

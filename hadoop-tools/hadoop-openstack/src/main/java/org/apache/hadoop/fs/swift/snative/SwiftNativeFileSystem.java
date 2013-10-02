@@ -429,9 +429,9 @@ public class SwiftNativeFileSystem extends FileSystem {
    * @throws IOException
    */
   @Override
-  public FileStatus[] listStatus(Path path) throws IOException {
+  public FileStatus[] listLinkStatus(Path path) throws IOException {
     if (LOG.isDebugEnabled()) {
-      LOG.debug("SwiftFileSystem.listStatus for: " + path);
+      LOG.debug("SwiftFileSystem.listLinkStatus for: " + path);
     }
     return store.listSubPaths(makeAbsolute(path), false, true);
   }

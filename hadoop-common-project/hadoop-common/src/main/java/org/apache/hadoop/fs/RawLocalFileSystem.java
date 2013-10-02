@@ -333,7 +333,7 @@ public class RawLocalFileSystem extends FileSystem {
     // (notably Windows) do not provide this behavior, so the Java API call above
     // fails.  Delete destination and attempt rename again.
     if (this.exists(dst)) {
-      FileStatus sdst = this.getFileStatus(dst);
+      FileStatus sdst = this.getFileLinkStatusInternal(dst, false);
       if (sdst.isDirectory() && dstFile.list().length == 0) {
         if (LOG.isDebugEnabled()) {
           LOG.debug("Deleting empty destination and renaming " + src + " to " +
@@ -378,32 +378,56 @@ public class RawLocalFileSystem extends FileSystem {
    * due to reliance on Java's {@link File#list()} API.)
    */
   @Override
-  public FileStatus[] listStatus(Path f) throws IOException {
+  public FileStatus[] listLinkStatus(Path f) throws IOException {
     File localf = pathToFile(f);
     FileStatus[] results;
+    String[] names = localf.list();
 
-    if (!localf.exists()) {
+    if (names != null) {
+      return listDirectory(f, names);
+    }
+    // If File#list returned null, either there was an error listing the
+    // directory, the directory didn't exist, or what we listed was not a
+    // directory.  Yay ambiguity.
+    //
+    // getFileLinkStatusInternal will determine which of these was the case and
+    // take the appropriate action.
+    if (useDeprecatedFileStatus) {
+      if (!localf.exists()) {
+        throw new FileNotFoundException("File " + f + " does not exist");
+      }
+      results = new FileStatus[] {
+        new DeprecatedRawLocalFileStatus(localf, getDefaultBlockSize(f), this)};
+    } else {
+      results = new FileStatus[] { getFileLinkStatusInternal(f, false) };
+    }
+    if (results[0].isDirectory()) {
+      // There is a narrow race condition like this:
+      // 1. we call File#list on a non-existent file, gets null
+      // 2. user creates a directory with the same path
+      // 3. we call getFileLinkStatusInternal on the directory
+      //
+      // We don't want to return a singleton FileStatus list containing a
+      // directory, because that would be wrong.
+      // In this case, we treat the situation as if we had listed the directory
+      // at point #2, and throw a FileNotFoundException.
+      //
+      // The new filesystem APIs in JDK7 will make this a lot better once we can
+      // use them in Hadoop.
       throw new FileNotFoundException("File " + f + " does not exist");
     }
-    if (localf.isFile()) {
-      if (!useDeprecatedFileStatus) {
-        return new FileStatus[] { getFileStatus(f) };
-      }
-      return new FileStatus[] {
-        new DeprecatedRawLocalFileStatus(localf, getDefaultBlockSize(f), this)};
-    }
+    return results;
+  }
 
-    String[] names = localf.list();
-    if (names == null) {
-      return null;
-    }
-    results = new FileStatus[names.length];
+  private FileStatus[] listDirectory(Path f, String[] names) throws IOException {
+    FileStatus[] results = new FileStatus[names.length];
     int j = 0;
     for (int i = 0; i < names.length; i++) {
       try {
         // Assemble the path using the Path 3 arg constructor to make sure
         // paths with colon are properly resolved on Linux
-        results[j] = getFileStatus(new Path(f, new Path(null, null, names[i])));
+        results[j] = getFileLinkStatusInternal(new Path(f,
+            new Path(null, null, names[i])), false);
         j++;
       } catch (FileNotFoundException e) {
         // ignore the files not found since the dir list may have have changed

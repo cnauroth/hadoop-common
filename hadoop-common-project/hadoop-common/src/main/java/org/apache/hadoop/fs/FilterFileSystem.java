@@ -218,8 +218,8 @@ public class FilterFileSystem extends FileSystem {
   
   /** List files in a directory. */
   @Override
-  public FileStatus[] listStatus(Path f) throws IOException {
-    return fs.listStatus(f);
+  public FileStatus[] listLinkStatus(Path f) throws IOException {
+    return fs.listLinkStatus(f);
   }
 
   @Override

@@ -1273,7 +1273,9 @@ public final class FileContext {
    * directory. All other functions fully resolve, ie follow, the symlink. 
    * These are: open, setReplication, setOwner, setTimes, setWorkingDirectory,
    * setPermission, getFileChecksum, setVerifyChecksum, getFileBlockLocations,
-   * getFsStatus, getFileStatus, exists, and listStatus.
+   * getFsStatus, getFileStatus, exists, listStatus, and listLinkStatus.
+   * listLinkStatus, unlike listStatus, will list any symlinks contained in a
+   * directory as symlinks, rather than resolving them.
    * 
    * Symlink targets are stored as given to createSymlink, assuming the 
    * underlying file system is capable of storing a fully qualified URI.
@@ -1346,6 +1348,41 @@ public final class FileContext {
   }
   
   /**
+   * Same as {{@link #listLinkStatus(Path)}, but resolves symlinks contained
+   * in the directory.
+   *
+   * @throws DirectoryContentsResolutionException if a symlink contained in 
+   * the directory cannot be resolved.
+   */
+  public RemoteIterator<FileStatus> listStatus(final Path f) throws
+      AccessControlException, FileNotFoundException,
+      UnsupportedFileSystemException, DirectoryContentsResolutionException,
+      IOException {
+    final RemoteIterator<FileStatus> iter = listLinkStatus(f);
+    return new RemoteIterator<FileStatus>() {
+      @Override
+      public boolean hasNext() throws IOException {
+        return iter.hasNext();
+      }
+  
+      @Override
+      public FileStatus next() throws IOException {
+        FileStatus status = iter.next();
+        if (status.isSymlink()) {
+          Path path = status.getPath();
+          try {
+            status = getFileStatus(path);
+          } catch (IOException e) {
+            throw new DirectoryContentsResolutionException("error " +
+                "resolving symlink " + path, e);
+          }
+        }
+        return status;
+      }
+    };
+  }
+
+  /**
    * List the statuses of the files/directories in the given path if the path is
    * a directory.
    * 
@@ -1366,7 +1403,7 @@ public final class FileContext {
    * @throws UnexpectedServerException If server implementation throws 
    *           undeclared exception to RPC server
    */
-  public RemoteIterator<FileStatus> listStatus(final Path f) throws
+  public RemoteIterator<FileStatus> listLinkStatus(final Path f) throws
       AccessControlException, FileNotFoundException,
       UnsupportedFileSystemException, IOException {
     final Path absF = fixRelativePart(f);
@@ -1375,7 +1412,7 @@ public final class FileContext {
       public RemoteIterator<FileStatus> next(
           final AbstractFileSystem fs, final Path p) 
         throws IOException, UnresolvedLinkException {
-        return fs.listStatusIterator(p);
+        return fs.listLinkStatusIterator(p);
       }
     }.resolve(this, absF);
   }
@@ -1398,6 +1435,48 @@ public final class FileContext {
     }.resolve(this, absF);
   }
   
+  /**
+   * Same as {{@link #listLocatedLinkStatus(Path)}, but resolves symlinks
+   * contained in the directory.
+   *
+   * @throws DirectoryContentsResolutionException if there was an error
+   *     resolving a symlink contained in this directory.
+   */
+  public RemoteIterator<LocatedFileStatus> listLocatedStatus(
+      final Path path) throws
+      AccessControlException, FileNotFoundException,
+      UnsupportedFileSystemException, DirectoryContentsResolutionException,
+      IOException {
+    final RemoteIterator<LocatedFileStatus> iter = listLocatedLinkStatus(path);
+    return new RemoteIterator<LocatedFileStatus>() {
+      @Override
+      public boolean hasNext() throws IOException {
+        return iter.hasNext();
+      }
+
+      @Override
+      public LocatedFileStatus next() throws IOException {
+        LocatedFileStatus status = iter.next();
+        if (status.isSymlink()) {
+          FileStatus result;
+          try {
+            result = getFileStatus(status.getPath());
+          } catch (IOException e) {
+            throw new DirectoryContentsResolutionException("error " +
+              "resolving symlink " + path, e);
+          }
+          BlockLocation[] locs = null;
+          if (result.isFile()) {
+            locs = getFileBlockLocations(
+                result.getPath(), 0, result.getLen());
+          }
+          status = new LocatedFileStatus(result, locs);
+        }
+        return status;
+      }
+    };
+  }
+
   /**
    * List the statuses of the files/directories in the given path if the path is
    * a directory. 
@@ -1425,7 +1504,7 @@ public final class FileContext {
    * @throws UnexpectedServerException If server implementation throws 
    *           undeclared exception to RPC server
    */
-  public RemoteIterator<LocatedFileStatus> listLocatedStatus(
+  public RemoteIterator<LocatedFileStatus> listLocatedLinkStatus(
       final Path f) throws
       AccessControlException, FileNotFoundException,
       UnsupportedFileSystemException, IOException {
@@ -1435,7 +1514,7 @@ public final class FileContext {
       public RemoteIterator<LocatedFileStatus> next(
           final AbstractFileSystem fs, final Path p) 
         throws IOException, UnresolvedLinkException {
-        return fs.listLocatedStatus(p);
+        return fs.listLocatedLinkStatus(p);
       }
     }.resolve(this, absF);
   }
@@ -1601,6 +1680,30 @@ public final class FileContext {
     }
      
     /**
+     * See {@link #listLinkStatus(Path[], PathFilter)}
+     */
+    public FileStatus[] listLinkStatus(Path[] files) throws AccessControlException,
+        FileNotFoundException, IOException {
+      return listLinkStatus(files, DEFAULT_FILTER);
+    }
+
+    /**
+     * Same as {{#listLinkStatus(Path, PathFilter}}, but resolves symlinks
+     * before applying the path filter.
+     *
+     * @throws DirectoryContentsResolutionException if there was an error
+     *     resolving a symlink contained in this directory.
+     */
+    public FileStatus[] listStatus(Path f, PathFilter filter)
+        throws AccessControlException, FileNotFoundException,
+        UnsupportedFileSystemException, DirectoryContentsResolutionException,
+        IOException {
+      ArrayList<FileStatus> results = new ArrayList<FileStatus>();
+      listStatusInternal(results, f, filter, true);
+      return results.toArray(new FileStatus[results.size()]);
+    }
+    
+    /**
      * Filter files/directories in the given path using the user-supplied path
      * filter.
      * 
@@ -1622,17 +1725,34 @@ public final class FileContext {
      * @throws UnexpectedServerException If server implementation throws 
      *           undeclared exception to RPC server
      */
-    public FileStatus[] listStatus(Path f, PathFilter filter)
+    public FileStatus[] listLinkStatus(Path f, PathFilter filter)
         throws AccessControlException, FileNotFoundException,
         UnsupportedFileSystemException, IOException {
       ArrayList<FileStatus> results = new ArrayList<FileStatus>();
-      listStatus(results, f, filter);
+      listStatusInternal(results, f, filter, false);
       return results.toArray(new FileStatus[results.size()]);
     }
-    
+
+    /**
+     * Same as {{#listLinkStatus(Path[], PathFilter}}, but resolves symlinks
+     * before applying the path filter.
+     *
+     * @throws DirectoryContentsResolutionException if there was an error
+     *     resolving a symlink contained in this directory.
+     */
+    public FileStatus[] listStatus(Path[] files, PathFilter filter)
+        throws AccessControlException, FileNotFoundException, 
+        DirectoryContentsResolutionException, IOException {
+      ArrayList<FileStatus> results = new ArrayList<FileStatus>();
+      for (int i = 0; i < files.length; i++) {
+        listStatusInternal(results, files[i], filter, true);
+      }
+      return results.toArray(new FileStatus[results.size()]);
+    }
+
     /**
      * Filter files/directories in the given list of paths using user-supplied
-     * path filter.
+     * path filter. Symlinks in the contents are not resolved.
      * 
      * @param files is a list of paths
      * @param filter is the filter
@@ -1651,11 +1771,11 @@ public final class FileContext {
      * @throws UnexpectedServerException If server implementation throws 
      *           undeclared exception to RPC server
      */
-    public FileStatus[] listStatus(Path[] files, PathFilter filter)
+    public FileStatus[] listLinkStatus(Path[] files, PathFilter filter)
         throws AccessControlException, FileNotFoundException, IOException {
       ArrayList<FileStatus> results = new ArrayList<FileStatus>();
       for (int i = 0; i < files.length; i++) {
-        listStatus(results, files[i], filter);
+        listStatusInternal(results, files[i], filter, false);
       }
       return results.toArray(new FileStatus[results.size()]);
     }
@@ -1664,10 +1784,10 @@ public final class FileContext {
      * Filter files/directories in the given path using the user-supplied path
      * filter. Results are added to the given array <code>results</code>.
      */
-    private void listStatus(ArrayList<FileStatus> results, Path f,
-        PathFilter filter) throws AccessControlException,
+    private void listStatusInternal(ArrayList<FileStatus> results, Path f,
+        PathFilter filter, boolean resolveLinks) throws AccessControlException,
         FileNotFoundException, IOException {
-      FileStatus[] listing = listStatus(f);
+      FileStatus[] listing = resolveLinks ? listStatus(f) : listLinkStatus(f);
       if (listing != null) {
         for (int i = 0; i < listing.length; i++) {
           if (filter.accept(listing[i].getPath())) {
@@ -1678,8 +1798,34 @@ public final class FileContext {
     }
 
     /**
+     * Same as {{#listLinkStatus(Path}}, but resolves symlinks.
+     *
+     * @throws DirectoryContentsResolutionException if there was an error
+     *     resolving a symlink contained in this directory.
+     */
+    public FileStatus[] listStatus(final Path f) throws AccessControlException,
+        FileNotFoundException, UnsupportedFileSystemException,
+        DirectoryContentsResolutionException, IOException {
+      FileStatus[] statuses = listLinkStatus(f);
+      for (int i = 0; i < statuses.length; i++) {
+        FileStatus status = statuses[i];
+        if (status.isSymlink()) {
+          Path path = status.getPath();
+          try {
+            statuses[i] = FileContext.this.getFileStatus(path);
+          } catch (IOException e) {
+            throw new DirectoryContentsResolutionException("Error resolving " +
+                "symlink " + path, e);
+          }
+        }
+      }
+      return statuses;
+    }
+
+    /**
      * List the statuses of the files/directories in the given path 
-     * if the path is a directory.
+     * if the path is a directory. Links in the directory are returned as
+     * links.
      * 
      * @param f is the path
      *
@@ -1698,7 +1844,7 @@ public final class FileContext {
      * @throws UnexpectedServerException If server implementation throws 
      *           undeclared exception to RPC server
      */
-    public FileStatus[] listStatus(final Path f) throws AccessControlException,
+    public FileStatus[] listLinkStatus(final Path f) throws AccessControlException,
         FileNotFoundException, UnsupportedFileSystemException,
         IOException {
       final Path absF = fixRelativePart(f);
@@ -1706,7 +1852,7 @@ public final class FileContext {
         @Override
         public FileStatus[] next(final AbstractFileSystem fs, final Path p) 
           throws IOException, UnresolvedLinkException {
-          return fs.listStatus(p);
+          return fs.listLinkStatus(p);
         }
       }.resolve(FileContext.this, absF);
     }
@@ -1748,7 +1894,7 @@ public final class FileContext {
       return new RemoteIterator<LocatedFileStatus>() {
         private Stack<RemoteIterator<LocatedFileStatus>> itors = 
           new Stack<RemoteIterator<LocatedFileStatus>>();
-        RemoteIterator<LocatedFileStatus> curItor = listLocatedStatus(f);
+        RemoteIterator<LocatedFileStatus> curItor = listLocatedLinkStatus(f);
         LocatedFileStatus curFile;
 
         /**
@@ -1950,6 +2096,8 @@ public final class FileContext {
     
     /**
      * Copy from src to dst, optionally deleting src and overwriting dst.
+     * Symlinks are not preserved.
+     *
      * @param src
      * @param dst
      * @param deleteSource - delete src if true

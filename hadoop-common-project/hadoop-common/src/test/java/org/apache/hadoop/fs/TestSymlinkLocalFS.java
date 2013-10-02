@@ -226,4 +226,11 @@ abstract public class TestSymlinkLocalFS extends SymlinkBaseTest {
       // Expected.
     }
   }
+
+  @Override
+  public void testListingDirectoryWithDanglingSymlinks() throws IOException {
+    // Dangling symlinks are not supported on Windows local file system.
+    assumeTrue(!Path.WINDOWS);
+    super.testListingDirectoryWithDanglingSymlinks();
+  }
 }
