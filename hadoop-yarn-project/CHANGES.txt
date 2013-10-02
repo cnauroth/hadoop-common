@@ -47,6 +47,8 @@ Release 2.3.0 - UNRELEASED
     YARN-677. Increase coverage to FairScheduler (Vadim Bondarev and Dennis Y
     via jeagles)
 
+    YARN-425. coverage fix for yarn api (Aleksey Gorshkov via jeagles)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -123,6 +125,9 @@ Release 2.1.2 - UNRELEASED
     YARN-1260. Added webapp.http.address to yarn-default.xml so that default
     install with https enabled doesn't have broken link on NM UI. (Omkar Vinit
     Joshi via vinodkv)
+
+    YARN-1141. Updating resource requests should be decoupled with updating
+    blacklist (Zhijie Shen via bikas)
 
 Release 2.1.1-beta - 2013-09-23
 
