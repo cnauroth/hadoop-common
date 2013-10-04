@@ -44,10 +44,9 @@ Release 2.3.0 - UNRELEASED
     YARN-819. ResourceManager and NodeManager should check for a minimum allowed
     version (Robert Parker via jeagles)
 
-    YARN-677. Increase coverage to FairScheduler (Vadim Bondarev and Dennis Y
-    via jeagles)
-
     YARN-425. coverage fix for yarn api (Aleksey Gorshkov via jeagles)
+
+    YARN-1199. Make NM/RM Versions Available (Mit Desai via jeagles)
 
   OPTIMIZATIONS
 
@@ -92,6 +91,9 @@ Release 2.1.2 - UNRELEASED
 
     YARN-1228. Clean up Fair Scheduler configuration loading. (Sandy Ryza)
 
+    YARN-1213. Restore config to ban submitting to undeclared pools in the
+    Fair Scheduler. (Sandy Ryza)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -128,6 +130,31 @@ Release 2.1.2 - UNRELEASED
 
     YARN-1141. Updating resource requests should be decoupled with updating
     blacklist (Zhijie Shen via bikas)
+
+    YARN-876. Node resource is added twice when node comes back from unhealthy
+    to healthy. (Peng Zhang via Sandy Ryza)
+
+    YARN-890. Ensure CapacityScheduler doesn't round-up metric for available 
+    resources. (Xuan Gong & Hitesh Shah via acmurthy)
+
+    YARN-621. Changed YARN web app to not add paths that can cause duplicate
+    additions of authenticated filters there by causing kerberos replay errors.
+    (Omkar Vinit Joshi via vinodkv)
+
+    YARN-1236. FairScheduler setting queue name in RMApp is not working.
+    (Sandy Ryza)
+
+    YARN-1256. NM silently ignores non-existent service in
+    StartContainerRequest (Xuan Gong via bikas)
+
+    YARN-1149. NM throws InvalidStateTransitonException: Invalid event:
+    APPLICATION_LOG_HANDLING_FINISHED at RUNNING (Xuan Gong via hitesh)
+
+    YARN-1271. "Text file busy" errors launching containers again
+    (Sandy Ryza)
+
+    YARN-1131. $yarn logs command should return an appropriate error message if
+    YARN application is still running. (Siddharth Seth via hitesh)
 
 Release 2.1.1-beta - 2013-09-23
 

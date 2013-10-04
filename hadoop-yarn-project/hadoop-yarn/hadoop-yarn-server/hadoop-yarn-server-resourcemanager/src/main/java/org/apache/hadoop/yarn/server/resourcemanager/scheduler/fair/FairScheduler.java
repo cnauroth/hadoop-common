@@ -634,7 +634,8 @@ public class FairScheduler implements ResourceScheduler {
       return;
     }
 
-    RMApp rmApp = rmContext.getRMApps().get(applicationAttemptId);
+    RMApp rmApp = rmContext.getRMApps().get(
+        applicationAttemptId.getApplicationId());
     FSLeafQueue queue = assignToQueue(rmApp, queueName, user);
 
     FSSchedulerApp schedulerApp =
@@ -677,14 +678,17 @@ public class FairScheduler implements ResourceScheduler {
       queueName = user;
     }
     
-    FSLeafQueue queue = queueMgr.getLeafQueue(queueName);
+    FSLeafQueue queue = queueMgr.getLeafQueue(queueName,
+        conf.getAllowUndeclaredPools());
     if (queue == null) {
       // queue is not an existing or createable leaf queue
-      queue = queueMgr.getLeafQueue(YarnConfiguration.DEFAULT_QUEUE_NAME);
+      queue = queueMgr.getLeafQueue(YarnConfiguration.DEFAULT_QUEUE_NAME, false);
     }
     
     if (rmApp != null) {
       rmApp.setQueue(queue.getName());
+    } else {
+      LOG.warn("Couldn't find RM app to set queue name on");
     }
     
     return queue;
@@ -726,7 +730,7 @@ public class FairScheduler implements ResourceScheduler {
 
     // Inform the queue
     FSLeafQueue queue = queueMgr.getLeafQueue(application.getQueue()
-        .getQueueName());
+        .getQueueName(), false);
     queue.removeApp(application);
 
     // Remove from our data-structure
