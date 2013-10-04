@@ -364,19 +364,45 @@ public class ViewFileSystem extends FileSystem {
       fsState.resolve(getUriPath(f), true);
     
     FileStatus[] statusLst = res.targetFileSystem.listStatus(res.remainingPath);
+    convertFileStatuses(f, res, statusLst);
+    return statusLst;
+  }
+
+  @Override
+  public FileStatus[] listLinkStatus(final Path f) throws AccessControlException,
+      FileNotFoundException, IOException {
+    InodeTree.ResolveResult<FileSystem> res =
+      fsState.resolve(getUriPath(f), true);
+    
+    FileStatus[] statusLst = res.targetFileSystem.listLinkStatus(
+      res.remainingPath);
+    convertFileStatuses(f, res, statusLst);
+    return statusLst;
+  }
+
+  /**
+   * If the path was resolved outside of the mount table, then change the name in
+   * the FileStatus as described in {@link #getFileStatus }.
+   * 
+   * @param f Path path that was resolved
+   * @param res InodeTree.ResolveResult<FileSystem> obtained from resolving path
+   * @param statusLst FileStatus[] containing every FileStatus to convert on
+   *   input, contains every corresponding converted FileStatus on output
+   * @throws IOException if a path cannot be converted
+   */
+  private void convertFileStatuses(Path f,
+      InodeTree.ResolveResult<FileSystem> res, FileStatus[] statusLst)
+      throws IOException {
     if (!res.isInternalDir()) {
-      // We need to change the name in the FileStatus as described in
-      // {@link #getFileStatus }
       ChRootedFileSystem targetFs;
       targetFs = (ChRootedFileSystem) res.targetFileSystem;
       int i = 0;
       for (FileStatus status : statusLst) {
-          String suffix = targetFs.stripOutRoot(status.getPath());
-          statusLst[i++] = new ViewFsFileStatus(status, this.makeQualified(
-              suffix.length() == 0 ? f : new Path(res.resolvedPath, suffix)));
+        String suffix = targetFs.stripOutRoot(status.getPath());
+        statusLst[i++] = new ViewFsFileStatus(status, this.makeQualified(
+            suffix.length() == 0 ? f : new Path(res.resolvedPath, suffix)));
       }
     }
-    return statusLst;
   }
 
   @Override
