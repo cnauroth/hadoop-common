@@ -1614,8 +1614,9 @@ public class DistributedFileSystem extends FileSystem {
    * @return A RemoteIterator which returns PathBasedCacheDescriptor objects.
    */
   public RemoteIterator<PathBasedCacheDescriptor> listPathBasedCacheDescriptors(
-      String pool, String path) throws IOException {
-    return dfs.listPathBasedCacheDescriptors(pool, path);
+      String pool, Path path) throws IOException {
+    String pathName = getPathName(fixRelativePart(path));
+    return dfs.listPathBasedCacheDescriptors(pool, pathName);
   }
 
   /**

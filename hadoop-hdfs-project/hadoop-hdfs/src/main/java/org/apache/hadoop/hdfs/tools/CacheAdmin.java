@@ -26,6 +26,7 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
@@ -281,7 +282,7 @@ public class CacheAdmin extends Configured implements Tool {
           build();
       DistributedFileSystem dfs = getDFS(conf);
       RemoteIterator<PathBasedCacheDescriptor> iter =
-          dfs.listPathBasedCacheDescriptors(poolFilter, pathFilter);
+          dfs.listPathBasedCacheDescriptors(poolFilter, new Path(pathFilter));
       int numEntries = 0;
       while (iter.hasNext()) {
         PathBasedCacheDescriptor entry = iter.next();
