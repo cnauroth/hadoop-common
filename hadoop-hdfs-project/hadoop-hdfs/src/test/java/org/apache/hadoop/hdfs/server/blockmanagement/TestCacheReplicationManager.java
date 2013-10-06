@@ -155,7 +155,7 @@ public class TestCacheReplicationManager {
       PathBasedCacheDescriptor descriptor =
           nnRpc.addPathBasedCacheDirective(directive);
       assertEquals("Descriptor does not match requested path", paths.get(i),
-          descriptor.getPath());
+          descriptor.getPath().toUri().getPath());
       assertEquals("Descriptor does not match requested pool", pool,
           descriptor.getPool());
       expected += numBlocksPerFile;
@@ -205,7 +205,7 @@ public class TestCacheReplicationManager {
       assertTrue("Unexpected # of cache entries: " + i, dit.hasNext());
       PathBasedCacheDescriptor cd = dit.next();
       assertEquals(i+1, cd.getEntryId());
-      assertEquals(entryPrefix + i, cd.getPath());
+      assertEquals(entryPrefix + i, cd.getPath().toUri().getPath());
       assertEquals(pool, cd.getPool());
     }
     assertFalse("Unexpected # of cache descriptors found", dit.hasNext());
@@ -229,7 +229,7 @@ public class TestCacheReplicationManager {
       assertTrue("Unexpected # of cache entries: " + i, dit.hasNext());
       PathBasedCacheDescriptor cd = dit.next();
       assertEquals(i+1, cd.getEntryId());
-      assertEquals(entryPrefix + i, cd.getPath());
+      assertEquals(entryPrefix + i, cd.getPath().toUri().getPath());
       assertEquals(pool, cd.getPool());
     }
     assertFalse("Unexpected # of cache descriptors found", dit.hasNext());
