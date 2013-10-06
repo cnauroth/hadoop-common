@@ -347,8 +347,8 @@ public class TestPathBasedCacheRequests {
         "pool1"));
       fail("expected an error when adding a malformed path " +
           "to the cache directives.");
-    } catch (IOException ioe) {
-      assertTrue(ioe instanceof InvalidPathNameError);
+    } catch (IllegalArgumentException e) {
+      // expected
     }
 
     try {
