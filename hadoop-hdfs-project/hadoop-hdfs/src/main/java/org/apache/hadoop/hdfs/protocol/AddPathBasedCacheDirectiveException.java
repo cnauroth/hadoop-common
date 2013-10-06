@@ -29,19 +29,6 @@ public abstract class AddPathBasedCacheDirectiveException extends IOException {
     super(description);
   }
 
-  public static final class EmptyPathError
-      extends AddPathBasedCacheDirectiveException {
-    private static final long serialVersionUID = 1L;
-
-    public EmptyPathError(String msg) {
-      super(msg);
-    }
-
-    public EmptyPathError(PathBasedCacheDirective directive) {
-      this("empty path in directive " + directive);
-    }
-  }
-
   public static class InvalidPathNameError
       extends AddPathBasedCacheDirectiveException {
     private static final long serialVersionUID = 1L;

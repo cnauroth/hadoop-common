@@ -25,8 +25,8 @@ import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.DFSUtil;
-import org.apache.hadoop.hdfs.protocol.AddPathBasedCacheDirectiveException.EmptyPathError;
 import org.apache.hadoop.hdfs.protocol.AddPathBasedCacheDirectiveException.InvalidPoolNameError;
 import org.apache.hadoop.hdfs.protocol.AddPathBasedCacheDirectiveException.InvalidPathNameError;
 
@@ -36,11 +36,11 @@ import org.apache.hadoop.hdfs.protocol.AddPathBasedCacheDirectiveException.Inval
 @InterfaceStability.Evolving
 @InterfaceAudience.Public
 public class PathBasedCacheDirective {
-  private final String path;
+  private final Path path;
 
   private final String pool;
 
-  public PathBasedCacheDirective(String path, String pool) {
+  public PathBasedCacheDirective(Path path, String pool) {
     Preconditions.checkNotNull(path);
     Preconditions.checkNotNull(pool);
     this.path = path;
@@ -50,7 +50,7 @@ public class PathBasedCacheDirective {
   /**
    * @return The path used in this request.
    */
-  public String getPath() {
+  public Path getPath() {
     return path;
   }
 
@@ -68,10 +68,7 @@ public class PathBasedCacheDirective {
    *     If this PathBasedCacheDirective is not valid.
    */
   public void validate() throws IOException {
-    if (path.isEmpty()) {
-      throw new EmptyPathError(this);
-    }
-    if (!DFSUtil.isValidName(path)) {
+    if (!DFSUtil.isValidName(path.toUri().getPath())) {
       throw new InvalidPathNameError(this);
     }
     if (pool.isEmpty()) {

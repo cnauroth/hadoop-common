@@ -31,13 +31,13 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
-import org.apache.hadoop.hdfs.protocol.AddPathBasedCacheDirectiveException.EmptyPathError;
 import org.apache.hadoop.hdfs.protocol.AddPathBasedCacheDirectiveException.InvalidPathNameError;
 import org.apache.hadoop.hdfs.protocol.AddPathBasedCacheDirectiveException.InvalidPoolNameError;
 import org.apache.hadoop.hdfs.protocol.AddPathBasedCacheDirectiveException.PoolWritePermissionDeniedError;
@@ -313,11 +313,11 @@ public class TestPathBasedCacheRequests {
         setMode(new FsPermission((short)0)));
 
     PathBasedCacheDirective alpha =
-        new PathBasedCacheDirective("/alpha", "pool1");
+        new PathBasedCacheDirective(new Path("/alpha"), "pool1");
     PathBasedCacheDirective beta =
-        new PathBasedCacheDirective("/beta", "pool2");
+        new PathBasedCacheDirective(new Path("/beta"), "pool2");
     PathBasedCacheDirective delta =
-        new PathBasedCacheDirective("/delta", "pool1");
+        new PathBasedCacheDirective(new Path("/delta"), "pool1");
 
     PathBasedCacheDescriptor alphaD = addAsUnprivileged(alpha);
     PathBasedCacheDescriptor alphaD2 = addAsUnprivileged(alpha);
@@ -326,21 +326,16 @@ public class TestPathBasedCacheRequests {
     PathBasedCacheDescriptor betaD = addAsUnprivileged(beta);
 
     try {
-      addAsUnprivileged(new PathBasedCacheDirective("", "pool3"));
-      fail("expected an error when adding an empty path");
-    } catch (IOException ioe) {
-      assertTrue(ioe instanceof EmptyPathError);
-    }
-
-    try {
-      addAsUnprivileged(new PathBasedCacheDirective("/unicorn", "no_such_pool"));
+      addAsUnprivileged(new PathBasedCacheDirective(new Path("/unicorn"),
+        "no_such_pool"));
       fail("expected an error when adding to a non-existent pool.");
     } catch (IOException ioe) {
       assertTrue(ioe instanceof InvalidPoolNameError);
     }
 
     try {
-      addAsUnprivileged(new PathBasedCacheDirective("/blackhole", "pool4"));
+      addAsUnprivileged(new PathBasedCacheDirective(new Path("/blackhole"),
+        "pool4"));
       fail("expected an error when adding to a pool with " +
           "mode 0 (no permissions for anyone).");
     } catch (IOException ioe) {
@@ -348,7 +343,8 @@ public class TestPathBasedCacheRequests {
     }
 
     try {
-      addAsUnprivileged(new PathBasedCacheDirective("//illegal/path/", "pool1"));
+      addAsUnprivileged(new PathBasedCacheDirective(new Path("/illegal:path/"),
+        "pool1"));
       fail("expected an error when adding a malformed path " +
           "to the cache directives.");
     } catch (IOException ioe) {
@@ -356,35 +352,33 @@ public class TestPathBasedCacheRequests {
     }
 
     try {
-      addAsUnprivileged(new PathBasedCacheDirective("/emptypoolname", ""));
+      addAsUnprivileged(new PathBasedCacheDirective(new Path("/emptypoolname"),
+        ""));
       Assert.fail("expected an error when adding a PathBasedCache " +
           "directive with an empty pool name.");
     } catch (IOException ioe) {
       Assert.assertTrue(ioe instanceof InvalidPoolNameError);
     }
 
-    try {
-      addAsUnprivileged(new PathBasedCacheDirective("bogus", "pool1"));
-      Assert.fail("expected an error when adding a PathBasedCache " +
-          "directive with a non-absolute path name.");
-    } catch (IOException ioe) {
-      Assert.assertTrue(ioe instanceof InvalidPathNameError);
-    }
-
     PathBasedCacheDescriptor deltaD = addAsUnprivileged(delta);
 
+    // We expect the following to succeed, because DistributedFileSystem
+    // qualifies the path.
+    PathBasedCacheDescriptor relativeD = addAsUnprivileged(
+      new PathBasedCacheDirective(new Path("relative"), "pool1"));
+
     RemoteIterator<PathBasedCacheDescriptor> iter;
-    iter = proto.listPathBasedCacheDescriptors(0, null, null);
-    validateListAll(iter, alphaD, betaD, deltaD);
-    iter = proto.listPathBasedCacheDescriptors(0, "pool3", null);
+    iter = dfs.listPathBasedCacheDescriptors(null, null);
+    validateListAll(iter, alphaD, betaD, deltaD, relativeD);
+    iter = dfs.listPathBasedCacheDescriptors("pool3", null);
     Assert.assertFalse(iter.hasNext());
-    iter = proto.listPathBasedCacheDescriptors(0, "pool1", null);
-    validateListAll(iter, alphaD, deltaD);
-    iter = proto.listPathBasedCacheDescriptors(0, "pool2", null);
+    iter = dfs.listPathBasedCacheDescriptors("pool1", null);
+    validateListAll(iter, alphaD, deltaD, relativeD);
+    iter = dfs.listPathBasedCacheDescriptors("pool2", null);
     validateListAll(iter, betaD);
 
     dfs.removePathBasedCacheDescriptor(betaD);
-    iter = proto.listPathBasedCacheDescriptors(0, "pool2", null);
+    iter = dfs.listPathBasedCacheDescriptors("pool2", null);
     Assert.assertFalse(iter.hasNext());
 
     try {
@@ -409,7 +403,8 @@ public class TestPathBasedCacheRequests {
 
     dfs.removePathBasedCacheDescriptor(alphaD);
     dfs.removePathBasedCacheDescriptor(deltaD);
-    iter = proto.listPathBasedCacheDescriptors(0, null, null);
+    dfs.removePathBasedCacheDescriptor(relativeD);
+    iter = dfs.listPathBasedCacheDescriptors(null, null);
     assertFalse(iter.hasNext());
   }
 }

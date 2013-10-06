@@ -25,6 +25,7 @@ import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.FsServerDefaults;
 import org.apache.hadoop.fs.Options.Rename;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.protocol.CachePoolInfo;
@@ -1036,7 +1037,8 @@ public class ClientNamenodeProtocolServerSideTranslatorPB implements
     try {
       PathBasedCacheDirectiveProto proto = request.getDirective();
       PathBasedCacheDirective directive =
-          new PathBasedCacheDirective(proto.getPath(), proto.getPool());
+          new PathBasedCacheDirective(new Path(proto.getPath()),
+          proto.getPool());
       PathBasedCacheDescriptor descriptor =
           server.addPathBasedCacheDirective(directive);
       AddPathBasedCacheDirectiveResponseProto.Builder builder =
@@ -1080,7 +1082,7 @@ public class ClientNamenodeProtocolServerSideTranslatorPB implements
         builder.addElements(
             ListPathBasedCacheDescriptorsElementProto.newBuilder().
               setId(directive.getEntryId()).
-              setPath(directive.getPath()).
+              setPath(directive.getPath().toUri().getPath()).
               setPool(directive.getPool()));
         prevId = directive.getEntryId();
       }

@@ -1591,7 +1591,9 @@ public class DistributedFileSystem extends FileSystem {
    */
   public PathBasedCacheDescriptor addPathBasedCacheDirective(
       PathBasedCacheDirective directive) throws IOException {
-    return dfs.addPathBasedCacheDirective(directive);
+    return dfs.addPathBasedCacheDirective(new PathBasedCacheDirective(
+      directive.getPath().makeQualified(getUri(), getWorkingDirectory()),
+      directive.getPool()));
   }
   
   /**
@@ -1615,8 +1617,24 @@ public class DistributedFileSystem extends FileSystem {
    */
   public RemoteIterator<PathBasedCacheDescriptor> listPathBasedCacheDescriptors(
       String pool, Path path) throws IOException {
-    String pathName = getPathName(fixRelativePart(path));
-    return dfs.listPathBasedCacheDescriptors(pool, pathName);
+    String pathName = path != null ? getPathName(fixRelativePart(path)) : null;
+    final RemoteIterator<PathBasedCacheDescriptor> iter =
+      dfs.listPathBasedCacheDescriptors(pool, pathName);
+    return new RemoteIterator<PathBasedCacheDescriptor>() {
+      @Override
+      public boolean hasNext() throws IOException {
+        return iter.hasNext();
+      }
+
+      @Override
+      public PathBasedCacheDescriptor next() throws IOException {
+        PathBasedCacheDescriptor desc = iter.next();
+        Path qualPath = desc.getPath().makeQualified(getUri(),
+          getWorkingDirectory());
+        return new PathBasedCacheDescriptor(desc.getEntryId(), qualPath,
+          desc.getPool());
+      }
+    };
   }
 
   /**

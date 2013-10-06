@@ -166,7 +166,8 @@ public class CacheAdmin extends Configured implements Tool {
         
       DistributedFileSystem dfs = getDFS(conf);
       PathBasedCacheDirective directive =
-          new PathBasedCacheDirective(path, poolName);
+          new PathBasedCacheDirective(path != null ? new Path(path) : null,
+            poolName);
 
       try {
         PathBasedCacheDescriptor descriptor =
@@ -282,12 +283,14 @@ public class CacheAdmin extends Configured implements Tool {
           build();
       DistributedFileSystem dfs = getDFS(conf);
       RemoteIterator<PathBasedCacheDescriptor> iter =
-          dfs.listPathBasedCacheDescriptors(poolFilter, new Path(pathFilter));
+          dfs.listPathBasedCacheDescriptors(poolFilter, pathFilter != null ?
+            new Path(pathFilter) : null);
       int numEntries = 0;
       while (iter.hasNext()) {
         PathBasedCacheDescriptor entry = iter.next();
         String row[] = new String[] {
-            "" + entry.getEntryId(), entry.getPool(), entry.getPath(),
+            "" + entry.getEntryId(), entry.getPool(),
+            entry.getPath().toUri().getPath(),
         };
         tableListing.addRow(row);
         numEntries++;
