@@ -150,8 +150,10 @@ public class TestCacheReplicationManager {
     waitForExpectedNumCachedBlocks(expected);
     // Cache and check each path in sequence
     for (int i=0; i<numFiles; i++) {
-      PathBasedCacheDirective directive = new PathBasedCacheDirective(new Path(
-           paths.get(i)), pool);
+      PathBasedCacheDirective directive = new PathBasedCacheDirective.Builder().
+          setPath(new Path(paths.get(i))).
+          setPool(pool).
+          build();
       PathBasedCacheDescriptor descriptor =
           nnRpc.addPathBasedCacheDirective(directive);
       assertEquals("Descriptor does not match requested path", paths.get(i),
@@ -196,8 +198,10 @@ public class TestCacheReplicationManager {
     int numEntries = 10;
     String entryPrefix = "/party-";
     for (int i=0; i<numEntries; i++) {
-      dfs.addPathBasedCacheDirective(new PathBasedCacheDirective(
-        new Path(entryPrefix + i), pool));
+      dfs.addPathBasedCacheDirective(new PathBasedCacheDirective.Builder().
+          setPath(new Path(entryPrefix + i)).
+          setPool(pool).
+          build());
     }
     RemoteIterator<PathBasedCacheDescriptor> dit
         = dfs.listPathBasedCacheDescriptors(null, null);

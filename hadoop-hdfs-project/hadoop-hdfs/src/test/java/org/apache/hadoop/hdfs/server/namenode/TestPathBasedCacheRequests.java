@@ -312,12 +312,18 @@ public class TestPathBasedCacheRequests {
     proto.addCachePool(new CachePoolInfo("pool4").
         setMode(new FsPermission((short)0)));
 
-    PathBasedCacheDirective alpha =
-        new PathBasedCacheDirective(new Path("/alpha"), "pool1");
-    PathBasedCacheDirective beta =
-        new PathBasedCacheDirective(new Path("/beta"), "pool2");
-    PathBasedCacheDirective delta =
-        new PathBasedCacheDirective(new Path("/delta"), "pool1");
+    PathBasedCacheDirective alpha = new PathBasedCacheDirective.Builder().
+        setPath(new Path("/alpha")).
+        setPool("pool1").
+        build();
+    PathBasedCacheDirective beta = new PathBasedCacheDirective.Builder().
+        setPath(new Path("/beta")).
+        setPool("pool2").
+        build();
+    PathBasedCacheDirective delta = new PathBasedCacheDirective.Builder().
+        setPath(new Path("/delta")).
+        setPool("pool1").
+        build();
 
     PathBasedCacheDescriptor alphaD = addAsUnprivileged(alpha);
     PathBasedCacheDescriptor alphaD2 = addAsUnprivileged(alpha);
@@ -326,16 +332,20 @@ public class TestPathBasedCacheRequests {
     PathBasedCacheDescriptor betaD = addAsUnprivileged(beta);
 
     try {
-      addAsUnprivileged(new PathBasedCacheDirective(new Path("/unicorn"),
-        "no_such_pool"));
+      addAsUnprivileged(new PathBasedCacheDirective.Builder().
+          setPath(new Path("/unicorn")).
+          setPool("no_such_pool").
+          build());
       fail("expected an error when adding to a non-existent pool.");
     } catch (IOException ioe) {
       assertTrue(ioe instanceof InvalidPoolNameError);
     }
 
     try {
-      addAsUnprivileged(new PathBasedCacheDirective(new Path("/blackhole"),
-        "pool4"));
+      addAsUnprivileged(new PathBasedCacheDirective.Builder().
+          setPath(new Path("/blackhole")).
+          setPool("pool4").
+          build());
       fail("expected an error when adding to a pool with " +
           "mode 0 (no permissions for anyone).");
     } catch (IOException ioe) {
@@ -343,8 +353,10 @@ public class TestPathBasedCacheRequests {
     }
 
     try {
-      addAsUnprivileged(new PathBasedCacheDirective(new Path("/illegal:path/"),
-        "pool1"));
+      addAsUnprivileged(new PathBasedCacheDirective.Builder().
+          setPath(new Path("/illegal:path/")).
+          setPool("pool1").
+          build());
       fail("expected an error when adding a malformed path " +
           "to the cache directives.");
     } catch (IllegalArgumentException e) {
@@ -352,8 +364,10 @@ public class TestPathBasedCacheRequests {
     }
 
     try {
-      addAsUnprivileged(new PathBasedCacheDirective(new Path("/emptypoolname"),
-        ""));
+      addAsUnprivileged(new PathBasedCacheDirective.Builder().
+          setPath(new Path("/emptypoolname")).
+          setPool("").
+          build());
       Assert.fail("expected an error when adding a PathBasedCache " +
           "directive with an empty pool name.");
     } catch (IOException ioe) {
@@ -365,7 +379,10 @@ public class TestPathBasedCacheRequests {
     // We expect the following to succeed, because DistributedFileSystem
     // qualifies the path.
     PathBasedCacheDescriptor relativeD = addAsUnprivileged(
-      new PathBasedCacheDirective(new Path("relative"), "pool1"));
+        new PathBasedCacheDirective.Builder().
+            setPath(new Path("relative")).
+            setPool("pool1").
+            build());
 
     RemoteIterator<PathBasedCacheDescriptor> iter;
     iter = dfs.listPathBasedCacheDescriptors(null, null);

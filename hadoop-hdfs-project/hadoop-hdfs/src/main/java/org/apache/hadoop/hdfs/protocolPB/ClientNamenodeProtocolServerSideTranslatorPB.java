@@ -1036,9 +1036,10 @@ public class ClientNamenodeProtocolServerSideTranslatorPB implements
       throws ServiceException {
     try {
       PathBasedCacheDirectiveProto proto = request.getDirective();
-      PathBasedCacheDirective directive =
-          new PathBasedCacheDirective(new Path(proto.getPath()),
-          proto.getPool());
+      PathBasedCacheDirective directive = new PathBasedCacheDirective.Builder().
+          setPath(new Path(proto.getPath())).
+          setPool(proto.getPool()).
+          build();
       PathBasedCacheDescriptor descriptor =
           server.addPathBasedCacheDirective(directive);
       AddPathBasedCacheDirectiveResponseProto.Builder builder =

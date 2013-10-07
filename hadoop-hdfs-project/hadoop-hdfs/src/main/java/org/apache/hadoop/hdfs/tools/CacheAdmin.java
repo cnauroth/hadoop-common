@@ -165,9 +165,10 @@ public class CacheAdmin extends Configured implements Tool {
       }
         
       DistributedFileSystem dfs = getDFS(conf);
-      PathBasedCacheDirective directive =
-          new PathBasedCacheDirective(path != null ? new Path(path) : null,
-            poolName);
+      PathBasedCacheDirective directive = new PathBasedCacheDirective.Builder().
+          setPath(path != null ? new Path(path) : null).
+          setPool(poolName).
+          build();
 
       try {
         PathBasedCacheDescriptor descriptor =
