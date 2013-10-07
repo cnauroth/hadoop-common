@@ -373,7 +373,7 @@ public final class CacheManager {
    * @param info The info for the cache pool to create.
    * @return the created CachePool
    */
-  public synchronized CachePool addCachePool(CachePoolInfo info)
+  public synchronized CachePoolInfo addCachePool(CachePoolInfo info)
       throws IOException {
     CachePoolInfo.validate(info);
     String poolName = info.getPoolName();
@@ -381,11 +381,9 @@ public final class CacheManager {
     if (pool != null) {
       throw new IOException("cache pool " + poolName + " already exists.");
     }
-    CachePool cachePool = new CachePool(poolName,
-      info.getOwnerName(), info.getGroupName(), info.getMode(),
-      info.getWeight());
-    unprotectedAddCachePool(cachePool);
-    return cachePool;
+    pool = CachePool.createFromInfoAndDefaults(info);
+    cachePools.put(pool.getPoolName(), pool);
+    return pool.getInfo(true);
   }
 
   /**
@@ -394,8 +392,9 @@ public final class CacheManager {
    * 
    * @param pool to be added
    */
-  void unprotectedAddCachePool(CachePool pool) {
+  void unprotectedAddCachePool(CachePoolInfo info) {
     assert namesystem.hasWriteLock();
+    CachePool pool = CachePool.createFromInfo(info);
     cachePools.put(pool.getPoolName(), pool);
     LOG.info("created new cache pool " + pool);
   }
@@ -540,7 +539,7 @@ public final class CacheManager {
     Counter counter = prog.getCounter(Phase.SAVING_CHECKPOINT, step);
     out.writeInt(cachePools.size());
     for (CachePool pool: cachePools.values()) {
-      pool.writeTo(out);
+      pool.getInfo(true).writeTo(out);
       counter.increment();
     }
     prog.endStep(Phase.SAVING_CHECKPOINT, step);
@@ -578,8 +577,8 @@ public final class CacheManager {
     prog.setTotal(Phase.LOADING_FSIMAGE, step, numberOfPools);
     Counter counter = prog.getCounter(Phase.LOADING_FSIMAGE, step);
     for (int i = 0; i < numberOfPools; i++) {
-      CachePool pool = CachePool.readFrom(in);
-      unprotectedAddCachePool(pool);
+      CachePoolInfo info = CachePoolInfo.readFrom(in);
+      unprotectedAddCachePool(info);
       counter.increment();
     }
     prog.endStep(Phase.LOADING_FSIMAGE, step);
