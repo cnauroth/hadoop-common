@@ -67,6 +67,6 @@ public final class PathBasedCacheEntry {
 
   public PathBasedCacheDescriptor getDescriptor() {
     return new PathBasedCacheDescriptor(entryId, new Path(path),
-      pool.getPoolName());
+        pool.getPoolName());
   }
 };

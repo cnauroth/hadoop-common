@@ -285,7 +285,7 @@ public class CacheAdmin extends Configured implements Tool {
       DistributedFileSystem dfs = getDFS(conf);
       RemoteIterator<PathBasedCacheDescriptor> iter =
           dfs.listPathBasedCacheDescriptors(poolFilter, pathFilter != null ?
-            new Path(pathFilter) : null);
+              new Path(pathFilter) : null);
       int numEntries = 0;
       while (iter.hasNext()) {
         PathBasedCacheDescriptor entry = iter.next();

@@ -1591,8 +1591,8 @@ public class DistributedFileSystem extends FileSystem {
    */
   public PathBasedCacheDescriptor addPathBasedCacheDirective(
       PathBasedCacheDirective directive) throws IOException {
-    Path path = new Path(getPathName(fixRelativePart(directive.getPath())))
-        .makeQualified(getUri(), getWorkingDirectory());
+    Path path = new Path(getPathName(fixRelativePart(directive.getPath()))).
+        makeQualified(getUri(), getWorkingDirectory());
     return dfs.addPathBasedCacheDirective(new PathBasedCacheDirective.Builder().
         setPath(path).
         setPool(directive.getPool()).

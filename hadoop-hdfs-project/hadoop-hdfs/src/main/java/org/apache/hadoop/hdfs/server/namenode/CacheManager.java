@@ -316,11 +316,11 @@ public final class CacheManager {
 
     // Set the path as uncached in the namesystem
     try {
-      INode node = dir.getINode(existing.getDescriptor().getPath().toUri()
-        .getPath());
+      INode node = dir.getINode(existing.getDescriptor().getPath().toUri().
+          getPath());
       if (node != null && node.isFile()) {
-        namesystem.setCacheReplicationInt(existing.getDescriptor().getPath()
-          .toUri().getPath(), (short) 0);
+        namesystem.setCacheReplicationInt(existing.getDescriptor().getPath().
+            toUri().getPath(), (short) 0);
       }
     } catch (IOException e) {
       LOG.warn("removeDescriptor " + id + ": failure while setting cache"
