@@ -28,6 +28,7 @@ import org.apache.hadoop.fs.Options.Rename;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.hdfs.protocol.AddPathBasedCacheDirectiveException.EmptyPathError;
 import org.apache.hadoop.hdfs.protocol.CachePoolInfo;
 import org.apache.hadoop.hdfs.protocol.ClientProtocol;
 import org.apache.hadoop.hdfs.protocol.CorruptFileBlocks;
@@ -1036,6 +1037,9 @@ public class ClientNamenodeProtocolServerSideTranslatorPB implements
       throws ServiceException {
     try {
       PathBasedCacheDirectiveProto proto = request.getDirective();
+      if (proto.getPath().isEmpty()) {
+        throw new EmptyPathError();
+      }
       PathBasedCacheDirective directive = new PathBasedCacheDirective.Builder().
           setPath(new Path(proto.getPath())).
           setPool(proto.getPool()).
