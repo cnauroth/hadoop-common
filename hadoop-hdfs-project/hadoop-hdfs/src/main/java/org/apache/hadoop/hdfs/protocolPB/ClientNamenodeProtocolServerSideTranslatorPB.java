@@ -178,6 +178,8 @@ import org.apache.hadoop.security.proto.SecurityProtos.RenewDelegationTokenReque
 import org.apache.hadoop.security.proto.SecurityProtos.RenewDelegationTokenResponseProto;
 import org.apache.hadoop.security.token.Token;
 
+import org.apache.commons.lang.StringUtils;
+
 import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
 
@@ -1037,7 +1039,7 @@ public class ClientNamenodeProtocolServerSideTranslatorPB implements
       throws ServiceException {
     try {
       PathBasedCacheDirectiveProto proto = request.getDirective();
-      if (proto.getPath().isEmpty()) {
+      if (StringUtils.isEmpty(proto.getPath())) {
         throw new EmptyPathError();
       }
       PathBasedCacheDirective directive = new PathBasedCacheDirective.Builder().
