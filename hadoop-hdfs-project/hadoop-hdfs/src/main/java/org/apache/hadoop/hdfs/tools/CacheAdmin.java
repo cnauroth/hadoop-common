@@ -253,6 +253,54 @@ public class CacheAdmin extends Configured implements Tool {
     }
   }
 
+  private static class RemovePathBasedCacheDirectivesCommand implements Command {
+    @Override
+    public String getName() {
+      return "-removeDirectives";
+    }
+
+    @Override
+    public String getShortUsage() {
+      return "[" + getName() + " <path>]\n";
+    }
+
+    @Override
+    public String getLongUsage() {
+      TableListing listing = getOptionDescriptionListing();
+      listing.addRow("<path>", "The path of the cache directives to remove. " +
+        "You must have write permission on every pool of every directive with " +
+        "the path in order to remove them.  To see a list of cache " +
+        "directives, use the -list command.");
+      return getShortUsage() + "\n" +
+        "Remove every cache directive with the specified path.\n\n" +
+        listing.toString();
+    }
+
+    @Override
+    public int run(Configuration conf, List<String> args) throws IOException {
+      String path = StringUtils.popOptionWithArgument("-path", args);
+      if (path == null) {
+        System.err.println("You must specify a path with -path.");
+        return 1;
+      }
+      if (!args.isEmpty()) {
+        System.err.println("Can't understand argument: " + args.get(0));
+        System.err.println("Usage is " + getShortUsage());
+        return 1;
+      }
+      DistributedFileSystem dfs = getDFS(conf);
+      try {
+        dfs.removePathBasedCacheDescriptors(new Path(path));
+        System.out.println("Removed every PathBasedCache directive with path " +
+            path);
+      } catch (RemovePathBasedCacheDescriptorException e) {
+        System.err.println(prettifyException(e));
+        return 2;
+      }
+      return 0;
+    }
+  }
+
   private static class ListPathBasedCacheDirectiveCommand implements Command {
     @Override
     public String getName() {
@@ -684,6 +732,7 @@ public class CacheAdmin extends Configured implements Tool {
   private static Command[] COMMANDS = {
     new AddPathBasedCacheDirectiveCommand(),
     new RemovePathBasedCacheDirectiveCommand(),
+    new RemovePathBasedCacheDirectivesCommand(),
     new ListPathBasedCacheDirectiveCommand(),
     new AddCachePoolCommand(),
     new ModifyCachePoolCommand(),

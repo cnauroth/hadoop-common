@@ -384,7 +384,7 @@ public final class CacheManager {
     if (entries == null) {
       throw new NoSuchPathException(path);
     }
-    // Check permissions on pool of every entry.  Do this before removing
+    // Check permissions on every pool of every entry.  Do this before removing
     // anything to prevent partial removal if caller has permissions in some
     // pools but not others.
     for (PathBasedCacheEntry existing: entries) {
