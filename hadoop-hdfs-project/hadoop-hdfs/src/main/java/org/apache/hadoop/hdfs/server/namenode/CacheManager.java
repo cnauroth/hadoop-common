@@ -62,6 +62,7 @@ import org.apache.hadoop.hdfs.protocol.AddPathBasedCacheDirectiveException.PoolW
 import org.apache.hadoop.hdfs.protocol.PathBasedCacheEntry;
 import org.apache.hadoop.hdfs.protocol.RemovePathBasedCacheDescriptorException.InvalidIdException;
 import org.apache.hadoop.hdfs.protocol.RemovePathBasedCacheDescriptorException.NoSuchIdException;
+import org.apache.hadoop.hdfs.protocol.RemovePathBasedCacheDescriptorException.NoSuchPathException;
 import org.apache.hadoop.hdfs.protocol.RemovePathBasedCacheDescriptorException.UnexpectedRemovePathBasedCacheDescriptorException;
 import org.apache.hadoop.hdfs.protocol.RemovePathBasedCacheDescriptorException.RemovePermissionDeniedException;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
@@ -358,7 +359,62 @@ public final class CacheManager {
     LOG.info("removeDescriptor successful for PathCacheEntry id " + id);
   }
 
-  // TODO: remove all by path
+  /**
+   * Removes every descriptor with the given path.
+   * 
+   * @param path The path of descriptors to remove
+   * @param pc The permission checker for validating permissions on cache pools
+   * @throws NoSuchPathException if there are no descriptors with the given path
+   * @throws RemovePermissionDeniedException if the caller does not have
+   *   sufficient permissions in one of the cache pools referenced from a
+   *   descriptor
+   * @throws UnexpectedRemovePathBasedCacheDescriptorException if violation of an
+   *   invariant is detected, such as failure to find the cache pool for a
+   *   descriptor or failure to remove a descriptor
+   * @throws IOException if path validation fails
+   */
+  public void removeDescriptors(String path, FSPermissionChecker pc)
+      throws IOException {
+    assert namesystem.hasWriteLock();
+    if (!DFSUtil.isValidName(path)) {
+      throw new IOException("invalid path name '" + path + "'");
+    }
+    // Find all entries for path.
+    List<PathBasedCacheEntry> entries = entriesByPath.get(path);
+    if (entries == null) {
+      throw new NoSuchPathException(path);
+    }
+    // Check permissions on pool of every entry.  Do this before removing
+    // anything to prevent partial removal if caller has permissions in some
+    // pools but not others.
+    for (PathBasedCacheEntry existing: entries) {
+      CachePool pool = cachePools.get(existing.getDescriptor().getPool());
+      if (pool == null) {
+        LOG.info("removeDescriptors " + path + ": pool not found for " +
+            "directive " + existing.getDescriptor());
+        throw new UnexpectedRemovePathBasedCacheDescriptorException(
+            existing.getEntryId());
+      }
+      if ((pc != null) && (!pc.checkPermission(pool, FsAction.WRITE))) {
+        LOG.info("removeDescriptors " + path + ": write permission denied to " +
+            "pool " + pool + " for entry " + existing);
+        throw new RemovePermissionDeniedException(existing.getEntryId());
+      }
+    }
+    // Remove from entriesByPath.
+    entriesByPath.remove(path);
+    // Remove from entriesById.
+    for (PathBasedCacheEntry existing: entries) {
+      long id = existing.getEntryId();
+      if (entriesById.remove(id) == null) {
+        throw new UnexpectedRemovePathBasedCacheDescriptorException(id);
+      }
+    }
+    if (monitor != null) {
+      monitor.kick();
+    }
+    LOG.info("removeDescriptors successful for path " + path);
+  }
 
   public BatchedListEntries<PathBasedCacheDescriptor> 
         listPathBasedCacheDescriptors(long prevId, String filterPool,

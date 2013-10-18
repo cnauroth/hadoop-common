@@ -69,6 +69,15 @@ public abstract class RemovePathBasedCacheDescriptorException extends IOExceptio
     }
   }
 
+  public final static class NoSuchPathException
+      extends RemovePathBasedCacheDescriptorException {
+    private static final long serialVersionUID = 1L;
+
+    public NoSuchPathException(String path) {
+      super("there is no PathBasedCacheDescriptor with path " + path);
+    }
+  }
+
   public final static class UnexpectedRemovePathBasedCacheDescriptorException
       extends RemovePathBasedCacheDescriptorException {
     private static final long serialVersionUID = 1L;

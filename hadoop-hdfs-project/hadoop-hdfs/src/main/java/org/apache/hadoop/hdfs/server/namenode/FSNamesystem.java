@@ -7002,8 +7002,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
         throw new SafeModeException(
             "Cannot remove PathBasedCache directives", safeMode);
       }
-      // TODO: remove descriptors
-      //cacheManager.removeDescriptor(id, pc);
+      cacheManager.removeDescriptors(path, pc);
       getEditLog().logRemovePathBasedCacheDescriptors(path, cacheEntry != null);
       success = true;
     } finally {
