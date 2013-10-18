@@ -64,6 +64,7 @@ import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.OpInstanceCache;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.ReassignLeaseOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.RemoveCachePoolOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.RemovePathBasedCacheDescriptorOp;
+import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.RemovePathBasedCacheDescriptorsOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.RenameOldOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.RenameOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.RenameSnapshotOp;
@@ -968,6 +969,13 @@ public class FSEditLog implements LogsPurgeable {
   void logRemovePathBasedCacheDescriptor(Long id, boolean toLogRpcIds) {
     RemovePathBasedCacheDescriptorOp op =
         RemovePathBasedCacheDescriptorOp.getInstance(cache.get()).setId(id);
+    logRpcIds(op, toLogRpcIds);
+    logEdit(op);
+  }
+
+  void logRemovePathBasedCacheDescriptors(String path, boolean toLogRpcIds) {
+    RemovePathBasedCacheDescriptorsOp op =
+        RemovePathBasedCacheDescriptorsOp.getInstance(cache.get()).setPath(path);
     logRpcIds(op, toLogRpcIds);
     logEdit(op);
   }

@@ -1611,6 +1611,16 @@ public class DistributedFileSystem extends FileSystem {
       throws IOException {
     dfs.removePathBasedCacheDescriptor(descriptor.getEntryId());
   }
+
+  /**
+   * Removes every PathBasedCacheDescriptor with the given Path.
+   * 
+   * @param path The path of descriptors to remove
+   * @throws IOException if the descriptors could not be removed
+   */
+  public void removePathBasedCacheDescriptors(Path path) throws IOException {
+    dfs.removePathBasedCacheDescriptors(getPathName(fixRelativePart(path)));
+  }
   
   /**
    * List the set of cached paths of a cache pool. Incrementally fetches results

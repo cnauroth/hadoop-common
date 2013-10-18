@@ -384,6 +384,13 @@ message RemovePathBasedCacheDescriptorRequestProto {
 message RemovePathBasedCacheDescriptorResponseProto {
 }
 
+message RemovePathBasedCacheDescriptorsRequestProto {
+  required string path = 1;
+}
+
+message RemovePathBasedCacheDescriptorsResponseProto {
+}
+
 message ListPathBasedCacheDescriptorsRequestProto {
   required int64 prevId = 1;
   optional string pool = 2;
@@ -633,6 +640,8 @@ service ClientNamenodeProtocol {
       returns (AddPathBasedCacheDirectiveResponseProto);
   rpc removePathBasedCacheDescriptor(RemovePathBasedCacheDescriptorRequestProto)
       returns (RemovePathBasedCacheDescriptorResponseProto);
+  rpc removePathBasedCacheDescriptors(RemovePathBasedCacheDescriptorsRequestProto)
+      returns (RemovePathBasedCacheDescriptorsResponseProto);
   rpc listPathBasedCacheDescriptors(ListPathBasedCacheDescriptorsRequestProto)
       returns (ListPathBasedCacheDescriptorsResponseProto);
   rpc addCachePool(AddCachePoolRequestProto)

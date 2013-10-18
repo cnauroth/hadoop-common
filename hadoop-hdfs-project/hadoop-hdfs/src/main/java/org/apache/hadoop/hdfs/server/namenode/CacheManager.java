@@ -266,21 +266,6 @@ public final class CacheManager {
     return nextEntryId++;
   }
 
-  private PathBasedCacheEntry findEntry(PathBasedCacheDirective directive) {
-    assert namesystem.hasReadOrWriteLock();
-    List<PathBasedCacheEntry> existing =
-        entriesByPath.get(directive.getPath().toUri().getPath());
-    if (existing == null) {
-      return null;
-    }
-    for (PathBasedCacheEntry entry : existing) {
-      if (entry.getPool().getPoolName().equals(directive.getPool())) {
-        return entry;
-      }
-    }
-    return null;
-  }
-
   public PathBasedCacheDescriptor addDirective(
       PathBasedCacheDirective directive, FSPermissionChecker pc)
       throws IOException {
@@ -302,13 +287,6 @@ public final class CacheManager {
       throw ioe;
     }
     
-    // Check if we already have this entry.
-    PathBasedCacheEntry existing = findEntry(directive);
-    if (existing != null) {
-      LOG.info("addDirective " + directive + ": there is an " +
-          "existing directive " + existing + " in this pool.");
-      return existing.getDescriptor();
-    }
     // Add a new entry with the next available ID.
     PathBasedCacheEntry entry;
     try {
@@ -379,6 +357,8 @@ public final class CacheManager {
     }
     LOG.info("removeDescriptor successful for PathCacheEntry id " + id);
   }
+
+  // TODO: remove all by path
 
   public BatchedListEntries<PathBasedCacheDescriptor> 
         listPathBasedCacheDescriptors(long prevId, String filterPool,
