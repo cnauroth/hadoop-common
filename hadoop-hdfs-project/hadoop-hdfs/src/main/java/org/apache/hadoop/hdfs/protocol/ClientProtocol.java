@@ -1116,16 +1116,6 @@ public interface ClientProtocol {
   public void removePathBasedCacheDescriptor(Long id) throws IOException;
 
   /**
-   * Remove every PathBasedCacheDescriptor with the given path from the
-   * CacheManager.
-   * 
-   * @param path of descriptors to remove
-   * @throws IOException if the cache descriptors could not be removed
-   */
-  @AtMostOnce
-  public void removePathBasedCacheDescriptors(String path) throws IOException;
-
-  /**
    * List the set of cached paths of a cache pool. Incrementally fetches results
    * from the server.
    * 

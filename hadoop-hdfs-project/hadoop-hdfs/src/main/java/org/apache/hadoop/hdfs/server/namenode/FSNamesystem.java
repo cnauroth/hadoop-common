@@ -6986,36 +6986,6 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     getEditLog().logSync();
   }
 
-  void removePathBasedCacheDescriptors(String path) throws IOException {
-    CacheEntry cacheEntry = RetryCache.waitForCompletion(retryCache);
-    if (cacheEntry != null && cacheEntry.isSuccess()) {
-      return;
-    }
-    final FSPermissionChecker pc = isPermissionEnabled ?
-        getPermissionChecker() : null;
-    boolean success = false;
-    checkOperation(OperationCategory.WRITE);
-    writeLock();
-    try {
-      checkOperation(OperationCategory.WRITE);
-      if (isInSafeMode()) {
-        throw new SafeModeException(
-            "Cannot remove PathBasedCache directives", safeMode);
-      }
-      cacheManager.removeDescriptors(path, pc);
-      getEditLog().logRemovePathBasedCacheDescriptors(path, cacheEntry != null);
-      success = true;
-    } finally {
-      writeUnlock();
-      if (isAuditEnabled() && isExternalInvocation()) {
-        logAuditEvent(success, "removePathBasedCacheDescriptors", null, null,
-            null);
-      }
-      RetryCache.setState(cacheEntry, success);
-    }
-    getEditLog().logSync();
-  }
-
   BatchedListEntries<PathBasedCacheDescriptor> listPathBasedCacheDescriptors(
       long startId, String pool, String path) throws IOException {
     final FSPermissionChecker pc = isPermissionEnabled ?

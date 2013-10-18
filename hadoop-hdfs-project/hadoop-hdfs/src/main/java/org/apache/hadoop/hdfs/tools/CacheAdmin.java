@@ -207,7 +207,7 @@ public class CacheAdmin extends Configured implements Tool {
     @Override
     public String getLongUsage() {
       TableListing listing = getOptionDescriptionListing();
-      listing.addRow("<id>", "The id of the cache directive to remove. " + 
+      listing.addRow("<id>", "The id of the cache directive to remove.  " + 
         "You must have write permission on the pool of the " +
         "directive in order to remove it.  To see a list " +
         "of PathBasedCache directive IDs, use the -listDirectives command.");
@@ -267,10 +267,10 @@ public class CacheAdmin extends Configured implements Tool {
     @Override
     public String getLongUsage() {
       TableListing listing = getOptionDescriptionListing();
-      listing.addRow("<path>", "The path of the cache directives to remove. " +
-        "You must have write permission on every pool of every directive with " +
-        "the path in order to remove them.  To see a list of cache " +
-        "directives, use the -listDirectives command.");
+      listing.addRow("<path>", "The path of the cache directives to remove.  " +
+        "You must have write permission on the pool of the directive in order " +
+        "to remove it.  To see a list of cache directives, use the " +
+        "-listDirectives command.");
       return getShortUsage() + "\n" +
         "Remove every cache directive with the specified path.\n\n" +
         listing.toString();
@@ -289,15 +289,25 @@ public class CacheAdmin extends Configured implements Tool {
         return 1;
       }
       DistributedFileSystem dfs = getDFS(conf);
-      try {
-        dfs.removePathBasedCacheDescriptors(new Path(path));
+      RemoteIterator<PathBasedCacheDescriptor> iter =
+          dfs.listPathBasedCacheDescriptors(null, new Path(path));
+      int exitCode = 0;
+      while (iter.hasNext()) {
+        PathBasedCacheDescriptor entry = iter.next();
+        try {
+          dfs.removePathBasedCacheDescriptor(entry);
+          System.out.println("Removed PathBasedCache directive " +
+              entry.getEntryId());
+        } catch (RemovePathBasedCacheDescriptorException e) {
+          System.err.println(prettifyException(e));
+          exitCode = 2;
+        }
+      }
+      if (exitCode == 0) {
         System.out.println("Removed every PathBasedCache directive with path " +
             path);
-      } catch (RemovePathBasedCacheDescriptorException e) {
-        System.err.println(prettifyException(e));
-        return 2;
       }
-      return 0;
+      return exitCode;
     }
   }
 

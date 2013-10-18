@@ -61,7 +61,6 @@ import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.ModifyCachePoolOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.ReassignLeaseOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.RemoveCachePoolOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.RemovePathBasedCacheDescriptorOp;
-import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.RemovePathBasedCacheDescriptorsOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.RenameOldOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.RenameOp;
 import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.RenameSnapshotOp;
@@ -660,15 +659,6 @@ public class FSEditLogLoader {
       RemovePathBasedCacheDescriptorOp removeOp =
           (RemovePathBasedCacheDescriptorOp) op;
       fsNamesys.getCacheManager().removeDescriptor(removeOp.id, null);
-      if (toAddRetryCache) {
-        fsNamesys.addCacheEntry(op.rpcClientId, op.rpcCallId);
-      }
-      break;
-    }
-    case OP_REMOVE_PATH_BASED_CACHE_DESCRIPTORS: {
-      RemovePathBasedCacheDescriptorsOp removeOp =
-          (RemovePathBasedCacheDescriptorsOp) op;
-      fsNamesys.getCacheManager().removeDescriptors(removeOp.path, null);
       if (toAddRetryCache) {
         fsNamesys.addCacheEntry(op.rpcClientId, op.rpcCallId);
       }

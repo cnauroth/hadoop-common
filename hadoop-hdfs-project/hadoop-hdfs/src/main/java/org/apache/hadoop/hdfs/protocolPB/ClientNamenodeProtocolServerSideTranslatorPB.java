@@ -129,8 +129,6 @@ import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.Remove
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.RemoveCachePoolResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.RemovePathBasedCacheDescriptorRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.RemovePathBasedCacheDescriptorResponseProto;
-import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.RemovePathBasedCacheDescriptorsRequestProto;
-import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.RemovePathBasedCacheDescriptorsResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.Rename2RequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.Rename2ResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.RenameRequestProto;
@@ -1070,21 +1068,6 @@ public class ClientNamenodeProtocolServerSideTranslatorPB implements
       server.removePathBasedCacheDescriptor(request.getDescriptorId());
       RemovePathBasedCacheDescriptorResponseProto.Builder builder =
          RemovePathBasedCacheDescriptorResponseProto.newBuilder();
-      return builder.build();
-    } catch (IOException e) {
-      throw new ServiceException(e);
-    }
-  }
-
-  @Override
-  public RemovePathBasedCacheDescriptorsResponseProto removePathBasedCacheDescriptors(
-      RpcController controller,
-      RemovePathBasedCacheDescriptorsRequestProto request)
-      throws ServiceException {
-    try {
-      server.removePathBasedCacheDescriptors(request.getPath());
-      RemovePathBasedCacheDescriptorsResponseProto.Builder builder =
-         RemovePathBasedCacheDescriptorsResponseProto.newBuilder();
       return builder.build();
     } catch (IOException e) {
       throw new ServiceException(e);

@@ -1246,11 +1246,6 @@ class NameNodeRpcServer implements NamenodeProtocols {
     namesystem.removePathBasedCacheDescriptor(id);
   }
 
-  @Override
-  public void removePathBasedCacheDescriptors(String path) throws IOException {
-    namesystem.removePathBasedCacheDescriptors(path);
-  }
-
   private class ServerSidePathBasedCacheEntriesIterator
       extends BatchedRemoteIterator<Long, PathBasedCacheDescriptor> {
 

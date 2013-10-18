@@ -38,7 +38,6 @@ import static org.apache.hadoop.hdfs.server.namenode.FSEditLogOpCodes.OP_MODIFY_
 import static org.apache.hadoop.hdfs.server.namenode.FSEditLogOpCodes.OP_REASSIGN_LEASE;
 import static org.apache.hadoop.hdfs.server.namenode.FSEditLogOpCodes.OP_REMOVE_CACHE_POOL;
 import static org.apache.hadoop.hdfs.server.namenode.FSEditLogOpCodes.OP_REMOVE_PATH_BASED_CACHE_DESCRIPTOR;
-import static org.apache.hadoop.hdfs.server.namenode.FSEditLogOpCodes.OP_REMOVE_PATH_BASED_CACHE_DESCRIPTORS;
 import static org.apache.hadoop.hdfs.server.namenode.FSEditLogOpCodes.OP_RENAME;
 import static org.apache.hadoop.hdfs.server.namenode.FSEditLogOpCodes.OP_RENAME_OLD;
 import static org.apache.hadoop.hdfs.server.namenode.FSEditLogOpCodes.OP_RENAME_SNAPSHOT;
@@ -167,8 +166,6 @@ public abstract class FSEditLogOp {
           new AddPathBasedCacheDirectiveOp());
       inst.put(OP_REMOVE_PATH_BASED_CACHE_DESCRIPTOR,
           new RemovePathBasedCacheDescriptorOp());
-      inst.put(OP_REMOVE_PATH_BASED_CACHE_DESCRIPTORS,
-          new RemovePathBasedCacheDescriptorsOp());
       inst.put(OP_ADD_CACHE_POOL, new AddCachePoolOp());
       inst.put(OP_MODIFY_CACHE_POOL, new ModifyCachePoolOp());
       inst.put(OP_REMOVE_CACHE_POOL, new RemoveCachePoolOp());
@@ -2975,62 +2972,6 @@ public abstract class FSEditLogOp {
       StringBuilder builder = new StringBuilder();
       builder.append("RemovePathBasedCacheDescriptor [");
       builder.append("id=" + Long.toString(id) + "]");
-      return builder.toString();
-    }
-  }
-
-  /**
-   * {@literal @AtMostOnce} for
-   * {@link ClientProtocol#removePathBasedCacheDescriptors}
-   */
-  static class RemovePathBasedCacheDescriptorsOp extends FSEditLogOp {
-    String path;
-
-    public RemovePathBasedCacheDescriptorsOp() {
-      super(OP_REMOVE_PATH_BASED_CACHE_DESCRIPTORS);
-    }
-
-    static RemovePathBasedCacheDescriptorsOp getInstance(OpInstanceCache cache) {
-      return (RemovePathBasedCacheDescriptorsOp) cache
-          .get(OP_REMOVE_PATH_BASED_CACHE_DESCRIPTORS);
-    }
-
-    public RemovePathBasedCacheDescriptorsOp setPath(String path) {
-      this.path = path;
-      return this;
-    }
-
-    @Override
-    void readFields(DataInputStream in, int logVersion) throws IOException {
-      this.path = FSImageSerialization.readString(in);
-      readRpcIds(in, logVersion);
-    }
-
-    @Override
-    public void writeFields(DataOutputStream out) throws IOException {
-      FSImageSerialization.writeString(path, out);
-      writeRpcIds(rpcClientId, rpcCallId, out);
-    }
-
-    @Override
-    protected void toXml(ContentHandler contentHandler) throws SAXException {
-      XMLUtils.addSaxString(contentHandler, "PATH", path);
-      appendRpcIdsToXml(contentHandler, rpcClientId, rpcCallId);
-    }
-
-    @Override
-    void fromXml(Stanza st) throws InvalidXmlException {
-      this.path = st.getValue("PATH");
-      readRpcIdsFromXml(st);
-    }
-
-    @Override
-    public String toString() {
-      StringBuilder builder = new StringBuilder();
-      builder.append("RemovePathBasedCacheDescriptors [");
-      builder.append("path=" + path);
-      appendRpcIdsToString(builder, rpcClientId, rpcCallId);
-      builder.append("]");
       return builder.toString();
     }
   }
