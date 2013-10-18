@@ -210,7 +210,7 @@ public class CacheAdmin extends Configured implements Tool {
       listing.addRow("<id>", "The id of the cache directive to remove. " + 
         "You must have write permission on the pool of the " +
         "directive in order to remove it.  To see a list " +
-        "of PathBasedCache directive IDs, use the -list command.");
+        "of PathBasedCache directive IDs, use the -listDirectives command.");
       return getShortUsage() + "\n" +
         "Remove a cache directive.\n\n" +
         listing.toString();
@@ -270,7 +270,7 @@ public class CacheAdmin extends Configured implements Tool {
       listing.addRow("<path>", "The path of the cache directives to remove. " +
         "You must have write permission on every pool of every directive with " +
         "the path in order to remove them.  To see a list of cache " +
-        "directives, use the -list command.");
+        "directives, use the -listDirectives command.");
       return getShortUsage() + "\n" +
         "Remove every cache directive with the specified path.\n\n" +
         listing.toString();
