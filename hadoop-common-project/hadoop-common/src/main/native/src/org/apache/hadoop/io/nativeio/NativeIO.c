@@ -396,7 +396,6 @@ Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_mlock_1native(
 #ifdef WINDOWS
   THROW(env, "java/io/IOException",
     "The function POSIX.mlock_native() is not supported on Windows");
-  return NULL;
 #endif
 }
 
@@ -425,7 +424,6 @@ Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_munlock_1native(
 #ifdef WINDOWS
   THROW(env, "java/io/IOException",
     "The function POSIX.munlock_native() is not supported on Windows");
-  return NULL;
 #endif
 }
 
