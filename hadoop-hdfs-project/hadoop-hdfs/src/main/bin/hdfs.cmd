@@ -47,7 +47,17 @@ if "%1" == "--config" (
       goto print_usage
   )
 
-  call :%hdfs-command% %hdfs-command-arguments%
+  set hdfscommands=dfs namenode secondarynamenode zkfc datanode dfsadmin fsck balancer jmxget oiv oev fetchdt getconf groups snapshotDiff lsSnapshottableDir
+  for %%i in ( %hdfscommands% ) do (
+    if %hdfs-command% == %%i set hdfscommand=true
+  )
+  if defined hdfscommand (
+    call :%hdfs-command%
+  ) else (
+    set CLASSPATH=%CLASSPATH%;%CD%
+    set CLASS=%hdfs-command%
+  )
+
   set java_arguments=%JAVA_HEAP_MAX% %HADOOP_OPTS% -classpath %CLASSPATH% %CLASS% %hdfs-command-arguments%
   call %JAVA% %java_arguments%
 
