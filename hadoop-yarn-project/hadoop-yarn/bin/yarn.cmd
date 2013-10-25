@@ -133,7 +133,12 @@ if "%1" == "--config" (
   set CLASSPATH=%CLASSPATH%;%HADOOP_YARN_HOME%\%YARN_DIR%\*
   set CLASSPATH=%CLASSPATH%;%HADOOP_YARN_HOME%\%YARN_LIB_JARS_DIR%\*
 
-  set yarncommands=resourcemanager nodemanager rmadmin version jar application node logs classpath daemonlog
+  if %yarn-command% == classpath (
+    @echo %CLASSPATH%
+    goto :eof
+  )
+
+  set yarncommands=resourcemanager nodemanager rmadmin version jar application node logs daemonlog
   for %%i in ( %yarncommands% ) do (
     if %yarn-command% == %%i set yarncommand=true
   )
