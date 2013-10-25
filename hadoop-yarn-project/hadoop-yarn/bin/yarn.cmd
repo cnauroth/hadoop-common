@@ -138,7 +138,7 @@ if "%1" == "--config" (
     goto :eof
   )
 
-  set yarncommands=resourcemanager nodemanager rmadmin version jar application node logs daemonlog
+  set yarncommands=resourcemanager nodemanager proxyserver rmadmin version jar application node logs daemonlog
   for %%i in ( %yarncommands% ) do (
     if %yarn-command% == %%i set yarncommand=true
   )
