@@ -34,7 +34,6 @@ import javax.servlet.jsp.JspWriter;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DFSTestUtil;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
@@ -49,9 +48,6 @@ public class TestDatanodeJsp {
   
   private static final String FILE_DATA = "foo bar baz biz buz";
   private static final HdfsConfiguration CONF = new HdfsConfiguration();
-  static {
-    CONF.set(DFSConfigKeys.DFS_NAMENODE_HTTP_ADDRESS_KEY, "localhost:0");
-  }
   private static String viewFilePage;
   
   private static void testViewingFile(MiniDFSCluster cluster, String filePath)
@@ -92,7 +88,8 @@ public class TestDatanodeJsp {
     regex = "<a.+href=\"(.+?)\">Go\\s*Back\\s*to\\s*File\\s*View\\<\\/a\\>";
     assertFileContents(regex, "Go Back to File View");
 
-    regex = "<a href=\"///localhost:" + nnHttpAddress.getPort() + "/dfshealth.jsp\">Go back to DFS home</a>";
+    regex = "<a href=\"///" + nnHttpAddress.getHostName() + ":" +
+      nnHttpAddress.getPort() + "/dfshealth.jsp\">Go back to DFS home</a>";
     assertTrue("page should generate DFS home scheme without explicit scheme", viewFilePage.contains(regex));
   }
   
