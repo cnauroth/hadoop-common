@@ -265,13 +265,11 @@ public class ApplicationMaster {
           + env.getValue());
     }
 
-    StringReader sr = null;
     BufferedReader buf = null;
     try {
       String lines = Shell.WINDOWS ? Shell.execCommand("cmd", "/c", "dir") :
         Shell.execCommand("ls", "-al");
-      sr = new StringReader(lines);
-      buf = new BufferedReader(sr);
+      buf = new BufferedReader(new StringReader(lines));
       String line = "";
       while ((line = buf.readLine()) != null) {
         LOG.info("System CWD content: " + line);
@@ -280,7 +278,7 @@ public class ApplicationMaster {
     } catch (IOException e) {
       e.printStackTrace();
     } finally {
-      IOUtils.cleanup(LOG, buf, sr);
+      IOUtils.cleanup(LOG, buf);
     }
   }
 
