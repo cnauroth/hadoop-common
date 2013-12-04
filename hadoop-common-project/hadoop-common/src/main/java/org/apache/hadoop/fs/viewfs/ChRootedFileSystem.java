@@ -36,6 +36,11 @@ import org.apache.hadoop.fs.FilterFileSystem;
 import org.apache.hadoop.fs.FsServerDefaults;
 import org.apache.hadoop.fs.FsStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.hadoop.fs.permission.Acl;
+import org.apache.hadoop.fs.permission.AclReadFlag;
+import org.apache.hadoop.fs.permission.AclSpec;
+import org.apache.hadoop.fs.permission.AclWriteFlag;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
 
@@ -278,6 +283,42 @@ class ChRootedFileSystem extends FilterFileSystem {
     super.setTimes(fullPath(f), mtime, atime);
   }
   
+  @Override
+  public void modifyAclEntries(Path path, AclSpec aclSpec,
+      EnumSet<AclWriteFlag> flags) throws IOException {
+    super.modifyAclEntries(fullPath(path), aclSpec, flags);
+  }
+
+  @Override
+  public void removeAclEntries(Path path, AclSpec aclSpec,
+      EnumSet<AclWriteFlag> flags) throws IOException {
+    super.removeAclEntries(fullPath(path), aclSpec, flags);
+  }
+
+  @Override
+  public void removeDefaultAcl(Path path, EnumSet<AclWriteFlag> flags)
+      throws IOException {
+    super.removeDefaultAcl(fullPath(path), flags);
+  }
+
+  @Override
+  public void removeAcl(Path path, EnumSet<AclWriteFlag> flags)
+      throws IOException {
+    super.removeAcl(fullPath(path), flags);
+  }
+
+  @Override
+  public void setAcl(Path path, AclSpec aclSpec, EnumSet<AclWriteFlag> flags)
+      throws IOException {
+    super.setAcl(fullPath(path), aclSpec, flags);
+  }
+
+  @Override
+  public RemoteIterator<Acl> getAcls(Path path, EnumSet<AclReadFlag> flags)
+      throws IOException {
+    return super.getAcls(fullPath(path), flags);
+  }
+
   @Override
   public Path resolvePath(final Path p) throws IOException {
     return super.resolvePath(fullPath(p));
