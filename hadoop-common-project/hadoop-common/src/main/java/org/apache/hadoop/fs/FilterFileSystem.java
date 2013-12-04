@@ -25,6 +25,10 @@ import java.util.EnumSet;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.permission.Acl;
+import org.apache.hadoop.fs.permission.AclReadFlag;
+import org.apache.hadoop.fs.permission.AclSpec;
+import org.apache.hadoop.fs.permission.AclWriteFlag;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.Options.ChecksumOpt;
@@ -506,5 +510,41 @@ public class FilterFileSystem extends FileSystem {
   public void deleteSnapshot(Path path, String snapshotName)
       throws IOException {
     fs.deleteSnapshot(path, snapshotName);
+  }
+
+  @Override
+  public void modifyAclEntries(Path path, AclSpec aclSpec,
+      EnumSet<AclWriteFlag> flags) throws IOException {
+    fs.modifyAclEntries(path, aclSpec, flags);
+  }
+
+  @Override
+  public void removeAclEntries(Path path, AclSpec aclSpec,
+      EnumSet<AclWriteFlag> flags) throws IOException {
+    fs.removeAclEntries(path, aclSpec, flags);
+  }
+
+  @Override
+  public void removeDefaultAcl(Path path, EnumSet<AclWriteFlag> flags)
+      throws IOException {
+    fs.removeDefaultAcl(path, flags);
+  }
+
+  @Override
+  public void removeAcl(Path path, EnumSet<AclWriteFlag> flags)
+      throws IOException {
+    fs.removeAcl(path, flags);
+  }
+
+  @Override
+  public void setAcl(Path path, AclSpec aclSpec, EnumSet<AclWriteFlag> flags)
+      throws IOException {
+    fs.setAcl(path, aclSpec, flags);
+  }
+
+  @Override
+  public RemoteIterator<Acl> getAcls(Path path, EnumSet<AclReadFlag> flags)
+      throws IOException {
+    return fs.getAcls(path, flags);
   }
 }

@@ -51,6 +51,10 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Options.ChecksumOpt;
 import org.apache.hadoop.fs.Options.Rename;
+import org.apache.hadoop.fs.permission.Acl;
+import org.apache.hadoop.fs.permission.AclReadFlag;
+import org.apache.hadoop.fs.permission.AclSpec;
+import org.apache.hadoop.fs.permission.AclWriteFlag;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.io.MultipleIOException;
 import org.apache.hadoop.io.Text;
@@ -2269,6 +2273,94 @@ public abstract class FileSystem extends Configured implements Closeable {
         + " doesn't support deleteSnapshot");
   }
   
+  /**
+   * Modifies ACL entries of files and directories.  New entries are added to
+   * the ACL, and existing entries are retained.
+   * 
+   * @param path Path to modify
+   * @param aclSpec AclSpec describing modifications
+   * @param flags EnumSet<AclWriteFlag> (such as recursive)
+   * @throws IOException if an ACL could not be modified
+   */
+  public void modifyAclEntries(Path path, AclSpec aclSpec,
+      EnumSet<AclWriteFlag> flags) throws IOException {
+    throw new UnsupportedOperationException(getClass().getSimpleName()
+        + " doesn't support modifyAclEntries");
+  }
+
+  /**
+   * Removes ACL entries from files and directories.  Other ACL entries are
+   * retained.
+   * 
+   * @param path Path to modify
+   * @param aclSpec AclSpec describing entries to remove
+   * @param flags EnumSet<AclWriteFlag> (such as recursive)
+   * @throws IOException if an ACL could not be modified
+   */
+  public void removeAclEntries(Path path, AclSpec aclSpec,
+      EnumSet<AclWriteFlag> flags) throws IOException {
+    throw new UnsupportedOperationException(getClass().getSimpleName()
+        + " doesn't support removeAclEntries");
+  }
+
+  /**
+   * Removes all default ACL entries from files and directories.
+   * 
+   * @param path Path to modify
+   * @param flags EnumSet<AclWriteFlag> (such as recursive)
+   * @throws IOException if an ACL could not be modified
+   */
+  public void removeDefaultAcl(Path path, EnumSet<AclWriteFlag> flags)
+      throws IOException {
+    throw new UnsupportedOperationException(getClass().getSimpleName()
+        + " doesn't support removeDefaultAcl");
+  }
+
+  /**
+   * Removes all but the base ACL entries of files and directories.  The entries
+   * for user, group, and others are retained for compatibility with permission
+   * bits.
+   * 
+   * @param path Path to modify
+   * @param flags EnumSet<AclWriteFlag> (such as recursive)
+   * @throws IOException if an ACL could not be removed
+   */
+  public void removeAcl(Path path, EnumSet<AclWriteFlag> flags)
+      throws IOException {
+    throw new UnsupportedOperationException(getClass().getSimpleName()
+        + " doesn't support removeAcl");
+  }
+
+  /**
+   * Fully replaces ACL of files and directories, discarding all existing
+   * entries.
+   * 
+   * @param path Path to modify
+   * @param aclSpec AclSpec describing modifications, must include entries for
+   *   user, group, and others for compatibility with permission bits.
+   * @param flags EnumSet<AclWriteFlag> (such as recursive)
+   * @throws IOException if an ACL could not be modified
+   */
+  public void setAcl(Path path, AclSpec aclSpec, EnumSet<AclWriteFlag> flags)
+      throws IOException {
+    throw new UnsupportedOperationException(getClass().getSimpleName()
+        + " doesn't support setAcl");
+  }
+
+  /**
+   * Gets the ACLs of files and directories.
+   * 
+   * @param path Path to get
+   * @param flags EnumSet<AclReadFlag> (such as recursive)
+   * @return RemoteIterator<Acl> which returns each Acl
+   * @throws IOException if an ACL could not be read
+   */
+  public RemoteIterator<Acl> getAcls(Path path, EnumSet<AclReadFlag> flags)
+      throws IOException {
+    throw new UnsupportedOperationException(getClass().getSimpleName()
+        + " doesn't support getAcls");
+  }
+
   // making it volatile to be able to do a double checked locking
   private volatile static boolean FILE_SYSTEMS_LOADED = false;
 
