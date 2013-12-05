@@ -83,9 +83,9 @@ public class Acl {
   public String toString() {
     return new StringBuilder()
       .append("file: ").append(file)
-      .append(",owner: ").append(owner)
-      .append(",group: ").append(group)
-      .append(",entries: ").append(entries)
+      .append(", owner: ").append(owner)
+      .append(", group: ").append(group)
+      .append(", entries: ").append(entries)
       .toString();
   }
 
