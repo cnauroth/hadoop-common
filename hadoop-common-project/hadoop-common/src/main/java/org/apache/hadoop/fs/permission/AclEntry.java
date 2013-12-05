@@ -81,7 +81,7 @@ public class AclEntry {
       sb.append("default:");
     }
     if (type != null) {
-      sb.append(type);
+      sb.append(type.toString().toLowerCase());
     }
     sb.append(':');
     if (name != null) {
@@ -89,7 +89,7 @@ public class AclEntry {
     }
     sb.append(':');
     if (permission != null) {
-      sb.append(permission);
+      sb.append(permission.SYMBOL);
     }
     return sb.toString();
   }
