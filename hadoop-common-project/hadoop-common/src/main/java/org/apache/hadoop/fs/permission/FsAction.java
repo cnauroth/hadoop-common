@@ -23,8 +23,8 @@ import org.apache.hadoop.classification.InterfaceStability;
 /**
  * File system actions, e.g. read, write, etc.
  */
-@InterfaceAudience.LimitedPrivate({"HDFS"})
-@InterfaceStability.Unstable
+@InterfaceAudience.Public
+@InterfaceStability.Evolving
 public enum FsAction {
   // POSIX style
   NONE("---"),
