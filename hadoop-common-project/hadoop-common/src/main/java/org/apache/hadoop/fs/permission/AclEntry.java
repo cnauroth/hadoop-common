@@ -98,7 +98,7 @@ public class AclEntry {
     private AclEntryType type;
     private String name;
     private FsAction permission;
-    private AclEntryScope scope;
+    private AclEntryScope scope = AclEntryScope.ACCESS;
 
     public Builder setType(AclEntryType type) {
       this.type = type;
