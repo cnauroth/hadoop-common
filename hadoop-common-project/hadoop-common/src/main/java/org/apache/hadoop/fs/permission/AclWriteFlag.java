@@ -20,8 +20,15 @@ package org.apache.hadoop.fs.permission;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 
+/**
+ * Flags that control behavior of operations for writing ACL information.
+ */
 @InterfaceAudience.Public
 @InterfaceStability.Evolving
 public enum AclWriteFlag {
+  /**
+   * Modify ACLs for all files and directories recursively in the sub-tree of
+   * the specified path.
+   */
   RECURSIVE
 }

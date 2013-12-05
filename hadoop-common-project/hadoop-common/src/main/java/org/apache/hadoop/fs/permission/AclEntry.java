@@ -23,6 +23,13 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 
+/**
+ * Defines a single entry in an ACL.  An ACL entry has a type (user, group,
+ * mask, or other), an optional name (referring to a specific user or group), a
+ * set of permissions (any combination of read, write and execute), and a scope
+ * (access or default).  AclEntry instances are immutable.  Use a
+ * {@link Builder} to create a new instance.
+ */
 @InterfaceAudience.Public
 @InterfaceStability.Evolving
 public class AclEntry {
@@ -31,18 +38,38 @@ public class AclEntry {
   private final FsAction permission;
   private final AclEntryScope scope;
 
+  /**
+   * Returns the ACL entry type.
+   * 
+   * @return AclEntryType ACL entry type
+   */
   public AclEntryType getType() {
     return type;
   }
 
+  /**
+   * Returns the optional ACL entry name.
+   * 
+   * @return String ACL entry name, or null if undefined
+   */
   public String getName() {
     return name;
   }
 
+  /**
+   * Returns the set of permissions in the ACL entry.
+   * 
+   * @return FsAction set of permissions in the ACL entry
+   */
   public FsAction getPermission() {
     return permission;
   }
 
+  /**
+   * Returns the scope of the ACL entry.
+   * 
+   * @return AclEntryScope scope of the ACL entry
+   */
   public AclEntryScope getScope() {
     return scope;
   }
@@ -94,37 +121,78 @@ public class AclEntry {
     return sb.toString();
   }
 
+  /**
+   * Builder for creating new AclEntry instances.
+   */
   public static class Builder {
     private AclEntryType type;
     private String name;
     private FsAction permission;
     private AclEntryScope scope = AclEntryScope.ACCESS;
 
+    /**
+     * Sets the ACL entry type.
+     * 
+     * @param type AclEntryType ACL entry type
+     * @return Builder this builder, for call chaining
+     */
     public Builder setType(AclEntryType type) {
       this.type = type;
       return this;
     }
 
+    /**
+     * Sets the optional ACL entry name.
+     * 
+     * @param name String optional ACL entry name
+     * @return Builder this builder, for call chaining
+     */
     public Builder setName(String name) {
       this.name = name;
       return this;
     }
 
+    /**
+     * Sets the set of permissions in the ACL entry.
+     * 
+     * @param permission FsAction set of permissions in the ACL entry
+     * @return Builder this builder, for call chaining
+     */
     public Builder setPermission(FsAction permission) {
       this.permission = permission;
       return this;
     }
 
+    /**
+     * Sets the scope of the ACL entry.  If this method is not called, then the
+     * builder assumes {@link AclScope#ACCESS}.
+     * 
+     * @param scope AclEntryScope scope of the ACL entry
+     * @return Builder this builder, for call chaining
+     */
     public Builder setScope(AclEntryScope scope) {
       this.scope = scope;
       return this;
     }
 
+    /**
+     * Builds a new AclEntry populated with the set properties.
+     * 
+     * @return AclEntry new AclEntry
+     */
     public AclEntry build() {
       return new AclEntry(type, name, permission, scope);
     }
   }
 
+  /**
+   * Private constructor.
+   * 
+   * @param type AclEntryType ACL entry type
+   * @param name String optional ACL entry name
+   * @param permission FsAction set of permissions in the ACL entry
+   * @param scope AclEntryScope scope of the ACL entry
+   */
   private AclEntry(AclEntryType type, String name, FsAction permission, AclEntryScope scope) {
     this.type = type;
     this.name = name;
