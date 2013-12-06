@@ -21,6 +21,10 @@ package org.apache.hadoop.fs;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.permission.Acl;
+import org.apache.hadoop.fs.permission.AclEntry;
+import org.apache.hadoop.fs.permission.AclReadFlag;
+import org.apache.hadoop.fs.permission.AclWriteFlag;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.security.token.Token;
@@ -33,6 +37,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.EnumSet;
 import java.util.Iterator;
+import java.util.Set;
 
 import static org.apache.hadoop.fs.Options.ChecksumOpt;
 import static org.apache.hadoop.fs.Options.CreateOpts;
@@ -164,6 +169,18 @@ public class TestHarFileSystem {
     public void renameSnapshot(Path path, String snapshotOldName,
         String snapshotNewName) throws IOException;
     public void deleteSnapshot(Path path, String snapshotName)
+        throws IOException;
+    public void modifyAclEntries(Path path, Set<AclEntry> aclSpec,
+        EnumSet<AclWriteFlag> flags) throws IOException;
+    public void removeAclEntries(Path path, Set<AclEntry> aclSpec,
+        EnumSet<AclWriteFlag> flags) throws IOException;
+    public void removeDefaultAcl(Path path, EnumSet<AclWriteFlag> flags)
+        throws IOException;
+    public void removeAcl(Path path, EnumSet<AclWriteFlag> flags)
+        throws IOException;
+    public void setAcl(Path path, Set<AclEntry> aclSpec,
+        EnumSet<AclWriteFlag> flags) throws IOException;
+    public RemoteIterator<Acl> getAcls(Path path, EnumSet<AclReadFlag> flags)
         throws IOException;
   }
 
