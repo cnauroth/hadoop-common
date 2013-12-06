@@ -24,7 +24,7 @@ import org.apache.hadoop.classification.InterfaceStability;
  * File system actions, e.g. read, write, etc.
  */
 @InterfaceAudience.Public
-@InterfaceStability.Evolving
+@InterfaceStability.Stable
 public enum FsAction {
   // POSIX style
   NONE("---"),
