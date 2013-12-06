@@ -2279,7 +2279,7 @@ public abstract class FileSystem extends Configured implements Closeable {
    * 
    * @param path Path to modify
    * @param aclSpec Set<AclEntry> describing modifications
-   * @param flags EnumSet<AclWriteFlag> (such as recursive)
+   * @param flags EnumSet<AclWriteFlag> containing flags (such as recursive)
    * @throws IOException if an ACL could not be modified
    */
   public void modifyAclEntries(Path path, Set<AclEntry> aclSpec,
@@ -2294,7 +2294,7 @@ public abstract class FileSystem extends Configured implements Closeable {
    * 
    * @param path Path to modify
    * @param aclSpec Set<AclEntry> describing entries to remove
-   * @param flags EnumSet<AclWriteFlag> (such as recursive)
+   * @param flags EnumSet<AclWriteFlag> containing flags (such as recursive)
    * @throws IOException if an ACL could not be modified
    */
   public void removeAclEntries(Path path, Set<AclEntry> aclSpec,
@@ -2307,7 +2307,7 @@ public abstract class FileSystem extends Configured implements Closeable {
    * Removes all default ACL entries from files and directories.
    * 
    * @param path Path to modify
-   * @param flags EnumSet<AclWriteFlag> (such as recursive)
+   * @param flags EnumSet<AclWriteFlag> containing flags (such as recursive)
    * @throws IOException if an ACL could not be modified
    */
   public void removeDefaultAcl(Path path, EnumSet<AclWriteFlag> flags)
@@ -2322,7 +2322,7 @@ public abstract class FileSystem extends Configured implements Closeable {
    * bits.
    * 
    * @param path Path to modify
-   * @param flags EnumSet<AclWriteFlag> (such as recursive)
+   * @param flags EnumSet<AclWriteFlag> containing flags (such as recursive)
    * @throws IOException if an ACL could not be removed
    */
   public void removeAcl(Path path, EnumSet<AclWriteFlag> flags)
@@ -2338,7 +2338,7 @@ public abstract class FileSystem extends Configured implements Closeable {
    * @param path Path to modify
    * @param aclSpec Set<AclEntry> describing modifications, must include entries
    *   for user, group, and others for compatibility with permission bits.
-   * @param flags EnumSet<AclWriteFlag> (such as recursive)
+   * @param flags EnumSet<AclWriteFlag> containing flags (such as recursive)
    * @throws IOException if an ACL could not be modified
    */
   public void setAcl(Path path, Set<AclEntry> aclSpec,
@@ -2351,7 +2351,7 @@ public abstract class FileSystem extends Configured implements Closeable {
    * Gets the ACLs of files and directories.
    * 
    * @param path Path to get
-   * @param flags EnumSet<AclReadFlag> (such as recursive)
+   * @param flags EnumSet<AclReadFlag> containing flags (such as recursive)
    * @return RemoteIterator<Acl> which returns each Acl
    * @throws IOException if an ACL could not be read
    */
