@@ -165,7 +165,7 @@ public class AclEntry {
 
     /**
      * Sets the scope of the ACL entry.  If this method is not called, then the
-     * builder assumes {@link AclScope#ACCESS}.
+     * builder assumes {@link AclEntryScope#ACCESS}.
      * 
      * @param scope AclEntryScope scope of the ACL entry
      * @return Builder this builder, for call chaining
