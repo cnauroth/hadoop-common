@@ -481,7 +481,7 @@ public class ViewFileSystem extends FileSystem {
   @Override
   public void modifyAclEntries(Path path, Set<AclEntry> aclSpec,
       EnumSet<AclWriteFlag> flags) throws IOException {
-    InodeTree.ResolveResult<FileSystem> res = 
+    InodeTree.ResolveResult<FileSystem> res =
       fsState.resolve(getUriPath(path), true);
     res.targetFileSystem.modifyAclEntries(res.remainingPath, aclSpec, flags);
   }
@@ -489,7 +489,7 @@ public class ViewFileSystem extends FileSystem {
   @Override
   public void removeAclEntries(Path path, Set<AclEntry> aclSpec,
       EnumSet<AclWriteFlag> flags) throws IOException {
-    InodeTree.ResolveResult<FileSystem> res = 
+    InodeTree.ResolveResult<FileSystem> res =
       fsState.resolve(getUriPath(path), true);
     res.targetFileSystem.removeAclEntries(res.remainingPath, aclSpec, flags);
   }
@@ -497,7 +497,7 @@ public class ViewFileSystem extends FileSystem {
   @Override
   public void removeDefaultAcl(Path path, EnumSet<AclWriteFlag> flags)
       throws IOException {
-    InodeTree.ResolveResult<FileSystem> res = 
+    InodeTree.ResolveResult<FileSystem> res =
       fsState.resolve(getUriPath(path), true);
     res.targetFileSystem.removeDefaultAcl(res.remainingPath, flags);
   }
@@ -505,7 +505,7 @@ public class ViewFileSystem extends FileSystem {
   @Override
   public void removeAcl(Path path, EnumSet<AclWriteFlag> flags)
       throws IOException {
-    InodeTree.ResolveResult<FileSystem> res = 
+    InodeTree.ResolveResult<FileSystem> res =
       fsState.resolve(getUriPath(path), true);
     res.targetFileSystem.removeAcl(res.remainingPath, flags);
   }
@@ -513,7 +513,7 @@ public class ViewFileSystem extends FileSystem {
   @Override
   public void setAcl(Path path, Set<AclEntry> aclSpec,
       EnumSet<AclWriteFlag> flags) throws IOException {
-    InodeTree.ResolveResult<FileSystem> res = 
+    InodeTree.ResolveResult<FileSystem> res =
       fsState.resolve(getUriPath(path), true);
     res.targetFileSystem.setAcl(res.remainingPath, aclSpec, flags);
   }
@@ -521,7 +521,7 @@ public class ViewFileSystem extends FileSystem {
   @Override
   public RemoteIterator<AclStatus> listAclStatus(Path path,
       EnumSet<AclReadFlag> flags) throws IOException {
-    InodeTree.ResolveResult<FileSystem> res = 
+    InodeTree.ResolveResult<FileSystem> res =
       fsState.resolve(getUriPath(path), true);
     return res.targetFileSystem.listAclStatus(res.remainingPath, flags);
   }
