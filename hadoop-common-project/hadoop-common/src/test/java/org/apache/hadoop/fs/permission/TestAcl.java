@@ -57,7 +57,9 @@ public class TestAcl {
       .addEntry(ENTRY4);
     ACL1 = aclBuilder.build();
     ACL2 = aclBuilder.build();
-    ACL3 = new Acl.Builder().build();
+    ACL3 = new Acl.Builder()
+      .setStickyBit(true)
+      .build();
 
     AclStatus.Builder aclStatusBuilder = new AclStatus.Builder()
       .setFile(new Path("file1"))
@@ -171,7 +173,7 @@ public class TestAcl {
     assertEquals(
       "entries: [user:user1:rwx, group:group2:rw-, default:other::---], stickyBit: false",
       ACL2.toString());
-    assertEquals("entries: [], stickyBit: false", ACL3.toString());
+    assertEquals("entries: [], stickyBit: true", ACL3.toString());
     assertEquals("user:user1:rwx", ENTRY1.toString());
     assertEquals("user:user1:rwx", ENTRY2.toString());
     assertEquals("group:group2:rw-", ENTRY3.toString());
@@ -183,7 +185,7 @@ public class TestAcl {
       "file: file1, owner: owner1, group: group1, acl: {entries: [user:user1:rwx, group:group2:rw-, default:other::---], stickyBit: false}",
       STATUS2.toString());
     assertEquals(
-      "file: file2, owner: owner2, group: group2, acl: {entries: [], stickyBit: false}",
+      "file: file2, owner: owner2, group: group2, acl: {entries: [], stickyBit: true}",
       STATUS3.toString());
   }
 }
