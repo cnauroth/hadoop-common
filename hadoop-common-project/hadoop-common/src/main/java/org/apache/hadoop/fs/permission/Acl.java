@@ -113,7 +113,7 @@ public class Acl {
      * Sets sticky bit.  If this method is not called, then the builder assumes
      * false.
      * 
-     * @param boolean sticky bit
+     * @param stickyBit boolean sticky bit
      * @return Builder this builder, for call chaining
      */
     public Builder setStickyBit(boolean stickyBit) {
