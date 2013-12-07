@@ -396,8 +396,8 @@ public class TestChRootedFileSystem {
     chrootFs.setAcl(chrootPath, entries, writeFlags);
     verify(mockFs).setAcl(rawPath, entries, writeFlags);
 
-    chrootFs.getAcls(chrootPath, readFlags);
-    verify(mockFs).getAcls(rawPath, readFlags);
+    chrootFs.listAclStatus(chrootPath, readFlags);
+    verify(mockFs).listAclStatus(rawPath, readFlags);
   }
 
   static class MockFileSystem extends FilterFileSystem {

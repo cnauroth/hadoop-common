@@ -21,9 +21,9 @@ package org.apache.hadoop.fs;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.permission.Acl;
 import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.AclReadFlag;
+import org.apache.hadoop.fs.permission.AclStatus;
 import org.apache.hadoop.fs.permission.AclWriteFlag;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.security.Credentials;
@@ -180,8 +180,8 @@ public class TestHarFileSystem {
         throws IOException;
     public void setAcl(Path path, Set<AclEntry> aclSpec,
         EnumSet<AclWriteFlag> flags) throws IOException;
-    public RemoteIterator<Acl> getAcls(Path path, EnumSet<AclReadFlag> flags)
-        throws IOException;
+    public RemoteIterator<AclStatus> listAclStatus(Path path,
+        EnumSet<AclReadFlag> flags) throws IOException;
   }
 
   @Test

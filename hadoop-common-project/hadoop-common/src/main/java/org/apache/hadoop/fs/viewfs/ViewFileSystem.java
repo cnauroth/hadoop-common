@@ -49,9 +49,9 @@ import org.apache.hadoop.fs.InvalidPathException;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.UnsupportedFileSystemException;
-import org.apache.hadoop.fs.permission.Acl;
 import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.AclReadFlag;
+import org.apache.hadoop.fs.permission.AclStatus;
 import org.apache.hadoop.fs.permission.AclWriteFlag;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.viewfs.InodeTree.INode;
@@ -519,11 +519,11 @@ public class ViewFileSystem extends FileSystem {
   }
 
   @Override
-  public RemoteIterator<Acl> getAcls(Path path, EnumSet<AclReadFlag> flags)
-      throws IOException {
+  public RemoteIterator<AclStatus> listAclStatus(Path path,
+      EnumSet<AclReadFlag> flags) throws IOException {
     InodeTree.ResolveResult<FileSystem> res = 
       fsState.resolve(getUriPath(path), true);
-    return res.targetFileSystem.getAcls(res.remainingPath, flags);
+    return res.targetFileSystem.listAclStatus(res.remainingPath, flags);
   }
 
   @Override
