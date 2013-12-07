@@ -388,6 +388,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
   private final BlockManager blockManager;
   private final SnapshotManager snapshotManager;
   private final CacheManager cacheManager;
+  private final AclManager aclManager;
   private final DatanodeStatistics datanodeStatistics;
 
   // Block pool ID used by this namenode
@@ -747,6 +748,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       } finally {
         writeUnlock();
       }
+      this.aclManager = new AclManager();
       this.safeMode = new SafeModeInfo(conf);
       this.auditLoggers = initAuditLoggers(conf);
       this.isDefaultAuditLogger = auditLoggers.size() == 1 &&
@@ -6687,6 +6689,10 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
   /** @return the cache manager. */
   public CacheManager getCacheManager() {
     return cacheManager;
+  }
+
+  public AclManager getAclManager() {
+    return aclManager;
   }
 
   @Override  // NameNodeMXBean

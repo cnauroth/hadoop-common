@@ -133,12 +133,12 @@ public abstract class INode implements INodeAttributes, Diff.Element<byte[]> {
    *          otherwise, get the result from the current inode.
    * @return permission.
    */
-  abstract FsPermission getFsPermission(Snapshot snapshot);
+  abstract short getFsPermissionShort(Snapshot snapshot);
   
   /** The same as getFsPermission(null). */
   @Override
-  public final FsPermission getFsPermission() {
-    return getFsPermission(null);
+  public short getFsPermissionShort() {
+    return getFsPermissionShort(null);
   }
 
   /** Set the {@link FsPermission} of this {@link INode} */

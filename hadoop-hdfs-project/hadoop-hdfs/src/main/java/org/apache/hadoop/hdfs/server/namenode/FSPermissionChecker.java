@@ -47,7 +47,7 @@ class FSPermissionChecker {
   private static String toAccessControlString(INode inode) {
     return "\"" + inode.getFullPathName() + "\":"
           + inode.getUserName() + ":" + inode.getGroupName()
-          + ":" + (inode.isDirectory()? "d": "-") + inode.getFsPermission();
+          + ":" + (inode.isDirectory()? "d": "-") + new FsPermission(inode.getFsPermissionShort());
   }
 
 
@@ -220,7 +220,7 @@ class FSPermissionChecker {
     if (inode == null) {
       return;
     }
-    FsPermission mode = inode.getFsPermission(snapshot);
+    FsPermission mode = new FsPermission(inode.getFsPermissionShort(snapshot));
 
     if (user.equals(inode.getUserName(snapshot))) { //user class
       if (mode.getUserAction().implies(access)) { return; }
@@ -238,7 +238,7 @@ class FSPermissionChecker {
   /** Guarded by {@link FSNamesystem#readLock()} */
   private void checkStickyBit(INode parent, INode inode, Snapshot snapshot
       ) throws AccessControlException {
-    if(!parent.getFsPermission(snapshot).getStickyBit()) {
+    if(!new FsPermission(parent.getFsPermissionShort(snapshot)).getStickyBit()) {
       return;
     }
 

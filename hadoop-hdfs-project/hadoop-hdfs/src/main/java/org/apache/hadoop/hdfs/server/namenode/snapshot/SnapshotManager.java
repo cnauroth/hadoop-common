@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.DFSUtil;
 import org.apache.hadoop.hdfs.protocol.SnapshotException;
 import org.apache.hadoop.hdfs.protocol.SnapshottableDirectoryStatus;
@@ -323,7 +324,7 @@ public class SnapshotManager implements SnapshotStats {
       if (userName == null || userName.equals(dir.getUserName())) {
         SnapshottableDirectoryStatus status = new SnapshottableDirectoryStatus(
             dir.getModificationTime(), dir.getAccessTime(),
-            dir.getFsPermission(), dir.getUserName(), dir.getGroupName(),
+            new FsPermission(dir.getFsPermissionShort()), dir.getUserName(), dir.getGroupName(),
             dir.getLocalNameBytes(), dir.getId(), dir.getChildrenNum(null),
             dir.getNumSnapshots(),
             dir.getSnapshotQuota(), dir.getParent() == null ? 

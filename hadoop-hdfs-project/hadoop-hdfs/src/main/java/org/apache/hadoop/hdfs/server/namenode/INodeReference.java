@@ -209,8 +209,8 @@ public abstract class INodeReference extends INode {
   }
   
   @Override
-  public final FsPermission getFsPermission(Snapshot snapshot) {
-    return referred.getFsPermission(snapshot);
+  public final short getFsPermissionShort(Snapshot snapshot) {
+    return referred.getFsPermissionShort(snapshot);
   }
   @Override
   public final short getFsPermissionShort() {

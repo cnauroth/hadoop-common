@@ -38,9 +38,6 @@ public interface INodeAttributes {
 
   /** @return the group name. */
   public String getGroupName();
-  
-  /** @return the permission. */
-  public FsPermission getFsPermission();
 
   /** @return the permission as a short. */
   public short getFsPermissionShort();
@@ -91,11 +88,6 @@ public interface INodeAttributes {
     public final String getGroupName() {
       final int n = (int)PermissionStatusFormat.GROUP.retrieve(permission);
       return SerialNumberManager.INSTANCE.getGroup(n);
-    }
-
-    @Override
-    public final FsPermission getFsPermission() {
-      return new FsPermission(getFsPermissionShort());
     }
 
     @Override

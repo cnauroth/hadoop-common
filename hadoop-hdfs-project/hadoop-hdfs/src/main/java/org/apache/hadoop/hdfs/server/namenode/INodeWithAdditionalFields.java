@@ -153,7 +153,7 @@ public abstract class INodeWithAdditionalFields extends INode
   @Override
   final PermissionStatus getPermissionStatus(Snapshot snapshot) {
     return new PermissionStatus(getUserName(snapshot), getGroupName(snapshot),
-        getFsPermission(snapshot));
+        new FsPermission(getFsPermissionShort(snapshot)));
   }
 
   private final void updatePermissionStatus(PermissionStatusFormat f, long n) {
@@ -193,12 +193,12 @@ public abstract class INodeWithAdditionalFields extends INode
   }
 
   @Override
-  final FsPermission getFsPermission(Snapshot snapshot) {
+  final short getFsPermissionShort(Snapshot snapshot) {
     if (snapshot != null) {
-      return getSnapshotINode(snapshot).getFsPermission();
+      return getSnapshotINode(snapshot).getFsPermissionShort();
     }
 
-    return new FsPermission(getFsPermissionShort());
+    return getFsPermissionShort();
   }
 
   @Override
