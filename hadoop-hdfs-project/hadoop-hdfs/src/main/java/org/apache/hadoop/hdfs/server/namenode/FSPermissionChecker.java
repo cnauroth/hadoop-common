@@ -44,10 +44,11 @@ class FSPermissionChecker {
   static final Log LOG = LogFactory.getLog(UserGroupInformation.class);
 
   /** @return a string for throwing {@link AccessControlException} */
-  private static String toAccessControlString(INode inode) {
+  private static String toAccessControlString(INode inode, AclManager aclManager) {
     return "\"" + inode.getFullPathName() + "\":"
           + inode.getUserName() + ":" + inode.getGroupName()
-          + ":" + (inode.isDirectory()? "d": "-") + new FsPermission(inode.getFsPermissionShort());
+          + ":" + (inode.isDirectory()? "d": "-")
+          + aclManager.getFsPermission(inode);
   }
 
 
@@ -56,14 +57,16 @@ class FSPermissionChecker {
   /** A set with group namess. Not synchronized since it is unmodifiable */
   private final Set<String> groups;
   private final boolean isSuper;
+  private final AclManager aclManager;
 
   FSPermissionChecker(String fsOwner, String supergroup,
-      UserGroupInformation callerUgi) {
+      UserGroupInformation callerUgi, AclManager aclManager) {
     ugi = callerUgi;
     HashSet<String> s = new HashSet<String>(Arrays.asList(ugi.getGroupNames()));
     groups = Collections.unmodifiableSet(s);
     user = ugi.getShortUserName();
     isSuper = user.equals(fsOwner) || groups.contains(supergroup);
+    this.aclManager = aclManager;
   }
 
   /**
@@ -220,7 +223,7 @@ class FSPermissionChecker {
     if (inode == null) {
       return;
     }
-    FsPermission mode = new FsPermission(inode.getFsPermissionShort(snapshot));
+    FsPermission mode = aclManager.getFsPermission(inode, snapshot);
 
     if (user.equals(inode.getUserName(snapshot))) { //user class
       if (mode.getUserAction().implies(access)) { return; }
@@ -232,13 +235,14 @@ class FSPermissionChecker {
       if (mode.getOtherAction().implies(access)) { return; }
     }
     throw new AccessControlException("Permission denied: user=" + user
-        + ", access=" + access + ", inode=" + toAccessControlString(inode));
+        + ", access=" + access + ", inode="
+        + toAccessControlString(inode, aclManager));
   }
 
   /** Guarded by {@link FSNamesystem#readLock()} */
   private void checkStickyBit(INode parent, INode inode, Snapshot snapshot
       ) throws AccessControlException {
-    if(!new FsPermission(parent.getFsPermissionShort(snapshot)).getStickyBit()) {
+    if (!aclManager.getFsPermission(parent, snapshot).getStickyBit()) {
       return;
     }
 

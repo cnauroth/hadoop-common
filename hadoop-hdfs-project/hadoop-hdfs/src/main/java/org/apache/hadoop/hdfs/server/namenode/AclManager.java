@@ -22,6 +22,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.fs.permission.AclEntry;
+import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.hdfs.server.namenode.snapshot.Snapshot;
 
 /**
  * ALL operations that get/set permissions/ACLs route through here.
@@ -29,7 +31,7 @@ import org.apache.hadoop.fs.permission.AclEntry;
  * Encapsulation!
  */
 @InterfaceAudience.LimitedPrivate({"HDFS"})
-class AclManager {
+public class AclManager {
   private final ConcurrentHashMap<INode, ManagedAcl> inodeAclMap =
     new ConcurrentHashMap<INode, ManagedAcl>();
 
@@ -46,17 +48,25 @@ class AclManager {
     }
   }
 
-  void assignAcl(INode inode, Set<AclEntry> entries, boolean stickyBit) {
+  public void assignAcl(INode inode, Set<AclEntry> entries, boolean stickyBit) {
   }
 
-  void assignPermission() {
+  public void assignPermission() {
   }
 
-  ManagedAcl getAcl(INode inode) {
+  public ManagedAcl getAcl(INode inode) {
     return null;
   }
 
-  void releaseAcl(INode inode) {
+  public void releaseAcl(INode inode) {
+  }
+
+  public FsPermission getFsPermission(INode inode) {
+    return new FsPermission(inode.getFsPermissionShort());
+  }
+
+  public FsPermission getFsPermission(INode inode, Snapshot snapshot) {
+    return new FsPermission(inode.getFsPermissionShort(snapshot));
   }
 
   // TODO: all the public API methods, FSNamesystem will delegate to here

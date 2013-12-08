@@ -1916,7 +1916,8 @@ public class FSDirectory implements Closeable {
         // else the supplied permissions
         // NOTE: the permissions of the auto-created directories violate posix
         FsPermission parentFsPerm = inheritPermission
-            ? new FsPermission(inodes[i-1].getFsPermissionShort()) : permissions.getPermission();
+            ? namesystem.getAclManager().getFsPermission(inodes[i-1]) :
+            permissions.getPermission();
         
         // ensure that the permissions allow user write+execute
         if (!parentFsPerm.getUserAction().implies(FsAction.WRITE_EXECUTE)) {
@@ -2536,7 +2537,7 @@ public class FSDirectory implements Closeable {
         blocksize,
         node.getModificationTime(snapshot),
         node.getAccessTime(snapshot),
-        new FsPermission(node.getFsPermissionShort(snapshot)),
+        namesystem.getAclManager().getFsPermission(node, snapshot),
         node.getUserName(snapshot),
         node.getGroupName(snapshot),
         node.isSymlink() ? node.asSymlink().getSymlink() : null,
@@ -2578,7 +2579,8 @@ public class FSDirectory implements Closeable {
     HdfsLocatedFileStatus status =
         new HdfsLocatedFileStatus(size, node.isDirectory(), replication,
           blocksize, node.getModificationTime(snapshot),
-          node.getAccessTime(snapshot), new FsPermission(node.getFsPermissionShort(snapshot)),
+          node.getAccessTime(snapshot),
+          namesystem.getAclManager().getFsPermission(node, snapshot),
           node.getUserName(snapshot), node.getGroupName(snapshot),
           node.isSymlink() ? node.asSymlink().getSymlink() : null, path,
           node.getId(), loc, childrenNum);

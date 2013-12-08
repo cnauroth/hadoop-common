@@ -741,14 +741,14 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
 
       this.dtSecretManager = createDelegationTokenSecretManager(conf);
       this.dir = new FSDirectory(fsImage, this, conf);
-      this.snapshotManager = new SnapshotManager(dir);
+      this.aclManager = new AclManager();
+      this.snapshotManager = new SnapshotManager(dir, aclManager);
       writeLock();
       try {
         this.cacheManager = new CacheManager(this, conf, blockManager);
       } finally {
         writeUnlock();
       }
-      this.aclManager = new AclManager();
       this.safeMode = new SafeModeInfo(conf);
       this.auditLoggers = initAuditLoggers(conf);
       this.isDefaultAuditLogger = auditLoggers.size() == 1 &&
@@ -3211,7 +3211,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
   private FSPermissionChecker getPermissionChecker()
       throws AccessControlException {
     try {
-      return new FSPermissionChecker(fsOwnerShortUserName, supergroup, getRemoteUser());
+      return new FSPermissionChecker(fsOwnerShortUserName, supergroup,
+        getRemoteUser(), aclManager);
     } catch (IOException ioe) {
       throw new AccessControlException(ioe);
     }

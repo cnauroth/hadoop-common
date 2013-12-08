@@ -21,6 +21,7 @@ package org.apache.hadoop.hdfs.server.namenode.snapshot;
 import java.util.ArrayList;
 
 import org.apache.hadoop.hdfs.protocol.SnapshotException;
+import org.apache.hadoop.hdfs.server.namenode.AclManager;
 import org.apache.hadoop.hdfs.server.namenode.FSDirectory;
 import org.apache.hadoop.hdfs.server.namenode.INode;
 import org.junit.*;
@@ -43,7 +44,7 @@ public class TestSnapshotManager {
     INodeDirectorySnapshottable ids = mock(INodeDirectorySnapshottable.class);
     FSDirectory fsdir = mock(FSDirectory.class);
 
-    SnapshotManager sm = spy(new SnapshotManager(fsdir));
+    SnapshotManager sm = spy(new SnapshotManager(fsdir, new AclManager()));
     doReturn(ids).when(sm).getSnapshottableRoot(anyString());
     doReturn(testMaxSnapshotLimit).when(sm).getMaxSnapshotID();
 
