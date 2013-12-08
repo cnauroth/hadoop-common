@@ -26,9 +26,9 @@ import java.util.Set;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.permission.Acl;
 import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.AclReadFlag;
+import org.apache.hadoop.fs.permission.AclStatus;
 import org.apache.hadoop.fs.permission.AclWriteFlag;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.ContentSummary;
@@ -544,8 +544,8 @@ public class FilterFileSystem extends FileSystem {
   }
 
   @Override
-  public RemoteIterator<Acl> getAcls(Path path, EnumSet<AclReadFlag> flags)
-      throws IOException {
-    return fs.getAcls(path, flags);
+  public RemoteIterator<AclStatus> listAclStatus(Path path,
+      EnumSet<AclReadFlag> flags) throws IOException {
+    return fs.listAclStatus(path, flags);
   }
 }

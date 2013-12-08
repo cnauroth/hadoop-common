@@ -26,50 +26,29 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
-import org.apache.hadoop.fs.Path;
 
 /**
  * Defines an Access Control List, which is a set of rules for enforcement of
  * permissions on a file or directory.  An Acl contains a set of multiple
  * {@link AclEntry} instances.  The ACL entries define the permissions enforced
  * for different classes of users: owner, named user, owning group, named group
- * and others.  The Acl also contains the associated file as a {@link Path}, the
- * file owner and the file group.  Acl instances are immutable.  Use a
- * {@link Builder} to create a new instance.
+ * and others.  The Acl also contains additional flags associatd with the file,
+ * such as the sticky bit.  Acl instances are immutable.  Use a {@link Builder}
+ * to create a new instance.
  */
 @InterfaceAudience.Public
 @InterfaceStability.Evolving
 public class Acl {
-  private final Path file;
-  private final String owner;
-  private final String group;
   private final Set<AclEntry> entries;
+  private final boolean stickyBit;
 
   /**
-   * Returns the file associated to this ACL.
+   * Returns the sticky bit.
    * 
-   * @return Path file associated to this ACL
+   * @return boolean sticky bit
    */
-  public Path getFile() {
-    return file;
-  }
-
-  /**
-   * Returns the file owner.
-   * 
-   * @return String file owner
-   */
-  public String getOwner() {
-    return owner;
-  }
-
-  /**
-   * Returns the file group.
-   * 
-   * @return String file group
-   */
-  public String getGroup() {
-    return group;
+  public boolean getStickyBit() {
+    return stickyBit;
   }
 
   /**
@@ -91,30 +70,24 @@ public class Acl {
     }
     Acl other = (Acl)o;
     return new EqualsBuilder()
-      .append(file, other.file)
-      .append(owner, other.owner)
-      .append(group, other.group)
       .append(entries, other.entries)
+      .append(stickyBit, other.stickyBit)
       .isEquals();
   }
 
   @Override
   public int hashCode() {
     return new HashCodeBuilder()
-      .append(file)
-      .append(owner)
-      .append(group)
       .append(entries)
+      .append(stickyBit)
       .hashCode();
   }
 
   @Override
   public String toString() {
     return new StringBuilder()
-      .append("file: ").append(file)
-      .append(", owner: ").append(owner)
-      .append(", group: ").append(group)
-      .append(", entries: ").append(entries)
+      .append("entries: ").append(entries)
+      .append(", stickyBit: ").append(stickyBit)
       .toString();
   }
 
@@ -122,10 +95,8 @@ public class Acl {
    * Builder for creating new Acl instances.
    */
   public static class Builder {
-    private Path file;
-    private String owner;
-    private String group;
     private Set<AclEntry> entries = new LinkedHashSet<AclEntry>();
+    private boolean stickyBit = false;
 
     /**
      * Adds an ACL entry.
@@ -139,35 +110,14 @@ public class Acl {
     }
 
     /**
-     * Sets the file associated to this ACL.
+     * Sets sticky bit.  If this method is not called, then the builder assumes
+     * false.
      * 
-     * @param file Path file associated to this ACL
+     * @param stickyBit boolean sticky bit
      * @return Builder this builder, for call chaining
      */
-    public Builder setFile(Path file) {
-      this.file = file;
-      return this;
-    }
-
-    /**
-     * Sets the file owner.
-     * 
-     * @param owner String file owner
-     * @return Builder this builder, for call chaining
-     */
-    public Builder setOwner(String owner) {
-      this.owner = owner;
-      return this;
-    }
-
-    /**
-     * Sets the file group.
-     * 
-     * @param group String file group
-     * @return Builder this builder, for call chaining
-     */
-    public Builder setGroup(String group) {
-      this.group = group;
+    public Builder setStickyBit(boolean stickyBit) {
+      this.stickyBit = stickyBit;
       return this;
     }
 
@@ -177,23 +127,19 @@ public class Acl {
      * @return Acl new Acl
      */
     public Acl build() {
-      return new Acl(file, owner, group, entries);
+      return new Acl(entries, stickyBit);
     }
   }
 
   /**
    * Private constructor.
    * 
-   * @param file Path file associated to this ACL
-   * @param owner String file owner
-   * @param group String file group
    * @param entries Set<AclEntry> set of all ACL entries
+   * @param boolean sticky bit
    */
-  private Acl(Path file, String owner, String group, Set<AclEntry> entries) {
-    this.file = file;
-    this.owner = owner;
-    this.group = group;
+  private Acl(Set<AclEntry> entries, boolean stickyBit) {
     this.entries = Collections.unmodifiableSet(
       new LinkedHashSet<AclEntry>(entries));
+    this.stickyBit = stickyBit;
   }
 }

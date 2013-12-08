@@ -31,6 +31,7 @@ import org.apache.hadoop.fs.Path;
 public class TestAcl {
   private static final Acl ACL1, ACL2, ACL3;
   private static final AclEntry ENTRY1, ENTRY2, ENTRY3, ENTRY4;
+  private static final AclStatus STATUS1, STATUS2, STATUS3;
 
   static {
     AclEntry.Builder aclEntryBuilder = new AclEntry.Builder()
@@ -51,18 +52,27 @@ public class TestAcl {
       .build();
 
     Acl.Builder aclBuilder = new Acl.Builder()
-      .setFile(new Path("file1"))
-      .setOwner("owner1")
-      .setGroup("group1")
       .addEntry(ENTRY1)
       .addEntry(ENTRY3)
       .addEntry(ENTRY4);
     ACL1 = aclBuilder.build();
     ACL2 = aclBuilder.build();
     ACL3 = new Acl.Builder()
+      .setStickyBit(true)
+      .build();
+
+    AclStatus.Builder aclStatusBuilder = new AclStatus.Builder()
+      .setFile(new Path("file1"))
+      .setOwner("owner1")
+      .setGroup("group1")
+      .setAcl(ACL1);
+    STATUS1 = aclStatusBuilder.build();
+    STATUS2 = aclStatusBuilder.build();
+    STATUS3 = new AclStatus.Builder()
       .setFile(new Path("file2"))
       .setOwner("owner2")
       .setGroup("group2")
+      .setAcl(ACL3)
       .build();
   }
 
@@ -135,18 +145,47 @@ public class TestAcl {
   }
 
   @Test
+  public void testStatusEquals() {
+    assertNotSame(STATUS1, STATUS2);
+    assertNotSame(STATUS1, STATUS3);
+    assertNotSame(STATUS2, STATUS3);
+    assertEquals(STATUS1, STATUS1);
+    assertEquals(STATUS2, STATUS2);
+    assertEquals(STATUS1, STATUS2);
+    assertEquals(STATUS2, STATUS1);
+    assertFalse(STATUS1.equals(STATUS3));
+    assertFalse(STATUS2.equals(STATUS3));
+    assertFalse(STATUS1.equals(null));
+    assertFalse(STATUS1.equals(new Object()));
+  }
+
+  @Test
+  public void testStatusHashCode() {
+    assertEquals(STATUS1.hashCode(), STATUS2.hashCode());
+    assertFalse(STATUS1.hashCode() == STATUS3.hashCode());
+  }
+
+  @Test
   public void testToString() {
     assertEquals(
-      "file: file1, owner: owner1, group: group1, entries: [user:user1:rwx, group:group2:rw-, default:other::---]",
+      "entries: [user:user1:rwx, group:group2:rw-, default:other::---], stickyBit: false",
       ACL1.toString());
     assertEquals(
-      "file: file1, owner: owner1, group: group1, entries: [user:user1:rwx, group:group2:rw-, default:other::---]",
+      "entries: [user:user1:rwx, group:group2:rw-, default:other::---], stickyBit: false",
       ACL2.toString());
-    assertEquals("file: file2, owner: owner2, group: group2, entries: []",
-      ACL3.toString());
+    assertEquals("entries: [], stickyBit: true", ACL3.toString());
     assertEquals("user:user1:rwx", ENTRY1.toString());
     assertEquals("user:user1:rwx", ENTRY2.toString());
     assertEquals("group:group2:rw-", ENTRY3.toString());
     assertEquals("default:other::---", ENTRY4.toString());
+    assertEquals(
+      "file: file1, owner: owner1, group: group1, acl: {entries: [user:user1:rwx, group:group2:rw-, default:other::---], stickyBit: false}",
+      STATUS1.toString());
+    assertEquals(
+      "file: file1, owner: owner1, group: group1, acl: {entries: [user:user1:rwx, group:group2:rw-, default:other::---], stickyBit: false}",
+      STATUS2.toString());
+    assertEquals(
+      "file: file2, owner: owner2, group: group2, acl: {entries: [], stickyBit: true}",
+      STATUS3.toString());
   }
 }

@@ -131,10 +131,10 @@ public class TestViewFileSystemDelegation { //extends ViewFileSystemTestSetup {
     viewFs.setAcl(viewFsPath2, entries, writeFlags);
     verify(mockFs2).setAcl(mockFsPath2, entries, writeFlags);
 
-    viewFs.getAcls(viewFsPath1, readFlags);
-    verify(mockFs1).getAcls(mockFsPath1, readFlags);
-    viewFs.getAcls(viewFsPath2, readFlags);
-    verify(mockFs2).getAcls(mockFsPath2, readFlags);
+    viewFs.listAclStatus(viewFsPath1, readFlags);
+    verify(mockFs1).listAclStatus(mockFsPath1, readFlags);
+    viewFs.listAclStatus(viewFsPath2, readFlags);
+    verify(mockFs2).listAclStatus(mockFsPath2, readFlags);
   }
 
   void checkVerifyChecksum(boolean flag) {

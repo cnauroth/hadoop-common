@@ -38,9 +38,9 @@ import org.apache.hadoop.fs.FsServerDefaults;
 import org.apache.hadoop.fs.FsStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
-import org.apache.hadoop.fs.permission.Acl;
 import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.AclReadFlag;
+import org.apache.hadoop.fs.permission.AclStatus;
 import org.apache.hadoop.fs.permission.AclWriteFlag;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
@@ -315,9 +315,9 @@ class ChRootedFileSystem extends FilterFileSystem {
   }
 
   @Override
-  public RemoteIterator<Acl> getAcls(Path path, EnumSet<AclReadFlag> flags)
-      throws IOException {
-    return super.getAcls(fullPath(path), flags);
+  public RemoteIterator<AclStatus> listAclStatus(Path path,
+      EnumSet<AclReadFlag> flags) throws IOException {
+    return super.listAclStatus(fullPath(path), flags);
   }
 
   @Override

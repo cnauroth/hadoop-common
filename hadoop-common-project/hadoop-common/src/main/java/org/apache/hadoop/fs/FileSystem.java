@@ -51,9 +51,9 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Options.ChecksumOpt;
 import org.apache.hadoop.fs.Options.Rename;
-import org.apache.hadoop.fs.permission.Acl;
 import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.AclReadFlag;
+import org.apache.hadoop.fs.permission.AclStatus;
 import org.apache.hadoop.fs.permission.AclWriteFlag;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.io.MultipleIOException;
@@ -2352,13 +2352,13 @@ public abstract class FileSystem extends Configured implements Closeable {
    * 
    * @param path Path to get
    * @param flags EnumSet<AclReadFlag> containing flags (such as recursive)
-   * @return RemoteIterator<Acl> which returns each Acl
+   * @return RemoteIterator<AclStatus> which returns each AclStatus
    * @throws IOException if an ACL could not be read
    */
-  public RemoteIterator<Acl> getAcls(Path path, EnumSet<AclReadFlag> flags)
-      throws IOException {
+  public RemoteIterator<AclStatus> listAclStatus(Path path,
+      EnumSet<AclReadFlag> flags) throws IOException {
     throw new UnsupportedOperationException(getClass().getSimpleName()
-        + " doesn't support getAcls");
+        + " doesn't support listAclStatus");
   }
 
   // making it volatile to be able to do a double checked locking
