@@ -44,7 +44,7 @@ class FSPermissionChecker {
   static final Log LOG = LogFactory.getLog(UserGroupInformation.class);
 
   /** @return a string for throwing {@link AccessControlException} */
-  private static String toAccessControlString(INode inode, AclManager aclManager) {
+  private String toAccessControlString(INode inode) {
     return "\"" + inode.getFullPathName() + "\":"
           + inode.getUserName() + ":" + inode.getGroupName()
           + ":" + (inode.isDirectory()? "d": "-")
@@ -235,8 +235,7 @@ class FSPermissionChecker {
       if (mode.getOtherAction().implies(access)) { return; }
     }
     throw new AccessControlException("Permission denied: user=" + user
-        + ", access=" + access + ", inode="
-        + toAccessControlString(inode, aclManager));
+        + ", access=" + access + ", inode=" + toAccessControlString(inode));
   }
 
   /** Guarded by {@link FSNamesystem#readLock()} */
