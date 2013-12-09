@@ -17,50 +17,18 @@
  */
 package org.apache.hadoop.hdfs.server.namenode;
 
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
 import org.apache.hadoop.hdfs.server.namenode.snapshot.Snapshot;
 
 /**
- * ALL operations that get/set permissions/ACLs route through here.
- * Let's take that to its extreme and see what happens.
- * Encapsulation!
+ * AclManager handles all operations that get and set permissions or ACLs on
+ * inodes.  This is intended to encapsulate the logic for in-memory
+ * representation, fsimage persistence and edit logging for ACLs.
  */
 @InterfaceAudience.LimitedPrivate({"HDFS"})
 public class AclManager {
-  private final ConcurrentHashMap<INode, ManagedAcl> inodeAclMap =
-    new ConcurrentHashMap<INode, ManagedAcl>();
-
-  static class ManagedAcl {
-    Set<AclEntry> entries;
-    boolean stickyBit;
-
-    boolean isAcl() {
-      return false;
-    }
-
-    boolean isPermissions() {
-      return true;
-    }
-  }
-
-  public void assignAcl(INode inode, Set<AclEntry> entries, boolean stickyBit) {
-  }
-
-  public void assignPermission() {
-  }
-
-  public ManagedAcl getAcl(INode inode) {
-    return null;
-  }
-
-  public void releaseAcl(INode inode) {
-  }
 
   public FsPermission getFsPermission(INode inode) {
     return new FsPermission(inode.getFsPermissionShort());
@@ -78,6 +46,4 @@ public class AclManager {
       Snapshot snapshot, INodeMap inodeMap) throws QuotaExceededException {
     inode.setFsPermissionShort(permission.toShort(), snapshot, inodeMap);
   }
-
-  // TODO: all the public API methods, FSNamesystem will delegate to here
 }
