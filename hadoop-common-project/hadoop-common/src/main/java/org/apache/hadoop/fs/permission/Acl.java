@@ -21,8 +21,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.apache.commons.lang.builder.EqualsBuilder;
-import org.apache.commons.lang.builder.HashCodeBuilder;
+import com.google.common.base.Objects;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -70,18 +69,13 @@ public class Acl {
       return false;
     }
     Acl other = (Acl)o;
-    return new EqualsBuilder()
-      .append(entries, other.entries)
-      .append(stickyBit, other.stickyBit)
-      .isEquals();
+    return Objects.equal(entries, other.entries) &&
+      Objects.equal(stickyBit, other.stickyBit);
   }
 
   @Override
   public int hashCode() {
-    return new HashCodeBuilder()
-      .append(entries)
-      .append(stickyBit)
-      .hashCode();
+    return Objects.hashCode(entries, stickyBit);
   }
 
   @Override

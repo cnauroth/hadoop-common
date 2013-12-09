@@ -20,10 +20,9 @@ package org.apache.hadoop.fs.permission;
 import static org.apache.hadoop.fs.permission.AclEntryScope.*;
 import static org.apache.hadoop.fs.permission.AclEntryType.*;
 
+import com.google.common.base.Objects;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Ordering;
-import org.apache.commons.lang.builder.EqualsBuilder;
-import org.apache.commons.lang.builder.HashCodeBuilder;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -96,22 +95,15 @@ public class AclEntry implements Comparable<AclEntry> {
       return false;
     }
     AclEntry other = (AclEntry)o;
-    return new EqualsBuilder()
-      .append(type, other.type)
-      .append(name, other.name)
-      .append(permission, other.permission)
-      .append(scope, other.scope)
-      .isEquals();
+    return Objects.equal(type, other.type) &&
+      Objects.equal(name, other.name) &&
+      Objects.equal(permission, other.permission) &&
+      Objects.equal(scope, other.scope);
   }
 
   @Override
   public int hashCode() {
-    return new HashCodeBuilder()
-      .append(type)
-      .append(name)
-      .append(permission)
-      .append(scope)
-      .hashCode();
+    return Objects.hashCode(type, name, permission, scope);
   }
 
   @Override

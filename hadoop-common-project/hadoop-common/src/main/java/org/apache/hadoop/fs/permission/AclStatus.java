@@ -17,8 +17,7 @@
  */
 package org.apache.hadoop.fs.permission;
 
-import org.apache.commons.lang.builder.EqualsBuilder;
-import org.apache.commons.lang.builder.HashCodeBuilder;
+import com.google.common.base.Objects;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -82,22 +81,15 @@ public class AclStatus {
       return false;
     }
     AclStatus other = (AclStatus)o;
-    return new EqualsBuilder()
-      .append(file, other.file)
-      .append(owner, other.owner)
-      .append(group, other.group)
-      .append(acl, other.acl)
-      .isEquals();
+    return Objects.equal(file, other.file) &&
+      Objects.equal(owner, other.owner) &&
+      Objects.equal(group, other.group) &&
+      Objects.equal(acl, other.acl);
   }
 
   @Override
   public int hashCode() {
-    return new HashCodeBuilder()
-      .append(file)
-      .append(owner)
-      .append(group)
-      .append(acl)
-      .hashCode();
+    return Objects.hashCode(file, owner, group, acl);
   }
 
   @Override
