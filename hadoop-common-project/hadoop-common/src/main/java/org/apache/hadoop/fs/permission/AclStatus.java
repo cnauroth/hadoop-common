@@ -38,7 +38,7 @@ public class AclStatus {
 
   /**
    * Returns the file associated to this ACL.
-   * 
+   *
    * @return Path file associated to this ACL
    */
   public Path getFile() {
@@ -47,7 +47,7 @@ public class AclStatus {
 
   /**
    * Returns the file owner.
-   * 
+   *
    * @return String file owner
    */
   public String getOwner() {
@@ -56,7 +56,7 @@ public class AclStatus {
 
   /**
    * Returns the file group.
-   * 
+   *
    * @return String file group
    */
   public String getGroup() {
@@ -65,7 +65,7 @@ public class AclStatus {
 
   /**
    * Returns the ACL.
-   * 
+   *
    * @return Acl the ACL
    */
   public Acl getAcl() {
@@ -113,7 +113,7 @@ public class AclStatus {
 
     /**
      * Sets the file associated to this ACL.
-     * 
+     *
      * @param file Path file associated to this ACL
      * @return Builder this builder, for call chaining
      */
@@ -124,7 +124,7 @@ public class AclStatus {
 
     /**
      * Sets the file owner.
-     * 
+     *
      * @param owner String file owner
      * @return Builder this builder, for call chaining
      */
@@ -135,7 +135,7 @@ public class AclStatus {
 
     /**
      * Sets the file group.
-     * 
+     *
      * @param group String file group
      * @return Builder this builder, for call chaining
      */
@@ -146,7 +146,7 @@ public class AclStatus {
 
     /**
      * Sets the ACL.
-     * 
+     *
      * @param acl Acl the ACL
      * @return Builder this builder, for call chaining
      */
@@ -157,7 +157,7 @@ public class AclStatus {
 
     /**
      * Builds a new Acl populated with the set properties.
-     * 
+     *
      * @return Acl new Acl
      */
     public AclStatus build() {
@@ -167,7 +167,7 @@ public class AclStatus {
 
   /**
    * Private constructor.
-   * 
+   *
    * @param file Path file associated to this ACL
    * @param owner String file owner
    * @param group String file group

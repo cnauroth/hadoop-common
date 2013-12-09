@@ -52,7 +52,7 @@ public class AclEntry implements Comparable<AclEntry> {
 
   /**
    * Returns the ACL entry type.
-   * 
+   *
    * @return AclEntryType ACL entry type
    */
   public AclEntryType getType() {
@@ -61,7 +61,7 @@ public class AclEntry implements Comparable<AclEntry> {
 
   /**
    * Returns the optional ACL entry name.
-   * 
+   *
    * @return String ACL entry name, or null if undefined
    */
   public String getName() {
@@ -70,7 +70,7 @@ public class AclEntry implements Comparable<AclEntry> {
 
   /**
    * Returns the set of permissions in the ACL entry.
-   * 
+   *
    * @return FsAction set of permissions in the ACL entry
    */
   public FsAction getPermission() {
@@ -79,7 +79,7 @@ public class AclEntry implements Comparable<AclEntry> {
 
   /**
    * Returns the scope of the ACL entry.
-   * 
+   *
    * @return AclEntryScope scope of the ACL entry
    */
   public AclEntryScope getScope() {
@@ -146,7 +146,7 @@ public class AclEntry implements Comparable<AclEntry> {
 
     /**
      * Sets the ACL entry type.
-     * 
+     *
      * @param type AclEntryType ACL entry type
      * @return Builder this builder, for call chaining
      */
@@ -157,7 +157,7 @@ public class AclEntry implements Comparable<AclEntry> {
 
     /**
      * Sets the optional ACL entry name.
-     * 
+     *
      * @param name String optional ACL entry name
      * @return Builder this builder, for call chaining
      */
@@ -168,7 +168,7 @@ public class AclEntry implements Comparable<AclEntry> {
 
     /**
      * Sets the set of permissions in the ACL entry.
-     * 
+     *
      * @param permission FsAction set of permissions in the ACL entry
      * @return Builder this builder, for call chaining
      */
@@ -180,7 +180,7 @@ public class AclEntry implements Comparable<AclEntry> {
     /**
      * Sets the scope of the ACL entry.  If this method is not called, then the
      * builder assumes {@link AclEntryScope#ACCESS}.
-     * 
+     *
      * @param scope AclEntryScope scope of the ACL entry
      * @return Builder this builder, for call chaining
      */
@@ -191,7 +191,7 @@ public class AclEntry implements Comparable<AclEntry> {
 
     /**
      * Builds a new AclEntry populated with the set properties.
-     * 
+     *
      * @return AclEntry new AclEntry
      */
     public AclEntry build() {
@@ -201,7 +201,7 @@ public class AclEntry implements Comparable<AclEntry> {
 
   /**
    * Private constructor.
-   * 
+   *
    * @param type AclEntryType ACL entry type
    * @param name String optional ACL entry name
    * @param permission FsAction set of permissions in the ACL entry

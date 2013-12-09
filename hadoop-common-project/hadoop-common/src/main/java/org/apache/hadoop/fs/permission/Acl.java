@@ -43,7 +43,7 @@ public class Acl {
 
   /**
    * Returns the sticky bit.
-   * 
+   *
    * @return boolean sticky bit
    */
   public boolean getStickyBit() {
@@ -53,7 +53,7 @@ public class Acl {
   /**
    * Returns the list of all ACL entries, ordered by their natural ordering.
    * The list is unmodifiable.
-   * 
+   *
    * @return List<AclEntry> unmodifiable ordered list of all ACL entries
    */
   public List<AclEntry> getEntries() {
@@ -95,7 +95,7 @@ public class Acl {
 
     /**
      * Adds an ACL entry.
-     * 
+     *
      * @param entry AclEntry entry to add
      * @return Builder this builder, for call chaining
      */
@@ -107,7 +107,7 @@ public class Acl {
     /**
      * Sets sticky bit.  If this method is not called, then the builder assumes
      * false.
-     * 
+     *
      * @param stickyBit boolean sticky bit
      * @return Builder this builder, for call chaining
      */
@@ -118,7 +118,7 @@ public class Acl {
 
     /**
      * Builds a new Acl populated with the set properties.
-     * 
+     *
      * @return Acl new Acl
      */
     public Acl build() {
@@ -128,7 +128,7 @@ public class Acl {
 
   /**
    * Private constructor.
-   * 
+   *
    * @param entries List<AclEntry> list of all ACL entries
    * @param boolean sticky bit
    */
