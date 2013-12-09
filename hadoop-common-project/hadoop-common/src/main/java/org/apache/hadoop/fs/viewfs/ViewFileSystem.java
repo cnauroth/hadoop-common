@@ -479,7 +479,7 @@ public class ViewFileSystem extends FileSystem {
   }
 
   @Override
-  public void modifyAclEntries(Path path, Set<AclEntry> aclSpec,
+  public void modifyAclEntries(Path path, List<AclEntry> aclSpec,
       EnumSet<AclWriteFlag> flags) throws IOException {
     InodeTree.ResolveResult<FileSystem> res =
       fsState.resolve(getUriPath(path), true);
@@ -487,7 +487,7 @@ public class ViewFileSystem extends FileSystem {
   }
 
   @Override
-  public void removeAclEntries(Path path, Set<AclEntry> aclSpec,
+  public void removeAclEntries(Path path, List<AclEntry> aclSpec,
       EnumSet<AclWriteFlag> flags) throws IOException {
     InodeTree.ResolveResult<FileSystem> res =
       fsState.resolve(getUriPath(path), true);
@@ -511,7 +511,7 @@ public class ViewFileSystem extends FileSystem {
   }
 
   @Override
-  public void setAcl(Path path, Set<AclEntry> aclSpec,
+  public void setAcl(Path path, List<AclEntry> aclSpec,
       EnumSet<AclWriteFlag> flags) throws IOException {
     InodeTree.ResolveResult<FileSystem> res =
       fsState.resolve(getUriPath(path), true);

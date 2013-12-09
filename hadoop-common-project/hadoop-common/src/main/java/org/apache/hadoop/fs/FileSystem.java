@@ -2276,13 +2276,13 @@ public abstract class FileSystem extends Configured implements Closeable {
   /**
    * Modifies ACL entries of files and directories.  New entries are added to
    * the ACL, and existing entries are retained.
-   * 
+   *
    * @param path Path to modify
-   * @param aclSpec Set<AclEntry> describing modifications
+   * @param aclSpec List<AclEntry> describing modifications
    * @param flags EnumSet<AclWriteFlag> containing flags (such as recursive)
    * @throws IOException if an ACL could not be modified
    */
-  public void modifyAclEntries(Path path, Set<AclEntry> aclSpec,
+  public void modifyAclEntries(Path path, List<AclEntry> aclSpec,
       EnumSet<AclWriteFlag> flags) throws IOException {
     throw new UnsupportedOperationException(getClass().getSimpleName()
         + " doesn't support modifyAclEntries");
@@ -2291,13 +2291,13 @@ public abstract class FileSystem extends Configured implements Closeable {
   /**
    * Removes ACL entries from files and directories.  Other ACL entries are
    * retained.
-   * 
+   *
    * @param path Path to modify
-   * @param aclSpec Set<AclEntry> describing entries to remove
+   * @param aclSpec List<AclEntry> describing entries to remove
    * @param flags EnumSet<AclWriteFlag> containing flags (such as recursive)
    * @throws IOException if an ACL could not be modified
    */
-  public void removeAclEntries(Path path, Set<AclEntry> aclSpec,
+  public void removeAclEntries(Path path, List<AclEntry> aclSpec,
       EnumSet<AclWriteFlag> flags) throws IOException {
     throw new UnsupportedOperationException(getClass().getSimpleName()
         + " doesn't support removeAclEntries");
@@ -2305,7 +2305,7 @@ public abstract class FileSystem extends Configured implements Closeable {
 
   /**
    * Removes all default ACL entries from files and directories.
-   * 
+   *
    * @param path Path to modify
    * @param flags EnumSet<AclWriteFlag> containing flags (such as recursive)
    * @throws IOException if an ACL could not be modified
@@ -2320,7 +2320,7 @@ public abstract class FileSystem extends Configured implements Closeable {
    * Removes all but the base ACL entries of files and directories.  The entries
    * for user, group, and others are retained for compatibility with permission
    * bits.
-   * 
+   *
    * @param path Path to modify
    * @param flags EnumSet<AclWriteFlag> containing flags (such as recursive)
    * @throws IOException if an ACL could not be removed
@@ -2334,14 +2334,14 @@ public abstract class FileSystem extends Configured implements Closeable {
   /**
    * Fully replaces ACL of files and directories, discarding all existing
    * entries.
-   * 
+   *
    * @param path Path to modify
-   * @param aclSpec Set<AclEntry> describing modifications, must include entries
+   * @param aclSpec List<AclEntry> describing modifications, must include entries
    *   for user, group, and others for compatibility with permission bits.
    * @param flags EnumSet<AclWriteFlag> containing flags (such as recursive)
    * @throws IOException if an ACL could not be modified
    */
-  public void setAcl(Path path, Set<AclEntry> aclSpec,
+  public void setAcl(Path path, List<AclEntry> aclSpec,
       EnumSet<AclWriteFlag> flags) throws IOException {
     throw new UnsupportedOperationException(getClass().getSimpleName()
         + " doesn't support setAcl");
@@ -2349,7 +2349,7 @@ public abstract class FileSystem extends Configured implements Closeable {
 
   /**
    * Gets the ACLs of files and directories.
-   * 
+   *
    * @param path Path to get
    * @param flags EnumSet<AclReadFlag> containing flags (such as recursive)
    * @return RemoteIterator<AclStatus> which returns each AclStatus

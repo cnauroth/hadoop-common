@@ -17,8 +17,12 @@
  */
 package org.apache.hadoop.fs.permission;
 
-import org.apache.commons.lang.builder.EqualsBuilder;
-import org.apache.commons.lang.builder.HashCodeBuilder;
+import static org.apache.hadoop.fs.permission.AclEntryScope.*;
+import static org.apache.hadoop.fs.permission.AclEntryType.*;
+
+import com.google.common.base.Objects;
+import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.Ordering;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -27,12 +31,20 @@ import org.apache.hadoop.classification.InterfaceStability;
  * Defines a single entry in an ACL.  An ACL entry has a type (user, group,
  * mask, or other), an optional name (referring to a specific user or group), a
  * set of permissions (any combination of read, write and execute), and a scope
- * (access or default).  AclEntry instances are immutable.  Use a
- * {@link Builder} to create a new instance.
+ * (access or default).  The natural ordering for entries within an ACL is:
+ * <ol>
+ * <li>owner entry (unnamed user)</li>
+ * <li>all named user entries (internal ordering undefined)</li>
+ * <li>owning group entry (unnamed group)</li>
+ * <li>all named group entries (internal ordering undefined)</li>
+ * <li>other entry</li>
+ * </ol>
+ * All access ACL entries sort ahead of all default ACL entries.  AclEntry
+ * instances are immutable.  Use a {@link Builder} to create a new instance.
  */
 @InterfaceAudience.Public
 @InterfaceStability.Evolving
-public class AclEntry {
+public class AclEntry implements Comparable<AclEntry> {
   private final AclEntryType type;
   private final String name;
   private final FsAction permission;
@@ -40,7 +52,7 @@ public class AclEntry {
 
   /**
    * Returns the ACL entry type.
-   * 
+   *
    * @return AclEntryType ACL entry type
    */
   public AclEntryType getType() {
@@ -49,7 +61,7 @@ public class AclEntry {
 
   /**
    * Returns the optional ACL entry name.
-   * 
+   *
    * @return String ACL entry name, or null if undefined
    */
   public String getName() {
@@ -58,7 +70,7 @@ public class AclEntry {
 
   /**
    * Returns the set of permissions in the ACL entry.
-   * 
+   *
    * @return FsAction set of permissions in the ACL entry
    */
   public FsAction getPermission() {
@@ -67,7 +79,7 @@ public class AclEntry {
 
   /**
    * Returns the scope of the ACL entry.
-   * 
+   *
    * @return AclEntryScope scope of the ACL entry
    */
   public AclEntryScope getScope() {
@@ -83,22 +95,24 @@ public class AclEntry {
       return false;
     }
     AclEntry other = (AclEntry)o;
-    return new EqualsBuilder()
-      .append(type, other.type)
-      .append(name, other.name)
-      .append(permission, other.permission)
-      .append(scope, other.scope)
-      .isEquals();
+    return Objects.equal(type, other.type) &&
+      Objects.equal(name, other.name) &&
+      Objects.equal(permission, other.permission) &&
+      Objects.equal(scope, other.scope);
   }
 
   @Override
   public int hashCode() {
-    return new HashCodeBuilder()
-      .append(type)
-      .append(name)
-      .append(permission)
-      .append(scope)
-      .hashCode();
+    return Objects.hashCode(type, name, permission, scope);
+  }
+
+  @Override
+  public int compareTo(AclEntry other) {
+    return ComparisonChain.start()
+      .compare(scope, other.scope, Ordering.explicit(ACCESS, DEFAULT))
+      .compare(type, other.type, Ordering.explicit(USER, GROUP, MASK, OTHER))
+      .compare(name, other.name, Ordering.natural().nullsFirst())
+      .result();
   }
 
   @Override
@@ -132,7 +146,7 @@ public class AclEntry {
 
     /**
      * Sets the ACL entry type.
-     * 
+     *
      * @param type AclEntryType ACL entry type
      * @return Builder this builder, for call chaining
      */
@@ -143,7 +157,7 @@ public class AclEntry {
 
     /**
      * Sets the optional ACL entry name.
-     * 
+     *
      * @param name String optional ACL entry name
      * @return Builder this builder, for call chaining
      */
@@ -154,7 +168,7 @@ public class AclEntry {
 
     /**
      * Sets the set of permissions in the ACL entry.
-     * 
+     *
      * @param permission FsAction set of permissions in the ACL entry
      * @return Builder this builder, for call chaining
      */
@@ -166,7 +180,7 @@ public class AclEntry {
     /**
      * Sets the scope of the ACL entry.  If this method is not called, then the
      * builder assumes {@link AclEntryScope#ACCESS}.
-     * 
+     *
      * @param scope AclEntryScope scope of the ACL entry
      * @return Builder this builder, for call chaining
      */
@@ -177,7 +191,7 @@ public class AclEntry {
 
     /**
      * Builds a new AclEntry populated with the set properties.
-     * 
+     *
      * @return AclEntry new AclEntry
      */
     public AclEntry build() {
@@ -187,7 +201,7 @@ public class AclEntry {
 
   /**
    * Private constructor.
-   * 
+   *
    * @param type AclEntryType ACL entry type
    * @param name String optional ACL entry name
    * @param permission FsAction set of permissions in the ACL entry

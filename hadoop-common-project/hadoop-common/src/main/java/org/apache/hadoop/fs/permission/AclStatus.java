@@ -17,8 +17,7 @@
  */
 package org.apache.hadoop.fs.permission;
 
-import org.apache.commons.lang.builder.EqualsBuilder;
-import org.apache.commons.lang.builder.HashCodeBuilder;
+import com.google.common.base.Objects;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -39,7 +38,7 @@ public class AclStatus {
 
   /**
    * Returns the file associated to this ACL.
-   * 
+   *
    * @return Path file associated to this ACL
    */
   public Path getFile() {
@@ -48,7 +47,7 @@ public class AclStatus {
 
   /**
    * Returns the file owner.
-   * 
+   *
    * @return String file owner
    */
   public String getOwner() {
@@ -57,7 +56,7 @@ public class AclStatus {
 
   /**
    * Returns the file group.
-   * 
+   *
    * @return String file group
    */
   public String getGroup() {
@@ -66,7 +65,7 @@ public class AclStatus {
 
   /**
    * Returns the ACL.
-   * 
+   *
    * @return Acl the ACL
    */
   public Acl getAcl() {
@@ -82,22 +81,15 @@ public class AclStatus {
       return false;
     }
     AclStatus other = (AclStatus)o;
-    return new EqualsBuilder()
-      .append(file, other.file)
-      .append(owner, other.owner)
-      .append(group, other.group)
-      .append(acl, other.acl)
-      .isEquals();
+    return Objects.equal(file, other.file) &&
+      Objects.equal(owner, other.owner) &&
+      Objects.equal(group, other.group) &&
+      Objects.equal(acl, other.acl);
   }
 
   @Override
   public int hashCode() {
-    return new HashCodeBuilder()
-      .append(file)
-      .append(owner)
-      .append(group)
-      .append(acl)
-      .hashCode();
+    return Objects.hashCode(file, owner, group, acl);
   }
 
   @Override
@@ -121,7 +113,7 @@ public class AclStatus {
 
     /**
      * Sets the file associated to this ACL.
-     * 
+     *
      * @param file Path file associated to this ACL
      * @return Builder this builder, for call chaining
      */
@@ -132,7 +124,7 @@ public class AclStatus {
 
     /**
      * Sets the file owner.
-     * 
+     *
      * @param owner String file owner
      * @return Builder this builder, for call chaining
      */
@@ -143,7 +135,7 @@ public class AclStatus {
 
     /**
      * Sets the file group.
-     * 
+     *
      * @param group String file group
      * @return Builder this builder, for call chaining
      */
@@ -154,7 +146,7 @@ public class AclStatus {
 
     /**
      * Sets the ACL.
-     * 
+     *
      * @param acl Acl the ACL
      * @return Builder this builder, for call chaining
      */
@@ -165,7 +157,7 @@ public class AclStatus {
 
     /**
      * Builds a new Acl populated with the set properties.
-     * 
+     *
      * @return Acl new Acl
      */
     public AclStatus build() {
@@ -175,7 +167,7 @@ public class AclStatus {
 
   /**
    * Private constructor.
-   * 
+   *
    * @param file Path file associated to this ACL
    * @param owner String file owner
    * @param group String file group

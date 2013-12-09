@@ -19,7 +19,7 @@ package org.apache.hadoop.fs.permission;
 
 import static org.junit.Assert.*;
 
-import java.util.Set;
+import java.util.List;
 
 import org.junit.Test;
 
@@ -29,25 +29,81 @@ import org.apache.hadoop.fs.Path;
  * Tests covering basic functionality of the ACL objects.
  */
 public class TestAcl {
-  private static final Acl ACL1, ACL2, ACL3;
-  private static final AclEntry ENTRY1, ENTRY2, ENTRY3, ENTRY4;
+  private static final Acl ACL1, ACL2, ACL3, ACL4;
+  private static final AclEntry ENTRY1, ENTRY2, ENTRY3, ENTRY4, ENTRY5, ENTRY6,
+    ENTRY7, ENTRY8, ENTRY9, ENTRY10, ENTRY11, ENTRY12, ENTRY13;
   private static final AclStatus STATUS1, STATUS2, STATUS3;
 
   static {
+    // named user
     AclEntry.Builder aclEntryBuilder = new AclEntry.Builder()
       .setType(AclEntryType.USER)
       .setName("user1")
       .setPermission(FsAction.ALL);
     ENTRY1 = aclEntryBuilder.build();
     ENTRY2 = aclEntryBuilder.build();
+    // named group
     ENTRY3 = new AclEntry.Builder()
       .setType(AclEntryType.GROUP)
       .setName("group2")
       .setPermission(FsAction.READ_WRITE)
       .build();
+    // default other
     ENTRY4 = new AclEntry.Builder()
       .setType(AclEntryType.OTHER)
       .setPermission(FsAction.NONE)
+      .setScope(AclEntryScope.DEFAULT)
+      .build();
+    // owner
+    ENTRY5 = new AclEntry.Builder()
+      .setType(AclEntryType.USER)
+      .setPermission(FsAction.ALL)
+      .build();
+    // default named group
+    ENTRY6 = new AclEntry.Builder()
+      .setType(AclEntryType.GROUP)
+      .setName("group3")
+      .setPermission(FsAction.READ_WRITE)
+      .setScope(AclEntryScope.DEFAULT)
+      .build();
+    // other
+    ENTRY7 = new AclEntry.Builder()
+      .setType(AclEntryType.OTHER)
+      .setPermission(FsAction.NONE)
+      .build();
+    // default named user
+    ENTRY8 = new AclEntry.Builder()
+      .setType(AclEntryType.USER)
+      .setName("user3")
+      .setPermission(FsAction.ALL)
+      .setScope(AclEntryScope.DEFAULT)
+      .build();
+    // mask
+    ENTRY9 = new AclEntry.Builder()
+      .setType(AclEntryType.MASK)
+      .setPermission(FsAction.READ)
+      .build();
+    // default mask
+    ENTRY10 = new AclEntry.Builder()
+      .setType(AclEntryType.MASK)
+      .setPermission(FsAction.READ_EXECUTE)
+      .setScope(AclEntryScope.DEFAULT)
+      .build();
+    // group
+    ENTRY11 = new AclEntry.Builder()
+      .setType(AclEntryType.GROUP)
+      .setPermission(FsAction.READ)
+      .build();
+    // default group
+    ENTRY12 = new AclEntry.Builder()
+      .setType(AclEntryType.GROUP)
+      .setPermission(FsAction.READ)
+      .setScope(AclEntryScope.DEFAULT)
+      .build();
+    // default owner
+    ENTRY13 = new AclEntry.Builder()
+      .setType(AclEntryType.USER)
+      .setPermission(FsAction.ALL)
       .setScope(AclEntryScope.DEFAULT)
       .build();
 
@@ -73,6 +129,21 @@ public class TestAcl {
       .setOwner("owner2")
       .setGroup("group2")
       .setAcl(ACL3)
+      .build();
+
+    ACL4 = new Acl.Builder()
+      .addEntry(ENTRY1)
+      .addEntry(ENTRY3)
+      .addEntry(ENTRY4)
+      .addEntry(ENTRY5)
+      .addEntry(ENTRY6)
+      .addEntry(ENTRY7)
+      .addEntry(ENTRY8)
+      .addEntry(ENTRY9)
+      .addEntry(ENTRY10)
+      .addEntry(ENTRY11)
+      .addEntry(ENTRY12)
+      .addEntry(ENTRY13)
       .build();
   }
 
@@ -100,7 +171,7 @@ public class TestAcl {
   @Test
   public void testAclEntriesImmutable() {
     AclEntry entry = new AclEntry.Builder().build();
-    Set<AclEntry> entries = ACL1.getEntries();
+    List<AclEntry> entries = ACL1.getEntries();
     try {
       entries.add(entry);
       fail("expected adding ACL entry to fail");
@@ -134,6 +205,35 @@ public class TestAcl {
     assertFalse(ENTRY1.hashCode() == ENTRY3.hashCode());
     assertFalse(ENTRY1.hashCode() == ENTRY4.hashCode());
     assertFalse(ENTRY3.hashCode() == ENTRY4.hashCode());
+  }
+
+  @Test
+  public void testEntryNaturalOrdering() {
+    AclEntry expected[] = new AclEntry[] {
+      ENTRY5,  // owner
+      ENTRY1,  // named user
+      ENTRY11, // group
+      ENTRY3,  // named group
+      ENTRY9,  // mask
+      ENTRY7,  // other
+      ENTRY13, // default owner
+      ENTRY8,  // default named user
+      ENTRY12, // default group
+      ENTRY6,  // default named group
+      ENTRY10, // default mask
+      ENTRY4   // default other
+    };
+    List<AclEntry> actual = ACL4.getEntries();
+    assertNotNull(actual);
+    assertEquals(expected.length, actual.size());
+    for (int i = 0; i < expected.length; ++i) {
+      AclEntry expectedEntry = expected[i];
+      AclEntry actualEntry = actual.get(i);
+      assertEquals(
+        String.format("At position %d, expected = %s, actual = %s", i,
+          expectedEntry, actualEntry),
+        expectedEntry, actualEntry);
+    }
   }
 
   @Test

@@ -22,7 +22,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.Set;
+import java.util.List;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileSystemTestHelper;
@@ -102,7 +102,7 @@ public class TestViewFileSystemDelegation { //extends ViewFileSystemTestSetup {
     Path mockFsPath1 = new Path("/a/b/c");
     Path viewFsPath2 = new Path("/mounts/mockfs2/d/e/f");
     Path mockFsPath2 = new Path("/d/e/f");
-    Set<AclEntry> entries = Collections.emptySet();
+    List<AclEntry> entries = Collections.emptyList();
     EnumSet<AclWriteFlag> writeFlags = EnumSet.noneOf(AclWriteFlag.class);
     EnumSet<AclReadFlag> readFlags = EnumSet.noneOf(AclReadFlag.class);
 
