@@ -206,8 +206,7 @@ public abstract class INodeWithAdditionalFields extends INode
     return (short)PermissionStatusFormat.MODE.retrieve(permission);
   }
   @Override
-  void setPermission(FsPermission permission) {
-    final short mode = permission.toShort();
+  void setFsPermissionShort(short mode) {
     updatePermissionStatus(PermissionStatusFormat.MODE, mode);
   }
 

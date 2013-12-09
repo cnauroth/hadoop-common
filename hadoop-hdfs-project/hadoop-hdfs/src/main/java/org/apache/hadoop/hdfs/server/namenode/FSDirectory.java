@@ -1162,8 +1162,8 @@ public class FSDirectory implements Closeable {
     if (inode == null) {
       throw new FileNotFoundException("File does not exist: " + src);
     }
-    inode.setPermission(permissions, inodesInPath.getLatestSnapshot(), 
-        inodeMap);
+    namesystem.getAclManager().setFsPermission(permissions, inode,
+        inodesInPath.getLatestSnapshot(), inodeMap);
   }
 
   void setOwner(String src, String username, String groupname)

@@ -218,8 +218,8 @@ public abstract class INodeReference extends INode {
   }
   
   @Override
-  void setPermission(FsPermission permission) {
-    referred.setPermission(permission);
+  void setFsPermissionShort(short permission) {
+    referred.setFsPermissionShort(permission);
   }
 
   @Override

@@ -142,13 +142,13 @@ public abstract class INode implements INodeAttributes, Diff.Element<byte[]> {
   }
 
   /** Set the {@link FsPermission} of this {@link INode} */
-  abstract void setPermission(FsPermission permission);
+  abstract void setFsPermissionShort(short permission);
 
   /** Set the {@link FsPermission} of this {@link INode} */
-  INode setPermission(FsPermission permission, Snapshot latest,
+  INode setFsPermissionShort(short permission, Snapshot latest,
       INodeMap inodeMap) throws QuotaExceededException {
     final INode nodeToUpdate = recordModification(latest, inodeMap);
-    nodeToUpdate.setPermission(permission);
+    nodeToUpdate.setFsPermissionShort(permission);
     return nodeToUpdate;
   }
 

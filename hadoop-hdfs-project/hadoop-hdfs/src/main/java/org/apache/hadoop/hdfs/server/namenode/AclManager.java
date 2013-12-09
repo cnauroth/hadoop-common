@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
 import org.apache.hadoop.hdfs.server.namenode.snapshot.Snapshot;
 
 /**
@@ -67,6 +68,15 @@ public class AclManager {
 
   public FsPermission getFsPermission(INode inode, Snapshot snapshot) {
     return new FsPermission(inode.getFsPermissionShort(snapshot));
+  }
+
+  public void setFsPermission(FsPermission permission, INode inode) {
+    inode.setFsPermissionShort(permission.toShort());
+  }
+
+  public void setFsPermission(FsPermission permission, INode inode,
+      Snapshot snapshot, INodeMap inodeMap) throws QuotaExceededException {
+    inode.setFsPermissionShort(permission.toShort(), snapshot, inodeMap);
   }
 
   // TODO: all the public API methods, FSNamesystem will delegate to here
