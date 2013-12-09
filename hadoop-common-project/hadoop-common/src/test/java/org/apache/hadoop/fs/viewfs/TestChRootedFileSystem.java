@@ -22,7 +22,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.Set;
+import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
@@ -377,7 +377,7 @@ public class TestChRootedFileSystem {
 
     Path chrootPath = new Path("/c");
     Path rawPath = new Path("/a/b/c");
-    Set<AclEntry> entries = Collections.emptySet();
+    List<AclEntry> entries = Collections.emptyList();
     EnumSet<AclWriteFlag> writeFlags = EnumSet.noneOf(AclWriteFlag.class);
     EnumSet<AclReadFlag> readFlags = EnumSet.noneOf(AclReadFlag.class);
 

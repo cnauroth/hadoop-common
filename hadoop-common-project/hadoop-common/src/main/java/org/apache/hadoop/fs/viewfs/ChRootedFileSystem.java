@@ -20,7 +20,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 import java.util.EnumSet;
-import java.util.Set;
+import java.util.List;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -285,13 +285,13 @@ class ChRootedFileSystem extends FilterFileSystem {
   }
   
   @Override
-  public void modifyAclEntries(Path path, Set<AclEntry> aclSpec,
+  public void modifyAclEntries(Path path, List<AclEntry> aclSpec,
       EnumSet<AclWriteFlag> flags) throws IOException {
     super.modifyAclEntries(fullPath(path), aclSpec, flags);
   }
 
   @Override
-  public void removeAclEntries(Path path, Set<AclEntry> aclSpec,
+  public void removeAclEntries(Path path, List<AclEntry> aclSpec,
       EnumSet<AclWriteFlag> flags) throws IOException {
     super.removeAclEntries(fullPath(path), aclSpec, flags);
   }
@@ -309,7 +309,7 @@ class ChRootedFileSystem extends FilterFileSystem {
   }
 
   @Override
-  public void setAcl(Path path, Set<AclEntry> aclSpec,
+  public void setAcl(Path path, List<AclEntry> aclSpec,
       EnumSet<AclWriteFlag> flags) throws IOException {
     super.setAcl(fullPath(path), aclSpec, flags);
   }

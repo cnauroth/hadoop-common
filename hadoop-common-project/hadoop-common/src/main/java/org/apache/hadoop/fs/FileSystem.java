@@ -2278,11 +2278,11 @@ public abstract class FileSystem extends Configured implements Closeable {
    * the ACL, and existing entries are retained.
    * 
    * @param path Path to modify
-   * @param aclSpec Set<AclEntry> describing modifications
+   * @param aclSpec List<AclEntry> describing modifications
    * @param flags EnumSet<AclWriteFlag> containing flags (such as recursive)
    * @throws IOException if an ACL could not be modified
    */
-  public void modifyAclEntries(Path path, Set<AclEntry> aclSpec,
+  public void modifyAclEntries(Path path, List<AclEntry> aclSpec,
       EnumSet<AclWriteFlag> flags) throws IOException {
     throw new UnsupportedOperationException(getClass().getSimpleName()
         + " doesn't support modifyAclEntries");
@@ -2293,11 +2293,11 @@ public abstract class FileSystem extends Configured implements Closeable {
    * retained.
    * 
    * @param path Path to modify
-   * @param aclSpec Set<AclEntry> describing entries to remove
+   * @param aclSpec List<AclEntry> describing entries to remove
    * @param flags EnumSet<AclWriteFlag> containing flags (such as recursive)
    * @throws IOException if an ACL could not be modified
    */
-  public void removeAclEntries(Path path, Set<AclEntry> aclSpec,
+  public void removeAclEntries(Path path, List<AclEntry> aclSpec,
       EnumSet<AclWriteFlag> flags) throws IOException {
     throw new UnsupportedOperationException(getClass().getSimpleName()
         + " doesn't support removeAclEntries");
@@ -2336,12 +2336,12 @@ public abstract class FileSystem extends Configured implements Closeable {
    * entries.
    * 
    * @param path Path to modify
-   * @param aclSpec Set<AclEntry> describing modifications, must include entries
+   * @param aclSpec List<AclEntry> describing modifications, must include entries
    *   for user, group, and others for compatibility with permission bits.
    * @param flags EnumSet<AclWriteFlag> containing flags (such as recursive)
    * @throws IOException if an ACL could not be modified
    */
-  public void setAcl(Path path, Set<AclEntry> aclSpec,
+  public void setAcl(Path path, List<AclEntry> aclSpec,
       EnumSet<AclWriteFlag> flags) throws IOException {
     throw new UnsupportedOperationException(getClass().getSimpleName()
         + " doesn't support setAcl");
