@@ -17,9 +17,9 @@
  */
 package org.apache.hadoop.fs.permission;
 
+import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.List;
 
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
@@ -39,7 +39,7 @@ import org.apache.hadoop.classification.InterfaceStability;
 @InterfaceAudience.Public
 @InterfaceStability.Evolving
 public class Acl {
-  private final Set<AclEntry> entries;
+  private final List<AclEntry> entries;
   private final boolean stickyBit;
 
   /**
@@ -52,11 +52,12 @@ public class Acl {
   }
 
   /**
-   * Returns the set of all ACL entries.  The set is unmodifiable.
+   * Returns the list of all ACL entries, ordered by their natural ordering.
+   * The list is unmodifiable.
    * 
-   * @return Set<AclEntry> unmodifiable set of all ACL entries
+   * @return List<AclEntry> unmodifiable ordered list of all ACL entries
    */
-  public Set<AclEntry> getEntries() {
+  public List<AclEntry> getEntries() {
     return entries;
   }
 
@@ -95,7 +96,7 @@ public class Acl {
    * Builder for creating new Acl instances.
    */
   public static class Builder {
-    private Set<AclEntry> entries = new LinkedHashSet<AclEntry>();
+    private List<AclEntry> entries = new ArrayList<AclEntry>();
     private boolean stickyBit = false;
 
     /**
@@ -134,12 +135,13 @@ public class Acl {
   /**
    * Private constructor.
    * 
-   * @param entries Set<AclEntry> set of all ACL entries
+   * @param entries List<AclEntry> list of all ACL entries
    * @param boolean sticky bit
    */
-  private Acl(Set<AclEntry> entries, boolean stickyBit) {
-    this.entries = Collections.unmodifiableSet(
-      new LinkedHashSet<AclEntry>(entries));
+  private Acl(List<AclEntry> entries, boolean stickyBit) {
+    List<AclEntry> entriesCopy = new ArrayList<AclEntry>(entries);
+    Collections.sort(entriesCopy);
+    this.entries = Collections.unmodifiableList(entriesCopy);
     this.stickyBit = stickyBit;
   }
 }

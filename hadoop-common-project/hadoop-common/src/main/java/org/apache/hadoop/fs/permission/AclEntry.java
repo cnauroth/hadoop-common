@@ -17,6 +17,11 @@
  */
 package org.apache.hadoop.fs.permission;
 
+import static org.apache.hadoop.fs.permission.AclEntryScope.*;
+import static org.apache.hadoop.fs.permission.AclEntryType.*;
+
+import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.Ordering;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 
@@ -27,12 +32,20 @@ import org.apache.hadoop.classification.InterfaceStability;
  * Defines a single entry in an ACL.  An ACL entry has a type (user, group,
  * mask, or other), an optional name (referring to a specific user or group), a
  * set of permissions (any combination of read, write and execute), and a scope
- * (access or default).  AclEntry instances are immutable.  Use a
- * {@link Builder} to create a new instance.
+ * (access or default).  The natural ordering for entries within an ACL is:
+ * <ol>
+ * <li>owner entry (unnamed user)</li>
+ * <li>all named user entries (internal ordering undefined)</li>
+ * <li>owning group entry (unnamed group)</li>
+ * <li>all named group entries (internal ordering undefined)</li>
+ * <li>other entry</li>
+ * </ol>
+ * AclEntry instances are immutable.  Use a {@link Builder} to create a new
+ * instance.
  */
 @InterfaceAudience.Public
 @InterfaceStability.Evolving
-public class AclEntry {
+public class AclEntry implements Comparable<AclEntry> {
   private final AclEntryType type;
   private final String name;
   private final FsAction permission;
@@ -99,6 +112,15 @@ public class AclEntry {
       .append(permission)
       .append(scope)
       .hashCode();
+  }
+
+  @Override
+  public int compareTo(AclEntry other) {
+    return ComparisonChain.start()
+      .compare(scope, other.scope, Ordering.explicit(ACCESS, DEFAULT))
+      .compare(type, other.type, Ordering.explicit(USER, GROUP, MASK, OTHER))
+      .compare(name, other.name, Ordering.natural().nullsFirst())
+      .result();
   }
 
   @Override
