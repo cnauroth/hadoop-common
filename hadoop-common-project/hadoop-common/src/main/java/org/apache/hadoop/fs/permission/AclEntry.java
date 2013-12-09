@@ -39,8 +39,8 @@ import org.apache.hadoop.classification.InterfaceStability;
  * <li>all named group entries (internal ordering undefined)</li>
  * <li>other entry</li>
  * </ol>
- * AclEntry instances are immutable.  Use a {@link Builder} to create a new
- * instance.
+ * All access ACL entries sort ahead of all default ACL entries.  AclEntry
+ * instances are immutable.  Use a {@link Builder} to create a new instance.
  */
 @InterfaceAudience.Public
 @InterfaceStability.Evolving
