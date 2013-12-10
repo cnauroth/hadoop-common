@@ -2271,8 +2271,10 @@ public abstract class FileSystem extends Configured implements Closeable {
   }
   
   /**
-   * Modifies ACL entries of files and directories.  New entries are added to
-   * the ACL, and existing entries are retained.
+   * Modifies ACL entries of files and directories.  This method can add new ACL
+   * entries or modify the permissions on existing ACL entries.  All existing
+   * ACL entries that are not specified in this call are retained without
+   * changes.  (Modifications are merged into the current ACL.)
    *
    * @param path Path to modify
    * @param aclSpec List<AclEntry> describing modifications
