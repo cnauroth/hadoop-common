@@ -17,11 +17,9 @@
  */
 package org.apache.hadoop.hdfs.server.namenode;
 
-import static org.apache.hadoop.hdfs.server.namenode.AclMergeFunctions.*;
+import static org.apache.hadoop.hdfs.server.namenode.AclTransformation.*;
 
 import java.util.List;
-
-import com.google.common.base.Function;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.fs.permission.Acl;
@@ -68,88 +66,68 @@ public class AclManager {
   }
 
   public void modifyAclEntries(INode inode, final List<AclEntry> aclSpec) {
-    doINodeAclModification(inode, new Function<Acl, Acl>() {
-      public Acl apply(Acl existingAcl) {
-        return null;
-      }
-    });
+    doINodeAclModification(inode, mergeAclEntries(aclSpec));
   }
 
   public void modifyAclEntries(INode inode, Snapshot snapshot,
       INodeMap inodeMap, List<AclEntry> aclSpec) throws QuotaExceededException {
-    doINodeAclModification(inode, snapshot, inodeMap, new Function<Acl, Acl>() {
-      public Acl apply(Acl existingAcl) {
-        return null;
-      }
-    });
+    doINodeAclModification(inode, snapshot, inodeMap, mergeAclEntries(aclSpec));
   }
 
   public void removeAcl(INode inode) {
-    doINodeAclModification(inode, mergeRemoveAcl());
+    doINodeAclModification(inode, filterExtendedAclEntries());
   }
 
   public void removeAcl(INode inode, Snapshot snapshot, INodeMap inodeMap)
       throws QuotaExceededException {
-    doINodeAclModification(inode, snapshot, inodeMap, mergeRemoveAcl());
+    doINodeAclModification(inode, snapshot, inodeMap,
+      filterExtendedAclEntries());
   }
 
   public void removeAclEntries(INode inode, List<AclEntry> aclSpec) {
-    doINodeAclModification(inode, mergeRemoveAclEntries(aclSpec));
+    doINodeAclModification(inode, filterAclEntriesByAclSpec(aclSpec));
   }
 
   public void removeAclEntries(INode inode, Snapshot snapshot,
       INodeMap inodeMap, List<AclEntry> aclSpec) throws QuotaExceededException {
     doINodeAclModification(inode, snapshot, inodeMap,
-      mergeRemoveAclEntries(aclSpec));
+      filterAclEntriesByAclSpec(aclSpec));
   }
 
   public void removeDefaultAcl(INode inode) {
-    doINodeAclModification(inode, new Function<Acl, Acl>() {
-      public Acl apply(Acl existingAcl) {
-        return null;
-      }
-    });
+    doINodeAclModification(inode, filterDefaultAclEntries());
   }
 
   public void removeDefaultAcl(INode inode, Snapshot snapshot,
       INodeMap inodeMap) throws QuotaExceededException {
-    doINodeAclModification(inode, snapshot, inodeMap, new Function<Acl, Acl>() {
-      public Acl apply(Acl existingAcl) {
-        return null;
-      }
-    });
+    doINodeAclModification(inode, snapshot, inodeMap,
+      filterDefaultAclEntries());
   }
 
   public void setAcl(INode inode, List<AclEntry> aclSpec) {
-    doINodeAclModification(inode, new Function<Acl, Acl>() {
-      public Acl apply(Acl existingAcl) {
-        return null;
-      }
-    });
+    doINodeAclModification(inode, replaceAclEntries(aclSpec));
   }
 
   public void setAcl(INode inode, Snapshot snapshot, INodeMap inodeMap,
       List<AclEntry> aclSpec) throws QuotaExceededException {
-    doINodeAclModification(inode, snapshot, inodeMap, new Function<Acl, Acl>() {
-      public Acl apply(Acl existingAcl) {
-        return null;
-      }
-    });
+    doINodeAclModification(inode, snapshot, inodeMap,
+      replaceAclEntries(aclSpec));
   }
 
-  private void doINodeAclModification(INode inode, Function<Acl, Acl> merge) {
+  private void doINodeAclModification(INode inode,
+      AclTransformation transformation) {
     Acl existingAcl = getAcl(inode);
-    Acl modifiedAcl = merge.apply(existingAcl);
+    Acl modifiedAcl = transformation.apply(existingAcl);
     int modifiedAclIndex = getIndexByAcl(modifiedAcl);
     short fsPermissionShort = fromIndexToShort(modifiedAclIndex);
     inode.setFsPermissionShort(fsPermissionShort);
   }
 
   private void doINodeAclModification(INode inode, Snapshot snapshot,
-      INodeMap inodeMap, Function<Acl, Acl> merge)
+      INodeMap inodeMap, AclTransformation transformation)
       throws QuotaExceededException {
     Acl existingAcl = getAcl(inode, snapshot);
-    Acl modifiedAcl = merge.apply(existingAcl);
+    Acl modifiedAcl = transformation.apply(existingAcl);
     int modifiedAclIndex = getIndexByAcl(modifiedAcl);
     short fsPermissionShort = fromIndexToShort(modifiedAclIndex);
     inode.setFsPermissionShort(fsPermissionShort, snapshot, inodeMap);
