@@ -29,10 +29,13 @@ import org.apache.hadoop.fs.permission.AclEntryScope;
 import org.apache.hadoop.fs.permission.AclEntryType;
 
 @InterfaceAudience.LimitedPrivate({"HDFS"})
-public final class AclMergeFunctions {
+final class AclMergeFunctions {
 
   public static Function<Acl, Acl> mergeRemoveAcl() {
-    return new Function<Acl, Acl>() {
+    return MERGE_REMOVE_ACL;
+  }
+  private static final Function<Acl, Acl> MERGE_REMOVE_ACL =
+    new Function<Acl, Acl>() {
       @Override
       public Acl apply(Acl existingAcl) {
         Acl.Builder aclBuilder = startAclBuilder(existingAcl);
@@ -46,7 +49,6 @@ public final class AclMergeFunctions {
         return aclBuilder.build();
       }
     };
-  }
 
   public static Function<Acl, Acl> mergeRemoveAclEntries(
       final List<AclEntry> aclSpec) {
@@ -68,6 +70,12 @@ public final class AclMergeFunctions {
         return aclBuilder.build();
       }
     };
+  }
+
+  /**
+   * There is no reason to instantiate this class.
+   */
+  private AclMergeFunctions() {
   }
 
   private static Acl.Builder startAclBuilder(Acl existingAcl) {
