@@ -31,7 +31,7 @@ import org.apache.hadoop.classification.InterfaceStability;
  * permissions on a file or directory.  An Acl contains a set of multiple
  * {@link AclEntry} instances.  The ACL entries define the permissions enforced
  * for different classes of users: owner, named user, owning group, named group
- * and others.  The Acl also contains additional flags associatd with the file,
+ * and others.  The Acl also contains additional flags associated with the file,
  * such as the sticky bit.  Acl instances are immutable.  Use a {@link Builder}
  * to create a new instance.
  */
