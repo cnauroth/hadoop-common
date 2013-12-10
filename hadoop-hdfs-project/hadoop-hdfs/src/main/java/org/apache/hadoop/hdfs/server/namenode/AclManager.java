@@ -17,6 +17,8 @@
  */
 package org.apache.hadoop.hdfs.server.namenode;
 
+import static org.apache.hadoop.hdfs.server.namenode.AclMergeFunctions.*;
+
 import java.util.List;
 
 import com.google.common.base.Function;
@@ -82,46 +84,23 @@ public class AclManager {
     });
   }
 
-  private static final Function<Acl, Acl> REMOVE_ACL =
-    new Function<Acl, Acl>() {
-      public Acl apply(Acl existingAcl) {
-        Acl.Builder aclBuilder = new Acl.Builder();
-        for (AclEntry existingEntry: existingAcl.getEntries()) {
-          if (existingEntry.getScope() == AclEntryScope.ACCESS &&
-              existingEntry.getType() != AclEntryType.MASK &&
-              existingEntry.getName() == null) {
-            aclBuilder.addEntry(existingEntry);
-          }
-        }
-        aclBuilder.setStickyBit(existingAcl.getStickyBit());
-        return aclBuilder.build();
-      }
-    };
-
   public void removeAcl(INode inode) {
-    doINodeAclModification(inode, REMOVE_ACL);
+    doINodeAclModification(inode, mergeRemoveAcl());
   }
 
   public void removeAcl(INode inode, Snapshot snapshot, INodeMap inodeMap)
       throws QuotaExceededException {
-    doINodeAclModification(inode, snapshot, inodeMap, REMOVE_ACL);
+    doINodeAclModification(inode, snapshot, inodeMap, mergeRemoveAcl());
   }
 
   public void removeAclEntries(INode inode, List<AclEntry> aclSpec) {
-    doINodeAclModification(inode, new Function<Acl, Acl>() {
-      public Acl apply(Acl existingAcl) {
-        return null;
-      }
-    });
+    doINodeAclModification(inode, mergeRemoveAclEntries(aclSpec));
   }
 
   public void removeAclEntries(INode inode, Snapshot snapshot,
       INodeMap inodeMap, List<AclEntry> aclSpec) throws QuotaExceededException {
-    doINodeAclModification(inode, snapshot, inodeMap, new Function<Acl, Acl>() {
-      public Acl apply(Acl existingAcl) {
-        return null;
-      }
-    });
+    doINodeAclModification(inode, snapshot, inodeMap,
+      mergeRemoveAclEntries(aclSpec));
   }
 
   public void removeDefaultAcl(INode inode) {
