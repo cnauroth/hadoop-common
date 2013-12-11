@@ -741,7 +741,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
 
       this.dtSecretManager = createDelegationTokenSecretManager(conf);
       this.dir = new FSDirectory(fsImage, this, conf);
-      this.aclManager = new AclManager();
+      this.aclManager = new AclManager(this);
       this.snapshotManager = new SnapshotManager(dir, aclManager);
       writeLock();
       try {

@@ -23,6 +23,7 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.fs.permission.Acl;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
+import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
 import org.apache.hadoop.hdfs.server.namenode.INode;
 import org.apache.hadoop.hdfs.server.namenode.PermissionSource;
 import org.apache.hadoop.hdfs.server.namenode.PermissionTarget;
@@ -34,23 +35,32 @@ import org.apache.hadoop.hdfs.server.namenode.PermissionTarget;
  */
 @InterfaceAudience.LimitedPrivate({"HDFS"})
 public class AclManager {
+  private final FSNamesystem namesystem;
+
+  public AclManager(FSNamesystem namesystem) {
+    this.namesystem = namesystem;
+  }
 
   public FsPermission getFsPermission(PermissionSource source) {
+    assert namesystem.hasReadLock();
     return new FsPermission(source.getFsPermissionShort());
   }
 
   public void setFsPermission(PermissionTarget target,
       FsPermission permission) throws QuotaExceededException {
+    assert namesystem.hasWriteLock();
     target.setFsPermissionShort(permission.toShort());
   }
 
   public Acl getAcl(PermissionSource source) {
+    assert namesystem.hasReadLock();
     return getAclByIndex(fromShortToIndex(source.getFsPermissionShort()),
       source.getINode());
   }
 
   public Acl modifyAcl(PermissionTarget target,
       AclTransformation transformation) throws QuotaExceededException {
+    assert namesystem.hasWriteLock();
     Acl existingAcl = getAcl(target);
     Acl modifiedAcl = transformation.apply(existingAcl);
     int modifiedAclIndex = getIndexByAcl(modifiedAcl);
