@@ -38,6 +38,7 @@ import org.apache.hadoop.hdfs.server.namenode.INode;
 import org.apache.hadoop.hdfs.server.namenode.INode.BlocksMapUpdateInfo;
 import org.apache.hadoop.hdfs.server.namenode.INodeDirectory;
 import org.apache.hadoop.hdfs.server.namenode.INodesInPath;
+import org.apache.hadoop.hdfs.server.namenode.PermissionTarget.INodePermissionTarget;
 import org.apache.hadoop.hdfs.server.namenode.acl.AclManager;
 import org.apache.hadoop.hdfs.server.namenode.snapshot.INodeDirectorySnapshottable.SnapshotDiffInfo;
 
@@ -327,7 +328,8 @@ public class SnapshotManager implements SnapshotStats {
       if (userName == null || userName.equals(dir.getUserName())) {
         SnapshottableDirectoryStatus status = new SnapshottableDirectoryStatus(
             dir.getModificationTime(), dir.getAccessTime(),
-            aclManager.getFsPermission(dir), dir.getUserName(), dir.getGroupName(),
+            aclManager.getFsPermission(new INodePermissionTarget(dir)),
+            dir.getUserName(), dir.getGroupName(),
             dir.getLocalNameBytes(), dir.getId(), dir.getChildrenNum(null),
             dir.getNumSnapshots(),
             dir.getSnapshotQuota(), dir.getParent() == null ? 

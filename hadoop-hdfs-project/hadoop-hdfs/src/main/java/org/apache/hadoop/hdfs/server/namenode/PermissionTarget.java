@@ -18,17 +18,19 @@
 package org.apache.hadoop.hdfs.server.namenode;
 
 import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
+import org.apache.hadoop.hdfs.server.namenode.PermissionSource.INodePermissionSource;
+import org.apache.hadoop.hdfs.server.namenode.PermissionSource.INodeSnapshotPermissionSource;
 import org.apache.hadoop.hdfs.server.namenode.snapshot.Snapshot;
 
 @InterfaceAudience.LimitedPrivate({"HDFS"})
-public abstract class PermissionTarget {
-  protected INode inode;
+public interface PermissionTarget extends PermissionSource {
+  void setFsPermissionShort(short permission) throws QuotaExceededException;
 
-  public abstract void setFsPermissionShort(short permission);
-
-  public static class INodePermissionTarget extends PermissionTarget {
+  public static class INodePermissionTarget extends INodePermissionSource
+      implements PermissionTarget {
     public INodePermissionTarget(INode inode) {
-      this.inode = inode;
+      super(inode);
     }
 
     @Override
@@ -37,20 +39,20 @@ public abstract class PermissionTarget {
     }
   }
 
-  public static class INodeSnapshotPermissionTarget extends PermissionTarget {
-    private Snapshot snapshot;
-    private INodeMap inodeMap;
+  public static class INodeSnapshotPermissionTarget
+      extends INodeSnapshotPermissionSource implements PermissionTarget {
+    private final INodeMap inodeMap;
 
     public INodeSnapshotPermissionTarget(INode inode, Snapshot snapshot,
         INodeMap inodeMap) {
-      this.inode = inode;
-      this.snapshot = snapshot;
+      super(inode, snapshot);
       this.inodeMap = inodeMap;
     }
 
     @Override
-    public void setFsPermissionShort(short permission) {
-      inode.setFsPermissionShort(permission);
+    public void setFsPermissionShort(short permission)
+        throws QuotaExceededException {
+      inode.setFsPermissionShort(permission, snapshot, inodeMap);
     }
   }
 }

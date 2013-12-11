@@ -21,12 +21,13 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.hdfs.server.namenode.snapshot.Snapshot;
 
 @InterfaceAudience.LimitedPrivate({"HDFS"})
-public abstract class PermissionSource {
-  protected INode inode;
+public interface PermissionSource {
+  short getFsPermissionShort();
+  INode getINode();
 
-  public abstract short getFsPermissionShort();
+  public static class INodePermissionSource implements PermissionSource {
+    protected final INode inode;
 
-  public static class INodePermissionSource extends PermissionSource {
     public INodePermissionSource(INode inode) {
       this.inode = inode;
     }
@@ -35,13 +36,19 @@ public abstract class PermissionSource {
     public short getFsPermissionShort() {
       return inode.getFsPermissionShort();
     }
+
+    @Override
+    public INode getINode() {
+      return inode;
+    }
   }
 
-  public static class INodeSnapshotPermissionSource extends PermissionSource {
-    private Snapshot snapshot;
+  public static class INodeSnapshotPermissionSource
+      extends INodePermissionSource {
+    protected final Snapshot snapshot;
 
     public INodeSnapshotPermissionSource(INode inode, Snapshot snapshot) {
-      this.inode = inode;
+      super(inode);
       this.snapshot = snapshot;
     }
 

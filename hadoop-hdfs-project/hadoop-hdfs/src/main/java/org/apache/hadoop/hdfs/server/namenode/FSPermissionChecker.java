@@ -29,6 +29,8 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.UnresolvedLinkException;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.hdfs.server.namenode.PermissionSource.INodePermissionSource;
+import org.apache.hadoop.hdfs.server.namenode.PermissionSource.INodeSnapshotPermissionSource;
 import org.apache.hadoop.hdfs.server.namenode.acl.AclManager;
 import org.apache.hadoop.hdfs.server.namenode.snapshot.Snapshot;
 import org.apache.hadoop.security.AccessControlException;
@@ -49,7 +51,7 @@ class FSPermissionChecker {
     return "\"" + inode.getFullPathName() + "\":"
           + inode.getUserName() + ":" + inode.getGroupName()
           + ":" + (inode.isDirectory()? "d": "-")
-          + aclManager.getFsPermission(inode);
+          + aclManager.getFsPermission(new INodePermissionSource(inode));
   }
 
 
@@ -224,7 +226,8 @@ class FSPermissionChecker {
     if (inode == null) {
       return;
     }
-    FsPermission mode = aclManager.getFsPermission(inode, snapshot);
+    FsPermission mode = aclManager.getFsPermission(
+      new INodeSnapshotPermissionSource(inode, snapshot));
 
     if (user.equals(inode.getUserName(snapshot))) { //user class
       if (mode.getUserAction().implies(access)) { return; }
@@ -242,7 +245,9 @@ class FSPermissionChecker {
   /** Guarded by {@link FSNamesystem#readLock()} */
   private void checkStickyBit(INode parent, INode inode, Snapshot snapshot
       ) throws AccessControlException {
-    if (!aclManager.getFsPermission(parent, snapshot).getStickyBit()) {
+    INodeSnapshotPermissionSource source = new INodeSnapshotPermissionSource(
+      parent, snapshot);
+    if (!aclManager.getFsPermission(source).getStickyBit()) {
       return;
     }
 

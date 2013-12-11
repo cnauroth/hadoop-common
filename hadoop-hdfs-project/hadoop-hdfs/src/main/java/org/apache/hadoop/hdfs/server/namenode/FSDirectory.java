@@ -65,7 +65,9 @@ import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeDescriptor;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.BlockUCState;
 import org.apache.hadoop.hdfs.server.namenode.INode.BlocksMapUpdateInfo;
 import org.apache.hadoop.hdfs.server.namenode.INodeReference.WithCount;
-import org.apache.hadoop.hdfs.server.namenode.acl.AclManager;
+import org.apache.hadoop.hdfs.server.namenode.PermissionSource.INodePermissionSource;
+import org.apache.hadoop.hdfs.server.namenode.PermissionSource.INodeSnapshotPermissionSource;
+import org.apache.hadoop.hdfs.server.namenode.PermissionTarget.INodeSnapshotPermissionTarget;
 import org.apache.hadoop.hdfs.server.namenode.snapshot.INodeDirectorySnapshottable;
 import org.apache.hadoop.hdfs.server.namenode.snapshot.INodeDirectoryWithSnapshot;
 import org.apache.hadoop.hdfs.server.namenode.snapshot.Snapshot;
@@ -1163,8 +1165,9 @@ public class FSDirectory implements Closeable {
     if (inode == null) {
       throw new FileNotFoundException("File does not exist: " + src);
     }
-    namesystem.getAclManager().setFsPermission(inode,
-        inodesInPath.getLatestSnapshot(), inodeMap, permissions);
+    PermissionTarget target = new INodeSnapshotPermissionTarget(inode,
+      inodesInPath.getLatestSnapshot(), inodeMap);
+    namesystem.getAclManager().setFsPermission(target, permissions);
   }
 
   void setOwner(String src, String username, String groupname)
@@ -1917,7 +1920,8 @@ public class FSDirectory implements Closeable {
         // else the supplied permissions
         // NOTE: the permissions of the auto-created directories violate posix
         FsPermission parentFsPerm = inheritPermission
-            ? namesystem.getAclManager().getFsPermission(inodes[i-1]) :
+            ? namesystem.getAclManager().getFsPermission(
+              new INodePermissionSource(inodes[i-1])) :
             permissions.getPermission();
         
         // ensure that the permissions allow user write+execute
@@ -2538,7 +2542,8 @@ public class FSDirectory implements Closeable {
         blocksize,
         node.getModificationTime(snapshot),
         node.getAccessTime(snapshot),
-        namesystem.getAclManager().getFsPermission(node, snapshot),
+        namesystem.getAclManager().getFsPermission(
+          new INodeSnapshotPermissionSource(node, snapshot)),
         node.getUserName(snapshot),
         node.getGroupName(snapshot),
         node.isSymlink() ? node.asSymlink().getSymlink() : null,
@@ -2581,7 +2586,8 @@ public class FSDirectory implements Closeable {
         new HdfsLocatedFileStatus(size, node.isDirectory(), replication,
           blocksize, node.getModificationTime(snapshot),
           node.getAccessTime(snapshot),
-          namesystem.getAclManager().getFsPermission(node, snapshot),
+          namesystem.getAclManager().getFsPermission(
+            new INodeSnapshotPermissionSource(node, snapshot)),
           node.getUserName(snapshot), node.getGroupName(snapshot),
           node.isSymlink() ? node.asSymlink().getSymlink() : null, path,
           node.getId(), loc, childrenNum);
