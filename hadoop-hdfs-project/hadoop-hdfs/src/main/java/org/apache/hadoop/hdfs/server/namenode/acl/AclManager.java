@@ -20,7 +20,6 @@ package org.apache.hadoop.hdfs.server.namenode.acl;
 import static org.apache.hadoop.hdfs.server.namenode.acl.AclTransformation.*;
 
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.fs.permission.Acl;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
 import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;

@@ -23,7 +23,6 @@ import java.util.List;
 import com.google.common.base.Function;
 
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.fs.permission.Acl;
 import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.AclEntryScope;
 import org.apache.hadoop.fs.permission.AclEntryType;
