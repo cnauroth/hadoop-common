@@ -44,6 +44,9 @@ abstract class AclTransformation implements Function<Acl, Acl> {
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
         AclEntry aclSpecEntry = null;
         for (AclEntry existingEntry: existingAcl.getEntries()) {
+          if (isAccessMask(existingEntry)) {
+            continue;
+          }
           aclSpecEntry = advance(aclSpecIter, aclSpecEntry, existingEntry);
           if (existingEntry.compareTo(aclSpecEntry) != 0) {
             aclBuilder.addEntry(existingEntry);
@@ -69,7 +72,7 @@ abstract class AclTransformation implements Function<Acl, Acl> {
             aclBuilder.addEntry(existingEntry);
           }
         }
-        return aclBuilder.build();
+        return buildAndValidate(aclBuilder);
       }
     };
 
@@ -88,7 +91,7 @@ abstract class AclTransformation implements Function<Acl, Acl> {
             aclBuilder.addEntry(existingEntry);
           }
         }
-        return aclBuilder.build();
+        return buildAndValidate(aclBuilder);
       }
     };
 
@@ -121,7 +124,7 @@ abstract class AclTransformation implements Function<Acl, Acl> {
           }
         }
         maskCalculator.addMaskIfNeeded(aclBuilder);
-        return aclBuilder.build();
+        return buildAndValidate(aclBuilder);
       }
     };
   }
@@ -135,15 +138,10 @@ abstract class AclTransformation implements Function<Acl, Acl> {
         Acl.Builder aclBuilder = startAclBuilder(existingAcl);
         MaskCalculator maskCalculator = new MaskCalculator();
         for (AclEntry newEntry: aclSpec) {
-          if (isAccessMask(newEntry)) {
-            maskCalculator.provideMask(newEntry);
-          } else {
-            aclBuilder.addEntry(newEntry);
-            maskCalculator.update(newEntry);
-          }
+          addEntry(newEntry, aclBuilder, maskCalculator);
         }
         maskCalculator.addMaskIfNeeded(aclBuilder);
-        return aclBuilder.build();
+        return buildAndValidate(aclBuilder);
       }
     };
   }
@@ -179,7 +177,7 @@ abstract class AclTransformation implements Function<Acl, Acl> {
     boolean foundNamedEntry = false;
     boolean foundMaskEntry = false;
     for (AclEntry entry: acl.getEntries()) {
-      if (prevEntry.compareTo(entry) == 0) {
+      if (prevEntry != null && prevEntry.compareTo(entry) == 0) {
         // throw
       }
       if (entry.getName() != null) {
