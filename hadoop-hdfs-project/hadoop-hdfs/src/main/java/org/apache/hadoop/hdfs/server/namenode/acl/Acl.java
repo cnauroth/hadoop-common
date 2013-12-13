@@ -17,15 +17,18 @@
  */
 package org.apache.hadoop.hdfs.server.namenode.acl;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 import com.google.common.base.Objects;
+import com.google.common.collect.Lists;
 
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.fs.permission.AclEntry;
+import org.apache.hadoop.fs.permission.AclEntryScope;
+import org.apache.hadoop.fs.permission.AclEntryType;
+import org.apache.hadoop.fs.permission.FsAction;
+
 
 /**
  * Defines an Access Control List, which is a set of rules for enforcement of
@@ -36,9 +39,10 @@ import org.apache.hadoop.fs.permission.AclEntry;
  * such as the sticky bit.  Acl instances are immutable.  Use a {@link Builder}
  * to create a new instance.
  */
-@InterfaceAudience.Public
-@InterfaceStability.Evolving
+@InterfaceAudience.LimitedPrivate({"HDFS"})
 public class Acl {
+  private static final int MAX_ENTRIES = 32;
+
   private final List<AclEntry> entries;
   private final boolean stickyBit;
 
@@ -91,7 +95,7 @@ public class Acl {
    * Builder for creating new Acl instances.
    */
   public static class Builder {
-    private List<AclEntry> entries = new ArrayList<AclEntry>();
+    private List<AclEntry> entries = Lists.newArrayListWithCapacity(MAX_ENTRIES);
     private boolean stickyBit = false;
 
     /**
@@ -101,6 +105,9 @@ public class Acl {
      * @return Builder this builder, for call chaining
      */
     public Builder addEntry(AclEntry entry) {
+      if (entries.size() == MAX_ENTRIES) {
+        // throw
+      }
       entries.add(entry);
       return this;
     }
@@ -134,7 +141,7 @@ public class Acl {
    * @param boolean sticky bit
    */
   private Acl(List<AclEntry> entries, boolean stickyBit) {
-    List<AclEntry> entriesCopy = new ArrayList<AclEntry>(entries);
+    List<AclEntry> entriesCopy = Lists.newArrayList(entries);
     Collections.sort(entriesCopy);
     this.entries = Collections.unmodifiableList(entriesCopy);
     this.stickyBit = stickyBit;

@@ -17,15 +17,18 @@
  */
 package org.apache.hadoop.hdfs.server.namenode.acl;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.AclEntryScope;
 import org.apache.hadoop.fs.permission.AclEntryType;
+import org.apache.hadoop.fs.permission.FsAction;
 
 @InterfaceAudience.LimitedPrivate({"HDFS"})
 abstract class AclTransformation implements Function<Acl, Acl> {
@@ -35,16 +38,20 @@ abstract class AclTransformation implements Function<Acl, Acl> {
     return new AclTransformation() {
       @Override
       public Acl apply(Acl existingAcl) {
+        Collections.sort(aclSpec);
         Acl.Builder aclBuilder = startAclBuilder(existingAcl);
+        MaskCalculator maskCalculator = new MaskCalculator();
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
         AclEntry aclSpecEntry = null;
         for (AclEntry existingEntry: existingAcl.getEntries()) {
           aclSpecEntry = advance(aclSpecIter, aclSpecEntry, existingEntry);
           if (existingEntry.compareTo(aclSpecEntry) != 0) {
             aclBuilder.addEntry(existingEntry);
+            maskCalculator.update(existingEntry);
           }
         }
-        return aclBuilder.build();
+        maskCalculator.addMaskIfNeeded(aclBuilder);
+        return buildAndValidate(aclBuilder);
       }
     };
   }
@@ -90,17 +97,30 @@ abstract class AclTransformation implements Function<Acl, Acl> {
     return new AclTransformation() {
       @Override
       public Acl apply(Acl existingAcl) {
+        Collections.sort(aclSpec);
         Acl.Builder aclBuilder = startAclBuilder(existingAcl);
+        MaskCalculator maskCalculator = new MaskCalculator();
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
         AclEntry aclSpecEntry = null;
         for (AclEntry existingEntry: existingAcl.getEntries()) {
           aclSpecEntry = advance(aclSpecIter, aclSpecEntry, existingEntry);
-          if (existingEntry.compareTo(aclSpecEntry) == 0) {
-            aclBuilder.addEntry(aclSpecEntry);
+          if (aclSpecEntry != null) {
+            int comparison = existingEntry.compareTo(aclSpecEntry);
+            if (comparison < 0) {
+              addEntry(existingEntry, aclBuilder, maskCalculator);
+            } else if (comparison == 0) {
+              addEntry(aclSpecEntry, aclBuilder, maskCalculator);
+              aclSpecEntry = null;
+            } else {
+              addEntry(aclSpecEntry, aclBuilder, maskCalculator);
+              addEntry(existingEntry, aclBuilder, maskCalculator);
+              aclSpecEntry = null;
+            }
           } else {
-            aclBuilder.addEntry(existingEntry);
+            addEntry(existingEntry, aclBuilder, maskCalculator);
           }
         }
+        maskCalculator.addMaskIfNeeded(aclBuilder);
         return aclBuilder.build();
       }
     };
@@ -111,10 +131,18 @@ abstract class AclTransformation implements Function<Acl, Acl> {
     return new AclTransformation() {
       @Override
       public Acl apply(Acl existingAcl) {
+        Collections.sort(aclSpec);
         Acl.Builder aclBuilder = startAclBuilder(existingAcl);
+        MaskCalculator maskCalculator = new MaskCalculator();
         for (AclEntry newEntry: aclSpec) {
-          aclBuilder.addEntry(newEntry);
+          if (isAccessMask(newEntry)) {
+            maskCalculator.provideMask(newEntry);
+          } else {
+            aclBuilder.addEntry(newEntry);
+            maskCalculator.update(newEntry);
+          }
         }
+        maskCalculator.addMaskIfNeeded(aclBuilder);
         return aclBuilder.build();
       }
     };
@@ -126,6 +154,16 @@ abstract class AclTransformation implements Function<Acl, Acl> {
   private AclTransformation() {
   }
 
+  private static void addEntry(AclEntry entry, Acl.Builder aclBuilder,
+      MaskCalculator maskCalculator) {
+    if (isAccessMask(entry)) {
+      maskCalculator.provideMask(entry);
+    } else {
+      aclBuilder.addEntry(entry);
+      maskCalculator.update(entry);
+    }
+  }
+
   private static AclEntry advance(Iterator<AclEntry> aclSpecIter,
       AclEntry aclSpecEntry, AclEntry existingEntry) {
     while (aclSpecIter.hasNext() && (aclSpecEntry == null ||
@@ -135,7 +173,80 @@ abstract class AclTransformation implements Function<Acl, Acl> {
     return aclSpecEntry;
   }
 
+  private static Acl buildAndValidate(Acl.Builder aclBuilder) {
+    Acl acl = aclBuilder.build();
+    AclEntry prevEntry = null;
+    boolean foundNamedEntry = false;
+    boolean foundMaskEntry = false;
+    for (AclEntry entry: acl.getEntries()) {
+      if (prevEntry.compareTo(entry) == 0) {
+        // throw
+      }
+      if (entry.getName() != null) {
+        if (entry.getType() == AclEntryType.MASK ||
+            entry.getType() == AclEntryType.OTHER) {
+          // throw
+        }
+      }
+      if (entry.getScope() == AclEntryScope.ACCESS) {
+        if (entry.getName() != null) {
+          foundNamedEntry = true;
+        }
+        if (entry.getType() == AclEntryType.MASK) {
+          foundMaskEntry = true;
+        }
+      }
+      if (foundNamedEntry && !foundMaskEntry) {
+        // throw
+      }
+      prevEntry = entry;
+    }
+    // TODO: user/group/other entries required
+    return acl;
+  }
+
+  private static boolean isAccessMask(AclEntry entry) {
+    return entry.getScope() == AclEntryScope.ACCESS &&
+      entry.getType() == AclEntryType.MASK;
+  }
+
   private static Acl.Builder startAclBuilder(Acl existingAcl) {
     return new Acl.Builder().setStickyBit(existingAcl.getStickyBit());
+  }
+
+  private static class MaskCalculator {
+    private AclEntry providedMask = null;
+    private FsAction unionPerms = FsAction.NONE;
+    private boolean foundNamedEntries = false;
+
+    public void provideMask(AclEntry providedMask) {
+      this.providedMask = providedMask;
+    }
+
+    public void update(AclEntry entry) {
+      if (providedMask == null) {
+        if (entry.getScope() == AclEntryScope.ACCESS) {
+          if (entry.getType() == AclEntryType.GROUP ||
+              entry.getName() != null) {
+            unionPerms = unionPerms.or(entry.getPermission());
+          }
+          if (entry.getName() != null) {
+            foundNamedEntries = true;
+          }
+        }
+      }
+    }
+
+    public void addMaskIfNeeded(Acl.Builder aclBuilder) {
+      if (providedMask != null) {
+        aclBuilder.addEntry(providedMask);
+      } else if (foundNamedEntries) {
+        aclBuilder.addEntry(new AclEntry.Builder()
+          .setScope(AclEntryScope.ACCESS)
+          .setType(AclEntryType.MASK)
+          .setPermission(unionPerms)
+          .build());
+      }
+    }
   }
 }
