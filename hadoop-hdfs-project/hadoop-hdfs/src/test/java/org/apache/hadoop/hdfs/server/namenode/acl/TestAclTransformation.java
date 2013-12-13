@@ -37,23 +37,189 @@ import org.apache.hadoop.hdfs.server.namenode.acl.AclTransformation;
 public class TestAclTransformation {
 
   @Test
-  public void testNamedUser() {
-    Acl existing = new Acl.Builder()
-      .addEntry(aclEntry(ACCESS, USER, ALL))
-      .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
-      .addEntry(aclEntry(ACCESS, OTHER, NONE))
-      .build();
-    List<AclEntry> aclSpec = Arrays.asList(
-      aclEntry(ACCESS, USER, "joe", ALL));
-    Acl expected = new Acl.Builder()
-      .addEntry(aclEntry(ACCESS, USER, ALL))
-      .addEntry(aclEntry(ACCESS, USER, "joe", ALL))
-      .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
-      .addEntry(aclEntry(ACCESS, MASK, ALL))
-      .addEntry(aclEntry(ACCESS, OTHER, NONE))
-      .build();
-    Acl modified = AclTransformation.mergeAclEntries(aclSpec).apply(existing);
-    assertEquals(expected, modified);
+  public void testFilterDefaultAclEntries() {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "joe", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, GROUP, "friends", READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, MASK, ALL))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "joe", READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, OTHER, READ_EXECUTE))
+        .build(),
+      AclTransformation.filterDefaultAclEntries(),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "joe", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, GROUP, "friends", READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, MASK, ALL))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build());
+
+    assertAclUnchanged(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "joe", ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, GROUP, "friends", ALL))
+        .addEntry(aclEntry(ACCESS, MASK, ALL))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.filterDefaultAclEntries());
+  }
+
+  @Test
+  public void testFilterExtendedAclEntries() {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "joe", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, GROUP, "friends", READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, MASK, ALL))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "joe", READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, OTHER, READ_EXECUTE))
+        .build(),
+      AclTransformation.filterExtendedAclEntries(),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build());
+
+    assertAclUnchanged(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.filterExtendedAclEntries());
+  }
+
+  @Test
+  public void testMergeAclEntries() {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.mergeAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, "joe", ALL))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "joe", ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, MASK, ALL))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build());
+
+    assertAclUnchanged(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "joe", ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, GROUP, "friends", ALL))
+        .addEntry(aclEntry(ACCESS, MASK, ALL))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "joe", ALL))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(DEFAULT, GROUP, "friends", ALL))
+        .addEntry(aclEntry(DEFAULT, MASK, ALL))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build(),
+      AclTransformation.mergeAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, ALL),
+        aclEntry(ACCESS, USER, "joe", ALL),
+        aclEntry(ACCESS, GROUP, READ_EXECUTE),
+        aclEntry(ACCESS, GROUP, "friends", ALL),
+        aclEntry(ACCESS, MASK, ALL),
+        aclEntry(ACCESS, OTHER, NONE),
+        aclEntry(DEFAULT, USER, ALL),
+        aclEntry(DEFAULT, USER, "joe", ALL),
+        aclEntry(DEFAULT, GROUP, READ_EXECUTE),
+        aclEntry(DEFAULT, GROUP, "friends", ALL),
+        aclEntry(DEFAULT, MASK, ALL),
+        aclEntry(DEFAULT, OTHER, NONE))));
+  }
+
+  @Test
+  public void testReplaceAclEntries() {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "joe", ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, MASK, ALL))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.replaceAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, ALL),
+        aclEntry(ACCESS, USER, "joe", READ_WRITE),
+        aclEntry(ACCESS, GROUP, READ_EXECUTE),
+        aclEntry(ACCESS, GROUP, "friends", ALL),
+        aclEntry(ACCESS, MASK, ALL),
+        aclEntry(ACCESS, OTHER, NONE),
+        aclEntry(DEFAULT, USER, ALL),
+        aclEntry(DEFAULT, USER, "joe", READ_WRITE),
+        aclEntry(DEFAULT, GROUP, READ_EXECUTE),
+        aclEntry(DEFAULT, GROUP, "friends", ALL),
+        aclEntry(DEFAULT, MASK, ALL),
+        aclEntry(DEFAULT, OTHER, NONE))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "joe", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, GROUP, "friends", ALL))
+        .addEntry(aclEntry(ACCESS, MASK, ALL))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "joe", READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(DEFAULT, GROUP, "friends", ALL))
+        .addEntry(aclEntry(DEFAULT, MASK, ALL))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build());
+
+    assertAclUnchanged(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "joe", ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, GROUP, "friends", ALL))
+        .addEntry(aclEntry(ACCESS, MASK, ALL))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "joe", ALL))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(DEFAULT, GROUP, "friends", ALL))
+        .addEntry(aclEntry(DEFAULT, MASK, ALL))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build(),
+      AclTransformation.replaceAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, ALL),
+        aclEntry(ACCESS, USER, "joe", ALL),
+        aclEntry(ACCESS, GROUP, READ_EXECUTE),
+        aclEntry(ACCESS, GROUP, "friends", ALL),
+        aclEntry(ACCESS, MASK, ALL),
+        aclEntry(ACCESS, OTHER, NONE),
+        aclEntry(DEFAULT, USER, ALL),
+        aclEntry(DEFAULT, USER, "joe", ALL),
+        aclEntry(DEFAULT, GROUP, READ_EXECUTE),
+        aclEntry(DEFAULT, GROUP, "friends", ALL),
+        aclEntry(DEFAULT, MASK, ALL),
+        aclEntry(DEFAULT, OTHER, NONE))));
   }
 
   private static AclEntry aclEntry(AclEntryScope scope, AclEntryType type,
@@ -73,5 +239,17 @@ public class TestAclTransformation {
       .setName(name)
       .setPermission(permission)
       .build();
+  }
+
+  private static void assertAclModified(Acl existing,
+      AclTransformation transformation, Acl expected) {
+    Acl modified = transformation.apply(existing);
+    assertEquals(expected, modified);
+  }
+
+  private static void assertAclUnchanged(Acl existing,
+      AclTransformation transformation) {
+    Acl modified = transformation.apply(existing);
+    assertEquals(existing, modified);
   }
 }
