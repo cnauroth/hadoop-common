@@ -265,6 +265,108 @@ public class TestAclTransformation {
 
   @Test
   public void testPreserveStickyBit() {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, USER, "diana", READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, MASK, ALL))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .setStickyBit(true)
+        .build(),
+      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+        aclEntry(ACCESS, USER, "diana"))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, MASK, READ_WRITE))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .setStickyBit(true)
+        .build());
+
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "bruce", READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, OTHER, READ_EXECUTE))
+        .setStickyBit(true)
+        .build(),
+      AclTransformation.filterDefaultAclEntries(),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .setStickyBit(true)
+        .build());
+
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, GROUP, "sales", READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, MASK, ALL))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .setStickyBit(true)
+        .build(),
+      AclTransformation.filterExtendedAclEntries(),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .setStickyBit(true)
+        .build());
+
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .setStickyBit(true)
+        .build(),
+      AclTransformation.mergeAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, "bruce", ALL))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, MASK, ALL))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .setStickyBit(true)
+        .build());
+
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, "sales", READ))
+        .addEntry(aclEntry(ACCESS, MASK, READ_WRITE))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .setStickyBit(true)
+        .build(),
+      AclTransformation.replaceAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, ALL),
+        aclEntry(ACCESS, USER, "bruce", READ_WRITE),
+        aclEntry(ACCESS, GROUP, READ_WRITE),
+        aclEntry(ACCESS, GROUP, "sales", READ_WRITE),
+        aclEntry(ACCESS, MASK, READ_WRITE),
+        aclEntry(ACCESS, OTHER, NONE))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, "sales", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, MASK, READ_WRITE))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .setStickyBit(true)
+        .build());
   }
 
   private static AclEntry aclEntry(AclEntryScope scope, AclEntryType type,
