@@ -32,6 +32,7 @@ import org.apache.hadoop.fs.permission.FsAction;
 
 @InterfaceAudience.LimitedPrivate({"HDFS"})
 abstract class AclTransformation implements Function<Acl, Acl> {
+  protected final Acl.Builder aclBuilder = new Acl.Builder();
 
   public static AclTransformation filterAclEntriesByAclSpec(
       final List<AclEntry> aclSpec) {
@@ -39,8 +40,8 @@ abstract class AclTransformation implements Function<Acl, Acl> {
       @Override
       public Acl apply(Acl existingAcl) {
         Collections.sort(aclSpec);
-        Acl.Builder aclBuilder = startAclBuilder(existingAcl);
-        MaskCalculator maskCalculator = new MaskCalculator();
+        startAclBuilder(existingAcl);
+        TransformationState state = new TransformationState();
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
         AclEntry aclSpecEntry = null;
         for (AclEntry existingEntry: existingAcl.getEntries()) {
@@ -49,24 +50,20 @@ abstract class AclTransformation implements Function<Acl, Acl> {
           }
           aclSpecEntry = advance(aclSpecIter, aclSpecEntry, existingEntry);
           if (existingEntry.compareTo(aclSpecEntry) != 0) {
-            aclBuilder.addEntry(existingEntry);
-            maskCalculator.update(existingEntry);
+            state.update(existingEntry);
           }
         }
-        maskCalculator.addMaskIfNeeded(aclBuilder);
+        state.complete();
         return buildAndValidate(aclBuilder);
       }
     };
   }
 
   public static AclTransformation filterDefaultAclEntries() {
-    return FILTER_DEFAULT_ACL_ENTRIES;
-  }
-  private static final AclTransformation FILTER_DEFAULT_ACL_ENTRIES =
-    new AclTransformation() {
+    return new AclTransformation() {
       @Override
       public Acl apply(Acl existingAcl) {
-        Acl.Builder aclBuilder = startAclBuilder(existingAcl);
+        startAclBuilder(existingAcl);
         for (AclEntry existingEntry: existingAcl.getEntries()) {
           if (existingEntry.getScope() != AclEntryScope.DEFAULT) {
             aclBuilder.addEntry(existingEntry);
@@ -75,15 +72,13 @@ abstract class AclTransformation implements Function<Acl, Acl> {
         return buildAndValidate(aclBuilder);
       }
     };
+  }
 
   public static AclTransformation filterExtendedAclEntries() {
-    return FILTER_EXTENDED_ACL_ENTRIES;
-  }
-  private static final AclTransformation FILTER_EXTENDED_ACL_ENTRIES =
-    new AclTransformation() {
+    return new AclTransformation() {
       @Override
       public Acl apply(Acl existingAcl) {
-        Acl.Builder aclBuilder = startAclBuilder(existingAcl);
+        startAclBuilder(existingAcl);
         for (AclEntry existingEntry: existingAcl.getEntries()) {
           if (existingEntry.getScope() == AclEntryScope.ACCESS &&
               existingEntry.getType() != AclEntryType.MASK &&
@@ -94,6 +89,7 @@ abstract class AclTransformation implements Function<Acl, Acl> {
         return buildAndValidate(aclBuilder);
       }
     };
+  }
 
   public static AclTransformation mergeAclEntries(
       final List<AclEntry> aclSpec) {
@@ -101,8 +97,8 @@ abstract class AclTransformation implements Function<Acl, Acl> {
       @Override
       public Acl apply(Acl existingAcl) {
         Collections.sort(aclSpec);
-        Acl.Builder aclBuilder = startAclBuilder(existingAcl);
-        MaskCalculator maskCalculator = new MaskCalculator();
+        startAclBuilder(existingAcl);
+        TransformationState state = new TransformationState();
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
         AclEntry aclSpecEntry = null;
         for (AclEntry existingEntry: existingAcl.getEntries()) {
@@ -110,20 +106,20 @@ abstract class AclTransformation implements Function<Acl, Acl> {
           if (aclSpecEntry != null) {
             int comparison = existingEntry.compareTo(aclSpecEntry);
             if (comparison < 0) {
-              addEntry(existingEntry, aclBuilder, maskCalculator);
+              state.update(existingEntry);
             } else if (comparison == 0) {
-              addEntry(aclSpecEntry, aclBuilder, maskCalculator);
+              state.update(aclSpecEntry);
               aclSpecEntry = null;
             } else {
-              addEntry(aclSpecEntry, aclBuilder, maskCalculator);
-              addEntry(existingEntry, aclBuilder, maskCalculator);
+              state.update(aclSpecEntry);
+              state.update(existingEntry);
               aclSpecEntry = null;
             }
           } else {
-            addEntry(existingEntry, aclBuilder, maskCalculator);
+            state.update(existingEntry);
           }
         }
-        maskCalculator.addMaskIfNeeded(aclBuilder);
+        state.complete();
         return buildAndValidate(aclBuilder);
       }
     };
@@ -135,31 +131,19 @@ abstract class AclTransformation implements Function<Acl, Acl> {
       @Override
       public Acl apply(Acl existingAcl) {
         Collections.sort(aclSpec);
-        Acl.Builder aclBuilder = startAclBuilder(existingAcl);
-        MaskCalculator maskCalculator = new MaskCalculator();
+        startAclBuilder(existingAcl);
+        TransformationState state = new TransformationState();
         for (AclEntry newEntry: aclSpec) {
-          addEntry(newEntry, aclBuilder, maskCalculator);
+          state.update(newEntry);
         }
-        maskCalculator.addMaskIfNeeded(aclBuilder);
+        state.complete();
         return buildAndValidate(aclBuilder);
       }
     };
   }
 
-  /**
-   * There is no reason to instantiate this class.
-   */
-  private AclTransformation() {
-  }
-
-  private static void addEntry(AclEntry entry, Acl.Builder aclBuilder,
-      MaskCalculator maskCalculator) {
-    if (isAccessMask(entry)) {
-      maskCalculator.provideMask(entry);
-    } else {
-      aclBuilder.addEntry(entry);
-      maskCalculator.update(entry);
-    }
+  protected void startAclBuilder(Acl existingAcl) {
+    aclBuilder.setStickyBit(existingAcl.getStickyBit());
   }
 
   private static AclEntry advance(Iterator<AclEntry> aclSpecIter,
@@ -208,39 +192,104 @@ abstract class AclTransformation implements Function<Acl, Acl> {
       entry.getType() == AclEntryType.MASK;
   }
 
-  private static Acl.Builder startAclBuilder(Acl existingAcl) {
-    return new Acl.Builder().setStickyBit(existingAcl.getStickyBit());
-  }
+  protected final class TransformationState {
+    AclEntry defaultUserEntry, defaultGroupEntry, defaultOtherEntry;
+    final MaskCalculator accessMask = new MaskCalculator(AclEntryScope.ACCESS);
+    final MaskCalculator defaultMask = new MaskCalculator(AclEntryScope.DEFAULT);
+    boolean hasDefaultEntries;
 
-  private static class MaskCalculator {
-    private AclEntry providedMask = null;
-    private FsAction unionPerms = FsAction.NONE;
-    private boolean foundNamedEntries = false;
-
-    public void provideMask(AclEntry providedMask) {
-      this.providedMask = providedMask;
+    void update(AclEntry entry) {
+      if (entry.getScope() == AclEntryScope.ACCESS) {
+        if (entry.getType() != AclEntryType.MASK) {
+          aclBuilder.addEntry(entry);
+        }
+        accessMask.update(entry);
+        if (entry.getName() == null) {
+          switch (entry.getType()) {
+          case USER:
+            defaultUserEntry = entry;
+            break;
+          case GROUP:
+            defaultGroupEntry = entry;
+            break;
+          case OTHER:
+            defaultOtherEntry = entry;
+            break;
+          }
+        }
+      } else {
+        hasDefaultEntries = true;
+        if (entry.getName() == null) {
+          switch (entry.getType()) {
+          case USER:
+            defaultUserEntry = entry;
+            break;
+          case GROUP:
+            defaultGroupEntry = entry;
+            break;
+          case OTHER:
+            defaultOtherEntry = entry;
+            break;
+          }
+        } else {
+          if (entry.getType() != AclEntryType.MASK) {
+            aclBuilder.addEntry(entry);
+          }
+          defaultMask.update(entry);
+        }
+      }
     }
 
-    public void update(AclEntry entry) {
+    void complete() {
+      accessMask.addMaskIfNeeded(aclBuilder);
+      if (hasDefaultEntries) {
+        if (defaultUserEntry != null) {
+          aclBuilder.addEntry(defaultUserEntry);
+        }
+        if (defaultGroupEntry != null) {
+          aclBuilder.addEntry(defaultGroupEntry);
+          defaultMask.update(defaultGroupEntry);
+        }
+        if (defaultOtherEntry != null) {
+          aclBuilder.addEntry(defaultOtherEntry);
+        }
+        defaultMask.addMaskIfNeeded(aclBuilder);
+      }
+    }
+  }
+
+  private static final class MaskCalculator {
+    final AclEntryScope scope;
+    AclEntry providedMask = null;
+    FsAction unionPerms = FsAction.NONE;
+    boolean maskNeeded = false;
+
+    MaskCalculator(AclEntryScope scope) {
+      this.scope = scope;
+    }
+
+    void update(AclEntry entry) {
       if (providedMask == null) {
-        if (entry.getScope() == AclEntryScope.ACCESS) {
+        if (entry.getType() == AclEntryType.MASK) {
+          providedMask = entry;
+        } else {
           if (entry.getType() == AclEntryType.GROUP ||
               entry.getName() != null) {
             unionPerms = unionPerms.or(entry.getPermission());
           }
           if (entry.getName() != null) {
-            foundNamedEntries = true;
+            maskNeeded = true;
           }
         }
       }
     }
 
-    public void addMaskIfNeeded(Acl.Builder aclBuilder) {
+    void addMaskIfNeeded(Acl.Builder aclBuilder) {
       if (providedMask != null) {
         aclBuilder.addEntry(providedMask);
-      } else if (foundNamedEntries) {
+      } else if (maskNeeded) {
         aclBuilder.addEntry(new AclEntry.Builder()
-          .setScope(AclEntryScope.ACCESS)
+          .setScope(scope)
           .setType(AclEntryType.MASK)
           .setPermission(unionPerms)
           .build());
