@@ -84,9 +84,10 @@ abstract class AclTransformation implements Function<Acl, Acl> {
       public Acl apply(Acl existingAcl) {
         startAclBuilder(existingAcl);
         for (AclEntry existingEntry: existingAcl.getEntries()) {
-          if (existingEntry.getScope() != AclEntryScope.DEFAULT) {
-            aclBuilder.addEntry(existingEntry);
+          if (existingEntry.getScope() == AclEntryScope.DEFAULT) {
+            break;
           }
+          aclBuilder.addEntry(existingEntry);
         }
         return buildAndValidate(aclBuilder);
       }
