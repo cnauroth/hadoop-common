@@ -249,6 +249,7 @@ abstract class AclTransformation implements Function<Acl, Acl> {
             }
           } else {
             aclBuilder.addEntry(entry);
+            defaultMask.update(entry);
           }
         } else {
           defaultMask.update(entry);
