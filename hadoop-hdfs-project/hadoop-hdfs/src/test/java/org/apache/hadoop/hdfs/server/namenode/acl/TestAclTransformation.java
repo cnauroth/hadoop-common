@@ -369,6 +369,57 @@ public class TestAclTransformation {
         .build());
   }
 
+  @Test
+  public void testMaskCalculation() {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ))
+        .addEntry(aclEntry(ACCESS, USER, "diana", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, MASK, READ_WRITE))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .build(),
+      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+        aclEntry(ACCESS, USER, "diana"))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, MASK, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .build());
+
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ))
+        .addEntry(aclEntry(ACCESS, USER, "diana", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, MASK, READ_WRITE))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "diana", ALL))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, READ))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build(),
+      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+        aclEntry(ACCESS, USER, "diana"))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, MASK, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "diana", ALL))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, READ))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build());
+  }
+
   private static AclEntry aclEntry(AclEntryScope scope, AclEntryType type,
       FsAction permission) {
     return new AclEntry.Builder()

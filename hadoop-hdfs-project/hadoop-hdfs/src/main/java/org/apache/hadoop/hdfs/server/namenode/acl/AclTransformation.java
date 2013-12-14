@@ -42,16 +42,35 @@ abstract class AclTransformation implements Function<Acl, Acl> {
         Collections.sort(aclSpec);
         startAclBuilder(existingAcl);
         TransformationState state = new TransformationState();
+        AclEntry accessMask = null, defaultMask = null;
+        boolean modifiedAccessAcl = false, modifiedDefaultAcl = false;
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
         AclEntry aclSpecEntry = null;
         for (AclEntry existingEntry: existingAcl.getEntries()) {
           if (existingEntry.getType() == AclEntryType.MASK) {
-            continue;
+            if (existingEntry.getScope() == AclEntryScope.ACCESS) {
+              accessMask = existingEntry;
+            } else {
+              defaultMask = existingEntry;
+            }
+          } else {
+            aclSpecEntry = advance(aclSpecIter, aclSpecEntry, existingEntry);
+            if (existingEntry.compareTo(aclSpecEntry) != 0) {
+              state.update(existingEntry);
+            } else {
+              if (existingEntry.getScope() == AclEntryScope.ACCESS) {
+                modifiedAccessAcl = true;
+              } else {
+                modifiedDefaultAcl = true;
+              }
+            }
           }
-          aclSpecEntry = advance(aclSpecIter, aclSpecEntry, existingEntry);
-          if (existingEntry.compareTo(aclSpecEntry) != 0) {
-            state.update(existingEntry);
-          }
+        }
+        if (!modifiedAccessAcl && accessMask != null) {
+          state.update(accessMask);
+        }
+        if (!modifiedDefaultAcl && defaultMask != null) {
+          state.update(defaultMask);
         }
         state.complete();
         return buildAndValidate(aclBuilder);
@@ -214,22 +233,23 @@ abstract class AclTransformation implements Function<Acl, Acl> {
         }
       } else {
         hasDefaultEntries = true;
-        if (entry.getName() == null) {
-          switch (entry.getType()) {
-          case USER:
-            defaultUserEntry = entry;
-            break;
-          case GROUP:
-            defaultGroupEntry = entry;
-            break;
-          case OTHER:
-            defaultOtherEntry = entry;
-            break;
-          }
-        } else {
-          if (entry.getType() != AclEntryType.MASK) {
+        if (entry.getType() != AclEntryType.MASK) {
+          if (entry.getName() == null) {
+            switch (entry.getType()) {
+            case USER:
+              defaultUserEntry = entry;
+              break;
+            case GROUP:
+              defaultGroupEntry = entry;
+              break;
+            case OTHER:
+              defaultOtherEntry = entry;
+              break;
+            }
+          } else {
             aclBuilder.addEntry(entry);
           }
+        } else {
           defaultMask.update(entry);
         }
       }
