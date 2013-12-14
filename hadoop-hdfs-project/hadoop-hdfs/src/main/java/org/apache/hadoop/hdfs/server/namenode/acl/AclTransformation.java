@@ -45,7 +45,7 @@ abstract class AclTransformation implements Function<Acl, Acl> {
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
         AclEntry aclSpecEntry = null;
         for (AclEntry existingEntry: existingAcl.getEntries()) {
-          if (isAccessMask(existingEntry)) {
+          if (existingEntry.getType() == AclEntryType.MASK) {
             continue;
           }
           aclSpecEntry = advance(aclSpecIter, aclSpecEntry, existingEntry);
@@ -185,11 +185,6 @@ abstract class AclTransformation implements Function<Acl, Acl> {
     }
     // TODO: user/group/other entries required
     return acl;
-  }
-
-  private static boolean isAccessMask(AclEntry entry) {
-    return entry.getScope() == AclEntryScope.ACCESS &&
-      entry.getType() == AclEntryType.MASK;
   }
 
   protected final class TransformationState {
