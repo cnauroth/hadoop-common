@@ -141,6 +141,9 @@ abstract class AclTransformation implements Function<Acl, Acl> {
             state.update(existingEntry);
           }
         }
+        if (aclSpecEntry != null) {
+          state.update(aclSpecEntry);
+        }
         while (aclSpecIter.hasNext()) {
           state.update(aclSpecIter.next());
         }
