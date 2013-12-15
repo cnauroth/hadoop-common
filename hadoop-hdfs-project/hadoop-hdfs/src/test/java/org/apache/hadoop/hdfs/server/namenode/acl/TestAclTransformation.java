@@ -766,37 +766,214 @@ public class TestAclTransformation {
 
   @Test
   public void testReplaceAclEntriesAccessMaskCalculated() {
-    fail("please code me");
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .build(),
+      AclTransformation.replaceAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, ALL),
+        aclEntry(ACCESS, USER, "bruce", READ),
+        aclEntry(ACCESS, USER, "diana", READ_WRITE),
+        aclEntry(ACCESS, GROUP, READ),
+        aclEntry(ACCESS, OTHER, READ))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ))
+        .addEntry(aclEntry(ACCESS, USER, "diana", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, MASK, READ_WRITE))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .build());
   }
 
   @Test
   public void testReplaceAclEntriesDefaultMaskCalculated() {
-    fail("please code me");
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .build(),
+      AclTransformation.replaceAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, ALL),
+        aclEntry(ACCESS, GROUP, READ),
+        aclEntry(ACCESS, OTHER, READ),
+        aclEntry(DEFAULT, USER, ALL),
+        aclEntry(DEFAULT, USER, "bruce", READ),
+        aclEntry(DEFAULT, USER, "diana", READ_WRITE),
+        aclEntry(DEFAULT, GROUP, ALL),
+        aclEntry(DEFAULT, OTHER, READ))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "bruce", READ))
+        .addEntry(aclEntry(DEFAULT, USER, "diana", READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, GROUP, ALL))
+        .addEntry(aclEntry(DEFAULT, MASK, ALL))
+        .addEntry(aclEntry(DEFAULT, OTHER, READ))
+        .build());
   }
 
   @Test
   public void testReplaceAclEntriesDefaultMaskPreserved() {
-    fail("please code me");
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ))
+        .addEntry(aclEntry(ACCESS, USER, "diana", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, MASK, READ_WRITE))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "diana", ALL))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, READ))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build(),
+      AclTransformation.replaceAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, ALL),
+        aclEntry(ACCESS, USER, "bruce", READ),
+        aclEntry(ACCESS, USER, "diana", READ_WRITE),
+        aclEntry(ACCESS, GROUP, ALL),
+        aclEntry(ACCESS, OTHER, READ))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ))
+        .addEntry(aclEntry(ACCESS, USER, "diana", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, ALL))
+        .addEntry(aclEntry(ACCESS, MASK, ALL))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "diana", ALL))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, READ))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build());
   }
 
   @Test
   public void testReplaceAclEntriesAccessMaskPreserved() {
-    fail("please code me");
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ))
+        .addEntry(aclEntry(ACCESS, USER, "diana", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, MASK, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "bruce", READ))
+        .addEntry(aclEntry(DEFAULT, USER, "diana", READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build(),
+      AclTransformation.replaceAclEntries(Arrays.asList(
+        aclEntry(DEFAULT, USER, ALL),
+        aclEntry(DEFAULT, USER, "bruce", READ),
+        aclEntry(DEFAULT, GROUP, READ),
+        aclEntry(DEFAULT, OTHER, NONE))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ))
+        .addEntry(aclEntry(ACCESS, USER, "diana", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, MASK, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "bruce", READ))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, READ))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build());
   }
 
   @Test
   public void testReplaceAclEntriesAutomaticDefaultUser() {
-    fail("please code me");
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.replaceAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, ALL),
+        aclEntry(ACCESS, GROUP, READ),
+        aclEntry(ACCESS, OTHER, NONE),
+        aclEntry(DEFAULT, USER, "bruce", READ),
+        aclEntry(DEFAULT, GROUP, READ_WRITE),
+        aclEntry(DEFAULT, MASK, READ_WRITE),
+        aclEntry(DEFAULT, OTHER, READ))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "bruce", READ))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, MASK, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, OTHER, READ))
+        .build());
   }
 
   @Test
   public void testReplaceAclEntriesAutomaticDefaultGroup() {
-    fail("please code me");
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.replaceAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, ALL),
+        aclEntry(ACCESS, GROUP, READ),
+        aclEntry(ACCESS, OTHER, NONE),
+        aclEntry(DEFAULT, USER, READ_WRITE),
+        aclEntry(DEFAULT, USER, "bruce", READ),
+        aclEntry(DEFAULT, MASK, READ),
+        aclEntry(DEFAULT, OTHER, READ))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .addEntry(aclEntry(DEFAULT, USER, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, USER, "bruce", READ))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, READ))
+        .addEntry(aclEntry(DEFAULT, OTHER, READ))
+        .build());
   }
 
   @Test
   public void testReplaceAclEntriesAutomaticDefaultOther() {
-    fail("please code me");
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.replaceAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, ALL),
+        aclEntry(ACCESS, GROUP, READ),
+        aclEntry(ACCESS, OTHER, NONE),
+        aclEntry(DEFAULT, USER, READ_WRITE),
+        aclEntry(DEFAULT, USER, "bruce", READ),
+        aclEntry(DEFAULT, GROUP, READ_WRITE),
+        aclEntry(DEFAULT, MASK, READ_WRITE))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .addEntry(aclEntry(DEFAULT, USER, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, USER, "bruce", READ))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, MASK, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build());
   }
 
   private static AclEntry aclEntry(AclEntryScope scope, AclEntryType type,
