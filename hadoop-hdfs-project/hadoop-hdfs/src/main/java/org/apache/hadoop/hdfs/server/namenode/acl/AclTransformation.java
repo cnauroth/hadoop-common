@@ -42,35 +42,15 @@ abstract class AclTransformation implements Function<Acl, Acl> {
         Collections.sort(aclSpec);
         startAclBuilder(existingAcl);
         TransformationState state = new TransformationState();
-        AclEntry accessMask = null, defaultMask = null;
-        boolean modifiedAccessAcl = false, modifiedDefaultAcl = false;
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
         AclEntry aclSpecEntry = null;
         for (AclEntry existingEntry: existingAcl.getEntries()) {
-          if (existingEntry.getType() == AclEntryType.MASK) {
-            if (existingEntry.getScope() == AclEntryScope.ACCESS) {
-              accessMask = existingEntry;
-            } else {
-              defaultMask = existingEntry;
-            }
+          aclSpecEntry = advance(aclSpecIter, aclSpecEntry, existingEntry);
+          if (existingEntry.compareTo(aclSpecEntry) != 0) {
+            state.update(existingEntry);
           } else {
-            aclSpecEntry = advance(aclSpecIter, aclSpecEntry, existingEntry);
-            if (existingEntry.compareTo(aclSpecEntry) != 0) {
-              state.update(existingEntry);
-            } else {
-              if (existingEntry.getScope() == AclEntryScope.ACCESS) {
-                modifiedAccessAcl = true;
-              } else {
-                modifiedDefaultAcl = true;
-              }
-            }
+            state.markDirty(existingEntry.getScope());
           }
-        }
-        if (!modifiedAccessAcl && accessMask != null) {
-          state.update(accessMask);
-        }
-        if (!modifiedDefaultAcl && defaultMask != null) {
-          state.update(defaultMask);
         }
         state.complete();
         return buildAndValidate(aclBuilder);
@@ -119,8 +99,6 @@ abstract class AclTransformation implements Function<Acl, Acl> {
         Collections.sort(aclSpec);
         startAclBuilder(existingAcl);
         TransformationState state = new TransformationState();
-        AclEntry accessMask = null, defaultMask = null;
-        boolean modifiedAccessAcl = false, modifiedDefaultAcl = false;
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
         AclEntry aclSpecEntry = null;
         for (AclEntry existingEntry: existingAcl.getEntries()) {
@@ -131,9 +109,11 @@ abstract class AclTransformation implements Function<Acl, Acl> {
               state.update(existingEntry);
             } else if (comparison == 0) {
               state.update(aclSpecEntry);
+              state.markDirty(aclSpecEntry.getScope());
               aclSpecEntry = null;
             } else {
               state.update(aclSpecEntry);
+              state.markDirty(aclSpecEntry.getScope());
               state.update(existingEntry);
               aclSpecEntry = null;
             }
@@ -143,9 +123,12 @@ abstract class AclTransformation implements Function<Acl, Acl> {
         }
         if (aclSpecEntry != null) {
           state.update(aclSpecEntry);
+          state.markDirty(aclSpecEntry.getScope());
         }
         while (aclSpecIter.hasNext()) {
-          state.update(aclSpecIter.next());
+          aclSpecEntry = aclSpecIter.next();
+          state.update(aclSpecEntry);
+          state.markDirty(aclSpecEntry.getScope());
         }
         state.complete();
         return buildAndValidate(aclBuilder);
@@ -221,6 +204,14 @@ abstract class AclTransformation implements Function<Acl, Acl> {
     final MaskCalculator accessMask = new MaskCalculator(AclEntryScope.ACCESS);
     final MaskCalculator defaultMask = new MaskCalculator(AclEntryScope.DEFAULT);
     boolean hasDefaultEntries;
+
+    void markDirty(AclEntryScope scope) {
+      if (scope == AclEntryScope.ACCESS) {
+        accessMask.markDirty();
+      } else {
+        defaultMask.markDirty();
+      }
+    }
 
     void update(AclEntry entry) {
       if (entry.getScope() == AclEntryScope.ACCESS) {
@@ -313,9 +304,14 @@ abstract class AclTransformation implements Function<Acl, Acl> {
     AclEntry providedMask = null;
     FsAction unionPerms = FsAction.NONE;
     boolean maskNeeded = false;
+    boolean dirty = false;
 
     MaskCalculator(AclEntryScope scope) {
       this.scope = scope;
+    }
+
+    void markDirty() {
+      dirty = true;
     }
 
     void update(AclEntry entry) {
@@ -335,7 +331,7 @@ abstract class AclTransformation implements Function<Acl, Acl> {
     }
 
     void addMaskIfNeeded(Acl.Builder aclBuilder) {
-      if (providedMask != null) {
+      if (providedMask != null && !dirty) {
         aclBuilder.addEntry(providedMask);
       } else if (maskNeeded) {
         aclBuilder.addEntry(new AclEntry.Builder()
