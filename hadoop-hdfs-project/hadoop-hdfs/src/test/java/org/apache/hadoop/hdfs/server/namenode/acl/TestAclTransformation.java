@@ -125,6 +125,34 @@ public class TestAclTransformation {
   }
 
   @Test
+  public void testFilterAclEntriesByAclSpecDefaultMaskCalculated() {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "bruce", READ))
+        .addEntry(aclEntry(DEFAULT, USER, "diana", READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build(),
+      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+        aclEntry(DEFAULT, USER, "diana"))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "bruce", READ))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, READ))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build());
+  }
+
+  @Test
   public void testFilterAclEntriesByAclSpecDefaultMaskPreserved() {
     assertAclModified(
       new Acl.Builder()
@@ -187,6 +215,79 @@ public class TestAclTransformation {
         .addEntry(aclEntry(DEFAULT, GROUP, READ))
         .addEntry(aclEntry(DEFAULT, MASK, READ))
         .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build());
+  }
+
+  @Test
+  public void testFilterAclEntriesByAclSpecAutomaticDefaultUser() {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, USER, "bruce", READ))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, READ))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build(),
+      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+        aclEntry(DEFAULT, USER))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "bruce", READ))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, READ))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build());
+  }
+
+  @Test
+  public void testFilterAclEntriesByAclSpecAutomaticDefaultGroup() {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build(),
+      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+        aclEntry(DEFAULT, GROUP))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build());
+  }
+
+  @Test
+  public void testFilterAclEntriesByAclSpecAutomaticDefaultOther() {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build(),
+      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+        aclEntry(DEFAULT, OTHER))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, OTHER, READ))
         .build());
   }
 
@@ -385,6 +486,185 @@ public class TestAclTransformation {
   }
 
   @Test
+  public void testMergeAclEntriesAccessMaskCalculated() {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, MASK, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .build(),
+      AclTransformation.mergeAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
+        aclEntry(ACCESS, USER, "diana", READ))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, USER, "diana", READ))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, MASK, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .build());
+  }
+
+  @Test
+  public void testMergeAclEntriesDefaultMaskCalculated() {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "bruce", READ))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, READ))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build(),
+      AclTransformation.mergeAclEntries(Arrays.asList(
+        aclEntry(DEFAULT, USER, "bruce", READ_WRITE),
+        aclEntry(DEFAULT, USER, "diana", READ_EXECUTE))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "bruce", READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, USER, "diana", READ_EXECUTE))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, ALL))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build());
+  }
+
+  @Test
+  public void testMergeAclEntriesDefaultMaskPreserved() {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "diana", ALL))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, READ))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build(),
+      AclTransformation.mergeAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, "diana", FsAction.READ_EXECUTE))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "diana", READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, MASK, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "diana", ALL))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, READ))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build());
+  }
+
+  @Test
+  public void testMergeAclEntriesAccessMaskPreserved() {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ))
+        .addEntry(aclEntry(ACCESS, USER, "diana", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, MASK, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "bruce", READ))
+        .addEntry(aclEntry(DEFAULT, USER, "diana", READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build(),
+      AclTransformation.mergeAclEntries(Arrays.asList(
+        aclEntry(DEFAULT, USER, "diana", READ_EXECUTE))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ))
+        .addEntry(aclEntry(ACCESS, USER, "diana", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, MASK, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "bruce", READ))
+        .addEntry(aclEntry(DEFAULT, USER, "diana", READ_EXECUTE))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, READ_EXECUTE))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build());
+  }
+
+  @Test
+  public void testMergeAclEntriesAutomaticDefaultUser() {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .build(),
+      AclTransformation.mergeAclEntries(Arrays.asList(
+        aclEntry(DEFAULT, GROUP, READ_EXECUTE),
+        aclEntry(DEFAULT, OTHER, READ))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(DEFAULT, OTHER, READ))
+        .build());
+  }
+
+  @Test
+  public void testMergeAclEntriesAutomaticDefaultGroup() {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .build(),
+      AclTransformation.mergeAclEntries(Arrays.asList(
+        aclEntry(DEFAULT, USER, READ_EXECUTE),
+        aclEntry(DEFAULT, OTHER, READ))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, READ_EXECUTE))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, OTHER, READ))
+        .build());
+  }
+
+  @Test
+  public void testMergeAclEntriesAutomaticDefaultOther() {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.mergeAclEntries(Arrays.asList(
+        aclEntry(DEFAULT, USER, READ_EXECUTE),
+        aclEntry(DEFAULT, GROUP, READ_EXECUTE))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .addEntry(aclEntry(DEFAULT, USER, READ_EXECUTE))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build());
+  }
+
+  @Test
   public void testReplaceAclEntries() {
     assertAclModified(
       new Acl.Builder()
@@ -484,6 +764,41 @@ public class TestAclTransformation {
         .build());
   }
 
+  @Test
+  public void testReplaceAclEntriesAccessMaskCalculated() {
+    fail("please code me");
+  }
+
+  @Test
+  public void testReplaceAclEntriesDefaultMaskCalculated() {
+    fail("please code me");
+  }
+
+  @Test
+  public void testReplaceAclEntriesDefaultMaskPreserved() {
+    fail("please code me");
+  }
+
+  @Test
+  public void testReplaceAclEntriesAccessMaskPreserved() {
+    fail("please code me");
+  }
+
+  @Test
+  public void testReplaceAclEntriesAutomaticDefaultUser() {
+    fail("please code me");
+  }
+
+  @Test
+  public void testReplaceAclEntriesAutomaticDefaultGroup() {
+    fail("please code me");
+  }
+
+  @Test
+  public void testReplaceAclEntriesAutomaticDefaultOther() {
+    fail("please code me");
+  }
+
   private static AclEntry aclEntry(AclEntryScope scope, AclEntryType type,
       FsAction permission) {
     return new AclEntry.Builder()
@@ -509,6 +824,13 @@ public class TestAclTransformation {
       .setScope(scope)
       .setType(type)
       .setName(name)
+      .build();
+  }
+
+  private static AclEntry aclEntry(AclEntryScope scope, AclEntryType type) {
+    return new AclEntry.Builder()
+      .setScope(scope)
+      .setType(type)
       .build();
   }
 

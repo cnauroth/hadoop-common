@@ -119,6 +119,8 @@ abstract class AclTransformation implements Function<Acl, Acl> {
         Collections.sort(aclSpec);
         startAclBuilder(existingAcl);
         TransformationState state = new TransformationState();
+        AclEntry accessMask = null, defaultMask = null;
+        boolean modifiedAccessAcl = false, modifiedDefaultAcl = false;
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
         AclEntry aclSpecEntry = null;
         for (AclEntry existingEntry: existingAcl.getEntries()) {
@@ -138,6 +140,9 @@ abstract class AclTransformation implements Function<Acl, Acl> {
           } else {
             state.update(existingEntry);
           }
+        }
+        while (aclSpecIter.hasNext()) {
+          state.update(aclSpecIter.next());
         }
         state.complete();
         return buildAndValidate(aclBuilder);
@@ -208,6 +213,7 @@ abstract class AclTransformation implements Function<Acl, Acl> {
   }
 
   protected final class TransformationState {
+    AclEntry userEntry, groupEntry, otherEntry;
     AclEntry defaultUserEntry, defaultGroupEntry, defaultOtherEntry;
     final MaskCalculator accessMask = new MaskCalculator(AclEntryScope.ACCESS);
     final MaskCalculator defaultMask = new MaskCalculator(AclEntryScope.DEFAULT);
@@ -222,13 +228,13 @@ abstract class AclTransformation implements Function<Acl, Acl> {
         if (entry.getName() == null) {
           switch (entry.getType()) {
           case USER:
-            defaultUserEntry = entry;
+            userEntry = entry;
             break;
           case GROUP:
-            defaultGroupEntry = entry;
+            groupEntry = entry;
             break;
           case OTHER:
-            defaultOtherEntry = entry;
+            otherEntry = entry;
             break;
           }
         }
@@ -260,16 +266,40 @@ abstract class AclTransformation implements Function<Acl, Acl> {
     void complete() {
       accessMask.addMaskIfNeeded(aclBuilder);
       if (hasDefaultEntries) {
+        if (defaultUserEntry == null && userEntry != null) {
+          defaultUserEntry = new AclEntry.Builder()
+            .setScope(AclEntryScope.DEFAULT)
+            .setType(AclEntryType.USER)
+            .setPermission(userEntry.getPermission())
+            .build();
+        }
         if (defaultUserEntry != null) {
           aclBuilder.addEntry(defaultUserEntry);
+        }
+
+        if (defaultGroupEntry == null && groupEntry != null) {
+          defaultGroupEntry = new AclEntry.Builder()
+            .setScope(AclEntryScope.DEFAULT)
+            .setType(AclEntryType.GROUP)
+            .setPermission(groupEntry.getPermission())
+            .build();
         }
         if (defaultGroupEntry != null) {
           aclBuilder.addEntry(defaultGroupEntry);
           defaultMask.update(defaultGroupEntry);
         }
+
+        if (defaultOtherEntry == null && otherEntry != null) {
+          defaultOtherEntry = new AclEntry.Builder()
+            .setScope(AclEntryScope.DEFAULT)
+            .setType(AclEntryType.OTHER)
+            .setPermission(otherEntry.getPermission())
+            .build();
+        }
         if (defaultOtherEntry != null) {
           aclBuilder.addEntry(defaultOtherEntry);
         }
+
         defaultMask.addMaskIfNeeded(aclBuilder);
       }
     }
