@@ -115,10 +115,16 @@ abstract class AclTransformation implements Function<Acl, Acl> {
             } else if (comparison == 0) {
               state.update(aclSpecEntry);
               state.markDirty(aclSpecEntry.getScope());
+              if (aclSpecEntry.getType() == AclEntryType.MASK) {
+                state.markProvidedMaskFromAclSpec(aclSpecEntry.getScope());
+              }
               aclSpecEntry = null;
             } else {
               state.update(aclSpecEntry);
               state.markDirty(aclSpecEntry.getScope());
+              if (aclSpecEntry.getType() == AclEntryType.MASK) {
+                state.markProvidedMaskFromAclSpec(aclSpecEntry.getScope());
+              }
               state.update(existingEntry);
               aclSpecEntry = null;
             }
@@ -129,11 +135,17 @@ abstract class AclTransformation implements Function<Acl, Acl> {
         if (aclSpecEntry != null) {
           state.update(aclSpecEntry);
           state.markDirty(aclSpecEntry.getScope());
+          if (aclSpecEntry.getType() == AclEntryType.MASK) {
+            state.markProvidedMaskFromAclSpec(aclSpecEntry.getScope());
+          }
         }
         while (aclSpecIter.hasNext()) {
           aclSpecEntry = aclSpecIter.next();
           state.update(aclSpecEntry);
           state.markDirty(aclSpecEntry.getScope());
+          if (aclSpecEntry.getType() == AclEntryType.MASK) {
+            state.markProvidedMaskFromAclSpec(aclSpecEntry.getScope());
+          }
         }
         state.complete();
         return buildAndValidate(aclBuilder);
@@ -217,6 +229,14 @@ abstract class AclTransformation implements Function<Acl, Acl> {
         accessMask.markDirty();
       } else {
         defaultMask.markDirty();
+      }
+    }
+
+    void markProvidedMaskFromAclSpec(AclEntryScope scope) {
+      if (scope == AclEntryScope.ACCESS) {
+        accessMask.markProvidedMaskFromAclSpec();
+      } else {
+        defaultMask.markProvidedMaskFromAclSpec();
       }
     }
 
@@ -309,6 +329,7 @@ abstract class AclTransformation implements Function<Acl, Acl> {
   private static final class MaskCalculator {
     final AclEntryScope scope;
     AclEntry providedMask = null;
+    boolean providedMaskFromAclEntry = false;
     FsAction unionPerms = FsAction.NONE;
     boolean maskNeeded = false;
     boolean dirty = false;
@@ -319,6 +340,10 @@ abstract class AclTransformation implements Function<Acl, Acl> {
 
     void markDirty() {
       dirty = true;
+    }
+
+    void markProvidedMaskFromAclSpec() {
+      providedMaskFromAclEntry = true;
     }
 
     void update(AclEntry entry) {
@@ -338,7 +363,7 @@ abstract class AclTransformation implements Function<Acl, Acl> {
     }
 
     void addMaskIfNeeded(Acl.Builder aclBuilder) {
-      if (providedMask != null && !dirty) {
+      if (providedMask != null && (!dirty || providedMaskFromAclEntry)) {
         aclBuilder.addEntry(providedMask);
       } else if (maskNeeded) {
         aclBuilder.addEntry(new AclEntry.Builder()

@@ -665,6 +665,50 @@ public class TestAclTransformation {
   }
 
   @Test
+  public void testMergeAclEntriesProvidedAccessMask() {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.mergeAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
+        aclEntry(ACCESS, MASK, ALL))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, MASK, ALL))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build());
+  }
+
+  @Test
+  public void testMergeAclEntriesProvidedDefaultMask() {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.mergeAclEntries(Arrays.asList(
+        aclEntry(DEFAULT, USER, ALL),
+        aclEntry(DEFAULT, GROUP, READ),
+        aclEntry(DEFAULT, MASK, ALL),
+        aclEntry(DEFAULT, OTHER, NONE))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, ALL))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build());
+  }
+
+  @Test
   public void testReplaceAclEntries() {
     assertAclModified(
       new Acl.Builder()
