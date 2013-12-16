@@ -46,10 +46,15 @@ abstract class AclTransformation implements Function<Acl, Acl> {
         AclEntry aclSpecEntry = null;
         for (AclEntry existingEntry: existingAcl.getEntries()) {
           aclSpecEntry = advance(aclSpecIter, aclSpecEntry, existingEntry);
-          if (existingEntry.compareTo(aclSpecEntry) != 0) {
-            state.update(existingEntry);
+          if (aclSpecEntry != null) {
+            if (existingEntry.compareTo(aclSpecEntry) != 0) {
+              state.update(existingEntry);
+            } else {
+              state.markDirty(existingEntry.getScope());
+              aclSpecEntry = null;
+            }
           } else {
-            state.markDirty(existingEntry.getScope());
+            state.update(existingEntry);
           }
         }
         state.complete();
@@ -159,9 +164,11 @@ abstract class AclTransformation implements Function<Acl, Acl> {
 
   private static AclEntry advance(Iterator<AclEntry> aclSpecIter,
       AclEntry aclSpecEntry, AclEntry existingEntry) {
-    while (aclSpecIter.hasNext() && (aclSpecEntry == null ||
-        aclSpecEntry.compareTo(existingEntry) < 0)) {
-      aclSpecEntry = aclSpecIter.next();
+    if (aclSpecEntry == null) {
+      while (aclSpecIter.hasNext() && (aclSpecEntry == null ||
+          aclSpecEntry.compareTo(existingEntry) < 0)) {
+        aclSpecEntry = aclSpecIter.next();
+      }
     }
     return aclSpecEntry;
   }
