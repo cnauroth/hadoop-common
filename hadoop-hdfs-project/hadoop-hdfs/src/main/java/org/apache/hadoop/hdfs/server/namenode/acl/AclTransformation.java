@@ -235,14 +235,6 @@ abstract class AclTransformation implements Function<Acl, Acl> {
       }
     }
 
-    void markModified(AclEntryScope scope) {
-      if (scope == AclEntryScope.ACCESS) {
-        accessMask.markModified();
-      } else {
-        defaultMask.markModified();
-      }
-    }
-
     void copyExistingEntry(AclEntry entry) {
       update(entry);
     }
@@ -253,9 +245,14 @@ abstract class AclTransformation implements Function<Acl, Acl> {
 
     void modifyEntry(AclEntry entry) {
       update(entry);
-      markDirty(entry.getScope());
+      AclEntryScope scope = entry.getScope();
+      markDirty(scope);
       if (entry.getType() == AclEntryType.MASK) {
-        markModified(entry.getScope());
+        if (scope == AclEntryScope.ACCESS) {
+          accessMask.markModified();
+        } else {
+          defaultMask.markModified();
+        }
       }
     }
 
