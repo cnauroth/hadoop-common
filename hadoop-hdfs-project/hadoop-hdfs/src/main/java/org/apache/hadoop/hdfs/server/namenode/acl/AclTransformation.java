@@ -235,11 +235,11 @@ abstract class AclTransformation implements Function<Acl, Acl> {
       }
     }
 
-    void markProvidedMaskFromAclSpec(AclEntryScope scope) {
+    void markModified(AclEntryScope scope) {
       if (scope == AclEntryScope.ACCESS) {
-        accessMask.markProvidedMaskFromAclSpec();
+        accessMask.markModified();
       } else {
-        defaultMask.markProvidedMaskFromAclSpec();
+        defaultMask.markModified();
       }
     }
 
@@ -255,7 +255,7 @@ abstract class AclTransformation implements Function<Acl, Acl> {
       update(entry);
       markDirty(entry.getScope());
       if (entry.getType() == AclEntryType.MASK) {
-        markProvidedMaskFromAclSpec(entry.getScope());
+        markModified(entry.getScope());
       }
     }
 
@@ -348,21 +348,13 @@ abstract class AclTransformation implements Function<Acl, Acl> {
   private static final class MaskCalculator {
     final AclEntryScope scope;
     AclEntry providedMask = null;
-    boolean providedMaskFromAclEntry = false;
     FsAction unionPerms = FsAction.NONE;
     boolean maskNeeded = false;
     boolean dirty = false;
+    boolean modified = false;
 
     MaskCalculator(AclEntryScope scope) {
       this.scope = scope;
-    }
-
-    void markDirty() {
-      dirty = true;
-    }
-
-    void markProvidedMaskFromAclSpec() {
-      providedMaskFromAclEntry = true;
     }
 
     void update(AclEntry entry) {
@@ -381,8 +373,16 @@ abstract class AclTransformation implements Function<Acl, Acl> {
       }
     }
 
+    void markDirty() {
+      dirty = true;
+    }
+
+    void markModified() {
+      modified = true;
+    }
+
     void addMaskIfNeeded(Acl.Builder aclBuilder) {
-      if (providedMask != null && (!dirty || providedMaskFromAclEntry)) {
+      if (providedMask != null && (!dirty || modified)) {
         aclBuilder.addEntry(providedMask);
       } else if (maskNeeded) {
         aclBuilder.addEntry(new AclEntry.Builder()
