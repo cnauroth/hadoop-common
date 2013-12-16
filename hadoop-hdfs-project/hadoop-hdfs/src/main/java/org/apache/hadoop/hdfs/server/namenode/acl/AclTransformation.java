@@ -24,6 +24,7 @@ import java.util.List;
 
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
+import com.google.common.collect.Iterators;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.fs.permission.AclEntry;
@@ -46,7 +47,7 @@ abstract class AclTransformation implements Function<Acl, Acl> {
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
         AclEntry aclSpecEntry = null;
         for (AclEntry existingEntry: existingAcl.getEntries()) {
-          aclSpecEntry = advance(aclSpecIter, aclSpecEntry, existingEntry);
+          aclSpecEntry = advanceIfNull(aclSpecIter, aclSpecEntry);
           if (aclSpecEntry != null) {
             if (existingEntry.compareTo(aclSpecEntry) != 0) {
               state.copyExistingEntry(existingEntry);
@@ -108,7 +109,7 @@ abstract class AclTransformation implements Function<Acl, Acl> {
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
         AclEntry aclSpecEntry = null;
         for (AclEntry existingEntry: existingAcl.getEntries()) {
-          aclSpecEntry = advance(aclSpecIter, aclSpecEntry, existingEntry);
+          aclSpecEntry = advanceIfNull(aclSpecIter, aclSpecEntry);
           if (aclSpecEntry != null) {
             int comparison = existingEntry.compareTo(aclSpecEntry);
             if (comparison < 0) {
@@ -147,26 +148,22 @@ abstract class AclTransformation implements Function<Acl, Acl> {
         TransformationState state = new TransformationState();
         Iterator<AclEntry> existingIter = existingAcl.getEntries().iterator();
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
-        AclEntry existingEntry = existingIter.hasNext() ? existingIter.next() :
-          null;
-        AclEntry aclSpecEntry = aclSpecIter.hasNext() ? aclSpecIter.next() :
-          null;
+        AclEntry existingEntry = Iterators.getNext(existingIter, null);
+        AclEntry aclSpecEntry = Iterators.getNext(aclSpecIter, null);
         for (AclEntryScope scope:
             EnumSet.of(AclEntryScope.ACCESS, AclEntryScope.DEFAULT)) {
           if (aclSpecEntry != null && aclSpecEntry.getScope() == scope) {
             while (aclSpecEntry != null && aclSpecEntry.getScope() == scope) {
               state.modifyEntry(aclSpecEntry);
-              aclSpecEntry = aclSpecIter.hasNext() ? aclSpecIter.next() : null;
+              aclSpecEntry = Iterators.getNext(aclSpecIter, null);
             }
           } else {
             while (existingEntry != null && existingEntry.getScope() != scope) {
-              existingEntry = existingIter.hasNext() ? existingIter.next() :
-                null;
+              existingEntry = Iterators.getNext(existingIter, null);
             }
             while (existingEntry != null && existingEntry.getScope() == scope) {
               state.copyExistingEntry(existingEntry);
-              existingEntry = existingIter.hasNext() ? existingIter.next() :
-                null;
+              existingEntry = Iterators.getNext(existingIter, null);
             }
           }
         }
@@ -180,15 +177,15 @@ abstract class AclTransformation implements Function<Acl, Acl> {
     aclBuilder.setStickyBit(existingAcl.getStickyBit());
   }
 
-  private static AclEntry advance(Iterator<AclEntry> aclSpecIter,
-      AclEntry aclSpecEntry, AclEntry existingEntry) {
-    if (aclSpecEntry == null) {
-      while (aclSpecIter.hasNext() && (aclSpecEntry == null ||
-          aclSpecEntry.compareTo(existingEntry) < 0)) {
-        aclSpecEntry = aclSpecIter.next();
-      }
+  private static AclEntry advanceIfNull(Iterator<AclEntry> aclSpecIter,
+      AclEntry aclSpecEntry) {
+    if (aclSpecEntry != null) {
+      return aclSpecEntry;
+    } else if (aclSpecIter.hasNext()) {
+      return aclSpecIter.next();
+    } else {
+      return null;
     }
-    return aclSpecEntry;
   }
 
   private static Acl buildAndValidate(Acl.Builder aclBuilder) {
