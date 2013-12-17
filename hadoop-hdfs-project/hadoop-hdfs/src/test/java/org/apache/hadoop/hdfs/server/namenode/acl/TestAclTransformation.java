@@ -798,12 +798,26 @@ public class TestAclTransformation {
 
   @Test
   public void testMergeAclEntriesNamedMask() throws AclException {
-    fail("please code me");
+    assertAclExceptionThrown(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.mergeAclEntries(Arrays.asList(
+        aclEntry(ACCESS, MASK, "bruce", READ_EXECUTE))));
   }
 
   @Test
   public void testMergeAclEntriesNamedOther() throws AclException {
-    fail("please code me");
+    assertAclExceptionThrown(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.mergeAclEntries(Arrays.asList(
+        aclEntry(ACCESS, OTHER, "bruce", READ_EXECUTE))));
   }
 
   @Test
@@ -1154,12 +1168,32 @@ public class TestAclTransformation {
 
   @Test
   public void testReplaceAclEntriesNamedMask() throws AclException {
-    fail("please code me");
+    assertAclExceptionThrown(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.replaceAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, ALL),
+        aclEntry(ACCESS, GROUP, READ),
+        aclEntry(ACCESS, OTHER, NONE),
+        aclEntry(ACCESS, MASK, "bruce", READ_EXECUTE))));
   }
 
   @Test
   public void testReplaceAclEntriesNamedOther() throws AclException {
-    fail("please code me");
+    assertAclExceptionThrown(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.replaceAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, ALL),
+        aclEntry(ACCESS, GROUP, READ),
+        aclEntry(ACCESS, OTHER, NONE),
+        aclEntry(ACCESS, OTHER, "bruce", READ_EXECUTE))));
   }
 
   @Test

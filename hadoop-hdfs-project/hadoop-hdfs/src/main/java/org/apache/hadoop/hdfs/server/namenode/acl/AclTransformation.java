@@ -334,10 +334,14 @@ abstract class AclTransformation {
     }
 
     private void validateAclEntry(AclEntry entry) throws AclException {
-        System.out.println("cn validateAclEntry, prevEntry = " + prevEntry + ", entry = " + entry);
       if (prevEntry != null && prevEntry.compareTo(entry) == 0) {
         throw new AclException(
           "Invalid ACL: multiple entries with same scope, type and name.");
+      }
+      if (entry.getName() != null && (entry.getType() == AclEntryType.MASK ||
+          entry.getType() == AclEntryType.OTHER)) {
+        throw new AclException(
+          "Invalid ACL: entries of this type must not have a name: " + entry);
       }
       prevEntry = entry;
     }
