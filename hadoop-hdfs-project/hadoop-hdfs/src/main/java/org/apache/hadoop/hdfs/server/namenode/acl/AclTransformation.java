@@ -123,8 +123,12 @@ abstract class AclTransformation {
               state.modifyEntry(aclSpecEntry);
               aclSpecEntry = null;
             } else {
-              state.modifyEntry(aclSpecEntry);
-              aclSpecEntry = null;
+              do {
+                state.modifyEntry(aclSpecEntry);
+                aclSpecEntry = null;
+                aclSpecEntry = advanceIfNull(aclSpecIter, aclSpecEntry);
+              } while (aclSpecEntry != null &&
+                existingEntry.compareTo(aclSpecEntry) > 0);
               state.copyExistingEntry(existingEntry);
             }
           } else {
@@ -248,6 +252,7 @@ abstract class AclTransformation {
   }
 
   protected final class TransformationState {
+    AclEntry prevEntry;
     AclEntry userEntry, groupEntry, otherEntry;
     AclEntry defaultUserEntry, defaultGroupEntry, defaultOtherEntry;
     final MaskCalculator accessMask = new MaskCalculator(AclEntryScope.ACCESS);
@@ -262,7 +267,7 @@ abstract class AclTransformation {
       }
     }
 
-    void copyExistingEntry(AclEntry entry) {
+    void copyExistingEntry(AclEntry entry) throws AclException {
       update(entry);
     }
 
@@ -270,7 +275,7 @@ abstract class AclTransformation {
       markDirty(entry.getScope());
     }
 
-    void modifyEntry(AclEntry entry) {
+    void modifyEntry(AclEntry entry) throws AclException {
       update(entry);
       AclEntryScope scope = entry.getScope();
       markDirty(scope);
@@ -283,7 +288,8 @@ abstract class AclTransformation {
       }
     }
 
-    private void update(AclEntry entry) {
+    private void update(AclEntry entry) throws AclException {
+      validateAclEntry(entry);
       if (entry.getScope() == AclEntryScope.ACCESS) {
         if (entry.getType() != AclEntryType.MASK) {
           aclBuilder.addEntry(entry);
@@ -325,6 +331,15 @@ abstract class AclTransformation {
           defaultMask.update(entry);
         }
       }
+    }
+
+    private void validateAclEntry(AclEntry entry) throws AclException {
+        System.out.println("cn validateAclEntry, prevEntry = " + prevEntry + ", entry = " + entry);
+      if (prevEntry != null && prevEntry.compareTo(entry) == 0) {
+        throw new AclException(
+          "Invalid ACL: multiple entries with same scope, type and name.");
+      }
+      prevEntry = entry;
     }
 
     void complete() {

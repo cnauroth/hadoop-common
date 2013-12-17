@@ -783,7 +783,17 @@ public class TestAclTransformation {
 
   @Test
   public void testMergeAclEntriesDuplicateEntries() throws AclException {
-    fail("please code me");
+    assertAclExceptionThrown(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.mergeAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, "bruce", ALL),
+        aclEntry(ACCESS, USER, "diana", READ_WRITE),
+        aclEntry(ACCESS, USER, "clark", READ),
+        aclEntry(ACCESS, USER, "bruce", READ_EXECUTE))));
   }
 
   @Test
@@ -1126,7 +1136,20 @@ public class TestAclTransformation {
 
   @Test
   public void testReplaceAclEntriesDuplicateEntries() throws AclException {
-    fail("please code me");
+    assertAclExceptionThrown(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.replaceAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, ALL),
+        aclEntry(ACCESS, USER, "bruce", ALL),
+        aclEntry(ACCESS, USER, "diana", READ_WRITE),
+        aclEntry(ACCESS, USER, "clark", READ),
+        aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
+        aclEntry(ACCESS, GROUP, READ),
+        aclEntry(ACCESS, OTHER, NONE))));
   }
 
   @Test
