@@ -542,6 +542,32 @@ public class TestAclTransformation {
   }
 
   @Test
+  public void testMergeAclEntriesMultipleNewBeforeExisting()
+      throws AclException {
+    assertAclModified(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "diana", READ))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, MASK, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.mergeAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
+        aclEntry(ACCESS, USER, "clark", READ_EXECUTE),
+        aclEntry(ACCESS, USER, "diana", READ_EXECUTE))),
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, USER, "clark", READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, USER, "diana", READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, MASK, READ_EXECUTE))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build());
+  }
+
+  @Test
   public void testMergeAclEntriesPreserveStickyBit() throws AclException {
     assertAclModified(
       new Acl.Builder()
