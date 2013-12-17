@@ -250,19 +250,19 @@ public abstract class AclTransformation {
     }
 
     public void deleteExistingEntry(AclEntry entry) {
-      markDirty(entry.getScope());
+      MaskCalculator mask = getMaskCalculatorForScope(entry.getScope());
+      mask.markScopeDirty();
+      if (entry.getType() == AclEntryType.MASK) {
+        mask.markMaskDeleted();
+      }
     }
 
     public void modifyEntry(AclEntry entry) throws AclException {
       update(entry);
-      AclEntryScope scope = entry.getScope();
-      markDirty(scope);
+      MaskCalculator mask = getMaskCalculatorForScope(entry.getScope());
+      mask.markScopeDirty();
       if (entry.getType() == AclEntryType.MASK) {
-        if (scope == AclEntryScope.ACCESS) {
-          accessMask.markModified();
-        } else {
-          defaultMask.markModified();
-        }
+        mask.markMaskModified();
       }
     }
 
@@ -304,12 +304,8 @@ public abstract class AclTransformation {
       }
     }
 
-    private void markDirty(AclEntryScope scope) {
-      if (scope == AclEntryScope.ACCESS) {
-        accessMask.markDirty();
-      } else {
-        defaultMask.markDirty();
-      }
+    private MaskCalculator getMaskCalculatorForScope(AclEntryScope scope) {
+      return scope == AclEntryScope.ACCESS ? accessMask : defaultMask;
     }
 
     private void update(AclEntry entry) throws AclException {
@@ -376,8 +372,9 @@ public abstract class AclTransformation {
     private AclEntry providedMask = null;
     private FsAction unionPerms = FsAction.NONE;
     private boolean maskNeeded = false;
-    private boolean dirty = false;
-    private boolean modified = false;
+    private boolean scopeDirty = false;
+    private boolean maskModified = false;
+    private boolean maskDeleted = false;
 
     public MaskCalculator(AclEntryScope scope) {
       this.scope = scope;
@@ -399,16 +396,23 @@ public abstract class AclTransformation {
       }
     }
 
-    public void markDirty() {
-      dirty = true;
+    public void markMaskDeleted() {
+      maskDeleted = true;
     }
 
-    public void markModified() {
-      modified = true;
+    public void markMaskModified() {
+      maskModified = true;
+    }
+
+    public void markScopeDirty() {
+      scopeDirty = true;
     }
 
     public void addMaskIfNeeded(Acl.Builder aclBuilder) throws AclException {
-      if (providedMask != null && (!dirty || modified)) {
+      if (maskDeleted && maskNeeded) {
+        throw new AclException(
+          "Invalid ACL: mask is required, but it was deleted.");
+      } else if (providedMask != null && (!scopeDirty || maskModified)) {
         addEntryOrThrow(providedMask);
       } else if (maskNeeded) {
         addEntryOrThrow(new AclEntry.Builder()

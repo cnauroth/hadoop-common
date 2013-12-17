@@ -320,6 +320,39 @@ public class TestAclTransformation {
   }
 
   @Test
+  public void testFilterAclEntriesByAclSpecRemoveAccessMaskRequired()
+      throws AclException {
+    assertAclExceptionThrown(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, MASK, ALL))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+        aclEntry(ACCESS, MASK))));
+  }
+
+  @Test
+  public void testFilterAclEntriesByAclSpecRemoveDefaultMaskRequired()
+      throws AclException {
+    assertAclExceptionThrown(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "bruce", READ))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, ALL))
+        .addEntry(aclEntry(DEFAULT, OTHER, NONE))
+        .build(),
+      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+        aclEntry(DEFAULT, MASK))));
+  }
+
+  @Test
   public void testFilterAclEntriesByAclSpecInputTooLarge() throws AclException {
     assertAclExceptionThrown(
       new Acl.Builder()
