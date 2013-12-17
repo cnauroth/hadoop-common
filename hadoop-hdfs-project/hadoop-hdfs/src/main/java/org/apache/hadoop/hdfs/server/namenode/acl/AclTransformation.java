@@ -32,7 +32,7 @@ import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.hdfs.protocol.AclException;
 
 @InterfaceAudience.LimitedPrivate({"HDFS"})
-abstract class AclTransformation {
+public abstract class AclTransformation {
   private static final int MAX_ENTRIES = 32;
 
   protected final Acl.Builder aclBuilder = new Acl.Builder(MAX_ENTRIES);
@@ -125,8 +125,7 @@ abstract class AclTransformation {
             } else {
               do {
                 state.modifyEntry(aclSpecEntry);
-                aclSpecEntry = null;
-                aclSpecEntry = advanceIfNull(aclSpecIter, aclSpecEntry);
+                aclSpecEntry = advanceIfNull(aclSpecIter, null);
               } while (aclSpecEntry != null &&
                   existingEntry.compareTo(aclSpecEntry) > 0);
               state.copyExistingEntry(existingEntry);
@@ -182,6 +181,10 @@ abstract class AclTransformation {
     };
   }
 
+  protected final void startAclBuilder(Acl existingAcl) {
+    aclBuilder.setStickyBit(existingAcl.getStickyBit());
+  }
+
   /**
    * Adds a new ACL entry to the builder after checking that the result would
    * not exceed the maximum number of entries in a single ACL.
@@ -196,10 +199,6 @@ abstract class AclTransformation {
         "Invalid ACL: result exceeds maximum of " + MAX_ENTRIES + " entries.");
     }
     aclBuilder.addEntry(entry);
-  }
-
-  protected void startAclBuilder(Acl existingAcl) {
-    aclBuilder.setStickyBit(existingAcl.getStickyBit());
   }
 
   private static AclEntry advanceIfNull(Iterator<AclEntry> aclSpecIter,
@@ -221,7 +220,8 @@ abstract class AclTransformation {
    * such as the mask and some of the default entries, so we also need
    * additional checks during transformation.  The up-front check is still
    * valuable here so that we don't run a lot of expensive transformation logic
-   * for an attacker who intentionally sent a huge ACL spec.
+   * while holding the namesystem lock for an attacker who intentionally sent a
+   * huge ACL spec.
    *
    * @param aclSpec List<AclEntry> to validate
    * @throws AclException if validation fails
@@ -236,30 +236,24 @@ abstract class AclTransformation {
   }
 
   protected final class AclSpecTransformationState {
-    AclEntry prevEntry;
-    AclEntry userEntry, groupEntry, otherEntry;
-    AclEntry defaultUserEntry, defaultGroupEntry, defaultOtherEntry;
-    final MaskCalculator accessMask = new MaskCalculator(AclEntryScope.ACCESS);
-    final MaskCalculator defaultMask = new MaskCalculator(AclEntryScope.DEFAULT);
-    boolean hasDefaultEntries;
+    private final MaskCalculator accessMask =
+      new MaskCalculator(AclEntryScope.ACCESS);
+    private final MaskCalculator defaultMask =
+      new MaskCalculator(AclEntryScope.DEFAULT);
+    private AclEntry prevEntry;
+    private AclEntry userEntry, groupEntry, otherEntry;
+    private AclEntry defaultUserEntry, defaultGroupEntry, defaultOtherEntry;
+    private boolean hasDefaultEntries;
 
-    void markDirty(AclEntryScope scope) {
-      if (scope == AclEntryScope.ACCESS) {
-        accessMask.markDirty();
-      } else {
-        defaultMask.markDirty();
-      }
-    }
-
-    void copyExistingEntry(AclEntry entry) throws AclException {
+    public void copyExistingEntry(AclEntry entry) throws AclException {
       update(entry);
     }
 
-    void deleteExistingEntry(AclEntry entry) {
+    public void deleteExistingEntry(AclEntry entry) {
       markDirty(entry.getScope());
     }
 
-    void modifyEntry(AclEntry entry) throws AclException {
+    public void modifyEntry(AclEntry entry) throws AclException {
       update(entry);
       AclEntryScope scope = entry.getScope();
       markDirty(scope);
@@ -272,48 +266,49 @@ abstract class AclTransformation {
       }
     }
 
-    void complete() throws AclException {
+    public void complete() throws AclException {
       if (userEntry == null || groupEntry == null || otherEntry == null) {
         throw new AclException(
           "Invalid ACL: the user, group and other entries are required.");
       }
       accessMask.addMaskIfNeeded(aclBuilder);
       if (hasDefaultEntries) {
-        if (defaultUserEntry == null && userEntry != null) {
-          defaultUserEntry = new AclEntry.Builder()
-            .setScope(AclEntryScope.DEFAULT)
-            .setType(AclEntryType.USER)
-            .setPermission(userEntry.getPermission())
-            .build();
-        }
-        if (defaultUserEntry != null) {
-          addEntryOrThrow(defaultUserEntry);
-        }
-
-        if (defaultGroupEntry == null && groupEntry != null) {
-          defaultGroupEntry = new AclEntry.Builder()
-            .setScope(AclEntryScope.DEFAULT)
-            .setType(AclEntryType.GROUP)
-            .setPermission(groupEntry.getPermission())
-            .build();
-        }
-        if (defaultGroupEntry != null) {
-          addEntryOrThrow(defaultGroupEntry);
-          defaultMask.update(defaultGroupEntry);
-        }
-
-        if (defaultOtherEntry == null && otherEntry != null) {
-          defaultOtherEntry = new AclEntry.Builder()
-            .setScope(AclEntryScope.DEFAULT)
-            .setType(AclEntryType.OTHER)
-            .setPermission(otherEntry.getPermission())
-            .build();
-        }
-        if (defaultOtherEntry != null) {
-          addEntryOrThrow(defaultOtherEntry);
-        }
-
+        addEntryOrThrow(getDefaultEntryOrCopy(defaultUserEntry, userEntry));
+        AclEntry completedDefaultGroupEntry = getDefaultEntryOrCopy(
+          defaultGroupEntry, groupEntry);
+        addEntryOrThrow(completedDefaultGroupEntry);
+        defaultMask.update(completedDefaultGroupEntry);
+        addEntryOrThrow(getDefaultEntryOrCopy(defaultOtherEntry, otherEntry));
         defaultMask.addMaskIfNeeded(aclBuilder);
+      }
+    }
+
+    /**
+     * Returns the first entry if not null.  Otherwise, creates a copy of the
+     * second entry with the scope changed to default and returns that.
+     *
+     * @param defaultEntry AclEntry provided default entry
+     * @param entryToCopy AclEntry entry to copy if the provided entry is null
+     * @return AclEntry defaultEntry or copy of entryToCopy with default scope
+     */
+    private AclEntry getDefaultEntryOrCopy(AclEntry defaultEntry,
+        AclEntry entryToCopy) {
+      if (defaultEntry != null) {
+        return defaultEntry;
+      } else {
+        return new AclEntry.Builder()
+          .setScope(AclEntryScope.DEFAULT)
+          .setType(entryToCopy.getType())
+          .setPermission(entryToCopy.getPermission())
+          .build();
+      }
+    }
+
+    private void markDirty(AclEntryScope scope) {
+      if (scope == AclEntryScope.ACCESS) {
+        accessMask.markDirty();
+      } else {
+        defaultMask.markDirty();
       }
     }
 
@@ -377,18 +372,18 @@ abstract class AclTransformation {
   }
 
   private final class MaskCalculator {
-    final AclEntryScope scope;
-    AclEntry providedMask = null;
-    FsAction unionPerms = FsAction.NONE;
-    boolean maskNeeded = false;
-    boolean dirty = false;
-    boolean modified = false;
+    private final AclEntryScope scope;
+    private AclEntry providedMask = null;
+    private FsAction unionPerms = FsAction.NONE;
+    private boolean maskNeeded = false;
+    private boolean dirty = false;
+    private boolean modified = false;
 
-    MaskCalculator(AclEntryScope scope) {
+    public MaskCalculator(AclEntryScope scope) {
       this.scope = scope;
     }
 
-    void update(AclEntry entry) {
+    public void update(AclEntry entry) {
       if (providedMask == null) {
         if (entry.getType() == AclEntryType.MASK) {
           providedMask = entry;
@@ -404,15 +399,15 @@ abstract class AclTransformation {
       }
     }
 
-    void markDirty() {
+    public void markDirty() {
       dirty = true;
     }
 
-    void markModified() {
+    public void markModified() {
       modified = true;
     }
 
-    void addMaskIfNeeded(Acl.Builder aclBuilder) throws AclException {
+    public void addMaskIfNeeded(Acl.Builder aclBuilder) throws AclException {
       if (providedMask != null && (!dirty || modified)) {
         addEntryOrThrow(providedMask);
       } else if (maskNeeded) {
