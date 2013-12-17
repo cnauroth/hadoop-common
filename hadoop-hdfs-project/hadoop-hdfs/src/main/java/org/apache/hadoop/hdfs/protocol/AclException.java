@@ -27,7 +27,7 @@ public class AclException extends IOException {
 
   /**
    * Creates a new AclException.
-   * 
+   *
    * @param message String message
    */
   public AclException(String message) {

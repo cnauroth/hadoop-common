@@ -106,7 +106,7 @@ public class Acl {
 
     /**
      * Creates a new Builder with the specified capacity.
-     * 
+     *
      * @param capacity int capacity
      */
     public Builder(int capacity) {
@@ -126,7 +126,7 @@ public class Acl {
 
     /**
      * Returns the current count of ACL entries.
-     * 
+     *
      * @return int current count of ACL entries
      */
     public int getEntryCount() {

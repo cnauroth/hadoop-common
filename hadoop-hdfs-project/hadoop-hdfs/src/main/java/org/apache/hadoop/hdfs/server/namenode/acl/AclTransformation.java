@@ -185,7 +185,7 @@ abstract class AclTransformation {
   /**
    * Adds a new ACL entry to the builder after checking that the result would
    * not exceed the maximum number of entries in a single ACL.
-   * 
+   *
    * @param entry AclEntry entry to add
    * @throws AclException if adding the entry would exceed the maximum number of
    *   entries in a single ACL
@@ -222,7 +222,7 @@ abstract class AclTransformation {
    * additional checks during transformation.  The up-front check is still
    * valuable here so that we don't run a lot of expensive transformation logic
    * for an attacker who intentionally sent a huge ACL spec.
-   * 
+   *
    * @param aclSpec List<AclEntry> to validate
    * @throws AclException if validation fails
    */
