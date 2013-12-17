@@ -25,8 +25,10 @@ import static org.junit.Assert.*;
 import java.util.Arrays;
 import java.util.List;
 
+import com.google.common.collect.Lists;
 import org.junit.Test;
 
+import org.apache.hadoop.hdfs.protocol.AclException;
 import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.AclEntryScope;
 import org.apache.hadoop.fs.permission.AclEntryType;
@@ -36,8 +38,16 @@ import org.apache.hadoop.hdfs.server.namenode.acl.AclTransformation;
 
 public class TestAclTransformation {
 
+  private static final List<AclEntry> ACL_SPEC_TOO_LARGE;
+  static {
+    ACL_SPEC_TOO_LARGE = Lists.newArrayListWithCapacity(33);
+    for (int i = 0; i < 33; ++i) {
+      ACL_SPEC_TOO_LARGE.add(aclEntry(ACCESS, USER, "user" + i, ALL));
+    }
+  }
+
   @Test
-  public void testFilterAclEntriesByAclSpec() {
+  public void testFilterAclEntriesByAclSpec() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -63,7 +73,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterAclEntriesByAclSpecUnchanged() {
+  public void testFilterAclEntriesByAclSpecUnchanged() throws AclException {
     assertAclUnchanged(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -79,7 +89,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterAclEntriesByAclSpecPreserveStickyBit() {
+  public void testFilterAclEntriesByAclSpecPreserveStickyBit() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -103,7 +113,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterAclEntriesByAclSpecAccessMaskCalculated() {
+  public void testFilterAclEntriesByAclSpecAccessMaskCalculated() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -125,7 +135,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterAclEntriesByAclSpecDefaultMaskCalculated() {
+  public void testFilterAclEntriesByAclSpecDefaultMaskCalculated() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -153,7 +163,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterAclEntriesByAclSpecDefaultMaskPreserved() {
+  public void testFilterAclEntriesByAclSpecDefaultMaskPreserved() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -185,7 +195,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterAclEntriesByAclSpecAccessMaskPreserved() {
+  public void testFilterAclEntriesByAclSpecAccessMaskPreserved() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -219,7 +229,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterAclEntriesByAclSpecAutomaticDefaultUser() {
+  public void testFilterAclEntriesByAclSpecAutomaticDefaultUser() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -246,7 +256,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterAclEntriesByAclSpecAutomaticDefaultGroup() {
+  public void testFilterAclEntriesByAclSpecAutomaticDefaultGroup() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -269,7 +279,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterAclEntriesByAclSpecAutomaticDefaultOther() {
+  public void testFilterAclEntriesByAclSpecAutomaticDefaultOther() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -292,7 +302,23 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterDefaultAclEntries() {
+  public void testFilterAclEntriesByAclSpecEmptyAclSpec() throws AclException {
+    fail("please code me");
+  }
+
+  @Test
+  public void testFilterAclEntriesByAclSpecInputTooLarge() throws AclException {
+    assertAclExceptionThrown(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.filterAclEntriesByAclSpec(ACL_SPEC_TOO_LARGE));
+  }
+
+  @Test
+  public void testFilterDefaultAclEntries() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -320,7 +346,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterDefaultAclEntriesUnchanged() {
+  public void testFilterDefaultAclEntriesUnchanged() throws AclException {
     assertAclUnchanged(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -334,7 +360,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterDefaultAclEntriesPreserveStickyBit() {
+  public void testFilterDefaultAclEntriesPreserveStickyBit() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -357,7 +383,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterExtendedAclEntries() {
+  public void testFilterExtendedAclEntries() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -382,7 +408,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterExtendedAclEntriesUnchanged() {
+  public void testFilterExtendedAclEntriesUnchanged() throws AclException {
     assertAclUnchanged(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -393,7 +419,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterExtendedAclEntriesPreserveStickyBit() {
+  public void testFilterExtendedAclEntriesPreserveStickyBit() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -414,7 +440,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testMergeAclEntries() {
+  public void testMergeAclEntries() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -433,7 +459,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testMergeAclEntriesUnchanged() {
+  public void testMergeAclEntriesUnchanged() throws AclException {
     assertAclUnchanged(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -465,7 +491,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testMergeAclEntriesPreserveStickyBit() {
+  public void testMergeAclEntriesPreserveStickyBit() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -486,7 +512,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testMergeAclEntriesAccessMaskCalculated() {
+  public void testMergeAclEntriesAccessMaskCalculated() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -509,7 +535,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testMergeAclEntriesDefaultMaskCalculated() {
+  public void testMergeAclEntriesDefaultMaskCalculated() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -538,7 +564,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testMergeAclEntriesDefaultMaskPreserved() {
+  public void testMergeAclEntriesDefaultMaskPreserved() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -567,7 +593,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testMergeAclEntriesAccessMaskPreserved() {
+  public void testMergeAclEntriesAccessMaskPreserved() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -602,7 +628,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testMergeAclEntriesAutomaticDefaultUser() {
+  public void testMergeAclEntriesAutomaticDefaultUser() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -623,7 +649,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testMergeAclEntriesAutomaticDefaultGroup() {
+  public void testMergeAclEntriesAutomaticDefaultGroup() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -644,7 +670,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testMergeAclEntriesAutomaticDefaultOther() {
+  public void testMergeAclEntriesAutomaticDefaultOther() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -665,7 +691,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testMergeAclEntriesProvidedAccessMask() {
+  public void testMergeAclEntriesProvidedAccessMask() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -685,7 +711,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testMergeAclEntriesProvidedDefaultMask() {
+  public void testMergeAclEntriesProvidedDefaultMask() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -709,7 +735,37 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testReplaceAclEntries() {
+  public void testMergeAclEntriesEmptyAclSpec() throws AclException {
+    fail("please code me");
+  }
+
+  @Test
+  public void testMergeAclEntriesInputTooLarge() throws AclException {
+    fail("please code me");
+  }
+
+  @Test
+  public void testMergeAclEntriesResultTooLarge() throws AclException {
+    fail("please code me");
+  }
+
+  @Test
+  public void testMergeAclEntriesDuplicateEntries() throws AclException {
+    fail("please code me");
+  }
+
+  @Test
+  public void testMergeAclEntriesNamedMask() throws AclException {
+    fail("please code me");
+  }
+
+  @Test
+  public void testMergeAclEntriesNamedOther() throws AclException {
+    fail("please code me");
+  }
+
+  @Test
+  public void testReplaceAclEntries() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -748,7 +804,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testReplaceAclEntriesUnchanged() {
+  public void testReplaceAclEntriesUnchanged() throws AclException {
     assertAclUnchanged(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -780,7 +836,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testReplaceAclEntriesPreserveStickyBit() {
+  public void testReplaceAclEntriesPreserveStickyBit() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -809,7 +865,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testReplaceAclEntriesAccessMaskCalculated() {
+  public void testReplaceAclEntriesAccessMaskCalculated() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -833,7 +889,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testReplaceAclEntriesDefaultMaskCalculated() {
+  public void testReplaceAclEntriesDefaultMaskCalculated() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -863,7 +919,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testReplaceAclEntriesDefaultMaskPreserved() {
+  public void testReplaceAclEntriesDefaultMaskPreserved() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -900,7 +956,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testReplaceAclEntriesAccessMaskPreserved() {
+  public void testReplaceAclEntriesAccessMaskPreserved() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -937,7 +993,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testReplaceAclEntriesAutomaticDefaultUser() {
+  public void testReplaceAclEntriesAutomaticDefaultUser() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -965,7 +1021,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testReplaceAclEntriesAutomaticDefaultGroup() {
+  public void testReplaceAclEntriesAutomaticDefaultGroup() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -993,7 +1049,7 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testReplaceAclEntriesAutomaticDefaultOther() {
+  public void testReplaceAclEntriesAutomaticDefaultOther() throws AclException {
     assertAclModified(
       new Acl.Builder()
         .addEntry(aclEntry(ACCESS, USER, ALL))
@@ -1018,6 +1074,46 @@ public class TestAclTransformation {
         .addEntry(aclEntry(DEFAULT, MASK, READ_WRITE))
         .addEntry(aclEntry(DEFAULT, OTHER, NONE))
         .build());
+  }
+
+  @Test
+  public void testReplaceAclEntriesInputTooLarge() throws AclException {
+    fail("please code me");
+  }
+
+  @Test
+  public void testReplaceAclEntriesResultTooLarge() throws AclException {
+    fail("please code me");
+  }
+
+  @Test
+  public void testReplaceAclEntriesDuplicateEntries() throws AclException {
+    fail("please code me");
+  }
+
+  @Test
+  public void testReplaceAclEntriesNamedMask() throws AclException {
+    fail("please code me");
+  }
+
+  @Test
+  public void testReplaceAclEntriesNamedOther() throws AclException {
+    fail("please code me");
+  }
+
+  @Test
+  public void testReplaceAclEntriesMissingUser() throws AclException {
+    fail("please code me");
+  }
+
+  @Test
+  public void testReplaceAclEntriesMissingGroup() throws AclException {
+    fail("please code me");
+  }
+
+  @Test
+  public void testReplaceAclEntriesMissingOther() throws AclException {
+    fail("please code me");
   }
 
   private static AclEntry aclEntry(AclEntryScope scope, AclEntryType type,
@@ -1056,14 +1152,24 @@ public class TestAclTransformation {
   }
 
   private static void assertAclModified(Acl existing,
-      AclTransformation transformation, Acl expected) {
+      AclTransformation transformation, Acl expected) throws AclException {
     Acl modified = transformation.apply(existing);
     assertEquals(expected, modified);
   }
 
   private static void assertAclUnchanged(Acl existing,
-      AclTransformation transformation) {
+      AclTransformation transformation) throws AclException {
     Acl modified = transformation.apply(existing);
     assertEquals(existing, modified);
+  }
+
+  private static void assertAclExceptionThrown(Acl existing,
+      AclTransformation transformation) {
+    try {
+      Acl modified = transformation.apply(existing);
+      fail("Expected AclException, but received modified ACL: " + modified);
+    } catch (AclException e) {
+      // expected
+    }
   }
 }

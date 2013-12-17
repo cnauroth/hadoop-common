@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hdfs.server.namenode.acl;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -41,8 +42,6 @@ import org.apache.hadoop.fs.permission.FsAction;
  */
 @InterfaceAudience.LimitedPrivate({"HDFS"})
 public class Acl {
-  private static final int MAX_ENTRIES = 32;
-
   private final List<AclEntry> entries;
   private final boolean stickyBit;
 
@@ -95,8 +94,24 @@ public class Acl {
    * Builder for creating new Acl instances.
    */
   public static class Builder {
-    private List<AclEntry> entries = Lists.newArrayListWithCapacity(MAX_ENTRIES);
+    private final List<AclEntry> entries;
     private boolean stickyBit = false;
+
+    /**
+     * Creates a new Builder with unspecified capacity.
+     */
+    public Builder() {
+      entries = Lists.newArrayList();
+    }
+
+    /**
+     * Creates a new Builder with the specified capacity.
+     * 
+     * @param capacity int capacity
+     */
+    public Builder(int capacity) {
+      entries = Lists.newArrayListWithCapacity(capacity);
+    }
 
     /**
      * Adds an ACL entry.
@@ -105,9 +120,6 @@ public class Acl {
      * @return Builder this builder, for call chaining
      */
     public Builder addEntry(AclEntry entry) {
-      if (entries.size() == MAX_ENTRIES) {
-        // throw
-      }
       entries.add(entry);
       return this;
     }
@@ -141,8 +153,9 @@ public class Acl {
    * @param boolean sticky bit
    */
   private Acl(List<AclEntry> entries, boolean stickyBit) {
-    List<AclEntry> entriesCopy = Lists.newArrayList(entries);
+    ArrayList<AclEntry> entriesCopy = Lists.newArrayList(entries);
     Collections.sort(entriesCopy);
+    entriesCopy.trimToSize();
     this.entries = Collections.unmodifiableList(entriesCopy);
     this.stickyBit = stickyBit;
   }

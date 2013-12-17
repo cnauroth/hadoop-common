@@ -22,8 +22,6 @@ import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
 
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
 import com.google.common.collect.Iterators;
 
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -31,17 +29,22 @@ import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.AclEntryScope;
 import org.apache.hadoop.fs.permission.AclEntryType;
 import org.apache.hadoop.fs.permission.FsAction;
+import org.apache.hadoop.hdfs.protocol.AclException;
 
 @InterfaceAudience.LimitedPrivate({"HDFS"})
-abstract class AclTransformation implements Function<Acl, Acl> {
-  protected final Acl.Builder aclBuilder = new Acl.Builder();
+abstract class AclTransformation {
+  private static final int MAX_ENTRIES = 32;
+
+  protected final Acl.Builder aclBuilder = new Acl.Builder(MAX_ENTRIES);
+
+  public abstract Acl apply(Acl existingAcl) throws AclException;
 
   public static AclTransformation filterAclEntriesByAclSpec(
       final List<AclEntry> aclSpec) {
     return new AclTransformation() {
       @Override
-      public Acl apply(Acl existingAcl) {
-        Collections.sort(aclSpec);
+      public Acl apply(Acl existingAcl) throws AclException {
+        preValidateAclSpec(aclSpec);
         startAclBuilder(existingAcl);
         TransformationState state = new TransformationState();
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
@@ -68,7 +71,7 @@ abstract class AclTransformation implements Function<Acl, Acl> {
   public static AclTransformation filterDefaultAclEntries() {
     return new AclTransformation() {
       @Override
-      public Acl apply(Acl existingAcl) {
+      public Acl apply(Acl existingAcl) throws AclException {
         startAclBuilder(existingAcl);
         for (AclEntry existingEntry: existingAcl.getEntries()) {
           if (existingEntry.getScope() == AclEntryScope.DEFAULT) {
@@ -84,7 +87,7 @@ abstract class AclTransformation implements Function<Acl, Acl> {
   public static AclTransformation filterExtendedAclEntries() {
     return new AclTransformation() {
       @Override
-      public Acl apply(Acl existingAcl) {
+      public Acl apply(Acl existingAcl) throws AclException {
         startAclBuilder(existingAcl);
         for (AclEntry existingEntry: existingAcl.getEntries()) {
           if (existingEntry.getScope() == AclEntryScope.DEFAULT) {
@@ -104,8 +107,8 @@ abstract class AclTransformation implements Function<Acl, Acl> {
       final List<AclEntry> aclSpec) {
     return new AclTransformation() {
       @Override
-      public Acl apply(Acl existingAcl) {
-        Collections.sort(aclSpec);
+      public Acl apply(Acl existingAcl) throws AclException {
+        preValidateAclSpec(aclSpec);
         startAclBuilder(existingAcl);
         TransformationState state = new TransformationState();
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
@@ -144,8 +147,8 @@ abstract class AclTransformation implements Function<Acl, Acl> {
       final List<AclEntry> aclSpec) {
     return new AclTransformation() {
       @Override
-      public Acl apply(Acl existingAcl) {
-        Collections.sort(aclSpec);
+      public Acl apply(Acl existingAcl) throws AclException {
+        preValidateAclSpec(aclSpec);
         startAclBuilder(existingAcl);
         TransformationState state = new TransformationState();
         Iterator<AclEntry> existingIter = existingAcl.getEntries().iterator();
@@ -220,6 +223,28 @@ abstract class AclTransformation implements Function<Acl, Acl> {
     }
     // TODO: user/group/other entries required
     return acl;
+  }
+
+  /**
+   * Pre-validates an ACL spec by checking that it does not exceed the maximum
+   * entries and then sorting it.  This check is performed before modifying the
+   * ACL, and it's actually insufficient for enforcing the maximum number of
+   * entries.  Transformation logic can create additional entries automatically,
+   * such as the mask and some of the default entries, so we also need
+   * additional checks during transformation.  The up-front check is still
+   * valuable here so that we don't run a lot of expensive transformation logic
+   * for an attacker who intentionally sent a huge ACL spec.
+   * 
+   * @param aclSpec List<AclEntry> to validate
+   * @throws AclException if validation fails
+   */
+  private static void preValidateAclSpec(List<AclEntry> aclSpec)
+      throws AclException {
+    if (aclSpec.size() > MAX_ENTRIES) {
+      throw new AclException("ACL spec has " + aclSpec.size() +
+        " entries, which exceeds maximum of " + MAX_ENTRIES);
+    }
+    Collections.sort(aclSpec);
   }
 
   protected final class TransformationState {
