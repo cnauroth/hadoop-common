@@ -147,6 +147,12 @@ public class TestAcl {
     assertFalse(ACL2.equals(ACL3));
     assertFalse(ACL1.equals(null));
     assertFalse(ACL1.equals(new Object()));
+    Acl.Builder acl1WithDifferentStickyBit = new Acl.Builder();
+    for (AclEntry entry: ACL1.getEntries()) {
+      acl1WithDifferentStickyBit.addEntry(entry);
+    }
+    acl1WithDifferentStickyBit.setStickyBit(!ACL1.getStickyBit());
+    assertFalse(ACL1.equals(acl1WithDifferentStickyBit.build()));
   }
 
   @Test
