@@ -305,6 +305,10 @@ abstract class AclTransformation {
     }
 
     void complete() throws AclException {
+      if (userEntry == null || groupEntry == null || otherEntry == null) {
+        throw new AclException(
+          "Invalid ACL: the user, group and other entries are required.");
+      }
       accessMask.addMaskIfNeeded(aclBuilder);
       if (hasDefaultEntries) {
         if (defaultUserEntry == null && userEntry != null) {
