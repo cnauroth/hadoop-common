@@ -46,7 +46,7 @@ abstract class AclTransformation {
       public Acl apply(Acl existingAcl) throws AclException {
         preValidateAclSpec(aclSpec);
         startAclBuilder(existingAcl);
-        TransformationState state = new TransformationState();
+        AclSpecTransformationState state = new AclSpecTransformationState();
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
         AclEntry aclSpecEntry = null;
         for (AclEntry existingEntry: existingAcl.getEntries()) {
@@ -110,7 +110,7 @@ abstract class AclTransformation {
       public Acl apply(Acl existingAcl) throws AclException {
         preValidateAclSpec(aclSpec);
         startAclBuilder(existingAcl);
-        TransformationState state = new TransformationState();
+        AclSpecTransformationState state = new AclSpecTransformationState();
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
         AclEntry aclSpecEntry = null;
         for (AclEntry existingEntry: existingAcl.getEntries()) {
@@ -128,7 +128,7 @@ abstract class AclTransformation {
                 aclSpecEntry = null;
                 aclSpecEntry = advanceIfNull(aclSpecIter, aclSpecEntry);
               } while (aclSpecEntry != null &&
-                existingEntry.compareTo(aclSpecEntry) > 0);
+                  existingEntry.compareTo(aclSpecEntry) > 0);
               state.copyExistingEntry(existingEntry);
             }
           } else {
@@ -154,7 +154,7 @@ abstract class AclTransformation {
       public Acl apply(Acl existingAcl) throws AclException {
         preValidateAclSpec(aclSpec);
         startAclBuilder(existingAcl);
-        TransformationState state = new TransformationState();
+        AclSpecTransformationState state = new AclSpecTransformationState();
         Iterator<AclEntry> existingIter = existingAcl.getEntries().iterator();
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
         AclEntry existingEntry = Iterators.getNext(existingIter, null);
@@ -267,7 +267,7 @@ abstract class AclTransformation {
     Collections.sort(aclSpec);
   }
 
-  protected final class TransformationState {
+  protected final class AclSpecTransformationState {
     AclEntry prevEntry;
     AclEntry userEntry, groupEntry, otherEntry;
     AclEntry defaultUserEntry, defaultGroupEntry, defaultOtherEntry;
