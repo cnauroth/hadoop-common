@@ -63,7 +63,7 @@ abstract class AclTransformation {
           }
         }
         state.complete();
-        return buildAndValidate(aclBuilder);
+        return aclBuilder.build();
       }
     };
   }
@@ -79,7 +79,7 @@ abstract class AclTransformation {
           }
           aclBuilder.addEntry(existingEntry);
         }
-        return buildAndValidate(aclBuilder);
+        return aclBuilder.build();
       }
     };
   }
@@ -98,7 +98,7 @@ abstract class AclTransformation {
             aclBuilder.addEntry(existingEntry);
           }
         }
-        return buildAndValidate(aclBuilder);
+        return aclBuilder.build();
       }
     };
   }
@@ -142,7 +142,7 @@ abstract class AclTransformation {
           state.modifyEntry(aclSpecIter.next());
         }
         state.complete();
-        return buildAndValidate(aclBuilder);
+        return aclBuilder.build();
       }
     };
   }
@@ -177,7 +177,7 @@ abstract class AclTransformation {
           }
         }
         state.complete();
-        return buildAndValidate(aclBuilder);
+        return aclBuilder.build();
       }
     };
   }
@@ -211,38 +211,6 @@ abstract class AclTransformation {
     } else {
       return null;
     }
-  }
-
-  private static Acl buildAndValidate(Acl.Builder aclBuilder) {
-    Acl acl = aclBuilder.build();
-    AclEntry prevEntry = null;
-    boolean foundNamedEntry = false;
-    boolean foundMaskEntry = false;
-    for (AclEntry entry: acl.getEntries()) {
-      if (prevEntry != null && prevEntry.compareTo(entry) == 0) {
-        // throw
-      }
-      if (entry.getName() != null) {
-        if (entry.getType() == AclEntryType.MASK ||
-            entry.getType() == AclEntryType.OTHER) {
-          // throw
-        }
-      }
-      if (entry.getScope() == AclEntryScope.ACCESS) {
-        if (entry.getName() != null) {
-          foundNamedEntry = true;
-        }
-        if (entry.getType() == AclEntryType.MASK) {
-          foundMaskEntry = true;
-        }
-      }
-      if (foundNamedEntry && !foundMaskEntry) {
-        // throw
-      }
-      prevEntry = entry;
-    }
-    // TODO: user/group/other entries required
-    return acl;
   }
 
   /**
