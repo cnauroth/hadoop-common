@@ -303,7 +303,20 @@ public class TestAclTransformation {
 
   @Test
   public void testFilterAclEntriesByAclSpecEmptyAclSpec() throws AclException {
-    fail("please code me");
+    assertAclUnchanged(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, MASK, ALL))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "bruce", READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, ALL))
+        .addEntry(aclEntry(DEFAULT, OTHER, READ))
+        .build(),
+      AclTransformation.filterAclEntriesByAclSpec(Arrays.<AclEntry>asList()));
   }
 
   @Test
@@ -736,7 +749,20 @@ public class TestAclTransformation {
 
   @Test
   public void testMergeAclEntriesEmptyAclSpec() throws AclException {
-    fail("please code me");
+    assertAclUnchanged(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, USER, "bruce", READ_WRITE))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, MASK, ALL))
+        .addEntry(aclEntry(ACCESS, OTHER, READ))
+        .addEntry(aclEntry(DEFAULT, USER, ALL))
+        .addEntry(aclEntry(DEFAULT, USER, "bruce", READ_WRITE))
+        .addEntry(aclEntry(DEFAULT, GROUP, READ))
+        .addEntry(aclEntry(DEFAULT, MASK, ALL))
+        .addEntry(aclEntry(DEFAULT, OTHER, READ))
+        .build(),
+      AclTransformation.mergeAclEntries(Arrays.<AclEntry>asList()));
   }
 
   @Test
