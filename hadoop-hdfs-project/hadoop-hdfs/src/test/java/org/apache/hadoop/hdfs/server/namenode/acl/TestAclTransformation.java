@@ -741,7 +741,13 @@ public class TestAclTransformation {
 
   @Test
   public void testMergeAclEntriesInputTooLarge() throws AclException {
-    fail("please code me");
+    assertAclExceptionThrown(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.mergeAclEntries(ACL_SPEC_TOO_LARGE));
   }
 
   @Test
@@ -1078,7 +1084,13 @@ public class TestAclTransformation {
 
   @Test
   public void testReplaceAclEntriesInputTooLarge() throws AclException {
-    fail("please code me");
+    assertAclExceptionThrown(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.replaceAclEntries(ACL_SPEC_TOO_LARGE));
   }
 
   @Test
