@@ -125,6 +125,15 @@ public class Acl {
     }
 
     /**
+     * Returns the current count of ACL entries.
+     * 
+     * @return int current count of ACL entries
+     */
+    public int getEntryCount() {
+      return entries.size();
+    }
+
+    /**
      * Sets sticky bit.  If this method is not called, then the builder assumes
      * false.
      *

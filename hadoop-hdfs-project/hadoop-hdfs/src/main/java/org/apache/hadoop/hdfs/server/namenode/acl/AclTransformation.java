@@ -182,6 +182,22 @@ abstract class AclTransformation {
     };
   }
 
+  /**
+   * Adds a new ACL entry to the builder after checking that the result would
+   * not exceed the maximum number of entries in a single ACL.
+   * 
+   * @param entry AclEntry entry to add
+   * @throws AclException if adding the entry would exceed the maximum number of
+   *   entries in a single ACL
+   */
+  private void addEntryOrThrow(AclEntry entry) throws AclException {
+    if (aclBuilder.getEntryCount() >= MAX_ENTRIES) {
+      throw new AclException(
+        "Invalid ACL: result exceeds maximum of " + MAX_ENTRIES + " entries.");
+    }
+    aclBuilder.addEntry(entry);
+  }
+
   protected void startAclBuilder(Acl existingAcl) {
     aclBuilder.setStickyBit(existingAcl.getStickyBit());
   }
@@ -245,8 +261,8 @@ abstract class AclTransformation {
   private static void preValidateAclSpec(List<AclEntry> aclSpec)
       throws AclException {
     if (aclSpec.size() > MAX_ENTRIES) {
-      throw new AclException("ACL spec has " + aclSpec.size() +
-        " entries, which exceeds maximum of " + MAX_ENTRIES);
+      throw new AclException("Invalid ACL: ACL spec has " + aclSpec.size() +
+        " entries, which exceeds maximum of " + MAX_ENTRIES + ".");
     }
     Collections.sort(aclSpec);
   }
@@ -288,11 +304,52 @@ abstract class AclTransformation {
       }
     }
 
+    void complete() throws AclException {
+      accessMask.addMaskIfNeeded(aclBuilder);
+      if (hasDefaultEntries) {
+        if (defaultUserEntry == null && userEntry != null) {
+          defaultUserEntry = new AclEntry.Builder()
+            .setScope(AclEntryScope.DEFAULT)
+            .setType(AclEntryType.USER)
+            .setPermission(userEntry.getPermission())
+            .build();
+        }
+        if (defaultUserEntry != null) {
+          addEntryOrThrow(defaultUserEntry);
+        }
+
+        if (defaultGroupEntry == null && groupEntry != null) {
+          defaultGroupEntry = new AclEntry.Builder()
+            .setScope(AclEntryScope.DEFAULT)
+            .setType(AclEntryType.GROUP)
+            .setPermission(groupEntry.getPermission())
+            .build();
+        }
+        if (defaultGroupEntry != null) {
+          addEntryOrThrow(defaultGroupEntry);
+          defaultMask.update(defaultGroupEntry);
+        }
+
+        if (defaultOtherEntry == null && otherEntry != null) {
+          defaultOtherEntry = new AclEntry.Builder()
+            .setScope(AclEntryScope.DEFAULT)
+            .setType(AclEntryType.OTHER)
+            .setPermission(otherEntry.getPermission())
+            .build();
+        }
+        if (defaultOtherEntry != null) {
+          addEntryOrThrow(defaultOtherEntry);
+        }
+
+        defaultMask.addMaskIfNeeded(aclBuilder);
+      }
+    }
+
     private void update(AclEntry entry) throws AclException {
       validateAclEntry(entry);
       if (entry.getScope() == AclEntryScope.ACCESS) {
         if (entry.getType() != AclEntryType.MASK) {
-          aclBuilder.addEntry(entry);
+          addEntryOrThrow(entry);
         }
         accessMask.update(entry);
         if (entry.getName() == null) {
@@ -324,7 +381,7 @@ abstract class AclTransformation {
               break;
             }
           } else {
-            aclBuilder.addEntry(entry);
+            addEntryOrThrow(entry);
             defaultMask.update(entry);
           }
         } else {
@@ -341,54 +398,13 @@ abstract class AclTransformation {
       if (entry.getName() != null && (entry.getType() == AclEntryType.MASK ||
           entry.getType() == AclEntryType.OTHER)) {
         throw new AclException(
-          "Invalid ACL: entries of this type must not have a name: " + entry);
+          "Invalid ACL: this entry type must not have a name: " + entry + ".");
       }
       prevEntry = entry;
     }
-
-    void complete() {
-      accessMask.addMaskIfNeeded(aclBuilder);
-      if (hasDefaultEntries) {
-        if (defaultUserEntry == null && userEntry != null) {
-          defaultUserEntry = new AclEntry.Builder()
-            .setScope(AclEntryScope.DEFAULT)
-            .setType(AclEntryType.USER)
-            .setPermission(userEntry.getPermission())
-            .build();
-        }
-        if (defaultUserEntry != null) {
-          aclBuilder.addEntry(defaultUserEntry);
-        }
-
-        if (defaultGroupEntry == null && groupEntry != null) {
-          defaultGroupEntry = new AclEntry.Builder()
-            .setScope(AclEntryScope.DEFAULT)
-            .setType(AclEntryType.GROUP)
-            .setPermission(groupEntry.getPermission())
-            .build();
-        }
-        if (defaultGroupEntry != null) {
-          aclBuilder.addEntry(defaultGroupEntry);
-          defaultMask.update(defaultGroupEntry);
-        }
-
-        if (defaultOtherEntry == null && otherEntry != null) {
-          defaultOtherEntry = new AclEntry.Builder()
-            .setScope(AclEntryScope.DEFAULT)
-            .setType(AclEntryType.OTHER)
-            .setPermission(otherEntry.getPermission())
-            .build();
-        }
-        if (defaultOtherEntry != null) {
-          aclBuilder.addEntry(defaultOtherEntry);
-        }
-
-        defaultMask.addMaskIfNeeded(aclBuilder);
-      }
-    }
   }
 
-  private static final class MaskCalculator {
+  private final class MaskCalculator {
     final AclEntryScope scope;
     AclEntry providedMask = null;
     FsAction unionPerms = FsAction.NONE;
@@ -424,11 +440,11 @@ abstract class AclTransformation {
       modified = true;
     }
 
-    void addMaskIfNeeded(Acl.Builder aclBuilder) {
+    void addMaskIfNeeded(Acl.Builder aclBuilder) throws AclException {
       if (providedMask != null && (!dirty || modified)) {
-        aclBuilder.addEntry(providedMask);
+        addEntryOrThrow(providedMask);
       } else if (maskNeeded) {
-        aclBuilder.addEntry(new AclEntry.Builder()
+        addEntryOrThrow(new AclEntry.Builder()
           .setScope(scope)
           .setType(AclEntryType.MASK)
           .setPermission(unionPerms)

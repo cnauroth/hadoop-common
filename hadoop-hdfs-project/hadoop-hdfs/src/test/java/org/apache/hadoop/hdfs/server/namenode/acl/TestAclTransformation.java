@@ -778,7 +778,18 @@ public class TestAclTransformation {
 
   @Test
   public void testMergeAclEntriesResultTooLarge() throws AclException {
-    fail("please code me");
+    Acl.Builder aclBuilder = new Acl.Builder()
+      .addEntry(aclEntry(ACCESS, USER, ALL));
+    for (int i = 1; i <= 28; ++i) {
+      aclBuilder.addEntry(aclEntry(ACCESS, USER, "user" + i, READ));
+    }
+    aclBuilder
+      .addEntry(aclEntry(ACCESS, GROUP, READ))
+      .addEntry(aclEntry(ACCESS, MASK, READ))
+      .addEntry(aclEntry(ACCESS, OTHER, NONE));
+    assertAclExceptionThrown(aclBuilder.build(),
+      AclTransformation.mergeAclEntries(Arrays.asList(
+      aclEntry(ACCESS, USER, "bruce", READ))));
   }
 
   @Test
@@ -1145,7 +1156,22 @@ public class TestAclTransformation {
 
   @Test
   public void testReplaceAclEntriesResultTooLarge() throws AclException {
-    fail("please code me");
+    List<AclEntry> aclSpec = Lists.newArrayListWithCapacity(32);
+    aclSpec.add(aclEntry(ACCESS, USER, ALL));
+    for (int i = 1; i <= 29; ++i) {
+      aclSpec.add(aclEntry(ACCESS, USER, "user" + i, READ));
+    }
+    aclSpec.add(aclEntry(ACCESS, GROUP, READ));
+    aclSpec.add(aclEntry(ACCESS, OTHER, NONE));
+    // The ACL spec now has 32 entries.  Automatic mask calculation will push it
+    // over the limit to 33.
+    assertAclExceptionThrown(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.replaceAclEntries(aclSpec));
   }
 
   @Test
@@ -1198,17 +1224,50 @@ public class TestAclTransformation {
 
   @Test
   public void testReplaceAclEntriesMissingUser() throws AclException {
-    fail("please code me");
+    assertAclExceptionThrown(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.replaceAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, "bruce", READ_WRITE),
+        aclEntry(ACCESS, GROUP, READ_EXECUTE),
+        aclEntry(ACCESS, GROUP, "sales", ALL),
+        aclEntry(ACCESS, MASK, ALL),
+        aclEntry(ACCESS, OTHER, NONE))));
   }
 
   @Test
   public void testReplaceAclEntriesMissingGroup() throws AclException {
-    fail("please code me");
+    assertAclExceptionThrown(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.replaceAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, ALL),
+        aclEntry(ACCESS, USER, "bruce", READ_WRITE),
+        aclEntry(ACCESS, GROUP, "sales", ALL),
+        aclEntry(ACCESS, MASK, ALL),
+        aclEntry(ACCESS, OTHER, NONE))));
   }
 
   @Test
   public void testReplaceAclEntriesMissingOther() throws AclException {
-    fail("please code me");
+    assertAclExceptionThrown(
+      new Acl.Builder()
+        .addEntry(aclEntry(ACCESS, USER, ALL))
+        .addEntry(aclEntry(ACCESS, GROUP, READ))
+        .addEntry(aclEntry(ACCESS, OTHER, NONE))
+        .build(),
+      AclTransformation.replaceAclEntries(Arrays.asList(
+        aclEntry(ACCESS, USER, ALL),
+        aclEntry(ACCESS, USER, "bruce", READ_WRITE),
+        aclEntry(ACCESS, GROUP, READ_EXECUTE),
+        aclEntry(ACCESS, GROUP, "sales", ALL),
+        aclEntry(ACCESS, MASK, ALL))));
   }
 
   private static AclEntry aclEntry(AclEntryScope scope, AclEntryType type,
