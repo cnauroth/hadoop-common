@@ -36,6 +36,11 @@ import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.hdfs.server.namenode.acl.Acl;
 import org.apache.hadoop.hdfs.server.namenode.acl.AclTransformation;
 
+/**
+ * Tests operations that modify ACLs.  All tests in this suite have been
+ * cross-validated against Linux setfacl/getfacl to check for consistency of the
+ * HDFS implementation.
+ */
 public class TestAclTransformation {
 
   private static final List<AclEntry> ACL_SPEC_TOO_LARGE;
