@@ -77,19 +77,19 @@ final class AclTransformation {
    * entry, due to existing named entries or an unnamed group entry.
    *
    * @param existingAcl List<AclEntry> existing ACL
-   * @param aclSpec List<AclEntry> ACL spec describing entries to filter
+   * @param inAclSpec List<AclEntry> ACL spec describing entries to filter
    * @return List<AclEntry> new ACL
    * @throws AclException if validation fails
    */
   public static List<AclEntry> filterAclEntriesByAclSpec(
-      List<AclEntry> existingAcl, List<AclEntry> aclSpec) throws AclException {
-    preValidateAclSpec(aclSpec);
+      List<AclEntry> existingAcl, List<AclEntry> inAclSpec) throws AclException {
+    ValidatedAclSpec aclSpec = new ValidatedAclSpec(inAclSpec);
     ArrayList<AclEntry> aclBuilder = Lists.newArrayListWithCapacity(MAX_ENTRIES);
     AclSpecTransformationState state = new AclSpecTransformationState(
       aclBuilder);
     AclEntry aclSpecEntry = null;
     for (AclEntry existingEntry: existingAcl) {
-      if (removeEntryWithMatchingKey(aclSpec, existingEntry) != null) {
+      if (aclSpec.containsKey(existingEntry)) {
         state.deleteExistingEntry(existingEntry);
       } else {
         state.copyExistingEntry(existingEntry);
@@ -151,28 +151,32 @@ final class AclTransformation {
    * inferred by copying the permissions of the corresponding access entries.
    *
    * @param existingAcl List<AclEntry> existing ACL
-   * @param aclSpec List<AclEntry> ACL spec containing entries to merge
+   * @param inAclSpec List<AclEntry> ACL spec containing entries to merge
    * @return List<AclEntry> new ACL
    * @throws AclException if validation fails
    */
   public static List<AclEntry> mergeAclEntries(List<AclEntry> existingAcl,
-      List<AclEntry> aclSpec) throws AclException {
-    preValidateAclSpec(aclSpec);
+      List<AclEntry> inAclSpec) throws AclException {
+    ValidatedAclSpec aclSpec = new ValidatedAclSpec(inAclSpec);
     ArrayList<AclEntry> aclBuilder = Lists.newArrayListWithCapacity(MAX_ENTRIES);
     AclSpecTransformationState state = new AclSpecTransformationState(
       aclBuilder);
+    List<AclEntry> foundAclSpecEntries =
+      Lists.newArrayListWithCapacity(MAX_ENTRIES);
     for (AclEntry existingEntry: existingAcl) {
-      AclEntry aclSpecEntry = removeEntryWithMatchingKey(aclSpec, existingEntry);
+      AclEntry aclSpecEntry = aclSpec.findByKey(existingEntry);
       if (aclSpecEntry != null) {
         state.modifyEntry(aclSpecEntry);
+        foundAclSpecEntries.add(aclSpecEntry);
       } else {
         state.copyExistingEntry(existingEntry);
       }
     }
-    // If the ACL spec contains any remaining entries, then they are new entries
-    // that need to be created.
+    // ACL spec entries that were not replacements are new additions.
     for (AclEntry newEntry: aclSpec) {
-      state.modifyEntry(newEntry);
+      if (Collections.binarySearch(foundAclSpecEntries, newEntry) < 0) {
+        state.modifyEntry(newEntry);
+      }
     }
     state.complete();
     return buildAcl(aclBuilder);
@@ -189,13 +193,13 @@ final class AclTransformation {
    * spec contains both access and default entries, then both are replaced.
    *
    * @param existingAcl List<AclEntry> existing ACL
-   * @param aclSpec List<AclEntry> ACL spec containing replacement entries
+   * @param inAclSpec List<AclEntry> ACL spec containing replacement entries
    * @return List<AclEntry> new ACL
    * @throws AclException if validation fails
    */
   public static List<AclEntry> replaceAclEntries(List<AclEntry> existingAcl,
-      List<AclEntry> aclSpec) throws AclException {
-    preValidateAclSpec(aclSpec);
+      List<AclEntry> inAclSpec) throws AclException {
+    ValidatedAclSpec aclSpec = new ValidatedAclSpec(inAclSpec);
     ArrayList<AclEntry> aclBuilder = Lists.newArrayListWithCapacity(MAX_ENTRIES);
     AclSpecTransformationState state = new AclSpecTransformationState(
       aclBuilder);
@@ -253,29 +257,6 @@ final class AclTransformation {
   }
 
   /**
-   * Pre-validates an ACL spec by checking that it does not exceed the maximum
-   * entries and then sorting it.  This check is performed before modifying the
-   * ACL, and it's actually insufficient for enforcing the maximum number of
-   * entries.  Transformation logic can create additional entries automatically,
-   * such as the mask and some of the default entries, so we also need
-   * additional checks during transformation.  The up-front check is still
-   * valuable here so that we don't run a lot of expensive transformation logic
-   * while holding the namesystem lock for an attacker who intentionally sent a
-   * huge ACL spec.
-   *
-   * @param aclSpec List<AclEntry> to validate
-   * @throws AclException if validation fails
-   */
-  private static void preValidateAclSpec(List<AclEntry> aclSpec)
-      throws AclException {
-    if (aclSpec.size() > MAX_ENTRIES) {
-      throw new AclException("Invalid ACL: ACL spec has " + aclSpec.size() +
-        " entries, which exceeds maximum of " + MAX_ENTRIES + ".");
-    }
-    Collections.sort(aclSpec);
-  }
-
-  /**
    * Removes from the list the entry that has the same key as the requested
    * search entry and returns it.  The key consists of ACL entry scope, type and
    * name (but not permission).  Returns null if not found.
@@ -286,13 +267,9 @@ final class AclTransformation {
    */
   private static AclEntry removeEntryWithMatchingKey(List<AclEntry> entries,
       AclEntry searchEntry) {
-    Iterator<AclEntry> entriesIter = entries.iterator();
-    while (entriesIter.hasNext()) {
-      AclEntry nextEntry = entriesIter.next();
-      if (searchEntry.compareTo(nextEntry) == 0) {
-        entriesIter.remove();
-        return nextEntry;
-      }
+    int index = Collections.binarySearch(entries, searchEntry);
+    if (index >= 0) {
+      return entries.remove(index);
     }
     return null;
   }
@@ -593,6 +570,68 @@ final class AclTransformation {
           .setPermission(unionPerms)
           .build());
       }
+    }
+  }
+
+  /**
+   * An ACL spec that has been pre-validated and sorted.
+   */
+  private static final class ValidatedAclSpec implements Iterable<AclEntry> {
+    private final List<AclEntry> aclSpec;
+
+    /**
+     * Creates a ValidatedAclSpec by pre-validating and sorting the given ACL
+     * entries.  Pre-validation checks that it does not exceed the maximum
+     * entries.  This check is performed before modifying the ACL, and it's
+     * actually insufficient for enforcing the maximum number of entries.
+     * Transformation logic can create additional entries automatically,such as
+     * the mask and some of the default entries, so we also need additional
+     * checks during transformation.  The up-front check is still valuable here
+     * so that we don't run a lot of expensive transformation logic while
+     * holding the namesystem lock for an attacker who intentionally sent a huge
+     * ACL spec.
+     *
+     * @param aclSpec List<AclEntry> containing unvalidated input ACL spec
+     * @throws AclException if validation fails
+     */
+    public ValidatedAclSpec(List<AclEntry> aclSpec) throws AclException {
+      if (aclSpec.size() > MAX_ENTRIES) {
+        throw new AclException("Invalid ACL: ACL spec has " + aclSpec.size() +
+          " entries, which exceeds maximum of " + MAX_ENTRIES + ".");
+      }
+      Collections.sort(aclSpec);
+      this.aclSpec = aclSpec;
+    }
+
+    /**
+     * Returns true if this contains an entry matching the given key.  An ACL
+     * entry's key consists of scope, type and name (but not permission).
+     *
+     * @param key AclEntry search key
+     * @return boolean true if found
+     */
+    public boolean containsKey(AclEntry key) {
+      return Collections.binarySearch(aclSpec, key) >= 0;
+    }
+
+    /**
+     * Returns the entry matching the given key or null if not found.  An ACL
+     * entry's key consists of scope, type and name (but not permission).
+     *
+     * @param key AclEntry search key
+     * @return AclEntry entry matching the given key or null if not found
+     */
+    public AclEntry findByKey(AclEntry key) {
+      int index = Collections.binarySearch(aclSpec, key);
+      if (index >= 0) {
+        return aclSpec.get(index);
+      }
+      return null;
+    }
+
+    @Override
+    public Iterator<AclEntry> iterator() {
+      return aclSpec.iterator();
     }
   }
 }
