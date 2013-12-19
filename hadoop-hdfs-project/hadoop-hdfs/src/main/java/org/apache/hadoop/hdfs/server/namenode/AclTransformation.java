@@ -65,21 +65,8 @@ import org.apache.hadoop.hdfs.protocol.AclException;
  * helper classes.
  */
 @InterfaceAudience.LimitedPrivate({"HDFS"})
-public abstract class AclTransformation {
+final class AclTransformation {
   private static final int MAX_ENTRIES = 32;
-
-  protected final ArrayList<AclEntry> aclBuilder =
-    Lists.newArrayListWithCapacity(MAX_ENTRIES);
-
-  /**
-   * Applies the transformation to the given Acl.
-   *
-   * @param existingAcl List<AclEntry> existing ACL
-   * @return List<AclEntry> new ACL
-   * @throws AclException if validation fails
-   */
-  public abstract List<AclEntry> apply(List<AclEntry> existingAcl)
-      throws AclException;
 
   /**
    * Filters (discards) any existing ACL entries that have the same scope, type
@@ -89,77 +76,73 @@ public abstract class AclTransformation {
    * removal of the mask entry from an ACL that would otherwise require a mask
    * entry, due to existing named entries or an unnamed group entry.
    *
+   * @param existingAcl List<AclEntry> existing ACL
    * @param aclSpec List<AclEntry> ACL spec describing entries to filter
-   * @return AclTransformation that applies the requested change
+   * @return List<AclEntry> new ACL
+   * @throws AclException if validation fails
    */
-  public static AclTransformation filterAclEntriesByAclSpec(
-      final List<AclEntry> aclSpec) {
-    return new AclTransformation() {
-      @Override
-      public List<AclEntry> apply(List<AclEntry> existingAcl)
-          throws AclException {
-        preValidateAclSpec(aclSpec);
-        AclSpecTransformationState state = new AclSpecTransformationState();
-        AclEntry aclSpecEntry = null;
-        for (AclEntry existingEntry: existingAcl) {
-          if (removeEntryWithMatchingKey(aclSpec, existingEntry) != null) {
-            state.deleteExistingEntry(existingEntry);
-          } else {
-            state.copyExistingEntry(existingEntry);
-          }
-        }
-        state.complete();
-        return buildAcl();
+  public static List<AclEntry> filterAclEntriesByAclSpec(
+      List<AclEntry> existingAcl, List<AclEntry> aclSpec) throws AclException {
+    preValidateAclSpec(aclSpec);
+    ArrayList<AclEntry> aclBuilder = Lists.newArrayListWithCapacity(MAX_ENTRIES);
+    AclSpecTransformationState state = new AclSpecTransformationState(
+      aclBuilder);
+    AclEntry aclSpecEntry = null;
+    for (AclEntry existingEntry: existingAcl) {
+      if (removeEntryWithMatchingKey(aclSpec, existingEntry) != null) {
+        state.deleteExistingEntry(existingEntry);
+      } else {
+        state.copyExistingEntry(existingEntry);
       }
-    };
+    }
+    state.complete();
+    return buildAcl(aclBuilder);
   }
 
   /**
    * Filters (discards) any existing default ACL entries.  The new ACL retains
    * only the access ACL entries.
    *
-   * @return AclTransformation that applies the requested change
+   * @param existingAcl List<AclEntry> existing ACL
+   * @return List<AclEntry> new ACL
+   * @throws AclException if validation fails
    */
-  public static AclTransformation filterDefaultAclEntries() {
-    return new AclTransformation() {
-      @Override
-      public List<AclEntry> apply(List<AclEntry> existingAcl) throws AclException {
-        for (AclEntry existingEntry: existingAcl) {
-          if (existingEntry.getScope() == AclEntryScope.DEFAULT) {
-            // Default entries sort after access entries, so we can exit early.
-            break;
-          }
-          aclBuilder.add(existingEntry);
-        }
-        return buildAcl();
+  public static List<AclEntry> filterDefaultAclEntries(
+      List<AclEntry> existingAcl) throws AclException {
+    ArrayList<AclEntry> aclBuilder = Lists.newArrayListWithCapacity(MAX_ENTRIES);
+    for (AclEntry existingEntry: existingAcl) {
+      if (existingEntry.getScope() == AclEntryScope.DEFAULT) {
+        // Default entries sort after access entries, so we can exit early.
+          break;
       }
-    };
+      aclBuilder.add(existingEntry);
+    }
+    return buildAcl(aclBuilder);
   }
 
   /**
    * Filters (discards) any extended ACL entries.  The new ACL will be a minimal
    * ACL that retains only the 3 base access entries: user, group and other.
    *
-   * @return AclTransformation that applies the requested change
+   * @param existingAcl List<AclEntry> existing ACL
+   * @return List<AclEntry> new ACL
+   * @throws AclException if validation fails
    */
-  public static AclTransformation filterExtendedAclEntries() {
-    return new AclTransformation() {
-      @Override
-      public List<AclEntry> apply(List<AclEntry> existingAcl) throws AclException {
-        for (AclEntry existingEntry: existingAcl) {
-          if (existingEntry.getScope() == AclEntryScope.DEFAULT) {
-            // Default entries sort after access entries, so we can exit early.
-            break;
-          }
-          if (existingEntry.getType() != AclEntryType.MASK &&
-              existingEntry.getName() == null) {
-            // This is one of the base access entries, so copy.
-            aclBuilder.add(existingEntry);
-          }
-        }
-        return buildAcl();
+  public static List<AclEntry> filterExtendedAclEntries(
+      List<AclEntry> existingAcl) throws AclException {
+    ArrayList<AclEntry> aclBuilder = Lists.newArrayListWithCapacity(MAX_ENTRIES);
+    for (AclEntry existingEntry: existingAcl) {
+      if (existingEntry.getScope() == AclEntryScope.DEFAULT) {
+        // Default entries sort after access entries, so we can exit early.
+        break;
       }
-    };
+      if (existingEntry.getType() != AclEntryType.MASK &&
+          existingEntry.getName() == null) {
+        // This is one of the base access entries, so copy.
+        aclBuilder.add(existingEntry);
+      }
+    }
+    return buildAcl(aclBuilder);
   }
 
   /**
@@ -167,35 +150,32 @@ public abstract class AclTransformation {
    * recalculates the mask entries.  If necessary, default entries may be
    * inferred by copying the permissions of the corresponding access entries.
    *
+   * @param existingAcl List<AclEntry> existing ACL
    * @param aclSpec List<AclEntry> ACL spec containing entries to merge
-   * @return AclTransformation that applies the requested change
+   * @return List<AclEntry> new ACL
+   * @throws AclException if validation fails
    */
-  public static AclTransformation mergeAclEntries(
-      final List<AclEntry> aclSpec) {
-    return new AclTransformation() {
-      @Override
-      public List<AclEntry> apply(List<AclEntry> existingAcl)
-          throws AclException {
-        preValidateAclSpec(aclSpec);
-        AclSpecTransformationState state = new AclSpecTransformationState();
-        for (AclEntry existingEntry: existingAcl) {
-          AclEntry aclSpecEntry = removeEntryWithMatchingKey(aclSpec,
-            existingEntry);
-          if (aclSpecEntry != null) {
-            state.modifyEntry(aclSpecEntry);
-          } else {
-            state.copyExistingEntry(existingEntry);
-          }
-        }
-        // If the ACL spec contains any remaining entries, then they are new
-        // entries that need to be created.
-        for (AclEntry newEntry: aclSpec) {
-          state.modifyEntry(newEntry);
-        }
-        state.complete();
-        return buildAcl();
+  public static List<AclEntry> mergeAclEntries(List<AclEntry> existingAcl,
+      List<AclEntry> aclSpec) throws AclException {
+    preValidateAclSpec(aclSpec);
+    ArrayList<AclEntry> aclBuilder = Lists.newArrayListWithCapacity(MAX_ENTRIES);
+    AclSpecTransformationState state = new AclSpecTransformationState(
+      aclBuilder);
+    for (AclEntry existingEntry: existingAcl) {
+      AclEntry aclSpecEntry = removeEntryWithMatchingKey(aclSpec, existingEntry);
+      if (aclSpecEntry != null) {
+        state.modifyEntry(aclSpecEntry);
+      } else {
+        state.copyExistingEntry(existingEntry);
       }
-    };
+    }
+    // If the ACL spec contains any remaining entries, then they are new entries
+    // that need to be created.
+    for (AclEntry newEntry: aclSpec) {
+      state.modifyEntry(newEntry);
+    }
+    state.complete();
+    return buildAcl(aclBuilder);
   }
 
   /**
@@ -208,55 +188,50 @@ public abstract class AclTransformation {
    * default entries, then the existing access entries are retained.  If the ACL
    * spec contains both access and default entries, then both are replaced.
    *
+   * @param existingAcl List<AclEntry> existing ACL
    * @param aclSpec List<AclEntry> ACL spec containing replacement entries
-   * @return AclTransformation that applies the requested change
+   * @return List<AclEntry> new ACL
+   * @throws AclException if validation fails
    */
-  public static AclTransformation replaceAclEntries(
-      final List<AclEntry> aclSpec) {
-    return new AclTransformation() {
-      @Override
-      public List<AclEntry> apply(List<AclEntry> existingAcl)
-          throws AclException {
-        preValidateAclSpec(aclSpec);
-        AclSpecTransformationState state = new AclSpecTransformationState();
-        // Replacement is done separately for each scope: access and default.
-        EnumSet<AclEntryScope> foundScope = EnumSet.noneOf(AclEntryScope.class);
-        for (AclEntry aclSpecEntry: aclSpec) {
-          state.modifyEntry(aclSpecEntry);
-          foundScope.add(aclSpecEntry.getScope());
-        }
-        for (AclEntry existingEntry: existingAcl) {
-          if (!foundScope.contains(existingEntry.getScope())) {
-            state.copyExistingEntry(existingEntry);
-          }
-        }
-        state.complete();
-        return buildAcl();
+  public static List<AclEntry> replaceAclEntries(List<AclEntry> existingAcl,
+      List<AclEntry> aclSpec) throws AclException {
+    preValidateAclSpec(aclSpec);
+    ArrayList<AclEntry> aclBuilder = Lists.newArrayListWithCapacity(MAX_ENTRIES);
+    AclSpecTransformationState state = new AclSpecTransformationState(
+      aclBuilder);
+    // Replacement is done separately for each scope: access and default.
+    EnumSet<AclEntryScope> foundScope = EnumSet.noneOf(AclEntryScope.class);
+    for (AclEntry aclSpecEntry: aclSpec) {
+      state.modifyEntry(aclSpecEntry);
+      foundScope.add(aclSpecEntry.getScope());
+    }
+    // Copy existing entries if the scope was not replaced.
+    for (AclEntry existingEntry: existingAcl) {
+      if (!foundScope.contains(existingEntry.getScope())) {
+        state.copyExistingEntry(existingEntry);
       }
-    };
+    }
+    state.complete();
+    return buildAcl(aclBuilder);
   }
 
   /**
-   * Builds the final list of ACL entries to return by sorting and trimming
-   * the ACL entries that have been added.
-   *
-   * @return List<AclEntry> unmodifiable, sorted list of ACL entries
+   * There is no reason to instantiate this class.
    */
-  protected List<AclEntry> buildAcl() {
-    Collections.sort(aclBuilder);
-    aclBuilder.trimToSize();
-    return Collections.unmodifiableList(aclBuilder);
+  private AclTransformation() {
   }
 
   /**
    * Adds a new ACL entry to the builder after checking that the result would
    * not exceed the maximum number of entries in a single ACL.
    *
+   * @param aclBuilder List<AclEntry> for adding entries
    * @param entry AclEntry entry to add
    * @throws AclException if adding the entry would exceed the maximum number of
    *   entries in a single ACL
    */
-  private void addEntryOrThrow(AclEntry entry) throws AclException {
+  private static void addEntryOrThrow(List<AclEntry> aclBuilder, AclEntry entry)
+      throws AclException {
     if (aclBuilder.size() >= MAX_ENTRIES) {
       throw new AclException(
         "Invalid ACL: result exceeds maximum of " + MAX_ENTRIES + " entries.");
@@ -265,25 +240,16 @@ public abstract class AclTransformation {
   }
 
   /**
-   * Removes from the list the entry that has the same key as the requested
-   * search entry and returns it.  The key consists of ACL entry scope, type and
-   * name (but not permission).  Returns null if not found.
+   * Builds the final list of ACL entries to return by sorting and trimming
+   * the ACL entries that have been added.
    *
-   * @param entries List<AclEntry> list of entries to search
-   * @param searchEntry AclEntry entry to find
-   * @return AclEntry entry with matching key, or null if not found
+   * @param aclBuilder ArrayList<AclEntry> containing entries to build
+   * @return List<AclEntry> unmodifiable, sorted list of ACL entries
    */
-  private static AclEntry removeEntryWithMatchingKey(List<AclEntry> entries,
-      AclEntry searchEntry) {
-    Iterator<AclEntry> entriesIter = entries.iterator();
-    while (entriesIter.hasNext()) {
-      AclEntry nextEntry = entriesIter.next();
-      if (searchEntry.compareTo(nextEntry) == 0) {
-        entriesIter.remove();
-        return nextEntry;
-      }
-    }
-    return null;
+  private static List<AclEntry> buildAcl(ArrayList<AclEntry> aclBuilder) {
+    Collections.sort(aclBuilder);
+    aclBuilder.trimToSize();
+    return Collections.unmodifiableList(aclBuilder);
   }
 
   /**
@@ -310,6 +276,28 @@ public abstract class AclTransformation {
   }
 
   /**
+   * Removes from the list the entry that has the same key as the requested
+   * search entry and returns it.  The key consists of ACL entry scope, type and
+   * name (but not permission).  Returns null if not found.
+   *
+   * @param entries List<AclEntry> list of entries to search
+   * @param searchEntry AclEntry entry to find
+   * @return AclEntry entry with matching key, or null if not found
+   */
+  private static AclEntry removeEntryWithMatchingKey(List<AclEntry> entries,
+      AclEntry searchEntry) {
+    Iterator<AclEntry> entriesIter = entries.iterator();
+    while (entriesIter.hasNext()) {
+      AclEntry nextEntry = entriesIter.next();
+      if (searchEntry.compareTo(nextEntry) == 0) {
+        entriesIter.remove();
+        return nextEntry;
+      }
+    }
+    return null;
+  }
+
+  /**
    * Internal helper class for managing common state tracking required for all
    * operations that use an ACL spec.  This class is responsible for:
    * 1. Validating that the operation will produce a valid ACL.
@@ -317,15 +305,25 @@ public abstract class AclTransformation {
    *   corresponding access entries.
    * 3. Coordinating with MaskCalculator for mask calculations.
    */
-  protected final class AclSpecTransformationState {
-    private final MaskCalculator accessMask =
-      new MaskCalculator(AclEntryScope.ACCESS);
-    private final MaskCalculator defaultMask =
-      new MaskCalculator(AclEntryScope.DEFAULT);
+  private static final class AclSpecTransformationState {
+    private final List<AclEntry> aclBuilder;
+    private final MaskCalculator accessMask;
+    private final MaskCalculator defaultMask;
     private AclEntry prevEntry;
     private AclEntry userEntry, groupEntry, otherEntry;
     private AclEntry defaultUserEntry, defaultGroupEntry, defaultOtherEntry;
     private boolean hasDefaultEntries;
+
+    /**
+     * Creates a new AclSpecTransformationState.
+     *
+     * @param aclBuilder List<AclEntry> for adding entries
+     */
+    public AclSpecTransformationState(List<AclEntry> aclBuilder) {
+      this.aclBuilder = aclBuilder;
+      accessMask = new MaskCalculator(AclEntryScope.ACCESS, aclBuilder);
+      defaultMask = new MaskCalculator(AclEntryScope.DEFAULT, aclBuilder);
+    }
 
     /**
      * Indicates that an existing entry is being copied.
@@ -380,12 +378,14 @@ public abstract class AclTransformation {
       }
       accessMask.addMaskIfNeeded();
       if (hasDefaultEntries) {
-        addEntryOrThrow(getDefaultEntryOrCopy(defaultUserEntry, userEntry));
+        addEntryOrThrow(aclBuilder,
+          getDefaultEntryOrCopy(defaultUserEntry, userEntry));
         AclEntry completedDefaultGroupEntry = getDefaultEntryOrCopy(
           defaultGroupEntry, groupEntry);
-        addEntryOrThrow(completedDefaultGroupEntry);
+        addEntryOrThrow(aclBuilder, completedDefaultGroupEntry);
         defaultMask.update(completedDefaultGroupEntry);
-        addEntryOrThrow(getDefaultEntryOrCopy(defaultOtherEntry, otherEntry));
+        addEntryOrThrow(aclBuilder,
+          getDefaultEntryOrCopy(defaultOtherEntry, otherEntry));
         defaultMask.addMaskIfNeeded();
       }
     }
@@ -434,7 +434,7 @@ public abstract class AclTransformation {
       if (entry.getScope() == AclEntryScope.ACCESS) {
         // Don't add the mask entry right away.  Delegate to the MaskCalculator.
         if (entry.getType() != AclEntryType.MASK) {
-          addEntryOrThrow(entry);
+          addEntryOrThrow(aclBuilder, entry);
         }
         accessMask.update(entry);
         // Remember the base user, group and other entries.  If default entries
@@ -473,7 +473,7 @@ public abstract class AclTransformation {
               break;
             }
           } else {
-            addEntryOrThrow(entry);
+            addEntryOrThrow(aclBuilder, entry);
             defaultMask.update(entry);
           }
         } else {
@@ -518,8 +518,9 @@ public abstract class AclTransformation {
    *   the new mask are the union of the permissions on the group entry and all
    *   named entries.
    */
-  private final class MaskCalculator {
+  private static final class MaskCalculator {
     private final AclEntryScope scope;
+    private final List<AclEntry> aclBuilder;
     private AclEntry providedMask = null;
     private FsAction unionPerms = FsAction.NONE;
     private boolean maskNeeded = false;
@@ -530,9 +531,11 @@ public abstract class AclTransformation {
      * Creates a MaskCalculator in the given scope.
      *
      * @param scope AclEntryScope scope of mask calculation
+     * @param aclBuilder List<AclEntry> for adding entries
      */
-    public MaskCalculator(AclEntryScope scope) {
+    public MaskCalculator(AclEntryScope scope, List<AclEntry> aclBuilder) {
       this.scope = scope;
+      this.aclBuilder = aclBuilder;
     }
 
     /**
@@ -582,9 +585,9 @@ public abstract class AclTransformation {
         throw new AclException(
           "Invalid ACL: mask is required, but it was deleted.");
       } else if (providedMask != null && (!scopeDirty || maskDirty)) {
-        addEntryOrThrow(providedMask);
+        addEntryOrThrow(aclBuilder, providedMask);
       } else if (maskNeeded) {
-        addEntryOrThrow(new AclEntry.Builder()
+        addEntryOrThrow(aclBuilder, new AclEntry.Builder()
           .setScope(scope)
           .setType(AclEntryType.MASK)
           .setPermission(unionPerms)
