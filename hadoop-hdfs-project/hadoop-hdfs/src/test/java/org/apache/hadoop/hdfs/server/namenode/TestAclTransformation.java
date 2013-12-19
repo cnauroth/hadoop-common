@@ -94,7 +94,8 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterAclEntriesByAclSpecAccessMaskCalculated() throws AclException {
+  public void testFilterAclEntriesByAclSpecAccessMaskCalculated()
+      throws AclException {
     List<AclEntry> existing = new ImmutableList.Builder<AclEntry>()
       .add(aclEntry(ACCESS, USER, ALL))
       .add(aclEntry(ACCESS, USER, "bruce", READ))
@@ -116,7 +117,8 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterAclEntriesByAclSpecDefaultMaskCalculated() throws AclException {
+  public void testFilterAclEntriesByAclSpecDefaultMaskCalculated()
+      throws AclException {
     List<AclEntry> existing = new ImmutableList.Builder<AclEntry>()
       .add(aclEntry(ACCESS, USER, ALL))
       .add(aclEntry(ACCESS, GROUP, READ))
@@ -144,7 +146,8 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterAclEntriesByAclSpecDefaultMaskPreserved() throws AclException {
+  public void testFilterAclEntriesByAclSpecDefaultMaskPreserved()
+      throws AclException {
     List<AclEntry> existing = new ImmutableList.Builder<AclEntry>()
       .add(aclEntry(ACCESS, USER, ALL))
       .add(aclEntry(ACCESS, USER, "bruce", READ))
@@ -176,7 +179,8 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterAclEntriesByAclSpecAccessMaskPreserved() throws AclException {
+  public void testFilterAclEntriesByAclSpecAccessMaskPreserved()
+      throws AclException {
     List<AclEntry> existing = new ImmutableList.Builder<AclEntry>()
       .add(aclEntry(ACCESS, USER, ALL))
       .add(aclEntry(ACCESS, USER, "bruce", READ))
@@ -210,7 +214,8 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterAclEntriesByAclSpecAutomaticDefaultUser() throws AclException {
+  public void testFilterAclEntriesByAclSpecAutomaticDefaultUser()
+      throws AclException {
     List<AclEntry> existing = new ImmutableList.Builder<AclEntry>()
       .add(aclEntry(ACCESS, USER, ALL))
       .add(aclEntry(ACCESS, GROUP, READ))
@@ -237,7 +242,8 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterAclEntriesByAclSpecAutomaticDefaultGroup() throws AclException {
+  public void testFilterAclEntriesByAclSpecAutomaticDefaultGroup()
+      throws AclException {
     List<AclEntry> existing = new ImmutableList.Builder<AclEntry>()
       .add(aclEntry(ACCESS, USER, ALL))
       .add(aclEntry(ACCESS, GROUP, READ))
@@ -260,7 +266,8 @@ public class TestAclTransformation {
   }
 
   @Test
-  public void testFilterAclEntriesByAclSpecAutomaticDefaultOther() throws AclException {
+  public void testFilterAclEntriesByAclSpecAutomaticDefaultOther()
+      throws AclException {
     List<AclEntry> existing = new ImmutableList.Builder<AclEntry>()
       .add(aclEntry(ACCESS, USER, ALL))
       .add(aclEntry(ACCESS, GROUP, READ))

@@ -43,16 +43,13 @@ import org.apache.hadoop.hdfs.protocol.AclException;
  * existing ACL can be a "minimal ACL" containing exactly 3 entries for owner,
  * group and other, all derived from the {@link FsPermission} bits.
  *
- * The algorithms implemented here operate in a single iteration through the
- * existing ACL entries and ACL spec to perform all validation, modifications
- * and calculation of any inferred entries.  In order for this to work, there is
- * a dependency on receiving the ACL entries in sorted order.  For any existing
- * ACL, it is assumed that the entries are sorted.  This is because all ACL
- * creation and modification is intended to go through these methods, and they
- * all guarantee correct sort order in their outputs due to explicit sorting and
- * reliance on the natural ordering defined in {@link AclEntry#compareTo}.
- * However, an ACL spec is considered untrusted user input, so all operations
- * pre-sort the ACL spec as the first step.
+ * The algorithms implemented here require sorted lists of ACL entries.  For any
+ * existing ACL, it is assumed that the entries are sorted.  This is because all
+ * ACL creation and modification is intended to go through these methods, and
+ * they all guarantee correct sort order in their outputs due to explicit
+ * sorting and reliance on the natural ordering defined in
+ * {@link AclEntry#compareTo}.  However, an ACL spec is considered untrusted
+ * user input, so all operations pre-sort the ACL spec as the first step.
  *
  * {@link #filterAclEntriesByAclSpec}, {@link #mergeAclEntries} and
  * {@link #replaceAclEntries} all have a lot in common in terms of needing to
@@ -113,7 +110,7 @@ final class AclTransformation {
     for (AclEntry existingEntry: existingAcl) {
       if (existingEntry.getScope() == AclEntryScope.DEFAULT) {
         // Default entries sort after access entries, so we can exit early.
-          break;
+        break;
       }
       aclBuilder.add(existingEntry);
     }
@@ -257,24 +254,6 @@ final class AclTransformation {
   }
 
   /**
-   * Removes from the list the entry that has the same key as the requested
-   * search entry and returns it.  The key consists of ACL entry scope, type and
-   * name (but not permission).  Returns null if not found.
-   *
-   * @param entries List<AclEntry> list of entries to search
-   * @param searchEntry AclEntry entry to find
-   * @return AclEntry entry with matching key, or null if not found
-   */
-  private static AclEntry removeEntryWithMatchingKey(List<AclEntry> entries,
-      AclEntry searchEntry) {
-    int index = Collections.binarySearch(entries, searchEntry);
-    if (index >= 0) {
-      return entries.remove(index);
-    }
-    return null;
-  }
-
-  /**
    * Internal helper class for managing common state tracking required for all
    * operations that use an ACL spec.  This class is responsible for:
    * 1. Validating that the operation will produce a valid ACL.
@@ -401,7 +380,7 @@ final class AclTransformation {
     /**
      * Common state update method called internally by all ACL entry
      * modifications.  Performs validation of the ACL entry, adds entries to the
-     * Acl.Builder, and tracks required state.
+     * builder list, and tracks required state.
      *
      * @param entry AclEntry entry to update
      * @throws AclException if validation fails
