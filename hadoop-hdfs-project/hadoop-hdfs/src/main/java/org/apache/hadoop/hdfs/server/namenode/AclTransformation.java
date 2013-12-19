@@ -69,7 +69,7 @@ import org.apache.hadoop.hdfs.protocol.AclException;
 public abstract class AclTransformation {
   private static final int MAX_ENTRIES = 32;
 
-  protected final List<AclEntry> aclBuilder =
+  protected final ArrayList<AclEntry> aclBuilder =
     Lists.newArrayListWithCapacity(MAX_ENTRIES);
 
   /**
@@ -304,16 +304,15 @@ public abstract class AclTransformation {
   }
 
   /**
-   * Builds the final list of ACL entries to return by copying, sorting and
-   * trimming the ACL entries that have been added.
+   * Builds the final list of ACL entries to return by sorting and trimming
+   * the ACL entries that have been added.
    *
    * @return List<AclEntry> unmodifiable, sorted list of ACL entries
    */
   protected List<AclEntry> buildAcl() {
-    ArrayList<AclEntry> entriesCopy = Lists.newArrayList(aclBuilder);
-    Collections.sort(entriesCopy);
-    entriesCopy.trimToSize();
-    return Collections.unmodifiableList(entriesCopy);
+    Collections.sort(aclBuilder);
+    aclBuilder.trimToSize();
+    return Collections.unmodifiableList(aclBuilder);
   }
 
   /**
