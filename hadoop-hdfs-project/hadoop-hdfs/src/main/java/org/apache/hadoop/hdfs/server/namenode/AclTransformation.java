@@ -15,14 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdfs.server.namenode.acl;
+package org.apache.hadoop.hdfs.server.namenode;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
 
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.fs.permission.AclEntry;
@@ -37,9 +39,8 @@ import org.apache.hadoop.hdfs.protocol.AclException;
  * modifications take as input an existing ACL and apply logic to add new
  * entries, modify existing entries or remove old entries.  Some operations also
  * accept an ACL spec: a list of entries that further describes the requested
- * change.  Different operations interpret the ACL spec differently.  All
- * operations preserve the value of the sticky bit from the existing ACL.  In
- * the case of adding an ACL to an inode that previously did not have one, the
+ * change.  Different operations interpret the ACL spec differently.  In the
+ * case of adding an ACL to an inode that previously did not have one, the
  * existing ACL can be a "minimal ACL" containing exactly 3 entries for owner,
  * group and other, all derived from the {@link FsPermission} bits.
  *
@@ -49,10 +50,10 @@ import org.apache.hadoop.hdfs.protocol.AclException;
  * a dependency on receiving the ACL entries in sorted order.  For any existing
  * ACL, it is assumed that the entries are sorted.  This is because all ACL
  * creation and modification is intended to go through these methods, and they
- * all guarantee correct sort order in their outputs due to use of
- * {@link Acl#Builder} and {@link AclEntry#compareTo}.  However, an ACL spec is
- * considered untrusted user input, so all operations pre-sort the ACL spec as
- * the first step.
+ * all guarantee correct sort order in their outputs due to explicit sorting and
+ * reliance on the natural ordering defined in {@link AclEntry#compareTo}.
+ * However, an ACL spec is considered untrusted user input, so all operations
+ * pre-sort the ACL spec as the first step.
  *
  * {@link #filterAclEntriesByAclSpec}, {@link #mergeAclEntries} and
  * {@link #replaceAclEntries} all have a lot in common in terms of needing to
@@ -68,15 +69,18 @@ import org.apache.hadoop.hdfs.protocol.AclException;
 public abstract class AclTransformation {
   private static final int MAX_ENTRIES = 32;
 
-  protected final Acl.Builder aclBuilder = new Acl.Builder(MAX_ENTRIES);
+  protected final List<AclEntry> aclBuilder =
+    Lists.newArrayListWithCapacity(MAX_ENTRIES);
 
   /**
    * Applies the transformation to the given Acl.
    *
-   * @param existingAcl Acl existing ACL
-   * @return Acl new ACL
+   * @param existingAcl List<AclEntry> existing ACL
+   * @return List<AclEntry> new ACL
+   * @throws AclException if validation fails
    */
-  public abstract Acl apply(Acl existingAcl) throws AclException;
+  public abstract List<AclEntry> apply(List<AclEntry> existingAcl)
+      throws AclException;
 
   /**
    * Filters (discards) any existing ACL entries that have the same scope, type
@@ -93,13 +97,12 @@ public abstract class AclTransformation {
       final List<AclEntry> aclSpec) {
     return new AclTransformation() {
       @Override
-      public Acl apply(Acl existingAcl) throws AclException {
+      public List<AclEntry> apply(List<AclEntry> existingAcl) throws AclException {
         preValidateAclSpec(aclSpec);
-        startAclBuilder(existingAcl);
         AclSpecTransformationState state = new AclSpecTransformationState();
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
         AclEntry aclSpecEntry = null;
-        for (AclEntry existingEntry: existingAcl.getEntries()) {
+        for (AclEntry existingEntry: existingAcl) {
           aclSpecEntry = advanceIfNull(aclSpecIter, aclSpecEntry);
           if (aclSpecEntry != null) {
             if (existingEntry.compareTo(aclSpecEntry) != 0) {
@@ -121,7 +124,7 @@ public abstract class AclTransformation {
         // that we haven't visited.  That's OK, because there are no existing
         // entries remaining that could be a match.
         state.complete();
-        return aclBuilder.build();
+        return buildAcl();
       }
     };
   }
@@ -135,16 +138,15 @@ public abstract class AclTransformation {
   public static AclTransformation filterDefaultAclEntries() {
     return new AclTransformation() {
       @Override
-      public Acl apply(Acl existingAcl) throws AclException {
-        startAclBuilder(existingAcl);
-        for (AclEntry existingEntry: existingAcl.getEntries()) {
+      public List<AclEntry> apply(List<AclEntry> existingAcl) throws AclException {
+        for (AclEntry existingEntry: existingAcl) {
           if (existingEntry.getScope() == AclEntryScope.DEFAULT) {
             // Default entries sort after access entries, so we can exit early.
             break;
           }
-          aclBuilder.addEntry(existingEntry);
+          aclBuilder.add(existingEntry);
         }
-        return aclBuilder.build();
+        return buildAcl();
       }
     };
   }
@@ -158,9 +160,8 @@ public abstract class AclTransformation {
   public static AclTransformation filterExtendedAclEntries() {
     return new AclTransformation() {
       @Override
-      public Acl apply(Acl existingAcl) throws AclException {
-        startAclBuilder(existingAcl);
-        for (AclEntry existingEntry: existingAcl.getEntries()) {
+      public List<AclEntry> apply(List<AclEntry> existingAcl) throws AclException {
+        for (AclEntry existingEntry: existingAcl) {
           if (existingEntry.getScope() == AclEntryScope.DEFAULT) {
             // Default entries sort after access entries, so we can exit early.
             break;
@@ -168,10 +169,10 @@ public abstract class AclTransformation {
           if (existingEntry.getType() != AclEntryType.MASK &&
               existingEntry.getName() == null) {
             // This is one of the base access entries, so copy.
-            aclBuilder.addEntry(existingEntry);
+            aclBuilder.add(existingEntry);
           }
         }
-        return aclBuilder.build();
+        return buildAcl();
       }
     };
   }
@@ -188,13 +189,12 @@ public abstract class AclTransformation {
       final List<AclEntry> aclSpec) {
     return new AclTransformation() {
       @Override
-      public Acl apply(Acl existingAcl) throws AclException {
+      public List<AclEntry> apply(List<AclEntry> existingAcl) throws AclException {
         preValidateAclSpec(aclSpec);
-        startAclBuilder(existingAcl);
         AclSpecTransformationState state = new AclSpecTransformationState();
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
         AclEntry aclSpecEntry = null;
-        for (AclEntry existingEntry: existingAcl.getEntries()) {
+        for (AclEntry existingEntry: existingAcl) {
           aclSpecEntry = advanceIfNull(aclSpecIter, aclSpecEntry);
           if (aclSpecEntry != null) {
             int comparison = existingEntry.compareTo(aclSpecEntry);
@@ -243,7 +243,7 @@ public abstract class AclTransformation {
           state.modifyEntry(aclSpecIter.next());
         }
         state.complete();
-        return aclBuilder.build();
+        return buildAcl();
       }
     };
   }
@@ -265,11 +265,10 @@ public abstract class AclTransformation {
       final List<AclEntry> aclSpec) {
     return new AclTransformation() {
       @Override
-      public Acl apply(Acl existingAcl) throws AclException {
+      public List<AclEntry> apply(List<AclEntry> existingAcl) throws AclException {
         preValidateAclSpec(aclSpec);
-        startAclBuilder(existingAcl);
         AclSpecTransformationState state = new AclSpecTransformationState();
-        Iterator<AclEntry> existingIter = existingAcl.getEntries().iterator();
+        Iterator<AclEntry> existingIter = existingAcl.iterator();
         Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
         AclEntry existingEntry = Iterators.getNext(existingIter, null);
         AclEntry aclSpecEntry = Iterators.getNext(aclSpecIter, null);
@@ -299,19 +298,22 @@ public abstract class AclTransformation {
           }
         }
         state.complete();
-        return aclBuilder.build();
+        return buildAcl();
       }
     };
   }
 
   /**
-   * Starts building an ACL.  This method contains logic common to starting all
-   * transformations, such as preservation of sticky bit.
+   * Builds the final list of ACL entries to return by copying, sorting and
+   * trimming the ACL entries that have been added.
    *
-   * @param existingAcl Acl existing ACL
+   * @return List<AclEntry> unmodifiable, sorted list of ACL entries
    */
-  protected final void startAclBuilder(Acl existingAcl) {
-    aclBuilder.setStickyBit(existingAcl.getStickyBit());
+  protected List<AclEntry> buildAcl() {
+    ArrayList<AclEntry> entriesCopy = Lists.newArrayList(aclBuilder);
+    Collections.sort(entriesCopy);
+    entriesCopy.trimToSize();
+    return Collections.unmodifiableList(entriesCopy);
   }
 
   /**
@@ -323,11 +325,11 @@ public abstract class AclTransformation {
    *   entries in a single ACL
    */
   private void addEntryOrThrow(AclEntry entry) throws AclException {
-    if (aclBuilder.getEntryCount() >= MAX_ENTRIES) {
+    if (aclBuilder.size() >= MAX_ENTRIES) {
       throw new AclException(
         "Invalid ACL: result exceeds maximum of " + MAX_ENTRIES + " entries.");
     }
-    aclBuilder.addEntry(entry);
+    aclBuilder.add(entry);
   }
 
   /**
