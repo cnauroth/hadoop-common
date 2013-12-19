@@ -22,7 +22,6 @@ import static org.apache.hadoop.fs.permission.AclEntryType.*;
 import static org.apache.hadoop.fs.permission.FsAction.*;
 import static org.junit.Assert.*;
 
-import java.util.Arrays;
 import java.util.List;
 
 import com.google.common.collect.ImmutableList;
@@ -64,7 +63,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, MASK, ALL))
         .add(aclEntry(ACCESS, OTHER, READ))
         .build(),
-      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+      AclTransformation.filterAclEntriesByAclSpec(Lists.newArrayList(
         aclEntry(ACCESS, USER, "diana"),
         aclEntry(ACCESS, GROUP, "sales"))),
       new ImmutableList.Builder<AclEntry>()
@@ -88,7 +87,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, MASK, ALL))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+      AclTransformation.filterAclEntriesByAclSpec(Lists.newArrayList(
         aclEntry(ACCESS, USER, "clark"),
         aclEntry(ACCESS, GROUP, "execs"))));
   }
@@ -104,7 +103,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, MASK, READ_WRITE))
         .add(aclEntry(ACCESS, OTHER, READ))
         .build(),
-      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+      AclTransformation.filterAclEntriesByAclSpec(Lists.newArrayList(
         aclEntry(ACCESS, USER, "diana"))),
       new ImmutableList.Builder<AclEntry>()
         .add(aclEntry(ACCESS, USER, ALL))
@@ -129,7 +128,7 @@ public class TestAclTransformation {
         .add(aclEntry(DEFAULT, MASK, READ_WRITE))
         .add(aclEntry(DEFAULT, OTHER, NONE))
         .build(),
-      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+      AclTransformation.filterAclEntriesByAclSpec(Lists.newArrayList(
         aclEntry(DEFAULT, USER, "diana"))),
       new ImmutableList.Builder<AclEntry>()
         .add(aclEntry(ACCESS, USER, ALL))
@@ -159,7 +158,7 @@ public class TestAclTransformation {
         .add(aclEntry(DEFAULT, MASK, READ))
         .add(aclEntry(DEFAULT, OTHER, NONE))
         .build(),
-      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+      AclTransformation.filterAclEntriesByAclSpec(Lists.newArrayList(
         aclEntry(ACCESS, USER, "diana"))),
       new ImmutableList.Builder<AclEntry>()
         .add(aclEntry(ACCESS, USER, ALL))
@@ -192,7 +191,7 @@ public class TestAclTransformation {
         .add(aclEntry(DEFAULT, MASK, READ_WRITE))
         .add(aclEntry(DEFAULT, OTHER, NONE))
         .build(),
-      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+      AclTransformation.filterAclEntriesByAclSpec(Lists.newArrayList(
         aclEntry(DEFAULT, USER, "diana"))),
       new ImmutableList.Builder<AclEntry>()
         .add(aclEntry(ACCESS, USER, ALL))
@@ -222,7 +221,7 @@ public class TestAclTransformation {
         .add(aclEntry(DEFAULT, MASK, READ))
         .add(aclEntry(DEFAULT, OTHER, NONE))
         .build(),
-      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+      AclTransformation.filterAclEntriesByAclSpec(Lists.newArrayList(
         aclEntry(DEFAULT, USER))),
       new ImmutableList.Builder<AclEntry>()
         .add(aclEntry(ACCESS, USER, ALL))
@@ -247,7 +246,7 @@ public class TestAclTransformation {
         .add(aclEntry(DEFAULT, GROUP, READ_WRITE))
         .add(aclEntry(DEFAULT, OTHER, NONE))
         .build(),
-      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+      AclTransformation.filterAclEntriesByAclSpec(Lists.newArrayList(
         aclEntry(DEFAULT, GROUP))),
       new ImmutableList.Builder<AclEntry>()
         .add(aclEntry(ACCESS, USER, ALL))
@@ -270,7 +269,7 @@ public class TestAclTransformation {
         .add(aclEntry(DEFAULT, GROUP, READ_WRITE))
         .add(aclEntry(DEFAULT, OTHER, NONE))
         .build(),
-      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+      AclTransformation.filterAclEntriesByAclSpec(Lists.newArrayList(
         aclEntry(DEFAULT, OTHER))),
       new ImmutableList.Builder<AclEntry>()
         .add(aclEntry(ACCESS, USER, ALL))
@@ -297,7 +296,8 @@ public class TestAclTransformation {
         .add(aclEntry(DEFAULT, MASK, ALL))
         .add(aclEntry(DEFAULT, OTHER, READ))
         .build(),
-      AclTransformation.filterAclEntriesByAclSpec(Arrays.<AclEntry>asList()));
+      AclTransformation.filterAclEntriesByAclSpec(
+        Lists.<AclEntry>newArrayList()));
   }
 
   @Test
@@ -311,7 +311,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, MASK, ALL))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+      AclTransformation.filterAclEntriesByAclSpec(Lists.newArrayList(
         aclEntry(ACCESS, MASK))));
   }
 
@@ -329,7 +329,7 @@ public class TestAclTransformation {
         .add(aclEntry(DEFAULT, MASK, ALL))
         .add(aclEntry(DEFAULT, OTHER, NONE))
         .build(),
-      AclTransformation.filterAclEntriesByAclSpec(Arrays.asList(
+      AclTransformation.filterAclEntriesByAclSpec(Lists.newArrayList(
         aclEntry(DEFAULT, MASK))));
   }
 
@@ -430,7 +430,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ_EXECUTE))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.mergeAclEntries(Arrays.asList(
+      AclTransformation.mergeAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, "bruce", ALL))),
       new ImmutableList.Builder<AclEntry>()
         .add(aclEntry(ACCESS, USER, ALL))
@@ -458,7 +458,7 @@ public class TestAclTransformation {
         .add(aclEntry(DEFAULT, MASK, ALL))
         .add(aclEntry(DEFAULT, OTHER, NONE))
         .build(),
-      AclTransformation.mergeAclEntries(Arrays.asList(
+      AclTransformation.mergeAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, ALL),
         aclEntry(ACCESS, USER, "bruce", ALL),
         aclEntry(ACCESS, GROUP, READ_EXECUTE),
@@ -484,7 +484,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, MASK, READ_EXECUTE))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.mergeAclEntries(Arrays.asList(
+      AclTransformation.mergeAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
         aclEntry(ACCESS, USER, "clark", READ_EXECUTE),
         aclEntry(ACCESS, USER, "diana", READ_EXECUTE))),
@@ -509,7 +509,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, MASK, READ))
         .add(aclEntry(ACCESS, OTHER, READ))
         .build(),
-      AclTransformation.mergeAclEntries(Arrays.asList(
+      AclTransformation.mergeAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
         aclEntry(ACCESS, USER, "diana", READ))),
       new ImmutableList.Builder<AclEntry>()
@@ -535,7 +535,7 @@ public class TestAclTransformation {
         .add(aclEntry(DEFAULT, MASK, READ))
         .add(aclEntry(DEFAULT, OTHER, NONE))
         .build(),
-      AclTransformation.mergeAclEntries(Arrays.asList(
+      AclTransformation.mergeAclEntries(Lists.newArrayList(
         aclEntry(DEFAULT, USER, "bruce", READ_WRITE),
         aclEntry(DEFAULT, USER, "diana", READ_EXECUTE))),
       new ImmutableList.Builder<AclEntry>()
@@ -564,7 +564,7 @@ public class TestAclTransformation {
         .add(aclEntry(DEFAULT, MASK, READ))
         .add(aclEntry(DEFAULT, OTHER, NONE))
         .build(),
-      AclTransformation.mergeAclEntries(Arrays.asList(
+      AclTransformation.mergeAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, "diana", FsAction.READ_EXECUTE))),
       new ImmutableList.Builder<AclEntry>()
         .add(aclEntry(ACCESS, USER, ALL))
@@ -597,7 +597,7 @@ public class TestAclTransformation {
         .add(aclEntry(DEFAULT, MASK, READ_WRITE))
         .add(aclEntry(DEFAULT, OTHER, NONE))
         .build(),
-      AclTransformation.mergeAclEntries(Arrays.asList(
+      AclTransformation.mergeAclEntries(Lists.newArrayList(
         aclEntry(DEFAULT, USER, "diana", READ_EXECUTE))),
       new ImmutableList.Builder<AclEntry>()
         .add(aclEntry(ACCESS, USER, ALL))
@@ -623,7 +623,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ))
         .add(aclEntry(ACCESS, OTHER, READ))
         .build(),
-      AclTransformation.mergeAclEntries(Arrays.asList(
+      AclTransformation.mergeAclEntries(Lists.newArrayList(
         aclEntry(DEFAULT, GROUP, READ_EXECUTE),
         aclEntry(DEFAULT, OTHER, READ))),
       new ImmutableList.Builder<AclEntry>()
@@ -644,7 +644,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ))
         .add(aclEntry(ACCESS, OTHER, READ))
         .build(),
-      AclTransformation.mergeAclEntries(Arrays.asList(
+      AclTransformation.mergeAclEntries(Lists.newArrayList(
         aclEntry(DEFAULT, USER, READ_EXECUTE),
         aclEntry(DEFAULT, OTHER, READ))),
       new ImmutableList.Builder<AclEntry>()
@@ -665,7 +665,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.mergeAclEntries(Arrays.asList(
+      AclTransformation.mergeAclEntries(Lists.newArrayList(
         aclEntry(DEFAULT, USER, READ_EXECUTE),
         aclEntry(DEFAULT, GROUP, READ_EXECUTE))),
       new ImmutableList.Builder<AclEntry>()
@@ -686,7 +686,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.mergeAclEntries(Arrays.asList(
+      AclTransformation.mergeAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
         aclEntry(ACCESS, MASK, ALL))),
       new ImmutableList.Builder<AclEntry>()
@@ -706,7 +706,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.mergeAclEntries(Arrays.asList(
+      AclTransformation.mergeAclEntries(Lists.newArrayList(
         aclEntry(DEFAULT, USER, ALL),
         aclEntry(DEFAULT, GROUP, READ),
         aclEntry(DEFAULT, MASK, ALL),
@@ -737,7 +737,7 @@ public class TestAclTransformation {
         .add(aclEntry(DEFAULT, MASK, ALL))
         .add(aclEntry(DEFAULT, OTHER, READ))
         .build(),
-      AclTransformation.mergeAclEntries(Arrays.<AclEntry>asList()));
+      AclTransformation.mergeAclEntries(Lists.<AclEntry>newArrayList()));
   }
 
   @Test
@@ -764,7 +764,7 @@ public class TestAclTransformation {
       .add(aclEntry(ACCESS, MASK, READ))
       .add(aclEntry(ACCESS, OTHER, NONE));
     assertAclExceptionThrown(aclBuilder.build(),
-      AclTransformation.mergeAclEntries(Arrays.asList(
+      AclTransformation.mergeAclEntries(Lists.newArrayList(
       aclEntry(ACCESS, USER, "bruce", READ))));
   }
 
@@ -776,7 +776,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.mergeAclEntries(Arrays.asList(
+      AclTransformation.mergeAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, "bruce", ALL),
         aclEntry(ACCESS, USER, "diana", READ_WRITE),
         aclEntry(ACCESS, USER, "clark", READ),
@@ -791,7 +791,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.mergeAclEntries(Arrays.asList(
+      AclTransformation.mergeAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, MASK, "bruce", READ_EXECUTE))));
   }
 
@@ -803,7 +803,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.mergeAclEntries(Arrays.asList(
+      AclTransformation.mergeAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, OTHER, "bruce", READ_EXECUTE))));
   }
 
@@ -817,7 +817,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, MASK, ALL))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.replaceAclEntries(Arrays.asList(
+      AclTransformation.replaceAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, ALL),
         aclEntry(ACCESS, USER, "bruce", READ_WRITE),
         aclEntry(ACCESS, GROUP, READ_EXECUTE),
@@ -863,7 +863,7 @@ public class TestAclTransformation {
         .add(aclEntry(DEFAULT, MASK, ALL))
         .add(aclEntry(DEFAULT, OTHER, NONE))
         .build(),
-      AclTransformation.replaceAclEntries(Arrays.asList(
+      AclTransformation.replaceAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, ALL),
         aclEntry(ACCESS, USER, "bruce", ALL),
         aclEntry(ACCESS, GROUP, READ_EXECUTE),
@@ -886,7 +886,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ))
         .add(aclEntry(ACCESS, OTHER, READ))
         .build(),
-      AclTransformation.replaceAclEntries(Arrays.asList(
+      AclTransformation.replaceAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, ALL),
         aclEntry(ACCESS, USER, "bruce", READ),
         aclEntry(ACCESS, USER, "diana", READ_WRITE),
@@ -910,7 +910,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ))
         .add(aclEntry(ACCESS, OTHER, READ))
         .build(),
-      AclTransformation.replaceAclEntries(Arrays.asList(
+      AclTransformation.replaceAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, ALL),
         aclEntry(ACCESS, GROUP, READ),
         aclEntry(ACCESS, OTHER, READ),
@@ -948,7 +948,7 @@ public class TestAclTransformation {
         .add(aclEntry(DEFAULT, MASK, READ))
         .add(aclEntry(DEFAULT, OTHER, NONE))
         .build(),
-      AclTransformation.replaceAclEntries(Arrays.asList(
+      AclTransformation.replaceAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, ALL),
         aclEntry(ACCESS, USER, "bruce", READ),
         aclEntry(ACCESS, USER, "diana", READ_WRITE),
@@ -986,7 +986,7 @@ public class TestAclTransformation {
         .add(aclEntry(DEFAULT, MASK, READ_WRITE))
         .add(aclEntry(DEFAULT, OTHER, NONE))
         .build(),
-      AclTransformation.replaceAclEntries(Arrays.asList(
+      AclTransformation.replaceAclEntries(Lists.newArrayList(
         aclEntry(DEFAULT, USER, ALL),
         aclEntry(DEFAULT, USER, "bruce", READ),
         aclEntry(DEFAULT, GROUP, READ),
@@ -1014,7 +1014,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.replaceAclEntries(Arrays.asList(
+      AclTransformation.replaceAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, ALL),
         aclEntry(ACCESS, GROUP, READ),
         aclEntry(ACCESS, OTHER, NONE),
@@ -1042,7 +1042,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.replaceAclEntries(Arrays.asList(
+      AclTransformation.replaceAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, ALL),
         aclEntry(ACCESS, GROUP, READ),
         aclEntry(ACCESS, OTHER, NONE),
@@ -1070,7 +1070,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.replaceAclEntries(Arrays.asList(
+      AclTransformation.replaceAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, ALL),
         aclEntry(ACCESS, GROUP, READ),
         aclEntry(ACCESS, OTHER, NONE),
@@ -1129,7 +1129,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.replaceAclEntries(Arrays.asList(
+      AclTransformation.replaceAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, ALL),
         aclEntry(ACCESS, USER, "bruce", ALL),
         aclEntry(ACCESS, USER, "diana", READ_WRITE),
@@ -1147,7 +1147,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.replaceAclEntries(Arrays.asList(
+      AclTransformation.replaceAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, ALL),
         aclEntry(ACCESS, GROUP, READ),
         aclEntry(ACCESS, OTHER, NONE),
@@ -1162,7 +1162,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.replaceAclEntries(Arrays.asList(
+      AclTransformation.replaceAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, ALL),
         aclEntry(ACCESS, GROUP, READ),
         aclEntry(ACCESS, OTHER, NONE),
@@ -1177,7 +1177,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.replaceAclEntries(Arrays.asList(
+      AclTransformation.replaceAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, "bruce", READ_WRITE),
         aclEntry(ACCESS, GROUP, READ_EXECUTE),
         aclEntry(ACCESS, GROUP, "sales", ALL),
@@ -1193,7 +1193,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.replaceAclEntries(Arrays.asList(
+      AclTransformation.replaceAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, ALL),
         aclEntry(ACCESS, USER, "bruce", READ_WRITE),
         aclEntry(ACCESS, GROUP, "sales", ALL),
@@ -1209,7 +1209,7 @@ public class TestAclTransformation {
         .add(aclEntry(ACCESS, GROUP, READ))
         .add(aclEntry(ACCESS, OTHER, NONE))
         .build(),
-      AclTransformation.replaceAclEntries(Arrays.asList(
+      AclTransformation.replaceAclEntries(Lists.newArrayList(
         aclEntry(ACCESS, USER, ALL),
         aclEntry(ACCESS, USER, "bruce", READ_WRITE),
         aclEntry(ACCESS, GROUP, READ_EXECUTE),

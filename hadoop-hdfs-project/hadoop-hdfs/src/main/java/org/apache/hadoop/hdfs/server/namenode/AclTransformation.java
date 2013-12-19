@@ -23,7 +23,6 @@ import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
 
-import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -97,32 +96,18 @@ public abstract class AclTransformation {
       final List<AclEntry> aclSpec) {
     return new AclTransformation() {
       @Override
-      public List<AclEntry> apply(List<AclEntry> existingAcl) throws AclException {
+      public List<AclEntry> apply(List<AclEntry> existingAcl)
+          throws AclException {
         preValidateAclSpec(aclSpec);
         AclSpecTransformationState state = new AclSpecTransformationState();
-        Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
         AclEntry aclSpecEntry = null;
         for (AclEntry existingEntry: existingAcl) {
-          aclSpecEntry = advanceIfNull(aclSpecIter, aclSpecEntry);
-          if (aclSpecEntry != null) {
-            if (existingEntry.compareTo(aclSpecEntry) != 0) {
-              // The existing entry was not requested to be removed in the ACL
-              // spec, so copy.
-              state.copyExistingEntry(existingEntry);
-            } else {
-              // The existing entry matches an entry in the ACL spec, so delete.
-              state.deleteExistingEntry(existingEntry);
-              aclSpecEntry = null;
-            }
+          if (removeEntryWithMatchingKey(aclSpec, existingEntry) != null) {
+            state.deleteExistingEntry(existingEntry);
           } else {
-            // We've iterated through all entries in the ACL spec, so keep any
-            // existing entries that still remain.
             state.copyExistingEntry(existingEntry);
           }
         }
-        // At this point, it's possible that the ACL spec still contains entries
-        // that we haven't visited.  That's OK, because there are no existing
-        // entries remaining that could be a match.
         state.complete();
         return buildAcl();
       }
@@ -189,58 +174,23 @@ public abstract class AclTransformation {
       final List<AclEntry> aclSpec) {
     return new AclTransformation() {
       @Override
-      public List<AclEntry> apply(List<AclEntry> existingAcl) throws AclException {
+      public List<AclEntry> apply(List<AclEntry> existingAcl)
+          throws AclException {
         preValidateAclSpec(aclSpec);
         AclSpecTransformationState state = new AclSpecTransformationState();
-        Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
-        AclEntry aclSpecEntry = null;
         for (AclEntry existingEntry: existingAcl) {
-          aclSpecEntry = advanceIfNull(aclSpecIter, aclSpecEntry);
+          AclEntry aclSpecEntry = removeEntryWithMatchingKey(aclSpec,
+            existingEntry);
           if (aclSpecEntry != null) {
-            int comparison = existingEntry.compareTo(aclSpecEntry);
-            if (comparison < 0) {
-              // The existing entry is less than the ACL spec entry.  The
-              // existing entry has not been modified, so copy.  Do not advance
-              // the ACL spec.
-              state.copyExistingEntry(existingEntry);
-            } else if (comparison == 0) {
-              // The existing entry has the same scope, type and name as the ACL
-              // spec entry.  The existing entry has been modified.  Advance the
-              // ACL spec.
-              state.modifyEntry(aclSpecEntry);
-              aclSpecEntry = null;
-            } else {
-              // The existing entry is greater than the ACL spec entry.  The ACL
-              // spec entry is a new entry, so create.  There may be multiple
-              // new entries, so do a catch-up iteration to add all.
-              do {
-                state.modifyEntry(aclSpecEntry);
-                aclSpecEntry = advanceIfNull(aclSpecIter, null);
-              } while (aclSpecEntry != null &&
-                  existingEntry.compareTo(aclSpecEntry) > 0);
-              // After catching up, the final ACL spec entry might match the
-              // existing entry.  Either modify or copy the existing.
-              if (aclSpecEntry != null &&
-                  existingEntry.compareTo(aclSpecEntry) == 0) {
-                state.modifyEntry(aclSpecEntry);
-                aclSpecEntry = null;
-              } else {
-                state.copyExistingEntry(existingEntry);
-              }
-            }
+            state.modifyEntry(aclSpecEntry);
           } else {
-            // We've iterated through all entries in the ACL spec, so keep any
-            // existing entries that still remain.
             state.copyExistingEntry(existingEntry);
           }
         }
         // If the ACL spec contains any remaining entries, then they are new
         // entries that need to be created.
-        if (aclSpecEntry != null) {
-          state.modifyEntry(aclSpecEntry);
-        }
-        while (aclSpecIter.hasNext()) {
-          state.modifyEntry(aclSpecIter.next());
+        for (AclEntry newEntry: aclSpec) {
+          state.modifyEntry(newEntry);
         }
         state.complete();
         return buildAcl();
@@ -265,36 +215,19 @@ public abstract class AclTransformation {
       final List<AclEntry> aclSpec) {
     return new AclTransformation() {
       @Override
-      public List<AclEntry> apply(List<AclEntry> existingAcl) throws AclException {
+      public List<AclEntry> apply(List<AclEntry> existingAcl)
+          throws AclException {
         preValidateAclSpec(aclSpec);
         AclSpecTransformationState state = new AclSpecTransformationState();
-        Iterator<AclEntry> existingIter = existingAcl.iterator();
-        Iterator<AclEntry> aclSpecIter = aclSpec.iterator();
-        AclEntry existingEntry = Iterators.getNext(existingIter, null);
-        AclEntry aclSpecEntry = Iterators.getNext(aclSpecIter, null);
         // Replacement is done separately for each scope: access and default.
-        for (AclEntryScope scope:
-            EnumSet.of(AclEntryScope.ACCESS, AclEntryScope.DEFAULT)) {
-          if (aclSpecEntry != null && aclSpecEntry.getScope() == scope) {
-            // The ACL spec contains entries for this scope.  Take all entries
-            // in this scope from the ACL spec.  Ignore the existing entries in
-            // this scope.
-            while (aclSpecEntry != null && aclSpecEntry.getScope() == scope) {
-              state.modifyEntry(aclSpecEntry);
-              aclSpecEntry = Iterators.getNext(aclSpecIter, null);
-            }
-          } else {
-            // If necessary, advance past existing entries that were ignored
-            // while handling the prior scope.
-            while (existingEntry != null && existingEntry.getScope() != scope) {
-              existingEntry = Iterators.getNext(existingIter, null);
-            }
-            // The ACL spec does not contain entries for this scope.  Keep the
-            // existing entries in this scope.
-            while (existingEntry != null && existingEntry.getScope() == scope) {
-              state.copyExistingEntry(existingEntry);
-              existingEntry = Iterators.getNext(existingIter, null);
-            }
+        EnumSet<AclEntryScope> foundScope = EnumSet.noneOf(AclEntryScope.class);
+        for (AclEntry aclSpecEntry: aclSpec) {
+          state.modifyEntry(aclSpecEntry);
+          foundScope.add(aclSpecEntry.getScope());
+        }
+        for (AclEntry existingEntry: existingAcl) {
+          if (!foundScope.contains(existingEntry.getScope())) {
+            state.copyExistingEntry(existingEntry);
           }
         }
         state.complete();
@@ -332,23 +265,25 @@ public abstract class AclTransformation {
   }
 
   /**
-   * Accepts an iterator and the current entry from that iterator.  Advances the
-   * iterator only if necessary and returns the current entry.  Returns null if
-   * there are no entries remaining.
+   * Removes from the list the entry that has the same key as the requested
+   * search entry and returns it.  The key consists of ACL entry scope, type and
+   * name (but not permission).  Returns null if not found.
    *
-   * @param aclSpecIter Iterator<AclEntry> iterator to advance
-   * @param aclSpecEntry AclEntry current entry from the iterator
-   * @return AclEntry new current entry, null if no entries remaining
+   * @param entries List<AclEntry> list of entries to search
+   * @param searchEntry AclEntry entry to find
+   * @return AclEntry entry with matching key, or null if not found
    */
-  private static AclEntry advanceIfNull(Iterator<AclEntry> aclSpecIter,
-      AclEntry aclSpecEntry) {
-    if (aclSpecEntry != null) {
-      return aclSpecEntry;
-    } else if (aclSpecIter.hasNext()) {
-      return aclSpecIter.next();
-    } else {
-      return null;
+  private static AclEntry removeEntryWithMatchingKey(List<AclEntry> entries,
+      AclEntry searchEntry) {
+    Iterator<AclEntry> entriesIter = entries.iterator();
+    while (entriesIter.hasNext()) {
+      AclEntry nextEntry = entriesIter.next();
+      if (searchEntry.compareTo(nextEntry) == 0) {
+        entriesIter.remove();
+        return nextEntry;
+      }
     }
+    return null;
   }
 
   /**
@@ -606,17 +541,15 @@ public abstract class AclTransformation {
      * @param entry AclEntry entry to update
      */
     public void update(AclEntry entry) {
-      if (providedMask == null) {
-        if (entry.getType() == AclEntryType.MASK) {
-          providedMask = entry;
-        } else {
-          if (entry.getType() == AclEntryType.GROUP ||
-              entry.getName() != null) {
-            unionPerms = unionPerms.or(entry.getPermission());
-          }
-          if (entry.getName() != null) {
-            maskNeeded = true;
-          }
+      if (entry.getType() == AclEntryType.MASK) {
+        providedMask = entry;
+      } else {
+        if (entry.getType() == AclEntryType.GROUP ||
+            entry.getName() != null) {
+          unionPerms = unionPerms.or(entry.getPermission());
+        }
+        if (entry.getName() != null) {
+          maskNeeded = true;
         }
       }
     }
