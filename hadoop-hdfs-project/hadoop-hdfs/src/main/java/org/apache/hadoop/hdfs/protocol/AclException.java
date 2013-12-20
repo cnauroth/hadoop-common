@@ -19,9 +19,12 @@ package org.apache.hadoop.hdfs.protocol;
 
 import java.io.IOException;
 
+import org.apache.hadoop.classification.InterfaceAudience;
+
 /**
  * Indicates a failure manipulating an ACL.
  */
+@InterfaceAudience.Private
 public class AclException extends IOException {
   private static final long serialVersionUID = 1L;
 

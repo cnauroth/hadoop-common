@@ -61,7 +61,7 @@ import org.apache.hadoop.hdfs.protocol.AclException;
  * state tracking is not required, so these methods do not make use of the
  * helper classes.
  */
-@InterfaceAudience.LimitedPrivate({"HDFS"})
+@InterfaceAudience.Private
 final class AclTransformation {
   private static final int MAX_ENTRIES = 32;
 
