@@ -57,9 +57,8 @@ import org.apache.hadoop.hdfs.protocol.AclException;
  * default entries if not provided.  Each of these methods delegates to two
  * internal helper classes to manage the required state tracking:
  * {@link #AclSpecTransformationState} and {@link #MaskCalculator}.  For
- * {@link #filterDefaultAclEntries} and {@link #filterExtendedAclEntries}, this
- * state tracking is not required, so these methods do not make use of the
- * helper classes.
+ * {@link #filterDefaultAclEntries}, this state tracking is not required, so
+ * this method does not make use of the helper classes.
  */
 @InterfaceAudience.Private
 final class AclTransformation {
@@ -113,31 +112,6 @@ final class AclTransformation {
         break;
       }
       aclBuilder.add(existingEntry);
-    }
-    return buildAcl(aclBuilder);
-  }
-
-  /**
-   * Filters (discards) any extended ACL entries.  The new ACL will be a minimal
-   * ACL that retains only the 3 base access entries: user, group and other.
-   *
-   * @param existingAcl List<AclEntry> existing ACL
-   * @return List<AclEntry> new ACL
-   * @throws AclException if validation fails
-   */
-  public static List<AclEntry> filterExtendedAclEntries(
-      List<AclEntry> existingAcl) throws AclException {
-    ArrayList<AclEntry> aclBuilder = Lists.newArrayListWithCapacity(MAX_ENTRIES);
-    for (AclEntry existingEntry: existingAcl) {
-      if (existingEntry.getScope() == AclEntryScope.DEFAULT) {
-        // Default entries sort after access entries, so we can exit early.
-        break;
-      }
-      if (existingEntry.getType() != AclEntryType.MASK &&
-          existingEntry.getName() == null) {
-        // This is one of the base access entries, so copy.
-        aclBuilder.add(existingEntry);
-      }
     }
     return buildAcl(aclBuilder);
   }
