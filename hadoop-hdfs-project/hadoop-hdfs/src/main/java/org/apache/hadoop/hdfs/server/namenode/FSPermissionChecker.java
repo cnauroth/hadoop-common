@@ -32,6 +32,7 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.server.namenode.snapshot.Snapshot;
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.util.StringUtils;
 
 /** 
  * Class that helps in checking file system permission.
@@ -44,12 +45,27 @@ class FSPermissionChecker {
   static final Log LOG = LogFactory.getLog(UserGroupInformation.class);
 
   /** @return a string for throwing {@link AccessControlException} */
-  private static String toAccessControlString(INode inode) {
-    return "\"" + inode.getFullPathName() + "\":"
-          + inode.getUserName() + ":" + inode.getGroupName()
-          + ":" + (inode.isDirectory()? "d": "-") + inode.getFsPermission();
+  private String toAccessControlString(INode inode, Snapshot snapshot,
+      FsAction access) {
+    return toAccessControlString(inode, snapshot, access, null);
   }
 
+  /** @return a string for throwing {@link AccessControlException} */
+  private String toAccessControlString(INode inode, Snapshot snapshot,
+      FsAction access, AclFeature acl) {
+    StringBuilder sb = new StringBuilder("Permission denied: ")
+      .append("user=").append(user).append(", ")
+      .append("access=").append(access).append(", ")
+      .append("inode=\"").append(inode.getFullPathName()).append("\":")
+      .append(inode.getUserName(snapshot)).append(':')
+      .append(inode.getGroupName(snapshot)).append(':')
+      .append(inode.isDirectory() ? 'd' : '-')
+      .append(inode.getFsPermission(snapshot));
+    if (acl != null) {
+      sb.append(StringUtils.join(",", acl.getEntries()));
+    }
+    return sb.toString();
+  }
 
   private final UserGroupInformation ugi;
   private final String user;  
@@ -220,6 +236,18 @@ class FSPermissionChecker {
     if (inode == null) {
       return;
     }
+    // TODO: handling of INodeReference?
+    AclFeature acl = inode instanceof INodeWithAdditionalFields ?
+      ((INodeWithAdditionalFields)inode).getAclFeature() : null;
+    if (acl == null) {
+      checkFsPermission(inode, snapshot, access);
+    } else {
+      checkAcl(inode, snapshot, access, acl);
+    }
+  }
+
+  private void checkFsPermission(INode inode, Snapshot snapshot, FsAction access
+      ) throws AccessControlException {
     FsPermission mode = inode.getFsPermission(snapshot);
 
     if (user.equals(inode.getUserName(snapshot))) { //user class
@@ -231,8 +259,14 @@ class FSPermissionChecker {
     else { //other class
       if (mode.getOtherAction().implies(access)) { return; }
     }
-    throw new AccessControlException("Permission denied: user=" + user
-        + ", access=" + access + ", inode=" + toAccessControlString(inode));
+    throw new AccessControlException(
+      toAccessControlString(inode, snapshot, access));
+  }
+
+  private void checkAcl(INode inode, Snapshot snapshot, FsAction access,
+      AclFeature acl) throws AccessControlException {
+    throw new AccessControlException(
+      toAccessControlString(inode, snapshot, access, acl));
   }
 
   /** Guarded by {@link FSNamesystem#readLock()} */
