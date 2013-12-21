@@ -27,6 +27,9 @@ import java.util.Stack;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.UnresolvedLinkException;
+import org.apache.hadoop.fs.permission.AclEntry;
+import org.apache.hadoop.fs.permission.AclEntryScope;
+import org.apache.hadoop.fs.permission.AclEntryType;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.server.namenode.snapshot.Snapshot;
@@ -263,10 +266,97 @@ class FSPermissionChecker {
       toAccessControlString(inode, snapshot, access));
   }
 
+  /**
+   * Checks requested access against an Access Control List.  This logic relies
+   * on receiving the ACL entries in sorted order.  This is assumed to be true,
+   * because the ACL modification methods in {@link AclTransformation} sort the
+   * resulting entries by the natural ordering defined in
+   * {@link AclEntry#compareTo}.
+   *
+   * @param inode INode accessed inode
+   * @param snapshot Snapshot of accessed inode
+   * @param access FsAction requested permission
+   * @param acl AclFeature containing ACL entries of inode
+   * @throws AccessControlException if the ACL denies permission
+   */
   private void checkAcl(INode inode, Snapshot snapshot, FsAction access,
       AclFeature acl) throws AccessControlException {
-    throw new AccessControlException(
-      toAccessControlString(inode, snapshot, access, acl));
+    // Find the closest matching entry for the user.
+    AclEntry matchingEntry = null, mask = null;
+    boolean userIsGroupMember = false;
+    for (AclEntry entry: acl.getEntries()) {
+      AclEntryType type = entry.getType();
+      String name = entry.getName();
+      if (type == AclEntryType.USER && name == null) {
+        // This is the owner entry.  If the user is the file owner, then use
+        // this entry.  We can exit early, because we won't need the mask.
+        if (user.equals(inode.getUserName(snapshot))) {
+          matchingEntry = entry;
+          break;
+        }
+      } else if (type == AclEntryType.USER && name != null) {
+        // This is a named user entry.  If the user matches the name, then use
+        // this entry.  We cannot exit early, because we need to find the mask.
+        if (user.equals(name)) {
+          matchingEntry = entry;
+        }
+      } else if (type == AclEntryType.GROUP) {
+        // This is a group entry, either unnamed or named.  If the user is a
+        // member of the group, and if the entry grants access, then use this
+        // entry.  If the user is a member of multiple groups that have entries
+        // that grant access, then it doesn't matter which one is chosen, so we
+        // can skip iterations for group entries after the first match is found.
+        // We cannot exit early, because we need to find the mask.
+        if (matchingEntry != null) {
+          continue;
+        }
+        String group = name == null ? inode.getGroupName(snapshot) : name;
+        if (groups.contains(group)) {
+          userIsGroupMember = true;
+          if (entry.getPermission().implies(access)) {
+            matchingEntry = entry;
+          }
+        }
+      } else if (type == AclEntryType.MASK) {
+        // Remember the mask for later.  We cannot exit early, because we might
+        // need to find the other entry.
+        mask = entry;
+      } else if (type == AclEntryType.OTHER) {
+        // This is the other entry, which is used if no other entry matched.
+        // However, if the user is a member of the file's group or a named group
+        // and they haven't been granted access at this point, then they need to
+        // be denied, and the other entry is not applicable.
+        if (!userIsGroupMember) {
+          matchingEntry = entry;
+        }
+        break;
+      }
+    }
+
+    // Determine final enforced permissions by applying the mask if necessary.
+    final FsAction enforcedPerm;
+    if (matchingEntry != null) {
+      AclEntryType type = matchingEntry.getType();
+      String name = matchingEntry.getName();
+      if ((type == AclEntryType.USER && name == null) ||
+          (type == AclEntryType.OTHER)) {
+        // Owner and other entries are not masked.
+        enforcedPerm = matchingEntry.getPermission();
+      } else {
+        // Named user, owning group and named group entries are masked.
+        enforcedPerm = matchingEntry.getPermission().and(mask.getPermission());
+      }
+    } else {
+      // This happens if the user was a member of any groups, but none of those
+      // entries granted access.
+      enforcedPerm = null;
+    }
+
+    // Enforce the chosen permissions.
+    if (enforcedPerm == null || !enforcedPerm.implies(access)) {
+      throw new AccessControlException(
+        toAccessControlString(inode, snapshot, access, acl));
+    }
   }
 
   /** Guarded by {@link FSNamesystem#readLock()} */
