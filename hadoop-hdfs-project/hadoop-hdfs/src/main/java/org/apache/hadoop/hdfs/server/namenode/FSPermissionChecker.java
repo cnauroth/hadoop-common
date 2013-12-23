@@ -65,7 +65,7 @@ class FSPermissionChecker {
       .append(inode.isDirectory() ? 'd' : '-')
       .append(inode.getFsPermission(snapshot));
     if (acl != null) {
-      sb.append(StringUtils.join(",", acl.getEntries()));
+      sb.append(':').append(StringUtils.join(",", acl.getEntries()));
     }
     return sb.toString();
   }
@@ -326,7 +326,7 @@ class FSPermissionChecker {
         // However, if the user is a member of the file's group or a named group
         // and they haven't been granted access at this point, then they need to
         // be denied, and the other entry is not applicable.
-        if (!userIsGroupMember) {
+        if (matchingEntry == null && !userIsGroupMember) {
           matchingEntry = entry;
         }
         break;
