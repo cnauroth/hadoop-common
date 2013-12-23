@@ -4001,13 +4001,13 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
    */
   void renewLease(String holder) throws IOException {
     checkOperation(OperationCategory.WRITE);
-    writeLock();
+    readLock();
     try {
       checkOperation(OperationCategory.WRITE);
       checkNameNodeSafeMode("Cannot renew lease for " + holder);
       leaseManager.renewLease(holder);
     } finally {
-      writeUnlock();
+      readUnlock();
     }
   }
 
@@ -7327,7 +7327,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     }
   }
 
-  void setAcl(String src, Iterable<AclEntry> aclSpec) throws IOException {
+  void setAcl(String src, List<AclEntry> aclSpec) throws IOException {
     checkOperation(OperationCategory.WRITE);
     writeLock();
     try {

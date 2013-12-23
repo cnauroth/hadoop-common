@@ -21,6 +21,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -34,6 +35,8 @@ import org.apache.hadoop.hdfs.protocol.CacheDirectiveInfo;
 import org.apache.hadoop.hdfs.protocol.CachePoolInfo;
 import org.apache.hadoop.hdfs.protocol.LayoutVersion;
 import org.apache.hadoop.hdfs.protocol.LayoutVersion.Feature;
+import org.apache.hadoop.hdfs.protocol.proto.AclProtos.AclFsImageProto;
+import org.apache.hadoop.hdfs.protocolPB.PBHelper;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoUnderConstruction;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.BlockUCState;
@@ -204,6 +207,7 @@ public class FSImageSerialization {
     }
 
     writePermissionStatus(file, out);
+    writeAclFeature(file, out);
   }
 
   /** Serialize an {@link INodeFileAttributes}. */
@@ -249,8 +253,9 @@ public class FSImageSerialization {
     }
     
     writePermissionStatus(node, out);
+    writeAclFeature(node, out);
   }
-  
+
   /**
    * Serialize a {@link INodeDirectory}
    * @param a The node to write
@@ -282,7 +287,19 @@ public class FSImageSerialization {
     Text.writeString(out, node.getSymlinkString());
     writePermissionStatus(node, out);
   }
-  
+
+  private static void writeAclFeature(INodeWithAdditionalFields node,
+      DataOutput out) throws IOException {
+    AclFsImageProto.Builder b = AclFsImageProto.newBuilder();
+    OutputStream os = (OutputStream) out;
+
+    AclFeature feature = node.getAclFeature();
+    if (feature != null)
+      b.addAllEntries(PBHelper.convertAclEntryProto(feature.getEntries()));
+
+    b.build().writeDelimitedTo(os);
+  }
+
   /** Serialize a {@link INodeReference} node */
   private static void writeINodeReference(INodeReference ref, DataOutput out,
       boolean writeUnderConstruction, ReferenceMap referenceMap
@@ -587,18 +604,22 @@ public class FSImageSerialization {
     final String groupName = info.getGroupName();
     final Long limit = info.getLimit();
     final FsPermission mode = info.getMode();
+    final Long maxRelativeExpiry = info.getMaxRelativeExpiryMs();
 
-    boolean hasOwner, hasGroup, hasMode, hasLimit;
+    boolean hasOwner, hasGroup, hasMode, hasLimit, hasMaxRelativeExpiry;
     hasOwner = ownerName != null;
     hasGroup = groupName != null;
     hasMode = mode != null;
     hasLimit = limit != null;
+    hasMaxRelativeExpiry = maxRelativeExpiry != null;
 
     int flags =
         (hasOwner ? 0x1 : 0) |
         (hasGroup ? 0x2 : 0) |
         (hasMode  ? 0x4 : 0) |
-        (hasLimit ? 0x8 : 0);
+        (hasLimit ? 0x8 : 0) |
+        (hasMaxRelativeExpiry ? 0x10 : 0);
+
     writeInt(flags, out);
 
     if (hasOwner) {
@@ -612,6 +633,9 @@ public class FSImageSerialization {
     }
     if (hasLimit) {
       writeLong(limit, out);
+    }
+    if (hasMaxRelativeExpiry) {
+      writeLong(maxRelativeExpiry, out);
     }
   }
 
@@ -632,7 +656,10 @@ public class FSImageSerialization {
     if ((flags & 0x8) != 0) {
       info.setLimit(readLong(in));
     }
-    if ((flags & ~0xF) != 0) {
+    if ((flags & 0x10) != 0) {
+      info.setMaxRelativeExpiryMs(readLong(in));
+    }
+    if ((flags & ~0x1F) != 0) {
       throw new IOException("Unknown flag in CachePoolInfo: " + flags);
     }
     return info;
@@ -646,6 +673,7 @@ public class FSImageSerialization {
     final String groupName = info.getGroupName();
     final Long limit = info.getLimit();
     final FsPermission mode = info.getMode();
+    final Long maxRelativeExpiry = info.getMaxRelativeExpiryMs();
 
     if (ownerName != null) {
       XMLUtils.addSaxString(contentHandler, "OWNERNAME", ownerName);
@@ -659,6 +687,10 @@ public class FSImageSerialization {
     if (limit != null) {
       XMLUtils.addSaxString(contentHandler, "LIMIT",
           Long.toString(limit));
+    }
+    if (maxRelativeExpiry != null) {
+      XMLUtils.addSaxString(contentHandler, "MAXRELATIVEEXPIRY",
+          Long.toString(maxRelativeExpiry));
     }
   }
 
@@ -677,6 +709,10 @@ public class FSImageSerialization {
     }
     if (st.hasChildren("LIMIT")) {
       info.setLimit(Long.parseLong(st.getValue("LIMIT")));
+    }
+    if (st.hasChildren("MAXRELATIVEEXPIRY")) {
+      info.setMaxRelativeExpiryMs(
+          Long.parseLong(st.getValue("MAXRELATIVEEXPIRY")));
     }
     return info;
   }
