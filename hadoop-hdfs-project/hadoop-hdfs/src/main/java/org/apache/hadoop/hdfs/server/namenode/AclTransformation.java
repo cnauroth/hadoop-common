@@ -53,15 +53,6 @@ import org.apache.hadoop.hdfs.protocol.AclException;
  * sorting and reliance on the natural ordering defined in
  * {@link AclEntry#compareTo}.  However, an ACL spec is considered untrusted
  * user input, so all operations pre-sort the ACL spec as the first step.
- *
- * {@link #filterAclEntriesByAclSpec}, {@link #mergeAclEntries} and
- * {@link #replaceAclEntries} all have a lot in common in terms of needing to
- * track state for validation, mask calculations and automatic creation of
- * default entries if not provided.  Each of these methods delegates to two
- * internal helper classes to manage the required state tracking:
- * {@link #AclSpecTransformationState} and {@link #MaskCalculator}.  For
- * {@link #filterDefaultAclEntries}, this state tracking is not required, so
- * this method does not make use of the helper classes.
  */
 @InterfaceAudience.Private
 final class AclTransformation {
@@ -125,7 +116,7 @@ final class AclTransformation {
       }
       aclBuilder.add(existingEntry);
     }
-    return buildAcl(aclBuilder);
+    return buildAndValidateAcl(aclBuilder);
   }
 
   /**
@@ -239,15 +230,15 @@ final class AclTransformation {
   }
 
   /**
-   * Builds the final list of ACL entries to return by sorting and trimming
-   * the ACL entries that have been added.
+   * Builds the final list of ACL entries to return by trimming, sorting and
+   * validating the ACL entries that have been added.
    *
    * @param aclBuilder ArrayList<AclEntry> containing entries to build
    * @return List<AclEntry> unmodifiable, sorted list of ACL entries
+   * @throws AclException if validation fails
    */
   private static List<AclEntry> buildAndValidateAcl(
       ArrayList<AclEntry> aclBuilder) throws AclException {
-    System.out.println("cn aclBuilder = " + aclBuilder);
     if (aclBuilder.size() > MAX_ENTRIES) {
       throw new AclException("Invalid ACL: ACL has " + aclBuilder.size() +
         " entries, which exceeds maximum of " + MAX_ENTRIES + ".");
@@ -286,6 +277,28 @@ final class AclTransformation {
     return Collections.unmodifiableList(aclBuilder);
   }
 
+  /**
+   * Calculates mask entries required for the ACL.  Mask calculation is performed
+   * separately for each scope: access and default.  This method is responsible
+   * for handling the following cases of mask calculation:
+   * 1. Throws an exception if the caller attempts to remove the mask entry of an
+   *   existing ACL that requires it.  If the ACL has any named entries, then a
+   *   mask entry is required.
+   * 2. If the caller supplied a mask in the ACL spec, use it.
+   * 3. If the caller did not supply a mask, but there are ACL entry changes in
+   *   this scope, then automatically calculate a new mask.  The permissions of
+   *   the new mask are the union of the permissions on the group entry and all
+   *   named entries.
+   *
+   * @param aclBuilder ArrayList<AclEntry> containing entries to build
+   * @param providedMask EnumMap<AclEntryScope, AclEntry> mapping each scope to
+   *   the mask entry that was provided for that scope (if provided)
+   * @param maskDirty EnumSet<AclEntryScope> which contains a scope if the mask
+   *   entry is dirty (added or deleted) in that scope
+   * @param scopeDirty EnumSet<AclEntryScope> which contains a scope if any entry
+   *   is dirty (added or deleted) in that scope
+   * @throws AclException if validation fails
+   */
   private static void calculateMasks(List<AclEntry> aclBuilder,
       EnumMap<AclEntryScope, AclEntry> providedMask,
       EnumSet<AclEntryScope> maskDirty, EnumSet<AclEntryScope> scopeDirty)
@@ -294,25 +307,29 @@ final class AclTransformation {
     EnumMap<AclEntryScope, FsAction> unionPerms =
       Maps.newEnumMap(AclEntryScope.class);
     EnumSet<AclEntryScope> maskNeeded = EnumSet.noneOf(AclEntryScope.class);
+    // Determine which scopes are present, which scopes need a mask, and the
+    // union of group class permissions in each scope.
     for (AclEntry entry: aclBuilder) {
       scopeFound.add(entry.getScope());
       if (entry.getType() == AclEntryType.GROUP ||
           entry.getName() != null) {
-        FsAction scopeUnionPerms = Objects.firstNonNull(unionPerms.get(entry.getScope()),
-          FsAction.NONE);
-        unionPerms.put(entry.getScope(), scopeUnionPerms.or(entry.getPermission()));
+        FsAction scopeUnionPerms = Objects.firstNonNull(
+          unionPerms.get(entry.getScope()), FsAction.NONE);
+        unionPerms.put(entry.getScope(),
+          scopeUnionPerms.or(entry.getPermission()));
       }
       if (entry.getName() != null) {
         maskNeeded.add(entry.getScope());
       }
     }
+    // Add mask entry if needed in each scope.
     for (AclEntryScope scope: scopeFound) {
       if (!providedMask.containsKey(scope) && maskNeeded.contains(scope) &&
           maskDirty.contains(scope)) {
         throw new AclException(
           "Invalid ACL: mask is required, but it was deleted.");
-      } else if (providedMask.containsKey(scope) && (!scopeDirty.contains(scope) ||
-          maskDirty.contains(scope))) {
+      } else if (providedMask.containsKey(scope) &&
+          (!scopeDirty.contains(scope) || maskDirty.contains(scope))) {
         aclBuilder.add(providedMask.get(scope));
       } else if (maskNeeded.contains(scope)) {
         aclBuilder.add(new AclEntry.Builder()
@@ -324,10 +341,18 @@ final class AclTransformation {
     }
   }
 
+  /**
+   * Adds unspecified default entries by copying permissions from the
+   * corresponding access entries.
+   *
+   * @param aclBuilder ArrayList<AclEntry> containing entries to build
+   */
   private static void copyDefaultsIfNeeded(List<AclEntry> aclBuilder) {
     AclEntry userEntry = null, groupEntry = null, otherEntry = null;
     AclEntry defaultUserEntry = null, defaultGroupEntry = null,
       defaultOtherEntry = null;
+    boolean hasDefaultEntries = false;
+    // Gather provided owner, group and other entries in each scope.
     for (AclEntry entry: aclBuilder) {
       if (entry.getScope() == AclEntryScope.ACCESS) {
         if (entry.getType() == AclEntryType.USER && entry.getName() == null) {
@@ -340,6 +365,7 @@ final class AclTransformation {
           otherEntry = entry;
         }
       } else {
+        hasDefaultEntries = true;
         if (entry.getType() == AclEntryType.USER && entry.getName() == null) {
           defaultUserEntry = entry;
         }
@@ -351,64 +377,33 @@ final class AclTransformation {
         }
       }
     }
-    if (defaultUserEntry != null || defaultGroupEntry != null ||
-        defaultOtherEntry != null) {
-      if (defaultUserEntry == null) aclBuilder.add(getDefaultEntryOrCopy(defaultUserEntry, userEntry));
-      if (defaultGroupEntry == null) aclBuilder.add(getDefaultEntryOrCopy(defaultGroupEntry, groupEntry));
-      if (defaultOtherEntry == null) aclBuilder.add(getDefaultEntryOrCopy(defaultOtherEntry, otherEntry));
+    // If there are any default entries, but a default owner, group or other
+    // entry was not provided, then create it automatically by copying
+    // permissions from the corresponding access entry.
+    if (hasDefaultEntries) {
+      copyDefaultIfNeeded(aclBuilder, defaultUserEntry, userEntry);
+      copyDefaultIfNeeded(aclBuilder, defaultGroupEntry, groupEntry);
+      copyDefaultIfNeeded(aclBuilder, defaultOtherEntry, otherEntry);
     }
   }
 
   /**
-   * Returns the first entry if not null.  Otherwise, creates a copy of the
-   * second entry with the scope changed to default and returns that.
+   * Adds the first entry if not null.  Otherwise, creates a copy of the second
+   * entry with the scope changed to default and adds that.
    *
+   * @param aclBuilder List<AclEntry> containing entries to build
    * @param defaultEntry AclEntry provided default entry
    * @param entryToCopy AclEntry entry to copy if the provided entry is null
-   * @return AclEntry defaultEntry or copy of entryToCopy with default scope
    */
-  private static AclEntry getDefaultEntryOrCopy(AclEntry defaultEntry,
-        AclEntry entryToCopy) {
-    if (defaultEntry != null) {
-      return defaultEntry;
-    } else {
-      return new AclEntry.Builder()
+  private static void copyDefaultIfNeeded(List<AclEntry> aclBuilder,
+      AclEntry defaultEntry, AclEntry entryToCopy) {
+    if (defaultEntry == null && entryToCopy != null) {
+      aclBuilder.add(new AclEntry.Builder()
         .setScope(AclEntryScope.DEFAULT)
         .setType(entryToCopy.getType())
         .setPermission(entryToCopy.getPermission())
-        .build();
+        .build());
     }
-  }
-
-  /**
-   * Adds a new ACL entry to the builder after checking that the result would
-   * not exceed the maximum number of entries in a single ACL.
-   *
-   * @param aclBuilder List<AclEntry> for adding entries
-   * @param entry AclEntry entry to add
-   * @throws AclException if adding the entry would exceed the maximum number of
-   *   entries in a single ACL
-   */
-  private static void addEntryOrThrow(List<AclEntry> aclBuilder, AclEntry entry)
-      throws AclException {
-    if (aclBuilder.size() >= MAX_ENTRIES) {
-      throw new AclException(
-        "Invalid ACL: result exceeds maximum of " + MAX_ENTRIES + " entries.");
-    }
-    aclBuilder.add(entry);
-  }
-
-  /**
-   * Builds the final list of ACL entries to return by sorting and trimming
-   * the ACL entries that have been added.
-   *
-   * @param aclBuilder ArrayList<AclEntry> containing entries to build
-   * @return List<AclEntry> unmodifiable, sorted list of ACL entries
-   */
-  private static List<AclEntry> buildAcl(ArrayList<AclEntry> aclBuilder) {
-    Collections.sort(aclBuilder);
-    aclBuilder.trimToSize();
-    return Collections.unmodifiableList(aclBuilder);
   }
 
   /**
