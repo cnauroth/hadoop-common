@@ -287,25 +287,21 @@ class FSPermissionChecker {
       AclEntryType type = entry.getType();
       String name = entry.getName();
       if (type == AclEntryType.USER && name == null) {
-        // This is the owner entry.  If the user is the file owner, then use
-        // this entry.  We can exit early, because we won't need the mask.
+        // Use owner entry if user is owner.  Don't need mask, so exit early.
         if (user.equals(inode.getUserName(snapshot))) {
           matchingEntry = entry;
           break;
         }
       } else if (type == AclEntryType.USER) {
-        // This is a named user entry.  If the user matches the name, then use
-        // this entry.  We cannot exit early, because we need to find the mask.
+        // Use named user entry if user matches name.
         if (user.equals(name)) {
           matchingEntry = entry;
         }
       } else if (type == AclEntryType.GROUP) {
-        // This is a group entry, either unnamed or named.  If the user is a
-        // member of the group, and if the entry grants access, then use this
-        // entry.  If the user is a member of multiple groups that have entries
-        // that grant access, then it doesn't matter which one is chosen, so we
-        // can skip iterations for group entries after the first match is found.
-        // We cannot exit early, because we need to find the mask.
+        // Use group entry (unnamed or named) if user is a member and entry
+        // grants access.  If user is a member of multiple groups that have
+        // entries that grant access, then it doesn't matter which is chosen, so
+        // skip iterations after first match.
         if (matchingEntry != null) {
           continue;
         }
@@ -317,14 +313,11 @@ class FSPermissionChecker {
           }
         }
       } else if (type == AclEntryType.MASK) {
-        // Remember the mask for later.  We cannot exit early, because we might
-        // need to find the other entry.
+        // Save mask for later.
         mask = entry;
       } else {
-        // This is the other entry, which is used if no other entry matched.
-        // However, if the user is a member of the file's group or a named group
-        // and they haven't been granted access at this point, then they need to
-        // be denied, and the other entry is not applicable.
+        // Use other entry if no match and user not a member of groups that
+        // denied access.
         if (matchingEntry == null && !userIsGroupMember) {
           matchingEntry = entry;
         }
@@ -346,8 +339,7 @@ class FSPermissionChecker {
         enforcedPerm = matchingEntry.getPermission().and(mask.getPermission());
       }
     } else {
-      // This happens if the user was a member of any groups, but none of those
-      // entries granted access.
+      // This happens if user was a member of any groups, but access was denied.
       enforcedPerm = null;
     }
 
