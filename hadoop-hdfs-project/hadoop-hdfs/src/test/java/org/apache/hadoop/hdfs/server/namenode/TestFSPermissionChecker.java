@@ -115,6 +115,29 @@ public class TestFSPermissionChecker {
   }
 
   @Test
+  public void testAclNamedUserTraverseDeny() throws IOException {
+    INodeDirectory inodeDir = createINodeDirectory(inodeRoot, "dir1", "bruce",
+      "execs", (short)0755);
+    INodeFile inodeFile = createINodeFile(inodeDir, "file1", "bruce", "execs",
+      (short)0644);
+    addAcl(inodeDir,
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, USER, "diana", NONE),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(ACCESS, MASK, READ_EXECUTE),
+      aclEntry(ACCESS, OTHER, READ_EXECUTE));
+    assertPermissionGranted(BRUCE, "/dir1/file1", READ_WRITE);
+    assertPermissionGranted(CLARK, "/dir1/file1", READ);
+    assertPermissionDenied(DIANA, "/dir1/file1", READ);
+    assertPermissionDenied(DIANA, "/dir1/file1", WRITE);
+    assertPermissionDenied(DIANA, "/dir1/file1", EXECUTE);
+    assertPermissionDenied(DIANA, "/dir1/file1", READ_WRITE);
+    assertPermissionDenied(DIANA, "/dir1/file1", READ_EXECUTE);
+    assertPermissionDenied(DIANA, "/dir1/file1", WRITE_EXECUTE);
+    assertPermissionDenied(DIANA, "/dir1/file1", ALL);
+  }
+
+  @Test
   public void testAclNamedUserMask() throws IOException {
     INodeFile inodeFile = createINodeFile(inodeRoot, "file1", "bruce", "execs",
       (short)0620);
@@ -169,6 +192,28 @@ public class TestFSPermissionChecker {
     assertPermissionDenied(DIANA, "/file1", READ_EXECUTE);
     assertPermissionDenied(DIANA, "/file1", WRITE_EXECUTE);
     assertPermissionDenied(DIANA, "/file1", ALL);
+  }
+
+  @Test
+  public void testAclGroupTraverseDeny() throws IOException {
+    INodeDirectory inodeDir = createINodeDirectory(inodeRoot, "dir1", "bruce",
+      "execs", (short)0755);
+    INodeFile inodeFile = createINodeFile(inodeDir, "file1", "bruce", "execs",
+      (short)0644);
+    addAcl(inodeDir,
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, GROUP, NONE),
+      aclEntry(ACCESS, MASK, NONE),
+      aclEntry(ACCESS, OTHER, READ_EXECUTE));
+    assertPermissionGranted(BRUCE, "/dir1/file1", READ_WRITE);
+    assertPermissionGranted(DIANA, "/dir1/file1", READ);
+    assertPermissionDenied(CLARK, "/dir1/file1", READ);
+    assertPermissionDenied(CLARK, "/dir1/file1", WRITE);
+    assertPermissionDenied(CLARK, "/dir1/file1", EXECUTE);
+    assertPermissionDenied(CLARK, "/dir1/file1", READ_WRITE);
+    assertPermissionDenied(CLARK, "/dir1/file1", READ_EXECUTE);
+    assertPermissionDenied(CLARK, "/dir1/file1", WRITE_EXECUTE);
+    assertPermissionDenied(CLARK, "/dir1/file1", ALL);
   }
 
   @Test
@@ -229,6 +274,29 @@ public class TestFSPermissionChecker {
     assertPermissionDenied(CLARK, "/file1", READ_EXECUTE);
     assertPermissionDenied(CLARK, "/file1", WRITE_EXECUTE);
     assertPermissionDenied(CLARK, "/file1", ALL);
+  }
+
+  @Test
+  public void testAclNamedGroupTraverseDeny() throws IOException {
+    INodeDirectory inodeDir = createINodeDirectory(inodeRoot, "dir1", "bruce",
+      "execs", (short)0755);
+    INodeFile inodeFile = createINodeFile(inodeDir, "file1", "bruce", "execs",
+      (short)0644);
+    addAcl(inodeDir,
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(ACCESS, GROUP, "sales", NONE),
+      aclEntry(ACCESS, MASK, READ_EXECUTE),
+      aclEntry(ACCESS, OTHER, READ_EXECUTE));
+    assertPermissionGranted(BRUCE, "/dir1/file1", READ_WRITE);
+    assertPermissionGranted(CLARK, "/dir1/file1", READ);
+    assertPermissionDenied(DIANA, "/dir1/file1", READ);
+    assertPermissionDenied(DIANA, "/dir1/file1", WRITE);
+    assertPermissionDenied(DIANA, "/dir1/file1", EXECUTE);
+    assertPermissionDenied(DIANA, "/dir1/file1", READ_WRITE);
+    assertPermissionDenied(DIANA, "/dir1/file1", READ_EXECUTE);
+    assertPermissionDenied(DIANA, "/dir1/file1", WRITE_EXECUTE);
+    assertPermissionDenied(DIANA, "/dir1/file1", ALL);
   }
 
   @Test
@@ -330,6 +398,16 @@ public class TestFSPermissionChecker {
     } catch (AccessControlException e) {
       // expected
     }
+  }
+
+  private static INodeDirectory createINodeDirectory(INodeDirectory parent,
+      String name, String owner, String group, short perm) throws IOException {
+    PermissionStatus permStatus = PermissionStatus.createImmutable(owner, group,
+      FsPermission.createImmutable(perm));
+    INodeDirectory inodeDirectory = new INodeDirectory(
+      INodeId.GRANDFATHER_INODE_ID, name.getBytes("UTF-8"), permStatus, 0L);
+    parent.addChild(inodeDirectory);
+    return inodeDirectory;
   }
 
   private static INodeFile createINodeFile(INodeDirectory parent, String name,
