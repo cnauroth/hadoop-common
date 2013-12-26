@@ -100,9 +100,24 @@ public class TestFSPermissionChecker {
   }
 
   @Test
+  public void testAclNamedUserDeny() throws IOException {
+    INodeFile inodeFile = createINodeFile(inodeRoot, "file1", "bruce", "execs",
+      (short)0644);
+    addAcl(inodeFile,
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, USER, "diana", NONE),
+      aclEntry(ACCESS, GROUP, READ),
+      aclEntry(ACCESS, MASK, READ),
+      aclEntry(ACCESS, OTHER, READ));
+    assertPermissionGranted(BRUCE, "/file1", READ_WRITE);
+    assertPermissionGranted(CLARK, "/file1", READ);
+    assertPermissionDenied(DIANA, "/file1", READ);
+  }
+
+  @Test
   public void testAclNamedUserMask() throws IOException {
     INodeFile inodeFile = createINodeFile(inodeRoot, "file1", "bruce", "execs",
-      (short)0640);
+      (short)0620);
     addAcl(inodeFile,
       aclEntry(ACCESS, USER, READ_WRITE),
       aclEntry(ACCESS, USER, "diana", READ),
@@ -139,7 +154,7 @@ public class TestFSPermissionChecker {
   @Test
   public void testAclGroupDeny() throws IOException {
     INodeFile inodeFile = createINodeFile(inodeRoot, "file1", "bruce", "sales",
-      (short)0640);
+      (short)0604);
     addAcl(inodeFile,
       aclEntry(ACCESS, USER, READ_WRITE),
       aclEntry(ACCESS, GROUP, NONE),
@@ -159,7 +174,7 @@ public class TestFSPermissionChecker {
   @Test
   public void testAclGroupMask() throws IOException {
     INodeFile inodeFile = createINodeFile(inodeRoot, "file1", "bruce", "execs",
-      (short)0640);
+      (short)0644);
     addAcl(inodeFile,
       aclEntry(ACCESS, USER, READ_WRITE),
       aclEntry(ACCESS, GROUP, READ_WRITE),
@@ -198,7 +213,7 @@ public class TestFSPermissionChecker {
   @Test
   public void testAclNamedGroupDeny() throws IOException {
     INodeFile inodeFile = createINodeFile(inodeRoot, "file1", "bruce", "sales",
-      (short)0640);
+      (short)0644);
     addAcl(inodeFile,
       aclEntry(ACCESS, USER, READ_WRITE),
       aclEntry(ACCESS, GROUP, READ),
@@ -219,7 +234,7 @@ public class TestFSPermissionChecker {
   @Test
   public void testAclNamedGroupMask() throws IOException {
     INodeFile inodeFile = createINodeFile(inodeRoot, "file1", "bruce", "execs",
-      (short)0640);
+      (short)0644);
     addAcl(inodeFile,
       aclEntry(ACCESS, USER, READ_WRITE),
       aclEntry(ACCESS, GROUP, READ),
@@ -240,7 +255,7 @@ public class TestFSPermissionChecker {
   @Test
   public void testAclOther() throws IOException {
     INodeFile inodeFile = createINodeFile(inodeRoot, "file1", "bruce", "sales",
-      (short)0640);
+      (short)0774);
     addAcl(inodeFile,
       aclEntry(ACCESS, USER, ALL),
       aclEntry(ACCESS, USER, "diana", ALL),
