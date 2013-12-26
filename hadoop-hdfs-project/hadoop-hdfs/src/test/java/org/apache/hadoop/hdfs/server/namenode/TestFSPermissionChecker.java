@@ -68,7 +68,6 @@ public class TestFSPermissionChecker {
       (short)0640);
     addAcl(inodeFile,
       aclEntry(ACCESS, USER, READ_WRITE),
-      aclEntry(ACCESS, USER, "diana", READ),
       aclEntry(ACCESS, GROUP, READ),
       aclEntry(ACCESS, MASK, READ),
       aclEntry(ACCESS, OTHER, NONE));
@@ -76,44 +75,187 @@ public class TestFSPermissionChecker {
     assertPermissionGranted(BRUCE, "/file1", WRITE);
     assertPermissionGranted(BRUCE, "/file1", READ_WRITE);
     assertPermissionDenied(BRUCE, "/file1", EXECUTE);
+    assertPermissionDenied(DIANA, "/file1", READ);
+    assertPermissionDenied(DIANA, "/file1", WRITE);
+    assertPermissionDenied(DIANA, "/file1", EXECUTE);
+  }
+
+  @Test
+  public void testAclNamedUser() throws IOException {
+    INodeFile inodeFile = createINodeFile(inodeRoot, "file1", "bruce", "execs",
+      (short)0640);
+    addAcl(inodeFile,
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, USER, "diana", READ),
+      aclEntry(ACCESS, GROUP, READ),
+      aclEntry(ACCESS, MASK, READ),
+      aclEntry(ACCESS, OTHER, NONE));
     assertPermissionGranted(DIANA, "/file1", READ);
     assertPermissionDenied(DIANA, "/file1", WRITE);
+    assertPermissionDenied(DIANA, "/file1", EXECUTE);
+    assertPermissionDenied(DIANA, "/file1", READ_WRITE);
+    assertPermissionDenied(DIANA, "/file1", READ_EXECUTE);
+    assertPermissionDenied(DIANA, "/file1", WRITE_EXECUTE);
+    assertPermissionDenied(DIANA, "/file1", ALL);
   }
 
   @Test
-  public void testAclNamedUser() {
+  public void testAclNamedUserMask() throws IOException {
+    INodeFile inodeFile = createINodeFile(inodeRoot, "file1", "bruce", "execs",
+      (short)0640);
+    addAcl(inodeFile,
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, USER, "diana", READ),
+      aclEntry(ACCESS, GROUP, READ),
+      aclEntry(ACCESS, MASK, WRITE),
+      aclEntry(ACCESS, OTHER, NONE));
+    assertPermissionDenied(DIANA, "/file1", READ);
+    assertPermissionDenied(DIANA, "/file1", WRITE);
+    assertPermissionDenied(DIANA, "/file1", EXECUTE);
+    assertPermissionDenied(DIANA, "/file1", READ_WRITE);
+    assertPermissionDenied(DIANA, "/file1", READ_EXECUTE);
+    assertPermissionDenied(DIANA, "/file1", WRITE_EXECUTE);
+    assertPermissionDenied(DIANA, "/file1", ALL);
   }
 
   @Test
-  public void testAclNamedUserMask() {
+  public void testAclGroup() throws IOException {
+    INodeFile inodeFile = createINodeFile(inodeRoot, "file1", "bruce", "execs",
+      (short)0640);
+    addAcl(inodeFile,
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, GROUP, READ),
+      aclEntry(ACCESS, MASK, READ),
+      aclEntry(ACCESS, OTHER, NONE));
+    assertPermissionGranted(CLARK, "/file1", READ);
+    assertPermissionDenied(CLARK, "/file1", WRITE);
+    assertPermissionDenied(CLARK, "/file1", EXECUTE);
+    assertPermissionDenied(CLARK, "/file1", READ_WRITE);
+    assertPermissionDenied(CLARK, "/file1", READ_EXECUTE);
+    assertPermissionDenied(CLARK, "/file1", WRITE_EXECUTE);
+    assertPermissionDenied(CLARK, "/file1", ALL);
   }
 
   @Test
-  public void testAclGroup() {
+  public void testAclGroupDeny() throws IOException {
+    INodeFile inodeFile = createINodeFile(inodeRoot, "file1", "bruce", "sales",
+      (short)0640);
+    addAcl(inodeFile,
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, GROUP, NONE),
+      aclEntry(ACCESS, MASK, NONE),
+      aclEntry(ACCESS, OTHER, READ));
+    assertPermissionGranted(BRUCE, "/file1", READ_WRITE);
+    assertPermissionGranted(CLARK, "/file1", READ);
+    assertPermissionDenied(DIANA, "/file1", READ);
+    assertPermissionDenied(DIANA, "/file1", WRITE);
+    assertPermissionDenied(DIANA, "/file1", EXECUTE);
+    assertPermissionDenied(DIANA, "/file1", READ_WRITE);
+    assertPermissionDenied(DIANA, "/file1", READ_EXECUTE);
+    assertPermissionDenied(DIANA, "/file1", WRITE_EXECUTE);
+    assertPermissionDenied(DIANA, "/file1", ALL);
   }
 
   @Test
-  public void testAclGroupDeny() {
+  public void testAclGroupMask() throws IOException {
+    INodeFile inodeFile = createINodeFile(inodeRoot, "file1", "bruce", "execs",
+      (short)0640);
+    addAcl(inodeFile,
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, GROUP, READ_WRITE),
+      aclEntry(ACCESS, MASK, READ),
+      aclEntry(ACCESS, OTHER, READ));
+    assertPermissionGranted(BRUCE, "/file1", READ_WRITE);
+    assertPermissionGranted(CLARK, "/file1", READ);
+    assertPermissionDenied(CLARK, "/file1", WRITE);
+    assertPermissionDenied(CLARK, "/file1", EXECUTE);
+    assertPermissionDenied(CLARK, "/file1", READ_WRITE);
+    assertPermissionDenied(CLARK, "/file1", READ_EXECUTE);
+    assertPermissionDenied(CLARK, "/file1", WRITE_EXECUTE);
+    assertPermissionDenied(CLARK, "/file1", ALL);
   }
 
   @Test
-  public void testAclGroupMask() {
+  public void testAclNamedGroup() throws IOException {
+    INodeFile inodeFile = createINodeFile(inodeRoot, "file1", "bruce", "execs",
+      (short)0640);
+    addAcl(inodeFile,
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, GROUP, READ),
+      aclEntry(ACCESS, GROUP, "sales", READ),
+      aclEntry(ACCESS, MASK, READ),
+      aclEntry(ACCESS, OTHER, NONE));
+    assertPermissionGranted(BRUCE, "/file1", READ_WRITE);
+    assertPermissionGranted(CLARK, "/file1", READ);
+    assertPermissionGranted(DIANA, "/file1", READ);
+    assertPermissionDenied(DIANA, "/file1", WRITE);
+    assertPermissionDenied(DIANA, "/file1", EXECUTE);
+    assertPermissionDenied(DIANA, "/file1", READ_WRITE);
+    assertPermissionDenied(DIANA, "/file1", READ_EXECUTE);
+    assertPermissionDenied(DIANA, "/file1", ALL);
   }
 
   @Test
-  public void testAclNamedGroup() {
+  public void testAclNamedGroupDeny() throws IOException {
+    INodeFile inodeFile = createINodeFile(inodeRoot, "file1", "bruce", "sales",
+      (short)0640);
+    addAcl(inodeFile,
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, GROUP, READ),
+      aclEntry(ACCESS, GROUP, "execs", NONE),
+      aclEntry(ACCESS, MASK, READ),
+      aclEntry(ACCESS, OTHER, READ));
+    assertPermissionGranted(BRUCE, "/file1", READ_WRITE);
+    assertPermissionGranted(DIANA, "/file1", READ);
+    assertPermissionDenied(CLARK, "/file1", READ);
+    assertPermissionDenied(CLARK, "/file1", WRITE);
+    assertPermissionDenied(CLARK, "/file1", EXECUTE);
+    assertPermissionDenied(CLARK, "/file1", READ_WRITE);
+    assertPermissionDenied(CLARK, "/file1", READ_EXECUTE);
+    assertPermissionDenied(CLARK, "/file1", WRITE_EXECUTE);
+    assertPermissionDenied(CLARK, "/file1", ALL);
   }
 
   @Test
-  public void testAclNamedGroupDeny() {
+  public void testAclNamedGroupMask() throws IOException {
+    INodeFile inodeFile = createINodeFile(inodeRoot, "file1", "bruce", "execs",
+      (short)0640);
+    addAcl(inodeFile,
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, GROUP, READ),
+      aclEntry(ACCESS, GROUP, "sales", READ_WRITE),
+      aclEntry(ACCESS, MASK, READ),
+      aclEntry(ACCESS, OTHER, READ));
+    assertPermissionGranted(BRUCE, "/file1", READ_WRITE);
+    assertPermissionGranted(CLARK, "/file1", READ);
+    assertPermissionGranted(DIANA, "/file1", READ);
+    assertPermissionDenied(DIANA, "/file1", WRITE);
+    assertPermissionDenied(DIANA, "/file1", EXECUTE);
+    assertPermissionDenied(DIANA, "/file1", READ_WRITE);
+    assertPermissionDenied(DIANA, "/file1", READ_EXECUTE);
+    assertPermissionDenied(DIANA, "/file1", WRITE_EXECUTE);
+    assertPermissionDenied(DIANA, "/file1", ALL);
   }
 
   @Test
-  public void testAclNamedGroupMask() {
-  }
-
-  @Test
-  public void testAclOther() {
+  public void testAclOther() throws IOException {
+    INodeFile inodeFile = createINodeFile(inodeRoot, "file1", "bruce", "sales",
+      (short)0640);
+    addAcl(inodeFile,
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, USER, "diana", ALL),
+      aclEntry(ACCESS, GROUP, READ_WRITE),
+      aclEntry(ACCESS, MASK, ALL),
+      aclEntry(ACCESS, OTHER, READ));
+    assertPermissionGranted(BRUCE, "/file1", ALL);
+    assertPermissionGranted(DIANA, "/file1", ALL);
+    assertPermissionGranted(CLARK, "/file1", READ);
+    assertPermissionDenied(CLARK, "/file1", WRITE);
+    assertPermissionDenied(CLARK, "/file1", EXECUTE);
+    assertPermissionDenied(CLARK, "/file1", READ_WRITE);
+    assertPermissionDenied(CLARK, "/file1", READ_EXECUTE);
+    assertPermissionDenied(CLARK, "/file1", WRITE_EXECUTE);
+    assertPermissionDenied(CLARK, "/file1", ALL);
   }
 
   private static AclEntry aclEntry(AclEntryScope scope, AclEntryType type,
