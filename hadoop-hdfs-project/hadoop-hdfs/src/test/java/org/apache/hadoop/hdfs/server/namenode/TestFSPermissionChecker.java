@@ -38,7 +38,9 @@ import org.apache.hadoop.security.AccessControlException;
 import org.apache.hadoop.security.UserGroupInformation;
 
 /**
- * Unit tests covering FSPermissionChecker.
+ * Unit tests covering FSPermissionChecker.  All tests in this suite have been
+ * cross-validated against Linux setfacl/getfacl to check for consistency of the
+ * HDFS implementation.
  */
 public class TestFSPermissionChecker {
   private static final long PREFERRED_BLOCK_SIZE = 128 * 1024 * 1024;
