@@ -294,7 +294,7 @@ class FSPermissionChecker {
           matchingEntry = entry;
           break;
         }
-      } else if (type == AclEntryType.USER && name != null) {
+      } else if (type == AclEntryType.USER) {
         // This is a named user entry.  If the user matches the name, then use
         // this entry.  We cannot exit early, because we need to find the mask.
         if (user.equals(name)) {
@@ -321,7 +321,7 @@ class FSPermissionChecker {
         // Remember the mask for later.  We cannot exit early, because we might
         // need to find the other entry.
         mask = entry;
-      } else if (type == AclEntryType.OTHER) {
+      } else {
         // This is the other entry, which is used if no other entry matched.
         // However, if the user is a member of the file's group or a named group
         // and they haven't been granted access at this point, then they need to
