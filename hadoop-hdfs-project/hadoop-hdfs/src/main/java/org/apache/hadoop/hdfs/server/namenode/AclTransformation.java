@@ -17,16 +17,22 @@
  */
 package org.apache.hadoop.hdfs.server.namenode;
 
+import static org.apache.hadoop.fs.permission.AclEntryScope.*;
+import static org.apache.hadoop.fs.permission.AclEntryType.*;
+
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
 
 import com.google.common.base.Objects;
+import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Ordering;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.fs.permission.AclEntry;
@@ -49,10 +55,9 @@ import org.apache.hadoop.hdfs.protocol.AclException;
  * The algorithms implemented here require sorted lists of ACL entries.  For any
  * existing ACL, it is assumed that the entries are sorted.  This is because all
  * ACL creation and modification is intended to go through these methods, and
- * they all guarantee correct sort order in their outputs due to explicit
- * sorting and reliance on the natural ordering defined in
- * {@link AclEntry#compareTo}.  However, an ACL spec is considered untrusted
- * user input, so all operations pre-sort the ACL spec as the first step.
+ * they all guarantee correct sort order in their outputs.  However, an ACL spec
+ * is considered untrusted user input, so all operations pre-sort the ACL spec as
+ * the first step.
  */
 @InterfaceAudience.Private
 final class AclTransformation {
@@ -82,11 +87,11 @@ final class AclTransformation {
     for (AclEntry existingEntry: existingAcl) {
       if (aclSpec.containsKey(existingEntry)) {
         scopeDirty.add(existingEntry.getScope());
-        if (existingEntry.getType() == AclEntryType.MASK) {
+        if (existingEntry.getType() == MASK) {
           maskDirty.add(existingEntry.getScope());
         }
       } else {
-        if (existingEntry.getType() == AclEntryType.MASK) {
+        if (existingEntry.getType() == MASK) {
           providedMask.put(existingEntry.getScope(), existingEntry);
         } else {
           aclBuilder.add(existingEntry);
@@ -110,7 +115,7 @@ final class AclTransformation {
       List<AclEntry> existingAcl) throws AclException {
     ArrayList<AclEntry> aclBuilder = Lists.newArrayListWithCapacity(MAX_ENTRIES);
     for (AclEntry existingEntry: existingAcl) {
-      if (existingEntry.getScope() == AclEntryScope.DEFAULT) {
+      if (existingEntry.getScope() == DEFAULT) {
         // Default entries sort after access entries, so we can exit early.
         break;
       }
@@ -144,14 +149,14 @@ final class AclTransformation {
       if (aclSpecEntry != null) {
         foundAclSpecEntries.add(aclSpecEntry);
         scopeDirty.add(aclSpecEntry.getScope());
-        if (aclSpecEntry.getType() == AclEntryType.MASK) {
+        if (aclSpecEntry.getType() == MASK) {
           providedMask.put(aclSpecEntry.getScope(), aclSpecEntry);
           maskDirty.add(aclSpecEntry.getScope());
         } else {
           aclBuilder.add(aclSpecEntry);
         }
       } else {
-        if (existingEntry.getType() == AclEntryType.MASK) {
+        if (existingEntry.getType() == MASK) {
           providedMask.put(existingEntry.getScope(), existingEntry);
         } else {
           aclBuilder.add(existingEntry);
@@ -160,9 +165,10 @@ final class AclTransformation {
     }
     // ACL spec entries that were not replacements are new additions.
     for (AclEntry newEntry: aclSpec) {
-      if (Collections.binarySearch(foundAclSpecEntries, newEntry) < 0) {
+      if (Collections.binarySearch(foundAclSpecEntries, newEntry,
+          ACL_ENTRY_COMPARATOR) < 0) {
         scopeDirty.add(newEntry.getScope());
-        if (newEntry.getType() == AclEntryType.MASK) {
+        if (newEntry.getType() == MASK) {
           providedMask.put(newEntry.getScope(), newEntry);
           maskDirty.add(newEntry.getScope());
         } else {
@@ -201,7 +207,7 @@ final class AclTransformation {
     EnumSet<AclEntryScope> scopeDirty = EnumSet.noneOf(AclEntryScope.class);
     for (AclEntry aclSpecEntry: aclSpec) {
       scopeDirty.add(aclSpecEntry.getScope());
-      if (aclSpecEntry.getType() == AclEntryType.MASK) {
+      if (aclSpecEntry.getType() == MASK) {
         providedMask.put(aclSpecEntry.getScope(), aclSpecEntry);
         maskDirty.add(aclSpecEntry.getScope());
       } else {
@@ -211,7 +217,7 @@ final class AclTransformation {
     // Copy existing entries if the scope was not replaced.
     for (AclEntry existingEntry: existingAcl) {
       if (!scopeDirty.contains(existingEntry.getScope())) {
-        if (existingEntry.getType() == AclEntryType.MASK) {
+        if (existingEntry.getType() == MASK) {
           providedMask.put(existingEntry.getScope(), existingEntry);
         } else {
           aclBuilder.add(existingEntry);
@@ -230,6 +236,31 @@ final class AclTransformation {
   }
 
   /**
+   * Comparator that enforces required ordering for entries within an ACL:
+   * -owner entry (unnamed user)
+   * -all named user entries (internal ordering undefined)
+   * -owning group entry (unnamed group)
+   * -all named group entries (internal ordering undefined)
+   * -mask entry
+   * -other entry
+   * All access ACL entries sort ahead of all default ACL entries.
+   */
+  private static final Comparator<AclEntry> ACL_ENTRY_COMPARATOR =
+    new Comparator<AclEntry>() {
+      @Override
+      public int compare(AclEntry entry1, AclEntry entry2) {
+        return ComparisonChain.start()
+          .compare(entry1.getScope(), entry2.getScope(),
+            Ordering.explicit(ACCESS, DEFAULT))
+          .compare(entry1.getType(), entry2.getType(),
+            Ordering.explicit(USER, GROUP, MASK, OTHER))
+          .compare(entry1.getName(), entry2.getName(),
+            Ordering.natural().nullsFirst())
+          .result();
+      }
+    };
+
+  /**
    * Builds the final list of ACL entries to return by trimming, sorting and
    * validating the ACL entries that have been added.
    *
@@ -244,27 +275,28 @@ final class AclTransformation {
         " entries, which exceeds maximum of " + MAX_ENTRIES + ".");
     }
     aclBuilder.trimToSize();
-    Collections.sort(aclBuilder);
+    Collections.sort(aclBuilder, ACL_ENTRY_COMPARATOR);
     AclEntry userEntry = null, groupEntry = null, otherEntry = null;
     AclEntry prevEntry = null;
     for (AclEntry entry: aclBuilder) {
-      if (prevEntry != null && prevEntry.compareTo(entry) == 0) {
+      if (prevEntry != null &&
+          ACL_ENTRY_COMPARATOR.compare(prevEntry, entry) == 0) {
         throw new AclException(
           "Invalid ACL: multiple entries with same scope, type and name.");
       }
-      if (entry.getName() != null && (entry.getType() == AclEntryType.MASK ||
-          entry.getType() == AclEntryType.OTHER)) {
+      if (entry.getName() != null && (entry.getType() == MASK ||
+          entry.getType() == OTHER)) {
         throw new AclException(
           "Invalid ACL: this entry type must not have a name: " + entry + ".");
       }
-      if (entry.getScope() == AclEntryScope.ACCESS) {
-        if (entry.getType() == AclEntryType.USER && entry.getName() == null) {
+      if (entry.getScope() == ACCESS) {
+        if (entry.getType() == USER && entry.getName() == null) {
           userEntry = entry;
         }
-        if (entry.getType() == AclEntryType.GROUP && entry.getName() == null) {
+        if (entry.getType() == GROUP && entry.getName() == null) {
           groupEntry = entry;
         }
-        if (entry.getType() == AclEntryType.OTHER && entry.getName() == null) {
+        if (entry.getType() == OTHER && entry.getName() == null) {
           otherEntry = entry;
         }
       }
@@ -311,8 +343,7 @@ final class AclTransformation {
     // union of group class permissions in each scope.
     for (AclEntry entry: aclBuilder) {
       scopeFound.add(entry.getScope());
-      if (entry.getType() == AclEntryType.GROUP ||
-          entry.getName() != null) {
+      if (entry.getType() == GROUP || entry.getName() != null) {
         FsAction scopeUnionPerms = Objects.firstNonNull(
           unionPerms.get(entry.getScope()), FsAction.NONE);
         unionPerms.put(entry.getScope(),
@@ -334,7 +365,7 @@ final class AclTransformation {
       } else if (maskNeeded.contains(scope)) {
         aclBuilder.add(new AclEntry.Builder()
           .setScope(scope)
-          .setType(AclEntryType.MASK)
+          .setType(MASK)
           .setPermission(unionPerms.get(scope))
           .build());
       }
@@ -354,25 +385,25 @@ final class AclTransformation {
     boolean hasDefaultEntries = false;
     // Gather provided owner, group and other entries in each scope.
     for (AclEntry entry: aclBuilder) {
-      if (entry.getScope() == AclEntryScope.ACCESS) {
-        if (entry.getType() == AclEntryType.USER && entry.getName() == null) {
+      if (entry.getScope() == ACCESS) {
+        if (entry.getType() == USER && entry.getName() == null) {
           userEntry = entry;
         }
-        if (entry.getType() == AclEntryType.GROUP && entry.getName() == null) {
+        if (entry.getType() == GROUP && entry.getName() == null) {
           groupEntry = entry;
         }
-        if (entry.getType() == AclEntryType.OTHER && entry.getName() == null) {
+        if (entry.getType() == OTHER && entry.getName() == null) {
           otherEntry = entry;
         }
       } else {
         hasDefaultEntries = true;
-        if (entry.getType() == AclEntryType.USER && entry.getName() == null) {
+        if (entry.getType() == USER && entry.getName() == null) {
           defaultUserEntry = entry;
         }
-        if (entry.getType() == AclEntryType.GROUP && entry.getName() == null) {
+        if (entry.getType() == GROUP && entry.getName() == null) {
           defaultGroupEntry = entry;
         }
-        if (entry.getType() == AclEntryType.OTHER && entry.getName() == null) {
+        if (entry.getType() == OTHER && entry.getName() == null) {
           defaultOtherEntry = entry;
         }
       }
@@ -399,7 +430,7 @@ final class AclTransformation {
       AclEntry defaultEntry, AclEntry entryToCopy) {
     if (defaultEntry == null && entryToCopy != null) {
       aclBuilder.add(new AclEntry.Builder()
-        .setScope(AclEntryScope.DEFAULT)
+        .setScope(DEFAULT)
         .setType(entryToCopy.getType())
         .setPermission(entryToCopy.getPermission())
         .build());
@@ -432,7 +463,7 @@ final class AclTransformation {
         throw new AclException("Invalid ACL: ACL spec has " + aclSpec.size() +
           " entries, which exceeds maximum of " + MAX_ENTRIES + ".");
       }
-      Collections.sort(aclSpec);
+      Collections.sort(aclSpec, ACL_ENTRY_COMPARATOR);
       this.aclSpec = aclSpec;
     }
 
@@ -444,7 +475,7 @@ final class AclTransformation {
      * @return boolean true if found
      */
     public boolean containsKey(AclEntry key) {
-      return Collections.binarySearch(aclSpec, key) >= 0;
+      return Collections.binarySearch(aclSpec, key, ACL_ENTRY_COMPARATOR) >= 0;
     }
 
     /**
@@ -455,7 +486,7 @@ final class AclTransformation {
      * @return AclEntry entry matching the given key or null if not found
      */
     public AclEntry findByKey(AclEntry key) {
-      int index = Collections.binarySearch(aclSpec, key);
+      int index = Collections.binarySearch(aclSpec, key, ACL_ENTRY_COMPARATOR);
       if (index >= 0) {
         return aclSpec.get(index);
       }
