@@ -379,61 +379,40 @@ final class AclTransformation {
    * @param aclBuilder ArrayList<AclEntry> containing entries to build
    */
   private static void copyDefaultsIfNeeded(List<AclEntry> aclBuilder) {
-    AclEntry userEntry = null, groupEntry = null, otherEntry = null;
-    AclEntry defaultUserEntry = null, defaultGroupEntry = null,
-      defaultOtherEntry = null;
-    boolean hasDefaultEntries = false;
-    // Gather provided owner, group and other entries in each scope.
-    for (AclEntry entry: aclBuilder) {
-      if (entry.getScope() == ACCESS) {
-        if (entry.getType() == USER && entry.getName() == null) {
-          userEntry = entry;
-        }
-        if (entry.getType() == GROUP && entry.getName() == null) {
-          groupEntry = entry;
-        }
-        if (entry.getType() == OTHER && entry.getName() == null) {
-          otherEntry = entry;
-        }
-      } else {
-        hasDefaultEntries = true;
-        if (entry.getType() == USER && entry.getName() == null) {
-          defaultUserEntry = entry;
-        }
-        if (entry.getType() == GROUP && entry.getName() == null) {
-          defaultGroupEntry = entry;
-        }
-        if (entry.getType() == OTHER && entry.getName() == null) {
-          defaultOtherEntry = entry;
-        }
+    int pivot = -1;
+    for (int i = 0; i < aclBuilder.size(); ++i) {
+      if (aclBuilder.get(i).getScope() == DEFAULT) {
+        pivot = i;
+        break;
       }
     }
-    // If there are any default entries, but a default owner, group or other
-    // entry was not provided, then create it automatically by copying
-    // permissions from the corresponding access entry.
-    if (hasDefaultEntries) {
-      copyDefaultIfNeeded(aclBuilder, defaultUserEntry, userEntry);
-      copyDefaultIfNeeded(aclBuilder, defaultGroupEntry, groupEntry);
-      copyDefaultIfNeeded(aclBuilder, defaultOtherEntry, otherEntry);
-    }
-  }
-
-  /**
-   * Adds the first entry if not null.  Otherwise, creates a copy of the second
-   * entry with the scope changed to default and adds that.
-   *
-   * @param aclBuilder List<AclEntry> containing entries to build
-   * @param defaultEntry AclEntry provided default entry
-   * @param entryToCopy AclEntry entry to copy if the provided entry is null
-   */
-  private static void copyDefaultIfNeeded(List<AclEntry> aclBuilder,
-      AclEntry defaultEntry, AclEntry entryToCopy) {
-    if (defaultEntry == null && entryToCopy != null) {
-      aclBuilder.add(new AclEntry.Builder()
-        .setScope(DEFAULT)
-        .setType(entryToCopy.getType())
-        .setPermission(entryToCopy.getPermission())
-        .build());
+    if (pivot > -1) {
+      List<AclEntry> accessEntries = aclBuilder.subList(0, pivot);
+      List<AclEntry> defaultEntries = aclBuilder.subList(pivot,
+        aclBuilder.size());
+      List<AclEntry> copiedEntries = Lists.newArrayListWithCapacity(3);
+      for (AclEntryType type: EnumSet.of(USER, GROUP, OTHER)) {
+        AclEntry defaultEntryKey = new AclEntry.Builder().setScope(DEFAULT)
+          .setType(type).build();
+        int defaultEntryIndex = Collections.binarySearch(defaultEntries,
+          defaultEntryKey, ACL_ENTRY_COMPARATOR);
+        if (defaultEntryIndex < 0) {
+          AclEntry accessEntryKey = new AclEntry.Builder().setScope(ACCESS)
+            .setType(type).build();
+          int accessEntryIndex = Collections.binarySearch(accessEntries,
+            accessEntryKey, ACL_ENTRY_COMPARATOR);
+          if (accessEntryIndex >= 0) {
+            copiedEntries.add(new AclEntry.Builder()
+              .setScope(DEFAULT)
+              .setType(type)
+              .setPermission(accessEntries.get(accessEntryIndex).getPermission())
+              .build());
+          }
+        }
+      }
+      // Add all copied entries when done to prevent potential issues with binary
+      // search on a modified aclBulider during the main loop.
+      aclBuilder.addAll(copiedEntries);
     }
   }
 
