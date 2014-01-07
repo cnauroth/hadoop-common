@@ -7,9 +7,9 @@ HDFS-4685 (Unreleased)
   NEW FEATURES
 
   IMPROVEMENTS
-    HDFS-5594. FileSystem API for ACLs. (cnauroth)
+    HADOOP-10185. FileSystem API for ACLs. (cnauroth)
 
-    HDFS-5650. Remove AclReadFlag and AclWriteFlag in FileSystem API.
+    HADOOP-10186. Remove AclReadFlag and AclWriteFlag in FileSystem API.
     (Haohui Mai via cnauroth)
 
     HDFS-5596. Implement RPC stubs. (Haohui Mai via cnauroth)
@@ -20,6 +20,13 @@ HDFS-4685 (Unreleased)
 
     HDFS-5619. NameNode: record ACL modifications to edit log.
     (Haohui Mai via cnauroth)
+
+    HADOOP-10187. FsShell CLI: add getfacl and setfacl with minimal support for
+    getting and setting ACLs. (Vinay via cnauroth)
+
+    HADOOP-10192. FileSystem#getAclStatus has incorrect JavaDocs. (cnauroth)
+
+    HDFS-5673. Implement logic for modification of ACLs. (cnauroth)
 
   OPTIMIZATIONS
 

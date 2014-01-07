@@ -15,22 +15,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.hadoop.hdfs.protocol;
 
-package org.apache.hadoop.yarn.exceptions;
+import java.io.IOException;
 
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceStability;
 
 /**
- * Exception to be thrown when an Active-Only operation is attempted on a
- * ResourceManager that is not Active.
+ * Indicates a failure manipulating an ACL.
  */
 @InterfaceAudience.Private
-@InterfaceStability.Evolving
-public class RMNotYetActiveException extends YarnException {
+public class AclException extends IOException {
   private static final long serialVersionUID = 1L;
 
-  public RMNotYetActiveException() {
-    super("ResourceManager is not yet Active!");
+  /**
+   * Creates a new AclException.
+   *
+   * @param message String message
+   */
+  public AclException(String message) {
+    super(message);
   }
 }
