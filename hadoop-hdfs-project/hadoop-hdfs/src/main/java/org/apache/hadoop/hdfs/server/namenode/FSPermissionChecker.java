@@ -268,8 +268,7 @@ class FSPermissionChecker {
    * Checks requested access against an Access Control List.  This logic relies
    * on receiving the ACL entries in sorted order.  This is assumed to be true,
    * because the ACL modification methods in {@link AclTransformation} sort the
-   * resulting entries by the natural ordering defined in
-   * {@link AclEntry#compareTo}.
+   * resulting entries.
    *
    * @param inode INode accessed inode
    * @param snapshot Snapshot of accessed inode
