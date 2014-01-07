@@ -24,6 +24,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
@@ -40,6 +41,8 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathIsNotDirectoryException;
 import org.apache.hadoop.fs.UnresolvedLinkException;
 import org.apache.hadoop.fs.permission.AclEntry;
+import org.apache.hadoop.fs.permission.AclEntryScope;
+import org.apache.hadoop.fs.permission.AclEntryType;
 import org.apache.hadoop.fs.permission.AclStatus;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
@@ -47,6 +50,7 @@ import org.apache.hadoop.fs.permission.PermissionStatus;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DFSUtil;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
+import org.apache.hadoop.hdfs.protocol.AclException;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.ClientProtocol;
 import org.apache.hadoop.hdfs.protocol.DirectoryListing;
@@ -76,7 +80,10 @@ import org.apache.hadoop.hdfs.util.ChunkedArrayList;
 import org.apache.hadoop.hdfs.util.ReadOnlyList;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 /*************************************************
  * FSDirectory stores the filesystem directory state.
@@ -2634,6 +2641,110 @@ public class FSDirectory implements Closeable {
     final INodeSymlink symlink = new INodeSymlink(id, null, perm, mtime, atime,
         target);
     return addINode(path, symlink) ? symlink : null;
+  }
+
+  void modifyAclEntries(String src, List<AclEntry> aclSpec)
+      throws UnresolvedLinkException, SnapshotAccessControlException,
+      FileNotFoundException, AclException, QuotaExceededException {
+    writeLock();
+    try {
+      List<AclEntry> newAcl = unprotectedModifyAclEntries(src, aclSpec);
+      fsImage.getEditLog().logSetAcl(src, newAcl);
+    } finally {
+      writeUnlock();
+    }
+  }
+
+  private List<AclEntry> unprotectedModifyAclEntries(String src,
+      List<AclEntry> aclSpec) throws UnresolvedLinkException,
+      SnapshotAccessControlException, FileNotFoundException, AclException,
+      QuotaExceededException {
+    assert hasWriteLock();
+    INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
+    INode inode = iip.getLastINode();
+    if (!(inode instanceof INodeWithAdditionalFields))
+      throw new FileNotFoundException("cannot find " + src);
+    INodeWithAdditionalFields node = (INodeWithAdditionalFields)inode;
+    AclFeature aclFeature = node.getAclFeature();
+    Snapshot snapshot = iip.getLatestSnapshot();
+    FsPermission existingPerm = inode.getPermissionStatus(snapshot)
+      .getPermission();
+    final List<AclEntry> existingAcl;
+    if (aclFeature != null) {
+      existingAcl = aclFeature.getEntries();
+    } else {
+      existingAcl = Lists.newArrayList(
+        new AclEntry.Builder()
+          .setScope(AclEntryScope.ACCESS)
+          .setType(AclEntryType.USER)
+          .setPermission(existingPerm.getUserAction())
+          .build(),
+        new AclEntry.Builder()
+          .setScope(AclEntryScope.ACCESS)
+          .setType(AclEntryType.GROUP)
+          .setPermission(existingPerm.getGroupAction())
+          .build(),
+        new AclEntry.Builder()
+          .setScope(AclEntryScope.ACCESS)
+          .setType(AclEntryType.OTHER)
+          .setPermission(existingPerm.getOtherAction())
+          .build());
+    }
+    List<AclEntry> newAcl = AclTransformation.mergeAclEntries(existingAcl,
+      aclSpec);
+    if (newAcl.size() > 3) {
+      if (aclFeature == null) {
+        aclFeature = new AclFeature();
+        node.addAclFeature(aclFeature);
+      }
+      aclFeature.setEntries(newAcl);
+    } else {
+      if (aclFeature != null) {
+        node.removeAclFeature();
+      }
+    }
+    EnumMap<AclEntryType, FsAction> perms = Maps.newEnumMap(AclEntryType.class);
+    for (AclEntry entry: newAcl) {
+      if (entry.getScope() == AclEntryScope.ACCESS) {
+        perms.put(entry.getType(), entry.getPermission());
+      }
+    }
+    FsPermission newPerm = new FsPermission(perms.get(AclEntryType.USER),
+      Objects.firstNonNull(perms.get(AclEntryType.MASK), perms.get(AclEntryType.GROUP)),
+      perms.get(AclEntryType.OTHER), existingPerm.getStickyBit());
+    inode.setPermission(newPerm, snapshot);
+    return newAcl;
+  }
+
+  void removeAclEntries(String src, List<AclEntry> aclSpec) {
+    writeLock();
+    try {
+      List<AclEntry> newAcl = unprotectedRemoveAclEntries(src, aclSpec);
+      fsImage.getEditLog().logSetAcl(src, newAcl);
+    } finally {
+      writeUnlock();
+    }
+  }
+
+  private List<AclEntry> unprotectedRemoveAclEntries(String src,
+      List<AclEntry> aclSpec) {
+    assert hasWriteLock();
+    return null;
+  }
+
+  void removeDefaultAcl(String src) {
+    writeLock();
+    try {
+      List<AclEntry> newAcl = unprotectedRemoveDefaultAcl(src);
+      fsImage.getEditLog().logSetAcl(src, newAcl);
+    } finally {
+      writeUnlock();
+    }
+  }
+
+  private List<AclEntry> unprotectedRemoveDefaultAcl(String src) {
+    assert hasWriteLock();
+    return null;
   }
 
   void removeAcl(String src) throws IOException {
