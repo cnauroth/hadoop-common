@@ -20,6 +20,7 @@ package org.apache.hadoop.hdfs.server.namenode;
 import static org.apache.hadoop.fs.permission.AclEntryScope.*;
 import static org.apache.hadoop.fs.permission.AclEntryType.*;
 import static org.apache.hadoop.fs.permission.FsAction.*;
+import static org.apache.hadoop.hdfs.server.namenode.AclTestHelpers.*;
 import static org.junit.Assert.*;
 
 import java.io.IOException;
@@ -341,41 +342,6 @@ public class TestFSPermissionChecker {
     assertPermissionDenied(CLARK, "/file1", READ_EXECUTE);
     assertPermissionDenied(CLARK, "/file1", WRITE_EXECUTE);
     assertPermissionDenied(CLARK, "/file1", ALL);
-  }
-
-  private static AclEntry aclEntry(AclEntryScope scope, AclEntryType type,
-      FsAction permission) {
-    return new AclEntry.Builder()
-      .setScope(scope)
-      .setType(type)
-      .setPermission(permission)
-      .build();
-  }
-
-  private static AclEntry aclEntry(AclEntryScope scope, AclEntryType type,
-      String name, FsAction permission) {
-    return new AclEntry.Builder()
-      .setScope(scope)
-      .setType(type)
-      .setName(name)
-      .setPermission(permission)
-      .build();
-  }
-
-  private static AclEntry aclEntry(AclEntryScope scope, AclEntryType type,
-      String name) {
-    return new AclEntry.Builder()
-      .setScope(scope)
-      .setType(type)
-      .setName(name)
-      .build();
-  }
-
-  private static AclEntry aclEntry(AclEntryScope scope, AclEntryType type) {
-    return new AclEntry.Builder()
-      .setScope(scope)
-      .setType(type)
-      .build();
   }
 
   private void addAcl(INodeWithAdditionalFields inode, AclEntry... acl) {
