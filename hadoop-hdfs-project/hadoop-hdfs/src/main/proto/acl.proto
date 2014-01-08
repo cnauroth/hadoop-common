@@ -49,7 +49,7 @@ message AclEntryProto {
 
   required AclEntryTypeProto type    = 1;
   required AclEntryScopeProto scope  = 2;
-  optional FsActionProto permissions = 3;
+  required FsActionProto permissions = 3;
   optional string name               = 4;
 }
 

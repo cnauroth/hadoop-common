@@ -596,16 +596,20 @@ public class TestPBHelper {
     // No name.
     AclEntry e2 = new AclEntry.Builder().setScope(AclEntryScope.ACCESS)
         .setType(AclEntryType.USER).setPermission(FsAction.ALL).build();
-    // No permission.
+    // No permission, which will default to the 0'th enum element.
     AclEntry e3 = new AclEntry.Builder().setScope(AclEntryScope.ACCESS)
         .setType(AclEntryType.USER).setName("test").build();
-    AclEntry[] lists = new AclEntry[] { e1, e2, e3 };
-
-    Assert.assertArrayEquals(
-        lists,
-        Lists.newArrayList(
-            PBHelper.convertAclEntry(PBHelper.convertAclEntryProto(Lists
-                .newArrayList(e1, e2, e3)))).toArray());
+    AclEntry[] expected = new AclEntry[] { e1, e2,
+        new AclEntry.Builder()
+            .setScope(e3.getScope())
+            .setType(e3.getType())
+            .setName(e3.getName())
+            .setPermission(FsAction.NONE)
+            .build() };
+    AclEntry[] actual = Lists.newArrayList(
+        PBHelper.convertAclEntry(PBHelper.convertAclEntryProto(Lists
+            .newArrayList(e1, e2, e3)))).toArray(new AclEntry[0]);
+    Assert.assertArrayEquals(expected, actual);
   }
 
   @Test

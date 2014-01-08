@@ -1928,7 +1928,7 @@ public class PBHelper {
   }
 
   private static FsActionProto convert(FsAction v) {
-    return FsActionProto.valueOf(v.ordinal());
+    return FsActionProto.valueOf(v != null ? v.ordinal() : 0);
   }
 
   private static FsAction convert(FsActionProto v) {
@@ -1942,9 +1942,7 @@ public class PBHelper {
       AclEntryProto.Builder builder = AclEntryProto.newBuilder();
       builder.setType(convert(e.getType()));
       builder.setScope(convert(e.getScope()));
-      if (e.getPermission() != null) {
-        builder.setPermissions(convert(e.getPermission()));
-      }
+      builder.setPermissions(convert(e.getPermission()));
       if (e.getName() != null) {
         builder.setName(e.getName());
       }
@@ -1959,9 +1957,7 @@ public class PBHelper {
       AclEntry.Builder builder = new AclEntry.Builder();
       builder.setType(convert(e.getType()));
       builder.setScope(convert(e.getScope()));
-      if (e.hasPermissions()) {
-        builder.setPermission(convert(e.getPermissions()));
-      }
+      builder.setPermission(convert(e.getPermissions()));
       if (e.hasName()) {
         builder.setName(e.getName());
       }
