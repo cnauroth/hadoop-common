@@ -65,7 +65,6 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(p);
     AclEntry[] returned = Lists.newArrayList(s.getEntries()).toArray(
         new AclEntry[0]);
-    System.out.println("cn returned = " + java.util.Arrays.toString(returned));
     Assert.assertArrayEquals(new AclEntry[] { e }, returned);
   }
 }

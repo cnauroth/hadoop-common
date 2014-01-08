@@ -406,7 +406,6 @@ final class AclTransformation {
    * @param aclBuilder ArrayList<AclEntry> containing entries to build
    */
   private static void copyDefaultsIfNeeded(List<AclEntry> aclBuilder) {
-    System.out.println("cn begin copyDefaultsIfNeeded, aclBuilder = " + aclBuilder);
     int pivot = -1;
     for (int i = 0; i < aclBuilder.size(); ++i) {
       if (aclBuilder.get(i).getScope() == DEFAULT) {
@@ -441,9 +440,7 @@ final class AclTransformation {
       // Add all copied entries when done to prevent potential issues with binary
       // search on a modified aclBulider during the main loop.
       aclBuilder.addAll(copiedEntries);
-      System.out.println("cn copyDefaultsIfNeeded, copiedEntries = " + copiedEntries);
     }
-    System.out.println("cn end copyDefaultsIfNeeded, aclBuilder = " + aclBuilder);
   }
 
   /**
