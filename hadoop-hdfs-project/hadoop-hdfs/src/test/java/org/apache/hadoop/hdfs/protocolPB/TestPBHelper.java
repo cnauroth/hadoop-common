@@ -589,16 +589,23 @@ public class TestPBHelper {
 
   @Test
   public void testAclEntryProto() {
-    AclEntry e = new AclEntry.Builder().setName("test")
+    // All fields populated.
+    AclEntry e1 = new AclEntry.Builder().setName("test")
         .setPermission(FsAction.READ_EXECUTE).setScope(AclEntryScope.DEFAULT)
         .setType(AclEntryType.OTHER).build();
-    AclEntry[] lists = new AclEntry[] { e };
+    // No name.
+    AclEntry e2 = new AclEntry.Builder().setScope(AclEntryScope.ACCESS)
+        .setType(AclEntryType.USER).setPermission(FsAction.ALL).build();
+    // No permission.
+    AclEntry e3 = new AclEntry.Builder().setScope(AclEntryScope.ACCESS)
+        .setType(AclEntryType.USER).setName("test").build();
+    AclEntry[] lists = new AclEntry[] { e1, e2, e3 };
 
     Assert.assertArrayEquals(
         lists,
         Lists.newArrayList(
             PBHelper.convertAclEntry(PBHelper.convertAclEntryProto(Lists
-                .newArrayList(e)))).toArray());
+                .newArrayList(e1, e2, e3)))).toArray());
   }
 
   @Test
