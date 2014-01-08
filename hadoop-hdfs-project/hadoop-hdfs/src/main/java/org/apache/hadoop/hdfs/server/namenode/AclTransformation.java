@@ -125,6 +125,31 @@ final class AclTransformation {
   }
 
   /**
+   * Filters (discards) any extended ACL entries.  The new ACL will be a minimal
+   * ACL that retains only the 3 base access entries: user, group and other.
+   *
+   * @param existingAcl List<AclEntry> existing ACL
+   * @return List<AclEntry> new ACL
+   * @throws AclException if validation fails
+   */
+  public static List<AclEntry> filterExtendedAclEntries(
+      List<AclEntry> existingAcl) throws AclException {
+    ArrayList<AclEntry> aclBuilder = Lists.newArrayListWithCapacity(MAX_ENTRIES);
+    for (AclEntry existingEntry: existingAcl) {
+      if (existingEntry.getScope() == AclEntryScope.DEFAULT) {
+        // Default entries sort after access entries, so we can exit early.
+        break;
+      }
+      if (existingEntry.getType() != AclEntryType.MASK &&
+          existingEntry.getName() == null) {
+        // This is one of the base access entries, so copy.
+        aclBuilder.add(existingEntry);
+      }
+    }
+    return buildAndValidateAcl(aclBuilder);
+  }
+
+  /**
    * Merges the entries of the ACL spec into the existing ACL.  If necessary,
    * recalculates the mask entries.  If necessary, default entries may be
    * inferred by copying the permissions of the corresponding access entries.
@@ -224,6 +249,8 @@ final class AclTransformation {
         }
       }
     }
+    // Re-sort in case only default entries were replaced.
+    Collections.sort(aclBuilder, ACL_ENTRY_COMPARATOR);
     copyDefaultsIfNeeded(aclBuilder);
     calculateMasks(aclBuilder, providedMask, maskDirty, scopeDirty);
     return buildAndValidateAcl(aclBuilder);
@@ -379,6 +406,7 @@ final class AclTransformation {
    * @param aclBuilder ArrayList<AclEntry> containing entries to build
    */
   private static void copyDefaultsIfNeeded(List<AclEntry> aclBuilder) {
+    System.out.println("cn begin copyDefaultsIfNeeded, aclBuilder = " + aclBuilder);
     int pivot = -1;
     for (int i = 0; i < aclBuilder.size(); ++i) {
       if (aclBuilder.get(i).getScope() == DEFAULT) {
@@ -413,7 +441,9 @@ final class AclTransformation {
       // Add all copied entries when done to prevent potential issues with binary
       // search on a modified aclBulider during the main loop.
       aclBuilder.addAll(copiedEntries);
+      System.out.println("cn copyDefaultsIfNeeded, copiedEntries = " + copiedEntries);
     }
+    System.out.println("cn end copyDefaultsIfNeeded, aclBuilder = " + aclBuilder);
   }
 
   /**

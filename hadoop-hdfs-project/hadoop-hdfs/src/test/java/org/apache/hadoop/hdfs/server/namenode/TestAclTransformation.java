@@ -391,6 +391,40 @@ public class TestAclTransformation {
   }
 
   @Test
+  public void testFilterExtendedAclEntries() throws AclException {
+    List<AclEntry> existing = new ImmutableList.Builder<AclEntry>()
+      .add(aclEntry(ACCESS, USER, ALL))
+      .add(aclEntry(ACCESS, USER, "bruce", READ_WRITE))
+      .add(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+      .add(aclEntry(ACCESS, GROUP, "sales", READ_EXECUTE))
+      .add(aclEntry(ACCESS, MASK, ALL))
+      .add(aclEntry(ACCESS, OTHER, NONE))
+      .add(aclEntry(DEFAULT, USER, ALL))
+      .add(aclEntry(DEFAULT, USER, "bruce", READ_WRITE))
+      .add(aclEntry(DEFAULT, GROUP, READ))
+      .add(aclEntry(DEFAULT, GROUP, "sales", READ_EXECUTE))
+      .add(aclEntry(DEFAULT, MASK, READ_WRITE))
+      .add(aclEntry(DEFAULT, OTHER, READ_EXECUTE))
+      .build();
+    List<AclEntry> expected = new ImmutableList.Builder<AclEntry>()
+      .add(aclEntry(ACCESS, USER, ALL))
+      .add(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+      .add(aclEntry(ACCESS, OTHER, NONE))
+      .build();
+    assertEquals(expected, filterExtendedAclEntries(existing));
+  }
+
+  @Test
+  public void testFilterExtendedAclEntriesUnchanged() throws AclException {
+    List<AclEntry> existing = new ImmutableList.Builder<AclEntry>()
+      .add(aclEntry(ACCESS, USER, ALL))
+      .add(aclEntry(ACCESS, GROUP, READ_EXECUTE))
+      .add(aclEntry(ACCESS, OTHER, NONE))
+      .build();
+    assertEquals(existing, filterExtendedAclEntries(existing));
+  }
+
+  @Test
   public void testMergeAclEntries() throws AclException {
     List<AclEntry> existing = new ImmutableList.Builder<AclEntry>()
       .add(aclEntry(ACCESS, USER, ALL))

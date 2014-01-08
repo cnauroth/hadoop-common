@@ -60,11 +60,12 @@ public class TestNameNodeAcl {
     fs.create(p).close();
     AclEntry e = new AclEntry.Builder().setName("foo")
         .setPermission(FsAction.READ_EXECUTE).setScope(AclEntryScope.DEFAULT)
-        .setType(AclEntryType.OTHER).build();
+        .setType(AclEntryType.USER).build();
     fs.setAcl(p, Lists.newArrayList(e));
     AclStatus s = fs.getAclStatus(p);
     AclEntry[] returned = Lists.newArrayList(s.getEntries()).toArray(
         new AclEntry[0]);
+    System.out.println("cn returned = " + java.util.Arrays.toString(returned));
     Assert.assertArrayEquals(new AclEntry[] { e }, returned);
   }
 }
