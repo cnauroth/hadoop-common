@@ -249,8 +249,6 @@ final class AclTransformation {
         }
       }
     }
-    // Re-sort in case only default entries were replaced.
-    Collections.sort(aclBuilder, ACL_ENTRY_COMPARATOR);
     copyDefaultsIfNeeded(aclBuilder);
     calculateMasks(aclBuilder, providedMask, maskDirty, scopeDirty);
     return buildAndValidateAcl(aclBuilder);
