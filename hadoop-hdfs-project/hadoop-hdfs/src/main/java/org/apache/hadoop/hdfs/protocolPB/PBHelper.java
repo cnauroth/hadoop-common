@@ -1939,16 +1939,9 @@ public class PBHelper {
       List<AclEntry> aclSpec) {
     ArrayList<AclEntryProto> r = Lists.newArrayListWithCapacity(aclSpec.size());
     for (AclEntry e : aclSpec) {
-      AclEntryProto.Builder builder = AclEntryProto.newBuilder();
-      builder.setType(convert(e.getType()));
-      if (e.getName() != null) {
-        builder.setName(e.getName());
-      }
-      if (e.getPermission() != null) {
-        builder.setPermissions(convert(e.getPermission()));
-      }
-      builder.setScope(convert(e.getScope()));
-      r.add(builder.build());
+      r.add(AclEntryProto.newBuilder().setType(convert(e.getType()))
+          .setName(e.getName()).setPermissions(convert(e.getPermission()))
+          .setScope(convert(e.getScope())).build());
     }
     return r;
   }
