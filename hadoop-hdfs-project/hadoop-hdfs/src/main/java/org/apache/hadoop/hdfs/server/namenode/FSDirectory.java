@@ -2654,14 +2654,10 @@ public class FSDirectory implements Closeable {
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
     INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
-    AclFeature aclFeature = inode.getAclFeature();
-    FsPermission existingPerm = inode.getPermissionStatus(snapshotId)
-      .getPermission();
-    List<AclEntry> existingAcl = getExistingAcl(aclFeature, existingPerm);
+    List<AclEntry> existingAcl = getExistingAcl(inode, snapshotId);
     List<AclEntry> newAcl = AclTransformation.mergeAclEntries(existingAcl,
       aclSpec);
-    updateINodeAcl(aclFeature, inode, newAcl, existingPerm.getStickyBit(),
-      snapshotId);
+    updateINodeAcl(inode, newAcl, snapshotId);
     return newAcl;
   }
 
@@ -2681,14 +2677,10 @@ public class FSDirectory implements Closeable {
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
     INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
-    AclFeature aclFeature = inode.getAclFeature();
-    FsPermission existingPerm = inode.getPermissionStatus(snapshotId)
-      .getPermission();
-    List<AclEntry> existingAcl = getExistingAcl(aclFeature, existingPerm);
+    List<AclEntry> existingAcl = getExistingAcl(inode, snapshotId);
     List<AclEntry> newAcl = AclTransformation.filterAclEntriesByAclSpec(
       existingAcl, aclSpec);
-    updateINodeAcl(aclFeature, inode, newAcl, existingPerm.getStickyBit(),
-      snapshotId);
+    updateINodeAcl(inode, newAcl, snapshotId);
     return newAcl;
   }
 
@@ -2708,14 +2700,14 @@ public class FSDirectory implements Closeable {
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
     INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
-    AclFeature aclFeature = inode.getAclFeature();
     FsPermission existingPerm = inode.getPermissionStatus(snapshotId)
       .getPermission();
-    List<AclEntry> existingAcl = getExistingAcl(aclFeature, existingPerm);
+    AclFeature aclFeature = existingPerm.getAclBit() ? inode.getAclFeature() :
+      null;
+    List<AclEntry> existingAcl = getExistingAcl(inode, snapshotId);
     List<AclEntry> newAcl = AclTransformation.filterDefaultAclEntries(
       existingAcl);
-    updateINodeAcl(aclFeature, inode, newAcl, existingPerm.getStickyBit(),
-      snapshotId);
+    updateINodeAcl(inode, newAcl, snapshotId);
     return newAcl;
   }
 
@@ -2734,14 +2726,14 @@ public class FSDirectory implements Closeable {
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
     INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
-    AclFeature aclFeature = inode.getAclFeature();
     FsPermission existingPerm = inode.getPermissionStatus(snapshotId)
       .getPermission();
-    List<AclEntry> existingAcl = getExistingAcl(aclFeature, existingPerm);
+    AclFeature aclFeature = existingPerm.getAclBit() ? inode.getAclFeature() :
+      null;
+    List<AclEntry> existingAcl = getExistingAcl(inode, snapshotId);
     List<AclEntry> newAcl = AclTransformation.filterExtendedAclEntries(
       existingAcl);
-    updateINodeAcl(aclFeature, inode, newAcl, existingPerm.getStickyBit(),
-      snapshotId);
+    updateINodeAcl(inode, newAcl, snapshotId);
     return newAcl;
   }
 
@@ -2758,18 +2750,17 @@ public class FSDirectory implements Closeable {
   List<AclEntry> unprotectedSetAcl(String src, List<AclEntry> aclSpec)
       throws IOException {
     assert hasWriteLock();
-    assert hasWriteLock();
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
     INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
-    AclFeature aclFeature = inode.getAclFeature();
     FsPermission existingPerm = inode.getPermissionStatus(snapshotId)
       .getPermission();
-    List<AclEntry> existingAcl = getExistingAcl(aclFeature, existingPerm);
+    AclFeature aclFeature = existingPerm.getAclBit() ? inode.getAclFeature() :
+      null;
+    List<AclEntry> existingAcl = getExistingAcl(inode, snapshotId);
     List<AclEntry> newAcl = AclTransformation.replaceAclEntries(existingAcl,
       aclSpec);
-    updateINodeAcl(aclFeature, inode, newAcl, existingPerm.getStickyBit(),
-      snapshotId);
+    updateINodeAcl(inode, newAcl, snapshotId);
     return newAcl;
   }
 
@@ -2801,54 +2792,98 @@ public class FSDirectory implements Closeable {
     return (INodeWithAdditionalFields)inode;
   }
 
-  private static List<AclEntry> getExistingAcl(AclFeature aclFeature,
-      FsPermission existingPerm) {
-    if (aclFeature != null) {
-      return aclFeature.getEntries();
-    } else {
-      return Lists.newArrayList(
-        new AclEntry.Builder()
+  private static List<AclEntry> getExistingAcl(INodeWithAdditionalFields inode,
+      int snapshotId) {
+    FsPermission perm = inode.getPermissionStatus(snapshotId).getPermission();
+    if (perm.getAclBit()) {
+      List<AclEntry> aclFeatureEntries = inode.getAclFeature().getEntries();
+      // TODO: split into access vs. default
+      List<AclEntry> accessEntries = null;
+      List<AclEntry> defaultEntries = null;
+      List<AclEntry> existingAcl = Lists.newArrayListWithCapacity(
+        aclFeatureEntries.size() + 3);
+      if (accessEntries != null) {
+        existingAcl.add(new AclEntry.Builder()
           .setScope(AclEntryScope.ACCESS)
           .setType(AclEntryType.USER)
-          .setPermission(existingPerm.getUserAction())
-          .build(),
-        new AclEntry.Builder()
+          .setPermission(perm.getUserAction())
+          .build());
+        existingAcl.addAll(accessEntries);
+        existingAcl.add(new AclEntry.Builder()
           .setScope(AclEntryScope.ACCESS)
-          .setType(AclEntryType.GROUP)
-          .setPermission(existingPerm.getGroupAction())
-          .build(),
-        new AclEntry.Builder()
+          .setType(AclEntryType.MASK)
+          .setPermission(perm.getGroupAction())
+          .build());
+        existingAcl.add(new AclEntry.Builder()
           .setScope(AclEntryScope.ACCESS)
           .setType(AclEntryType.OTHER)
-          .setPermission(existingPerm.getOtherAction())
+          .setPermission(perm.getOtherAction())
           .build());
+      } else {
+        existingAcl.addAll(getMinimalAcl(perm));
+      }
+      if (defaultEntries != null) {
+        existingAcl.addAll(defaultEntries);
+      }
+      return existingAcl;
+    } else {
+      return getMinimalAcl(perm);
     }
   }
 
-  private static void updateINodeAcl(AclFeature aclFeature,
-      INodeWithAdditionalFields inode, List<AclEntry> newAcl,
-      boolean stickyBit, int snapshotId) throws QuotaExceededException {
+  private static List<AclEntry> getMinimalAcl(FsPermission perm) {
+    return Lists.newArrayList(
+      new AclEntry.Builder()
+        .setScope(AclEntryScope.ACCESS)
+        .setType(AclEntryType.USER)
+        .setPermission(perm.getUserAction())
+        .build(),
+      new AclEntry.Builder()
+        .setScope(AclEntryScope.ACCESS)
+        .setType(AclEntryType.GROUP)
+        .setPermission(perm.getGroupAction())
+        .build(),
+      new AclEntry.Builder()
+        .setScope(AclEntryScope.ACCESS)
+        .setType(AclEntryType.OTHER)
+        .setPermission(perm.getOtherAction())
+        .build());
+  }
+
+  private static void updateINodeAcl(INodeWithAdditionalFields inode,
+      List<AclEntry> newAcl, int snapshotId) throws QuotaExceededException {
+    FsPermission perm = inode.getPermissionStatus(snapshotId).getPermission();
+    final FsPermission newPerm;
     if (newAcl.size() > 3) {
+      // TODO: split into access vs. default
+      List<AclEntry> accessEntries = null;
+      List<AclEntry> defaultEntries = null;
+      List<AclEntry> aclFeatureEntries = Lists.newArrayListWithCapacity(
+        (accessEntries != null ? accessEntries.size() - 3 : 0) +
+        (defaultEntries != null ? defaultEntries.size() : 0));
+      newPerm = new FsPermission(newAcl.get(0).getPermission(),
+        newAcl.get(newAcl.size() - 2).getPermission(),
+        newAcl.get(newAcl.size() - 1).getPermission(),
+        perm.getStickyBit(), true);
+      if (accessEntries.size() > 3) {
+        aclFeatureEntries.addAll(
+          accessEntries.subList(1, accessEntries.size() - 2));
+      }
+      AclFeature aclFeature = inode.getAclFeature();
       if (aclFeature == null) {
         aclFeature = new AclFeature();
         inode.addAclFeature(aclFeature);
       }
-      aclFeature.setEntries(newAcl);
+      aclFeature.setEntries(aclFeatureEntries);
     } else {
-      if (aclFeature != null) {
+      if (perm.getAclBit()) {
         inode.removeAclFeature();
       }
+      newPerm = new FsPermission(newAcl.get(0).getPermission(),
+        newAcl.get(1).getPermission(),
+        newAcl.get(2).getPermission(),
+        perm.getStickyBit(), false);
     }
-    EnumMap<AclEntryType, FsAction> perms = Maps.newEnumMap(AclEntryType.class);
-    for (AclEntry entry: newAcl) {
-      if (entry.getScope() != AclEntryScope.ACCESS) {
-        break;
-      }
-      perms.put(entry.getType(), entry.getPermission());
-    }
-    FsPermission newPerm = new FsPermission(perms.get(AclEntryType.USER),
-      Objects.firstNonNull(perms.get(AclEntryType.MASK), perms.get(AclEntryType.GROUP)),
-      perms.get(AclEntryType.OTHER), stickyBit);
     inode.setPermission(newPerm, snapshotId);
   }
 
