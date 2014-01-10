@@ -76,6 +76,14 @@ public class FsPermission implements Writable {
     this(u, g, o, sb, false);
   }
 
+  /**
+   * Construct by the given {@link FsAction} and special bits.
+   * @param u user action
+   * @param g group action
+   * @param o other action
+   * @param sb sticky bit
+   * @param ab ACL bit
+   */
   public FsPermission(FsAction u, FsAction g, FsAction o, boolean sb,
       boolean ab) {
     set(u, g, o, sb, ab);
@@ -363,7 +371,7 @@ public class FsPermission implements Writable {
     // Add ACL bit value if set
     if (unixSymbolicPermission.length() == 11 &&
          unixSymbolicPermission.charAt(10) == '+')
-      n += 010000;
+      n += (1 << 10);
 
     return new FsPermission((short)n);
   }
