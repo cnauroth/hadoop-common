@@ -24,7 +24,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.EnumMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
@@ -50,7 +49,6 @@ import org.apache.hadoop.fs.permission.PermissionStatus;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DFSUtil;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
-import org.apache.hadoop.hdfs.protocol.AclException;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.ClientProtocol;
 import org.apache.hadoop.hdfs.protocol.DirectoryListing;
@@ -80,7 +78,6 @@ import org.apache.hadoop.hdfs.util.ChunkedArrayList;
 import org.apache.hadoop.hdfs.util.ReadOnlyList;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -2756,6 +2753,11 @@ public class FSDirectory implements Closeable {
       .getPermission();
     AclFeature aclFeature = existingPerm.getAclBit() ? inode.getAclFeature() :
       null;
+    if (aclSpec.size() == 0) {
+      if (aclFeature != null)
+        inode.removeAclFeature();
+      return AclFeature.EMPTY_ENTRY_LIST;
+    }
     List<AclEntry> existingAcl = getExistingAcl(inode, snapshotId);
     List<AclEntry> newAcl = AclTransformation.replaceAclEntries(existingAcl,
       aclSpec);
