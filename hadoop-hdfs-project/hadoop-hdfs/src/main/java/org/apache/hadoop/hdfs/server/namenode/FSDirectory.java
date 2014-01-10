@@ -2714,27 +2714,26 @@ public class FSDirectory implements Closeable {
   void removeAcl(String src) throws IOException {
     writeLock();
     try {
-      List<AclEntry> newAcl = unprotectedRemoveAcl(src);
-      fsImage.getEditLog().logSetAcl(src, newAcl);
+      unprotectedRemoveAcl(src);
+      fsImage.getEditLog().logSetAcl(src, AclFeature.EMPTY_ENTRY_LIST);
     } finally {
       writeUnlock();
     }
   }
 
-  private List<AclEntry> unprotectedRemoveAcl(String src) throws IOException {
+  private void unprotectedRemoveAcl(String src) throws IOException {
     assert hasWriteLock();
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
     INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
-    FsPermission existingPerm = inode.getPermissionStatus(snapshotId)
-      .getPermission();
-    AclFeature aclFeature = existingPerm.getAclBit() ? inode.getAclFeature() :
-      null;
-    List<AclEntry> existingAcl = getExistingAcl(inode, snapshotId);
-    List<AclEntry> newAcl = AclTransformation.filterExtendedAclEntries(
-      existingAcl);
-    updateINodeAcl(inode, newAcl, snapshotId);
-    return newAcl;
+    FsPermission perm = inode.getPermissionStatus(snapshotId).getPermission();
+    if (perm.getAclBit()) {
+      inode.removeAclFeature();
+      FsPermission newPerm = new FsPermission(perm.getUserAction(),
+        perm.getGroupAction(), perm.getOtherAction(), perm.getStickyBit(),
+        false);
+      inode.setPermission(newPerm, snapshotId);
+    }
   }
 
   void setAcl(String src, List<AclEntry> aclSpec) throws IOException {
