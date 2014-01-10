@@ -371,7 +371,7 @@ public class FsPermission implements Writable {
     // Add ACL bit value if set
     if (unixSymbolicPermission.length() == 11 &&
          unixSymbolicPermission.charAt(10) == '+')
-      n += 010000;
+      n += (1 << 10);
 
     return new FsPermission((short)n);
   }
