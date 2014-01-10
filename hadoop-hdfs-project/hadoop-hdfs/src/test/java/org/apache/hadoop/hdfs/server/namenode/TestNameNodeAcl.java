@@ -17,16 +17,18 @@
  */
 package org.apache.hadoop.hdfs.server.namenode;
 
+import static org.apache.hadoop.hdfs.server.namenode.AclTestHelpers.*;
+import static org.apache.hadoop.fs.permission.AclEntryScope.*;
+import static org.apache.hadoop.fs.permission.AclEntryType.*;
+import static org.apache.hadoop.fs.permission.FsAction.*;
+
 import java.io.IOException;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.AclEntry;
-import org.apache.hadoop.fs.permission.AclEntryScope;
-import org.apache.hadoop.fs.permission.AclEntryType;
 import org.apache.hadoop.fs.permission.AclStatus;
-import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -59,12 +61,19 @@ public class TestNameNodeAcl {
     FileSystem fs = cluster.getFileSystem();
     fs.create(p).close();
     AclEntry e = new AclEntry.Builder().setName("foo")
-        .setPermission(FsAction.READ_EXECUTE).setScope(AclEntryScope.DEFAULT)
-        .setType(AclEntryType.OTHER).build();
+        .setPermission(READ_EXECUTE).setScope(DEFAULT).setType(USER).build();
     fs.setAcl(p, Lists.newArrayList(e));
     AclStatus s = fs.getAclStatus(p);
     AclEntry[] returned = Lists.newArrayList(s.getEntries()).toArray(
         new AclEntry[0]);
-    Assert.assertArrayEquals(new AclEntry[] { e }, returned);
+    Assert.assertArrayEquals(new AclEntry[] {
+        aclEntry(ACCESS, USER, READ_WRITE),
+        aclEntry(ACCESS, GROUP, READ),
+        aclEntry(ACCESS, OTHER, READ),
+        aclEntry(DEFAULT, USER, READ_WRITE),
+        aclEntry(DEFAULT, USER, "foo", READ_EXECUTE),
+        aclEntry(DEFAULT, GROUP, READ),
+        aclEntry(DEFAULT, MASK, READ_EXECUTE),
+        aclEntry(DEFAULT, OTHER, READ) }, returned);
   }
 }
