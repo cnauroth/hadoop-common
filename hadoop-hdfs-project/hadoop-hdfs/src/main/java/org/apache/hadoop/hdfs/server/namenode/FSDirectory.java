@@ -2861,9 +2861,9 @@ public class FSDirectory implements Closeable {
       List<AclEntry> aclFeatureEntries = Lists.newArrayListWithCapacity(
         (accessEntries != null ? accessEntries.size() - 3 : 0) +
         (defaultEntries != null ? defaultEntries.size() : 0));
-      newPerm = new FsPermission(newAcl.get(0).getPermission(),
-        newAcl.get(newAcl.size() - 2).getPermission(),
-        newAcl.get(newAcl.size() - 1).getPermission(),
+      newPerm = new FsPermission(accessEntries.get(0).getPermission(),
+        accessEntries.get(accessEntries.size() - 2).getPermission(),
+        accessEntries.get(accessEntries.size() - 1).getPermission(),
         perm.getStickyBit(), true);
       if (accessEntries.size() > 3) {
         aclFeatureEntries.addAll(
