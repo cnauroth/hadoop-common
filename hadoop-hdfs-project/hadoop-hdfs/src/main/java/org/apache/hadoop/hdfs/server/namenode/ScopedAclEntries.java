@@ -35,18 +35,17 @@ class ScopedAclEntries {
   /**
    * Creates a new ScopedAclEntries from the given list.  It is assumed that the
    * list is already sorted such that all access entries precede all default
-   * entries.  Additionally, it is assumed that at least one access entry is
-   * present.  (Default entries are optional.)
+   * entries.
    *
    * @param aclEntries List<AclEntry> to separate
    */
   public ScopedAclEntries(List<AclEntry> aclEntries) {
     int pivot = calculatePivotOnDefaultEntries(aclEntries);
     if (pivot != PIVOT_NOT_FOUND) {
-      accessEntries = aclEntries.subList(0, pivot);
+      accessEntries = pivot != 0 ? aclEntries.subList(0, pivot) : null;
       defaultEntries = aclEntries.subList(pivot, aclEntries.size());
     } else {
-      accessEntries = aclEntries;
+      accessEntries = !aclEntries.isEmpty() ? aclEntries : null;
       defaultEntries = null;
     }
   }
@@ -54,7 +53,8 @@ class ScopedAclEntries {
   /**
    * Returns access entries.
    *
-   * @return List<AclEntry> containing just access entries
+   * @return List<AclEntry> containing just access entries, or null if there are
+   *   no access entries
    */
   public List<AclEntry> getAccessEntries() {
     return accessEntries;

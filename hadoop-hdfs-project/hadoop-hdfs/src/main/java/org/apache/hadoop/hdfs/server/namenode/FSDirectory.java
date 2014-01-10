@@ -2769,17 +2769,14 @@ public class FSDirectory implements Closeable {
     readLock();
     try {
       INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
-      final INodeWithAdditionalFields node = resolveINodeWithAdditionalFields(
+      final INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(
         src, iip);
-      AclFeature f = node.getAclFeature();
-
-      AclStatus.Builder builder = new AclStatus.Builder()
-          .owner(node.getUserName()).group(node.getGroupName())
-          .stickyBit(node.getFsPermission().getStickyBit());
-      if (f != null) {
-        builder.addEntries(f.getEntries());
-      }
-      return builder.build();
+      int snapshotId = iip.getLatestSnapshotId();
+      List<AclEntry> acl = getExistingAcl(inode, snapshotId);
+      return new AclStatus.Builder()
+          .owner(inode.getUserName()).group(inode.getGroupName())
+          .stickyBit(inode.getFsPermission(snapshotId).getStickyBit())
+          .addEntries(acl).build();
     } finally {
       readUnlock();
     }
@@ -2797,12 +2794,12 @@ public class FSDirectory implements Closeable {
       int snapshotId) {
     FsPermission perm = inode.getPermissionStatus(snapshotId).getPermission();
     if (perm.getAclBit()) {
-      List<AclEntry> aclFeatureEntries = inode.getAclFeature().getEntries();
-      // TODO: split into access vs. default
-      List<AclEntry> accessEntries = null;
-      List<AclEntry> defaultEntries = null;
+      List<AclEntry> featureEntries = inode.getAclFeature().getEntries();
+      ScopedAclEntries scoped = new ScopedAclEntries(featureEntries);
+      List<AclEntry> accessEntries = scoped.getAccessEntries();
+      List<AclEntry> defaultEntries = scoped.getDefaultEntries();
       List<AclEntry> existingAcl = Lists.newArrayListWithCapacity(
-        aclFeatureEntries.size() + 3);
+        featureEntries.size() + 3);
       if (accessEntries != null) {
         existingAcl.add(new AclEntry.Builder()
           .setScope(AclEntryScope.ACCESS)
@@ -2856,10 +2853,10 @@ public class FSDirectory implements Closeable {
     FsPermission perm = inode.getPermissionStatus(snapshotId).getPermission();
     final FsPermission newPerm;
     if (newAcl.size() > 3) {
-      // TODO: split into access vs. default
-      List<AclEntry> accessEntries = null;
-      List<AclEntry> defaultEntries = null;
-      List<AclEntry> aclFeatureEntries = Lists.newArrayListWithCapacity(
+      ScopedAclEntries scoped = new ScopedAclEntries(newAcl);
+      List<AclEntry> accessEntries = scoped.getAccessEntries();
+      List<AclEntry> defaultEntries = scoped.getDefaultEntries();
+      List<AclEntry> featureEntries = Lists.newArrayListWithCapacity(
         (accessEntries != null ? accessEntries.size() - 3 : 0) +
         (defaultEntries != null ? defaultEntries.size() : 0));
       newPerm = new FsPermission(accessEntries.get(0).getPermission(),
@@ -2867,15 +2864,18 @@ public class FSDirectory implements Closeable {
         accessEntries.get(accessEntries.size() - 1).getPermission(),
         perm.getStickyBit(), true);
       if (accessEntries.size() > 3) {
-        aclFeatureEntries.addAll(
+        featureEntries.addAll(
           accessEntries.subList(1, accessEntries.size() - 2));
+      }
+      if (defaultEntries != null) {
+        featureEntries.addAll(defaultEntries);
       }
       AclFeature aclFeature = inode.getAclFeature();
       if (aclFeature == null) {
         aclFeature = new AclFeature();
         inode.addAclFeature(aclFeature);
       }
-      aclFeature.setEntries(aclFeatureEntries);
+      aclFeature.setEntries(featureEntries);
     } else {
       if (perm.getAclBit()) {
         inode.removeAclFeature();
