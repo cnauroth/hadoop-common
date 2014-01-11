@@ -69,6 +69,7 @@ final class AclStorage {
    */
   public static List<AclEntry> readINodeAcl(INodeWithAdditionalFields inode,
       int snapshotId) {
+    final List<AclEntry> existingAcl;
     FsPermission perm = inode.getPermissionStatus(snapshotId).getPermission();
     if (perm.getAclBit()) {
       // Split ACL entries stored in the feature into access vs. default.
@@ -80,8 +81,7 @@ final class AclStorage {
       // Pre-allocate list size for the explicit entries stored in the feature
       // plus the 3 implicit entries (owner, group and other) from the permission
       // bits.
-      List<AclEntry> existingAcl = Lists.newArrayListWithCapacity(
-        featureEntries.size() + 3);
+      existingAcl = Lists.newArrayListWithCapacity(featureEntries.size() + 3);
 
       if (accessEntries != null) {
         // Add owner entry implied from user permission bits.
@@ -117,13 +117,14 @@ final class AclStorage {
       if (defaultEntries != null) {
         existingAcl.addAll(defaultEntries);
       }
-
-      // The above adds entries in the correct order, so no need to sort here.
-      return existingAcl;
     } else {
       // If the inode doesn't have an extended ACL, then return a minimal ACL.
-      return getMinimalAcl(perm);
+      existingAcl = getMinimalAcl(perm);
     }
+
+    // The above adds entries in the correct order, so no need to sort here.
+    assert existingAcl.size() >= 3;
+    return existingAcl;
   }
 
   /**
@@ -138,6 +139,7 @@ final class AclStorage {
    */
   public static void updateINodeAcl(INodeWithAdditionalFields inode,
       List<AclEntry> newAcl, int snapshotId) throws QuotaExceededException {
+    assert newAcl.size() >= 3;
     FsPermission perm = inode.getPermissionStatus(snapshotId).getPermission();
     final FsPermission newPerm;
     if (newAcl.size() > 3) {

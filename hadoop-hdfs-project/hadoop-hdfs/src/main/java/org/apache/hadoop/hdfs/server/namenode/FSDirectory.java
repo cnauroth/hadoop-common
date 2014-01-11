@@ -2741,6 +2741,12 @@ public class FSDirectory implements Closeable {
 
   List<AclEntry> unprotectedSetAcl(String src, List<AclEntry> aclSpec)
       throws IOException {
+    // ACL removal is logged to edits as OP_SET_ACL with an empty list.
+    if (aclSpec.isEmpty()) {
+      unprotectedRemoveAcl(src);
+      return AclFeature.EMPTY_ENTRY_LIST;
+    }
+
     assert hasWriteLock();
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
     INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
@@ -2749,11 +2755,6 @@ public class FSDirectory implements Closeable {
       .getPermission();
     AclFeature aclFeature = existingPerm.getAclBit() ? inode.getAclFeature() :
       null;
-    if (aclSpec.size() == 0) {
-      if (aclFeature != null)
-        inode.removeAclFeature();
-      return AclFeature.EMPTY_ENTRY_LIST;
-    }
     List<AclEntry> existingAcl = AclStorage.readINodeAcl(inode, snapshotId);
     List<AclEntry> newAcl = AclTransformation.replaceAclEntries(existingAcl,
       aclSpec);
