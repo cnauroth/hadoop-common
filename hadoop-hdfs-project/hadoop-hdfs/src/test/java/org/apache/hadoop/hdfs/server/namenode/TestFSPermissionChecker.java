@@ -35,6 +35,7 @@ import org.apache.hadoop.fs.permission.AclEntryType;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.permission.PermissionStatus;
+import org.apache.hadoop.hdfs.server.namenode.snapshot.Snapshot;
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.hadoop.security.UserGroupInformation;
 
@@ -220,6 +221,31 @@ public class TestFSPermissionChecker {
   }
 
   @Test
+  public void testAclGroupTraverseDenyOnlyDefaultEntries() throws IOException {
+    INodeDirectory inodeDir = createINodeDirectory(inodeRoot, "dir1", "bruce",
+      "execs", (short)0755);
+    INodeFile inodeFile = createINodeFile(inodeDir, "file1", "bruce", "execs",
+      (short)0644);
+    addAcl(inodeDir,
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, GROUP, NONE),
+      aclEntry(ACCESS, OTHER, READ_EXECUTE),
+      aclEntry(DEFAULT, USER, ALL),
+      aclEntry(DEFAULT, GROUP, "sales", NONE),
+      aclEntry(DEFAULT, GROUP, NONE),
+      aclEntry(DEFAULT, OTHER, READ_EXECUTE));
+    assertPermissionGranted(BRUCE, "/dir1/file1", READ_WRITE);
+    assertPermissionGranted(DIANA, "/dir1/file1", READ);
+    assertPermissionDenied(CLARK, "/dir1/file1", READ);
+    assertPermissionDenied(CLARK, "/dir1/file1", WRITE);
+    assertPermissionDenied(CLARK, "/dir1/file1", EXECUTE);
+    assertPermissionDenied(CLARK, "/dir1/file1", READ_WRITE);
+    assertPermissionDenied(CLARK, "/dir1/file1", READ_EXECUTE);
+    assertPermissionDenied(CLARK, "/dir1/file1", WRITE_EXECUTE);
+    assertPermissionDenied(CLARK, "/dir1/file1", ALL);
+  }
+
+  @Test
   public void testAclGroupMask() throws IOException {
     INodeFile inodeFile = createINodeFile(inodeRoot, "file1", "bruce", "execs",
       (short)0644);
@@ -344,10 +370,10 @@ public class TestFSPermissionChecker {
     assertPermissionDenied(CLARK, "/file1", ALL);
   }
 
-  private void addAcl(INodeWithAdditionalFields inode, AclEntry... acl) {
-    AclFeature aclFeature = new AclFeature();
-    aclFeature.setEntries(Arrays.asList(acl));
-    inode.addAclFeature(aclFeature);
+  private void addAcl(INodeWithAdditionalFields inode, AclEntry... acl)
+      throws IOException {
+    AclStorage.updateINodeAcl((INodeWithAdditionalFields)inode,
+      Arrays.asList(acl), Snapshot.CURRENT_STATE_ID);
   }
 
   private void assertPermissionGranted(UserGroupInformation user, String path,

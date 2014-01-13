@@ -20,6 +20,7 @@ package org.apache.hadoop.hdfs.server.namenode;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.Stack;
 
@@ -27,6 +28,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.UnresolvedLinkException;
 import org.apache.hadoop.fs.permission.AclEntry;
+import org.apache.hadoop.fs.permission.AclEntryScope;
 import org.apache.hadoop.fs.permission.AclEntryType;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
@@ -46,13 +48,13 @@ class FSPermissionChecker {
 
   /** @return a string for throwing {@link AccessControlException} */
   private String toAccessControlString(INode inode, int snapshotId,
-      FsAction access) {
-    return toAccessControlString(inode, snapshotId, access, null);
+      FsAction access, FsPermission mode) {
+    return toAccessControlString(inode, snapshotId, access, mode, null);
   }
 
   /** @return a string for throwing {@link AccessControlException} */
   private String toAccessControlString(INode inode, int snapshotId,
-      FsAction access, AclFeature acl) {
+      FsAction access, FsPermission mode, List<AclEntry> featureEntries) {
     StringBuilder sb = new StringBuilder("Permission denied: ")
       .append("user=").append(user).append(", ")
       .append("access=").append(access).append(", ")
@@ -60,9 +62,9 @@ class FSPermissionChecker {
       .append(inode.getUserName(snapshotId)).append(':')
       .append(inode.getGroupName(snapshotId)).append(':')
       .append(inode.isDirectory() ? 'd' : '-')
-      .append(inode.getFsPermission(snapshotId));
-    if (acl != null) {
-      sb.append(':').append(StringUtils.join(",", acl.getEntries()));
+      .append(mode);
+    if (featureEntries != null) {
+      sb.append(':').append(StringUtils.join(",", featureEntries));
     }
     return sb.toString();
   }
@@ -236,20 +238,25 @@ class FSPermissionChecker {
     if (inode == null) {
       return;
     }
-    // TODO: handling of INodeReference?
-    AclFeature acl = inode instanceof INodeWithAdditionalFields ?
-      ((INodeWithAdditionalFields)inode).getAclFeature() : null;
-    if (acl == null) {
-      checkFsPermission(inode, snapshotId, access);
-    } else {
-      checkAcl(inode, snapshotId, access, acl);
+    FsPermission mode = inode.getFsPermission(snapshotId);
+    if (mode.getAclBit()) {
+      // TODO: handling of INodeReference?
+      AclFeature aclFeature = inode instanceof INodeWithAdditionalFields ?
+        ((INodeWithAdditionalFields)inode).getAclFeature() : null;
+      if (aclFeature != null) {
+        List<AclEntry> featureEntries = aclFeature.getEntries();
+        // It's possible that the inode has a default ACL but no access ACL.
+        if (featureEntries.get(0).getScope() == AclEntryScope.ACCESS) {
+          checkAccessAcl(inode, snapshotId, access, mode, featureEntries);
+          return;
+        }
+      }
     }
+    checkFsPermission(inode, snapshotId, access, mode);
   }
 
-  private void checkFsPermission(INode inode, int snapshotId, FsAction access
-      ) throws AccessControlException {
-    FsPermission mode = inode.getFsPermission(snapshotId);
-
+  private void checkFsPermission(INode inode, int snapshotId, FsAction access,
+      FsPermission mode) throws AccessControlException {
     if (user.equals(inode.getUserName(snapshotId))) { //user class
       if (mode.getUserAction().implies(access)) { return; }
     }
@@ -260,91 +267,80 @@ class FSPermissionChecker {
       if (mode.getOtherAction().implies(access)) { return; }
     }
     throw new AccessControlException(
-      toAccessControlString(inode, snapshotId, access));
+      toAccessControlString(inode, snapshotId, access, mode));
   }
 
   /**
-   * Checks requested access against an Access Control List.  This logic relies
-   * on receiving the ACL entries in sorted order.  This is assumed to be true,
-   * because the ACL modification methods in {@link AclTransformation} sort the
-   * resulting entries.
+   * Checks requested access against an Access Control List.  This method relies
+   * on finding the ACL data in the relevant portions of {@link FsPermission} and
+   * {@link AclFeature} as implemented in the logic of {@link AclStorage}.  This
+   * method also relies on receiving the ACL entries in sorted order.  This is
+   * assumed to be true, because the ACL modification methods in
+   * {@link AclTransformation} sort the resulting entries.
    *
    * @param inode INode accessed inode
    * @param snapshotId int snapshot ID
    * @param access FsAction requested permission
-   * @param acl AclFeature containing ACL entries of inode
+   * @param mode FsPermission mode from inode
+   * @param featureEntries List<AclEntry> ACL entries from AclFeature of inode
    * @throws AccessControlException if the ACL denies permission
    */
-  private void checkAcl(INode inode, int snapshotId, FsAction access,
-      AclFeature acl) throws AccessControlException {
-    // Find the closest matching entry for the user.
-    AclEntry matchingEntry = null, mask = null;
-    boolean userIsGroupMember = false;
-    for (AclEntry entry: acl.getEntries()) {
-      AclEntryType type = entry.getType();
-      String name = entry.getName();
-      if (type == AclEntryType.USER && name == null) {
-        // Use owner entry if user is owner.  Don't need mask, so exit early.
-        if (user.equals(inode.getUserName(snapshotId))) {
-          matchingEntry = entry;
+  private void checkAccessAcl(INode inode, int snapshotId, FsAction access,
+      FsPermission mode, List<AclEntry> featureEntries)
+      throws AccessControlException {
+    boolean foundMatch = false;
+
+    // Use owner entry if user is owner.
+    if (user.equals(inode.getUserName(snapshotId))) {
+      if (mode.getUserAction().implies(access)) {
+        return;
+      }
+      foundMatch = true;
+    }
+
+    // Check named user and group entries if user was not denied by owner entry.
+    if (!foundMatch) {
+      for (AclEntry entry: featureEntries) {
+        if (entry.getScope() == AclEntryScope.DEFAULT) {
           break;
         }
-      } else if (type == AclEntryType.USER) {
-        // Use named user entry if user matches name.
-        if (user.equals(name)) {
-          matchingEntry = entry;
-        }
-      } else if (type == AclEntryType.GROUP) {
-        // Use group entry (unnamed or named) if user is a member and entry
-        // grants access.  If user is a member of multiple groups that have
-        // entries that grant access, then it doesn't matter which is chosen, so
-        // skip iterations after first match.
-        if (matchingEntry != null) {
-          continue;
-        }
-        String group = name == null ? inode.getGroupName(snapshotId) : name;
-        if (groups.contains(group)) {
-          userIsGroupMember = true;
-          if (entry.getPermission().implies(access)) {
-            matchingEntry = entry;
+        AclEntryType type = entry.getType();
+        String name = entry.getName();
+        if (type == AclEntryType.USER) {
+          // Use named user entry with mask applied if user matches name.
+          if (user.equals(name)) {
+            FsAction masked = entry.getPermission().and(mode.getGroupAction());
+            if (masked.implies(access)) {
+              return;
+            }
+            foundMatch = true;
+          }
+        } else if (type == AclEntryType.GROUP) {
+          // Use group entry (unnamed or named) with mask applied if user is a
+          // member and entry grants access.  If user is a member of multiple
+          // groups that have entries that grant access, then it doesn't matter
+          // which is chosen, so exit early after first match.
+          String group = name == null ? inode.getGroupName(snapshotId) : name;
+          if (groups.contains(group)) {
+            FsAction masked = entry.getPermission().and(mode.getGroupAction());
+            if (masked.implies(access)) {
+              return;
+            }
+            foundMatch = true;
           }
         }
-      } else if (type == AclEntryType.MASK) {
-        // Save mask for later.
-        mask = entry;
-      } else {
-        // Use other entry if no match and user not a member of groups that
-        // denied access.
-        if (matchingEntry == null && !userIsGroupMember) {
-          matchingEntry = entry;
-        }
-        break;
       }
     }
 
-    // Determine final enforced permissions by applying the mask if necessary.
-    final FsAction enforcedPerm;
-    if (matchingEntry != null) {
-      AclEntryType type = matchingEntry.getType();
-      String name = matchingEntry.getName();
-      if ((type == AclEntryType.USER && name == null) ||
-          (type == AclEntryType.OTHER)) {
-        // Owner and other entries are not masked.
-        enforcedPerm = matchingEntry.getPermission();
-      } else {
-        // Named user, owning group and named group entries are masked.
-        enforcedPerm = matchingEntry.getPermission().and(mask.getPermission());
+    // Use other entry if user was not denied by an earlier match.
+    if (!foundMatch) {
+      if (mode.getOtherAction().implies(access)) {
+        return;
       }
-    } else {
-      // This happens if user was a member of any groups, but access was denied.
-      enforcedPerm = null;
     }
 
-    // Enforce the chosen permissions.
-    if (enforcedPerm == null || !enforcedPerm.implies(access)) {
-      throw new AccessControlException(
-        toAccessControlString(inode, snapshotId, access, acl));
-    }
+    throw new AccessControlException(
+      toAccessControlString(inode, snapshotId, access, mode, featureEntries));
   }
 
   /** Guarded by {@link FSNamesystem#readLock()} */
