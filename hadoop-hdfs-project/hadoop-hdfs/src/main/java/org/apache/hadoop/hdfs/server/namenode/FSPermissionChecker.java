@@ -278,6 +278,14 @@ class FSPermissionChecker {
    * assumed to be true, because the ACL modification methods in
    * {@link AclTransformation} sort the resulting entries.
    *
+   * More specifically, this method depends on these invariants in an ACL:
+   * - The list must be sorted.
+   * - Each entry in the list must be unique by scope + type + name.
+   * - There is exactly one each of the unnamed user/group/other entries.
+   * - The mask entry must not have a name.
+   * - The other entry must not have a name.
+   * - Default entries may be present, but they are ignored during enforcement.
+   *
    * @param inode INode accessed inode
    * @param snapshotId int snapshot ID
    * @param access FsAction requested permission
@@ -290,7 +298,7 @@ class FSPermissionChecker {
       throws AccessControlException {
     boolean foundMatch = false;
 
-    // Use owner entry if user is owner.
+    // Use owner entry from permission bits if user is owner.
     if (user.equals(inode.getUserName(snapshotId))) {
       if (mode.getUserAction().implies(access)) {
         return;
@@ -307,7 +315,8 @@ class FSPermissionChecker {
         AclEntryType type = entry.getType();
         String name = entry.getName();
         if (type == AclEntryType.USER) {
-          // Use named user entry with mask applied if user matches name.
+          // Use named user entry with mask from permission bits applied if user
+          // matches name.
           if (user.equals(name)) {
             FsAction masked = entry.getPermission().and(mode.getGroupAction());
             if (masked.implies(access)) {
@@ -316,10 +325,10 @@ class FSPermissionChecker {
             foundMatch = true;
           }
         } else if (type == AclEntryType.GROUP) {
-          // Use group entry (unnamed or named) with mask applied if user is a
-          // member and entry grants access.  If user is a member of multiple
-          // groups that have entries that grant access, then it doesn't matter
-          // which is chosen, so exit early after first match.
+          // Use group entry (unnamed or named) with mask from permission bits
+          // applied if user is a member and entry grants access.  If user is a
+          // member of multiple groups that have entries that grant access, then
+          // it doesn't matter which is chosen, so exit early after first match.
           String group = name == null ? inode.getGroupName(snapshotId) : name;
           if (groups.contains(group)) {
             FsAction masked = entry.getPermission().and(mode.getGroupAction());
