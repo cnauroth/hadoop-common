@@ -24,12 +24,14 @@ import static org.apache.hadoop.fs.permission.FsAction.*;
 import static org.junit.Assert.*;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.AclStatus;
+import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.io.IOUtils;
 import org.junit.AfterClass;
@@ -39,9 +41,9 @@ import org.junit.Test;
 
 import com.google.common.collect.Lists;
 
-// ACL bit on
-// check does/does not have an AclFeature
-
+/**
+ * Tests NameNode interaction for all ACL modification APIs.
+ */
 public class TestNameNodeAcl {
 
   private static MiniDFSCluster cluster;
@@ -220,22 +222,7 @@ public class TestNameNodeAcl {
 
   @Test
   public void testSetAcl() throws IOException {
-    fs.create(path).close();
-    AclEntry e = new AclEntry.Builder().setName("foo")
-        .setPermission(READ_EXECUTE).setScope(DEFAULT).setType(USER).build();
-    fs.setAcl(path, Lists.newArrayList(e));
-    AclStatus s = fs.getAclStatus(path);
-    AclEntry[] returned = Lists.newArrayList(s.getEntries()).toArray(
-        new AclEntry[0]);
-    assertArrayEquals(new AclEntry[] {
-        aclEntry(ACCESS, USER, READ_WRITE),
-        aclEntry(ACCESS, GROUP, READ),
-        aclEntry(ACCESS, OTHER, READ),
-        aclEntry(DEFAULT, USER, READ_WRITE),
-        aclEntry(DEFAULT, USER, "foo", READ_EXECUTE),
-        aclEntry(DEFAULT, GROUP, READ),
-        aclEntry(DEFAULT, MASK, READ_EXECUTE),
-        aclEntry(DEFAULT, OTHER, READ) }, returned);
+    fail();
   }
 
   @Test
@@ -245,7 +232,23 @@ public class TestNameNodeAcl {
 
   @Test
   public void testSetAclOnlyDefault() throws IOException {
-    fail();
+    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0644));
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(DEFAULT, USER, "foo", READ_EXECUTE));
+    fs.setAcl(path, aclSpec);
+    AclStatus s = fs.getAclStatus(path);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, GROUP, READ),
+      aclEntry(ACCESS, OTHER, READ),
+      aclEntry(DEFAULT, USER, READ_WRITE),
+      aclEntry(DEFAULT, USER, "foo", READ_EXECUTE),
+      aclEntry(DEFAULT, GROUP, READ),
+      aclEntry(DEFAULT, MASK, READ_EXECUTE),
+      aclEntry(DEFAULT, OTHER, READ) }, returned);
+    assertPermission((short)02644);
+    assertAclFeature(true);
   }
 
   @Test
@@ -281,5 +284,38 @@ public class TestNameNodeAcl {
   @Test
   public void testSetAclDefaultOnFile() throws IOException {
     fail();
+  }
+
+  @Test
+  public void testSetPermission() throws IOException {
+    fail();
+  }
+
+  @Test
+  public void testSetPermissionOnlyAccess() throws IOException {
+    fail();
+  }
+
+  @Test
+  public void testSetPermissionOnlyDefault() throws IOException {
+    fail();
+  }
+
+  private void assertAclFeature(boolean expectAclFeature) throws IOException {
+    INode inode = cluster.getNamesystem().getFSDirectory().getRoot()
+      .getNode(path.toUri().getPath(), false);
+    assertNotNull(inode);
+    assertTrue(inode instanceof INodeWithAdditionalFields);
+    AclFeature aclFeature = ((INodeWithAdditionalFields)inode).getAclFeature();
+    if (expectAclFeature) {
+      assertNotNull(aclFeature);
+    } else {
+      assertNull(aclFeature);
+    }
+  }
+
+  private void assertPermission(short perm) throws IOException {
+    assertEquals(FsPermission.createImmutable(perm),
+      fs.getFileStatus(path).getPermission());
   }
 }
