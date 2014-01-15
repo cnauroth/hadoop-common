@@ -24,6 +24,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
@@ -31,6 +32,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.MiniDFSCluster.DataNodeProperties;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants.SafeModeAction;
@@ -328,10 +330,46 @@ public class TestSafeMode {
         fs.setTimes(file1, 0, 0);
       }});
 
+    runFsFun("modifyAclEntries while in SM", new FSRun() {
+      @Override
+      public void run(FileSystem fs) throws IOException {
+        fs.modifyAclEntries(file1, Collections.<AclEntry>emptyList());
+      }});
+
+    runFsFun("removeAclEntries while in SM", new FSRun() {
+      @Override
+      public void run(FileSystem fs) throws IOException {
+        fs.removeAclEntries(file1, Collections.<AclEntry>emptyList());
+      }});
+
+    runFsFun("removeDefaultAcl while in SM", new FSRun() {
+      @Override
+      public void run(FileSystem fs) throws IOException {
+        fs.removeDefaultAcl(file1);
+      }});
+
+    runFsFun("removeAcl while in SM", new FSRun() {
+      @Override
+      public void run(FileSystem fs) throws IOException {
+        fs.removeAcl(file1);
+      }});
+
+    runFsFun("setAcl while in SM", new FSRun() {
+      @Override
+      public void run(FileSystem fs) throws IOException {
+        fs.setAcl(file1, Collections.<AclEntry>emptyList());
+      }});
+
     try {
       DFSTestUtil.readFile(fs, file1);
     } catch (IOException ioe) {
       fail("Set times failed while in SM");
+    }
+
+    try {
+      fs.getAclStatus(file1);
+    } catch (IOException ioe) {
+      fail("getAclStatus failed while in SM");
     }
 
     assertFalse("Could not leave SM",
