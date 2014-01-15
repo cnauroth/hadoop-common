@@ -177,6 +177,27 @@ public class TestNameNodeAcl {
   }
 
   @Test
+  public void testModifyAclEntriesMinimalDefault() throws IOException {
+    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(DEFAULT, USER, ALL),
+      aclEntry(DEFAULT, GROUP, READ_EXECUTE),
+      aclEntry(DEFAULT, OTHER, NONE));
+    fs.modifyAclEntries(path, aclSpec);
+    AclStatus s = fs.getAclStatus(path);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(ACCESS, OTHER, NONE),
+      aclEntry(DEFAULT, USER, ALL),
+      aclEntry(DEFAULT, GROUP, READ_EXECUTE),
+      aclEntry(DEFAULT, OTHER, NONE) }, returned);
+    assertPermission((short)02750);
+    assertAclFeature(true);
+  }
+
+  @Test
   public void testModifyAclEntriesCustomMask() throws IOException {
     FileSystem.create(fs, path, FsPermission.createImmutable((short)0640));
     List<AclEntry> aclSpec = Lists.newArrayList(
@@ -286,6 +307,11 @@ public class TestNameNodeAcl {
 
   @Test
   public void testRemoveAclEntriesMinimal() throws IOException {
+    fail();
+  }
+
+  @Test
+  public void testRemoveAclEntriesMinimalDefault() throws IOException {
     fail();
   }
 
@@ -560,6 +586,27 @@ public class TestNameNodeAcl {
       aclEntry(ACCESS, OTHER, NONE) }, returned);
     assertPermission((short)0640);
     assertAclFeature(false);
+  }
+
+  @Test
+  public void testSetAclMinimalDefault() throws IOException {
+    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(DEFAULT, USER, ALL),
+      aclEntry(DEFAULT, GROUP, READ_EXECUTE),
+      aclEntry(DEFAULT, OTHER, NONE));
+    fs.setAcl(path, aclSpec);
+    AclStatus s = fs.getAclStatus(path);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(ACCESS, OTHER, NONE),
+      aclEntry(DEFAULT, USER, ALL),
+      aclEntry(DEFAULT, GROUP, READ_EXECUTE),
+      aclEntry(DEFAULT, OTHER, NONE) }, returned);
+    assertPermission((short)02750);
+    assertAclFeature(true);
   }
 
   @Test
