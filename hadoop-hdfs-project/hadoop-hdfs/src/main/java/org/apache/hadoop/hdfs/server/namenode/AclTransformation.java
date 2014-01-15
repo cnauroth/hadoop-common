@@ -388,12 +388,17 @@ final class AclTransformation {
     for (AclEntryScope scope: scopeFound) {
       if (!providedMask.containsKey(scope) && maskNeeded.contains(scope) &&
           maskDirty.contains(scope)) {
+        // Caller explicitly removed mask entry, but it's required.
         throw new AclException(
           "Invalid ACL: mask is required, but it was deleted.");
       } else if (providedMask.containsKey(scope) &&
           (!scopeDirty.contains(scope) || maskDirty.contains(scope))) {
+        // Caller explicitly provided new mask, or we are preserving the existing
+        // mask in an unchanged scope.
         aclBuilder.add(providedMask.get(scope));
-      } else if (maskNeeded.contains(scope)) {
+      } else if (maskNeeded.contains(scope) || providedMask.containsKey(scope)) {
+        // Otherwise, if there are maskable entries present, or the ACL
+        // previously had a mask, then recalculate a mask automatically.
         aclBuilder.add(new AclEntry.Builder()
           .setScope(scope)
           .setType(MASK)
