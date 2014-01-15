@@ -26,6 +26,7 @@ import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.AclEntryScope;
 import org.apache.hadoop.fs.permission.AclEntryType;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.hdfs.protocol.AclException;
 import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
 
 /**
@@ -135,10 +136,12 @@ final class AclStorage {
    * @param inode INodeWithAdditionalFields to update
    * @param newAcl List<AclEntry> containing new ACL entries
    * @param snapshotId int latest snapshot ID of inode
+   * @throws AclException if the ACL is invalid for the given inode
    * @throws QuotaExceededException if quota limit is exceeded
    */
   public static void updateINodeAcl(INodeWithAdditionalFields inode,
-      List<AclEntry> newAcl, int snapshotId) throws QuotaExceededException {
+      List<AclEntry> newAcl, int snapshotId) throws AclException,
+      QuotaExceededException {
     assert newAcl.size() >= 3;
     FsPermission perm = inode.getPermissionStatus(snapshotId).getPermission();
     final FsPermission newPerm;
@@ -147,6 +150,12 @@ final class AclStorage {
       ScopedAclEntries scoped = new ScopedAclEntries(newAcl);
       List<AclEntry> accessEntries = scoped.getAccessEntries();
       List<AclEntry> defaultEntries = scoped.getDefaultEntries();
+
+      // Only directories may have a default ACL.
+      if (defaultEntries != null && !inode.isDirectory()) {
+        throw new AclException(
+          "Invalid ACL: only directories may have a default ACL.");
+      }
 
       // Pre-allocate list size for the explicit entries stored in the feature,
       // which is all entries minus the 3 entries implicitly stored in the
