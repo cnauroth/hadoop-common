@@ -342,10 +342,8 @@ class FSPermissionChecker {
     }
 
     // Use other entry if user was not denied by an earlier match.
-    if (!foundMatch) {
-      if (mode.getOtherAction().implies(access)) {
-        return;
-      }
+    if (!foundMatch && mode.getOtherAction().implies(access)) {
+      return;
     }
 
     throw new AccessControlException(
