@@ -223,39 +223,39 @@ public class TestNameNodeAcl {
 
   @Test
   public void testSetAcl() throws IOException {
-    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0644));
+    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
     List<AclEntry> aclSpec = Lists.newArrayList(
-      aclEntry(ACCESS, USER, READ_WRITE),
-      aclEntry(ACCESS, USER, "foo", READ),
-      aclEntry(ACCESS, GROUP, READ),
-      aclEntry(ACCESS, OTHER, READ),
-      aclEntry(DEFAULT, USER, "foo", READ_EXECUTE));
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, USER, "foo", ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(ACCESS, OTHER, NONE),
+      aclEntry(DEFAULT, USER, "foo", ALL));
     fs.setAcl(path, aclSpec);
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, READ_WRITE),
-      aclEntry(ACCESS, USER, "foo", READ),
-      aclEntry(ACCESS, GROUP, READ),
-      aclEntry(ACCESS, MASK, READ),
-      aclEntry(ACCESS, OTHER, READ),
-      aclEntry(DEFAULT, USER, READ_WRITE),
-      aclEntry(DEFAULT, USER, "foo", READ_EXECUTE),
-      aclEntry(DEFAULT, GROUP, READ),
-      aclEntry(DEFAULT, MASK, READ_EXECUTE),
-      aclEntry(DEFAULT, OTHER, READ) }, returned);
-    assertPermission((short)02644);
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, USER, "foo", ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(ACCESS, MASK, ALL),
+      aclEntry(ACCESS, OTHER, NONE),
+      aclEntry(DEFAULT, USER, ALL),
+      aclEntry(DEFAULT, USER, "foo", ALL),
+      aclEntry(DEFAULT, GROUP, READ_EXECUTE),
+      aclEntry(DEFAULT, MASK, ALL),
+      aclEntry(DEFAULT, OTHER, NONE) }, returned);
+    assertPermission((short)02770);
     assertAclFeature(true);
   }
 
   @Test
   public void testSetAclOnlyAccess() throws IOException {
-    FileSystem.create(fs, path, FsPermission.createImmutable((short)0644));
+    FileSystem.create(fs, path, FsPermission.createImmutable((short)0640));
     List<AclEntry> aclSpec = Lists.newArrayList(
       aclEntry(ACCESS, USER, READ_WRITE),
       aclEntry(ACCESS, USER, "foo", READ),
       aclEntry(ACCESS, GROUP, READ),
-      aclEntry(ACCESS, OTHER, READ));
+      aclEntry(ACCESS, OTHER, NONE));
     fs.setAcl(path, aclSpec);
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
@@ -264,29 +264,29 @@ public class TestNameNodeAcl {
       aclEntry(ACCESS, USER, "foo", READ),
       aclEntry(ACCESS, GROUP, READ),
       aclEntry(ACCESS, MASK, READ),
-      aclEntry(ACCESS, OTHER, READ) }, returned);
-    assertPermission((short)02644);
+      aclEntry(ACCESS, OTHER, NONE) }, returned);
+    assertPermission((short)02640);
     assertAclFeature(true);
   }
 
   @Test
   public void testSetAclOnlyDefault() throws IOException {
-    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0644));
+    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
     List<AclEntry> aclSpec = Lists.newArrayList(
-      aclEntry(DEFAULT, USER, "foo", READ_EXECUTE));
+      aclEntry(DEFAULT, USER, "foo", ALL));
     fs.setAcl(path, aclSpec);
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, READ_WRITE),
-      aclEntry(ACCESS, GROUP, READ),
-      aclEntry(ACCESS, OTHER, READ),
-      aclEntry(DEFAULT, USER, READ_WRITE),
-      aclEntry(DEFAULT, USER, "foo", READ_EXECUTE),
-      aclEntry(DEFAULT, GROUP, READ),
-      aclEntry(DEFAULT, MASK, READ_EXECUTE),
-      aclEntry(DEFAULT, OTHER, READ) }, returned);
-    assertPermission((short)02644);
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(ACCESS, OTHER, NONE),
+      aclEntry(DEFAULT, USER, ALL),
+      aclEntry(DEFAULT, USER, "foo", ALL),
+      aclEntry(DEFAULT, GROUP, READ_EXECUTE),
+      aclEntry(DEFAULT, MASK, ALL),
+      aclEntry(DEFAULT, OTHER, NONE) }, returned);
+    assertPermission((short)02750);
     assertAclFeature(true);
   }
 
@@ -297,20 +297,20 @@ public class TestNameNodeAcl {
       aclEntry(ACCESS, USER, READ_WRITE),
       aclEntry(ACCESS, USER, "foo", READ),
       aclEntry(ACCESS, GROUP, READ),
-      aclEntry(ACCESS, OTHER, READ));
+      aclEntry(ACCESS, OTHER, NONE));
     fs.setAcl(path, aclSpec);
     aclSpec = Lists.newArrayList(
       aclEntry(ACCESS, USER, READ_WRITE),
       aclEntry(ACCESS, GROUP, READ),
-      aclEntry(ACCESS, OTHER, READ));
+      aclEntry(ACCESS, OTHER, NONE));
     fs.setAcl(path, aclSpec);
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
       aclEntry(ACCESS, USER, READ_WRITE),
       aclEntry(ACCESS, GROUP, READ),
-      aclEntry(ACCESS, OTHER, READ) }, returned);
-    assertPermission((short)0644);
+      aclEntry(ACCESS, OTHER, NONE) }, returned);
+    assertPermission((short)0640);
     assertAclFeature(false);
   }
 
