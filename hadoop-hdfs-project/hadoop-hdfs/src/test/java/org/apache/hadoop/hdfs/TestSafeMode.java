@@ -24,7 +24,6 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
@@ -333,13 +332,13 @@ public class TestSafeMode {
     runFsFun("modifyAclEntries while in SM", new FSRun() {
       @Override
       public void run(FileSystem fs) throws IOException {
-        fs.modifyAclEntries(file1, Collections.<AclEntry>emptyList());
+        fs.modifyAclEntries(file1, Lists.<AclEntry>newArrayList());
       }});
 
     runFsFun("removeAclEntries while in SM", new FSRun() {
       @Override
       public void run(FileSystem fs) throws IOException {
-        fs.removeAclEntries(file1, Collections.<AclEntry>emptyList());
+        fs.removeAclEntries(file1, Lists.<AclEntry>newArrayList());
       }});
 
     runFsFun("removeDefaultAcl while in SM", new FSRun() {
@@ -357,7 +356,7 @@ public class TestSafeMode {
     runFsFun("setAcl while in SM", new FSRun() {
       @Override
       public void run(FileSystem fs) throws IOException {
-        fs.setAcl(file1, Collections.<AclEntry>emptyList());
+        fs.setAcl(file1, Lists.<AclEntry>newArrayList());
       }});
 
     try {
