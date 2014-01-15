@@ -2695,8 +2695,6 @@ public class FSDirectory implements Closeable {
     int snapshotId = iip.getLatestSnapshotId();
     FsPermission existingPerm = inode.getPermissionStatus(snapshotId)
       .getPermission();
-    AclFeature aclFeature = existingPerm.getAclBit() ? inode.getAclFeature() :
-      null;
     List<AclEntry> existingAcl = AclStorage.readINodeAcl(inode, snapshotId);
     List<AclEntry> newAcl = AclTransformation.filterDefaultAclEntries(
       existingAcl);
@@ -2719,14 +2717,12 @@ public class FSDirectory implements Closeable {
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
     INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
-    FsPermission perm = inode.getPermissionStatus(snapshotId).getPermission();
-    if (perm.getAclBit()) {
-      inode.removeAclFeature();
-      FsPermission newPerm = new FsPermission(perm.getUserAction(),
-        perm.getGroupAction(), perm.getOtherAction(), perm.getStickyBit(),
-        false);
-      inode.setPermission(newPerm, snapshotId);
-    }
+    FsPermission existingPerm = inode.getPermissionStatus(snapshotId)
+      .getPermission();
+    List<AclEntry> existingAcl = AclStorage.readINodeAcl(inode, snapshotId);
+    List<AclEntry> newAcl = AclTransformation.filterExtendedAclEntries(
+      existingAcl);
+    AclStorage.updateINodeAcl(inode, newAcl, snapshotId);
   }
 
   void setAcl(String src, List<AclEntry> aclSpec) throws IOException {
@@ -2753,8 +2749,6 @@ public class FSDirectory implements Closeable {
     int snapshotId = iip.getLatestSnapshotId();
     FsPermission existingPerm = inode.getPermissionStatus(snapshotId)
       .getPermission();
-    AclFeature aclFeature = existingPerm.getAclBit() ? inode.getAclFeature() :
-      null;
     List<AclEntry> existingAcl = AclStorage.readINodeAcl(inode, snapshotId);
     List<AclEntry> newAcl = AclTransformation.replaceAclEntries(existingAcl,
       aclSpec);
