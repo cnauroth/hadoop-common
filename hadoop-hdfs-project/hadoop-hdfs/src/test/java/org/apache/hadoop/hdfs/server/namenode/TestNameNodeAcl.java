@@ -44,7 +44,8 @@ import org.junit.Test;
 import com.google.common.collect.Lists;
 
 /**
- * Tests NameNode interaction for all ACL modification APIs.
+ * Tests NameNode interaction for all ACL modification APIs.  This test suite
+ * also covers interaction of setPermission with inodes that have ACLs.
  */
 public class TestNameNodeAcl {
 
@@ -246,7 +247,31 @@ public class TestNameNodeAcl {
 
   @Test
   public void testRemoveAclEntries() throws IOException {
-    fail();
+    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, USER, "foo", ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(ACCESS, OTHER, NONE),
+      aclEntry(DEFAULT, USER, "foo", ALL));
+    fs.setAcl(path, aclSpec);
+    aclSpec = Lists.newArrayList(
+      aclEntry(ACCESS, USER, "foo"),
+      aclEntry(DEFAULT, USER, "foo"));
+    fs.removeAclEntries(path, aclSpec);
+    AclStatus s = fs.getAclStatus(path);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(ACCESS, MASK, READ_EXECUTE),
+      aclEntry(ACCESS, OTHER, NONE),
+      aclEntry(DEFAULT, USER, ALL),
+      aclEntry(DEFAULT, GROUP, READ_EXECUTE),
+      aclEntry(DEFAULT, MASK, READ_EXECUTE),
+      aclEntry(DEFAULT, OTHER, NONE) }, returned);
+    assertPermission((short)02750);
+    assertAclFeature(true);
   }
 
   @Test
@@ -269,34 +294,117 @@ public class TestNameNodeAcl {
     fail();
   }
 
-  @Test
+  @Test(expected=FileNotFoundException.class)
   public void testRemoveAclEntriesPathNotFound() throws IOException {
-    fail();
+    // Path has not been created.
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(ACCESS, USER, "foo"));
+    fs.removeAclEntries(path, aclSpec);
   }
 
   @Test
   public void testRemoveDefaultAcl() throws IOException {
-    fail();
+    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, USER, "foo", ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(ACCESS, OTHER, NONE),
+      aclEntry(DEFAULT, USER, "foo", ALL));
+    fs.setAcl(path, aclSpec);
+    fs.removeDefaultAcl(path);
+    AclStatus s = fs.getAclStatus(path);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, USER, "foo", ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(ACCESS, MASK, ALL),
+      aclEntry(ACCESS, OTHER, NONE) }, returned);
+    assertPermission((short)02770);
+    assertAclFeature(true);
   }
 
   @Test
   public void testRemoveDefaultAclOnlyAccess() throws IOException {
-    fail();
+    FileSystem.create(fs, path, FsPermission.createImmutable((short)0640));
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, USER, "foo", ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(ACCESS, OTHER, NONE));
+    fs.setAcl(path, aclSpec);
+    fs.removeDefaultAcl(path);
+    AclStatus s = fs.getAclStatus(path);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, USER, "foo", ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(ACCESS, MASK, ALL),
+      aclEntry(ACCESS, OTHER, NONE) }, returned);
+    assertPermission((short)02770);
+    assertAclFeature(true);
   }
 
   @Test
   public void testRemoveDefaultAclOnlyDefault() throws IOException {
-    fail();
+    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(DEFAULT, USER, "foo", ALL));
+    fs.setAcl(path, aclSpec);
+    fs.removeDefaultAcl(path);
+    AclStatus s = fs.getAclStatus(path);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(ACCESS, OTHER, NONE) }, returned);
+    assertPermission((short)0750);
+    assertAclFeature(false);
+  }
+
+  @Test
+  public void testRemoveDefaultAclMinimal() throws IOException {
+    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
+    fs.removeDefaultAcl(path);
+    AclStatus s = fs.getAclStatus(path);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(ACCESS, OTHER, NONE) }, returned);
+    assertPermission((short)0750);
+    assertAclFeature(false);
   }
 
   @Test
   public void testRemoveDefaultAclStickyBit() throws IOException {
-    fail();
+    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)01750));
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, USER, "foo", ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(ACCESS, OTHER, NONE),
+      aclEntry(DEFAULT, USER, "foo", ALL));
+    fs.setAcl(path, aclSpec);
+    fs.removeDefaultAcl(path);
+    AclStatus s = fs.getAclStatus(path);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, USER, "foo", ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(ACCESS, MASK, ALL),
+      aclEntry(ACCESS, OTHER, NONE) }, returned);
+    assertPermission((short)03770);
+    assertAclFeature(true);
   }
 
-  @Test
+  @Test(expected=FileNotFoundException.class)
   public void testRemoveDefaultAclPathNotFound() throws IOException {
-    fail();
+    // Path has not been created.
+    fs.removeDefaultAcl(path);
   }
 
   @Test
@@ -495,6 +603,13 @@ public class TestNameNodeAcl {
     fail();
   }
 
+  /**
+   * Asserts whether or not the inode for the test path has an AclFeature.
+   *
+   * @param expectAclFeature boolean true if an AclFeature must be present,
+   *   false if an AclFeature must not be present
+   * @throws IOException thrown if there is an I/O error
+   */
   private static void assertAclFeature(boolean expectAclFeature)
       throws IOException {
     INode inode = cluster.getNamesystem().getFSDirectory().getRoot()
@@ -509,6 +624,12 @@ public class TestNameNodeAcl {
     }
   }
 
+  /**
+   * Asserts the value of the FsPermission bits on the inode of the test path.
+   *
+   * @param perm short expected permission bits
+   * @throws IOException thrown if there is an I/O error
+   */
   private static void assertPermission(short perm) throws IOException {
     assertEquals(FsPermission.createImmutable(perm),
       fs.getFileStatus(path).getPermission());
