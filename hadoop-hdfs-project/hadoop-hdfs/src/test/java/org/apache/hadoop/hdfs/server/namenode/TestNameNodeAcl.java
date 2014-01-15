@@ -49,9 +49,8 @@ public class TestNameNodeAcl {
   private static MiniDFSCluster cluster;
   private static Configuration conf;
   private static FileSystem fs;
-
-  private Path path;
-  private int pathCount = 0;
+  private static int pathCount = 0;
+  private static Path path;
 
   @BeforeClass
   public static void init() throws Exception {
@@ -72,7 +71,9 @@ public class TestNameNodeAcl {
 
   @Before
   public void setUp() {
-    path = new Path("/p" + ++pathCount);
+    pathCount += 1;
+    path = new Path("/p" + pathCount);
+    System.out.println("cn path = " + path);
   }
 
   @Test
@@ -222,12 +223,50 @@ public class TestNameNodeAcl {
 
   @Test
   public void testSetAcl() throws IOException {
-    fail();
+    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0644));
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, USER, "foo", READ),
+      aclEntry(ACCESS, GROUP, READ),
+      aclEntry(ACCESS, OTHER, READ),
+      aclEntry(DEFAULT, USER, "foo", READ_EXECUTE));
+    fs.setAcl(path, aclSpec);
+    AclStatus s = fs.getAclStatus(path);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, USER, "foo", READ),
+      aclEntry(ACCESS, GROUP, READ),
+      aclEntry(ACCESS, MASK, READ),
+      aclEntry(ACCESS, OTHER, READ),
+      aclEntry(DEFAULT, USER, READ_WRITE),
+      aclEntry(DEFAULT, USER, "foo", READ_EXECUTE),
+      aclEntry(DEFAULT, GROUP, READ),
+      aclEntry(DEFAULT, MASK, READ_EXECUTE),
+      aclEntry(DEFAULT, OTHER, READ) }, returned);
+    assertPermission((short)02644);
+    assertAclFeature(true);
   }
 
   @Test
   public void testSetAclOnlyAccess() throws IOException {
-    fail();
+    FileSystem.create(fs, path, FsPermission.createImmutable((short)0644));
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, USER, "foo", READ),
+      aclEntry(ACCESS, GROUP, READ),
+      aclEntry(ACCESS, OTHER, READ));
+    fs.setAcl(path, aclSpec);
+    AclStatus s = fs.getAclStatus(path);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, USER, "foo", READ),
+      aclEntry(ACCESS, GROUP, READ),
+      aclEntry(ACCESS, MASK, READ),
+      aclEntry(ACCESS, OTHER, READ) }, returned);
+    assertPermission((short)02644);
+    assertAclFeature(true);
   }
 
   @Test
@@ -253,7 +292,26 @@ public class TestNameNodeAcl {
 
   @Test
   public void testSetAclMinimal() throws IOException {
-    fail();
+    FileSystem.create(fs, path, FsPermission.createImmutable((short)0644));
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, USER, "foo", READ),
+      aclEntry(ACCESS, GROUP, READ),
+      aclEntry(ACCESS, OTHER, READ));
+    fs.setAcl(path, aclSpec);
+    aclSpec = Lists.newArrayList(
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, GROUP, READ),
+      aclEntry(ACCESS, OTHER, READ));
+    fs.setAcl(path, aclSpec);
+    AclStatus s = fs.getAclStatus(path);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, GROUP, READ),
+      aclEntry(ACCESS, OTHER, READ) }, returned);
+    assertPermission((short)0644);
+    assertAclFeature(false);
   }
 
   @Test
@@ -301,7 +359,8 @@ public class TestNameNodeAcl {
     fail();
   }
 
-  private void assertAclFeature(boolean expectAclFeature) throws IOException {
+  private static void assertAclFeature(boolean expectAclFeature)
+      throws IOException {
     INode inode = cluster.getNamesystem().getFSDirectory().getRoot()
       .getNode(path.toUri().getPath(), false);
     assertNotNull(inode);
@@ -314,7 +373,7 @@ public class TestNameNodeAcl {
     }
   }
 
-  private void assertPermission(short perm) throws IOException {
+  private static void assertPermission(short perm) throws IOException {
     assertEquals(FsPermission.createImmutable(perm),
       fs.getFileStatus(path).getPermission());
   }
