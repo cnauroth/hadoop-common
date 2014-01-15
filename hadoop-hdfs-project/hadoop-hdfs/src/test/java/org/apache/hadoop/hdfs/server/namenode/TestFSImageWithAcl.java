@@ -61,8 +61,8 @@ public class TestFSImageWithAcl {
     fs.mkdirs(new Path("/23"));
 
     AclEntry e = new AclEntry.Builder().setName("foo")
-        .setPermission(READ_EXECUTE).setScope(DEFAULT).setType(USER).build();
-    fs.setAcl(p, Lists.newArrayList(e));
+        .setPermission(READ_EXECUTE).setScope(ACCESS).setType(USER).build();
+    fs.modifyAclEntries(p, Lists.newArrayList(e));
 
     if (persistNamespace) {
       fs.setSafeMode(SafeModeAction.SAFEMODE_ENTER);
@@ -78,13 +78,10 @@ public class TestFSImageWithAcl {
         new AclEntry[0]);
     Assert.assertArrayEquals(new AclEntry[] {
         aclEntry(ACCESS, USER, READ_WRITE),
+        aclEntry(ACCESS, USER, "foo", READ_EXECUTE),
         aclEntry(ACCESS, GROUP, READ),
-        aclEntry(ACCESS, OTHER, READ),
-        aclEntry(DEFAULT, USER, READ_WRITE),
-        aclEntry(DEFAULT, USER, "foo", READ_EXECUTE),
-        aclEntry(DEFAULT, GROUP, READ),
-        aclEntry(DEFAULT, MASK, READ_EXECUTE),
-        aclEntry(DEFAULT, OTHER, READ) }, returned);
+        aclEntry(ACCESS, MASK, READ_EXECUTE),
+        aclEntry(ACCESS, OTHER, READ) }, returned);
 
     fs.removeAcl(p);
 
