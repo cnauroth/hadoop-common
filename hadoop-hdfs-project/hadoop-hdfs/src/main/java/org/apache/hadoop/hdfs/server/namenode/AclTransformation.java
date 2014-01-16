@@ -125,6 +125,31 @@ final class AclTransformation {
   }
 
   /**
+   * Filters (discards) any extended ACL entries.  The new ACL will be a minimal
+   * ACL that retains only the 3 base access entries: user, group and other.
+   *
+   * @param existingAcl List<AclEntry> existing ACL
+   * @return List<AclEntry> new ACL
+   * @throws AclException if validation fails
+   */
+  public static List<AclEntry> filterExtendedAclEntries(
+      List<AclEntry> existingAcl) throws AclException {
+    ArrayList<AclEntry> aclBuilder = Lists.newArrayListWithCapacity(MAX_ENTRIES);
+    for (AclEntry existingEntry: existingAcl) {
+      if (existingEntry.getScope() == DEFAULT) {
+        // Default entries sort after access entries, so we can exit early.
+        break;
+      }
+      if (existingEntry.getType() != MASK &&
+          existingEntry.getName() == null) {
+        // This is one of the base access entries, so copy.
+        aclBuilder.add(existingEntry);
+      }
+    }
+    return buildAndValidateAcl(aclBuilder);
+  }
+
+  /**
    * Merges the entries of the ACL spec into the existing ACL.  If necessary,
    * recalculates the mask entries.  If necessary, default entries may be
    * inferred by copying the permissions of the corresponding access entries.
@@ -363,12 +388,17 @@ final class AclTransformation {
     for (AclEntryScope scope: scopeFound) {
       if (!providedMask.containsKey(scope) && maskNeeded.contains(scope) &&
           maskDirty.contains(scope)) {
+        // Caller explicitly removed mask entry, but it's required.
         throw new AclException(
           "Invalid ACL: mask is required, but it was deleted.");
       } else if (providedMask.containsKey(scope) &&
           (!scopeDirty.contains(scope) || maskDirty.contains(scope))) {
+        // Caller explicitly provided new mask, or we are preserving the existing
+        // mask in an unchanged scope.
         aclBuilder.add(providedMask.get(scope));
-      } else if (maskNeeded.contains(scope)) {
+      } else if (maskNeeded.contains(scope) || providedMask.containsKey(scope)) {
+        // Otherwise, if there are maskable entries present, or the ACL
+        // previously had a mask, then recalculate a mask automatically.
         aclBuilder.add(new AclEntry.Builder()
           .setScope(scope)
           .setType(MASK)
