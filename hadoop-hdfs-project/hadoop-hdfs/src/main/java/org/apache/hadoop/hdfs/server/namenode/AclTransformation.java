@@ -125,31 +125,6 @@ final class AclTransformation {
   }
 
   /**
-   * Filters (discards) any extended ACL entries.  The new ACL will be a minimal
-   * ACL that retains only the 3 base access entries: user, group and other.
-   *
-   * @param existingAcl List<AclEntry> existing ACL
-   * @return List<AclEntry> new ACL
-   * @throws AclException if validation fails
-   */
-  public static List<AclEntry> filterExtendedAclEntries(
-      List<AclEntry> existingAcl) throws AclException {
-    ArrayList<AclEntry> aclBuilder = Lists.newArrayListWithCapacity(MAX_ENTRIES);
-    for (AclEntry existingEntry: existingAcl) {
-      if (existingEntry.getScope() == DEFAULT) {
-        // Default entries sort after access entries, so we can exit early.
-        break;
-      }
-      if (existingEntry.getType() != MASK &&
-          existingEntry.getName() == null) {
-        // This is one of the base access entries, so copy.
-        aclBuilder.add(existingEntry);
-      }
-    }
-    return buildAndValidateAcl(aclBuilder);
-  }
-
-  /**
    * Merges the entries of the ACL spec into the existing ACL.  If necessary,
    * recalculates the mask entries.  If necessary, default entries may be
    * inferred by copying the permissions of the corresponding access entries.
@@ -270,7 +245,7 @@ final class AclTransformation {
    * -other entry
    * All access ACL entries sort ahead of all default ACL entries.
    */
-  private static final Comparator<AclEntry> ACL_ENTRY_COMPARATOR =
+  static final Comparator<AclEntry> ACL_ENTRY_COMPARATOR =
     new Comparator<AclEntry>() {
       @Override
       public int compare(AclEntry entry1, AclEntry entry2) {
