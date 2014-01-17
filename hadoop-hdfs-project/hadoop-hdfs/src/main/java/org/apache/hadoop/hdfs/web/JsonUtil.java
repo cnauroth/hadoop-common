@@ -18,6 +18,11 @@
 package org.apache.hadoop.hdfs.web;
 
 import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.permission.AclEntry;
+import org.apache.hadoop.fs.permission.AclEntryScope;
+import org.apache.hadoop.fs.permission.AclEntryType;
+import org.apache.hadoop.fs.permission.AclStatus;
+import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.DFSUtil;
 import org.apache.hadoop.hdfs.protocol.*;
@@ -211,6 +216,14 @@ public class JsonUtil {
     m.put("childrenNum", status.getChildrenNum());
     return includeType ? toJsonString(FileStatus.class, m): JSON.toString(m);
   }
+  
+  /** Convert a AclStatus object to a Json string. */
+  public static String toJsonString(final AclStatus status) {
+    if (status == null) {
+      return null;
+    }
+    return ("{" + "\"" + "AclStatus" + "\":" + "{" + status.toString() + "}");
+  }
 
   /** Convert a Json map to a HdfsFileStatus object. */
   public static HdfsFileStatus toFileStatus(final Map<?, ?> json, boolean includesType) {
@@ -241,6 +254,50 @@ public class JsonUtil {
     return new HdfsFileStatus(len, type == PathType.DIRECTORY, replication,
         blockSize, mTime, aTime, permission, owner, group,
         symlink, DFSUtil.string2Bytes(localName), fileId, childrenNum);
+  }
+  
+  /** Convert a Json map to a AclStatus object. */
+  public static AclStatus toAclStatus(final Map<?, ?> json, boolean includesType) {
+    if (json == null) {
+      return null;
+    }
+
+    final Map<?, ?> m =
+        includesType ? (Map<?, ?>) json.get(AclStatus.class.getSimpleName())
+            : json;
+
+    AclStatus.Builder aclStatusBuilder = new AclStatus.Builder();
+    aclStatusBuilder.owner((String) m.get("owner"));
+    aclStatusBuilder.group((String) m.get("group"));
+    aclStatusBuilder.stickyBit((Boolean) m.get("stickyBit"));
+
+    final List<String> entries = (List<String>) m.get("entries");
+    String[] subEntryFields = new String[2];
+    int index;
+    for (String entry : entries) {
+      AclEntry.Builder aclBuilder = new AclEntry.Builder();
+      subEntryFields = entry.split(":");
+      index = 0;
+      if (subEntryFields[index++].equals("default")) {
+        aclBuilder.setScope(AclEntryScope.DEFAULT);
+      } else {
+        aclBuilder.setScope(AclEntryScope.ACCESS);
+      }
+      if (subEntryFields[index++].equals("user")) {
+        aclBuilder.setType(AclEntryType.USER);
+      } else if (subEntryFields[index++].equals("group")) {
+        aclBuilder.setType(AclEntryType.GROUP);
+      } else if (subEntryFields[index++].equals("mask")) {
+        aclBuilder.setType(AclEntryType.MASK);
+      } else if (subEntryFields[index++].equals("other")) {
+        aclBuilder.setType(AclEntryType.OTHER);
+      }
+
+      aclBuilder.setName(subEntryFields[index++]);
+      aclBuilder.setPermission(FsAction.getFsAction(subEntryFields[index++]));
+      aclStatusBuilder.addEntry(aclBuilder.build());
+    }
+    return aclStatusBuilder.build();
   }
 
   /** Convert an ExtendedBlock to a Json map. */
