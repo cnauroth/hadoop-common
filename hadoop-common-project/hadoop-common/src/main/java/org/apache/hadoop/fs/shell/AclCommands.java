@@ -139,8 +139,8 @@ class AclCommands extends FsCommand {
       // Print other entry implied by other bits.
       out.println(new AclEntry.Builder()
         .setScope(AclEntryScope.ACCESS)
-        .setType(AclEntryType.MASK)
-        .setPermission(perm.getGroupAction())
+        .setType(AclEntryType.OTHER)
+        .setPermission(perm.getOtherAction())
         .build());
 
       // Print default ACL entries.
