@@ -126,7 +126,6 @@ final class AclStorage {
     }
 
     // The above adds entries in the correct order, so no need to sort here.
-    assert existingAcl.size() >= 3;
     return existingAcl;
   }
 
