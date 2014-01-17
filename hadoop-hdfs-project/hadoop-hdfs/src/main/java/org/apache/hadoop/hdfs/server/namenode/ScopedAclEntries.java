@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hdfs.server.namenode;
 
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -44,19 +45,20 @@ final class ScopedAclEntries {
   public ScopedAclEntries(List<AclEntry> aclEntries) {
     int pivot = calculatePivotOnDefaultEntries(aclEntries);
     if (pivot != PIVOT_NOT_FOUND) {
-      accessEntries = pivot != 0 ? aclEntries.subList(0, pivot) : null;
+      accessEntries = pivot != 0 ? aclEntries.subList(0, pivot) :
+        Collections.<AclEntry>emptyList();
       defaultEntries = aclEntries.subList(pivot, aclEntries.size());
     } else {
       accessEntries = !aclEntries.isEmpty() ? aclEntries : null;
-      defaultEntries = null;
+      defaultEntries = Collections.emptyList();
     }
   }
 
   /**
    * Returns access entries.
    *
-   * @return List<AclEntry> containing just access entries, or null if there are
-   *   no access entries
+   * @return List<AclEntry> containing just access entries, or an empty list if
+   *   there are no access entries
    */
   public List<AclEntry> getAccessEntries() {
     return accessEntries;
@@ -65,8 +67,8 @@ final class ScopedAclEntries {
   /**
    * Returns default entries.
    *
-   * @return List<AclEntry> containing just default entries, or null if there are
-   *   no default entries
+   * @return List<AclEntry> containing just default entries, or an empty list if
+   *   there are no default entries
    */
   public List<AclEntry> getDefaultEntries() {
     return defaultEntries;

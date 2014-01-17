@@ -302,7 +302,7 @@ final class AclTransformation {
         throw new AclException(
           "Invalid ACL: the user, group and other entries are required.");
       }
-      if (scopedEntries.getDefaultEntries() != null) {
+      if (!scopedEntries.getDefaultEntries().isEmpty()) {
         AclEntry defaultEntryKey = new AclEntry.Builder().setScope(DEFAULT)
           .setType(type).build();
         if (Collections.binarySearch(scopedEntries.getDefaultEntries(),
@@ -392,7 +392,7 @@ final class AclTransformation {
   private static void copyDefaultsIfNeeded(List<AclEntry> aclBuilder) {
     Collections.sort(aclBuilder, ACL_ENTRY_COMPARATOR);
     ScopedAclEntries scopedEntries = new ScopedAclEntries(aclBuilder);
-    if (scopedEntries.getDefaultEntries() != null) {
+    if (!scopedEntries.getDefaultEntries().isEmpty()) {
       List<AclEntry> accessEntries = scopedEntries.getAccessEntries();
       List<AclEntry> defaultEntries = scopedEntries.getDefaultEntries();
       List<AclEntry> copiedEntries = Lists.newArrayListWithCapacity(3);

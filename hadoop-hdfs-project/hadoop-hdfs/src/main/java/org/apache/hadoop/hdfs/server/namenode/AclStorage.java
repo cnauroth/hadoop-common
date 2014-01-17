@@ -105,7 +105,7 @@ final class AclStorage {
       // bits.
       existingAcl = Lists.newArrayListWithCapacity(featureEntries.size() + 3);
 
-      if (accessEntries != null) {
+      if (!accessEntries.isEmpty()) {
         // Add owner entry implied from user permission bits.
         existingAcl.add(new AclEntry.Builder()
           .setScope(AclEntryScope.ACCESS)
@@ -136,9 +136,7 @@ final class AclStorage {
       }
 
       // Add all default entries after the access entries.
-      if (defaultEntries != null) {
-        existingAcl.addAll(defaultEntries);
-      }
+      existingAcl.addAll(defaultEntries);
     } else {
       // If the inode doesn't have an extended ACL, then return a minimal ACL.
       existingAcl = getMinimalAcl(perm);
@@ -204,7 +202,7 @@ final class AclStorage {
       List<AclEntry> defaultEntries = scoped.getDefaultEntries();
 
       // Only directories may have a default ACL.
-      if (defaultEntries != null && !inode.isDirectory()) {
+      if (!defaultEntries.isEmpty() && !inode.isDirectory()) {
         throw new AclException(
           "Invalid ACL: only directories may have a default ACL.");
       }
@@ -213,8 +211,7 @@ final class AclStorage {
       // which is all entries minus the 3 entries implicitly stored in the
       // permission bits.
       List<AclEntry> featureEntries = Lists.newArrayListWithCapacity(
-        (accessEntries != null ? accessEntries.size() - 3 : 0) +
-        (defaultEntries != null ? defaultEntries.size() : 0));
+        (accessEntries.size() - 3) + defaultEntries.size());
 
       // Calculate new permission bits.  For a correctly sorted ACL, the first
       // entry is the owner and the last 2 entries are the mask and other entries
@@ -233,9 +230,7 @@ final class AclStorage {
       }
 
       // Add all default entries to the feature.
-      if (defaultEntries != null) {
-        featureEntries.addAll(defaultEntries);
-      }
+      featureEntries.addAll(defaultEntries);
 
       // Attach entries to the feature, creating a new feature if needed.
       AclFeature aclFeature = inode.getAclFeature();
