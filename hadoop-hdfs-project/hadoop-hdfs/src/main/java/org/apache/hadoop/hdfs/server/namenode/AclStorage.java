@@ -59,6 +59,25 @@ import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
 final class AclStorage {
 
   /**
+   * Reads the existing extended ACL entries of an inode.  This method returns
+   * only the extended ACL entries stored in the AclFeature.  If the inode does
+   * not have an ACL, then this method returns an empty list.
+   *
+   * @param inode INodeWithAdditionalFields to read
+   * @param snapshotId int latest snapshot ID of inode
+   * @return List<AclEntry> containing extended inode ACL entries
+   */
+  public static List<AclEntry> readINodeAcl(INodeWithAdditionalFields inode,
+      int snapshotId) {
+    FsPermission perm = inode.getPermissionStatus(snapshotId).getPermission();
+    if (perm.getAclBit()) {
+      return inode.getAclFeature().getEntries();
+    } else {
+      return Collections.emptyList();
+    }
+  }
+
+  /**
    * Reads the existing ACL of an inode.  This method always returns the full
    * logical ACL of the inode after reading relevant data from the inode's
    * {@link FsPermission} and {@link AclFeature}.  Note that every inode
@@ -68,12 +87,10 @@ final class AclStorage {
    *
    * @param inode INodeWithAdditionalFields to read
    * @param snapshotId int latest snapshot ID of inode
-   * @param includeBaseEntries if true, returned list also contains the base ACL
-   *   entries implied by the permission bits
-   * @return List<AclEntry> containing inode ACL entries
+   * @return List<AclEntry> containing all logical inode ACL entries
    */
-  public static List<AclEntry> readINodeAcl(INodeWithAdditionalFields inode,
-      int snapshotId, boolean includeBaseEntries) {
+  public static List<AclEntry> readINodeLogicalAcl(
+      INodeWithAdditionalFields inode, int snapshotId) {
     final List<AclEntry> existingAcl;
     FsPermission perm = inode.getPermissionStatus(snapshotId).getPermission();
     if (perm.getAclBit()) {
@@ -88,50 +105,43 @@ final class AclStorage {
       // bits.
       existingAcl = Lists.newArrayListWithCapacity(featureEntries.size() + 3);
 
-        if (accessEntries != null) {
-          if (includeBaseEntries) {
-            // Add owner entry implied from user permission bits.
-            existingAcl.add(new AclEntry.Builder()
-              .setScope(AclEntryScope.ACCESS)
-              .setType(AclEntryType.USER)
-              .setPermission(perm.getUserAction())
-              .build());
-          }
+      if (accessEntries != null) {
+        // Add owner entry implied from user permission bits.
+        existingAcl.add(new AclEntry.Builder()
+          .setScope(AclEntryScope.ACCESS)
+          .setType(AclEntryType.USER)
+          .setPermission(perm.getUserAction())
+          .build());
 
-          // Next add all named user and group entries taken from the feature.
-          existingAcl.addAll(accessEntries);
+        // Next add all named user and group entries taken from the feature.
+        existingAcl.addAll(accessEntries);
 
-          if (includeBaseEntries) {
-            // Add mask entry implied from group permission bits.
-            existingAcl.add(new AclEntry.Builder()
-              .setScope(AclEntryScope.ACCESS)
-              .setType(AclEntryType.MASK)
-              .setPermission(perm.getGroupAction())
-              .build());
+        // Add mask entry implied from group permission bits.
+        existingAcl.add(new AclEntry.Builder()
+          .setScope(AclEntryScope.ACCESS)
+          .setType(AclEntryType.MASK)
+          .setPermission(perm.getGroupAction())
+          .build());
 
-            // Add other entry implied from other permission bits.
-            existingAcl.add(new AclEntry.Builder()
-              .setScope(AclEntryScope.ACCESS)
-              .setType(AclEntryType.OTHER)
-              .setPermission(perm.getOtherAction())
-              .build());
-          }
-        } else if (includeBaseEntries) {
-          // It's possible that there is a default ACL but no access ACL.  In
-          // this case, add the minimal access ACL implied by the permission
-          // bits.
-          existingAcl.addAll(getMinimalAcl(perm));
-        }
+        // Add other entry implied from other permission bits.
+        existingAcl.add(new AclEntry.Builder()
+          .setScope(AclEntryScope.ACCESS)
+          .setType(AclEntryType.OTHER)
+          .setPermission(perm.getOtherAction())
+          .build());
+      } else {
+        // It's possible that there is a default ACL but no access ACL.  In this
+        // case, add the minimal access ACL implied by the permission bits.
+        existingAcl.addAll(getMinimalAcl(perm));
+      }
 
       // Add all default entries after the access entries.
       if (defaultEntries != null) {
         existingAcl.addAll(defaultEntries);
       }
-    } else if (includeBaseEntries) {
+    } else {
       // If the inode doesn't have an extended ACL, then return a minimal ACL.
       existingAcl = getMinimalAcl(perm);
-    } else {
-      existingAcl = Collections.emptyList();
     }
 
     // The above adds entries in the correct order, so no need to sort here.

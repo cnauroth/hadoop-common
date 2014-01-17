@@ -2658,8 +2658,8 @@ public class FSDirectory implements Closeable {
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
     INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
-    List<AclEntry> existingAcl = AclStorage.readINodeAcl(inode, snapshotId,
-      true);
+    List<AclEntry> existingAcl = AclStorage.readINodeLogicalAcl(inode,
+      snapshotId);
     List<AclEntry> newAcl = AclTransformation.mergeAclEntries(existingAcl,
       aclSpec);
     AclStorage.updateINodeAcl(inode, newAcl, snapshotId);
@@ -2682,8 +2682,8 @@ public class FSDirectory implements Closeable {
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
     INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
-    List<AclEntry> existingAcl = AclStorage.readINodeAcl(inode, snapshotId,
-      true);
+    List<AclEntry> existingAcl = AclStorage.readINodeLogicalAcl(inode,
+      snapshotId);
     List<AclEntry> newAcl = AclTransformation.filterAclEntriesByAclSpec(
       existingAcl, aclSpec);
     AclStorage.updateINodeAcl(inode, newAcl, snapshotId);
@@ -2706,8 +2706,8 @@ public class FSDirectory implements Closeable {
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
     INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
-    List<AclEntry> existingAcl = AclStorage.readINodeAcl(inode, snapshotId,
-      true);
+    List<AclEntry> existingAcl = AclStorage.readINodeLogicalAcl(inode,
+      snapshotId);
     List<AclEntry> newAcl = AclTransformation.filterDefaultAclEntries(
       existingAcl);
     AclStorage.updateINodeAcl(inode, newAcl, snapshotId);
@@ -2754,8 +2754,8 @@ public class FSDirectory implements Closeable {
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
     INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
-    List<AclEntry> existingAcl = AclStorage.readINodeAcl(inode, snapshotId,
-      true);
+    List<AclEntry> existingAcl = AclStorage.readINodeLogicalAcl(inode,
+      snapshotId);
     List<AclEntry> newAcl = AclTransformation.replaceAclEntries(existingAcl,
       aclSpec);
     AclStorage.updateINodeAcl(inode, newAcl, snapshotId);
@@ -2769,7 +2769,7 @@ public class FSDirectory implements Closeable {
       final INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(
         src, iip);
       int snapshotId = iip.getLatestSnapshotId();
-      List<AclEntry> acl = AclStorage.readINodeAcl(inode, snapshotId, false);
+      List<AclEntry> acl = AclStorage.readINodeAcl(inode, snapshotId);
       return new AclStatus.Builder()
           .owner(inode.getUserName()).group(inode.getGroupName())
           .stickyBit(inode.getFsPermission(snapshotId).getStickyBit())
