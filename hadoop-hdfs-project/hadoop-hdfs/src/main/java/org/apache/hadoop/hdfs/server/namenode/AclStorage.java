@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hdfs.server.namenode;
 
+import java.util.Collections;
 import java.util.List;
 
 import com.google.common.collect.Lists;
@@ -51,7 +52,8 @@ import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
  * ACL entries to the appropriate location.
  *
  * The methods in this class assume that input ACL entry lists have already been
- * sorted according to the rules enforced by {@link AclTransformation}.
+ * validated and sorted according to the rules enforced by
+ * {@link AclTransformation}.
  */
 @InterfaceAudience.Private
 final class AclStorage {
@@ -126,6 +128,38 @@ final class AclStorage {
     // The above adds entries in the correct order, so no need to sort here.
     assert existingAcl.size() >= 3;
     return existingAcl;
+  }
+
+  /**
+   * Completely removes the ACL from an inode.
+   *
+   * @param inode INodeWithAdditionalFields to update
+   * @param snapshotId int latest snapshot ID of inode
+   * @throws QuotaExceededException if quota limit is exceeded
+   */
+  public static void removeINodeAcl(INodeWithAdditionalFields inode,
+      int snapshotId) throws QuotaExceededException {
+    FsPermission perm = inode.getPermissionStatus(snapshotId).getPermission();
+    if (perm.getAclBit()) {
+      // Restore group permissions from the feature's entry to permission bits,
+      // overwriting the mask, which is not part of a minimal ACL.
+      List<AclEntry> featureEntries = inode.getAclFeature().getEntries();
+      AclEntry groupEntryKey = new AclEntry.Builder()
+        .setScope(AclEntryScope.ACCESS)
+        .setType(AclEntryType.GROUP)
+        .build();
+      int groupEntryIndex = Collections.binarySearch(featureEntries,
+        groupEntryKey, AclTransformation.ACL_ENTRY_COMPARATOR);
+      assert groupEntryIndex >= 0;
+
+      // Remove the feature and turn off the ACL bit.
+      inode.removeAclFeature();
+      FsPermission newPerm = new FsPermission(perm.getUserAction(),
+        featureEntries.get(groupEntryIndex).getPermission(),
+        perm.getOtherAction(),
+        perm.getStickyBit(), false);
+      inode.setPermission(newPerm, snapshotId);
+    }
   }
 
   /**

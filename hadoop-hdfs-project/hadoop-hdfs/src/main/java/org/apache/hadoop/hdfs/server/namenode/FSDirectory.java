@@ -2704,8 +2704,6 @@ public class FSDirectory implements Closeable {
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
     INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
-    FsPermission existingPerm = inode.getPermissionStatus(snapshotId)
-      .getPermission();
     List<AclEntry> existingAcl = AclStorage.readINodeAcl(inode, snapshotId);
     List<AclEntry> newAcl = AclTransformation.filterDefaultAclEntries(
       existingAcl);
@@ -2728,12 +2726,7 @@ public class FSDirectory implements Closeable {
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
     INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
-    FsPermission existingPerm = inode.getPermissionStatus(snapshotId)
-      .getPermission();
-    List<AclEntry> existingAcl = AclStorage.readINodeAcl(inode, snapshotId);
-    List<AclEntry> newAcl = AclTransformation.filterExtendedAclEntries(
-      existingAcl);
-    AclStorage.updateINodeAcl(inode, newAcl, snapshotId);
+    AclStorage.removeINodeAcl(inode, snapshotId);
   }
 
   void setAcl(String src, List<AclEntry> aclSpec) throws IOException {
@@ -2758,8 +2751,6 @@ public class FSDirectory implements Closeable {
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
     INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
-    FsPermission existingPerm = inode.getPermissionStatus(snapshotId)
-      .getPermission();
     List<AclEntry> existingAcl = AclStorage.readINodeAcl(inode, snapshotId);
     List<AclEntry> newAcl = AclTransformation.replaceAclEntries(existingAcl,
       aclSpec);
