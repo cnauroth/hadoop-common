@@ -95,11 +95,8 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
       aclEntry(ACCESS, USER, "foo", READ_EXECUTE),
       aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, MASK, READ_EXECUTE),
-      aclEntry(ACCESS, OTHER, NONE),
       aclEntry(DEFAULT, USER, ALL),
       aclEntry(DEFAULT, USER, "foo", READ_EXECUTE),
       aclEntry(DEFAULT, GROUP, READ_EXECUTE),
@@ -124,11 +121,8 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
       aclEntry(ACCESS, USER, "foo", READ_EXECUTE),
-      aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, MASK, READ_EXECUTE),
-      aclEntry(ACCESS, OTHER, NONE) }, returned);
+      aclEntry(ACCESS, GROUP, READ_EXECUTE) }, returned);
     assertPermission((short)02750);
     assertAclFeature(true);
   }
@@ -145,9 +139,6 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
-      aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, OTHER, NONE),
       aclEntry(DEFAULT, USER, ALL),
       aclEntry(DEFAULT, USER, "foo", READ_EXECUTE),
       aclEntry(DEFAULT, GROUP, READ_EXECUTE),
@@ -166,11 +157,8 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, READ_WRITE),
       aclEntry(ACCESS, USER, "foo", READ_WRITE),
-      aclEntry(ACCESS, GROUP, READ),
-      aclEntry(ACCESS, MASK, READ_WRITE),
-      aclEntry(ACCESS, OTHER, NONE) }, returned);
+      aclEntry(ACCESS, GROUP, READ) }, returned);
     assertPermission((short)02660);
     assertAclFeature(true);
   }
@@ -186,9 +174,6 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
-      aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, OTHER, NONE),
       aclEntry(DEFAULT, USER, ALL),
       aclEntry(DEFAULT, GROUP, READ_EXECUTE),
       aclEntry(DEFAULT, OTHER, NONE) }, returned);
@@ -206,11 +191,8 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, READ_WRITE),
       aclEntry(ACCESS, USER, "foo", ALL),
-      aclEntry(ACCESS, GROUP, READ),
-      aclEntry(ACCESS, MASK, NONE),
-      aclEntry(ACCESS, OTHER, NONE) }, returned);
+      aclEntry(ACCESS, GROUP, READ) }, returned);
     assertPermission((short)02600);
     assertAclFeature(true);
   }
@@ -232,11 +214,8 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
       aclEntry(ACCESS, USER, "foo", READ_EXECUTE),
       aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, MASK, READ_EXECUTE),
-      aclEntry(ACCESS, OTHER, NONE),
       aclEntry(DEFAULT, USER, ALL),
       aclEntry(DEFAULT, USER, "foo", READ_EXECUTE),
       aclEntry(DEFAULT, GROUP, READ_EXECUTE),
@@ -282,10 +261,7 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
       aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, MASK, READ_EXECUTE),
-      aclEntry(ACCESS, OTHER, NONE),
       aclEntry(DEFAULT, USER, ALL),
       aclEntry(DEFAULT, GROUP, READ_EXECUTE),
       aclEntry(DEFAULT, MASK, READ_EXECUTE),
@@ -310,11 +286,8 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
       aclEntry(ACCESS, USER, "bar", READ_WRITE),
-      aclEntry(ACCESS, GROUP, READ_WRITE),
-      aclEntry(ACCESS, MASK, READ_WRITE),
-      aclEntry(ACCESS, OTHER, NONE) }, returned);
+      aclEntry(ACCESS, GROUP, READ_WRITE) }, returned);
     assertPermission((short)02760);
     assertAclFeature(true);
   }
@@ -335,9 +308,6 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
-      aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, OTHER, NONE),
       aclEntry(DEFAULT, USER, ALL),
       aclEntry(DEFAULT, USER, "bar", READ_EXECUTE),
       aclEntry(DEFAULT, GROUP, READ_EXECUTE),
@@ -362,10 +332,7 @@ public class TestNameNodeAcl {
     fs.removeAclEntries(path, aclSpec);
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
-      aclEntry(ACCESS, GROUP, READ_WRITE),
-      aclEntry(ACCESS, OTHER, NONE) }, returned);
+    assertArrayEquals(new AclEntry[] { }, returned);
     assertPermission((short)0760);
     assertAclFeature(false);
   }
@@ -390,9 +357,6 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
-      aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, OTHER, NONE),
       aclEntry(DEFAULT, USER, ALL),
       aclEntry(DEFAULT, GROUP, READ_EXECUTE),
       aclEntry(DEFAULT, OTHER, NONE) }, returned);
@@ -417,10 +381,7 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
       aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, MASK, READ_EXECUTE),
-      aclEntry(ACCESS, OTHER, NONE),
       aclEntry(DEFAULT, USER, ALL),
       aclEntry(DEFAULT, GROUP, READ_EXECUTE),
       aclEntry(DEFAULT, MASK, READ_EXECUTE),
@@ -451,11 +412,8 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
       aclEntry(ACCESS, USER, "foo", ALL),
-      aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, MASK, ALL),
-      aclEntry(ACCESS, OTHER, NONE) }, returned);
+      aclEntry(ACCESS, GROUP, READ_EXECUTE) }, returned);
     assertPermission((short)02770);
     assertAclFeature(true);
   }
@@ -473,11 +431,8 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
       aclEntry(ACCESS, USER, "foo", ALL),
-      aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, MASK, ALL),
-      aclEntry(ACCESS, OTHER, NONE) }, returned);
+      aclEntry(ACCESS, GROUP, READ_EXECUTE) }, returned);
     assertPermission((short)02770);
     assertAclFeature(true);
   }
@@ -491,10 +446,7 @@ public class TestNameNodeAcl {
     fs.removeDefaultAcl(path);
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
-      aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, OTHER, NONE) }, returned);
+    assertArrayEquals(new AclEntry[] { }, returned);
     assertPermission((short)0750);
     assertAclFeature(false);
   }
@@ -505,10 +457,7 @@ public class TestNameNodeAcl {
     fs.removeDefaultAcl(path);
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
-      aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, OTHER, NONE) }, returned);
+    assertArrayEquals(new AclEntry[] { }, returned);
     assertPermission((short)0750);
     assertAclFeature(false);
   }
@@ -527,11 +476,8 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
       aclEntry(ACCESS, USER, "foo", ALL),
-      aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, MASK, ALL),
-      aclEntry(ACCESS, OTHER, NONE) }, returned);
+      aclEntry(ACCESS, GROUP, READ_EXECUTE) }, returned);
     assertPermission((short)03770);
     assertAclFeature(true);
   }
@@ -555,10 +501,7 @@ public class TestNameNodeAcl {
     fs.removeAcl(path);
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
-      aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, OTHER, NONE) }, returned);
+    assertArrayEquals(new AclEntry[] { }, returned);
     assertPermission((short)0750);
     assertAclFeature(false);
   }
@@ -569,10 +512,7 @@ public class TestNameNodeAcl {
     fs.removeAcl(path);
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, READ_WRITE),
-      aclEntry(ACCESS, GROUP, READ),
-      aclEntry(ACCESS, OTHER, NONE) }, returned);
+    assertArrayEquals(new AclEntry[] { }, returned);
     assertPermission((short)0640);
     assertAclFeature(false);
   }
@@ -590,10 +530,7 @@ public class TestNameNodeAcl {
     fs.removeAcl(path);
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
-      aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, OTHER, NONE) }, returned);
+    assertArrayEquals(new AclEntry[] { }, returned);
     assertPermission((short)01750);
     assertAclFeature(false);
   }
@@ -617,11 +554,8 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
       aclEntry(ACCESS, USER, "foo", ALL),
       aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, MASK, ALL),
-      aclEntry(ACCESS, OTHER, NONE),
       aclEntry(DEFAULT, USER, ALL),
       aclEntry(DEFAULT, USER, "foo", ALL),
       aclEntry(DEFAULT, GROUP, READ_EXECUTE),
@@ -643,11 +577,8 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, READ_WRITE),
       aclEntry(ACCESS, USER, "foo", READ),
-      aclEntry(ACCESS, GROUP, READ),
-      aclEntry(ACCESS, MASK, READ),
-      aclEntry(ACCESS, OTHER, NONE) }, returned);
+      aclEntry(ACCESS, GROUP, READ) }, returned);
     assertPermission((short)02640);
     assertAclFeature(true);
   }
@@ -661,9 +592,6 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
-      aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, OTHER, NONE),
       aclEntry(DEFAULT, USER, ALL),
       aclEntry(DEFAULT, USER, "foo", ALL),
       aclEntry(DEFAULT, GROUP, READ_EXECUTE),
@@ -689,10 +617,7 @@ public class TestNameNodeAcl {
     fs.setAcl(path, aclSpec);
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, READ_WRITE),
-      aclEntry(ACCESS, GROUP, READ),
-      aclEntry(ACCESS, OTHER, NONE) }, returned);
+    assertArrayEquals(new AclEntry[] { }, returned);
     assertPermission((short)0640);
     assertAclFeature(false);
   }
@@ -708,9 +633,6 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
-      aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, OTHER, NONE),
       aclEntry(DEFAULT, USER, ALL),
       aclEntry(DEFAULT, GROUP, READ_EXECUTE),
       aclEntry(DEFAULT, OTHER, NONE) }, returned);
@@ -731,11 +653,8 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, READ_WRITE),
       aclEntry(ACCESS, USER, "foo", READ),
-      aclEntry(ACCESS, GROUP, READ),
-      aclEntry(ACCESS, MASK, ALL),
-      aclEntry(ACCESS, OTHER, NONE) }, returned);
+      aclEntry(ACCESS, GROUP, READ) }, returned);
     assertPermission((short)02670);
     assertAclFeature(true);
   }
@@ -753,11 +672,8 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
       aclEntry(ACCESS, USER, "foo", ALL),
       aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, MASK, ALL),
-      aclEntry(ACCESS, OTHER, NONE),
       aclEntry(DEFAULT, USER, ALL),
       aclEntry(DEFAULT, USER, "foo", ALL),
       aclEntry(DEFAULT, GROUP, READ_EXECUTE),
@@ -800,11 +716,8 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
       aclEntry(ACCESS, USER, "foo", ALL),
       aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, MASK, NONE),
-      aclEntry(ACCESS, OTHER, NONE),
       aclEntry(DEFAULT, USER, ALL),
       aclEntry(DEFAULT, USER, "foo", ALL),
       aclEntry(DEFAULT, GROUP, READ_EXECUTE),
@@ -827,11 +740,8 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, READ_WRITE),
       aclEntry(ACCESS, USER, "foo", READ),
-      aclEntry(ACCESS, GROUP, READ),
-      aclEntry(ACCESS, MASK, NONE),
-      aclEntry(ACCESS, OTHER, NONE) }, returned);
+      aclEntry(ACCESS, GROUP, READ) }, returned);
     assertPermission((short)02600);
     assertAclFeature(true);
   }
@@ -849,9 +759,6 @@ public class TestNameNodeAcl {
     AclStatus s = fs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
-      aclEntry(ACCESS, GROUP, NONE),
-      aclEntry(ACCESS, OTHER, NONE),
       aclEntry(DEFAULT, USER, ALL),
       aclEntry(DEFAULT, USER, "foo", ALL),
       aclEntry(DEFAULT, GROUP, READ_EXECUTE),

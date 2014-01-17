@@ -77,11 +77,8 @@ public class TestFSImageWithAcl {
     AclEntry[] returned = Lists.newArrayList(s.getEntries()).toArray(
         new AclEntry[0]);
     Assert.assertArrayEquals(new AclEntry[] {
-        aclEntry(ACCESS, USER, READ_WRITE),
         aclEntry(ACCESS, USER, "foo", READ_EXECUTE),
-        aclEntry(ACCESS, GROUP, READ),
-        aclEntry(ACCESS, MASK, READ_EXECUTE),
-        aclEntry(ACCESS, OTHER, READ) }, returned);
+        aclEntry(ACCESS, GROUP, READ) }, returned);
 
     fs.removeAcl(p);
 
@@ -96,10 +93,7 @@ public class TestFSImageWithAcl {
 
     s = cluster.getNamesystem().getAclStatus(p.toString());
     returned = Lists.newArrayList(s.getEntries()).toArray(new AclEntry[0]);
-    Assert.assertArrayEquals(new AclEntry[] {
-        aclEntry(ACCESS, USER, READ_WRITE),
-        aclEntry(ACCESS, GROUP, READ),
-        aclEntry(ACCESS, OTHER, READ) }, returned);
+    Assert.assertArrayEquals(new AclEntry[] { }, returned);
   }
 
   @Test
