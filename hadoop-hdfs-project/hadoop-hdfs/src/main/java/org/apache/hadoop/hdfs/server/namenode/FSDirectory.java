@@ -420,6 +420,26 @@ public class FSDirectory implements Closeable {
   }
   
   /**
+   * Persist the new block (the last block of the given file).
+   */
+  void persistNewBlock(String path, INodeFile file) {
+    Preconditions.checkArgument(file.isUnderConstruction());
+    waitForReady();
+
+    writeLock();
+    try {
+      fsImage.getEditLog().logAddBlock(path, file);
+    } finally {
+      writeUnlock();
+    }
+    if (NameNode.stateChangeLog.isDebugEnabled()) {
+      NameNode.stateChangeLog.debug("DIR* FSDirectory.persistNewBlock: "
+          + path + " with new block " + file.getLastBlock().toString()
+          + ", current total block count is " + file.getBlocks().length);
+    }
+  }
+  
+  /**
    * Close file.
    */
   void closeFile(String path, INodeFile file) {
@@ -1855,7 +1875,8 @@ public class FSDirectory implements Closeable {
   /** Return the full path name of the specified inode */
   static String getFullPathName(INode inode) {
     INode[] inodes = getFullPathINodes(inode);
-    return getFullPathName(inodes, inodes.length - 1);
+    // inodes can be null only when its called without holding lock
+    return inodes == null ? "" : getFullPathName(inodes, inodes.length - 1);
   }
   
   /**
@@ -2658,8 +2679,8 @@ public class FSDirectory implements Closeable {
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
     INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
-    List<AclEntry> existingAcl = AclStorage.readINodeAcl(inode, snapshotId,
-      true);
+    List<AclEntry> existingAcl = AclStorage.readINodeLogicalAcl(inode,
+      snapshotId);
     List<AclEntry> newAcl = AclTransformation.mergeAclEntries(existingAcl,
       aclSpec);
     AclStorage.updateINodeAcl(inode, newAcl, snapshotId);
@@ -2682,8 +2703,8 @@ public class FSDirectory implements Closeable {
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
     INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
-    List<AclEntry> existingAcl = AclStorage.readINodeAcl(inode, snapshotId,
-      true);
+    List<AclEntry> existingAcl = AclStorage.readINodeLogicalAcl(inode,
+      snapshotId);
     List<AclEntry> newAcl = AclTransformation.filterAclEntriesByAclSpec(
       existingAcl, aclSpec);
     AclStorage.updateINodeAcl(inode, newAcl, snapshotId);
@@ -2706,8 +2727,8 @@ public class FSDirectory implements Closeable {
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
     INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
-    List<AclEntry> existingAcl = AclStorage.readINodeAcl(inode, snapshotId,
-      true);
+    List<AclEntry> existingAcl = AclStorage.readINodeLogicalAcl(inode,
+      snapshotId);
     List<AclEntry> newAcl = AclTransformation.filterDefaultAclEntries(
       existingAcl);
     AclStorage.updateINodeAcl(inode, newAcl, snapshotId);
@@ -2754,8 +2775,8 @@ public class FSDirectory implements Closeable {
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
     INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
-    List<AclEntry> existingAcl = AclStorage.readINodeAcl(inode, snapshotId,
-      true);
+    List<AclEntry> existingAcl = AclStorage.readINodeLogicalAcl(inode,
+      snapshotId);
     List<AclEntry> newAcl = AclTransformation.replaceAclEntries(existingAcl,
       aclSpec);
     AclStorage.updateINodeAcl(inode, newAcl, snapshotId);
@@ -2769,7 +2790,7 @@ public class FSDirectory implements Closeable {
       final INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(
         src, iip);
       int snapshotId = iip.getLatestSnapshotId();
-      List<AclEntry> acl = AclStorage.readINodeAcl(inode, snapshotId, false);
+      List<AclEntry> acl = AclStorage.readINodeAcl(inode, snapshotId);
       return new AclStatus.Builder()
           .owner(inode.getUserName()).group(inode.getGroupName())
           .stickyBit(inode.getFsPermission(snapshotId).getStickyBit())
