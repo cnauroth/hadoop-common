@@ -7412,6 +7412,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     } finally {
       writeUnlock();
     }
+    getEditLog().logSync();
+    logAuditEvent(true, "setAcl", src);
   }
 
   AclStatus getAclStatus(String src) throws IOException {
