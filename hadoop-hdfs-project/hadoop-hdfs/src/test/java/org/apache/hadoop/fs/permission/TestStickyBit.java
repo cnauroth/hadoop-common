@@ -17,12 +17,17 @@
  */
 package org.apache.hadoop.fs.permission;
 
+import static org.apache.hadoop.fs.permission.AclEntryScope.*;
+import static org.apache.hadoop.fs.permission.AclEntryType.*;
+import static org.apache.hadoop.fs.permission.FsAction.*;
+import static org.apache.hadoop.hdfs.server.namenode.AclTestHelpers.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -292,5 +297,9 @@ public class TestStickyBit {
     FSDataOutputStream o = hdfs.create(p);
     o.write("some file contents".getBytes());
     o.close();
+  }
+
+  private static void setAcl(FileSystem hdfs, Path p) throws IOException {
+    hdfs.modifyAclEntries(p, Arrays.asList(aclEntry(ACCESS, USER, "rose", ALL)));
   }
 }
