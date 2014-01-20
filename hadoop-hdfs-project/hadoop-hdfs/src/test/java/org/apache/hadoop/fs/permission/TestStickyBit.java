@@ -38,8 +38,11 @@ import org.apache.hadoop.hdfs.DFSTestUtil;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
+import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 public class TestStickyBit {
@@ -48,7 +51,34 @@ public class TestStickyBit {
     UserGroupInformation.createUserForTesting("theDoctor", new String[] {"tardis"});
   static UserGroupInformation user2 = 
     UserGroupInformation.createUserForTesting("rose", new String[] {"powellestates"});
-  
+
+  private static MiniDFSCluster cluster;
+  private static Configuration conf;
+  private static FileSystem hdfs;
+  private static FileSystem hdfsAsUser1;
+  private static FileSystem hdfsAsUser2;
+
+  @BeforeClass
+  public static void init() throws Exception {
+    conf = new HdfsConfiguration();
+    conf.setBoolean(DFSConfigKeys.DFS_PERMISSIONS_ENABLED_KEY, true);
+    cluster = new MiniDFSCluster.Builder(conf).numDataNodes(4).build();
+    hdfs = cluster.getFileSystem();
+    assertTrue(hdfs instanceof DistributedFileSystem);
+    hdfsAsUser1 = DFSTestUtil.getFileSystemAs(user1, conf);
+    assertTrue(hdfsAsUser1 instanceof DistributedFileSystem);
+    hdfsAsUser2 = DFSTestUtil.getFileSystemAs(user2, conf);
+    assertTrue(hdfsAsUser2 instanceof DistributedFileSystem);
+  }
+
+  @AfterClass
+  public static void shutdown() throws Exception {
+    IOUtils.cleanup(null, hdfs, hdfsAsUser1, hdfsAsUser2);
+    if (cluster != null) {
+      cluster.shutdown();
+    }
+  }
+
   /**
    * Ensure that even if a file is in a directory with the sticky bit on,
    * another user can write to that file (assuming correct permissions).
@@ -160,36 +190,21 @@ public class TestStickyBit {
 
   @Test
   public void testGeneralSBBehavior() throws IOException, InterruptedException {
-    MiniDFSCluster cluster = null;
-    try {
-      Configuration conf = new HdfsConfiguration();
-      conf.setBoolean(DFSConfigKeys.DFS_PERMISSIONS_ENABLED_KEY, true);
-      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(4).build();
+    Path baseDir = new Path("/mcgann");
+    hdfs.mkdirs(baseDir);
+    confirmCanAppend(conf, hdfs, baseDir);
 
-      FileSystem hdfs = cluster.getFileSystem();
+    baseDir = new Path("/eccleston");
+    hdfs.mkdirs(baseDir);
+    confirmSettingAndGetting(hdfs, baseDir);
 
-      assertTrue(hdfs instanceof DistributedFileSystem);
+    baseDir = new Path("/tennant");
+    hdfs.mkdirs(baseDir);
+    confirmDeletingFiles(conf, hdfs, baseDir);
 
-      Path baseDir = new Path("/mcgann");
-      hdfs.mkdirs(baseDir);
-      confirmCanAppend(conf, hdfs, baseDir);
-
-      baseDir = new Path("/eccleston");
-      hdfs.mkdirs(baseDir);
-      confirmSettingAndGetting(hdfs, baseDir);
-
-      baseDir = new Path("/tennant");
-      hdfs.mkdirs(baseDir);
-      confirmDeletingFiles(conf, hdfs, baseDir);
-
-      baseDir = new Path("/smith");
-      hdfs.mkdirs(baseDir);
-      confirmStickyBitDoesntPropagate(hdfs, baseDir);
-
-    } finally {
-      if (cluster != null)
-        cluster.shutdown();
-    }
+    baseDir = new Path("/smith");
+    hdfs.mkdirs(baseDir);
+    confirmStickyBitDoesntPropagate(hdfs, baseDir);
   }
 
   /**
@@ -198,45 +213,26 @@ public class TestStickyBit {
    */
   @Test
   public void testMovingFiles() throws IOException, InterruptedException {
-    MiniDFSCluster cluster = null;
+    // Create a tmp directory with wide-open permissions and sticky bit
+    Path tmpPath = new Path("/tmp");
+    Path tmpPath2 = new Path("/tmp2");
+    hdfs.mkdirs(tmpPath);
+    hdfs.mkdirs(tmpPath2);
+    hdfs.setPermission(tmpPath, new FsPermission((short) 01777));
+    hdfs.setPermission(tmpPath2, new FsPermission((short) 01777));
 
+    // Write a file to the new tmp directory as a regular user
+    Path file = new Path(tmpPath, "foo");
+
+    writeFile(hdfsAsUser1, file);
+
+    // Log onto cluster as another user and attempt to move the file
     try {
-      // Set up cluster for testing
-      Configuration conf = new HdfsConfiguration();
-      conf.setBoolean(DFSConfigKeys.DFS_PERMISSIONS_ENABLED_KEY, true);
-      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(4).build();
-      FileSystem hdfs = cluster.getFileSystem();
-
-      assertTrue(hdfs instanceof DistributedFileSystem);
-
-      // Create a tmp directory with wide-open permissions and sticky bit
-      Path tmpPath = new Path("/tmp");
-      Path tmpPath2 = new Path("/tmp2");
-      hdfs.mkdirs(tmpPath);
-      hdfs.mkdirs(tmpPath2);
-      hdfs.setPermission(tmpPath, new FsPermission((short) 01777));
-      hdfs.setPermission(tmpPath2, new FsPermission((short) 01777));
-
-      // Write a file to the new tmp directory as a regular user
-      Path file = new Path(tmpPath, "foo");
-
-      FileSystem hdfs2 = DFSTestUtil.getFileSystemAs(user1, conf);
-
-      writeFile(hdfs2, file);
-
-      // Log onto cluster as another user and attempt to move the file
-      FileSystem hdfs3 = DFSTestUtil.getFileSystemAs(user2, conf);
-
-      try {
-        hdfs3.rename(file, new Path(tmpPath2, "renamed"));
-        fail("Shouldn't be able to rename someone else's file with SB on");
-      } catch (IOException ioe) {
-        assertTrue(ioe instanceof AccessControlException);
-        assertTrue(ioe.getMessage().contains("sticky bit"));
-      }
-    } finally {
-      if (cluster != null)
-        cluster.shutdown();
+      hdfsAsUser2.rename(file, new Path(tmpPath2, "renamed"));
+      fail("Shouldn't be able to rename someone else's file with SB on");
+    } catch (IOException ioe) {
+      assertTrue(ioe instanceof AccessControlException);
+      assertTrue(ioe.getMessage().contains("sticky bit"));
     }
   }
 
@@ -246,48 +242,36 @@ public class TestStickyBit {
    * re-start.
    */
   @Test
-  public void testStickyBitPersistence() throws IOException {
-    MiniDFSCluster cluster = null;
-    try {
-      Configuration conf = new HdfsConfiguration();
-      conf.setBoolean(DFSConfigKeys.DFS_PERMISSIONS_ENABLED_KEY, true);
-      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(4).build();
-      FileSystem hdfs = cluster.getFileSystem();
+  public void testStickyBitPersistence() throws Exception {
+    // A tale of three directories...
+    Path sbSet = new Path("/Housemartins");
+    Path sbNotSpecified = new Path("/INXS");
+    Path sbSetOff = new Path("/Easyworld");
 
-      assertTrue(hdfs instanceof DistributedFileSystem);
+    for (Path p : new Path[] { sbSet, sbNotSpecified, sbSetOff })
+      hdfs.mkdirs(p);
 
-      // A tale of three directories...
-      Path sbSet = new Path("/Housemartins");
-      Path sbNotSpecified = new Path("/INXS");
-      Path sbSetOff = new Path("/Easyworld");
+    // Two directories had there sticky bits set explicitly...
+    hdfs.setPermission(sbSet, new FsPermission((short) 01777));
+    hdfs.setPermission(sbSetOff, new FsPermission((short) 00777));
 
-      for (Path p : new Path[] { sbSet, sbNotSpecified, sbSetOff })
-        hdfs.mkdirs(p);
+    shutdown();
 
-      // Two directories had there sticky bits set explicitly...
-      hdfs.setPermission(sbSet, new FsPermission((short) 01777));
-      hdfs.setPermission(sbSetOff, new FsPermission((short) 00777));
+    // Start file system up again
+    cluster = new MiniDFSCluster.Builder(conf).numDataNodes(4).format(false).build();
+    hdfs = cluster.getFileSystem();
+    hdfsAsUser1 = DFSTestUtil.getFileSystemAs(user1, conf);
+    hdfsAsUser2 = DFSTestUtil.getFileSystemAs(user2, conf);
 
-      cluster.shutdown();
+    assertTrue(hdfs.exists(sbSet));
+    assertTrue(hdfs.getFileStatus(sbSet).getPermission().getStickyBit());
 
-      // Start file system up again
-      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(4).format(false).build();
-      hdfs = cluster.getFileSystem();
+    assertTrue(hdfs.exists(sbNotSpecified));
+    assertFalse(hdfs.getFileStatus(sbNotSpecified).getPermission()
+        .getStickyBit());
 
-      assertTrue(hdfs.exists(sbSet));
-      assertTrue(hdfs.getFileStatus(sbSet).getPermission().getStickyBit());
-
-      assertTrue(hdfs.exists(sbNotSpecified));
-      assertFalse(hdfs.getFileStatus(sbNotSpecified).getPermission()
-          .getStickyBit());
-
-      assertTrue(hdfs.exists(sbSetOff));
-      assertFalse(hdfs.getFileStatus(sbSetOff).getPermission().getStickyBit());
-
-    } finally {
-      if (cluster != null)
-        cluster.shutdown();
-    }
+    assertTrue(hdfs.exists(sbSetOff));
+    assertFalse(hdfs.getFileStatus(sbSetOff).getPermission().getStickyBit());
   }
 
   /***
