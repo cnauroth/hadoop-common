@@ -328,7 +328,8 @@ public class TestStickyBit {
     shutdown();
 
     // Start file system up again
-    cluster = new MiniDFSCluster.Builder(conf).numDataNodes(4).format(false).build();
+    cluster = new MiniDFSCluster.Builder(conf).numDataNodes(4).format(false)
+      .build();
     hdfs = cluster.getFileSystem();
     hdfsAsUser1 = DFSTestUtil.getFileSystemAs(user1, conf);
     hdfsAsUser2 = DFSTestUtil.getFileSystemAs(user2, conf);
@@ -363,7 +364,8 @@ public class TestStickyBit {
     shutdown();
 
     // Start file system up again
-    cluster = new MiniDFSCluster.Builder(conf).numDataNodes(4).format(false).build();
+    cluster = new MiniDFSCluster.Builder(conf).numDataNodes(4).format(false)
+      .build();
     hdfs = cluster.getFileSystem();
     hdfsAsUser1 = DFSTestUtil.getFileSystemAs(user1, conf);
     hdfsAsUser2 = DFSTestUtil.getFileSystemAs(user2, conf);
