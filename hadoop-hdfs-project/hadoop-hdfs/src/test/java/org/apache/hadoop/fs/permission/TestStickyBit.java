@@ -221,10 +221,7 @@ public class TestStickyBit {
 
     hdfs.mkdirs(p);
     hdfs.setPermission(p, new FsPermission((short) 01777));
-    hdfs.modifyAclEntries(p, Arrays.asList(
-      aclEntry(ACCESS, USER, user2.getShortUserName(), ALL),
-      aclEntry(DEFAULT, USER, user2.getShortUserName(), ALL)));
-
+    applyAcl(p);
     confirmCanAppend(conf, p);
 
     baseDir = new Path("/eccleston");
@@ -232,9 +229,7 @@ public class TestStickyBit {
     p = new Path(baseDir, "roguetraders");
 
     hdfs.mkdirs(p);
-    hdfs.modifyAclEntries(p, Arrays.asList(
-      aclEntry(ACCESS, USER, user2.getShortUserName(), ALL),
-      aclEntry(DEFAULT, USER, user2.getShortUserName(), ALL)));
+    applyAcl(p);
     confirmSettingAndGetting(hdfs, p, baseDir);
 
     baseDir = new Path("/tennant");
@@ -242,9 +237,7 @@ public class TestStickyBit {
     p = new Path(baseDir, "contemporary");
     hdfs.mkdirs(p);
     hdfs.setPermission(p, new FsPermission((short) 01777));
-    hdfs.modifyAclEntries(p, Arrays.asList(
-      aclEntry(ACCESS, USER, user2.getShortUserName(), ALL),
-      aclEntry(DEFAULT, USER, user2.getShortUserName(), ALL)));
+    applyAcl(p);
     confirmDeletingFiles(conf, p);
 
     baseDir = new Path("/smith");
@@ -253,9 +246,7 @@ public class TestStickyBit {
 
     // Turn on its sticky bit
     hdfs.mkdirs(p, new FsPermission((short) 01666));
-    hdfs.modifyAclEntries(p, Arrays.asList(
-      aclEntry(ACCESS, USER, user2.getShortUserName(), ALL),
-      aclEntry(DEFAULT, USER, user2.getShortUserName(), ALL)));
+    applyAcl(p);
     confirmStickyBitDoesntPropagate(hdfs, p);
   }
 
@@ -335,7 +326,15 @@ public class TestStickyBit {
     o.close();
   }
 
-  private static void setAcl(FileSystem hdfs, Path p) throws IOException {
-    hdfs.modifyAclEntries(p, Arrays.asList(aclEntry(ACCESS, USER, "rose", ALL)));
+  /**
+   * Applies an ACL (both access and default) to the given path.
+   *
+   * @param p Path to set
+   * @throws IOException if an ACL could not be modified
+   */
+  private static void applyAcl(Path p) throws IOException {
+    hdfs.modifyAclEntries(p, Arrays.asList(
+      aclEntry(ACCESS, USER, user2.getShortUserName(), ALL),
+      aclEntry(DEFAULT, USER, user2.getShortUserName(), ALL)));
   }
 }
