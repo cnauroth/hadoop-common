@@ -281,7 +281,29 @@ public class TestStickyBit {
 
   @Test
   public void testAclMovingFiles() throws Exception {
-    fail();
+    // Create a tmp directory with wide-open permissions and sticky bit
+    Path tmpPath = new Path("/tmp");
+    Path tmpPath2 = new Path("/tmp2");
+    hdfs.mkdirs(tmpPath);
+    hdfs.mkdirs(tmpPath2);
+    hdfs.setPermission(tmpPath, new FsPermission((short) 01777));
+    applyAcl(tmpPath);
+    hdfs.setPermission(tmpPath2, new FsPermission((short) 01777));
+    applyAcl(tmpPath2);
+
+    // Write a file to the new tmp directory as a regular user
+    Path file = new Path(tmpPath, "foo");
+
+    writeFile(hdfsAsUser1, file);
+
+    // Log onto cluster as another user and attempt to move the file
+    try {
+      hdfsAsUser2.rename(file, new Path(tmpPath2, "renamed"));
+      fail("Shouldn't be able to rename someone else's file with SB on");
+    } catch (IOException ioe) {
+      assertTrue(ioe instanceof AccessControlException);
+      assertTrue(ioe.getMessage().contains("sticky bit"));
+    }
   }
 
   /**
@@ -324,7 +346,37 @@ public class TestStickyBit {
 
   @Test
   public void testAclStickyBitPersistence() throws Exception {
-    fail();
+    // A tale of three directories...
+    Path sbSet = new Path("/Housemartins");
+    Path sbNotSpecified = new Path("/INXS");
+    Path sbSetOff = new Path("/Easyworld");
+
+    for (Path p : new Path[] { sbSet, sbNotSpecified, sbSetOff })
+      hdfs.mkdirs(p);
+
+    // Two directories had there sticky bits set explicitly...
+    hdfs.setPermission(sbSet, new FsPermission((short) 01777));
+    applyAcl(sbSet);
+    hdfs.setPermission(sbSetOff, new FsPermission((short) 00777));
+    applyAcl(sbSetOff);
+
+    shutdown();
+
+    // Start file system up again
+    cluster = new MiniDFSCluster.Builder(conf).numDataNodes(4).format(false).build();
+    hdfs = cluster.getFileSystem();
+    hdfsAsUser1 = DFSTestUtil.getFileSystemAs(user1, conf);
+    hdfsAsUser2 = DFSTestUtil.getFileSystemAs(user2, conf);
+
+    assertTrue(hdfs.exists(sbSet));
+    assertTrue(hdfs.getFileStatus(sbSet).getPermission().getStickyBit());
+
+    assertTrue(hdfs.exists(sbNotSpecified));
+    assertFalse(hdfs.getFileStatus(sbNotSpecified).getPermission()
+        .getStickyBit());
+
+    assertTrue(hdfs.exists(sbSetOff));
+    assertFalse(hdfs.getFileStatus(sbSetOff).getPermission().getStickyBit());
   }
 
   /***
