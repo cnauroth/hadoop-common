@@ -279,6 +279,11 @@ public class TestStickyBit {
     }
   }
 
+  @Test
+  public void testAclMovingFiles() throws Exception {
+    fail();
+  }
+
   /**
    * Ensure that when we set a sticky bit and shut down the file system, we get
    * the sticky bit back on re-start, and that no extra sticky bits appear after
@@ -315,6 +320,11 @@ public class TestStickyBit {
 
     assertTrue(hdfs.exists(sbSetOff));
     assertFalse(hdfs.getFileStatus(sbSetOff).getPermission().getStickyBit());
+  }
+
+  @Test
+  public void testAclStickyBitPersistence() throws Exception {
+    fail();
   }
 
   /***
