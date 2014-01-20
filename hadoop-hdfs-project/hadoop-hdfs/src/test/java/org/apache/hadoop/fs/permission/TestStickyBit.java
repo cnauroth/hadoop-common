@@ -94,18 +94,15 @@ public class TestStickyBit {
    * Ensure that even if a file is in a directory with the sticky bit on,
    * another user can write to that file (assuming correct permissions).
    */
-  private void confirmCanAppend(Configuration conf, FileSystem hdfs,
-      Path p) throws IOException, InterruptedException {
+  private void confirmCanAppend(Configuration conf, Path p) throws Exception {
     // Write a file to the new tmp directory as a regular user
-    hdfs = DFSTestUtil.getFileSystemAs(user1, conf);
     Path file = new Path(p, "foo");
-    writeFile(hdfs, file);
-    hdfs.setPermission(file, new FsPermission((short) 0777));
+    writeFile(hdfsAsUser1, file);
+    hdfsAsUser1.setPermission(file, new FsPermission((short) 0777));
 
     // Log onto cluster as another user and attempt to append to file
-    hdfs = DFSTestUtil.getFileSystemAs(user2, conf);
     Path file2 = new Path(p, "foo");
-    FSDataOutputStream h = hdfs.append(file2);
+    FSDataOutputStream h = hdfsAsUser2.append(file2);
     h.write("Some more data".getBytes());
     h.close();
   }
@@ -114,21 +111,19 @@ public class TestStickyBit {
    * Test that one user can't delete another user's file when the sticky bit is
    * set.
    */
-  private void confirmDeletingFiles(Configuration conf, FileSystem hdfs, Path p)
-      throws IOException, InterruptedException {
+  private void confirmDeletingFiles(Configuration conf, Path p)
+      throws Exception {
     // Write a file to the new temp directory as a regular user
-    hdfs = DFSTestUtil.getFileSystemAs(user1, conf);
     Path file = new Path(p, "foo");
-    writeFile(hdfs, file);
+    writeFile(hdfsAsUser1, file);
 
     // Make sure the correct user is the owner
-    assertEquals(user1.getShortUserName(), hdfs.getFileStatus(file).getOwner());
+    assertEquals(user1.getShortUserName(),
+      hdfsAsUser1.getFileStatus(file).getOwner());
 
     // Log onto cluster as another user and attempt to delete the file
-    FileSystem hdfs2 = DFSTestUtil.getFileSystemAs(user2, conf);
-
     try {
-      hdfs2.delete(file, false);
+      hdfsAsUser2.delete(file, false);
       fail("Shouldn't be able to delete someone else's file with SB on");
     } catch (IOException ioe) {
       assertTrue(ioe instanceof AccessControlException);
@@ -191,7 +186,7 @@ public class TestStickyBit {
     hdfs.mkdirs(p);
     hdfs.setPermission(p, new FsPermission((short) 01777));
 
-    confirmCanAppend(conf, hdfs, p);
+    confirmCanAppend(conf, p);
 
     baseDir = new Path("/eccleston");
     hdfs.mkdirs(baseDir);
@@ -205,7 +200,7 @@ public class TestStickyBit {
     p = new Path(baseDir, "contemporary");
     hdfs.mkdirs(p);
     hdfs.setPermission(p, new FsPermission((short) 01777));
-    confirmDeletingFiles(conf, hdfs, p);
+    confirmDeletingFiles(conf, p);
 
     baseDir = new Path("/smith");
     hdfs.mkdirs(baseDir);
@@ -230,7 +225,7 @@ public class TestStickyBit {
       aclEntry(ACCESS, USER, user2.getShortUserName(), ALL),
       aclEntry(DEFAULT, USER, user2.getShortUserName(), ALL)));
 
-    confirmCanAppend(conf, hdfs, p);
+    confirmCanAppend(conf, p);
 
     baseDir = new Path("/eccleston");
     hdfs.mkdirs(baseDir);
@@ -250,7 +245,7 @@ public class TestStickyBit {
     hdfs.modifyAclEntries(p, Arrays.asList(
       aclEntry(ACCESS, USER, user2.getShortUserName(), ALL),
       aclEntry(DEFAULT, USER, user2.getShortUserName(), ALL)));
-    confirmDeletingFiles(conf, hdfs, p);
+    confirmDeletingFiles(conf, p);
 
     baseDir = new Path("/smith");
     hdfs.mkdirs(baseDir);
