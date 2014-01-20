@@ -249,7 +249,10 @@ public class AclEntry {
             "Invalid type of acl in <aclSpec> :" + aclStr);
       }
 
-      builder.setName(split[index++]);
+      String name = split[index++];
+      if (!name.isEmpty()) {
+        builder.setName(name);
+      }
 
       if (expectedAclSpecLength == 3) {
         String permission = split[index++];
