@@ -82,7 +82,7 @@ public class TestStickyBit {
   public void setup() throws Exception {
     if (hdfs != null) {
       for (FileStatus stat: hdfs.listStatus(new Path("/"))) {
-        hdfs.delete(stat.getPath());
+        hdfs.delete(stat.getPath(), true);
       }
     }
   }
