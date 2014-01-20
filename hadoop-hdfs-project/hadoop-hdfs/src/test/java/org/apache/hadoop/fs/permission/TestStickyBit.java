@@ -31,6 +31,7 @@ import java.util.Arrays;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
@@ -42,6 +43,7 @@ import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.junit.AfterClass;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -71,6 +73,15 @@ public class TestStickyBit {
     assertTrue(hdfsAsUser2 instanceof DistributedFileSystem);
   }
 
+  @Before
+  public void setup() throws Exception {
+    if (hdfs != null) {
+      for (FileStatus stat: hdfs.listStatus(new Path("/"))) {
+        hdfs.delete(stat.getPath());
+      }
+    }
+  }
+
   @AfterClass
   public static void shutdown() throws Exception {
     IOUtils.cleanup(null, hdfs, hdfsAsUser1, hdfsAsUser2);
@@ -84,13 +95,7 @@ public class TestStickyBit {
    * another user can write to that file (assuming correct permissions).
    */
   private void confirmCanAppend(Configuration conf, FileSystem hdfs,
-      Path baseDir) throws IOException, InterruptedException {
-    // Create a tmp directory with wide-open permissions and sticky bit
-    Path p = new Path(baseDir, "tmp");
-
-    hdfs.mkdirs(p);
-    hdfs.setPermission(p, new FsPermission((short) 01777));
-
+      Path p) throws IOException, InterruptedException {
     // Write a file to the new tmp directory as a regular user
     hdfs = DFSTestUtil.getFileSystemAs(user1, conf);
     Path file = new Path(p, "foo");
@@ -109,12 +114,8 @@ public class TestStickyBit {
    * Test that one user can't delete another user's file when the sticky bit is
    * set.
    */
-  private void confirmDeletingFiles(Configuration conf, FileSystem hdfs,
-      Path baseDir) throws IOException, InterruptedException {
-    Path p = new Path(baseDir, "contemporary");
-    hdfs.mkdirs(p);
-    hdfs.setPermission(p, new FsPermission((short) 01777));
-
+  private void confirmDeletingFiles(Configuration conf, FileSystem hdfs, Path p)
+      throws IOException, InterruptedException {
     // Write a file to the new temp directory as a regular user
     hdfs = DFSTestUtil.getFileSystemAs(user1, conf);
     Path file = new Path(p, "foo");
@@ -140,13 +141,8 @@ public class TestStickyBit {
    * on, the new directory does not automatically get a sticky bit, as is
    * standard Unix behavior
    */
-  private void confirmStickyBitDoesntPropagate(FileSystem hdfs, Path baseDir)
+  private void confirmStickyBitDoesntPropagate(FileSystem hdfs, Path p)
       throws IOException {
-    Path p = new Path(baseDir, "scissorsisters");
-
-    // Turn on its sticky bit
-    hdfs.mkdirs(p, new FsPermission((short) 01666));
-
     // Create a subdirectory within it
     Path p2 = new Path(p, "bar");
     hdfs.mkdirs(p2);
@@ -158,23 +154,19 @@ public class TestStickyBit {
   /**
    * Test basic ability to get and set sticky bits on files and directories.
    */
-  private void confirmSettingAndGetting(FileSystem hdfs, Path baseDir)
+  private void confirmSettingAndGetting(FileSystem hdfs, Path p, Path baseDir)
       throws IOException {
-    Path p1 = new Path(baseDir, "roguetraders");
-
-    hdfs.mkdirs(p1);
-
     // Initially sticky bit should not be set
-    assertFalse(hdfs.getFileStatus(p1).getPermission().getStickyBit());
+    assertFalse(hdfs.getFileStatus(p).getPermission().getStickyBit());
 
     // Same permission, but with sticky bit on
     short withSB;
-    withSB = (short) (hdfs.getFileStatus(p1).getPermission().toShort() | 01000);
+    withSB = (short) (hdfs.getFileStatus(p).getPermission().toShort() | 01000);
 
     assertTrue((new FsPermission(withSB)).getStickyBit());
 
-    hdfs.setPermission(p1, new FsPermission(withSB));
-    assertTrue(hdfs.getFileStatus(p1).getPermission().getStickyBit());
+    hdfs.setPermission(p, new FsPermission(withSB));
+    assertTrue(hdfs.getFileStatus(p).getPermission().getStickyBit());
 
     // Write a file to the fs, try to set its sticky bit
     Path f = new Path(baseDir, "somefile");
@@ -189,22 +181,87 @@ public class TestStickyBit {
   }
 
   @Test
-  public void testGeneralSBBehavior() throws IOException, InterruptedException {
+  public void testGeneralSBBehavior() throws Exception {
     Path baseDir = new Path("/mcgann");
     hdfs.mkdirs(baseDir);
-    confirmCanAppend(conf, hdfs, baseDir);
+
+    // Create a tmp directory with wide-open permissions and sticky bit
+    Path p = new Path(baseDir, "tmp");
+
+    hdfs.mkdirs(p);
+    hdfs.setPermission(p, new FsPermission((short) 01777));
+
+    confirmCanAppend(conf, hdfs, p);
 
     baseDir = new Path("/eccleston");
     hdfs.mkdirs(baseDir);
-    confirmSettingAndGetting(hdfs, baseDir);
+    p = new Path(baseDir, "roguetraders");
+
+    hdfs.mkdirs(p);
+    confirmSettingAndGetting(hdfs, p, baseDir);
 
     baseDir = new Path("/tennant");
     hdfs.mkdirs(baseDir);
-    confirmDeletingFiles(conf, hdfs, baseDir);
+    p = new Path(baseDir, "contemporary");
+    hdfs.mkdirs(p);
+    hdfs.setPermission(p, new FsPermission((short) 01777));
+    confirmDeletingFiles(conf, hdfs, p);
 
     baseDir = new Path("/smith");
     hdfs.mkdirs(baseDir);
+    p = new Path(baseDir, "scissorsisters");
+
+    // Turn on its sticky bit
+    hdfs.mkdirs(p, new FsPermission((short) 01666));
     confirmStickyBitDoesntPropagate(hdfs, baseDir);
+  }
+
+  @Test
+  public void testAclGeneralSBBehavior() throws Exception {
+    Path baseDir = new Path("/mcgann");
+    hdfs.mkdirs(baseDir);
+
+    // Create a tmp directory with wide-open permissions and sticky bit
+    Path p = new Path(baseDir, "tmp");
+
+    hdfs.mkdirs(p);
+    hdfs.setPermission(p, new FsPermission((short) 01777));
+    hdfs.modifyAclEntries(p, Arrays.asList(
+      aclEntry(ACCESS, USER, user2.getShortUserName(), ALL),
+      aclEntry(DEFAULT, USER, user2.getShortUserName(), ALL)));
+
+    confirmCanAppend(conf, hdfs, p);
+
+    baseDir = new Path("/eccleston");
+    hdfs.mkdirs(baseDir);
+    p = new Path(baseDir, "roguetraders");
+
+    hdfs.mkdirs(p);
+    hdfs.modifyAclEntries(p, Arrays.asList(
+      aclEntry(ACCESS, USER, user2.getShortUserName(), ALL),
+      aclEntry(DEFAULT, USER, user2.getShortUserName(), ALL)));
+    confirmSettingAndGetting(hdfs, p, baseDir);
+
+    baseDir = new Path("/tennant");
+    hdfs.mkdirs(baseDir);
+    p = new Path(baseDir, "contemporary");
+    hdfs.mkdirs(p);
+    hdfs.setPermission(p, new FsPermission((short) 01777));
+    hdfs.modifyAclEntries(p, Arrays.asList(
+      aclEntry(ACCESS, USER, user2.getShortUserName(), ALL),
+      aclEntry(DEFAULT, USER, user2.getShortUserName(), ALL)));
+    confirmDeletingFiles(conf, hdfs, p);
+
+    baseDir = new Path("/smith");
+    hdfs.mkdirs(baseDir);
+    p = new Path(baseDir, "scissorsisters");
+
+    // Turn on its sticky bit
+    hdfs.mkdirs(p, new FsPermission((short) 01666));
+    hdfs.modifyAclEntries(p, Arrays.asList(
+      aclEntry(ACCESS, USER, user2.getShortUserName(), ALL),
+      aclEntry(DEFAULT, USER, user2.getShortUserName(), ALL)));
+    confirmStickyBitDoesntPropagate(hdfs, p);
   }
 
   /**
@@ -212,7 +269,7 @@ public class TestStickyBit {
    * bit is set.
    */
   @Test
-  public void testMovingFiles() throws IOException, InterruptedException {
+  public void testMovingFiles() throws Exception {
     // Create a tmp directory with wide-open permissions and sticky bit
     Path tmpPath = new Path("/tmp");
     Path tmpPath2 = new Path("/tmp2");
