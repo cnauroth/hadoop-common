@@ -64,7 +64,12 @@ public class TestStickyBit {
   public static void init() throws Exception {
     conf = new HdfsConfiguration();
     conf.setBoolean(DFSConfigKeys.DFS_PERMISSIONS_ENABLED_KEY, true);
-    cluster = new MiniDFSCluster.Builder(conf).numDataNodes(4).build();
+    initCluster(true);
+  }
+
+  private static void initCluster(boolean format) throws Exception {
+    cluster = new MiniDFSCluster.Builder(conf).numDataNodes(4).format(format)
+      .build();
     hdfs = cluster.getFileSystem();
     assertTrue(hdfs instanceof DistributedFileSystem);
     hdfsAsUser1 = DFSTestUtil.getFileSystemAs(user1, conf);
@@ -328,11 +333,7 @@ public class TestStickyBit {
     shutdown();
 
     // Start file system up again
-    cluster = new MiniDFSCluster.Builder(conf).numDataNodes(4).format(false)
-      .build();
-    hdfs = cluster.getFileSystem();
-    hdfsAsUser1 = DFSTestUtil.getFileSystemAs(user1, conf);
-    hdfsAsUser2 = DFSTestUtil.getFileSystemAs(user2, conf);
+    initCluster(false);
 
     assertTrue(hdfs.exists(sbSet));
     assertTrue(hdfs.getFileStatus(sbSet).getPermission().getStickyBit());
