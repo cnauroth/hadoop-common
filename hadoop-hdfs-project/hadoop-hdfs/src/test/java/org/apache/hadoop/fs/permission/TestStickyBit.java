@@ -107,9 +107,15 @@ public class TestStickyBit {
 
     // Log onto cluster as another user and attempt to append to file
     Path file2 = new Path(p, "foo");
-    FSDataOutputStream h = hdfsAsUser2.append(file2);
-    h.write("Some more data".getBytes());
-    h.close();
+    FSDataOutputStream h = null;
+    try {
+      h = hdfsAsUser2.append(file2);
+      h.write("Some more data".getBytes());
+      h.close();
+      h = null;
+    } finally {
+      IOUtils.cleanup(null, h);
+    }
   }
 
   /**
@@ -382,9 +388,15 @@ public class TestStickyBit {
    * Write a quick file to the specified file system at specified path
    */
   static private void writeFile(FileSystem hdfs, Path p) throws IOException {
-    FSDataOutputStream o = hdfs.create(p);
-    o.write("some file contents".getBytes());
-    o.close();
+    FSDataOutputStream o = null;
+    try {
+      o = hdfs.create(p);
+      o.write("some file contents".getBytes());
+      o.close();
+      o = null;
+    } finally {
+      IOUtils.cleanup(null, o);
+    }
   }
 
   /**
