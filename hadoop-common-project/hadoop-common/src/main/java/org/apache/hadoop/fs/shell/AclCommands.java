@@ -74,7 +74,7 @@ class AclCommands extends FsCommand {
     @Override
     protected void processPath(PathData item) throws IOException {
       AclStatus aclStatus = item.fs.getAclStatus(item.path);
-      out.println("# file: " + item.path.toUri().getPath());
+      out.println("# file: " + item);
       out.println("# owner: " + aclStatus.getOwner());
       out.println("# group: " + aclStatus.getGroup());
       List<AclEntry> entries = aclStatus.getEntries();
