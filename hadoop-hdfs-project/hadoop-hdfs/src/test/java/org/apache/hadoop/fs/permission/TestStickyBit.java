@@ -267,40 +267,28 @@ public class TestStickyBit {
    */
   @Test
   public void testMovingFiles() throws Exception {
-    // Create a tmp directory with wide-open permissions and sticky bit
-    Path tmpPath = new Path("/tmp");
-    Path tmpPath2 = new Path("/tmp2");
-    hdfs.mkdirs(tmpPath);
-    hdfs.mkdirs(tmpPath2);
-    hdfs.setPermission(tmpPath, new FsPermission((short) 01777));
-    hdfs.setPermission(tmpPath2, new FsPermission((short) 01777));
-
-    // Write a file to the new tmp directory as a regular user
-    Path file = new Path(tmpPath, "foo");
-
-    writeFile(hdfsAsUser1, file);
-
-    // Log onto cluster as another user and attempt to move the file
-    try {
-      hdfsAsUser2.rename(file, new Path(tmpPath2, "renamed"));
-      fail("Shouldn't be able to rename someone else's file with SB on");
-    } catch (IOException ioe) {
-      assertTrue(ioe instanceof AccessControlException);
-      assertTrue(ioe.getMessage().contains("sticky bit"));
-    }
+    testMovingFiles(false);
   }
 
   @Test
   public void testAclMovingFiles() throws Exception {
+    testMovingFiles(true);
+  }
+
+  private void testMovingFiles(boolean useAcl) throws Exception {
     // Create a tmp directory with wide-open permissions and sticky bit
     Path tmpPath = new Path("/tmp");
     Path tmpPath2 = new Path("/tmp2");
     hdfs.mkdirs(tmpPath);
     hdfs.mkdirs(tmpPath2);
     hdfs.setPermission(tmpPath, new FsPermission((short) 01777));
-    applyAcl(tmpPath);
+    if (useAcl) {
+      applyAcl(tmpPath);
+    }
     hdfs.setPermission(tmpPath2, new FsPermission((short) 01777));
-    applyAcl(tmpPath2);
+    if (useAcl) {
+      applyAcl(tmpPath2);
+    }
 
     // Write a file to the new tmp directory as a regular user
     Path file = new Path(tmpPath, "foo");
