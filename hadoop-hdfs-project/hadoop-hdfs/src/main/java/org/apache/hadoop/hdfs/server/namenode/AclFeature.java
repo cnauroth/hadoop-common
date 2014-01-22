@@ -33,11 +33,28 @@ public class AclFeature implements INode.Feature {
 
   private List<AclEntry> entries;
 
-  public List<AclEntry> getEntries() {
-    return entries;
+  public AclFeature(List<AclEntry> entries) {
+    this.entries = entries;
   }
 
-  public void setEntries(List<AclEntry> entries) {
-    this.entries = entries;
+  @Override
+  public boolean equals(Object o) {
+    if (o == null) {
+      return false;
+    }
+    if (getClass() != o.getClass()) {
+      return false;
+    }
+    AclFeature other = (AclFeature)o;
+    return entries.equals(other.entries);
+  }
+
+  @Override
+  public int hashCode() {
+    return entries.hashCode();
+  }
+
+  public List<AclEntry> getEntries() {
+    return entries;
   }
 }

@@ -802,8 +802,8 @@ public class FSImageFormat {
       if (LayoutVersion.supports(Feature.EXTENDED_ACL, imgVersion)) {
         AclFsImageProto p = AclFsImageProto
             .parseDelimitedFrom((DataInputStream) in);
-        aclFeature = new AclFeature();
-        aclFeature.setEntries(PBHelper.convertAclEntry(p.getEntriesList()));
+        aclFeature = new AclFeature(PBHelper.convertAclEntry(
+          p.getEntriesList()));
       }
       return aclFeature;
     }

@@ -26,6 +26,8 @@ import org.apache.hadoop.hdfs.server.namenode.snapshot.Snapshot;
 import org.apache.hadoop.util.LightWeightGSet.LinkedElement;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
 
 /**
  * {@link INode} with additional fields including id, name, permission,
@@ -99,6 +101,9 @@ public abstract class INodeWithAdditionalFields extends INode
   /** An array {@link Feature}s. */
   private static final Feature[] EMPTY_FEATURE = new Feature[0];
   protected Feature[] features = EMPTY_FEATURE;
+
+  private static Interner<AclFeature> GLOBAL_ACL_SET =
+    Interners.newWeakInterner();
 
   private INodeWithAdditionalFields(INode parent, long id, byte[] name,
       long permission, long modificationTime, long accessTime) {
@@ -333,6 +338,6 @@ public abstract class INodeWithAdditionalFields extends INode
     if (f1 != null)
       throw new IllegalStateException("Duplicated ACLFeature");
 
-    addFeature(f);
+    addFeature(GLOBAL_ACL_SET.intern(f));
   }
 }

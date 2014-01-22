@@ -232,13 +232,11 @@ final class AclStorage {
       // Add all default entries to the feature.
       featureEntries.addAll(defaultEntries);
 
-      // Attach entries to the feature, creating a new feature if needed.
-      AclFeature aclFeature = inode.getAclFeature();
-      if (aclFeature == null) {
-        aclFeature = new AclFeature();
-        inode.addAclFeature(aclFeature);
+      // Attach entries to the feature.
+      if (inode.getAclFeature() != null) {
+        inode.removeAclFeature();
       }
-      aclFeature.setEntries(featureEntries);
+      inode.addAclFeature(new AclFeature(featureEntries));
     } else {
       // This is a minimal ACL.  Remove the ACL feature if it previously had one.
       if (perm.getAclBit()) {
