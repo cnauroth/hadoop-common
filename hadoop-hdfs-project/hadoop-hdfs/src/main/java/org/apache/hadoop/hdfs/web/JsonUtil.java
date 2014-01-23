@@ -216,14 +216,6 @@ public class JsonUtil {
     m.put("childrenNum", status.getChildrenNum());
     return includeType ? toJsonString(FileStatus.class, m): JSON.toString(m);
   }
-  
-  /** Convert a AclStatus object to a Json string. */
-  public static String toJsonString(final AclStatus status) {
-    if (status == null) {
-      return null;
-    }
-    return ("{" + "\"" + "AclStatus" + "\":" + "{" + status.toString() + "}");
-  }
 
   /** Convert a Json map to a HdfsFileStatus object. */
   public static HdfsFileStatus toFileStatus(final Map<?, ?> json, boolean includesType) {
@@ -254,50 +246,6 @@ public class JsonUtil {
     return new HdfsFileStatus(len, type == PathType.DIRECTORY, replication,
         blockSize, mTime, aTime, permission, owner, group,
         symlink, DFSUtil.string2Bytes(localName), fileId, childrenNum);
-  }
-  
-  /** Convert a Json map to a AclStatus object. */
-  public static AclStatus toAclStatus(final Map<?, ?> json, boolean includesType) {
-    if (json == null) {
-      return null;
-    }
-
-    final Map<?, ?> m =
-        includesType ? (Map<?, ?>) json.get(AclStatus.class.getSimpleName())
-            : json;
-
-    AclStatus.Builder aclStatusBuilder = new AclStatus.Builder();
-    aclStatusBuilder.owner((String) m.get("owner"));
-    aclStatusBuilder.group((String) m.get("group"));
-    aclStatusBuilder.stickyBit((Boolean) m.get("stickyBit"));
-
-    final List<String> entries = (List<String>) m.get("entries");
-    String[] subEntryFields = new String[2];
-    int index;
-    for (String entry : entries) {
-      AclEntry.Builder aclBuilder = new AclEntry.Builder();
-      subEntryFields = entry.split(":");
-      index = 0;
-      if (subEntryFields[index++].equals("default")) {
-        aclBuilder.setScope(AclEntryScope.DEFAULT);
-      } else {
-        aclBuilder.setScope(AclEntryScope.ACCESS);
-      }
-      if (subEntryFields[index++].equals("user")) {
-        aclBuilder.setType(AclEntryType.USER);
-      } else if (subEntryFields[index++].equals("group")) {
-        aclBuilder.setType(AclEntryType.GROUP);
-      } else if (subEntryFields[index++].equals("mask")) {
-        aclBuilder.setType(AclEntryType.MASK);
-      } else if (subEntryFields[index++].equals("other")) {
-        aclBuilder.setType(AclEntryType.OTHER);
-      }
-
-      aclBuilder.setName(subEntryFields[index++]);
-      aclBuilder.setPermission(FsAction.getFsAction(subEntryFields[index++]));
-      aclStatusBuilder.addEntry(aclBuilder.build());
-    }
-    return aclStatusBuilder.build();
   }
 
   /** Convert an ExtendedBlock to a Json map. */
@@ -357,6 +305,77 @@ public class JsonUtil {
     m.put("networkLocation", datanodeinfo.getNetworkLocation());
     m.put("adminState", datanodeinfo.getAdminState().name());
     return m;
+  }
+  
+  /** Convert a AclStatus object to a Json string. */
+  public static String toJsonString(final AclStatus status, boolean includesType) {
+    if (status == null) {
+      return null;
+    }
+
+    final Map<String, Object> m = new TreeMap<String, Object>();
+
+    m.put("owner", status.getOwner());
+    m.put("group", status.getGroup());
+    m.put("stickyBit", status.isStickyBit());
+    m.put("entries", status.getEntries());
+
+    if (includesType) {
+
+      final Map<String, Map<String, Object>> finalMap =
+          new TreeMap<String, Map<String, Object>>();
+      finalMap.put(AclStatus.class.getSimpleName(), m);
+      return JSON.toString(finalMap);
+    } else {
+      return JSON.toString(m);
+    }
+
+  }
+
+  /** Convert a Json map to a AclStatus object. */
+  public static AclStatus toAclStatus(final Map<?, ?> json, boolean includesType) {
+    if (json == null) {
+      return null;
+    }
+
+    final Map<?, ?> m =
+        includesType ? (Map<?, ?>) json.get(AclStatus.class.getSimpleName())
+            : json;
+
+    AclStatus.Builder aclStatusBuilder = new AclStatus.Builder();
+    aclStatusBuilder.owner((String) m.get("owner"));
+    aclStatusBuilder.group((String) m.get("group"));
+    aclStatusBuilder.stickyBit((Boolean) m.get("stickyBit"));
+
+    final Object[] entries = (Object[]) m.get("entries");
+    String[] subEntryFields;
+    int index;
+
+    for (int i = 0; i < entries.length; i++) {
+      AclEntry.Builder aclBuilder = new AclEntry.Builder();
+      subEntryFields = entries[i].toString().split(":");
+      index = 0;
+      if (subEntryFields[index].equals("default")) {
+        aclBuilder.setScope(AclEntryScope.DEFAULT);
+        index++;
+      } else {
+        aclBuilder.setScope(AclEntryScope.ACCESS);
+      }
+      if (subEntryFields[index].equals("user")) {
+        aclBuilder.setType(AclEntryType.USER);
+      } else if (subEntryFields[index].equals("group")) {
+        aclBuilder.setType(AclEntryType.GROUP);
+      } else if (subEntryFields[index].equals("mask")) {
+        aclBuilder.setType(AclEntryType.MASK);
+      } else if (subEntryFields[index].equals("other")) {
+        aclBuilder.setType(AclEntryType.OTHER);
+      }
+      index++;
+      aclBuilder.setName(subEntryFields[index++]);
+      aclBuilder.setPermission(FsAction.getFsAction(subEntryFields[index]));
+      aclStatusBuilder.addEntry(aclBuilder.build());
+    }
+    return aclStatusBuilder.build();
   }
 
   private static int getInt(Map<?, ?> m, String key, final int defaultValue) {

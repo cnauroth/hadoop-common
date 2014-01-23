@@ -700,12 +700,12 @@ public class WebHdfsFileSystem extends FileSystem
   @Override
   public AclStatus getAclStatus(Path f) throws IOException {
     final HttpOpParam.Op op = GetOpParam.Op.GETACLSTATUS;
-	final Map<?, ?> json = run(op, f);
-	AclStatus status = JsonUtil.toAclStatus(json, true);
-	if (status == null) {
-	  throw new FileNotFoundException("File does not exist: " + f);
-	}
-    return status;	  
+    final Map<?, ?> json = run(op, f);
+    AclStatus status = JsonUtil.toAclStatus(json, true);
+    if (status == null) {
+      throw new FileNotFoundException("File does not exist: " + f);
+    }
+    return status;
   }
 
   @Override
@@ -767,6 +767,7 @@ public class WebHdfsFileSystem extends FileSystem
     final HttpOpParam.Op op = PutOpParam.Op.SETPERMISSION;
     run(op, p, new PermissionParam(permission));
   }
+
   @Override
   public void modifyAclEntries(Path path, List<AclEntry> aclSpec)
       throws IOException {

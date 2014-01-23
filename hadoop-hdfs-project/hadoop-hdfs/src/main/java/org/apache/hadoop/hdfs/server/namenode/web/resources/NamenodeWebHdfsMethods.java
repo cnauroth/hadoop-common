@@ -481,29 +481,24 @@ public class NamenodeWebHdfsMethods {
       return Response.ok().type(MediaType.APPLICATION_OCTET_STREAM).build();
     }
     case MODIFYACLENTRIES: {
-      np.modifyAclEntries(fullpath, aclPermission.getAclPermission());
-      return Response.ok().type(MediaType.APPLICATION_OCTET_STREAM)
-          .build();
+      np.modifyAclEntries(fullpath, aclPermission.getAclPermission(true));
+      return Response.ok().type(MediaType.APPLICATION_OCTET_STREAM).build();
     }
     case REMOVEACLENTRIES: {
-      np.removeAclEntries(fullpath, aclPermission.getAclPermission());
-      return Response.ok().type(MediaType.APPLICATION_OCTET_STREAM)
-          .build();
+      np.removeAclEntries(fullpath, aclPermission.getAclPermission(false));
+      return Response.ok().type(MediaType.APPLICATION_OCTET_STREAM).build();
     }
     case REMOVEDEFAULTACL: {
       np.removeDefaultAcl(fullpath);
-      return Response.ok().type(MediaType.APPLICATION_OCTET_STREAM)
-          .build();
+      return Response.ok().type(MediaType.APPLICATION_OCTET_STREAM).build();
     }
     case REMOVEACL: {
       np.removeAcl(fullpath);
-      return Response.ok().type(MediaType.APPLICATION_OCTET_STREAM)
-          .build();
+      return Response.ok().type(MediaType.APPLICATION_OCTET_STREAM).build();
     }
     case SETACL: {
-      np.setAcl(fullpath, aclPermission.getAclPermission());
-      return Response.ok().type(MediaType.APPLICATION_OCTET_STREAM)
-          .build();
+      np.setAcl(fullpath, aclPermission.getAclPermission(true));
+      return Response.ok().type(MediaType.APPLICATION_OCTET_STREAM).build();
     }
     default:
       throw new UnsupportedOperationException(op + " is not supported");
@@ -745,14 +740,13 @@ public class NamenodeWebHdfsMethods {
           WebHdfsFileSystem.getHomeDirectoryString(ugi));
       return Response.ok(js).type(MediaType.APPLICATION_JSON).build();
     }
-    case GETACLSTATUS:
-    {
+    case GETACLSTATUS: {
       AclStatus status = np.getAclStatus(fullpath);
       if (status == null) {
         throw new FileNotFoundException("File does not exist: " + fullpath);
       }
-      
-      final String js = JsonUtil.toJsonString(status);
+
+      final String js = JsonUtil.toJsonString(status, true);
       return Response.ok(js).type(MediaType.APPLICATION_JSON).build();
     }
     default:
@@ -822,7 +816,7 @@ public class NamenodeWebHdfsMethods {
       }
     };
   }
-  
+
   /** Handle HTTP DELETE request for the root. */
   @DELETE
   @Path("/")
