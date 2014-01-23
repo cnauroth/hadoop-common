@@ -17,11 +17,18 @@
  */
 package org.apache.hadoop.hdfs.web;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.AclEntry;
+import org.apache.hadoop.fs.permission.AclEntryScope;
+import org.apache.hadoop.fs.permission.AclEntryType;
+import org.apache.hadoop.fs.permission.AclStatus;
+import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.DFSUtil;
 import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
@@ -134,6 +141,75 @@ public class TestJsonUtil {
     // Only missing xferPort
     response.put("ipAddr", "127.0.0.1");
     checkDecodeFailure(response);
+  }
+  
+  @Test
+  public void testToAclStatus() {
+    String jsonString =
+        "{\"AclStatus\":{\"entries\":[\"user:user1:rwx\",\"group::rw-\"],\"group\":\"supergroup\",\"owner\":\"testuser\",\"stickyBit\":false}}";
+    Map<?, ?> json = (Map<?, ?>) JSON.parse(jsonString);
+
+    AclStatus.Builder aclStatusBuilder = new AclStatus.Builder();
+    aclStatusBuilder.owner("testuser");
+    aclStatusBuilder.group("supergroup");
+    aclStatusBuilder.stickyBit(false);
+
+    AclEntry.Builder aclBuilder1 = new AclEntry.Builder();
+
+    aclBuilder1.setType(AclEntryType.USER);
+    aclBuilder1.setName("user1");
+    aclBuilder1.setScope(AclEntryScope.ACCESS);
+    aclBuilder1.setPermission(FsAction.ALL);
+
+    AclEntry.Builder aclBuilder2 = new AclEntry.Builder();
+
+    aclBuilder2.setType(AclEntryType.GROUP);
+    aclBuilder2.setScope(AclEntryScope.ACCESS);
+    aclBuilder2.setPermission(FsAction.READ_WRITE);
+
+    List<AclEntry> aclEntries = new ArrayList<AclEntry>();
+    aclEntries.add(aclBuilder1.build());
+    aclEntries.add(aclBuilder2.build());
+
+    aclStatusBuilder.addEntry(aclBuilder1.build());
+    aclStatusBuilder.addEntry(aclBuilder2.build());
+
+    Assert.assertEquals("Should be equal", aclStatusBuilder.build().toString(),
+        JsonUtil.toAclStatus(json, true).toString());
+
+  }
+
+  @Test
+  public void testToJsonFromAclStatus() {
+    String jsonString =
+        "{\"AclStatus\":{\"entries\":[\"user:user1:rwx\",\"group::rw-\"],\"group\":\"supergroup\",\"owner\":\"testuser\",\"stickyBit\":false}}";
+    AclStatus.Builder aclStatusBuilder = new AclStatus.Builder();
+    aclStatusBuilder.owner("testuser");
+    aclStatusBuilder.group("supergroup");
+    aclStatusBuilder.stickyBit(false);
+
+    AclEntry.Builder aclBuilder1 = new AclEntry.Builder();
+
+    aclBuilder1.setType(AclEntryType.USER);
+    aclBuilder1.setName("user1");
+    aclBuilder1.setScope(AclEntryScope.ACCESS);
+    aclBuilder1.setPermission(FsAction.ALL);
+
+    AclEntry.Builder aclBuilder2 = new AclEntry.Builder();
+
+    aclBuilder2.setType(AclEntryType.GROUP);
+    aclBuilder2.setScope(AclEntryScope.ACCESS);
+    aclBuilder2.setPermission(FsAction.READ_WRITE);
+
+    List<AclEntry> aclEntries = new ArrayList<AclEntry>();
+    aclEntries.add(aclBuilder1.build());
+    aclEntries.add(aclBuilder2.build());
+
+    aclStatusBuilder.addEntry(aclBuilder1.build());
+    aclStatusBuilder.addEntry(aclBuilder2.build());
+    Assert.assertEquals(jsonString,
+        JsonUtil.toJsonString(aclStatusBuilder.build(), true));
+
   }
 
   private void checkDecodeFailure(Map<String, Object> map) {
