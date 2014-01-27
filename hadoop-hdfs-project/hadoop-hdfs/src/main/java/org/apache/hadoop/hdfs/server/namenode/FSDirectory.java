@@ -1629,6 +1629,14 @@ public class FSDirectory implements Closeable {
    */
   private HdfsFileStatus getFileInfo4DotSnapshot(String src)
       throws UnresolvedLinkException {
+    if (getINode4DotSnapshot(src) != null) {
+      return new HdfsFileStatus(0, true, 0, 0, 0, 0, null, null, null, null,
+          HdfsFileStatus.EMPTY_NAME, -1L, 0);
+    }
+    return null;
+  }
+
+  private INode getINode4DotSnapshot(String src) throws UnresolvedLinkException {
     Preconditions.checkArgument(
         src.endsWith(HdfsConstants.SEPARATOR_DOT_SNAPSHOT_DIR), 
         "%s does not end with %s", src, HdfsConstants.SEPARATOR_DOT_SNAPSHOT_DIR);
@@ -1640,8 +1648,7 @@ public class FSDirectory implements Closeable {
     if (node != null
         && node.isDirectory()
         && node.asDirectory() instanceof INodeDirectorySnapshottable) {
-      return new HdfsFileStatus(0, true, 0, 0, 0, 0, null, null, null, null,
-          HdfsFileStatus.EMPTY_NAME, -1L, 0);
+      return node;
     }
     return null;
   }
@@ -2804,12 +2811,20 @@ public class FSDirectory implements Closeable {
   }
 
   AclStatus getAclStatus(String src) throws IOException {
+    String srcs = normalizePath(src);
     readLock();
     try {
-      INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
+      // There is no real inode for the path ending in ".snapshot", so return a
+      // non-null, unpopulated AclStatus.  This is similar to getFileInfo.
+      if (srcs.endsWith(HdfsConstants.SEPARATOR_DOT_SNAPSHOT_DIR) &&
+          getINode4DotSnapshot(srcs) != null) {
+        return new AclStatus.Builder().build();
+      }
+      INodesInPath iip = rootDir.getLastINodeInPath(srcs, true);
       final INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(
         src, iip);
-      int snapshotId = iip.getLatestSnapshotId();
+      int snapshotId = iip.isSnapshot() ? iip.getPathSnapshotId() :
+        iip.getLatestSnapshotId();
       List<AclEntry> acl = AclStorage.readINodeAcl(inode, snapshotId);
       return new AclStatus.Builder()
           .owner(inode.getUserName()).group(inode.getGroupName())
