@@ -40,6 +40,7 @@ import org.apache.hadoop.hdfs.protocol.SnapshotAccessControlException;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.server.namenode.NameNodeAdapter;
 import org.apache.hadoop.io.IOUtils;
+import org.apache.hadoop.security.AccessControlException;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import org.junit.AfterClass;
@@ -62,13 +63,11 @@ public class TestAclWithSnapshot {
 
   private static MiniDFSCluster cluster;
   private static Configuration conf;
-  private static FileSystem fsAsBruce;
-  private static FileSystem fsAsDiana;
+  private static FileSystem fsAsBruce, fsAsDiana;
   private static DistributedFileSystem hdfs;
   private static int pathCount = 0;
-  private static Path path;
+  private static Path path, snapshotPath;
   private static String snapshotName;
-  private static Path snapshotPath;
 
   @Rule
   public ExpectedException exception = ExpectedException.none();
@@ -104,33 +103,75 @@ public class TestAclWithSnapshot {
       aclEntry(ACCESS, GROUP, NONE),
       aclEntry(ACCESS, OTHER, NONE));
     hdfs.setAcl(path, aclSpec);
-    // assert bruce can access path
-    // assert diana cannot access path
+
+    assertPermissionGranted(fsAsBruce, BRUCE, path);
+    assertPermissionDenied(fsAsDiana, DIANA, path);
+
     SnapshotTestHelper.createSnapshot(hdfs, path, snapshotName);
-    // check getAclStatus for path
-    // check getAclStatus for snapshot
-    // assert bruce can access snapshot
-    // assert diana cannot access snapshot
+
+    AclStatus s = hdfs.getAclStatus(path);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02750);
+
+    s = hdfs.getAclStatus(snapshotPath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02750);
+
+    assertPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
+    assertPermissionDenied(fsAsDiana, DIANA, snapshotPath);
+
     aclSpec = Lists.newArrayList(
-      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, USER, READ_EXECUTE),
       aclEntry(ACCESS, USER, "diana", READ_EXECUTE),
       aclEntry(ACCESS, GROUP, NONE),
       aclEntry(ACCESS, OTHER, NONE));
     hdfs.setAcl(path, aclSpec);
-    // check getAclStatus for path
-    // check getAclStatus for snapshot
-    // assert bruce cannot access path
-    // assert diana can access path
-    // assert bruce can access snapshot
-    // assert diana cannot access snapshot
+
+    s = hdfs.getAclStatus(path);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "DIANA", READ_EXECUTE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02550);
+
+    s = hdfs.getAclStatus(snapshotPath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02750);
+
+    assertPermissionDenied(fsAsBruce, BRUCE, path);
+    assertPermissionGranted(fsAsDiana, DIANA, path);
+    assertPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
+    assertPermissionDenied(fsAsDiana, DIANA, snapshotPath);
+
     doCheckpointAndRestart();
-    // check getAclStatus for path
-    // check getAclStatus for snapshot
-    // assert bruce cannot access path
-    // assert diana can access path
-    // assert bruce can access snapshot
-    // assert diana cannot access snapshot
-    fail();
+
+    s = hdfs.getAclStatus(path);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "DIANA", READ_EXECUTE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02550);
+
+    s = hdfs.getAclStatus(snapshotPath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02750);
+
+    assertPermissionDenied(fsAsBruce, BRUCE, path);
+    assertPermissionGranted(fsAsDiana, DIANA, path);
+    assertPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
+    assertPermissionDenied(fsAsDiana, DIANA, snapshotPath);
   }
 
   @Test
@@ -142,28 +183,62 @@ public class TestAclWithSnapshot {
       aclEntry(ACCESS, GROUP, NONE),
       aclEntry(ACCESS, OTHER, NONE));
     hdfs.setAcl(path, aclSpec);
-    // assert bruce can access path
-    // assert diana cannot access path
+
+    assertPermissionGranted(fsAsBruce, BRUCE, path);
+    assertPermissionDenied(fsAsDiana, DIANA, path);
+
     SnapshotTestHelper.createSnapshot(hdfs, path, snapshotName);
-    // check getAclStatus for path
-    // check getAclStatus for snapshot
-    // assert bruce can access snapshot
-    // assert diana cannot access snapshot
+
+    AclStatus s = hdfs.getAclStatus(path);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02750);
+
+    s = hdfs.getAclStatus(snapshotPath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02750);
+
+    assertPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
+    assertPermissionDenied(fsAsDiana, DIANA, snapshotPath);
+
     hdfs.removeAcl(path);
-    // check getAclStatus for path
-    // check getAclStatus for snapshot
-    // assert bruce cannot access path
-    // assert diana cannot access path
-    // assert bruce can access snapshot
-    // assert diana cannot access snapshot
+
+    s = hdfs.getAclStatus(path);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] { }, returned);
+    assertPermission((short)0700);
+
+    s = hdfs.getAclStatus(snapshotPath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] { }, returned);
+    assertPermission((short)0700);
+
+    assertPermissionDenied(fsAsBruce, BRUCE, path);
+    assertPermissionDenied(fsAsDiana, DIANA, path);
+    assertPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
+    assertPermissionDenied(fsAsDiana, DIANA, snapshotPath);
+
     doCheckpointAndRestart();
-    // check getAclStatus for path
-    // check getAclStatus for snapshot
-    // assert bruce cannot access path
-    // assert diana can access path
-    // assert bruce can access snapshot
-    // assert diana cannot access snapshot
-    fail();
+
+    s = hdfs.getAclStatus(path);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] { }, returned);
+    assertPermission((short)0700);
+
+    s = hdfs.getAclStatus(snapshotPath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] { }, returned);
+    assertPermission((short)0700);
+
+    assertPermissionDenied(fsAsBruce, BRUCE, path);
+    assertPermissionDenied(fsAsDiana, DIANA, path);
+    assertPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
+    assertPermissionDenied(fsAsDiana, DIANA, snapshotPath);
   }
 
   @Test
@@ -173,11 +248,30 @@ public class TestAclWithSnapshot {
     List<AclEntry> aclSpec = Lists.newArrayList(
       aclEntry(DEFAULT, USER, "bruce", READ_EXECUTE));
     hdfs.modifyAclEntries(path, aclSpec);
+
     SnapshotTestHelper.createSnapshot(hdfs, path, snapshotName);
-    // assert bruce cannot access snapshot
-    // check getAclStatus for path
-    // check getAclStatus for snapshot
-    fail();
+
+    AclStatus s = hdfs.getAclStatus(path);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(DEFAULT, USER, ALL),
+      aclEntry(DEFAULT, USER, "bruce", READ_EXECUTE),
+      aclEntry(DEFAULT, GROUP, NONE),
+      aclEntry(DEFAULT, MASK, READ_EXECUTE),
+      aclEntry(DEFAULT, OTHER, NONE) }, returned);
+    assertPermission((short)02700);
+
+    s = hdfs.getAclStatus(snapshotPath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(DEFAULT, USER, ALL),
+      aclEntry(DEFAULT, USER, "bruce", READ_EXECUTE),
+      aclEntry(DEFAULT, GROUP, NONE),
+      aclEntry(DEFAULT, MASK, READ_EXECUTE),
+      aclEntry(DEFAULT, OTHER, NONE) }, returned);
+    assertPermission((short)02700);
+
+    assertPermissionDenied(fsAsBruce, BRUCE, snapshotPath);
   }
 
   @Test
@@ -281,5 +375,53 @@ public class TestAclWithSnapshot {
     hdfs = (DistributedFileSystem)fs;
     fsAsBruce = DFSTestUtil.getFileSystemAs(BRUCE, conf);
     fsAsDiana = DFSTestUtil.getFileSystemAs(DIANA, conf);
+  }
+
+  /**
+   * Asserts the value of the FsPermission bits on the inode of the test path.
+   *
+   * @param perm short expected permission bits
+   * @throws Exception thrown if there is an unexpected error
+   */
+  private static void assertPermission(short perm) throws Exception {
+    assertEquals(FsPermission.createImmutable(perm),
+      hdfs.getFileStatus(path).getPermission());
+  }
+
+  /**
+   * Asserts that permission is denied to the given fs/user for the given path.
+   *
+   * @param fs FileSystem to check
+   * @param user UserGroupInformation owner of fs
+   * @param pathToCheck Path to check
+   * @throws Exception if there is an unexpected error
+   */
+  private static void assertPermissionDenied(FileSystem fs,
+      UserGroupInformation user, Path pathToCheck) throws Exception {
+    try {
+      fs.listStatus(pathToCheck);
+      fail("expected AccessControlException for user " + user + ", path = " +
+        pathToCheck);
+    } catch (AccessControlException e) {
+      // expected
+    }
+  }
+
+  /**
+   * Asserts that permission is granted to the given fs/user for the given path.
+   *
+   * @param fs FileSystem to check
+   * @param user UserGroupInformation owner of fs
+   * @param pathToCheck Path to check
+   * @throws Exception if there is an unexpected error
+   */
+  private static void assertPermissionGranted(FileSystem fs,
+      UserGroupInformation user, Path pathToCheck) throws Exception {
+    try {
+      fs.listStatus(pathToCheck);
+    } catch (AccessControlException e) {
+      fail("expected permission granted for user " + user + ", path = " +
+        pathToCheck);
+    }
   }
 }
