@@ -69,7 +69,6 @@ final class AclStorage {
    */
   public static List<AclEntry> readINodeAcl(INodeWithAdditionalFields inode,
       int snapshotId) {
-    System.out.println("cn readINodeAcl, inode = " + inode);
     // TODO: maybe inode.getFsPermission(snapshotId).
     FsPermission perm = inode.getPermissionStatus(snapshotId).getPermission();
     if (perm.getAclBit()) {
@@ -249,7 +248,6 @@ final class AclStorage {
       AclFeature aclFeature = new AclFeature();
       aclFeature.setEntries(featureEntries);
       inode.addAclFeature(aclFeature, snapshotId);
-      System.out.println("cn set AclFeature with entries, inode = " + inode + ", featureEntries = " + featureEntries);
     } else {
       // This is a minimal ACL.  Remove the ACL feature if it previously had one.
       if (perm.getAclBit()) {

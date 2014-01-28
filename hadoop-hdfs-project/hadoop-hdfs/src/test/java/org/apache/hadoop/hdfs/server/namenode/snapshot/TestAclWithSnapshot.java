@@ -127,7 +127,6 @@ public class TestAclWithSnapshot {
     assertDirPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
     assertDirPermissionDenied(fsAsDiana, DIANA, snapshotPath);
 
-    System.out.println("cn calling setAcl");
     aclSpec = Lists.newArrayList(
       aclEntry(ACCESS, USER, READ_EXECUTE),
       aclEntry(ACCESS, USER, "diana", READ_EXECUTE),
@@ -135,25 +134,15 @@ public class TestAclWithSnapshot {
       aclEntry(ACCESS, OTHER, NONE));
     hdfs.setAcl(path, aclSpec);
 
-    System.out.println("cn getting file status for: " + path);
-    System.out.println(hdfs.getFileStatus(path).getPermission());
-    System.out.println("cn getting file status for: " + snapshotPath);
-    System.out.println(hdfs.getFileStatus(snapshotPath).getPermission());
-
-    System.out.println("cn getting acl status for path after changing ACL on parent");
     s = hdfs.getAclStatus(path);
     returned = s.getEntries().toArray(new AclEntry[0]);
-    System.out.println("cn returned = " + java.util.Arrays.toString(returned));
     assertArrayEquals(new AclEntry[] {
       aclEntry(ACCESS, USER, "diana", READ_EXECUTE),
       aclEntry(ACCESS, GROUP, NONE) }, returned);
     assertPermission((short)02550, path);
 
-    System.out.println("cn getting acl status for snapshotpath after changing ACL on parent");
-    //SnapshotTestHelper.dumpTree("cn dumpTree", cluster);
     s = hdfs.getAclStatus(snapshotPath);
     returned = s.getEntries().toArray(new AclEntry[0]);
-    System.out.println("cn returned = " + java.util.Arrays.toString(returned));
     assertArrayEquals(new AclEntry[] {
       aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
       aclEntry(ACCESS, GROUP, NONE) }, returned);

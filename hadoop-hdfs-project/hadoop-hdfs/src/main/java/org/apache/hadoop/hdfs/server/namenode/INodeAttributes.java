@@ -118,7 +118,6 @@ public interface INodeAttributes {
 
     @Override
     public AclFeature getAclFeature() {
-        System.out.println("cn SnapshotCopy getAclFeature returning " + aclFeature);
       return aclFeature;
     }
 
