@@ -95,7 +95,8 @@ public class TestAclWithSnapshot {
   }
 
   @Test
-  public void testOriginalAclEnforcedForSnapshotAfterChange() throws Exception {
+  public void testOriginalAclEnforcedForSnapshotDirAfterChange()
+      throws Exception {
     FileSystem.mkdirs(hdfs, path, FsPermission.createImmutable((short)0700));
     List<AclEntry> aclSpec = Lists.newArrayList(
       aclEntry(ACCESS, USER, ALL),
@@ -104,8 +105,8 @@ public class TestAclWithSnapshot {
       aclEntry(ACCESS, OTHER, NONE));
     hdfs.setAcl(path, aclSpec);
 
-    assertPermissionGranted(fsAsBruce, BRUCE, path);
-    assertPermissionDenied(fsAsDiana, DIANA, path);
+    assertDirPermissionGranted(fsAsBruce, BRUCE, path);
+    assertDirPermissionDenied(fsAsDiana, DIANA, path);
 
     SnapshotTestHelper.createSnapshot(hdfs, path, snapshotName);
 
@@ -123,8 +124,8 @@ public class TestAclWithSnapshot {
       aclEntry(ACCESS, GROUP, NONE) }, returned);
     assertPermission((short)02750, snapshotPath);
 
-    assertPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
-    assertPermissionDenied(fsAsDiana, DIANA, snapshotPath);
+    assertDirPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
+    assertDirPermissionDenied(fsAsDiana, DIANA, snapshotPath);
 
     System.out.println("cn calling setAcl");
     aclSpec = Lists.newArrayList(
@@ -158,10 +159,10 @@ public class TestAclWithSnapshot {
       aclEntry(ACCESS, GROUP, NONE) }, returned);
     assertPermission((short)02750, snapshotPath);
 
-    assertPermissionDenied(fsAsBruce, BRUCE, path);
-    assertPermissionGranted(fsAsDiana, DIANA, path);
-    assertPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
-    assertPermissionDenied(fsAsDiana, DIANA, snapshotPath);
+    assertDirPermissionDenied(fsAsBruce, BRUCE, path);
+    assertDirPermissionGranted(fsAsDiana, DIANA, path);
+    assertDirPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
+    assertDirPermissionDenied(fsAsDiana, DIANA, snapshotPath);
 
     doCheckpointAndRestart();
 
@@ -179,14 +180,100 @@ public class TestAclWithSnapshot {
       aclEntry(ACCESS, GROUP, NONE) }, returned);
     assertPermission((short)02750, snapshotPath);
 
-    assertPermissionDenied(fsAsBruce, BRUCE, path);
-    assertPermissionGranted(fsAsDiana, DIANA, path);
-    assertPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
-    assertPermissionDenied(fsAsDiana, DIANA, snapshotPath);
+    assertDirPermissionDenied(fsAsBruce, BRUCE, path);
+    assertDirPermissionGranted(fsAsDiana, DIANA, path);
+    assertDirPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
+    assertDirPermissionDenied(fsAsDiana, DIANA, snapshotPath);
   }
 
   @Test
-  public void testOriginalAclEnforcedForSnapshotAfterRemoval() throws Exception {
+  public void testOriginalAclEnforcedForSnapshotFileAfterChange()
+      throws Exception {
+    Path filePath = new Path(path, "file1");
+    Path fileSnapshotPath = new Path(snapshotPath, "file1");
+    FileSystem.mkdirs(hdfs, path, FsPermission.createImmutable((short)0777));
+    FileSystem.create(hdfs, filePath, FsPermission.createImmutable((short)0600))
+      .close();
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, USER, "bruce", READ_WRITE),
+      aclEntry(ACCESS, GROUP, NONE),
+      aclEntry(ACCESS, OTHER, NONE));
+    hdfs.setAcl(filePath, aclSpec);
+
+    assertFilePermissionGranted(fsAsBruce, BRUCE, filePath);
+    assertFilePermissionDenied(fsAsDiana, DIANA, filePath);
+
+    SnapshotTestHelper.createSnapshot(hdfs, path, snapshotName);
+
+    AclStatus s = hdfs.getAclStatus(filePath);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_WRITE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02660, filePath);
+
+    s = hdfs.getAclStatus(fileSnapshotPath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_WRITE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02660, fileSnapshotPath);
+
+    assertFilePermissionGranted(fsAsBruce, BRUCE, fileSnapshotPath);
+    assertFilePermissionDenied(fsAsDiana, DIANA, fileSnapshotPath);
+
+    aclSpec = Lists.newArrayList(
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, USER, "diana", READ),
+      aclEntry(ACCESS, GROUP, NONE),
+      aclEntry(ACCESS, OTHER, NONE));
+    hdfs.setAcl(filePath, aclSpec);
+
+    s = hdfs.getAclStatus(filePath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "diana", READ),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02640, filePath);
+
+    s = hdfs.getAclStatus(fileSnapshotPath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_WRITE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02660, fileSnapshotPath);
+
+    assertFilePermissionDenied(fsAsBruce, BRUCE, filePath);
+    assertFilePermissionGranted(fsAsDiana, DIANA, filePath);
+    assertFilePermissionGranted(fsAsBruce, BRUCE, fileSnapshotPath);
+    assertFilePermissionDenied(fsAsDiana, DIANA, fileSnapshotPath);
+
+    doCheckpointAndRestart();
+
+    s = hdfs.getAclStatus(filePath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "diana", READ),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02640, filePath);
+
+    s = hdfs.getAclStatus(fileSnapshotPath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_WRITE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02660, fileSnapshotPath);
+
+    assertFilePermissionDenied(fsAsBruce, BRUCE, filePath);
+    assertFilePermissionGranted(fsAsDiana, DIANA, filePath);
+    assertFilePermissionGranted(fsAsBruce, BRUCE, fileSnapshotPath);
+    assertFilePermissionDenied(fsAsDiana, DIANA, fileSnapshotPath);
+  }
+
+  @Test
+  public void testOriginalAclEnforcedForSnapshotDirAfterRemoval()
+      throws Exception {
     FileSystem.mkdirs(hdfs, path, FsPermission.createImmutable((short)0700));
     List<AclEntry> aclSpec = Lists.newArrayList(
       aclEntry(ACCESS, USER, ALL),
@@ -195,8 +282,8 @@ public class TestAclWithSnapshot {
       aclEntry(ACCESS, OTHER, NONE));
     hdfs.setAcl(path, aclSpec);
 
-    assertPermissionGranted(fsAsBruce, BRUCE, path);
-    assertPermissionDenied(fsAsDiana, DIANA, path);
+    assertDirPermissionGranted(fsAsBruce, BRUCE, path);
+    assertDirPermissionDenied(fsAsDiana, DIANA, path);
 
     SnapshotTestHelper.createSnapshot(hdfs, path, snapshotName);
 
@@ -214,8 +301,8 @@ public class TestAclWithSnapshot {
       aclEntry(ACCESS, GROUP, NONE) }, returned);
     assertPermission((short)02750, snapshotPath);
 
-    assertPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
-    assertPermissionDenied(fsAsDiana, DIANA, snapshotPath);
+    assertDirPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
+    assertDirPermissionDenied(fsAsDiana, DIANA, snapshotPath);
 
     hdfs.removeAcl(path);
 
@@ -231,10 +318,10 @@ public class TestAclWithSnapshot {
       aclEntry(ACCESS, GROUP, NONE) }, returned);
     assertPermission((short)02750, snapshotPath);
 
-    assertPermissionDenied(fsAsBruce, BRUCE, path);
-    assertPermissionDenied(fsAsDiana, DIANA, path);
-    assertPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
-    assertPermissionDenied(fsAsDiana, DIANA, snapshotPath);
+    assertDirPermissionDenied(fsAsBruce, BRUCE, path);
+    assertDirPermissionDenied(fsAsDiana, DIANA, path);
+    assertDirPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
+    assertDirPermissionDenied(fsAsDiana, DIANA, snapshotPath);
 
     doCheckpointAndRestart();
 
@@ -250,10 +337,86 @@ public class TestAclWithSnapshot {
       aclEntry(ACCESS, GROUP, NONE) }, returned);
     assertPermission((short)02750, snapshotPath);
 
-    assertPermissionDenied(fsAsBruce, BRUCE, path);
-    assertPermissionDenied(fsAsDiana, DIANA, path);
-    assertPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
-    assertPermissionDenied(fsAsDiana, DIANA, snapshotPath);
+    assertDirPermissionDenied(fsAsBruce, BRUCE, path);
+    assertDirPermissionDenied(fsAsDiana, DIANA, path);
+    assertDirPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
+    assertDirPermissionDenied(fsAsDiana, DIANA, snapshotPath);
+  }
+
+  @Test
+  public void testOriginalAclEnforcedForSnapshotFileAfterRemoval()
+      throws Exception {
+    Path filePath = new Path(path, "file1");
+    Path fileSnapshotPath = new Path(snapshotPath, "file1");
+    FileSystem.mkdirs(hdfs, path, FsPermission.createImmutable((short)0777));
+    FileSystem.create(hdfs, filePath, FsPermission.createImmutable((short)0600))
+      .close();
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, USER, "bruce", READ_WRITE),
+      aclEntry(ACCESS, GROUP, NONE),
+      aclEntry(ACCESS, OTHER, NONE));
+    hdfs.setAcl(filePath, aclSpec);
+
+    assertFilePermissionGranted(fsAsBruce, BRUCE, filePath);
+    assertFilePermissionDenied(fsAsDiana, DIANA, filePath);
+
+    SnapshotTestHelper.createSnapshot(hdfs, path, snapshotName);
+
+    AclStatus s = hdfs.getAclStatus(filePath);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_WRITE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02660, filePath);
+
+    s = hdfs.getAclStatus(fileSnapshotPath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_WRITE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02660, fileSnapshotPath);
+
+    assertFilePermissionGranted(fsAsBruce, BRUCE, fileSnapshotPath);
+    assertFilePermissionDenied(fsAsDiana, DIANA, fileSnapshotPath);
+
+    hdfs.removeAcl(filePath);
+
+    s = hdfs.getAclStatus(filePath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] { }, returned);
+    assertPermission((short)0600, filePath);
+
+    s = hdfs.getAclStatus(fileSnapshotPath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_WRITE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02660, fileSnapshotPath);
+
+    assertFilePermissionDenied(fsAsBruce, BRUCE, filePath);
+    assertFilePermissionDenied(fsAsDiana, DIANA, filePath);
+    assertFilePermissionGranted(fsAsBruce, BRUCE, fileSnapshotPath);
+    assertFilePermissionDenied(fsAsDiana, DIANA, fileSnapshotPath);
+
+    doCheckpointAndRestart();
+
+    s = hdfs.getAclStatus(filePath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] { }, returned);
+    assertPermission((short)0600, filePath);
+
+    s = hdfs.getAclStatus(fileSnapshotPath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_WRITE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02660, fileSnapshotPath);
+
+    assertFilePermissionDenied(fsAsBruce, BRUCE, filePath);
+    assertFilePermissionDenied(fsAsDiana, DIANA, filePath);
+    assertFilePermissionGranted(fsAsBruce, BRUCE, fileSnapshotPath);
+    assertFilePermissionDenied(fsAsDiana, DIANA, fileSnapshotPath);
   }
 
   @Test
@@ -286,7 +449,7 @@ public class TestAclWithSnapshot {
       aclEntry(DEFAULT, OTHER, NONE) }, returned);
     assertPermission((short)02700, snapshotPath);
 
-    assertPermissionDenied(fsAsBruce, BRUCE, snapshotPath);
+    assertDirPermissionDenied(fsAsBruce, BRUCE, snapshotPath);
   }
 
   @Test
@@ -408,6 +571,95 @@ public class TestAclWithSnapshot {
   }
 
   /**
+   * Asserts that permission is denied to the given fs/user for the given
+   * directory.
+   *
+   * @param fs FileSystem to check
+   * @param user UserGroupInformation owner of fs
+   * @param pathToCheck Path directory to check
+   * @throws Exception if there is an unexpected error
+   */
+  private static void assertDirPermissionDenied(FileSystem fs,
+      UserGroupInformation user, Path pathToCheck) throws Exception {
+    try {
+      fs.listStatus(pathToCheck);
+      fail("expected AccessControlException for user " + user + ", path = " +
+        pathToCheck);
+    } catch (AccessControlException e) {
+      // expected
+    }
+  }
+
+  /**
+   * Asserts that permission is granted to the given fs/user for the given
+   * directory.
+   *
+   * @param fs FileSystem to check
+   * @param user UserGroupInformation owner of fs
+   * @param pathToCheck Path directory to check
+   * @throws Exception if there is an unexpected error
+   */
+  private static void assertDirPermissionGranted(FileSystem fs,
+      UserGroupInformation user, Path pathToCheck) throws Exception {
+    try {
+      fs.listStatus(pathToCheck);
+    } catch (AccessControlException e) {
+      fail("expected permission granted for user " + user + ", path = " +
+        pathToCheck);
+    }
+  }
+
+  /**
+   * Asserts that permission is denied to the given fs/user for the given file.
+   *
+   * @param fs FileSystem to check
+   * @param user UserGroupInformation owner of fs
+   * @param pathToCheck Path file to check
+   * @throws Exception if there is an unexpected error
+   */
+  private static void assertFilePermissionDenied(FileSystem fs,
+      UserGroupInformation user, Path pathToCheck) throws Exception {
+    try {
+      fs.open(pathToCheck).close();
+      fail("expected AccessControlException for user " + user + ", path = " +
+        pathToCheck);
+    } catch (AccessControlException e) {
+      // expected
+    }
+  }
+
+  /**
+   * Asserts that permission is granted to the given fs/user for the given file.
+   *
+   * @param fs FileSystem to check
+   * @param user UserGroupInformation owner of fs
+   * @param pathToCheck Path file to check
+   * @throws Exception if there is an unexpected error
+   */
+  private static void assertFilePermissionGranted(FileSystem fs,
+      UserGroupInformation user, Path pathToCheck) throws Exception {
+    try {
+      fs.open(pathToCheck).close();
+    } catch (AccessControlException e) {
+      fail("expected permission granted for user " + user + ", path = " +
+        pathToCheck);
+    }
+  }
+
+  /**
+   * Asserts the value of the FsPermission bits on the inode of the test path.
+   *
+   * @param perm short expected permission bits
+   * @param pathToCheck Path to check
+   * @throws Exception thrown if there is an unexpected error
+   */
+  private static void assertPermission(short perm, Path pathToCheck)
+      throws Exception {
+    assertEquals(FsPermission.createImmutable(perm),
+      hdfs.getFileStatus(pathToCheck).getPermission());
+  }
+
+  /**
    * Enter safe mode, save a new checkpoint, and restart NameNode.
    *
    * @throws Exception if any step fails
@@ -436,55 +688,5 @@ public class TestAclWithSnapshot {
     hdfs = (DistributedFileSystem)fs;
     fsAsBruce = DFSTestUtil.getFileSystemAs(BRUCE, conf);
     fsAsDiana = DFSTestUtil.getFileSystemAs(DIANA, conf);
-  }
-
-  /**
-   * Asserts the value of the FsPermission bits on the inode of the test path.
-   *
-   * @param perm short expected permission bits
-   * @param pathToCheck Path to check
-   * @throws Exception thrown if there is an unexpected error
-   */
-  private static void assertPermission(short perm, Path pathToCheck)
-      throws Exception {
-    assertEquals(FsPermission.createImmutable(perm),
-      hdfs.getFileStatus(pathToCheck).getPermission());
-  }
-
-  /**
-   * Asserts that permission is denied to the given fs/user for the given path.
-   *
-   * @param fs FileSystem to check
-   * @param user UserGroupInformation owner of fs
-   * @param pathToCheck Path to check
-   * @throws Exception if there is an unexpected error
-   */
-  private static void assertPermissionDenied(FileSystem fs,
-      UserGroupInformation user, Path pathToCheck) throws Exception {
-    try {
-      fs.listStatus(pathToCheck);
-      fail("expected AccessControlException for user " + user + ", path = " +
-        pathToCheck);
-    } catch (AccessControlException e) {
-      // expected
-    }
-  }
-
-  /**
-   * Asserts that permission is granted to the given fs/user for the given path.
-   *
-   * @param fs FileSystem to check
-   * @param user UserGroupInformation owner of fs
-   * @param pathToCheck Path to check
-   * @throws Exception if there is an unexpected error
-   */
-  private static void assertPermissionGranted(FileSystem fs,
-      UserGroupInformation user, Path pathToCheck) throws Exception {
-    try {
-      fs.listStatus(pathToCheck);
-    } catch (AccessControlException e) {
-      fail("expected permission granted for user " + user + ", path = " +
-        pathToCheck);
-    }
   }
 }
