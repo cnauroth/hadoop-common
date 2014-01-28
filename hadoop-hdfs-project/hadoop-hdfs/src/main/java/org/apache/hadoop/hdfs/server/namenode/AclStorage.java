@@ -160,6 +160,7 @@ final class AclStorage {
       int snapshotId) throws QuotaExceededException {
     FsPermission perm = inode.getPermissionStatus(snapshotId).getPermission();
     if (perm.getAclBit()) {
+      // TODO: there is a bug here if the inode has only a default ACL
       // Restore group permissions from the feature's entry to permission bits,
       // overwriting the mask, which is not part of a minimal ACL.
       List<AclEntry> featureEntries = inode.getAclFeature(snapshotId)
