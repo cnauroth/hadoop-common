@@ -226,8 +226,10 @@ public class TestAclWithSnapshot {
 
     s = hdfs.getAclStatus(snapshotPath);
     returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(new AclEntry[] { }, returned);
-    assertPermission((short)0700, snapshotPath);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02750, snapshotPath);
 
     assertPermissionDenied(fsAsBruce, BRUCE, path);
     assertPermissionDenied(fsAsDiana, DIANA, path);
@@ -243,8 +245,10 @@ public class TestAclWithSnapshot {
 
     s = hdfs.getAclStatus(snapshotPath);
     returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(new AclEntry[] { }, returned);
-    assertPermission((short)0700, snapshotPath);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02750, snapshotPath);
 
     assertPermissionDenied(fsAsBruce, BRUCE, path);
     assertPermissionDenied(fsAsDiana, DIANA, path);
@@ -333,28 +337,74 @@ public class TestAclWithSnapshot {
 
   @Test
   public void testChangeAclExceedsQuota() throws Exception {
-    FileSystem.mkdirs(hdfs, path, FsPermission.createImmutable((short)0700));
-    hdfs.setQuota(path, 2, HdfsConstants.QUOTA_DONT_SET);
+    Path filePath = new Path(path, "file1");
+    Path fileSnapshotPath = new Path(snapshotPath, "file1");
+    FileSystem.mkdirs(hdfs, path, FsPermission.createImmutable((short)0755));
+    hdfs.allowSnapshot(path);
+    hdfs.setQuota(path, 3, HdfsConstants.QUOTA_DONT_SET);
+    FileSystem.create(hdfs, filePath, FsPermission.createImmutable((short)0600))
+      .close();
+    hdfs.setPermission(filePath, FsPermission.createImmutable((short)0600));
     List<AclEntry> aclSpec = Lists.newArrayList(
-      aclEntry(DEFAULT, USER, "bruce", READ_EXECUTE));
-    hdfs.modifyAclEntries(path, aclSpec);
-    SnapshotTestHelper.createSnapshot(hdfs, path, snapshotName);
+      aclEntry(ACCESS, USER, "bruce", READ_WRITE));
+    hdfs.modifyAclEntries(filePath, aclSpec);
+
+    hdfs.createSnapshot(path, snapshotName);
+
+    AclStatus s = hdfs.getAclStatus(filePath);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_WRITE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02660, filePath);
+
+    s = hdfs.getAclStatus(fileSnapshotPath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_WRITE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02660, filePath);
+
     aclSpec = Lists.newArrayList(
-      aclEntry(DEFAULT, USER, "bruce", NONE));
+      aclEntry(ACCESS, USER, "bruce", READ));
     exception.expect(NSQuotaExceededException.class);
-    hdfs.modifyAclEntries(path, aclSpec);
+    hdfs.modifyAclEntries(filePath, aclSpec);
   }
 
   @Test
   public void testRemoveAclExceedsQuota() throws Exception {
-    FileSystem.mkdirs(hdfs, path, FsPermission.createImmutable((short)0700));
-    hdfs.setQuota(path, 2, HdfsConstants.QUOTA_DONT_SET);
+    Path filePath = new Path(path, "file1");
+    Path fileSnapshotPath = new Path(snapshotPath, "file1");
+    FileSystem.mkdirs(hdfs, path, FsPermission.createImmutable((short)0755));
+    hdfs.allowSnapshot(path);
+    hdfs.setQuota(path, 3, HdfsConstants.QUOTA_DONT_SET);
+    FileSystem.create(hdfs, filePath, FsPermission.createImmutable((short)0600))
+      .close();
+    hdfs.setPermission(filePath, FsPermission.createImmutable((short)0600));
     List<AclEntry> aclSpec = Lists.newArrayList(
-      aclEntry(DEFAULT, USER, "bruce", READ_EXECUTE));
-    hdfs.modifyAclEntries(path, aclSpec);
-    SnapshotTestHelper.createSnapshot(hdfs, path, snapshotName);
+      aclEntry(ACCESS, USER, "bruce", READ_WRITE));
+    hdfs.modifyAclEntries(filePath, aclSpec);
+
+    hdfs.createSnapshot(path, snapshotName);
+
+    AclStatus s = hdfs.getAclStatus(filePath);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_WRITE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02660, filePath);
+
+    s = hdfs.getAclStatus(fileSnapshotPath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", READ_WRITE),
+      aclEntry(ACCESS, GROUP, NONE) }, returned);
+    assertPermission((short)02660, filePath);
+
+    aclSpec = Lists.newArrayList(
+      aclEntry(ACCESS, USER, "bruce", READ));
     exception.expect(NSQuotaExceededException.class);
-    hdfs.removeAcl(path);
+    hdfs.removeAcl(filePath);
   }
 
   /**

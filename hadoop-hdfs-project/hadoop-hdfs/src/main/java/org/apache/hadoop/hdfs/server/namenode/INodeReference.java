@@ -225,6 +225,11 @@ public abstract class INodeReference extends INode {
   }
 
   @Override
+  final void removeAclFeature() {
+    referred.removeAclFeature();
+  }
+
+  @Override
   public final short getFsPermissionShort() {
     return referred.getFsPermissionShort();
   }

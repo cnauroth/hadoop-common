@@ -170,6 +170,15 @@ public abstract class INode implements INodeAttributes, Diff.Element<byte[]> {
     nodeToUpdate.addAclFeature(aclFeature);
     return nodeToUpdate;
   }
+
+  abstract void removeAclFeature();
+
+  INode removeAclFeature(int latestSnapshotId) throws QuotaExceededException {
+    final INode nodeToUpdate = recordModification(latestSnapshotId);
+    System.out.println("cn INode.removeAclFeature, nodeToUpdate = " + nodeToUpdate);
+    nodeToUpdate.removeAclFeature();
+    return nodeToUpdate;
+  }
   
   /**
    * @return if the given snapshot id is {@link Snapshot#CURRENT_STATE_ID},

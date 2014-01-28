@@ -173,7 +173,7 @@ final class AclStorage {
       assert groupEntryIndex >= 0;
 
       // Remove the feature and turn off the ACL bit.
-      inode.removeAclFeature();
+      inode.removeAclFeature(snapshotId);
       FsPermission newPerm = new FsPermission(perm.getUserAction(),
         featureEntries.get(groupEntryIndex).getPermission(),
         perm.getOtherAction(),
