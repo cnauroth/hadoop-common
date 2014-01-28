@@ -43,7 +43,7 @@ public interface INodeFileAttributes extends INodeAttributes {
     public SnapshotCopy(byte[] name, PermissionStatus permissions,
         long modificationTime, long accessTime,
         short replication, long preferredBlockSize) {
-      super(name, permissions, modificationTime, accessTime);
+      super(name, permissions, null, modificationTime, accessTime);
 
       final long h = HeaderFormat.combineReplication(0L, replication);
       header = HeaderFormat.combinePreferredBlockSize(h, preferredBlockSize);

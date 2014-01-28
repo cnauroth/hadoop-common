@@ -199,9 +199,11 @@ public abstract class INodeWithAdditionalFields extends INode
   @Override
   final FsPermission getFsPermission(int snapshotId) {
     if (snapshotId != Snapshot.CURRENT_STATE_ID) {
+        System.out.println("cn getFsPermission, snapshotId = " + snapshotId + ", using " + getSnapshotINode(snapshotId) + ", class = " + getSnapshotINode(snapshotId).getClass().getName());
       return getSnapshotINode(snapshotId).getFsPermission();
     }
 
+    System.out.println("cn getFsPermission, snapshotId = " + snapshotId + ", using " + this + ", class = " + this.getClass().getName());
     return new FsPermission(getFsPermissionShort());
   }
 
@@ -218,6 +220,17 @@ public abstract class INodeWithAdditionalFields extends INode
   @Override
   public long getPermissionLong() {
     return permission;
+  }
+
+  @Override
+  final AclFeature getAclFeature(int snapshotId) {
+    if (snapshotId != Snapshot.CURRENT_STATE_ID) {
+        System.out.println("cn getAclFeature, snapshotId = " + snapshotId + ", using " + getSnapshotINode(snapshotId) + ", class = " + getSnapshotINode(snapshotId).getClass().getName());
+      return getSnapshotINode(snapshotId).getAclFeature();
+    }
+
+    System.out.println("cn getAclFeature, snapshotId = " + snapshotId + ", using " + this + ", class = " + this.getClass().getName());
+    return getFeature(AclFeature.class);
   }
 
   @Override
@@ -318,10 +331,6 @@ public abstract class INodeWithAdditionalFields extends INode
     return null;
   }
 
-  public AclFeature getAclFeature() {
-    return getFeature(AclFeature.class);
-  }
-
   public void removeAclFeature() {
     AclFeature f = getAclFeature();
     Preconditions.checkNotNull(f);
@@ -329,10 +338,11 @@ public abstract class INodeWithAdditionalFields extends INode
   }
 
   public void addAclFeature(AclFeature f) {
+    System.out.println("cn INodeWithAdditionalFields.addAclFeature, this = " + this + ", entries = " + f.getEntries());
     AclFeature f1 = getAclFeature();
     if (f1 != null)
-      throw new IllegalStateException("Duplicated ACLFeature");
-
+      //throw new IllegalStateException("Duplicated ACLFeature");
+      removeFeature(f1);
     addFeature(f);
   }
 }

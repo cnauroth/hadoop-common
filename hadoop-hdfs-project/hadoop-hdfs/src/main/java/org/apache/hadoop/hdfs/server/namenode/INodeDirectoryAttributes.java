@@ -36,7 +36,7 @@ public interface INodeDirectoryAttributes extends INodeAttributes {
       implements INodeDirectoryAttributes {
     public SnapshotCopy(byte[] name, PermissionStatus permissions,
         long modificationTime) {
-      super(name, permissions, modificationTime, 0L);
+      super(name, permissions, null, modificationTime, 0L);
     }
 
     public SnapshotCopy(INodeDirectory dir) {

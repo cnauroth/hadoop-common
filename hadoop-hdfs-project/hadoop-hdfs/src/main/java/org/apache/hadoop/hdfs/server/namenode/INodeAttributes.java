@@ -48,6 +48,9 @@ public interface INodeAttributes {
   /** @return the permission information as a long. */
   public long getPermissionLong();
 
+  /** @return the ACL feature. */
+  public AclFeature getAclFeature();
+
   /** @return the modification time. */
   public long getModificationTime();
 
@@ -58,13 +61,17 @@ public interface INodeAttributes {
   public static abstract class SnapshotCopy implements INodeAttributes {
     private final byte[] name;
     private final long permission;
+    private final AclFeature aclFeature;
     private final long modificationTime;
     private final long accessTime;
 
     SnapshotCopy(byte[] name, PermissionStatus permissions,
-        long modificationTime, long accessTime) {
+        AclFeature aclFeature, long modificationTime, long accessTime) {
       this.name = name;
       this.permission = PermissionStatusFormat.toLong(permissions);
+      //this.aclFeature = aclFeature;
+      this.aclFeature = new AclFeature();
+      this.aclFeature.setEntries(new java.util.ArrayList<org.apache.hadoop.fs.permission.AclEntry>());
       this.modificationTime = modificationTime;
       this.accessTime = accessTime;
     }
@@ -72,6 +79,7 @@ public interface INodeAttributes {
     SnapshotCopy(INode inode) {
       this.name = inode.getLocalNameBytes();
       this.permission = inode.getPermissionLong();
+      this.aclFeature = inode.getAclFeature();
       this.modificationTime = inode.getModificationTime();
       this.accessTime = inode.getAccessTime();
     }
@@ -106,6 +114,12 @@ public interface INodeAttributes {
     @Override
     public long getPermissionLong() {
       return permission;
+    }
+
+    @Override
+    public AclFeature getAclFeature() {
+        System.out.println("cn SnapshotCopy getAclFeature returning " + aclFeature);
+      return aclFeature;
     }
 
     @Override

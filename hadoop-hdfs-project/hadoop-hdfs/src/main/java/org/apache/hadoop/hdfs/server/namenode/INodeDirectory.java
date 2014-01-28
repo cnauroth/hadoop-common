@@ -41,6 +41,7 @@ import org.apache.hadoop.hdfs.util.ReadOnlyList;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 
 /**
  * Directory INode class.
@@ -88,6 +89,17 @@ public class INodeDirectory extends INodeWithAdditionalFields
     }
     if (copyFeatures) {
       this.features = other.features;
+    } else {
+      for (Feature feature: other.features) {
+        if (feature instanceof AclFeature) {
+          AclFeature aclFeature = (AclFeature)feature;
+          AclFeature aclFeatureCopy = new AclFeature();
+          aclFeatureCopy.setEntries(new ImmutableList.Builder().addAll(
+            aclFeature.getEntries()).build());
+          addFeature(aclFeatureCopy);
+          break;
+        }
+      }
     }
   }
 

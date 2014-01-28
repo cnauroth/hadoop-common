@@ -1613,6 +1613,7 @@ public class FSDirectory implements Closeable {
       }
       final INodesInPath inodesInPath = rootDir.getLastINodeInPath(srcs, resolveLink);
       final INode i = inodesInPath.getINode(0);
+      System.out.println("cn inodesInPath = " + inodesInPath + ", i = " + i);
       return i == null? null: createFileStatus(HdfsFileStatus.EMPTY_NAME, i,
           inodesInPath.getPathSnapshotId());
     } finally {
@@ -2823,8 +2824,10 @@ public class FSDirectory implements Closeable {
       INodesInPath iip = rootDir.getLastINodeInPath(srcs, true);
       final INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(
         src, iip);
-      int snapshotId = iip.isSnapshot() ? iip.getPathSnapshotId() :
-        iip.getLatestSnapshotId();
+      System.out.println("cn iip = " + iip + ", inode = " + inode);
+      //int snapshotId = iip.isSnapshot() ? iip.getPathSnapshotId() :
+      //  iip.getLatestSnapshotId();
+      int snapshotId = iip.getPathSnapshotId();
       List<AclEntry> acl = AclStorage.readINodeAcl(inode, snapshotId);
       return new AclStatus.Builder()
           .owner(inode.getUserName()).group(inode.getGroupName())

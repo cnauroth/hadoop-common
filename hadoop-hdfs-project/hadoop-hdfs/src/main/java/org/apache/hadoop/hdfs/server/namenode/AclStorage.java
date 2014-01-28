@@ -69,9 +69,11 @@ final class AclStorage {
    */
   public static List<AclEntry> readINodeAcl(INodeWithAdditionalFields inode,
       int snapshotId) {
+    System.out.println("cn readINodeAcl, inode = " + inode);
+    // TODO: maybe inode.getFsPermission(snapshotId).
     FsPermission perm = inode.getPermissionStatus(snapshotId).getPermission();
     if (perm.getAclBit()) {
-      return inode.getAclFeature().getEntries();
+      return inode.getAclFeature(snapshotId).getEntries();
     } else {
       return Collections.emptyList();
     }
@@ -95,7 +97,8 @@ final class AclStorage {
     FsPermission perm = inode.getPermissionStatus(snapshotId).getPermission();
     if (perm.getAclBit()) {
       // Split ACL entries stored in the feature into access vs. default.
-      List<AclEntry> featureEntries = inode.getAclFeature().getEntries();
+      List<AclEntry> featureEntries = inode.getAclFeature(snapshotId)
+        .getEntries();
       ScopedAclEntries scoped = new ScopedAclEntries(featureEntries);
       List<AclEntry> accessEntries = scoped.getAccessEntries();
       List<AclEntry> defaultEntries = scoped.getDefaultEntries();
@@ -159,7 +162,8 @@ final class AclStorage {
     if (perm.getAclBit()) {
       // Restore group permissions from the feature's entry to permission bits,
       // overwriting the mask, which is not part of a minimal ACL.
-      List<AclEntry> featureEntries = inode.getAclFeature().getEntries();
+      List<AclEntry> featureEntries = inode.getAclFeature(snapshotId)
+        .getEntries();
       AclEntry groupEntryKey = new AclEntry.Builder()
         .setScope(AclEntryScope.ACCESS)
         .setType(AclEntryType.GROUP)
@@ -233,12 +237,18 @@ final class AclStorage {
       featureEntries.addAll(defaultEntries);
 
       // Attach entries to the feature, creating a new feature if needed.
-      AclFeature aclFeature = inode.getAclFeature();
+      /*
+      AclFeature aclFeature = inode.getAclFeature(snapshotId);
       if (aclFeature == null) {
         aclFeature = new AclFeature();
-        inode.addAclFeature(aclFeature);
+        inode.addAclFeature(aclFeature, snapshotId);
       }
       aclFeature.setEntries(featureEntries);
+      */
+      AclFeature aclFeature = new AclFeature();
+      aclFeature.setEntries(featureEntries);
+      inode.addAclFeature(aclFeature, snapshotId);
+      System.out.println("cn set AclFeature with entries, inode = " + inode + ", featureEntries = " + featureEntries);
     } else {
       // This is a minimal ACL.  Remove the ACL feature if it previously had one.
       if (perm.getAclBit()) {

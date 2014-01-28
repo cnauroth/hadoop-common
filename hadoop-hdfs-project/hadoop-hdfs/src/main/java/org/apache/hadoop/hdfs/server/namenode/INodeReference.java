@@ -213,6 +213,17 @@ public abstract class INodeReference extends INode {
   public final FsPermission getFsPermission(int snapshotId) {
     return referred.getFsPermission(snapshotId);
   }
+
+  @Override
+  final AclFeature getAclFeature(int snapshotId) {
+    return referred.getAclFeature(snapshotId);
+  }
+
+  @Override
+  final void addAclFeature(AclFeature aclFeature) {
+    referred.addAclFeature(aclFeature);
+  }
+
   @Override
   public final short getFsPermissionShort() {
     return referred.getFsPermissionShort();
