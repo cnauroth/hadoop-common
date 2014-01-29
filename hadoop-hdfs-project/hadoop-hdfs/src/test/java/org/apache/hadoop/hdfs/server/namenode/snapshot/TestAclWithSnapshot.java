@@ -135,7 +135,9 @@ public class TestAclWithSnapshot {
     hdfs.setAcl(path, aclSpec);
 
     doSnapshotRootChangeAssertions(path, snapshotPath);
-    doCheckpointAndRestart();
+    restart(false);
+    doSnapshotRootChangeAssertions(path, snapshotPath);
+    restart(true);
     doSnapshotRootChangeAssertions(path, snapshotPath);
   }
 
@@ -225,7 +227,10 @@ public class TestAclWithSnapshot {
 
     doSnapshotContentsChangeAssertions(filePath, fileSnapshotPath, subdirPath,
       subdirSnapshotPath);
-    doCheckpointAndRestart();
+    restart(false);
+    doSnapshotContentsChangeAssertions(filePath, fileSnapshotPath, subdirPath,
+      subdirSnapshotPath);
+    restart(true);
     doSnapshotContentsChangeAssertions(filePath, fileSnapshotPath, subdirPath,
       subdirSnapshotPath);
   }
@@ -304,7 +309,9 @@ public class TestAclWithSnapshot {
     hdfs.removeAcl(path);
 
     doSnapshotRootRemovalAssertions(path, snapshotPath);
-    doCheckpointAndRestart();
+    restart(false);
+    doSnapshotRootRemovalAssertions(path, snapshotPath);
+    restart(true);
     doSnapshotRootRemovalAssertions(path, snapshotPath);
   }
 
@@ -387,7 +394,10 @@ public class TestAclWithSnapshot {
 
     doSnapshotContentsRemovalAssertions(filePath, fileSnapshotPath, subdirPath,
       subdirSnapshotPath);
-    doCheckpointAndRestart();
+    restart(false);
+    doSnapshotContentsRemovalAssertions(filePath, fileSnapshotPath, subdirPath,
+      subdirSnapshotPath);
+    restart(true);
     doSnapshotContentsRemovalAssertions(filePath, fileSnapshotPath, subdirPath,
       subdirSnapshotPath);
   }
@@ -669,19 +679,6 @@ public class TestAclWithSnapshot {
   }
 
   /**
-   * Enter safe mode, save a new checkpoint, and restart NameNode.
-   *
-   * @throws Exception if any step fails
-   */
-  private static void doCheckpointAndRestart() throws Exception {
-    NameNode nameNode = cluster.getNameNode();
-    NameNodeAdapter.enterSafeMode(nameNode, false);
-    NameNodeAdapter.saveNamespace(nameNode);
-    shutdown();
-    initCluster(false);
-  }
-
-  /**
    * Initialize the cluster, wait for it to become active, and get FileSystem
    * instances for our test users.
    *
@@ -697,5 +694,21 @@ public class TestAclWithSnapshot {
     hdfs = (DistributedFileSystem)fs;
     fsAsBruce = DFSTestUtil.getFileSystemAs(BRUCE, conf);
     fsAsDiana = DFSTestUtil.getFileSystemAs(DIANA, conf);
+  }
+
+  /**
+   * Restart the cluster, optionally saving a new checkpoint.
+   *
+   * @param checkpoint boolean true to save a new checkpoint
+   * @throws Exception if restart fails
+   */
+  private static void restart(boolean checkpoint) throws Exception {
+    NameNode nameNode = cluster.getNameNode();
+    if (checkpoint) {
+      NameNodeAdapter.enterSafeMode(nameNode, false);
+      NameNodeAdapter.saveNamespace(nameNode);
+    }
+    shutdown();
+    initCluster(false);
   }
 }
