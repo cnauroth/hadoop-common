@@ -110,6 +110,7 @@ public class TestAclWithSnapshot {
 
     SnapshotTestHelper.createSnapshot(hdfs, path, snapshotName);
 
+    // Both original and snapshot still have same ACL.
     AclStatus s = hdfs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
@@ -134,6 +135,7 @@ public class TestAclWithSnapshot {
       aclEntry(ACCESS, OTHER, NONE));
     hdfs.setAcl(path, aclSpec);
 
+    // Original has changed, but snapshot still has old ACL.
     doSnapshotRootChangeAssertions(path, snapshotPath);
     restart(false);
     doSnapshotRootChangeAssertions(path, snapshotPath);
@@ -190,6 +192,7 @@ public class TestAclWithSnapshot {
 
     SnapshotTestHelper.createSnapshot(hdfs, path, snapshotName);
 
+    // Both original and snapshot still have same ACL.
     AclEntry[] expected = new AclEntry[] {
       aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
       aclEntry(ACCESS, GROUP, NONE) };
@@ -225,6 +228,7 @@ public class TestAclWithSnapshot {
     hdfs.setAcl(filePath, aclSpec);
     hdfs.setAcl(subdirPath, aclSpec);
 
+    // Original has changed, but snapshot still has old ACL.
     doSnapshotContentsChangeAssertions(filePath, fileSnapshotPath, subdirPath,
       subdirSnapshotPath);
     restart(false);
@@ -289,6 +293,7 @@ public class TestAclWithSnapshot {
 
     SnapshotTestHelper.createSnapshot(hdfs, path, snapshotName);
 
+    // Both original and snapshot still have same ACL.
     AclStatus s = hdfs.getAclStatus(path);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
@@ -308,6 +313,7 @@ public class TestAclWithSnapshot {
 
     hdfs.removeAcl(path);
 
+    // Original has changed, but snapshot still has old ACL.
     doSnapshotRootRemovalAssertions(path, snapshotPath);
     restart(false);
     doSnapshotRootRemovalAssertions(path, snapshotPath);
@@ -362,6 +368,7 @@ public class TestAclWithSnapshot {
 
     SnapshotTestHelper.createSnapshot(hdfs, path, snapshotName);
 
+    // Both original and snapshot still have same ACL.
     AclEntry[] expected = new AclEntry[] {
       aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
       aclEntry(ACCESS, GROUP, NONE) };
@@ -392,6 +399,7 @@ public class TestAclWithSnapshot {
     hdfs.removeAcl(filePath);
     hdfs.removeAcl(subdirPath);
 
+    // Original has changed, but snapshot still has old ACL.
     doSnapshotContentsRemovalAssertions(filePath, fileSnapshotPath, subdirPath,
       subdirSnapshotPath);
     restart(false);
