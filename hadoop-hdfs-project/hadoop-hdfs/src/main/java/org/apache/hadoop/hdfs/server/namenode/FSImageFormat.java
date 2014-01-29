@@ -845,11 +845,13 @@ public class FSImageFormat {
       //read quotas
       final long nsQuota = in.readLong();
       final long dsQuota = in.readLong();
-  
+      AclFeature aclFeature = loadAclFeature(in, layoutVersion);
+
       return nsQuota == -1L && dsQuota == -1L?
-          new INodeDirectoryAttributes.SnapshotCopy(name, permissions, modificationTime)
+          new INodeDirectoryAttributes.SnapshotCopy(name, permissions,
+            aclFeature, modificationTime)
         : new INodeDirectoryAttributes.CopyWithQuota(name, permissions,
-            modificationTime, nsQuota, dsQuota);
+            aclFeature, modificationTime, nsQuota, dsQuota);
     }
   
     private void loadFilesUnderConstruction(DataInput in,

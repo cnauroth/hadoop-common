@@ -268,7 +268,7 @@ public class FSImageSerialization {
     writePermissionStatus(a, out);
     out.writeLong(a.getModificationTime());
     writeQuota(a.getQuotaCounts(), out);
-    // TODO: may need to handle ACL here
+    writeAclFeature(a, out);
   }
 
   /**
