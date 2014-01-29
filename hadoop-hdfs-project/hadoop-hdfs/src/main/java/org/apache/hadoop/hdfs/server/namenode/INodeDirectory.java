@@ -90,13 +90,10 @@ public class INodeDirectory extends INodeWithAdditionalFields
     if (copyFeatures) {
       this.features = other.features;
     } else {
+      // Always preserve ACL even if not otherwise copying all features.
       for (Feature feature: other.features) {
         if (feature instanceof AclFeature) {
-          AclFeature aclFeature = (AclFeature)feature;
-          AclFeature aclFeatureCopy = new AclFeature();
-          aclFeatureCopy.setEntries(new ImmutableList.Builder().addAll(
-            aclFeature.getEntries()).build());
-          addFeature(aclFeatureCopy);
+          features = new Feature[] { feature };
           break;
         }
       }

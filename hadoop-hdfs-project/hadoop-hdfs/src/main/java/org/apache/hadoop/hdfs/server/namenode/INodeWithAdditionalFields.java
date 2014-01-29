@@ -336,7 +336,8 @@ public abstract class INodeWithAdditionalFields extends INode
   public void addAclFeature(AclFeature f) {
     AclFeature f1 = getAclFeature();
     if (f1 != null)
-      removeFeature(f1);
+      throw new IllegalStateException("Duplicated ACLFeature");
+
     addFeature(f);
   }
 }
