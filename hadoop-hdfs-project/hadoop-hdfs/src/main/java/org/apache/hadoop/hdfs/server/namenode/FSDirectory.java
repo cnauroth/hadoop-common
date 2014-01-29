@@ -2704,7 +2704,7 @@ public class FSDirectory implements Closeable {
       List<AclEntry> aclSpec) throws IOException {
     assert hasWriteLock();
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
-    INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
+    INode inode = resolveLastINode(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
     List<AclEntry> existingAcl = AclStorage.readINodeLogicalAcl(inode,
       snapshotId);
@@ -2728,7 +2728,7 @@ public class FSDirectory implements Closeable {
       List<AclEntry> aclSpec) throws IOException {
     assert hasWriteLock();
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
-    INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
+    INode inode = resolveLastINode(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
     List<AclEntry> existingAcl = AclStorage.readINodeLogicalAcl(inode,
       snapshotId);
@@ -2752,7 +2752,7 @@ public class FSDirectory implements Closeable {
       throws IOException {
     assert hasWriteLock();
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
-    INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
+    INode inode = resolveLastINode(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
     List<AclEntry> existingAcl = AclStorage.readINodeLogicalAcl(inode,
       snapshotId);
@@ -2775,7 +2775,7 @@ public class FSDirectory implements Closeable {
   private void unprotectedRemoveAcl(String src) throws IOException {
     assert hasWriteLock();
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
-    INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
+    INode inode = resolveLastINode(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
     AclStorage.removeINodeAcl(inode, snapshotId);
   }
@@ -2800,7 +2800,7 @@ public class FSDirectory implements Closeable {
 
     assert hasWriteLock();
     INodesInPath iip = rootDir.getINodesInPath4Write(normalizePath(src), true);
-    INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(src, iip);
+    INode inode = resolveLastINode(src, iip);
     int snapshotId = iip.getLatestSnapshotId();
     List<AclEntry> existingAcl = AclStorage.readINodeLogicalAcl(inode,
       snapshotId);
@@ -2821,8 +2821,7 @@ public class FSDirectory implements Closeable {
         return new AclStatus.Builder().build();
       }
       INodesInPath iip = rootDir.getLastINodeInPath(srcs, true);
-      final INodeWithAdditionalFields inode = resolveINodeWithAdditionalFields(
-        src, iip);
+      INode inode = resolveLastINode(src, iip);
       int snapshotId = iip.getPathSnapshotId();
       List<AclEntry> acl = AclStorage.readINodeAcl(inode, snapshotId);
       return new AclStatus.Builder()
@@ -2834,12 +2833,12 @@ public class FSDirectory implements Closeable {
     }
   }
 
-  private static INodeWithAdditionalFields resolveINodeWithAdditionalFields(
-      String src, INodesInPath iip) throws FileNotFoundException {
+  private static INode resolveLastINode(String src, INodesInPath iip)
+      throws FileNotFoundException {
     INode inode = iip.getLastINode();
-    if (!(inode instanceof INodeWithAdditionalFields))
+    if (inode == null)
       throw new FileNotFoundException("cannot find " + src);
-    return (INodeWithAdditionalFields)inode;
+    return inode;
   }
 
   /**

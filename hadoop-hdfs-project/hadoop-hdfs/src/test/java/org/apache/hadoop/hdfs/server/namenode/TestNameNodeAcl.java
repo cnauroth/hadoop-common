@@ -781,9 +781,7 @@ public class TestNameNodeAcl {
     INode inode = cluster.getNamesystem().getFSDirectory().getRoot()
       .getNode(path.toUri().getPath(), false);
     assertNotNull(inode);
-    assertTrue(inode instanceof INodeWithAdditionalFields);
-    AclFeature aclFeature = ((INodeWithAdditionalFields)inode).getAclFeature(
-      Snapshot.CURRENT_STATE_ID);
+    AclFeature aclFeature = inode.getAclFeature(Snapshot.CURRENT_STATE_ID);
     if (expectAclFeature) {
       assertNotNull(aclFeature);
     } else {
