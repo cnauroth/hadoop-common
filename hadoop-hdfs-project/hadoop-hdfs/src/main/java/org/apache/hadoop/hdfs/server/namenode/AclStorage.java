@@ -69,8 +69,7 @@ final class AclStorage {
    */
   public static List<AclEntry> readINodeAcl(INodeWithAdditionalFields inode,
       int snapshotId) {
-    // TODO: maybe inode.getFsPermission(snapshotId).
-    FsPermission perm = inode.getPermissionStatus(snapshotId).getPermission();
+    FsPermission perm = inode.getFsPermission(snapshotId);
     if (perm.getAclBit()) {
       return inode.getAclFeature(snapshotId).getEntries();
     } else {
@@ -93,7 +92,7 @@ final class AclStorage {
   public static List<AclEntry> readINodeLogicalAcl(
       INodeWithAdditionalFields inode, int snapshotId) {
     final List<AclEntry> existingAcl;
-    FsPermission perm = inode.getPermissionStatus(snapshotId).getPermission();
+    FsPermission perm = inode.getFsPermission(snapshotId);
     if (perm.getAclBit()) {
       // Split ACL entries stored in the feature into access vs. default.
       List<AclEntry> featureEntries = inode.getAclFeature(snapshotId)
@@ -196,7 +195,7 @@ final class AclStorage {
       List<AclEntry> newAcl, int snapshotId) throws AclException,
       QuotaExceededException {
     assert newAcl.size() >= 3;
-    FsPermission perm = inode.getPermissionStatus(snapshotId).getPermission();
+    FsPermission perm = inode.getFsPermission(snapshotId);
     final FsPermission newPerm;
     if (newAcl.size() > 3) {
       // This is an extended ACL.  Split entries into access vs. default.
@@ -235,15 +234,7 @@ final class AclStorage {
       // Add all default entries to the feature.
       featureEntries.addAll(defaultEntries);
 
-      // Attach entries to the feature, creating a new feature if needed.
-      /*
-      AclFeature aclFeature = inode.getAclFeature(snapshotId);
-      if (aclFeature == null) {
-        aclFeature = new AclFeature();
-        inode.addAclFeature(aclFeature, snapshotId);
-      }
-      aclFeature.setEntries(featureEntries);
-      */
+      // Attach entries to the feature.
       AclFeature aclFeature = new AclFeature();
       aclFeature.setEntries(featureEntries);
       inode.addAclFeature(aclFeature, snapshotId);
