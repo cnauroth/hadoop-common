@@ -163,7 +163,7 @@ public abstract class INode implements INodeAttributes, Diff.Element<byte[]> {
 
   abstract void addAclFeature(AclFeature aclFeature);
 
-  INode addAclFeature(AclFeature aclFeature, int latestSnapshotId)
+  final INode addAclFeature(AclFeature aclFeature, int latestSnapshotId)
       throws QuotaExceededException {
     final INode nodeToUpdate = recordModification(latestSnapshotId);
     nodeToUpdate.addAclFeature(aclFeature);
@@ -172,7 +172,8 @@ public abstract class INode implements INodeAttributes, Diff.Element<byte[]> {
 
   abstract void removeAclFeature();
 
-  INode removeAclFeature(int latestSnapshotId) throws QuotaExceededException {
+  final INode removeAclFeature(int latestSnapshotId)
+      throws QuotaExceededException {
     final INode nodeToUpdate = recordModification(latestSnapshotId);
     nodeToUpdate.removeAclFeature();
     return nodeToUpdate;

@@ -846,7 +846,7 @@ public class FSImageFormat {
       final long nsQuota = in.readLong();
       final long dsQuota = in.readLong();
       AclFeature aclFeature = loadAclFeature(in, layoutVersion);
-
+  
       return nsQuota == -1L && dsQuota == -1L?
           new INodeDirectoryAttributes.SnapshotCopy(name, permissions,
             aclFeature, modificationTime)
