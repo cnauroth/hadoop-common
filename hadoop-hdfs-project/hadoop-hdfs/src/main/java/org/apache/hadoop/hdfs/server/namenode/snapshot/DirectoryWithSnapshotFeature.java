@@ -354,6 +354,7 @@ public class DirectoryWithSnapshotFeature implements INode.Feature {
         if (snapshotINode != null) {
           out.writeBoolean(true);
           FSImageSerialization.writeINodeDirectoryAttributes(snapshotINode, out);
+          // TODO: may need to handle ACL here
         } else {
           out.writeBoolean(false);
         }

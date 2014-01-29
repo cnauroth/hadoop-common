@@ -825,9 +825,9 @@ public class FSImageFormat {
       final short replication = namesystem.getBlockManager().adjustReplication(
           in.readShort());
       final long preferredBlockSize = in.readLong();
-      
-      return new INodeFileAttributes.SnapshotCopy(name, permissions, modificationTime,
-          accessTime, replication, preferredBlockSize);
+      AclFeature aclFeature = loadAclFeature(in, layoutVersion);
+      return new INodeFileAttributes.SnapshotCopy(name, permissions, aclFeature,
+          modificationTime, accessTime, replication, preferredBlockSize);
     }
 
     public INodeDirectoryAttributes loadINodeDirectoryAttributes(DataInput in)

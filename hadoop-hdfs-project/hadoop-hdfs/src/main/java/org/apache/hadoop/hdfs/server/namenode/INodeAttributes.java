@@ -69,9 +69,7 @@ public interface INodeAttributes {
         AclFeature aclFeature, long modificationTime, long accessTime) {
       this.name = name;
       this.permission = PermissionStatusFormat.toLong(permissions);
-      //this.aclFeature = aclFeature;
-      this.aclFeature = new AclFeature();
-      this.aclFeature.setEntries(new java.util.ArrayList<org.apache.hadoop.fs.permission.AclEntry>());
+      this.aclFeature = aclFeature;
       this.modificationTime = modificationTime;
       this.accessTime = accessTime;
     }
