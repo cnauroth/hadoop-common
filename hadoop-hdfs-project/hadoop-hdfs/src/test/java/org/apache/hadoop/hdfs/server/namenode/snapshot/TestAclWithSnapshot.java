@@ -597,6 +597,15 @@ public class TestAclWithSnapshot {
     hdfs.removeAcl(filePath);
   }
 
+  @Test
+  public void testGetAclStatusDotSnapshotPath() throws Exception {
+    hdfs.mkdirs(path);
+    SnapshotTestHelper.createSnapshot(hdfs, path, snapshotName);
+    AclStatus s = hdfs.getAclStatus(new Path(path, ".snapshot"));
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] { }, returned);
+  }
+
   /**
    * Asserts that permission is denied to the given fs/user for the given
    * directory.

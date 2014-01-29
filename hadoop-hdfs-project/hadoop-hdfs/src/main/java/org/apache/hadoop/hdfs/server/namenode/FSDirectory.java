@@ -2818,7 +2818,7 @@ public class FSDirectory implements Closeable {
       // non-null, unpopulated AclStatus.  This is similar to getFileInfo.
       if (srcs.endsWith(HdfsConstants.SEPARATOR_DOT_SNAPSHOT_DIR) &&
           getINode4DotSnapshot(srcs) != null) {
-        return new AclStatus.Builder().build();
+        return new AclStatus.Builder().owner("").group("").build();
       }
       INodesInPath iip = rootDir.getLastINodeInPath(srcs, true);
       INode inode = resolveLastINode(src, iip);
