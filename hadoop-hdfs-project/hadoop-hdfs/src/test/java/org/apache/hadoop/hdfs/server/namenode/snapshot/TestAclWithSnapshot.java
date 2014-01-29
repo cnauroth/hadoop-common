@@ -134,29 +134,15 @@ public class TestAclWithSnapshot {
       aclEntry(ACCESS, OTHER, NONE));
     hdfs.setAcl(path, aclSpec);
 
-    s = hdfs.getAclStatus(path);
-    returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, "diana", READ_EXECUTE),
-      aclEntry(ACCESS, GROUP, NONE) }, returned);
-    assertPermission((short)02550, path);
-
-    s = hdfs.getAclStatus(snapshotPath);
-    returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
-      aclEntry(ACCESS, GROUP, NONE) }, returned);
-    assertPermission((short)02750, snapshotPath);
-
-    assertDirPermissionDenied(fsAsBruce, BRUCE, path);
-    assertDirPermissionGranted(fsAsDiana, DIANA, path);
-    assertDirPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
-    assertDirPermissionDenied(fsAsDiana, DIANA, snapshotPath);
-
+    doSnapshotRootChangeAssertions(path, snapshotPath);
     doCheckpointAndRestart();
+    doSnapshotRootChangeAssertions(path, snapshotPath);
+  }
 
-    s = hdfs.getAclStatus(path);
-    returned = s.getEntries().toArray(new AclEntry[0]);
+  private static void doSnapshotRootChangeAssertions(Path path,
+      Path snapshotPath) throws Exception {
+    AclStatus s = hdfs.getAclStatus(path);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
       aclEntry(ACCESS, USER, "diana", READ_EXECUTE),
       aclEntry(ACCESS, GROUP, NONE) }, returned);
@@ -237,47 +223,21 @@ public class TestAclWithSnapshot {
     hdfs.setAcl(filePath, aclSpec);
     hdfs.setAcl(subdirPath, aclSpec);
 
-    expected = new AclEntry[] {
-      aclEntry(ACCESS, USER, "diana", ALL),
-      aclEntry(ACCESS, GROUP, NONE) };
-    s = hdfs.getAclStatus(filePath);
-    returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(expected, returned);
-    assertPermission((short)02570, filePath);
-    assertFilePermissionDenied(fsAsBruce, BRUCE, filePath);
-    assertFilePermissionGranted(fsAsDiana, DIANA, filePath);
-
-    s = hdfs.getAclStatus(subdirPath);
-    returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(expected, returned);
-    assertPermission((short)02570, subdirPath);
-    assertDirPermissionDenied(fsAsBruce, BRUCE, subdirPath);
-    assertDirPermissionGranted(fsAsDiana, DIANA, subdirPath);
-
-    expected = new AclEntry[] {
-      aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
-      aclEntry(ACCESS, GROUP, NONE) };
-    s = hdfs.getAclStatus(fileSnapshotPath);
-    returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(expected, returned);
-    assertPermission((short)02550, fileSnapshotPath);
-    assertFilePermissionGranted(fsAsBruce, BRUCE, fileSnapshotPath);
-    assertFilePermissionDenied(fsAsDiana, DIANA, fileSnapshotPath);
-
-    s = hdfs.getAclStatus(subdirSnapshotPath);
-    returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(expected, returned);
-    assertPermission((short)02550, subdirSnapshotPath);
-    assertDirPermissionGranted(fsAsBruce, BRUCE, subdirSnapshotPath);
-    assertDirPermissionDenied(fsAsDiana, DIANA, subdirSnapshotPath);
-
+    doSnapshotContentsChangeAssertions(filePath, fileSnapshotPath, subdirPath,
+      subdirSnapshotPath);
     doCheckpointAndRestart();
+    doSnapshotContentsChangeAssertions(filePath, fileSnapshotPath, subdirPath,
+      subdirSnapshotPath);
+  }
 
-    expected = new AclEntry[] {
+  private static void doSnapshotContentsChangeAssertions(Path filePath,
+      Path fileSnapshotPath, Path subdirPath, Path subdirSnapshotPath)
+      throws Exception {
+    AclEntry[] expected = new AclEntry[] {
       aclEntry(ACCESS, USER, "diana", ALL),
       aclEntry(ACCESS, GROUP, NONE) };
-    s = hdfs.getAclStatus(filePath);
-    returned = s.getEntries().toArray(new AclEntry[0]);
+    AclStatus s = hdfs.getAclStatus(filePath);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(expected, returned);
     assertPermission((short)02570, filePath);
     assertFilePermissionDenied(fsAsBruce, BRUCE, filePath);
@@ -343,27 +303,15 @@ public class TestAclWithSnapshot {
 
     hdfs.removeAcl(path);
 
-    s = hdfs.getAclStatus(path);
-    returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(new AclEntry[] { }, returned);
-    assertPermission((short)0700, path);
-
-    s = hdfs.getAclStatus(snapshotPath);
-    returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
-      aclEntry(ACCESS, GROUP, NONE) }, returned);
-    assertPermission((short)02750, snapshotPath);
-
-    assertDirPermissionDenied(fsAsBruce, BRUCE, path);
-    assertDirPermissionDenied(fsAsDiana, DIANA, path);
-    assertDirPermissionGranted(fsAsBruce, BRUCE, snapshotPath);
-    assertDirPermissionDenied(fsAsDiana, DIANA, snapshotPath);
-
+    doSnapshotRootRemovalAssertions(path, snapshotPath);
     doCheckpointAndRestart();
+    doSnapshotRootRemovalAssertions(path, snapshotPath);
+  }
 
-    s = hdfs.getAclStatus(path);
-    returned = s.getEntries().toArray(new AclEntry[0]);
+  private static void doSnapshotRootRemovalAssertions(Path path,
+      Path snapshotPath) throws Exception {
+    AclStatus s = hdfs.getAclStatus(path);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] { }, returned);
     assertPermission((short)0700, path);
 
@@ -437,43 +385,19 @@ public class TestAclWithSnapshot {
     hdfs.removeAcl(filePath);
     hdfs.removeAcl(subdirPath);
 
-    expected = new AclEntry[] { };
-    s = hdfs.getAclStatus(filePath);
-    returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(expected, returned);
-    assertPermission((short)0500, filePath);
-    assertFilePermissionDenied(fsAsBruce, BRUCE, filePath);
-    assertFilePermissionDenied(fsAsDiana, DIANA, filePath);
-
-    s = hdfs.getAclStatus(subdirPath);
-    returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(expected, returned);
-    assertPermission((short)0500, subdirPath);
-    assertDirPermissionDenied(fsAsBruce, BRUCE, subdirPath);
-    assertDirPermissionDenied(fsAsDiana, DIANA, subdirPath);
-
-    expected = new AclEntry[] {
-      aclEntry(ACCESS, USER, "bruce", READ_EXECUTE),
-      aclEntry(ACCESS, GROUP, NONE) };
-    s = hdfs.getAclStatus(fileSnapshotPath);
-    returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(expected, returned);
-    assertPermission((short)02550, fileSnapshotPath);
-    assertFilePermissionGranted(fsAsBruce, BRUCE, fileSnapshotPath);
-    assertFilePermissionDenied(fsAsDiana, DIANA, fileSnapshotPath);
-
-    s = hdfs.getAclStatus(subdirSnapshotPath);
-    returned = s.getEntries().toArray(new AclEntry[0]);
-    assertArrayEquals(expected, returned);
-    assertPermission((short)02550, subdirSnapshotPath);
-    assertDirPermissionGranted(fsAsBruce, BRUCE, subdirSnapshotPath);
-    assertDirPermissionDenied(fsAsDiana, DIANA, subdirSnapshotPath);
-
+    doSnapshotContentsRemovalAssertions(filePath, fileSnapshotPath, subdirPath,
+      subdirSnapshotPath);
     doCheckpointAndRestart();
+    doSnapshotContentsRemovalAssertions(filePath, fileSnapshotPath, subdirPath,
+      subdirSnapshotPath);
+  }
 
-    expected = new AclEntry[] { };
-    s = hdfs.getAclStatus(filePath);
-    returned = s.getEntries().toArray(new AclEntry[0]);
+  private static void doSnapshotContentsRemovalAssertions(Path filePath,
+      Path fileSnapshotPath, Path subdirPath, Path subdirSnapshotPath)
+      throws Exception {
+    AclEntry[] expected = new AclEntry[] { };
+    AclStatus s = hdfs.getAclStatus(filePath);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(expected, returned);
     assertPermission((short)0500, filePath);
     assertFilePermissionDenied(fsAsBruce, BRUCE, filePath);
