@@ -447,6 +447,53 @@ public class TestAclWithSnapshot {
   }
 
   @Test
+  public void testModifyReadsCurrentState() throws Exception {
+    FileSystem.mkdirs(hdfs, path, FsPermission.createImmutable((short)0700));
+
+    SnapshotTestHelper.createSnapshot(hdfs, path, snapshotName);
+
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(ACCESS, USER, "bruce", ALL));
+    hdfs.modifyAclEntries(path, aclSpec);
+
+    aclSpec = Lists.newArrayList(
+      aclEntry(ACCESS, USER, "diana", READ_EXECUTE));
+    hdfs.modifyAclEntries(path, aclSpec);
+
+    AclEntry[] expected = new AclEntry[] {
+      aclEntry(ACCESS, USER, "bruce", ALL),
+      aclEntry(ACCESS, USER, "diana", READ_EXECUTE),
+      aclEntry(ACCESS, GROUP, NONE) };
+    AclStatus s = hdfs.getAclStatus(path);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(expected, returned);
+    assertPermission((short)02770, path);
+    assertDirPermissionGranted(fsAsBruce, BRUCE, path);
+    assertDirPermissionGranted(fsAsDiana, DIANA, path);
+  }
+
+  @Test
+  public void testRemoveReadsCurrentState() throws Exception {
+    FileSystem.mkdirs(hdfs, path, FsPermission.createImmutable((short)0700));
+
+    SnapshotTestHelper.createSnapshot(hdfs, path, snapshotName);
+
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(ACCESS, USER, "bruce", ALL));
+    hdfs.modifyAclEntries(path, aclSpec);
+
+    hdfs.removeAcl(path);
+
+    AclEntry[] expected = new AclEntry[] { };
+    AclStatus s = hdfs.getAclStatus(path);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(expected, returned);
+    assertPermission((short)0700, path);
+    assertDirPermissionDenied(fsAsBruce, BRUCE, path);
+    assertDirPermissionDenied(fsAsDiana, DIANA, path);
+  }
+
+  @Test
   public void testDefaultAclNotCopiedToAccessAclOfNewSnapshot()
       throws Exception {
     FileSystem.mkdirs(hdfs, path, FsPermission.createImmutable((short)0700));
