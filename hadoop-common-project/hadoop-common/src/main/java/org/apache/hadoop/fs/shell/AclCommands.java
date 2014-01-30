@@ -116,6 +116,7 @@ class AclCommands extends FsCommand {
         .build());
 
       // Print all extended access ACL entries.
+      AclEntryType groupOrMask = AclEntryType.GROUP;
       Iterator<AclEntry> entryIter = entries.iterator();
       AclEntry curEntry = null;
       while (entryIter.hasNext()) {
@@ -123,13 +124,17 @@ class AclCommands extends FsCommand {
         if (curEntry.getScope() == AclEntryScope.DEFAULT) {
           break;
         }
+        // At this point, we know there is an access ACL (not just a default
+        // ACL), so we know that the group permission bits actually contain the
+        // mask.  Print "mask" instead of "group".
+        groupOrMask = AclEntryType.MASK;
         out.println(curEntry);
       }
 
       // Print mask entry implied by group permission bits.
       out.println(new AclEntry.Builder()
         .setScope(AclEntryScope.ACCESS)
-        .setType(AclEntryType.MASK)
+        .setType(groupOrMask)
         .setPermission(perm.getGroupAction())
         .build());
 
