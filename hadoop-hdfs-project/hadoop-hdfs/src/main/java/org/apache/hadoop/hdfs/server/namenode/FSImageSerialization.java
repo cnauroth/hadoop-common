@@ -220,6 +220,7 @@ public class FSImageSerialization {
 
     out.writeShort(file.getFileReplication());
     out.writeLong(file.getPreferredBlockSize());
+    writeAclFeature(file, out);
   }
 
   private static void writeQuota(Quota.Counts quota, DataOutput out)
@@ -267,6 +268,7 @@ public class FSImageSerialization {
     writePermissionStatus(a, out);
     out.writeLong(a.getModificationTime());
     writeQuota(a.getQuotaCounts(), out);
+    writeAclFeature(a, out);
   }
 
   /**
@@ -288,8 +290,8 @@ public class FSImageSerialization {
     writePermissionStatus(node, out);
   }
 
-  private static void writeAclFeature(INodeWithAdditionalFields node,
-      DataOutput out) throws IOException {
+  private static void writeAclFeature(INodeAttributes node, DataOutput out)
+      throws IOException {
     AclFsImageProto.Builder b = AclFsImageProto.newBuilder();
     OutputStream os = (OutputStream) out;
 

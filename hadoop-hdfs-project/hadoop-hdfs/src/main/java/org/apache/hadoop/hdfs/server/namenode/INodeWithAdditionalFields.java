@@ -221,6 +221,15 @@ public abstract class INodeWithAdditionalFields extends INode
   }
 
   @Override
+  final AclFeature getAclFeature(int snapshotId) {
+    if (snapshotId != Snapshot.CURRENT_STATE_ID) {
+      return getSnapshotINode(snapshotId).getAclFeature();
+    }
+
+    return getFeature(AclFeature.class);
+  }
+
+  @Override
   final long getModificationTime(int snapshotId) {
     if (snapshotId != Snapshot.CURRENT_STATE_ID) {
       return getSnapshotINode(snapshotId).getModificationTime();
@@ -316,10 +325,6 @@ public abstract class INodeWithAdditionalFields extends INode
       }
     }
     return null;
-  }
-
-  public AclFeature getAclFeature() {
-    return getFeature(AclFeature.class);
   }
 
   public void removeAclFeature() {

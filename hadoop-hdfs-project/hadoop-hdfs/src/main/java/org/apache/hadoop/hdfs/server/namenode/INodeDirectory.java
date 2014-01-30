@@ -88,6 +88,14 @@ public class INodeDirectory extends INodeWithAdditionalFields
     }
     if (copyFeatures) {
       this.features = other.features;
+    } else {
+      // Always preserve ACL even if not otherwise copying all features.
+      for (Feature feature: other.features) {
+        if (feature instanceof AclFeature) {
+          features = new Feature[] { feature };
+          break;
+        }
+      }
     }
   }
 

@@ -802,8 +802,8 @@ public class FSImageFormat {
       if (LayoutVersion.supports(Feature.EXTENDED_ACL, imgVersion)) {
         AclFsImageProto p = AclFsImageProto
             .parseDelimitedFrom((DataInputStream) in);
-        aclFeature = new AclFeature();
-        aclFeature.setEntries(PBHelper.convertAclEntry(p.getEntriesList()));
+        aclFeature = new AclFeature(PBHelper.convertAclEntry(
+            p.getEntriesList()));
       }
       return aclFeature;
     }
@@ -825,9 +825,9 @@ public class FSImageFormat {
       final short replication = namesystem.getBlockManager().adjustReplication(
           in.readShort());
       final long preferredBlockSize = in.readLong();
-      
-      return new INodeFileAttributes.SnapshotCopy(name, permissions, modificationTime,
-          accessTime, replication, preferredBlockSize);
+      AclFeature aclFeature = loadAclFeature(in, layoutVersion);
+      return new INodeFileAttributes.SnapshotCopy(name, permissions, aclFeature,
+          modificationTime, accessTime, replication, preferredBlockSize);
     }
 
     public INodeDirectoryAttributes loadINodeDirectoryAttributes(DataInput in)
@@ -845,11 +845,13 @@ public class FSImageFormat {
       //read quotas
       final long nsQuota = in.readLong();
       final long dsQuota = in.readLong();
+      AclFeature aclFeature = loadAclFeature(in, layoutVersion);
   
       return nsQuota == -1L && dsQuota == -1L?
-          new INodeDirectoryAttributes.SnapshotCopy(name, permissions, modificationTime)
+          new INodeDirectoryAttributes.SnapshotCopy(name, permissions,
+            aclFeature, modificationTime)
         : new INodeDirectoryAttributes.CopyWithQuota(name, permissions,
-            modificationTime, nsQuota, dsQuota);
+            aclFeature, modificationTime, nsQuota, dsQuota);
     }
   
     private void loadFilesUnderConstruction(DataInput in,
