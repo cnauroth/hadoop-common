@@ -116,7 +116,7 @@ class AclCommands extends FsCommand {
         .build());
 
       // Print all extended access ACL entries.
-      AclEntryType groupOrMask = AclEntryType.GROUP;
+      boolean hasAccessAcl = false;
       Iterator<AclEntry> entryIter = entries.iterator();
       AclEntry curEntry = null;
       while (entryIter.hasNext()) {
@@ -124,17 +124,15 @@ class AclCommands extends FsCommand {
         if (curEntry.getScope() == AclEntryScope.DEFAULT) {
           break;
         }
-        // At this point, we know there is an access ACL (not just a default
-        // ACL), so we know that the group permission bits actually contain the
-        // mask.  Print "mask" instead of "group".
-        groupOrMask = AclEntryType.MASK;
-        out.println(curEntry);
+        hasAccessAcl = true;
+        printExtendedAclEntry(curEntry, perm.getGroupAction());
       }
 
-      // Print mask entry implied by group permission bits.
+      // Print mask entry implied by group permission bits, or print group entry
+      // if there is no access ACL (only default ACL).
       out.println(new AclEntry.Builder()
         .setScope(AclEntryScope.ACCESS)
-        .setType(groupOrMask)
+        .setType(hasAccessAcl ? AclEntryType.MASK : AclEntryType.GROUP)
         .setPermission(perm.getGroupAction())
         .build());
 
@@ -148,9 +146,35 @@ class AclCommands extends FsCommand {
       // Print default ACL entries.
       if (curEntry != null && curEntry.getScope() == AclEntryScope.DEFAULT) {
         out.println(curEntry);
+        // ACL sort order guarantees default mask is the second-to-last entry.
+        FsAction maskPerm = entries.get(entries.size() - 2).getPermission();
+        while (entryIter.hasNext()) {
+          printExtendedAclEntry(entryIter.next(), maskPerm);
+        }
       }
-      while (entryIter.hasNext()) {
-        out.println(entryIter.next());
+    }
+
+    /**
+     * Prints a single extended ACL entry.  If the mask restricts the
+     * permissions of the entry, then also prints the restricted version as the
+     * effective permissions.  The mask applies to all named entries and also
+     * the unnamed group entry.
+     *
+     * @param entry AclEntry extended ACL entry to print
+     * @param maskPerm FsAction permissions in the ACL's mask entry
+     */
+    private void printExtendedAclEntry(AclEntry entry, FsAction maskPerm) {
+      if (entry.getName() != null || entry.getType() == AclEntryType.GROUP) {
+        FsAction entryPerm = entry.getPermission();
+        FsAction effectivePerm = entryPerm.and(maskPerm);
+        if (entryPerm != effectivePerm) {
+          out.println(String.format("%-31s #effective:%s", entry,
+            effectivePerm.SYMBOL));
+        } else {
+          out.println(entry);
+        }
+      } else {
+        out.println(entry);
       }
     }
 
