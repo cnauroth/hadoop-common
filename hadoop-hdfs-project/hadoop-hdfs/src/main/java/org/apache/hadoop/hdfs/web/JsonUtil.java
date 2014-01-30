@@ -19,10 +19,7 @@ package org.apache.hadoop.hdfs.web;
 
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.permission.AclEntry;
-import org.apache.hadoop.fs.permission.AclEntryScope;
-import org.apache.hadoop.fs.permission.AclEntryType;
 import org.apache.hadoop.fs.permission.AclStatus;
-import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.DFSUtil;
 import org.apache.hadoop.hdfs.protocol.*;
@@ -305,77 +302,6 @@ public class JsonUtil {
     m.put("networkLocation", datanodeinfo.getNetworkLocation());
     m.put("adminState", datanodeinfo.getAdminState().name());
     return m;
-  }
-  
-  /** Convert a AclStatus object to a Json string. */
-  public static String toJsonString(final AclStatus status, boolean includesType) {
-    if (status == null) {
-      return null;
-    }
-
-    final Map<String, Object> m = new TreeMap<String, Object>();
-
-    m.put("owner", status.getOwner());
-    m.put("group", status.getGroup());
-    m.put("stickyBit", status.isStickyBit());
-    m.put("entries", status.getEntries());
-
-    if (includesType) {
-
-      final Map<String, Map<String, Object>> finalMap =
-          new TreeMap<String, Map<String, Object>>();
-      finalMap.put(AclStatus.class.getSimpleName(), m);
-      return JSON.toString(finalMap);
-    } else {
-      return JSON.toString(m);
-    }
-
-  }
-
-  /** Convert a Json map to a AclStatus object. */
-  public static AclStatus toAclStatus(final Map<?, ?> json, boolean includesType) {
-    if (json == null) {
-      return null;
-    }
-
-    final Map<?, ?> m =
-        includesType ? (Map<?, ?>) json.get(AclStatus.class.getSimpleName())
-            : json;
-
-    AclStatus.Builder aclStatusBuilder = new AclStatus.Builder();
-    aclStatusBuilder.owner((String) m.get("owner"));
-    aclStatusBuilder.group((String) m.get("group"));
-    aclStatusBuilder.stickyBit((Boolean) m.get("stickyBit"));
-
-    final Object[] entries = (Object[]) m.get("entries");
-    String[] subEntryFields;
-    int index;
-
-    for (int i = 0; i < entries.length; i++) {
-      AclEntry.Builder aclBuilder = new AclEntry.Builder();
-      subEntryFields = entries[i].toString().split(":");
-      index = 0;
-      if (subEntryFields[index].equals("default")) {
-        aclBuilder.setScope(AclEntryScope.DEFAULT);
-        index++;
-      } else {
-        aclBuilder.setScope(AclEntryScope.ACCESS);
-      }
-      if (subEntryFields[index].equals("user")) {
-        aclBuilder.setType(AclEntryType.USER);
-      } else if (subEntryFields[index].equals("group")) {
-        aclBuilder.setType(AclEntryType.GROUP);
-      } else if (subEntryFields[index].equals("mask")) {
-        aclBuilder.setType(AclEntryType.MASK);
-      } else if (subEntryFields[index].equals("other")) {
-        aclBuilder.setType(AclEntryType.OTHER);
-      }
-      index++;
-      aclBuilder.setName(subEntryFields[index++]);
-      aclBuilder.setPermission(FsAction.getFsAction(subEntryFields[index]));
-      aclStatusBuilder.addEntry(aclBuilder.build());
-    }
-    return aclStatusBuilder.build();
   }
 
   private static int getInt(Map<?, ?> m, String key, final int defaultValue) {
@@ -688,5 +614,45 @@ public class JsonUtil {
     }
 
     return checksum;
+  }
+  /** Convert a AclStatus object to a Json string. */
+  public static String toJsonString(final AclStatus status) {
+    if (status == null) {
+      return null;
+    }
+
+    final Map<String, Object> m = new TreeMap<String, Object>();
+    m.put("owner", status.getOwner());
+    m.put("group", status.getGroup());
+    m.put("stickyBit", status.isStickyBit());
+    m.put("entries", status.getEntries());
+    final Map<String, Map<String, Object>> finalMap =
+        new TreeMap<String, Map<String, Object>>();
+    finalMap.put(AclStatus.class.getSimpleName(), m);
+    return JSON.toString(finalMap);
+  }
+
+  /** Convert a Json map to a AclStatus object. */
+  public static AclStatus toAclStatus(final Map<?, ?> json) {
+    if (json == null) {
+      return null;
+    }
+
+    final Map<?, ?> m = (Map<?, ?>) json.get(AclStatus.class.getSimpleName());
+
+    AclStatus.Builder aclStatusBuilder = new AclStatus.Builder();
+    aclStatusBuilder.owner((String) m.get("owner"));
+    aclStatusBuilder.group((String) m.get("group"));
+    aclStatusBuilder.stickyBit((Boolean) m.get("stickyBit"));
+
+    final Object[] entries = (Object[]) m.get("entries");
+
+    List<AclEntry> aclEntryList = new ArrayList<AclEntry>();
+    for (int i = 0; i < entries.length; i++) {
+      AclEntry aclEntry = AclEntry.parseAclEntry((String) entries[i], true);
+      aclEntryList.add(aclEntry);
+    }
+    aclStatusBuilder.addEntries(aclEntryList);
+    return aclStatusBuilder.build();
   }
 }

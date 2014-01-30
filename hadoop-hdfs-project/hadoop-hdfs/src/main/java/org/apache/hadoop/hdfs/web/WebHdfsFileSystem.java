@@ -701,7 +701,7 @@ public class WebHdfsFileSystem extends FileSystem
   public AclStatus getAclStatus(Path f) throws IOException {
     final HttpOpParam.Op op = GetOpParam.Op.GETACLSTATUS;
     final Map<?, ?> json = run(op, f);
-    AclStatus status = JsonUtil.toAclStatus(json, true);
+    AclStatus status = JsonUtil.toAclStatus(json);
     if (status == null) {
       throw new FileNotFoundException("File does not exist: " + f);
     }

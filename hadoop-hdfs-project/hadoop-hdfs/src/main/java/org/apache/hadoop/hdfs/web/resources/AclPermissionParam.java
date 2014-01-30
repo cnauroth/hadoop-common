@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 import org.apache.hadoop.fs.permission.AclEntry;
+import org.apache.commons.lang.StringUtils;
 
 /** AclPermission parameter. */
 public class AclPermissionParam extends StringParam {
@@ -44,8 +45,7 @@ public class AclPermissionParam extends StringParam {
   }
 
   public AclPermissionParam(List<AclEntry> acl) {
-    super(DOMAIN, parseAclSpec(acl) == null
-        || parseAclSpec(acl).equals(DEFAULT) ? null : parseAclSpec(acl));
+    super(DOMAIN,parseAclSpec(acl).equals(DEFAULT) ? null : parseAclSpec(acl));
   }
 
   @Override
@@ -66,14 +66,6 @@ public class AclPermissionParam extends StringParam {
    * @return String
    */
   private static String parseAclSpec(List<AclEntry> aclEntry) {
-    StringBuilder aclspce = new StringBuilder();
-    for (AclEntry acl : aclEntry) {
-      if (aclspce.length() != 0)
-        aclspce.append(",");
-      aclspce.append(acl.getType() + ":");
-      aclspce.append(acl.getName() + ":");
-      aclspce.append(acl.getPermission().SYMBOL);
-    }
-    return aclspce.toString();
+    return StringUtils.join(aclEntry, ",");
   }
 }
