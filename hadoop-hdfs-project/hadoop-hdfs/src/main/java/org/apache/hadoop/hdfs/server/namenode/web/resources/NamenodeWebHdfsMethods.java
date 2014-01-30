@@ -746,7 +746,7 @@ public class NamenodeWebHdfsMethods {
         throw new FileNotFoundException("File does not exist: " + fullpath);
       }
 
-      final String js = JsonUtil.toJsonString(status, true);
+      final String js = JsonUtil.toJsonString(status);
       return Response.ok(js).type(MediaType.APPLICATION_JSON).build();
     }
     default:
