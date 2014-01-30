@@ -712,9 +712,11 @@ public class FSImageFormat {
         file.toUnderConstruction(clientName, clientMachine, null);
       }
 
-      AclFeature aclFeature = loadAclFeature(in, imgVersion);
-      if (aclFeature != null) {
-        file.addAclFeature(aclFeature);
+      if (permissions.getPermission().getAclBit()) {
+        AclFeature aclFeature = loadAclFeature(in, imgVersion);
+        if (aclFeature != null) {
+          file.addAclFeature(aclFeature);
+        }
       }
 
       return fileDiffs == null ? file : new INodeFile(file, fileDiffs);
@@ -751,9 +753,11 @@ public class FSImageFormat {
         dir.addDirectoryWithQuotaFeature(nsQuota, dsQuota);
       }
 
-      AclFeature aclFeature = loadAclFeature(in, imgVersion);
-      if (aclFeature != null) {
-        dir.addAclFeature(aclFeature);
+      if (permissions.getPermission().getAclBit()) {
+        AclFeature aclFeature = loadAclFeature(in, imgVersion);
+        if (aclFeature != null) {
+          dir.addAclFeature(aclFeature);
+        }
       }
 
       if (withSnapshot) {
@@ -825,7 +829,8 @@ public class FSImageFormat {
       final short replication = namesystem.getBlockManager().adjustReplication(
           in.readShort());
       final long preferredBlockSize = in.readLong();
-      AclFeature aclFeature = loadAclFeature(in, layoutVersion);
+      AclFeature aclFeature = permissions.getPermission().getAclBit() ?
+          loadAclFeature(in, layoutVersion) : null;
       return new INodeFileAttributes.SnapshotCopy(name, permissions, aclFeature,
           modificationTime, accessTime, replication, preferredBlockSize);
     }
@@ -845,7 +850,8 @@ public class FSImageFormat {
       //read quotas
       final long nsQuota = in.readLong();
       final long dsQuota = in.readLong();
-      AclFeature aclFeature = loadAclFeature(in, layoutVersion);
+      AclFeature aclFeature = permissions.getPermission().getAclBit() ?
+          loadAclFeature(in, layoutVersion) : null;
   
       return nsQuota == -1L && dsQuota == -1L?
           new INodeDirectoryAttributes.SnapshotCopy(name, permissions,

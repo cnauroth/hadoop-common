@@ -292,14 +292,16 @@ public class FSImageSerialization {
 
   private static void writeAclFeature(INodeAttributes node, DataOutput out)
       throws IOException {
-    AclFsImageProto.Builder b = AclFsImageProto.newBuilder();
-    OutputStream os = (OutputStream) out;
+    if (node.getFsPermission().getAclBit()) {
+      AclFsImageProto.Builder b = AclFsImageProto.newBuilder();
+      OutputStream os = (OutputStream) out;
 
-    AclFeature feature = node.getAclFeature();
-    if (feature != null)
-      b.addAllEntries(PBHelper.convertAclEntryProto(feature.getEntries()));
+      AclFeature feature = node.getAclFeature();
+      if (feature != null)
+        b.addAllEntries(PBHelper.convertAclEntryProto(feature.getEntries()));
 
-    b.build().writeDelimitedTo(os);
+      b.build().writeDelimitedTo(os);
+    }
   }
 
   /** Serialize a {@link INodeReference} node */
