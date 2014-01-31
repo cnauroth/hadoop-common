@@ -753,9 +753,7 @@ public class TestAclWithSnapshot {
     cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).format(format)
       .build();
     cluster.waitActive();
-    FileSystem fs = cluster.getFileSystem();
-    assertTrue(fs instanceof DistributedFileSystem);
-    hdfs = (DistributedFileSystem)fs;
+    hdfs = cluster.getFileSystem();
     fsAsBruce = DFSTestUtil.getFileSystemAs(BRUCE, conf);
     fsAsDiana = DFSTestUtil.getFileSystemAs(DIANA, conf);
   }
