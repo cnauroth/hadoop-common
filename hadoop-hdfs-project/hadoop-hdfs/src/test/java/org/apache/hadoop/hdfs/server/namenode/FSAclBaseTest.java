@@ -34,7 +34,6 @@ import org.apache.hadoop.fs.permission.AclStatus;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.protocol.AclException;
-import org.apache.hadoop.hdfs.server.namenode.snapshot.Snapshot;
 import org.apache.hadoop.io.IOUtils;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -799,7 +798,7 @@ public abstract class FSAclBaseTest {
     INode inode = cluster.getNamesystem().getFSDirectory().getRoot()
       .getNode(path.toUri().getPath(), false);
     assertNotNull(inode);
-    AclFeature aclFeature = inode.getAclFeature(Snapshot.CURRENT_STATE_ID);
+    AclFeature aclFeature = inode.getAclFeature();
     if (expectAclFeature) {
       assertNotNull(aclFeature);
     } else {
