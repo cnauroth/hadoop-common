@@ -340,4 +340,8 @@ public abstract class INodeWithAdditionalFields extends INode
 
     addFeature(f);
   }
+
+  public final Feature[] getFeatures() {
+    return features;
+  }
 }
