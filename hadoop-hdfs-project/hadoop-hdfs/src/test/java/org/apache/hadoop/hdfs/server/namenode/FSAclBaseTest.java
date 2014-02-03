@@ -835,17 +835,14 @@ public abstract class FSAclBaseTest {
     AclStatus s = fs.getAclStatus(dirPath);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, ALL),
       aclEntry(ACCESS, USER, "foo", ALL),
       aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, MASK, ALL),
-      aclEntry(ACCESS, OTHER, NONE),
       aclEntry(DEFAULT, USER, ALL),
       aclEntry(DEFAULT, USER, "foo", ALL),
       aclEntry(DEFAULT, GROUP, READ_EXECUTE),
       aclEntry(DEFAULT, MASK, ALL),
       aclEntry(DEFAULT, OTHER, NONE) }, returned);
-    assertPermission(dirPath, (short)02770);
+    assertPermission(dirPath, (short)02750);
     assertAclFeature(dirPath, true);
   }
 

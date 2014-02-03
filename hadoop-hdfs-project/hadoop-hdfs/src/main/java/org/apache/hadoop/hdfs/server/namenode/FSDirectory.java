@@ -1965,7 +1965,8 @@ public class FSDirectory implements Closeable {
 
       // if not inheriting and it's the last inode, there's no use in
       // computing perms that won't be used
-      if (inheritPermission || (i < lastInodeIndex)) {
+      if ((inheritPermission || (i < lastInodeIndex)) &&
+          !iip.getLastINode().getFsPermission().getAclBit()) {
         // if inheriting (ie. creating a file or symlink), use the parent dir,
         // else the supplied permissions
         // NOTE: the permissions of the auto-created directories violate posix
@@ -2289,6 +2290,39 @@ public class FSDirectory implements Closeable {
             builder.setPermission(permission);
             newAcl.add(builder.build());
           }
+          AclStorage.updateINodeAcl(child, newAcl, Snapshot.CURRENT_STATE_ID);
+        }
+      } else if (child.isDirectory()) {
+        List<AclEntry> featureEntries = parent.getAclFeature().getEntries();
+        ScopedAclEntries scopedEntries = new ScopedAclEntries(featureEntries);
+        List<AclEntry> defaultEntries = scopedEntries.getDefaultEntries();
+        if (!defaultEntries.isEmpty()) {
+          FsPermission childCreationPerms = child.getFsPermission();
+          List<AclEntry> newAcl = new ArrayList<AclEntry>();
+          for (AclEntry entry: defaultEntries) {
+            AclEntryType type = entry.getType();
+            String name = entry.getName();
+            AclEntry.Builder builder = new AclEntry.Builder()
+              .setScope(AclEntryScope.ACCESS)
+              .setType(type)
+              .setName(name);
+            final FsAction permission;
+            if (type == AclEntryType.USER && name == null) {
+              permission = entry.getPermission().and(
+                childCreationPerms.getUserAction());
+            } else if (type == AclEntryType.MASK) {
+              permission = entry.getPermission().and(
+                childCreationPerms.getGroupAction());
+            } else if (type == AclEntryType.OTHER) {
+              permission = entry.getPermission().and(
+                childCreationPerms.getOtherAction());
+            } else {
+              permission = entry.getPermission();
+            }
+            builder.setPermission(permission);
+            newAcl.add(builder.build());
+          }
+          newAcl.addAll(defaultEntries);
           AclStorage.updateINodeAcl(child, newAcl, Snapshot.CURRENT_STATE_ID);
         }
       }
