@@ -236,6 +236,10 @@ public abstract class FSAclBaseTest {
     fs.modifyAclEntries(path, aclSpec);
   }
 
+  @Test(expected=AccessControlException.class)
+  public void testModifyAclEntriesNonOwner() throws IOException {
+  }
+
   @Test
   public void testRemoveAclEntries() throws IOException {
     FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
@@ -392,6 +396,10 @@ public abstract class FSAclBaseTest {
     fs.removeAclEntries(path, aclSpec);
   }
 
+  @Test(expected=AccessControlException.class)
+  public void testRemoveAclEntriesNonOwner() throws IOException {
+  }
+
   @Test
   public void testRemoveDefaultAcl() throws IOException {
     FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
@@ -483,6 +491,10 @@ public abstract class FSAclBaseTest {
     fs.removeDefaultAcl(path);
   }
 
+  @Test(expected=AccessControlException.class)
+  public void testRemoveDefaultAclNonOwner() throws IOException {
+  }
+
   @Test
   public void testRemoveAcl() throws IOException {
     FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
@@ -552,6 +564,10 @@ public abstract class FSAclBaseTest {
   public void testRemoveAclPathNotFound() throws IOException {
     // Path has not been created.
     fs.removeAcl(path);
+  }
+
+  @Test(expected=AccessControlException.class)
+  public void testRemoveAclNonOwner() throws IOException {
   }
 
   @Test
@@ -719,6 +735,10 @@ public abstract class FSAclBaseTest {
     fs.setAcl(path, aclSpec);
   }
 
+  @Test(expected=AccessControlException.class)
+  public void testSetAclNonOwner() throws IOException {
+  }
+
   @Test
   public void testSetPermission() throws IOException {
     FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
@@ -784,6 +804,42 @@ public abstract class FSAclBaseTest {
       aclEntry(DEFAULT, OTHER, NONE) }, returned);
     assertPermission((short)02700);
     assertAclFeature(true);
+  }
+
+  @Test
+  public void testDefaultAclNewFile() throws Exception {
+  }
+
+  @Test
+  public void testDefaultAclNewDir() throws Exception {
+  }
+
+  @Test
+  public void testDefaultAclNewDirIntermediate() throws Exception {
+  }
+
+  @Test
+  public void testDefaultAclNewFileIntermediate() throws Exception {
+  }
+
+  @Test
+  public void testDefaultAclNewSymlinkIntermediate() throws Exception {
+  }
+
+  @Test
+  public void testDefaultAclWithMode() throws Exception {
+  }
+
+  @Test
+  public void testDefaultAclWithUmask() throws Exception {
+  }
+
+  @Test
+  public void testCreateDirRequiresWritePermOnParent() throws Exception {
+  }
+
+  @Test
+  public void testCreateFileRequiresWritePermOnParent() throws Exception {
   }
 
   /**
