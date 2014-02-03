@@ -809,12 +809,47 @@ public abstract class FSAclBaseTest {
 
   @Test
   public void testDefaultAclNewFile() throws Exception {
-    fail();
+    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(DEFAULT, USER, "foo", ALL));
+    fs.setAcl(path, aclSpec);
+    Path filePath = new Path(path, "file1");
+    fs.create(filePath).close();
+    AclStatus s = fs.getAclStatus(filePath);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, READ_WRITE),
+      aclEntry(ACCESS, USER, "foo", ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(ACCESS, MASK, READ_WRITE),
+      aclEntry(ACCESS, OTHER, NONE) }, returned);
+    assertPermission(filePath, (short)02660);
+    assertAclFeature(filePath, true);
   }
 
   @Test
   public void testDefaultAclNewDir() throws Exception {
-    fail();
+    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(DEFAULT, USER, "foo", ALL));
+    fs.setAcl(path, aclSpec);
+    Path dirPath = new Path(path, "dir1");
+    fs.mkdirs(dirPath);
+    AclStatus s = fs.getAclStatus(dirPath);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, ALL),
+      aclEntry(ACCESS, USER, "foo", ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(ACCESS, MASK, ALL),
+      aclEntry(ACCESS, OTHER, NONE),
+      aclEntry(DEFAULT, USER, ALL),
+      aclEntry(DEFAULT, USER, "foo", ALL),
+      aclEntry(DEFAULT, GROUP, READ_EXECUTE),
+      aclEntry(DEFAULT, MASK, ALL),
+      aclEntry(DEFAULT, OTHER, NONE) }, returned);
+    assertPermission(dirPath, (short)02770);
+    assertAclFeature(dirPath, true);
   }
 
   @Test
@@ -861,8 +896,21 @@ public abstract class FSAclBaseTest {
    */
   private static void assertAclFeature(boolean expectAclFeature)
       throws IOException {
+    assertAclFeature(path, expectAclFeature);
+  }
+
+  /**
+   * Asserts whether or not the inode for a specific path has an AclFeature.
+   *
+   * @param pathToCheck Path inode to check
+   * @param expectAclFeature boolean true if an AclFeature must be present,
+   *   false if an AclFeature must not be present
+   * @throws IOException thrown if there is an I/O error
+   */
+  private static void assertAclFeature(Path pathToCheck,
+      boolean expectAclFeature) throws IOException {
     INode inode = cluster.getNamesystem().getFSDirectory().getRoot()
-      .getNode(path.toUri().getPath(), false);
+      .getNode(pathToCheck.toUri().getPath(), false);
     assertNotNull(inode);
     AclFeature aclFeature = inode.getAclFeature();
     if (expectAclFeature) {
@@ -879,7 +927,19 @@ public abstract class FSAclBaseTest {
    * @throws IOException thrown if there is an I/O error
    */
   private static void assertPermission(short perm) throws IOException {
+    assertPermission(path, perm);
+  }
+
+  /**
+   * Asserts the value of the FsPermission bits on the inode of a specific path.
+   *
+   * @param pathToCheck Path inode to check
+   * @param perm short expected permission bits
+   * @throws IOException thrown if there is an I/O error
+   */
+  private static void assertPermission(Path pathToCheck, short perm)
+      throws IOException {
     assertEquals(FsPermission.createImmutable(perm),
-      fs.getFileStatus(path).getPermission());
+      fs.getFileStatus(pathToCheck).getPermission());
   }
 }
