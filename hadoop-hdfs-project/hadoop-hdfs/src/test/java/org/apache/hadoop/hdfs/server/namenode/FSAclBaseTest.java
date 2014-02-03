@@ -35,6 +35,7 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.protocol.AclException;
 import org.apache.hadoop.io.IOUtils;
+import org.apache.hadoop.security.AccessControlException;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.Test;
@@ -808,38 +809,47 @@ public abstract class FSAclBaseTest {
 
   @Test
   public void testDefaultAclNewFile() throws Exception {
+    fail();
   }
 
   @Test
   public void testDefaultAclNewDir() throws Exception {
+    fail();
   }
 
   @Test
   public void testDefaultAclNewDirIntermediate() throws Exception {
+    fail();
   }
 
   @Test
   public void testDefaultAclNewFileIntermediate() throws Exception {
+    fail();
   }
 
   @Test
   public void testDefaultAclNewSymlinkIntermediate() throws Exception {
+    fail();
   }
 
   @Test
   public void testDefaultAclWithMode() throws Exception {
+    fail();
   }
 
   @Test
   public void testDefaultAclWithUmask() throws Exception {
+    fail();
   }
 
   @Test
   public void testCreateDirRequiresWritePermOnParent() throws Exception {
+    fail();
   }
 
   @Test
   public void testCreateFileRequiresWritePermOnParent() throws Exception {
+    fail();
   }
 
   /**
