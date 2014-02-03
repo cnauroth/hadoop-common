@@ -40,6 +40,8 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathIsNotDirectoryException;
 import org.apache.hadoop.fs.UnresolvedLinkException;
 import org.apache.hadoop.fs.permission.AclEntry;
+import org.apache.hadoop.fs.permission.AclEntryScope;
+import org.apache.hadoop.fs.permission.AclEntryType;
 import org.apache.hadoop.fs.permission.AclStatus;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
@@ -47,6 +49,7 @@ import org.apache.hadoop.fs.permission.PermissionStatus;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DFSUtil;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
+import org.apache.hadoop.hdfs.protocol.AclException;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.ClientProtocol;
 import org.apache.hadoop.hdfs.protocol.DirectoryListing;
@@ -77,6 +80,7 @@ import org.apache.hadoop.hdfs.util.ReadOnlyList;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 
 /*************************************************
  * FSDirectory stores the filesystem directory state.
@@ -280,12 +284,13 @@ public class FSDirectory implements Closeable {
    * @throws QuotaExceededException
    * @throws UnresolvedLinkException
    * @throws SnapshotAccessControlException 
+   * @throws AclException
    */
   INodeFile addFile(String path, PermissionStatus permissions,
       short replication, long preferredBlockSize, String clientName,
       String clientMachine, DatanodeDescriptor clientNode)
     throws FileAlreadyExistsException, QuotaExceededException,
-      UnresolvedLinkException, SnapshotAccessControlException {
+      UnresolvedLinkException, SnapshotAccessControlException, AclException {
     waitForReady();
 
     // Always do an implicit mkdirs for parent directory tree.
@@ -1923,11 +1928,13 @@ public class FSDirectory implements Closeable {
    *                                any quota limit
    * @throws UnresolvedLinkException if a symlink is encountered in src.                      
    * @throws SnapshotAccessControlException if path is in RO snapshot
+   * @throws AclException if the ACL is invalid
    */
   boolean mkdirs(String src, PermissionStatus permissions,
       boolean inheritPermission, long now)
       throws FileAlreadyExistsException, QuotaExceededException, 
-             UnresolvedLinkException, SnapshotAccessControlException {
+             UnresolvedLinkException, SnapshotAccessControlException,
+             AclException {
     src = normalizePath(src);
     String[] names = INode.getPathNames(src);
     byte[][] components = INode.getPathComponents(names);
@@ -2014,7 +2021,7 @@ public class FSDirectory implements Closeable {
 
   INode unprotectedMkdir(long inodeId, String src, PermissionStatus permissions,
                           long timestamp) throws QuotaExceededException,
-                          UnresolvedLinkException {
+                          UnresolvedLinkException, AclException {
     assert hasWriteLock();
     byte[][] components = INode.getPathComponents(src);
     INodesInPath iip = getExistingPathINodes(components);
@@ -2031,7 +2038,7 @@ public class FSDirectory implements Closeable {
    */
   private void unprotectedMkdir(long inodeId, INodesInPath inodesInPath,
       int pos, byte[] name, PermissionStatus permission, long timestamp)
-      throws QuotaExceededException {
+      throws QuotaExceededException, AclException {
     assert hasWriteLock();
     final INodeDirectory dir = new INodeDirectory(inodeId, name, permission,
         timestamp);
@@ -2044,9 +2051,10 @@ public class FSDirectory implements Closeable {
    * Add the given child to the namespace.
    * @param src The full path name of the child node.
    * @throw QuotaExceededException is thrown if it violates quota limit
+   * @throws AclException if the ACL is invalid
    */
   private boolean addINode(String src, INode child
-      ) throws QuotaExceededException, UnresolvedLinkException {
+      ) throws QuotaExceededException, UnresolvedLinkException, AclException {
     byte[][] components = INode.getPathComponents(src);
     child.setLocalName(components[components.length-1]);
     cacheName(child);
@@ -2205,7 +2213,8 @@ public class FSDirectory implements Closeable {
    * with pos = length - 1.
    */
   private boolean addLastINode(INodesInPath inodesInPath,
-      INode inode, boolean checkQuota) throws QuotaExceededException {
+      INode inode, boolean checkQuota) throws QuotaExceededException,
+      AclException {
     final int pos = inodesInPath.getINodes().length - 1;
     return addChild(inodesInPath, pos, inode, checkQuota);
   }
@@ -2215,9 +2224,10 @@ public class FSDirectory implements Closeable {
    * @return false if the child with this name already exists; 
    *         otherwise return true;
    * @throw QuotaExceededException is thrown if it violates quota limit
+   * @throw AclException if ACL is invalid
    */
-  private boolean addChild(INodesInPath iip, int pos,
-      INode child, boolean checkQuota) throws QuotaExceededException {
+  private boolean addChild(INodesInPath iip, int pos, INode child,
+      boolean checkQuota) throws QuotaExceededException, AclException {
     final INode[] inodes = iip.getINodes();
     // Disallow creation of /.reserved. This may be created when loading
     // editlog/fsimage during upgrade since /.reserved was a valid name in older
@@ -2247,6 +2257,43 @@ public class FSDirectory implements Closeable {
     updateCount(iip, pos,
         counts.get(Quota.NAMESPACE), counts.get(Quota.DISKSPACE), checkQuota);
     final INodeDirectory parent = inodes[pos-1].asDirectory();
+
+    if (parent.getFsPermission().getAclBit()) {
+      if (child.isFile()) {
+        List<AclEntry> featureEntries = parent.getAclFeature().getEntries();
+        ScopedAclEntries scopedEntries = new ScopedAclEntries(featureEntries);
+        List<AclEntry> defaultEntries = scopedEntries.getDefaultEntries();
+        if (!defaultEntries.isEmpty()) {
+          FsPermission childCreationPerms = child.getFsPermission();
+          List<AclEntry> newAcl = new ArrayList<AclEntry>();
+          for (AclEntry entry: defaultEntries) {
+            AclEntryType type = entry.getType();
+            String name = entry.getName();
+            AclEntry.Builder builder = new AclEntry.Builder()
+              .setScope(AclEntryScope.ACCESS)
+              .setType(type)
+              .setName(name);
+            final FsAction permission;
+            if (type == AclEntryType.USER && name == null) {
+              permission = entry.getPermission().and(
+                childCreationPerms.getUserAction());
+            } else if (type == AclEntryType.MASK) {
+              permission = entry.getPermission().and(
+                childCreationPerms.getGroupAction());
+            } else if (type == AclEntryType.OTHER) {
+              permission = entry.getPermission().and(
+                childCreationPerms.getOtherAction());
+            } else {
+              permission = entry.getPermission();
+            }
+            builder.setPermission(permission);
+            newAcl.add(builder.build());
+          }
+          AclStorage.updateINodeAcl(child, newAcl, Snapshot.CURRENT_STATE_ID);
+        }
+      }
+    }
+
     boolean added = false;
     try {
       added = parent.addChild(child, true, iip.getLatestSnapshotId());
@@ -2265,7 +2312,8 @@ public class FSDirectory implements Closeable {
     return added;
   }
   
-  private boolean addLastINodeNoQuotaCheck(INodesInPath inodesInPath, INode i) {
+  private boolean addLastINodeNoQuotaCheck(INodesInPath inodesInPath, INode i)
+      throws AclException {
     try {
       return addLastINode(inodesInPath, i, false);
     } catch (QuotaExceededException e) {
@@ -2645,7 +2693,7 @@ public class FSDirectory implements Closeable {
   INodeSymlink addSymlink(String path, String target,
       PermissionStatus dirPerms, boolean createParent, boolean logRetryCache)
       throws UnresolvedLinkException, FileAlreadyExistsException,
-      QuotaExceededException, SnapshotAccessControlException {
+      QuotaExceededException, SnapshotAccessControlException, AclException {
     waitForReady();
 
     final long modTime = now();
@@ -2683,7 +2731,7 @@ public class FSDirectory implements Closeable {
    */
   INodeSymlink unprotectedAddSymlink(long id, String path, String target,
       long mtime, long atime, PermissionStatus perm)
-      throws UnresolvedLinkException, QuotaExceededException {
+      throws UnresolvedLinkException, QuotaExceededException, AclException {
     assert hasWriteLock();
     final INodeSymlink symlink = new INodeSymlink(id, null, perm, mtime, atime,
         target);

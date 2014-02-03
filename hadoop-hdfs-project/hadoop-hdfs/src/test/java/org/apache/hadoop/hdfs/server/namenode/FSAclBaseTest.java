@@ -818,12 +818,9 @@ public abstract class FSAclBaseTest {
     AclStatus s = fs.getAclStatus(filePath);
     AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
     assertArrayEquals(new AclEntry[] {
-      aclEntry(ACCESS, USER, READ_WRITE),
       aclEntry(ACCESS, USER, "foo", ALL),
-      aclEntry(ACCESS, GROUP, READ_EXECUTE),
-      aclEntry(ACCESS, MASK, READ_WRITE),
-      aclEntry(ACCESS, OTHER, NONE) }, returned);
-    assertPermission(filePath, (short)02660);
+      aclEntry(ACCESS, GROUP, READ_EXECUTE) }, returned);
+    assertPermission(filePath, (short)02640);
     assertAclFeature(filePath, true);
   }
 
