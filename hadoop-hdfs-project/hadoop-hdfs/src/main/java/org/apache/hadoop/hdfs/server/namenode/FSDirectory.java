@@ -1965,8 +1965,7 @@ public class FSDirectory implements Closeable {
 
       // if not inheriting and it's the last inode, there's no use in
       // computing perms that won't be used
-      if ((inheritPermission || (i < lastInodeIndex)) &&
-          !iip.getLastINode().getFsPermission().getAclBit()) {
+      if (inheritPermission || (i < lastInodeIndex)) {
         // if inheriting (ie. creating a file or symlink), use the parent dir,
         // else the supplied permissions
         // NOTE: the permissions of the auto-created directories violate posix

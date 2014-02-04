@@ -847,13 +847,37 @@ public abstract class FSAclBaseTest {
   }
 
   @Test
-  public void testDefaultAclNewDirIntermediate() throws Exception {
+  public void testDefaultAclNewFileIntermediate() throws Exception {
     fail();
   }
 
   @Test
-  public void testDefaultAclNewFileIntermediate() throws Exception {
-    fail();
+  public void testDefaultAclNewDirIntermediate() throws Exception {
+    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(DEFAULT, USER, "foo", ALL));
+    fs.setAcl(path, aclSpec);
+    Path dirPath = new Path(path, "dir1");
+    Path subdirPath = new Path(dirPath, "subdir1");
+    fs.mkdirs(subdirPath);
+    AclEntry[] expected = new AclEntry[] {
+      aclEntry(ACCESS, USER, "foo", ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(DEFAULT, USER, ALL),
+      aclEntry(DEFAULT, USER, "foo", ALL),
+      aclEntry(DEFAULT, GROUP, READ_EXECUTE),
+      aclEntry(DEFAULT, MASK, ALL),
+      aclEntry(DEFAULT, OTHER, NONE) };
+    AclStatus s = fs.getAclStatus(dirPath);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(expected, returned);
+    assertPermission(dirPath, (short)02750);
+    assertAclFeature(dirPath, true);
+    s = fs.getAclStatus(subdirPath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(expected, returned);
+    assertPermission(subdirPath, (short)02750);
+    assertAclFeature(subdirPath, true);
   }
 
   @Test
