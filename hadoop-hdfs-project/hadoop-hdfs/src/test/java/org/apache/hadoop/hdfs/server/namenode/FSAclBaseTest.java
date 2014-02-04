@@ -36,7 +36,6 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.protocol.AclException;
 import org.apache.hadoop.io.IOUtils;
-import org.apache.hadoop.security.AccessControlException;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.Test;
