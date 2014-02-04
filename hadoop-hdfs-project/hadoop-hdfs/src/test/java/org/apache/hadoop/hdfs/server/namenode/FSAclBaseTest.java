@@ -935,7 +935,7 @@ public abstract class FSAclBaseTest {
     int bufferSize = cluster.getConfiguration(0).getInt(
       CommonConfigurationKeys.IO_FILE_BUFFER_SIZE_KEY,
       CommonConfigurationKeys.IO_FILE_BUFFER_SIZE_DEFAULT);
-    fs.create(filePath, new FsPermission((short)0770), false, bufferSize,
+    fs.create(filePath, new FsPermission((short)0740), false, bufferSize,
       fs.getDefaultReplication(filePath), fs.getDefaultBlockSize(path), null)
       .close();
     AclStatus s = fs.getAclStatus(filePath);
@@ -943,8 +943,30 @@ public abstract class FSAclBaseTest {
     assertArrayEquals(new AclEntry[] {
       aclEntry(ACCESS, USER, "foo", ALL),
       aclEntry(ACCESS, GROUP, READ_EXECUTE) }, returned);
-    assertPermission(filePath, (short)02750);
+    assertPermission(filePath, (short)02740);
     assertAclFeature(filePath, true);
+  }
+
+  @Test
+  public void testDefaultAclNewDirWithMode() throws Exception {
+    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0755));
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(DEFAULT, USER, "foo", ALL));
+    fs.setAcl(path, aclSpec);
+    Path dirPath = new Path(path, "dir1");
+    fs.mkdirs(dirPath, new FsPermission((short)0740));
+    AclStatus s = fs.getAclStatus(dirPath);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "foo", ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(DEFAULT, USER, ALL),
+      aclEntry(DEFAULT, USER, "foo", ALL),
+      aclEntry(DEFAULT, GROUP, READ_EXECUTE),
+      aclEntry(DEFAULT, MASK, ALL),
+      aclEntry(DEFAULT, OTHER, READ_EXECUTE) }, returned);
+    assertPermission(dirPath, (short)02740);
+    assertAclFeature(dirPath, true);
   }
 
   /**
