@@ -27,6 +27,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
 
+import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.AclEntry;
@@ -947,7 +948,24 @@ public abstract class FSAclBaseTest {
 
   @Test
   public void testDefaultAclNewFileWithMode() throws Exception {
-    fail();
+    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0755));
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(DEFAULT, USER, "foo", ALL));
+    fs.setAcl(path, aclSpec);
+    Path filePath = new Path(path, "file1");
+    int bufferSize = cluster.getConfiguration(0).getInt(
+      CommonConfigurationKeys.IO_FILE_BUFFER_SIZE_KEY,
+      CommonConfigurationKeys.IO_FILE_BUFFER_SIZE_DEFAULT);
+    fs.create(filePath, new FsPermission((short)0770), false, bufferSize,
+      fs.getDefaultReplication(filePath), fs.getDefaultBlockSize(path), null)
+      .close();
+    AclStatus s = fs.getAclStatus(filePath);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(new AclEntry[] {
+      aclEntry(ACCESS, USER, "foo", ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE) }, returned);
+    assertPermission(filePath, (short)02750);
+    assertAclFeature(filePath, true);
   }
 
   @Test
