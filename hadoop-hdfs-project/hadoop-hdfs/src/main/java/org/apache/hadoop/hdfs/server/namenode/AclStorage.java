@@ -62,72 +62,40 @@ final class AclStorage {
 
   public static void copyINodeDefaultAcl(INodeDirectory parent, INode child)
       throws AclException, QuotaExceededException {
-    if (parent.getFsPermission().getAclBit()) {
-      if (child.isFile()) {
-        List<AclEntry> featureEntries = parent.getAclFeature().getEntries();
-        ScopedAclEntries scopedEntries = new ScopedAclEntries(featureEntries);
-        List<AclEntry> defaultEntries = scopedEntries.getDefaultEntries();
-        if (!defaultEntries.isEmpty()) {
-          FsPermission childCreationPerms = child.getFsPermission();
-          List<AclEntry> newAcl = Lists.newArrayList();
-          for (AclEntry entry: defaultEntries) {
-            AclEntryType type = entry.getType();
-            String name = entry.getName();
-            AclEntry.Builder builder = new AclEntry.Builder()
-              .setScope(AclEntryScope.ACCESS)
-              .setType(type)
-              .setName(name);
-            final FsAction permission;
-            if (type == AclEntryType.USER && name == null) {
-              permission = entry.getPermission().and(
-                childCreationPerms.getUserAction());
-            } else if (type == AclEntryType.MASK) {
-              permission = entry.getPermission().and(
-                childCreationPerms.getGroupAction());
-            } else if (type == AclEntryType.OTHER) {
-              permission = entry.getPermission().and(
-                childCreationPerms.getOtherAction());
-            } else {
-              permission = entry.getPermission();
-            }
-            builder.setPermission(permission);
-            newAcl.add(builder.build());
+    if (parent.getFsPermission().getAclBit() &&
+        (child.isFile() || child.isDirectory())) {
+      List<AclEntry> featureEntries = parent.getAclFeature().getEntries();
+      ScopedAclEntries scopedEntries = new ScopedAclEntries(featureEntries);
+      List<AclEntry> defaultEntries = scopedEntries.getDefaultEntries();
+      if (!defaultEntries.isEmpty()) {
+        FsPermission childPerm = child.getFsPermission();
+        List<AclEntry> newAcl = Lists.newArrayListWithCapacity(
+          child.isDirectory() ? defaultEntries.size() * 2 :
+          defaultEntries.size());
+        for (AclEntry entry: defaultEntries) {
+          AclEntryType type = entry.getType();
+          String name = entry.getName();
+          AclEntry.Builder builder = new AclEntry.Builder()
+            .setScope(AclEntryScope.ACCESS)
+            .setType(type)
+            .setName(name);
+          final FsAction permission;
+          if (type == AclEntryType.USER && name == null) {
+            permission = entry.getPermission().and(childPerm.getUserAction());
+          } else if (type == AclEntryType.MASK) {
+            permission = entry.getPermission().and(childPerm.getGroupAction());
+          } else if (type == AclEntryType.OTHER) {
+            permission = entry.getPermission().and(childPerm.getOtherAction());
+          } else {
+            permission = entry.getPermission();
           }
-          AclStorage.updateINodeAcl(child, newAcl, Snapshot.CURRENT_STATE_ID);
+          builder.setPermission(permission);
+          newAcl.add(builder.build());
         }
-      } else if (child.isDirectory()) {
-        List<AclEntry> featureEntries = parent.getAclFeature().getEntries();
-        ScopedAclEntries scopedEntries = new ScopedAclEntries(featureEntries);
-        List<AclEntry> defaultEntries = scopedEntries.getDefaultEntries();
-        if (!defaultEntries.isEmpty()) {
-          FsPermission childCreationPerms = child.getFsPermission();
-          List<AclEntry> newAcl = Lists.newArrayList();
-          for (AclEntry entry: defaultEntries) {
-            AclEntryType type = entry.getType();
-            String name = entry.getName();
-            AclEntry.Builder builder = new AclEntry.Builder()
-              .setScope(AclEntryScope.ACCESS)
-              .setType(type)
-              .setName(name);
-            final FsAction permission;
-            if (type == AclEntryType.USER && name == null) {
-              permission = entry.getPermission().and(
-                childCreationPerms.getUserAction());
-            } else if (type == AclEntryType.MASK) {
-              permission = entry.getPermission().and(
-                childCreationPerms.getGroupAction());
-            } else if (type == AclEntryType.OTHER) {
-              permission = entry.getPermission().and(
-                childCreationPerms.getOtherAction());
-            } else {
-              permission = entry.getPermission();
-            }
-            builder.setPermission(permission);
-            newAcl.add(builder.build());
-          }
+        if (child.isDirectory()) {
           newAcl.addAll(defaultEntries);
-          AclStorage.updateINodeAcl(child, newAcl, Snapshot.CURRENT_STATE_ID);
         }
+        updateINodeAcl(child, newAcl, Snapshot.CURRENT_STATE_ID);
       }
     }
   }
