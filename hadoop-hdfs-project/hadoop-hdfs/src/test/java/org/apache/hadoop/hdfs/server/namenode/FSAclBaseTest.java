@@ -238,10 +238,6 @@ public abstract class FSAclBaseTest {
     fs.modifyAclEntries(path, aclSpec);
   }
 
-  @Test(expected=AccessControlException.class)
-  public void testModifyAclEntriesNonOwner() throws IOException {
-  }
-
   @Test
   public void testRemoveAclEntries() throws IOException {
     FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
@@ -398,10 +394,6 @@ public abstract class FSAclBaseTest {
     fs.removeAclEntries(path, aclSpec);
   }
 
-  @Test(expected=AccessControlException.class)
-  public void testRemoveAclEntriesNonOwner() throws IOException {
-  }
-
   @Test
   public void testRemoveDefaultAcl() throws IOException {
     FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
@@ -493,10 +485,6 @@ public abstract class FSAclBaseTest {
     fs.removeDefaultAcl(path);
   }
 
-  @Test(expected=AccessControlException.class)
-  public void testRemoveDefaultAclNonOwner() throws IOException {
-  }
-
   @Test
   public void testRemoveAcl() throws IOException {
     FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
@@ -566,10 +554,6 @@ public abstract class FSAclBaseTest {
   public void testRemoveAclPathNotFound() throws IOException {
     // Path has not been created.
     fs.removeAcl(path);
-  }
-
-  @Test(expected=AccessControlException.class)
-  public void testRemoveAclNonOwner() throws IOException {
   }
 
   @Test
@@ -735,10 +719,6 @@ public abstract class FSAclBaseTest {
     List<AclEntry> aclSpec = Lists.newArrayList(
       aclEntry(DEFAULT, USER, "foo", ALL));
     fs.setAcl(path, aclSpec);
-  }
-
-  @Test(expected=AccessControlException.class)
-  public void testSetAclNonOwner() throws IOException {
   }
 
   @Test
@@ -966,21 +946,6 @@ public abstract class FSAclBaseTest {
       aclEntry(ACCESS, GROUP, READ_EXECUTE) }, returned);
     assertPermission(filePath, (short)02750);
     assertAclFeature(filePath, true);
-  }
-
-  @Test
-  public void testDefaultAclNewDirWithMode() throws Exception {
-    fail();
-  }
-
-  @Test
-  public void testCreateDirRequiresWritePermOnParent() throws Exception {
-    fail();
-  }
-
-  @Test
-  public void testCreateFileRequiresWritePermOnParent() throws Exception {
-    fail();
   }
 
   /**
