@@ -848,7 +848,34 @@ public abstract class FSAclBaseTest {
 
   @Test
   public void testDefaultAclNewFileIntermediate() throws Exception {
-    fail();
+    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(DEFAULT, USER, "foo", ALL));
+    fs.setAcl(path, aclSpec);
+    Path dirPath = new Path(path, "dir1");
+    Path filePath = new Path(dirPath, "file1");
+    fs.create(filePath).close();
+    AclEntry[] expected = new AclEntry[] {
+      aclEntry(ACCESS, USER, "foo", ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(DEFAULT, USER, ALL),
+      aclEntry(DEFAULT, USER, "foo", ALL),
+      aclEntry(DEFAULT, GROUP, READ_EXECUTE),
+      aclEntry(DEFAULT, MASK, ALL),
+      aclEntry(DEFAULT, OTHER, NONE) };
+    AclStatus s = fs.getAclStatus(dirPath);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(expected, returned);
+    assertPermission(dirPath, (short)02750);
+    assertAclFeature(dirPath, true);
+    expected = new AclEntry[] {
+      aclEntry(ACCESS, USER, "foo", ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE) };
+    s = fs.getAclStatus(filePath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(expected, returned);
+    assertPermission(filePath, (short)02640);
+    assertAclFeature(filePath, true);
   }
 
   @Test
@@ -882,7 +909,40 @@ public abstract class FSAclBaseTest {
 
   @Test
   public void testDefaultAclNewSymlinkIntermediate() throws Exception {
-    fail();
+    FileSystem.mkdirs(fs, path, FsPermission.createImmutable((short)0750));
+    Path filePath = new Path(path, "file1");
+    fs.create(filePath).close();
+    fs.setPermission(filePath, FsPermission.createImmutable((short)0640));
+    List<AclEntry> aclSpec = Lists.newArrayList(
+      aclEntry(DEFAULT, USER, "foo", ALL));
+    fs.setAcl(path, aclSpec);
+    Path dirPath = new Path(path, "dir1");
+    Path linkPath = new Path(dirPath, "link1");
+    fs.createSymlink(filePath, linkPath, true);
+    AclEntry[] expected = new AclEntry[] {
+      aclEntry(ACCESS, USER, "foo", ALL),
+      aclEntry(ACCESS, GROUP, READ_EXECUTE),
+      aclEntry(DEFAULT, USER, ALL),
+      aclEntry(DEFAULT, USER, "foo", ALL),
+      aclEntry(DEFAULT, GROUP, READ_EXECUTE),
+      aclEntry(DEFAULT, MASK, ALL),
+      aclEntry(DEFAULT, OTHER, NONE) };
+    AclStatus s = fs.getAclStatus(dirPath);
+    AclEntry[] returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(expected, returned);
+    assertPermission(dirPath, (short)02750);
+    assertAclFeature(dirPath, true);
+    expected = new AclEntry[] { };
+    s = fs.getAclStatus(linkPath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(expected, returned);
+    assertPermission(linkPath, (short)0640);
+    assertAclFeature(linkPath, false);
+    s = fs.getAclStatus(filePath);
+    returned = s.getEntries().toArray(new AclEntry[0]);
+    assertArrayEquals(expected, returned);
+    assertPermission(filePath, (short)0640);
+    assertAclFeature(filePath, false);
   }
 
   @Test

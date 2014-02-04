@@ -1973,7 +1973,8 @@ public class FSDirectory implements Closeable {
             ? inodes[i-1].getFsPermission() : permissions.getPermission();
         
         // ensure that the permissions allow user write+execute
-        if (!parentFsPerm.getUserAction().implies(FsAction.WRITE_EXECUTE)) {
+        if (!parentFsPerm.getUserAction().implies(FsAction.WRITE_EXECUTE) ||
+            parentFsPerm.getAclBit()) {
           parentFsPerm = new FsPermission(
               parentFsPerm.getUserAction().or(FsAction.WRITE_EXECUTE),
               parentFsPerm.getGroupAction(),
