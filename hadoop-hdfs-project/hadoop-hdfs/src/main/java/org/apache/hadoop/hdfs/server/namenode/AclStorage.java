@@ -30,6 +30,7 @@ import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.protocol.AclException;
 import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
+import org.apache.hadoop.hdfs.server.namenode.snapshot.Snapshot;
 
 /**
  * AclStorage contains utility methods that define how ACL data is stored in the
@@ -58,6 +59,78 @@ import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
  */
 @InterfaceAudience.Private
 final class AclStorage {
+
+  public static void copyINodeDefaultAcl(INodeDirectory parent, INode child)
+      throws AclException, QuotaExceededException {
+    if (parent.getFsPermission().getAclBit()) {
+      if (child.isFile()) {
+        List<AclEntry> featureEntries = parent.getAclFeature().getEntries();
+        ScopedAclEntries scopedEntries = new ScopedAclEntries(featureEntries);
+        List<AclEntry> defaultEntries = scopedEntries.getDefaultEntries();
+        if (!defaultEntries.isEmpty()) {
+          FsPermission childCreationPerms = child.getFsPermission();
+          List<AclEntry> newAcl = Lists.newArrayList();
+          for (AclEntry entry: defaultEntries) {
+            AclEntryType type = entry.getType();
+            String name = entry.getName();
+            AclEntry.Builder builder = new AclEntry.Builder()
+              .setScope(AclEntryScope.ACCESS)
+              .setType(type)
+              .setName(name);
+            final FsAction permission;
+            if (type == AclEntryType.USER && name == null) {
+              permission = entry.getPermission().and(
+                childCreationPerms.getUserAction());
+            } else if (type == AclEntryType.MASK) {
+              permission = entry.getPermission().and(
+                childCreationPerms.getGroupAction());
+            } else if (type == AclEntryType.OTHER) {
+              permission = entry.getPermission().and(
+                childCreationPerms.getOtherAction());
+            } else {
+              permission = entry.getPermission();
+            }
+            builder.setPermission(permission);
+            newAcl.add(builder.build());
+          }
+          AclStorage.updateINodeAcl(child, newAcl, Snapshot.CURRENT_STATE_ID);
+        }
+      } else if (child.isDirectory()) {
+        List<AclEntry> featureEntries = parent.getAclFeature().getEntries();
+        ScopedAclEntries scopedEntries = new ScopedAclEntries(featureEntries);
+        List<AclEntry> defaultEntries = scopedEntries.getDefaultEntries();
+        if (!defaultEntries.isEmpty()) {
+          FsPermission childCreationPerms = child.getFsPermission();
+          List<AclEntry> newAcl = Lists.newArrayList();
+          for (AclEntry entry: defaultEntries) {
+            AclEntryType type = entry.getType();
+            String name = entry.getName();
+            AclEntry.Builder builder = new AclEntry.Builder()
+              .setScope(AclEntryScope.ACCESS)
+              .setType(type)
+              .setName(name);
+            final FsAction permission;
+            if (type == AclEntryType.USER && name == null) {
+              permission = entry.getPermission().and(
+                childCreationPerms.getUserAction());
+            } else if (type == AclEntryType.MASK) {
+              permission = entry.getPermission().and(
+                childCreationPerms.getGroupAction());
+            } else if (type == AclEntryType.OTHER) {
+              permission = entry.getPermission().and(
+                childCreationPerms.getOtherAction());
+            } else {
+              permission = entry.getPermission();
+            }
+            builder.setPermission(permission);
+            newAcl.add(builder.build());
+          }
+          newAcl.addAll(defaultEntries);
+          AclStorage.updateINodeAcl(child, newAcl, Snapshot.CURRENT_STATE_ID);
+        }
+      }
+    }
+  }
 
   /**
    * Reads the existing extended ACL entries of an inode.  This method returns
