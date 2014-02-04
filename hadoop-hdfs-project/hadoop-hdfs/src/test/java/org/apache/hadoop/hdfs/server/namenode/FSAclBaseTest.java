@@ -946,12 +946,12 @@ public abstract class FSAclBaseTest {
   }
 
   @Test
-  public void testDefaultAclWithMode() throws Exception {
+  public void testDefaultAclNewFileWithMode() throws Exception {
     fail();
   }
 
   @Test
-  public void testDefaultAclWithUmask() throws Exception {
+  public void testDefaultAclNewDirWithMode() throws Exception {
     fail();
   }
 
