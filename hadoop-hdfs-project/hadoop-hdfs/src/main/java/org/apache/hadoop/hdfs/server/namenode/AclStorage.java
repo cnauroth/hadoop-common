@@ -98,10 +98,15 @@ final class AclStorage {
             .setName(name);
 
           // The child's initial permission bits are treated as the mode
-          // parameter, which can mask the copied permission values.
+          // parameter, which can filter the copied permission values.
           final FsAction permission;
           if (type == AclEntryType.USER && name == null) {
             permission = entry.getPermission().and(childPerm.getUserAction());
+          } else if (type == AclEntryType.GROUP && defaultEntries.size() == 3) {
+            // This only happens if the default ACL is a minimal ACL: exactly 3
+            // entries corresponding to owner, group and other.  In this case,
+            // filter the group permissions.
+            permission = entry.getPermission().and(childPerm.getGroupAction());
           } else if (type == AclEntryType.MASK) {
             permission = entry.getPermission().and(childPerm.getGroupAction());
           } else if (type == AclEntryType.OTHER) {
