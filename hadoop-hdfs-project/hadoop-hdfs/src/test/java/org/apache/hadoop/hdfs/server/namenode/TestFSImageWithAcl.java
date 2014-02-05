@@ -218,6 +218,13 @@ public class TestFSImageWithAcl {
       fs.getFileStatus(pathToCheck).getPermission());
   }
 
+  /**
+   * Restart the NameNode, optionally saving a new checkpoint.
+   *
+   * @param fs DistributedFileSystem used for saving namespace
+   * @param persistNamespace boolean true to save a new checkpoint
+   * @throws IOException if restart fails
+   */
   private void restart(DistributedFileSystem fs, boolean persistNamespace)
       throws IOException {
     if (persistNamespace) {

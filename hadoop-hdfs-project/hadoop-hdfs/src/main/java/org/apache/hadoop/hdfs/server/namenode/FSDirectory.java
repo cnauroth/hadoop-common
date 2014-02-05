@@ -1978,6 +1978,8 @@ public class FSDirectory implements Closeable {
           );
         }
         
+        // Do not pass ACL bit into child.  We'll turn on the ACL bit later if
+        // the child receives a copy of the parent's default ACL.
         if (parentFsPerm.getAclBit()) {
           parentFsPerm = new FsPermission(
             (short)(parentFsPerm.toShort() & 01777));
