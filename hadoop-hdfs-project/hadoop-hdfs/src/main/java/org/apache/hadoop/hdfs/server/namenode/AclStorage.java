@@ -359,7 +359,7 @@ final class AclStorage {
   }
 
   /**
-   * Creates the FsPermission for an inode that is receiving a minimal ACL,
+   * Creates the new FsPermission for an inode that is receiving a minimal ACL,
    * based on its access ACL entries.  For a correctly sorted ACL, the owner,
    * group and other permissions are in order.  Also preserve sticky bit and
    * toggle ACL bit off.
