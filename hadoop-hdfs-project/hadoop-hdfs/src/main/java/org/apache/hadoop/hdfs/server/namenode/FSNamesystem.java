@@ -2241,6 +2241,9 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
 
       // record file record in log, record new generation stamp
       getEditLog().logOpenFile(src, newNode, logRetryEntry);
+      if (newNode.getFsPermission().getAclBit()) {
+        getEditLog().logSetAcl(src, AclStorage.readINodeLogicalAcl(newNode));
+      }
       if (NameNode.stateChangeLog.isDebugEnabled()) {
         NameNode.stateChangeLog.debug("DIR* NameSystem.startFile: "
                                    +"add "+src+" to namespace for "+holder);

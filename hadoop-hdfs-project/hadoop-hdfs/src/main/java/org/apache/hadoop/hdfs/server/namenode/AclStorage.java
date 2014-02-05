@@ -60,18 +60,35 @@ import org.apache.hadoop.hdfs.server.namenode.snapshot.Snapshot;
 @InterfaceAudience.Private
 final class AclStorage {
 
+  /**
+   * If a default ACL is defined on a parent directory, then copies that default
+   * ACL to a newly created file or directory child.
+   *
+   * @param parent INodeDirectory parent directory containing new child
+   * @param child INode newly created child
+   * @throws AclException if the ACL is invalid for the given inode
+   * @throws QuotaExceededException if quota limit is exceeded
+   */
   public static void copyINodeDefaultAcl(INodeDirectory parent, INode child)
       throws AclException, QuotaExceededException {
+    // The default ACL is applicable to new child files and directories.
     if (parent.getFsPermission().getAclBit() &&
         (child.isFile() || child.isDirectory())) {
+      // Split parent's entries into access vs. default.
       List<AclEntry> featureEntries = parent.getAclFeature().getEntries();
       ScopedAclEntries scopedEntries = new ScopedAclEntries(featureEntries);
       List<AclEntry> defaultEntries = scopedEntries.getDefaultEntries();
+
       if (!defaultEntries.isEmpty()) {
         FsPermission childPerm = child.getFsPermission();
+
+        // Pre-allocate list size for entries to copy from parent, double for a
+        // directory, because it gets both an access ACL and a default ACL.
         List<AclEntry> newAcl = Lists.newArrayListWithCapacity(
           child.isDirectory() ? defaultEntries.size() * 2 :
           defaultEntries.size());
+
+        // Copy each default ACL entry from parent to new child's access ACL.
         for (AclEntry entry: defaultEntries) {
           AclEntryType type = entry.getType();
           String name = entry.getName();
@@ -79,6 +96,9 @@ final class AclStorage {
             .setScope(AclEntryScope.ACCESS)
             .setType(type)
             .setName(name);
+
+          // The child's initial permission bits are treated as the mode
+          // parameter, which can mask the copied permission values.
           final FsAction permission;
           if (type == AclEntryType.USER && name == null) {
             permission = entry.getPermission().and(childPerm.getUserAction());
@@ -89,12 +109,17 @@ final class AclStorage {
           } else {
             permission = entry.getPermission();
           }
+
           builder.setPermission(permission);
           newAcl.add(builder.build());
         }
+
+        // A new directory also receives a copy of the parent's default ACL.
         if (child.isDirectory()) {
           newAcl.addAll(defaultEntries);
         }
+
+        // Save the new ACL to the child.
         updateINodeAcl(child, newAcl, Snapshot.CURRENT_STATE_ID);
       }
     }

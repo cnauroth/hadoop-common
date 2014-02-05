@@ -2010,6 +2010,10 @@ public class FSDirectory implements Closeable {
 
         final String cur = pathbuilder.toString();
         fsImage.getEditLog().logMkDir(cur, inodes[i]);
+        if (inodes[i].getFsPermission().getAclBit()) {
+          fsImage.getEditLog().logSetAcl(cur,
+            AclStorage.readINodeLogicalAcl(inodes[i]));
+        }
         if(NameNode.stateChangeLog.isDebugEnabled()) {
           NameNode.stateChangeLog.debug(
               "DIR* FSDirectory.mkdirs: created directory " + cur);

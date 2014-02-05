@@ -389,7 +389,11 @@ public abstract class FSEditLogOp {
       FSImageSerialization.writeLong(atime, out);
       FSImageSerialization.writeLong(blockSize, out);
       new ArrayWritable(Block.class, blocks).write(out);
-      permissions.write(out);
+      if (this.opCode == OP_ADD) {
+        maskAclBit(permissions).write(out);
+      } else {
+        permissions.write(out);
+      }
 
       if (this.opCode == OP_ADD) {
         FSImageSerialization.writeString(clientName,out);
@@ -1265,7 +1269,7 @@ public abstract class FSEditLogOp {
       FSImageSerialization.writeString(path, out);
       FSImageSerialization.writeLong(timestamp, out); // mtime
       FSImageSerialization.writeLong(timestamp, out); // atime, unused at this
-      permissions.write(out);
+      maskAclBit(permissions).write(out);
     }
     
     @Override
@@ -3835,5 +3839,30 @@ public abstract class FSEditLogOp {
     if (v == null)
       throw new InvalidXmlException("Invalid value for FsAction");
     return v;
+  }
+
+  /**
+   * Returns the given PermissionStatus with the ACL bit toggled off.  If the
+   * ACL bit is already disabled, then this method is a no-op.  This is
+   * important for OP_ADD and OP_MKDIR for a new inode that automatically
+   * receives an ACL copied from the parent directory's default ACL.  This will
+   * cause an OP_ADD or OP_MKDIR immediately followed by OP_SET_ACL.  The
+   * initial OP_ADD or OP_MKDIR must not log with the ACL bit turned on.
+   * Instead, the ACL bit will be turned on while loading the subsequent
+   * OP_SET_ACL.
+   *
+   * @param permissions PermissionStatus to mask
+   * @return PermissionStatus with ACL bit toggled off
+   */
+  private static PermissionStatus maskAclBit(PermissionStatus permissions) {
+    FsPermission perm = permissions.getPermission();
+    if (perm.getAclBit()) {
+      return new PermissionStatus(
+        permissions.getUserName(),
+        permissions.getGroupName(),
+        new FsPermission((short)(perm.toShort() & 01777)));
+    } else {
+      return permissions;
+    }
   }
 }
