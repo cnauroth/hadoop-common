@@ -63,75 +63,82 @@ final class AclStorage {
    * If a default ACL is defined on a parent directory, then copies that default
    * ACL to a newly created child file or directory.
    *
-   * @param parent INodeDirectory parent directory containing new child
    * @param child INode newly created child
    */
-  public static void copyINodeDefaultAcl(INodeDirectory parent, INode child) {
-    // The default ACL is applicable to new child files and directories only.
-    if (parent.getFsPermission().getAclBit() &&
-        (child.isFile() || child.isDirectory())) {
-      // Split parent's entries into access vs. default.
-      List<AclEntry> featureEntries = parent.getAclFeature().getEntries();
-      ScopedAclEntries scopedEntries = new ScopedAclEntries(featureEntries);
-      List<AclEntry> parentDefaultEntries = scopedEntries.getDefaultEntries();
-
-      if (!parentDefaultEntries.isEmpty()) {
-        FsPermission childPerm = child.getFsPermission();
-
-        // Pre-allocate list size for access entries to copy from parent.
-        List<AclEntry> accessEntries = Lists.newArrayListWithCapacity(
-          parentDefaultEntries.size());
-
-        // Copy each default ACL entry from parent to new child's access ACL.
-        for (AclEntry entry: parentDefaultEntries) {
-          AclEntryType type = entry.getType();
-          String name = entry.getName();
-          AclEntry.Builder builder = new AclEntry.Builder()
-            .setScope(AclEntryScope.ACCESS)
-            .setType(type)
-            .setName(name);
-
-          // The child's initial permission bits are treated as the mode
-          // parameter, which can filter the copied permission values for owner,
-          // mask and other.
-          final FsAction permission;
-          if (type == AclEntryType.USER && name == null) {
-            permission = entry.getPermission().and(childPerm.getUserAction());
-          } else if (type == AclEntryType.GROUP &&
-              parentDefaultEntries.size() == 3) {
-            // This only happens if the default ACL is a minimal ACL: exactly 3
-            // entries corresponding to owner, group and other.  In this case,
-            // filter the group permissions.
-            permission = entry.getPermission().and(childPerm.getGroupAction());
-          } else if (type == AclEntryType.MASK) {
-            permission = entry.getPermission().and(childPerm.getGroupAction());
-          } else if (type == AclEntryType.OTHER) {
-            permission = entry.getPermission().and(childPerm.getOtherAction());
-          } else {
-            permission = entry.getPermission();
-          }
-
-          builder.setPermission(permission);
-          accessEntries.add(builder.build());
-        }
-
-        // A new directory also receives a copy of the parent's default ACL.
-        List<AclEntry> defaultEntries = child.isDirectory() ?
-          parentDefaultEntries : Collections.<AclEntry>emptyList();
-
-        final FsPermission newPerm;
-        if (accessEntries.size() > 3 || !defaultEntries.isEmpty()) {
-          // Save the new ACL to the child.
-          child.addAclFeature(createAclFeature(accessEntries, defaultEntries));
-          newPerm = createFsPermissionForExtendedAcl(accessEntries, childPerm);
-        } else {
-          // The child is receiving a minimal ACL.
-          newPerm = createFsPermissionForMinimalAcl(accessEntries, childPerm);
-        }
-
-        child.setPermission(newPerm);
-      }
+  public static void copyINodeDefaultAcl(INode child) {
+    INodeDirectory parent = child.getParent();
+    if (!parent.getFsPermission().getAclBit()) {
+      return;
     }
+
+    // The default ACL is applicable to new child files and directories only.
+    if (!child.isFile() && !child.isDirectory()) {
+      return;
+    }
+
+    // Split parent's entries into access vs. default.
+    List<AclEntry> featureEntries = parent.getAclFeature().getEntries();
+    ScopedAclEntries scopedEntries = new ScopedAclEntries(featureEntries);
+    List<AclEntry> parentDefaultEntries = scopedEntries.getDefaultEntries();
+
+    // The parent may have an access ACL but no default ACL.  If so, exit.
+    if (parentDefaultEntries.isEmpty()) {
+      return;
+    }
+
+    // Pre-allocate list size for access entries to copy from parent.
+    List<AclEntry> accessEntries = Lists.newArrayListWithCapacity(
+      parentDefaultEntries.size());
+
+    FsPermission childPerm = child.getFsPermission();
+
+    // Copy each default ACL entry from parent to new child's access ACL.
+    boolean parentDefaultIsMinimal = isMinimalAcl(parentDefaultEntries);
+    for (AclEntry entry: parentDefaultEntries) {
+      AclEntryType type = entry.getType();
+      String name = entry.getName();
+      AclEntry.Builder builder = new AclEntry.Builder()
+        .setScope(AclEntryScope.ACCESS)
+        .setType(type)
+        .setName(name);
+
+      // The child's initial permission bits are treated as the mode parameter,
+      // which can filter copied permission values for owner, mask and other.
+      final FsAction permission;
+      if (type == AclEntryType.USER && name == null) {
+        permission = entry.getPermission().and(childPerm.getUserAction());
+      } else if (type == AclEntryType.GROUP && parentDefaultIsMinimal) {
+        // This only happens if the default ACL is a minimal ACL: exactly 3
+        // entries corresponding to owner, group and other.  In this case,
+        // filter the group permissions.
+        permission = entry.getPermission().and(childPerm.getGroupAction());
+      } else if (type == AclEntryType.MASK) {
+        permission = entry.getPermission().and(childPerm.getGroupAction());
+      } else if (type == AclEntryType.OTHER) {
+        permission = entry.getPermission().and(childPerm.getOtherAction());
+      } else {
+        permission = entry.getPermission();
+      }
+
+      builder.setPermission(permission);
+      accessEntries.add(builder.build());
+    }
+
+    // A new directory also receives a copy of the parent's default ACL.
+    List<AclEntry> defaultEntries = child.isDirectory() ? parentDefaultEntries :
+      Collections.<AclEntry>emptyList();
+
+    final FsPermission newPerm;
+    if (!isMinimalAcl(accessEntries) || !defaultEntries.isEmpty()) {
+      // Save the new ACL to the child.
+      child.addAclFeature(createAclFeature(accessEntries, defaultEntries));
+      newPerm = createFsPermissionForExtendedAcl(accessEntries, childPerm);
+    } else {
+      // The child is receiving a minimal ACL.
+      newPerm = createFsPermissionForMinimalAcl(accessEntries, childPerm);
+    }
+
+    child.setPermission(newPerm);
   }
 
   /**
@@ -276,7 +283,7 @@ final class AclStorage {
     assert newAcl.size() >= 3;
     FsPermission perm = inode.getFsPermission();
     final FsPermission newPerm;
-    if (newAcl.size() > 3) {
+    if (!isMinimalAcl(newAcl)) {
       // This is an extended ACL.  Split entries into access vs. default.
       ScopedAclEntries scoped = new ScopedAclEntries(newAcl);
       List<AclEntry> accessEntries = scoped.getAccessEntries();
@@ -330,7 +337,7 @@ final class AclStorage {
     // For the access ACL, the feature only needs to hold the named user and
     // group entries.  For a correctly sorted ACL, these will be in a
     // predictable range.
-    if (accessEntries.size() > 3) {
+    if (!isMinimalAcl(accessEntries)) {
       featureEntries.addAll(
         accessEntries.subList(1, accessEntries.size() - 2));
     }
@@ -400,5 +407,16 @@ final class AclStorage {
         .setType(AclEntryType.OTHER)
         .setPermission(perm.getOtherAction())
         .build());
+  }
+
+  /**
+   * Checks if the given entries represent a minimal ACL (contains exactly 3
+   * entries).
+   *
+   * @param entries List<AclEntry> entries to check
+   * @return boolean true if the entries represent a minimal ACL
+   */
+  private static boolean isMinimalAcl(List<AclEntry> entries) {
+    return entries.size() == 3;
   }
 }
