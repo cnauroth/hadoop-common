@@ -65,10 +65,8 @@ final class AclStorage {
    *
    * @param parent INodeDirectory parent directory containing new child
    * @param child INode newly created child
-   * @throws QuotaExceededException if quota limit is exceeded
    */
-  public static void copyINodeDefaultAcl(INodeDirectory parent, INode child)
-      throws QuotaExceededException {
+  public static void copyINodeDefaultAcl(INodeDirectory parent, INode child) {
     // The default ACL is applicable to new child files and directories only.
     if (parent.getFsPermission().getAclBit() &&
         (child.isFile() || child.isDirectory())) {
