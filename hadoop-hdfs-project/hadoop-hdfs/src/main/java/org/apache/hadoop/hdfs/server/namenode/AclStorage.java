@@ -30,7 +30,6 @@ import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.protocol.AclException;
 import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
-import org.apache.hadoop.hdfs.server.namenode.snapshot.Snapshot;
 
 /**
  * AclStorage contains utility methods that define how ACL data is stored in the
@@ -62,7 +61,7 @@ final class AclStorage {
 
   /**
    * If a default ACL is defined on a parent directory, then copies that default
-   * ACL to a newly created file or directory child.
+   * ACL to a newly created child file or directory.
    *
    * @param parent INodeDirectory parent directory containing new child
    * @param child INode newly created child
@@ -70,7 +69,7 @@ final class AclStorage {
    */
   public static void copyINodeDefaultAcl(INodeDirectory parent, INode child)
       throws QuotaExceededException {
-    // The default ACL is applicable to new child files and directories.
+    // The default ACL is applicable to new child files and directories only.
     if (parent.getFsPermission().getAclBit() &&
         (child.isFile() || child.isDirectory())) {
       // Split parent's entries into access vs. default.
@@ -81,8 +80,7 @@ final class AclStorage {
       if (!parentDefaultEntries.isEmpty()) {
         FsPermission childPerm = child.getFsPermission();
 
-        // Pre-allocate list size for entries to copy from parent, double for a
-        // directory, because it gets both an access ACL and a default ACL.
+        // Pre-allocate list size for access entries to copy from parent.
         List<AclEntry> accessEntries = Lists.newArrayListWithCapacity(
           parentDefaultEntries.size());
 
@@ -96,7 +94,8 @@ final class AclStorage {
             .setName(name);
 
           // The child's initial permission bits are treated as the mode
-          // parameter, which can filter the copied permission values.
+          // parameter, which can filter the copied permission values for owner,
+          // mask and other.
           final FsAction permission;
           if (type == AclEntryType.USER && name == null) {
             permission = entry.getPermission().and(childPerm.getUserAction());
@@ -122,16 +121,17 @@ final class AclStorage {
         List<AclEntry> defaultEntries = child.isDirectory() ?
           parentDefaultEntries : Collections.<AclEntry>emptyList();
 
+        final FsPermission newPerm;
         if (accessEntries.size() > 3 || !defaultEntries.isEmpty()) {
           // Save the new ACL to the child.
           child.addAclFeature(createAclFeature(accessEntries, defaultEntries));
-          child.setPermission(createFsPermissionForExtendedAcl(accessEntries,
-            childPerm));
+          newPerm = createFsPermissionForExtendedAcl(accessEntries, childPerm);
         } else {
           // The child is receiving a minimal ACL.
-          child.setPermission(createFsPermissionForMinimalAcl(accessEntries,
-            childPerm));
+          newPerm = createFsPermissionForMinimalAcl(accessEntries, childPerm);
         }
+
+        child.setPermission(newPerm);
       }
     }
   }
@@ -290,23 +290,18 @@ final class AclStorage {
           "Invalid ACL: only directories may have a default ACL.");
       }
 
-      // Calculate new permission bits.  For a correctly sorted ACL, the first
-      // entry is the owner and the last 2 entries are the mask and other entries
-      // respectively.  Also preserve sticky bit and toggle ACL bit on.
-      newPerm = createFsPermissionForExtendedAcl(accessEntries, perm);
-
       // Attach entries to the feature.
       if (perm.getAclBit()) {
         inode.removeAclFeature(snapshotId);
       }
       inode.addAclFeature(createAclFeature(accessEntries, defaultEntries),
         snapshotId);
+      newPerm = createFsPermissionForExtendedAcl(accessEntries, perm);
     } else {
       // This is a minimal ACL.  Remove the ACL feature if it previously had one.
       if (perm.getAclBit()) {
         inode.removeAclFeature(snapshotId);
       }
-
       newPerm = createFsPermissionForMinimalAcl(newAcl, perm);
     }
 
@@ -319,6 +314,13 @@ final class AclStorage {
   private AclStorage() {
   }
 
+  /**
+   * Creates an AclFeature from the given ACL entries.
+   *
+   * @param accessEntries List<AclEntry> access ACL entries
+   * @param defaultEntries List<AclEntry> default ACL entries
+   * @return AclFeature containing the required ACL entries
+   */
   private static AclFeature createAclFeature(List<AclEntry> accessEntries,
       List<AclEntry> defaultEntries) {
     // Pre-allocate list size for the explicit entries stored in the feature,
@@ -337,25 +339,39 @@ final class AclStorage {
 
     // Add all default entries to the feature.
     featureEntries.addAll(defaultEntries);
-    return new AclFeature(featureEntries);
+    return new AclFeature(Collections.unmodifiableList(featureEntries));
   }
 
+  /**
+   * Creates the new FsPermission for an inode that is receiving an extended
+   * ACL, based on its access ACL entries.  For a correctly sorted ACL, the
+   * first entry is the owner and the last 2 entries are the mask and other
+   * entries respectively.  Also preserve sticky bit and toggle ACL bit on.
+   *
+   * @param accessEntries List<AclEntry> access ACL entries
+   * @param existingPerm FsPermission existing permissions
+   * @return FsPermission new permissions
+   */
   private static FsPermission createFsPermissionForExtendedAcl(
       List<AclEntry> accessEntries, FsPermission existingPerm) {
-    // Calculate new permission bits.  For a correctly sorted ACL, the first
-    // entry is the owner and the last 2 entries are the mask and other entries
-    // respectively.  Also preserve sticky bit and toggle ACL bit on.
     return new FsPermission(accessEntries.get(0).getPermission(),
       accessEntries.get(accessEntries.size() - 2).getPermission(),
       accessEntries.get(accessEntries.size() - 1).getPermission(),
       existingPerm.getStickyBit(), true);
   }
 
+  /**
+   * Creates the FsPermission for an inode that is receiving a minimal ACL,
+   * based on its access ACL entries.  For a correctly sorted ACL, the owner,
+   * group and other permissions are in order.  Also preserve sticky bit and
+   * toggle ACL bit off.
+   *
+   * @param accessEntries List<AclEntry> access ACL entries
+   * @param existingPerm FsPermission existing permissions
+   * @return FsPermission new permissions
+   */
   private static FsPermission createFsPermissionForMinimalAcl(
       List<AclEntry> accessEntries, FsPermission existingPerm) {
-    // Calculate new permission bits.  For a correctly sorted ACL, the owner,
-    // group and other permissions are in order.  Also preserve sticky bit and
-    // toggle ACL bit off.
     return new FsPermission(accessEntries.get(0).getPermission(),
       accessEntries.get(1).getPermission(),
       accessEntries.get(2).getPermission(),
