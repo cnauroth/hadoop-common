@@ -2227,8 +2227,8 @@ public class FSDirectory implements Closeable {
    *         otherwise return true;
    * @throw QuotaExceededException is thrown if it violates quota limit
    */
-  private boolean addChild(INodesInPath iip, int pos, INode child,
-      boolean checkQuota) throws QuotaExceededException {
+  private boolean addChild(INodesInPath iip, int pos,
+      INode child, boolean checkQuota) throws QuotaExceededException {
     final INode[] inodes = iip.getINodes();
     // Disallow creation of /.reserved. This may be created when loading
     // editlog/fsimage during upgrade since /.reserved was a valid name in older
