@@ -3864,7 +3864,7 @@ public abstract class FSEditLogOp {
   }
 
   private static void appendAclEntriesToXml(ContentHandler contentHandler,
-      List<AclEntry> aclEntries) {
+      List<AclEntry> aclEntries) throws SAXException {
     for (AclEntry e : aclEntries) {
       contentHandler.startElement("", "", "ENTRY", new AttributesImpl());
       XMLUtils.addSaxString(contentHandler, "SCOPE", e.getScope().name());
