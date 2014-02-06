@@ -309,7 +309,7 @@ public abstract class FSEditLogOp {
     long blockSize;
     Block[] blocks;
     PermissionStatus permissions;
-    List<AclEntry> aclEntries = Lists.newArrayList();
+    List<AclEntry> aclEntries;
     String clientName;
     String clientMachine;
     
@@ -560,7 +560,9 @@ public abstract class FSEditLogOp {
       }
       FSEditLogOp.permissionStatusToXml(contentHandler, permissions);
       if (this.opCode == OP_ADD) {
-        appendAclEntriesToXml(contentHandler, aclEntries);
+        if (permissions.getPermission().getAclBit()) {
+          appendAclEntriesToXml(contentHandler, aclEntries);
+        }
         appendRpcIdsToXml(contentHandler, rpcClientId, rpcCallId);
       }
     }
@@ -586,7 +588,10 @@ public abstract class FSEditLogOp {
         this.blocks = new Block[0];
       }
       this.permissions = permissionStatusFromXml(st);
-      readAclEntriesFromXml(aclEntries, st);
+      if (permissions.getPermission().getAclBit()) {
+        aclEntries = Lists.newArrayList();
+        readAclEntriesFromXml(aclEntries, st);
+      }
       readRpcIdsFromXml(st);
     }
   }
@@ -1253,7 +1258,7 @@ public abstract class FSEditLogOp {
     String path;
     long timestamp;
     PermissionStatus permissions;
-    List<AclEntry> aclEntries = Lists.newArrayList();
+    List<AclEntry> aclEntries;
 
     private MkdirOp() {
       super(OP_MKDIR);
@@ -1379,7 +1384,9 @@ public abstract class FSEditLogOp {
       XMLUtils.addSaxString(contentHandler, "TIMESTAMP",
           Long.valueOf(timestamp).toString());
       FSEditLogOp.permissionStatusToXml(contentHandler, permissions);
-      appendAclEntriesToXml(contentHandler, aclEntries);
+      if (permissions.getPermission().getAclBit()) {
+        appendAclEntriesToXml(contentHandler, aclEntries);
+      }
     }
     
     @Override void fromXml(Stanza st) throws InvalidXmlException {
@@ -1388,6 +1395,10 @@ public abstract class FSEditLogOp {
       this.path = st.getValue("PATH");
       this.timestamp = Long.valueOf(st.getValue("TIMESTAMP"));
       this.permissions = permissionStatusFromXml(st);
+      if (permissions.getPermission().getAclBit()) {
+        aclEntries = Lists.newArrayList();
+        readAclEntriesFromXml(aclEntries, st);
+      }
     }
   }
 
