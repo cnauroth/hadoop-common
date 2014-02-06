@@ -1402,6 +1402,8 @@ public abstract class FSEditLogOp {
       this.permissions = permissionStatusFromXml(st);
       if (permissions.getPermission().getAclBit()) {
         aclEntries = readAclEntriesFromXml(st);
+      } else {
+        aclEntries = null;
       }
     }
   }
