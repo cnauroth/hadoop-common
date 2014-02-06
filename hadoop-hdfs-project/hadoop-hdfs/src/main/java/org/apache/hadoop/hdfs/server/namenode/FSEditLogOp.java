@@ -468,6 +468,8 @@ public abstract class FSEditLogOp {
           aclEntries = PBHelper.convertAclEntry(
             AclFsImageProto.parseDelimitedFrom((DataInputStream)in)
             .getEntriesList());
+        } else {
+          aclEntries = null;
         }
 
         this.clientName = FSImageSerialization.readString(in);
@@ -589,8 +591,9 @@ public abstract class FSEditLogOp {
       }
       this.permissions = permissionStatusFromXml(st);
       if (permissions.getPermission().getAclBit()) {
-        aclEntries = Lists.newArrayList();
-        readAclEntriesFromXml(aclEntries, st);
+        aclEntries = readAclEntriesFromXml(st);
+      } else {
+        aclEntries = null;
       }
       readRpcIdsFromXml(st);
     }
@@ -1348,6 +1351,8 @@ public abstract class FSEditLogOp {
         aclEntries = PBHelper.convertAclEntry(
           AclFsImageProto.parseDelimitedFrom((DataInputStream)in)
           .getEntriesList());
+      } else {
+        aclEntries = null;
       }
     }
 
@@ -1396,8 +1401,7 @@ public abstract class FSEditLogOp {
       this.timestamp = Long.valueOf(st.getValue("TIMESTAMP"));
       this.permissions = permissionStatusFromXml(st);
       if (permissions.getPermission().getAclBit()) {
-        aclEntries = Lists.newArrayList();
-        readAclEntriesFromXml(aclEntries, st);
+        aclEntries = readAclEntriesFromXml(st);
       }
     }
   }
@@ -3448,7 +3452,7 @@ public abstract class FSEditLogOp {
     @Override
     void fromXml(Stanza st) throws InvalidXmlException {
       src = st.getValue("SRC");
-      readAclEntriesFromXml(aclEntries, st);
+      aclEntries = readAclEntriesFromXml(st);
     }
   }
 
@@ -3886,10 +3890,10 @@ public abstract class FSEditLogOp {
     }
   }
 
-  private static void readAclEntriesFromXml(List<AclEntry> aclEntries,
-      Stanza st) {
+  private static List<AclEntry> readAclEntriesFromXml(Stanza st) {
+    List<AclEntry> aclEntries = Lists.newArrayList();
     if (!st.hasChildren("ENTRY"))
-      return;
+      return aclEntries;
 
     List<Stanza> stanzas = st.getChildren("ENTRY");
     for (Stanza s : stanzas) {
@@ -3900,5 +3904,6 @@ public abstract class FSEditLogOp {
         .setPermission(fsActionFromXml(s)).build();
       aclEntries.add(e);
     }
+    return aclEntries;
   }
 }

@@ -696,11 +696,10 @@ public class FSEditLog implements LogsPurgeable {
       .setBlockSize(newNode.getPreferredBlockSize())
       .setBlocks(newNode.getBlocks())
       .setPermissionStatus(permissions)
+      .setAclEntries(permissions.getPermission().getAclBit() ?
+        AclStorage.readINodeLogicalAcl(newNode) : null)
       .setClientName(newNode.getFileUnderConstructionFeature().getClientName())
       .setClientMachine(newNode.getFileUnderConstructionFeature().getClientMachine());
-    if (permissions.getPermission().getAclBit()) {
-      op.setAclEntries(AclStorage.readINodeLogicalAcl(newNode));
-    }
     logRpcIds(op, toLogRpcIds);
     logEdit(op);
   }
@@ -750,10 +749,9 @@ public class FSEditLog implements LogsPurgeable {
       .setInodeId(newNode.getId())
       .setPath(path)
       .setTimestamp(newNode.getModificationTime())
-      .setPermissionStatus(permissions);
-    if (permissions.getPermission().getAclBit()) {
-      op.setAclEntries(AclStorage.readINodeLogicalAcl(newNode));
-    }
+      .setPermissionStatus(permissions)
+      .setAclEntries(permissions.getPermission().getAclBit() ?
+        AclStorage.readINodeLogicalAcl(newNode) : null);
     logEdit(op);
   }
   
