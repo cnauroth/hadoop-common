@@ -93,6 +93,7 @@ import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.protocol.LayoutVersion;
 import org.apache.hadoop.hdfs.protocol.LayoutVersion.Feature;
 import org.apache.hadoop.hdfs.protocol.proto.AclProtos.AclEditLogProto;
+import org.apache.hadoop.hdfs.protocol.proto.AclProtos.AclFsImageProto;
 import org.apache.hadoop.hdfs.protocolPB.PBHelper;
 import org.apache.hadoop.hdfs.security.token.delegation.DelegationTokenIdentifier;
 import org.apache.hadoop.hdfs.util.XMLUtils;
@@ -308,6 +309,7 @@ public abstract class FSEditLogOp {
     long blockSize;
     Block[] blocks;
     PermissionStatus permissions;
+    List<AclEntry> aclEntries = Lists.newArrayList();
     String clientName;
     String clientMachine;
     
@@ -370,6 +372,11 @@ public abstract class FSEditLogOp {
       return (T)this;
     }
 
+    <T extends AddCloseOp> T setAclEntries(List<AclEntry> aclEntries) {
+      this.aclEntries = aclEntries;
+      return (T)this;
+    }
+
     <T extends AddCloseOp> T setClientName(String clientName) {
       this.clientName = clientName;
       return (T)this;
@@ -389,13 +396,16 @@ public abstract class FSEditLogOp {
       FSImageSerialization.writeLong(atime, out);
       FSImageSerialization.writeLong(blockSize, out);
       new ArrayWritable(Block.class, blocks).write(out);
-      if (this.opCode == OP_ADD) {
-        maskAclBit(permissions).write(out);
-      } else {
-        permissions.write(out);
-      }
+      permissions.write(out);
 
       if (this.opCode == OP_ADD) {
+        if (permissions.getPermission().getAclBit()) {
+          AclFsImageProto.newBuilder()
+            .addAllEntries(PBHelper.convertAclEntryProto(aclEntries))
+            .build()
+            .writeDelimitedTo(out);
+        }
+
         FSImageSerialization.writeString(clientName,out);
         FSImageSerialization.writeString(clientMachine,out);
         // write clientId and callId
@@ -454,6 +464,12 @@ public abstract class FSEditLogOp {
 
       // clientname, clientMachine and block locations of last block.
       if (this.opCode == OP_ADD) {
+        if (permissions.getPermission().getAclBit()) {
+          aclEntries = PBHelper.convertAclEntry(
+            AclFsImageProto.parseDelimitedFrom((DataInputStream)in)
+            .getEntriesList());
+        }
+
         this.clientName = FSImageSerialization.readString(in);
         this.clientMachine = FSImageSerialization.readString(in);
         // read clientId and callId
@@ -505,6 +521,8 @@ public abstract class FSEditLogOp {
       builder.append(Arrays.toString(blocks));
       builder.append(", permissions=");
       builder.append(permissions);
+      builder.append(", aclEntries=");
+      builder.append(aclEntries);
       builder.append(", clientName=");
       builder.append(clientName);
       builder.append(", clientMachine=");
@@ -542,6 +560,7 @@ public abstract class FSEditLogOp {
       }
       FSEditLogOp.permissionStatusToXml(contentHandler, permissions);
       if (this.opCode == OP_ADD) {
+        appendAclEntriesToXml(contentHandler, aclEntries);
         appendRpcIdsToXml(contentHandler, rpcClientId, rpcCallId);
       }
     }
@@ -567,6 +586,7 @@ public abstract class FSEditLogOp {
         this.blocks = new Block[0];
       }
       this.permissions = permissionStatusFromXml(st);
+      readAclEntriesFromXml(aclEntries, st);
       readRpcIdsFromXml(st);
     }
   }
@@ -1233,6 +1253,7 @@ public abstract class FSEditLogOp {
     String path;
     long timestamp;
     PermissionStatus permissions;
+    List<AclEntry> aclEntries = Lists.newArrayList();
 
     private MkdirOp() {
       super(OP_MKDIR);
@@ -1262,6 +1283,11 @@ public abstract class FSEditLogOp {
       return this;
     }
 
+    MkdirOp setAclEntries(List<AclEntry> aclEntries) {
+      this.aclEntries = aclEntries;
+      return this;
+    }
+
     @Override
     public 
     void writeFields(DataOutputStream out) throws IOException {
@@ -1269,7 +1295,13 @@ public abstract class FSEditLogOp {
       FSImageSerialization.writeString(path, out);
       FSImageSerialization.writeLong(timestamp, out); // mtime
       FSImageSerialization.writeLong(timestamp, out); // atime, unused at this
-      maskAclBit(permissions).write(out);
+      permissions.write(out);
+      if (permissions.getPermission().getAclBit()) {
+        AclFsImageProto.newBuilder()
+          .addAllEntries(PBHelper.convertAclEntryProto(aclEntries))
+          .build()
+          .writeDelimitedTo(out);
+      }
     }
     
     @Override
@@ -1307,6 +1339,11 @@ public abstract class FSEditLogOp {
       }
 
       this.permissions = PermissionStatus.read(in);
+      if (permissions.getPermission().getAclBit()) {
+        aclEntries = PBHelper.convertAclEntry(
+          AclFsImageProto.parseDelimitedFrom((DataInputStream)in)
+          .getEntriesList());
+      }
     }
 
     @Override
@@ -1322,6 +1359,8 @@ public abstract class FSEditLogOp {
       builder.append(timestamp);
       builder.append(", permissions=");
       builder.append(permissions);
+      builder.append(", aclEntries=");
+      builder.append(aclEntries);
       builder.append(", opCode=");
       builder.append(opCode);
       builder.append(", txid=");
@@ -1340,6 +1379,7 @@ public abstract class FSEditLogOp {
       XMLUtils.addSaxString(contentHandler, "TIMESTAMP",
           Long.valueOf(timestamp).toString());
       FSEditLogOp.permissionStatusToXml(contentHandler, permissions);
+      appendAclEntriesToXml(contentHandler, aclEntries);
     }
     
     @Override void fromXml(Stanza st) throws InvalidXmlException {
@@ -3391,31 +3431,13 @@ public abstract class FSEditLogOp {
     @Override
     protected void toXml(ContentHandler contentHandler) throws SAXException {
       XMLUtils.addSaxString(contentHandler, "SRC", src);
-      for (AclEntry e : aclEntries) {
-        contentHandler.startElement("", "", "ENTRY", new AttributesImpl());
-        XMLUtils.addSaxString(contentHandler, "SCOPE", e.getScope().name());
-        XMLUtils.addSaxString(contentHandler, "TYPE", e.getType().name());
-        XMLUtils.addSaxString(contentHandler, "NAME", e.getName());
-        fsActionToXml(contentHandler, e.getPermission());
-        contentHandler.endElement("", "", "ENTRY");
-      }
+      appendAclEntriesToXml(contentHandler, aclEntries);
     }
 
     @Override
     void fromXml(Stanza st) throws InvalidXmlException {
       src = st.getValue("SRC");
-      if (!st.hasChildren("ENTRY"))
-        return;
-
-      List<Stanza> stanzas = st.getChildren("ENTRY");
-      for (Stanza s : stanzas) {
-        AclEntry e = new AclEntry.Builder()
-            .setScope(AclEntryScope.valueOf(s.getValue("SCOPE")))
-            .setType(AclEntryType.valueOf(s.getValue("TYPE")))
-            .setName(s.getValue("NAME"))
-            .setPermission(fsActionFromXml(s)).build();
-        aclEntries.add(e);
-      }
+      readAclEntriesFromXml(aclEntries, st);
     }
   }
 
@@ -3841,28 +3863,31 @@ public abstract class FSEditLogOp {
     return v;
   }
 
-  /**
-   * Returns the given PermissionStatus with the ACL bit toggled off.  If the
-   * ACL bit is already disabled, then this method is a no-op.  This is
-   * important for OP_ADD and OP_MKDIR for a new inode that automatically
-   * receives an ACL copied from the parent directory's default ACL.  This will
-   * cause an OP_ADD or OP_MKDIR immediately followed by OP_SET_ACL.  The
-   * initial OP_ADD or OP_MKDIR must not log with the ACL bit turned on.
-   * Instead, the ACL bit will be turned on while loading the subsequent
-   * OP_SET_ACL.
-   *
-   * @param permissions PermissionStatus to mask
-   * @return PermissionStatus with ACL bit toggled off
-   */
-  private static PermissionStatus maskAclBit(PermissionStatus permissions) {
-    FsPermission perm = permissions.getPermission();
-    if (perm.getAclBit()) {
-      return new PermissionStatus(
-        permissions.getUserName(),
-        permissions.getGroupName(),
-        new FsPermission((short)(perm.toShort() & 01777)));
-    } else {
-      return permissions;
+  private static void appendAclEntriesToXml(ContentHandler contentHandler,
+      List<AclEntry> aclEntries) {
+    for (AclEntry e : aclEntries) {
+      contentHandler.startElement("", "", "ENTRY", new AttributesImpl());
+      XMLUtils.addSaxString(contentHandler, "SCOPE", e.getScope().name());
+      XMLUtils.addSaxString(contentHandler, "TYPE", e.getType().name());
+      XMLUtils.addSaxString(contentHandler, "NAME", e.getName());
+      fsActionToXml(contentHandler, e.getPermission());
+      contentHandler.endElement("", "", "ENTRY");
+    }
+  }
+
+  private static void readAclEntriesFromXml(List<AclEntry> aclEntries,
+      Stanza st) {
+    if (!st.hasChildren("ENTRY"))
+      return;
+
+    List<Stanza> stanzas = st.getChildren("ENTRY");
+    for (Stanza s : stanzas) {
+      AclEntry e = new AclEntry.Builder()
+        .setScope(AclEntryScope.valueOf(s.getValue("SCOPE")))
+        .setType(AclEntryType.valueOf(s.getValue("TYPE")))
+        .setName(s.getValue("NAME"))
+        .setPermission(fsActionFromXml(s)).build();
+      aclEntries.add(e);
     }
   }
 }

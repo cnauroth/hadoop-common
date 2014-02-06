@@ -36,6 +36,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Options;
 import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.fs.permission.PermissionStatus;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.CacheDirectiveInfo;
 import org.apache.hadoop.hdfs.protocol.CachePoolInfo;
@@ -685,6 +686,7 @@ public class FSEditLog implements LogsPurgeable {
    */
   public void logOpenFile(String path, INodeFile newNode, boolean toLogRpcIds) {
     Preconditions.checkArgument(newNode.isUnderConstruction());
+    PermissionStatus permissions = newNode.getPermissionStatus();
     AddOp op = AddOp.getInstance(cache.get())
       .setInodeId(newNode.getId())
       .setPath(path)
@@ -693,9 +695,12 @@ public class FSEditLog implements LogsPurgeable {
       .setAccessTime(newNode.getAccessTime())
       .setBlockSize(newNode.getPreferredBlockSize())
       .setBlocks(newNode.getBlocks())
-      .setPermissionStatus(newNode.getPermissionStatus())
+      .setPermissionStatus(permissions)
       .setClientName(newNode.getFileUnderConstructionFeature().getClientName())
       .setClientMachine(newNode.getFileUnderConstructionFeature().getClientMachine());
+    if (permissions.getPermission().getAclBit()) {
+      op.setAclEntries(AclStorage.readINodeLogicalAcl(newNode));
+    }
     logRpcIds(op, toLogRpcIds);
     logEdit(op);
   }
@@ -740,11 +745,15 @@ public class FSEditLog implements LogsPurgeable {
    * Add create directory record to edit log
    */
   public void logMkDir(String path, INode newNode) {
+    PermissionStatus permissions = newNode.getPermissionStatus();
     MkdirOp op = MkdirOp.getInstance(cache.get())
       .setInodeId(newNode.getId())
       .setPath(path)
       .setTimestamp(newNode.getModificationTime())
-      .setPermissionStatus(newNode.getPermissionStatus());
+      .setPermissionStatus(permissions);
+    if (permissions.getPermission().getAclBit()) {
+      op.setAclEntries(AclStorage.readINodeLogicalAcl(newNode));
+    }
     logEdit(op);
   }
   
