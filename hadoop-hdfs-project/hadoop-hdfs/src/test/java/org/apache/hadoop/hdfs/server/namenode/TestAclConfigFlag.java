@@ -49,7 +49,6 @@ import com.google.common.collect.Lists;
  * applying edit log ops.
  */
 public class TestAclConfigFlag {
-
   private static final Path PATH = new Path("/path");
 
   private MiniDFSCluster cluster;
