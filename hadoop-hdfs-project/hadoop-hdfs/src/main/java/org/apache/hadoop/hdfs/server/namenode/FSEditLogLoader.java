@@ -293,6 +293,9 @@ public class FSEditLogLoader {
     switch (op.opCode) {
     case OP_ADD: {
       AddCloseOp addCloseOp = (AddCloseOp)op;
+      if (addCloseOp.aclEntries != null) {
+        fsNamesys.getAclConfigFlag().checkForEditLog();
+      }
       if (FSNamesystem.LOG.isDebugEnabled()) {
         FSNamesystem.LOG.debug(op.opCode + ": " + addCloseOp.path +
             " numblocks : " + addCloseOp.blocks.length +
@@ -466,6 +469,9 @@ public class FSEditLogLoader {
     }
     case OP_MKDIR: {
       MkdirOp mkdirOp = (MkdirOp)op;
+      if (mkdirOp.aclEntries != null) {
+        fsNamesys.getAclConfigFlag().checkForEditLog();
+      }
       inodeId = getAndUpdateLastInodeId(mkdirOp.inodeId, logVersion,
           lastInodeId);
       fsDir.unprotectedMkdir(inodeId, mkdirOp.path, mkdirOp.permissions,
