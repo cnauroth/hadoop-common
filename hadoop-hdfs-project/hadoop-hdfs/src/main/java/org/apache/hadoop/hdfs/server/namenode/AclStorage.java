@@ -113,6 +113,7 @@ final class AclStorage {
         // filter the group permissions.
         permission = entry.getPermission().and(childPerm.getGroupAction());
       } else if (type == AclEntryType.MASK) {
+        // Group bits from mode parameter filter permission of mask entry.
         permission = entry.getPermission().and(childPerm.getGroupAction());
       } else if (type == AclEntryType.OTHER) {
         permission = entry.getPermission().and(childPerm.getOtherAction());
