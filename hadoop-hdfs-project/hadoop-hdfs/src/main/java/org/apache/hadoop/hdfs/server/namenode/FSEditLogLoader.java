@@ -704,6 +704,7 @@ public class FSEditLogLoader {
       break;
     }
     case OP_SET_ACL: {
+      fsNamesys.getAclConfigFlag().checkForEditLog();
       SetAclOp setAclOp = (SetAclOp) op;
       fsDir.unprotectedSetAcl(setAclOp.src, setAclOp.aclEntries);
       break;
