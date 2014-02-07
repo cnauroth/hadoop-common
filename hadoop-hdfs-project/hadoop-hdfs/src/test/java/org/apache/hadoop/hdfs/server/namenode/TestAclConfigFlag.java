@@ -50,9 +50,10 @@ import com.google.common.collect.Lists;
  */
 public class TestAclConfigFlag {
 
+  private static final Path PATH = new Path("/path");
+
   private MiniDFSCluster cluster;
   private DistributedFileSystem fs;
-  private final Path path = new Path("/path");
 
   @Rule
   public ExpectedException exception = ExpectedException.none();
@@ -68,61 +69,61 @@ public class TestAclConfigFlag {
   @Test
   public void testModifyAclEntries() throws Exception {
     initCluster(true, false);
-    fs.mkdirs(path);
+    fs.mkdirs(PATH);
     expectException();
-    fs.modifyAclEntries(path, Lists.newArrayList(
+    fs.modifyAclEntries(PATH, Lists.newArrayList(
       aclEntry(DEFAULT, USER, "foo", READ_WRITE)));
   }
 
   @Test
   public void testRemoveAclEntries() throws Exception {
     initCluster(true, false);
-    fs.mkdirs(path);
+    fs.mkdirs(PATH);
     expectException();
-    fs.removeAclEntries(path, Lists.newArrayList(
+    fs.removeAclEntries(PATH, Lists.newArrayList(
       aclEntry(DEFAULT, USER, "foo", READ_WRITE)));
   }
 
   @Test
   public void testRemoveDefaultAcl() throws Exception {
     initCluster(true, false);
-    fs.mkdirs(path);
+    fs.mkdirs(PATH);
     expectException();
-    fs.removeAclEntries(path, Lists.newArrayList(
+    fs.removeAclEntries(PATH, Lists.newArrayList(
       aclEntry(DEFAULT, USER, "foo", READ_WRITE)));
   }
 
   @Test
   public void testRemoveAcl() throws Exception {
     initCluster(true, false);
-    fs.mkdirs(path);
+    fs.mkdirs(PATH);
     expectException();
-    fs.removeAcl(path);
+    fs.removeAcl(PATH);
   }
 
   @Test
   public void testSetAcl() throws Exception {
     initCluster(true, false);
-    fs.mkdirs(path);
+    fs.mkdirs(PATH);
     expectException();
-    fs.setAcl(path, Lists.newArrayList(
+    fs.setAcl(PATH, Lists.newArrayList(
       aclEntry(DEFAULT, USER, "foo", READ_WRITE)));
   }
 
   @Test
   public void testGetAclStatus() throws Exception {
     initCluster(true, false);
-    fs.mkdirs(path);
+    fs.mkdirs(PATH);
     expectException();
-    fs.getAclStatus(path);
+    fs.getAclStatus(PATH);
   }
 
   @Test
   public void testEditLog() throws Exception {
     // With ACLs enabled, set an ACL.
     initCluster(true, true);
-    fs.mkdirs(path);
-    fs.setAcl(path, Lists.newArrayList(
+    fs.mkdirs(PATH);
+    fs.setAcl(PATH, Lists.newArrayList(
       aclEntry(DEFAULT, USER, "foo", READ_WRITE)));
 
     // Attempt restart with ACLs disabled.
@@ -137,7 +138,7 @@ public class TestAclConfigFlag {
     // Recover by restarting with ACLs enabled, deleting the ACL, saving a new
     // checkpoint, and then restarting with ACLs disabled.
     restart(false, true);
-    fs.removeAcl(path);
+    fs.removeAcl(PATH);
     restart(true, false);
   }
 
@@ -145,8 +146,8 @@ public class TestAclConfigFlag {
   public void testFsImage() throws Exception {
     // With ACLs enabled, set an ACL.
     initCluster(true, true);
-    fs.mkdirs(path);
-    fs.setAcl(path, Lists.newArrayList(
+    fs.mkdirs(PATH);
+    fs.setAcl(PATH, Lists.newArrayList(
       aclEntry(DEFAULT, USER, "foo", READ_WRITE)));
 
     // Save a new checkpoint and restart with ACLs still enabled.
@@ -167,7 +168,7 @@ public class TestAclConfigFlag {
     // Recover by restarting with ACLs enabled, deleting the ACL, saving a new
     // checkpoint, and then restarting with ACLs disabled.
     restart(false, true);
-    fs.removeAcl(path);
+    fs.removeAcl(PATH);
     restart(true, false);
   }
 
