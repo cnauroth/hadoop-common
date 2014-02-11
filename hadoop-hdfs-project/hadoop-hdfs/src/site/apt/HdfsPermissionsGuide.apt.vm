@@ -368,11 +368,6 @@ HDFS Permissions Guide
 
      * <<<public AclStatus getAclStatus(Path path) throws IOException;>>>
 
-     * <<<public FileStatus getFileStatus(Path f) throws IOException;>>>
-
-       additionally sets a new bit, the ACL bit, in the permissions returned for
-       a file that also has an ACL.
-
 * ACLs Shell Commands
 
      * <<<hdfs dfs -getfacl [-R] <path> >>>
@@ -384,7 +379,7 @@ HDFS Permissions Guide
 
        Sets Access Control Lists (ACLs) of files and directories.
 
-       See the {{{../hadoop-common/FileSystemShell.html}File System Shell}
+       See the {{{../hadoop-common/FileSystemShell.html}File System Shell}}
        documentation for full coverage of these commands.
 
 * Configuration Parameters
