@@ -290,7 +290,9 @@ HDFS Permissions Guide
 
    Only directories may have a default ACL.  When a new file or sub-directory is
    created, it automatically copies the default ACL of its parent into its own
-   access ACL.  A new sub-directory also copies it to its own default ACL.
+   access ACL.  A new sub-directory also copies it to its own default ACL.  In
+   this way, the default ACL will be copied down through arbitrarily deep levels
+   of the file system tree as new sub-directories get created.
 
    The exact permission values in the new child's access ACL are subject to
    filtering by the mode parameter.  Considering the default umask of 022, this
@@ -320,18 +322,31 @@ HDFS Permissions Guide
    When considering a file that has an ACL, the algorithm for permission checks
    changes to:
 
-     * If the user name matches the owner of foo, then the owner
+     * If the user name matches the owner of file, then the owner
        permissions are tested;
 
      * Else if the user name matches the name in one of the named user entries,
-       then these permissions are tested;
+       then these permissions are tested, filtered by the mask permissions;
 
-     * Else if the group of foo matches any of member of the groups list,
-       then the group permissions are tested;
+     * Else if the group of file matches any member of the groups list,
+       and if these permissions, filtered by the mask, grant access, then these
+       permissions are used;
 
-     * Otherwise the other permissions of foo are tested.
+     * Else if there is a named group entry matching a member of the groups list,
+       and if these permissions, filtered by the mask, grant access, then these
+       permissions are used;
 
-* 
+     * Else if the file group or any named group entry matches a member of the
+       groups list, but access was not granted by any of those permissions, then
+       access is denied;
+
+     * Otherwise the other permissions of file are tested.
+
+   Best practice is to rely on traditional permission bits to implement most
+   permission requirements, and define a smaller number of ACLs to augment the
+   permission bits with a few exceptional rules.  A file with an ACL incurs an
+   additional cost in memory in the NameNode compared to a file that has only
+   permission bits.
 
 * ACLs File System API
 
@@ -360,7 +375,17 @@ HDFS Permissions Guide
 
 * ACLs Shell Commands
 
-* ACLs Best Practices
+     * <<<hdfs dfs -getfacl [-R] <path> >>>
+
+       Displays the Access Control Lists (ACLs) of files and directories. If a
+       directory has a default ACL, then getfacl also displays the default ACL.
+
+     * <<<hdfs dfs -setfacl [-R] [{-b|-k} {-m|-x <acl_spec>} <path>]|[--set <acl_spec> <path>] >>>
+
+       Sets Access Control Lists (ACLs) of files and directories.
+
+       See the {{{../hadoop-common/FileSystemShell.html}File System Shell}
+       documentation for full coverage of these commands.
 
 * Configuration Parameters
 
