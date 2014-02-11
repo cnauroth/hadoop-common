@@ -41,9 +41,8 @@ import com.google.common.collect.Lists;
 
 /**
  * Tests that the configuration flag that controls support for ACLs is off by
- * default and causes all attempted operations related to ACLs to fail.  This
- * includes the API calls, ACLs found while loading fsimage and ACLs found while
- * applying edit log ops.
+ * default and causes all attempted operations related to ACLs to fail.  The
+ * NameNode can still load ACLs from fsimage or edits.
  */
 public class TestAclConfigFlag {
   private static final Path PATH = new Path("/path");
