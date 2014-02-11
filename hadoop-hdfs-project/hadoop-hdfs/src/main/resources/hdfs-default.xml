@@ -351,7 +351,7 @@
   <description>
     Set to true to enable support for HDFS ACLs (Access Control Lists).  By
     default, ACLs are disabled.  When ACLs are disabled, the NameNode rejects
-    all attempts to set an ACL.
+    all RPCs related to setting or getting ACLs.
   </description>
 </property>
 
