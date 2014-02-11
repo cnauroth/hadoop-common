@@ -21,6 +21,7 @@ import static org.apache.hadoop.hdfs.server.namenode.AclTestHelpers.*;
 import static org.apache.hadoop.fs.permission.AclEntryScope.*;
 import static org.apache.hadoop.fs.permission.AclEntryType.*;
 import static org.apache.hadoop.fs.permission.FsAction.*;
+import static org.junit.Assert.*;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -28,9 +29,10 @@ import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.protocol.AclException;
+import org.apache.hadoop.hdfs.server.namenode.NameNode;
+import org.apache.hadoop.hdfs.server.namenode.NameNodeAdapter;
 import org.apache.hadoop.io.IOUtils;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -39,28 +41,21 @@ import com.google.common.collect.Lists;
 
 /**
  * Tests that the configuration flag that controls support for ACLs is off by
- * default and causes all attempted operations related to ACLs to fail.
+ * default and causes all attempted operations related to ACLs to fail.  This
+ * includes the API calls, ACLs found while loading fsimage and ACLs found while
+ * applying edit log ops.
  */
 public class TestAclConfigFlag {
   private static final Path PATH = new Path("/path");
 
-  private static MiniDFSCluster cluster;
-  private static DistributedFileSystem fs;
+  private MiniDFSCluster cluster;
+  private DistributedFileSystem fs;
 
   @Rule
   public ExpectedException exception = ExpectedException.none();
 
-  @BeforeClass
-  public static void init() throws Exception {
-    Configuration conf = new Configuration();
-    // not explicitly setting ACLs enabled to false, should be false by default
-    cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
-    cluster.waitActive();
-    fs = cluster.getFileSystem();
-  }
-
-  @AfterClass
-  public static void shutdown() throws Exception {
+  @After
+  public void shutdown() throws Exception {
     IOUtils.cleanup(null, fs);
     if (cluster != null) {
       cluster.shutdown();
@@ -69,6 +64,7 @@ public class TestAclConfigFlag {
 
   @Test
   public void testModifyAclEntries() throws Exception {
+    initCluster(true, false);
     fs.mkdirs(PATH);
     expectException();
     fs.modifyAclEntries(PATH, Lists.newArrayList(
@@ -77,6 +73,7 @@ public class TestAclConfigFlag {
 
   @Test
   public void testRemoveAclEntries() throws Exception {
+    initCluster(true, false);
     fs.mkdirs(PATH);
     expectException();
     fs.removeAclEntries(PATH, Lists.newArrayList(
@@ -85,6 +82,7 @@ public class TestAclConfigFlag {
 
   @Test
   public void testRemoveDefaultAcl() throws Exception {
+    initCluster(true, false);
     fs.mkdirs(PATH);
     expectException();
     fs.removeAclEntries(PATH, Lists.newArrayList(
@@ -93,6 +91,7 @@ public class TestAclConfigFlag {
 
   @Test
   public void testRemoveAcl() throws Exception {
+    initCluster(true, false);
     fs.mkdirs(PATH);
     expectException();
     fs.removeAcl(PATH);
@@ -100,6 +99,7 @@ public class TestAclConfigFlag {
 
   @Test
   public void testSetAcl() throws Exception {
+    initCluster(true, false);
     fs.mkdirs(PATH);
     expectException();
     fs.setAcl(PATH, Lists.newArrayList(
@@ -108,9 +108,37 @@ public class TestAclConfigFlag {
 
   @Test
   public void testGetAclStatus() throws Exception {
+    initCluster(true, false);
     fs.mkdirs(PATH);
     expectException();
     fs.getAclStatus(PATH);
+  }
+
+  @Test
+  public void testEditLog() throws Exception {
+    // With ACLs enabled, set an ACL.
+    initCluster(true, true);
+    fs.mkdirs(PATH);
+    fs.setAcl(PATH, Lists.newArrayList(
+      aclEntry(DEFAULT, USER, "foo", READ_WRITE)));
+
+    // Restart with ACLs disabled.  Expect successful restart.
+    restart(false, false);
+  }
+
+  @Test
+  public void testFsImage() throws Exception {
+    // With ACLs enabled, set an ACL.
+    initCluster(true, true);
+    fs.mkdirs(PATH);
+    fs.setAcl(PATH, Lists.newArrayList(
+      aclEntry(DEFAULT, USER, "foo", READ_WRITE)));
+
+    // Save a new checkpoint and restart with ACLs still enabled.
+    restart(true, true);
+
+    // Restart with ACLs disabled.  Expect successful restart.
+    restart(false, false);
   }
 
   /**
@@ -120,5 +148,43 @@ public class TestAclConfigFlag {
   private void expectException() {
     exception.expect(AclException.class);
     exception.expectMessage(DFSConfigKeys.DFS_NAMENODE_ACLS_ENABLED_KEY);
+  }
+
+  /**
+   * Initialize the cluster, wait for it to become active, and get FileSystem.
+   *
+   * @param format if true, format the NameNode and DataNodes before starting up
+   * @param aclsEnabled if true, ACL support is enabled
+   * @throws Exception if any step fails
+   */
+  private void initCluster(boolean format, boolean aclsEnabled)
+      throws Exception {
+    Configuration conf = new Configuration();
+    // not explicitly setting to false, should be false by default
+    if (aclsEnabled) {
+      conf.setBoolean(DFSConfigKeys.DFS_NAMENODE_ACLS_ENABLED_KEY, true);
+    }
+    cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).format(format)
+      .build();
+    cluster.waitActive();
+    fs = cluster.getFileSystem();
+  }
+
+  /**
+   * Restart the cluster, optionally saving a new checkpoint.
+   *
+   * @param checkpoint boolean true to save a new checkpoint
+   * @param aclsEnabled if true, ACL support is enabled
+   * @throws Exception if restart fails
+   */
+  private void restart(boolean checkpoint, boolean aclsEnabled)
+      throws Exception {
+    NameNode nameNode = cluster.getNameNode();
+    if (checkpoint) {
+      NameNodeAdapter.enterSafeMode(nameNode, false);
+      NameNodeAdapter.saveNamespace(nameNode);
+    }
+    shutdown();
+    initCluster(false, aclsEnabled);
   }
 }
