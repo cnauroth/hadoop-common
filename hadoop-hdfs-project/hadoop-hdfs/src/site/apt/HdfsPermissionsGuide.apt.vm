@@ -240,14 +240,14 @@ HDFS Permissions Guide
    user or group and grants or denies read, write and execute permissions for
    that specific user or group.  For example:
 
-   +--
++--
    user::rw-
    user:bruce:rwx                  #effective:r--
    group::r-x                      #effective:r--
    group:sales:rwx                 #effective:r--
    mask::r--
    other::r--
-   +--
++--
 
    ACL entries consist of a type, an optional name and a permission string.
    For display purposes, ':' is used as the delimiter between each field.  In
@@ -271,12 +271,12 @@ HDFS Permissions Guide
    constrains the permissions of all extended ACL entries instead of changing
    just the group entry and possibly missing other extended ACL entries.
 
-   The model also differentiates between an "access ACL" (which defines the
-   rules to enforce during permission checks) and a "default ACL" (which defines
+   The model also differentiates between an "access ACL", which defines the
+   rules to enforce during permission checks, and a "default ACL", which defines
    the ACL entries that new child files or sub-directories receive automatically
-   during creation).  For example:
+   during creation.  For example:
 
-   +--
++--
    user::rwx
    group::r-x
    other::r-x
@@ -286,7 +286,7 @@ HDFS Permissions Guide
    default:group:sales:rwx         #effective:r-x
    default:mask::r-x
    default:other::r-x
-   +--
++--
 
    Only directories may have a default ACL.  When a new file or sub-directory is
    created, it automatically copies the default ACL of its parent into its own
@@ -329,11 +329,11 @@ HDFS Permissions Guide
        then these permissions are tested, filtered by the mask permissions;
 
      * Else if the group of file matches any member of the groups list,
-       and if these permissions, filtered by the mask, grant access, then these
+       and if these permissions filtered by the mask grant access, then these
        permissions are used;
 
      * Else if there is a named group entry matching a member of the groups list,
-       and if these permissions, filtered by the mask, grant access, then these
+       and if these permissions filtered by the mask grant access, then these
        permissions are used;
 
      * Else if the file group or any named group entry matches a member of the
@@ -379,6 +379,11 @@ HDFS Permissions Guide
 
        Sets Access Control Lists (ACLs) of files and directories.
 
+     * <<<hdfs dfs -ls <args> >>>
+
+       The output of <<<ls>>> will append a '+' character to the permissions
+       string of any file or directory that has an ACL.
+
        See the {{{../hadoop-common/FileSystemShell.html}File System Shell}}
        documentation for full coverage of these commands.
 
@@ -423,8 +428,4 @@ HDFS Permissions Guide
 
        Set to true to enable support for HDFS ACLs (Access Control Lists).  By
        default, ACLs are disabled.  When ACLs are disabled, the NameNode rejects
-       all attempts to set an ACL.  An fsimage containing an ACL will cause the
-       NameNode to abort during startup, and ACLs present in the edit log will
-       cause the NameNode to abort.  To transition from ACLs enabled to ACLs
-       disabled, restart the NameNode with ACLs enabled, remove all ACLs, save a
-       new checkpoint, and then restart the NameNode with ACLs disabled.
+       all attempts to set an ACL.
