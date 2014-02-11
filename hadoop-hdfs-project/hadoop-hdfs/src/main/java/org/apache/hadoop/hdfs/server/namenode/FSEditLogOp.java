@@ -399,11 +399,12 @@ public abstract class FSEditLogOp {
       permissions.write(out);
 
       if (this.opCode == OP_ADD) {
-        if (permissions.getPermission().getAclBit()) {
+        boolean hasAcl = aclEntries != null;
+        out.writeBoolean(hasAcl);
+        if (hasAcl) {
           AclFeatureProto.newBuilder()
-            .addAllEntries(PBHelper.convertAclEntryProto(aclEntries))
-            .build()
-            .writeDelimitedTo(out);
+              .addAllEntries(PBHelper.convertAclEntryProto(aclEntries)).build()
+              .writeDelimitedTo(out);
         }
 
         FSImageSerialization.writeString(clientName,out);
@@ -464,7 +465,8 @@ public abstract class FSEditLogOp {
 
       // clientname, clientMachine and block locations of last block.
       if (this.opCode == OP_ADD) {
-        if (permissions.getPermission().getAclBit()) {
+        boolean hasAcl = in.readBoolean();
+        if (hasAcl) {
           aclEntries = PBHelper.convertAclEntry(
             AclFeatureProto.parseDelimitedFrom((DataInputStream)in)
             .getEntriesList());
@@ -562,7 +564,7 @@ public abstract class FSEditLogOp {
       }
       FSEditLogOp.permissionStatusToXml(contentHandler, permissions);
       if (this.opCode == OP_ADD) {
-        if (permissions.getPermission().getAclBit()) {
+        if (aclEntries != null) {
           appendAclEntriesToXml(contentHandler, aclEntries);
         }
         appendRpcIdsToXml(contentHandler, rpcClientId, rpcCallId);
@@ -590,11 +592,7 @@ public abstract class FSEditLogOp {
         this.blocks = new Block[0];
       }
       this.permissions = permissionStatusFromXml(st);
-      if (permissions.getPermission().getAclBit()) {
-        aclEntries = readAclEntriesFromXml(st);
-      } else {
-        aclEntries = null;
-      }
+      aclEntries = readAclEntriesFromXml(st);
       readRpcIdsFromXml(st);
     }
   }
@@ -1304,11 +1302,13 @@ public abstract class FSEditLogOp {
       FSImageSerialization.writeLong(timestamp, out); // mtime
       FSImageSerialization.writeLong(timestamp, out); // atime, unused at this
       permissions.write(out);
-      if (permissions.getPermission().getAclBit()) {
+
+      boolean hasAcl = aclEntries != null;
+      out.writeBoolean(hasAcl);
+      if (hasAcl) {
         AclFeatureProto.newBuilder()
-          .addAllEntries(PBHelper.convertAclEntryProto(aclEntries))
-          .build()
-          .writeDelimitedTo(out);
+            .addAllEntries(PBHelper.convertAclEntryProto(aclEntries)).build()
+            .writeDelimitedTo(out);
       }
     }
     
@@ -1347,10 +1347,10 @@ public abstract class FSEditLogOp {
       }
 
       this.permissions = PermissionStatus.read(in);
-      if (permissions.getPermission().getAclBit()) {
-        aclEntries = PBHelper.convertAclEntry(
-          AclFeatureProto.parseDelimitedFrom((DataInputStream)in)
-          .getEntriesList());
+      boolean hasAcl = in.readBoolean();
+      if (hasAcl) {
+        aclEntries = PBHelper.convertAclEntry(AclFeatureProto
+            .parseDelimitedFrom((DataInputStream) in).getEntriesList());
       } else {
         aclEntries = null;
       }
@@ -1389,7 +1389,7 @@ public abstract class FSEditLogOp {
       XMLUtils.addSaxString(contentHandler, "TIMESTAMP",
           Long.valueOf(timestamp).toString());
       FSEditLogOp.permissionStatusToXml(contentHandler, permissions);
-      if (permissions.getPermission().getAclBit()) {
+      if (aclEntries != null) {
         appendAclEntriesToXml(contentHandler, aclEntries);
       }
     }
@@ -1400,11 +1400,7 @@ public abstract class FSEditLogOp {
       this.path = st.getValue("PATH");
       this.timestamp = Long.valueOf(st.getValue("TIMESTAMP"));
       this.permissions = permissionStatusFromXml(st);
-      if (permissions.getPermission().getAclBit()) {
-        aclEntries = readAclEntriesFromXml(st);
-      } else {
-        aclEntries = null;
-      }
+      aclEntries = readAclEntriesFromXml(st);
     }
   }
 
@@ -3895,7 +3891,7 @@ public abstract class FSEditLogOp {
   private static List<AclEntry> readAclEntriesFromXml(Stanza st) {
     List<AclEntry> aclEntries = Lists.newArrayList();
     if (!st.hasChildren("ENTRY"))
-      return aclEntries;
+      return null;
 
     List<Stanza> stanzas = st.getChildren("ENTRY");
     for (Stanza s : stanzas) {
