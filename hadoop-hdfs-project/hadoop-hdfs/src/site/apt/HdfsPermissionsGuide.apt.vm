@@ -317,11 +317,14 @@ HDFS Permissions Guide
    is unspecified, then a mask is inserted automatically by calculating the
    union of permissions on all entries that would be filtered by the mask.
 
-   When considering a file that has an ACL, the algorith for permission checks
+   When considering a file that has an ACL, the algorithm for permission checks
    changes to:
 
      * If the user name matches the owner of foo, then the owner
        permissions are tested;
+
+     * Else if the user name matches the name in one of the named user entries,
+       then these permissions are tested;
 
      * Else if the group of foo matches any of member of the groups list,
        then the group permissions are tested;
