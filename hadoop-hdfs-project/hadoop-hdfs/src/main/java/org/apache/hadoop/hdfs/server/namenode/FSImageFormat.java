@@ -51,9 +51,6 @@ import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.protocol.LayoutFlags;
 import org.apache.hadoop.hdfs.protocol.LayoutVersion;
 import org.apache.hadoop.hdfs.protocol.LayoutVersion.Feature;
-import org.apache.hadoop.hdfs.protocol.proto.AclProtos.AclFsImageProto;
-import org.apache.hadoop.hdfs.protocolPB.PBHelper;
-import org.apache.hadoop.hdfs.protocol.LayoutFlags;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoUnderConstruction;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockManager;
@@ -71,12 +68,13 @@ import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgress.Co
 import org.apache.hadoop.hdfs.server.namenode.startupprogress.Step;
 import org.apache.hadoop.hdfs.server.namenode.startupprogress.StepType;
 import org.apache.hadoop.hdfs.util.ReadOnlyList;
+import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.util.StringUtils;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.annotations.VisibleForTesting;
 
 /**
  * Contains inner classes for reading or writing the on-disk format for
@@ -113,7 +111,6 @@ import com.google.common.base.Preconditions;
  *   } when {@link Feature#FSIMAGE_NAME_OPTIMIZATION} is not supported
  *   replicationFactor: short, modificationTime: long,
  *   accessTime: long, preferredBlockSize: long,
- *
  *   numberOfBlocks: int (-1 for INodeDirectory, -2 for INodeSymLink),
  *   { 
  *     nsQuota: long, dsQuota: long, 
@@ -121,11 +118,7 @@ import com.google.common.base.Preconditions;
  *       isINodeSnapshottable: byte,
  *       isINodeWithSnapshot: byte (if isINodeSnapshottable is false)
  *     } (when {@link Feature#SNAPSHOT} is supported), 
- *     fsPermission: short, PermissionStatus,
- *     AclEntries {
- *       size: int,
- *       protobuf encoding of {@link AclFsImageProto}
- *     }(when {@link Feature#EXTENDED_ACL} is supported),
+ *     fsPermission: short, PermissionStatus
  *   } for INodeDirectory
  *   or 
  *   {
@@ -140,12 +133,9 @@ import com.google.common.base.Preconditions;
  *       {clientName: short + byte[], clientMachine: short + byte[]} (when 
  *       isINodeFileUnderConstructionSnapshot is true),
  *     } (when {@link Feature#SNAPSHOT} is supported and writing snapshotINode), 
- *     fsPermission: short, PermissionStatus,
- *     AclEntries {
- *       size: int,
- *       protobuf encoding of {@link AclFsImageProto}
- *     }(when {@link Feature#EXTENDED_ACL} is supported),
- *   } for INodeFile,
+ *     fsPermission: short, PermissionStatus
+ *   } for INodeFile
+ * }
  * 
  * INodeDirectoryInfo {
  *   fullPath of the directory: short + byte[],
@@ -191,16 +181,74 @@ import com.google.common.base.Preconditions;
 @InterfaceStability.Evolving
 public class FSImageFormat {
   private static final Log LOG = FSImage.LOG;
-  
+
   // Static-only class
   private FSImageFormat() {}
-  
+
+  interface AbstractLoader {
+    MD5Hash getLoadedImageMd5();
+    long getLoadedImageTxId();
+  }
+
+  static class LoaderDelegator implements AbstractLoader {
+    private AbstractLoader impl;
+    private final Configuration conf;
+    private final FSNamesystem fsn;
+
+    LoaderDelegator(Configuration conf, FSNamesystem fsn) {
+      this.conf = conf;
+      this.fsn = fsn;
+    }
+
+    @Override
+    public MD5Hash getLoadedImageMd5() {
+      return impl.getLoadedImageMd5();
+    }
+
+    @Override
+    public long getLoadedImageTxId() {
+      return impl.getLoadedImageTxId();
+    }
+
+    public void load(File file) throws IOException {
+      Preconditions.checkState(impl == null, "Image already loaded!");
+
+      FileInputStream is = null;
+      try {
+        is = new FileInputStream(file);
+        byte[] magic = new byte[FSImageUtil.MAGIC_HEADER.length];
+        IOUtils.readFully(is, magic, 0, magic.length);
+        if (Arrays.equals(magic, FSImageUtil.MAGIC_HEADER)) {
+          FSImageFormatProtobuf.Loader loader = new FSImageFormatProtobuf.Loader(
+              conf, fsn);
+          impl = loader;
+          loader.load(file);
+        } else {
+          Loader loader = new Loader(conf, fsn);
+          impl = loader;
+          loader.load(file);
+        }
+
+      } finally {
+        IOUtils.cleanup(LOG, is);
+      }
+    }
+  }
+
+  /**
+   * Construct a loader class to load the image. It chooses the loader based on
+   * the layout version.
+   */
+  public static LoaderDelegator newLoader(Configuration conf, FSNamesystem fsn) {
+    return new LoaderDelegator(conf, fsn);
+  }
+
   /**
    * A one-shot class responsible for loading an image. The load() function
    * should be called once, after which the getter methods may be used to retrieve
    * information about the image that was loaded, if loading was successful.
    */
-  public static class Loader {
+  public static class Loader implements AbstractLoader {
     private final Configuration conf;
     /** which namesystem this loader is working for */
     private final FSNamesystem namesystem;
@@ -225,12 +273,14 @@ public class FSImageFormat {
      * Return the MD5 checksum of the image that has been loaded.
      * @throws IllegalStateException if load() has not yet been called.
      */
-    MD5Hash getLoadedImageMd5() {
+    @Override
+    public MD5Hash getLoadedImageMd5() {
       checkLoaded();
       return imgDigest;
     }
 
-    long getLoadedImageTxId() {
+    @Override
+    public long getLoadedImageTxId() {
       checkLoaded();
       return imgTxId;
     }
@@ -253,7 +303,7 @@ public class FSImageFormat {
       }
     }
 
-    void load(File curFile) throws IOException {
+    public void load(File curFile) throws IOException {
       checkNotLoaded();
       assert curFile != null : "curFile is null";
 
@@ -722,18 +772,9 @@ public class FSImageFormat {
       if (underConstruction) {
         file.toUnderConstruction(clientName, clientMachine, null);
       }
-
-      if (permissions.getPermission().getAclBit()) {
-        AclFeature aclFeature = loadAclFeature(in, imgVersion);
-        if (aclFeature != null) {
-          file.addAclFeature(aclFeature);
-        }
-      }
-
-      return fileDiffs == null ? file : new INodeFile(file, fileDiffs);
-
-    } else if (numBlocks == -1) {
-      //directory
+        return fileDiffs == null ? file : new INodeFile(file, fileDiffs);
+      } else if (numBlocks == -1) {
+        //directory
       
       //read quotas
       final long nsQuota = in.readLong();
@@ -763,14 +804,6 @@ public class FSImageFormat {
       if (nsQuota >= 0 || dsQuota >= 0) {
         dir.addDirectoryWithQuotaFeature(nsQuota, dsQuota);
       }
-
-      if (permissions.getPermission().getAclBit()) {
-        AclFeature aclFeature = loadAclFeature(in, imgVersion);
-        if (aclFeature != null) {
-          dir.addAclFeature(aclFeature);
-        }
-      }
-
       if (withSnapshot) {
         dir.addSnapshotFeature(null);
       }
@@ -811,19 +844,6 @@ public class FSImageFormat {
     throw new IOException("Unknown inode type: numBlocks=" + numBlocks);
   }
 
-    private AclFeature loadAclFeature(DataInput in, final int imgVersion)
-        throws IOException {
-      namesystem.getAclConfigFlag().checkForFsImage();
-      AclFeature aclFeature = null;
-      if (LayoutVersion.supports(Feature.EXTENDED_ACL, imgVersion)) {
-        AclFsImageProto p = AclFsImageProto
-            .parseDelimitedFrom((DataInputStream) in);
-        aclFeature = new AclFeature(PBHelper.convertAclEntry(
-            p.getEntriesList()));
-      }
-      return aclFeature;
-    }
-
     /** Load {@link INodeFileAttributes}. */
     public INodeFileAttributes loadINodeFileAttributes(DataInput in)
         throws IOException {
@@ -841,10 +861,9 @@ public class FSImageFormat {
       final short replication = namesystem.getBlockManager().adjustReplication(
           in.readShort());
       final long preferredBlockSize = in.readLong();
-      AclFeature aclFeature = permissions.getPermission().getAclBit() ?
-          loadAclFeature(in, layoutVersion) : null;
-      return new INodeFileAttributes.SnapshotCopy(name, permissions, aclFeature,
-          modificationTime, accessTime, replication, preferredBlockSize);
+
+      return new INodeFileAttributes.SnapshotCopy(name, permissions, null, modificationTime,
+          accessTime, replication, preferredBlockSize);
     }
 
     public INodeDirectoryAttributes loadINodeDirectoryAttributes(DataInput in)
@@ -862,14 +881,11 @@ public class FSImageFormat {
       //read quotas
       final long nsQuota = in.readLong();
       final long dsQuota = in.readLong();
-      AclFeature aclFeature = permissions.getPermission().getAclBit() ?
-          loadAclFeature(in, layoutVersion) : null;
   
       return nsQuota == -1L && dsQuota == -1L?
-          new INodeDirectoryAttributes.SnapshotCopy(name, permissions,
-            aclFeature, modificationTime)
+          new INodeDirectoryAttributes.SnapshotCopy(name, permissions, null, modificationTime)
         : new INodeDirectoryAttributes.CopyWithQuota(name, permissions,
-            aclFeature, modificationTime, nsQuota, dsQuota);
+            null, modificationTime, nsQuota, dsQuota);
     }
   
     private void loadFilesUnderConstruction(DataInput in,
