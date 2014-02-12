@@ -1088,6 +1088,6 @@ public abstract class FSAclBaseTest {
    */
   private static void assertPermission(Path pathToCheck, short perm)
       throws IOException {
-    assertEquals(perm, fs.getFileStatus(pathToCheck).getPermission().toShort());
+    AclTestHelpers.assertPermission(fs, pathToCheck, perm);
   }
 }

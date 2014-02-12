@@ -207,20 +207,6 @@ public class TestFSImageWithAcl {
   }
 
   /**
-   * Asserts the value of the FsPermission bits on the inode of a specific path.
-   *
-   * @param fs DistributedFileSystem to use for check
-   * @param pathToCheck Path inode to check
-   * @param perm short expected permission bits
-   * @throws IOException thrown if there is an I/O error
-   */
-  private static void assertPermission(DistributedFileSystem fs,
-      Path pathToCheck, short perm) throws IOException {
-    Assert.assertEquals(perm, fs.getFileStatus(pathToCheck).getPermission()
-      .toShort());
-  }
-
-  /**
    * Restart the NameNode, optionally saving a new checkpoint.
    *
    * @param fs DistributedFileSystem used for saving namespace

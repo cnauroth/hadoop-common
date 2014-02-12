@@ -38,6 +38,7 @@ import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.protocol.NSQuotaExceededException;
 import org.apache.hadoop.hdfs.protocol.SnapshotAccessControlException;
+import org.apache.hadoop.hdfs.server.namenode.AclTestHelpers;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.server.namenode.NameNodeAdapter;
 import org.apache.hadoop.io.IOUtils;
@@ -740,8 +741,7 @@ public class TestAclWithSnapshot {
    */
   private static void assertPermission(short perm, Path pathToCheck)
       throws Exception {
-    assertEquals(FsPermission.createImmutable(perm),
-      hdfs.getFileStatus(pathToCheck).getPermission());
+    AclTestHelpers.assertPermission(hdfs, pathToCheck, perm);
   }
 
   /**
