@@ -38,6 +38,7 @@ import org.apache.hadoop.fs.permission.AclEntryType;
 import org.apache.hadoop.fs.permission.AclStatus;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.ipc.RemoteException;
 import org.apache.hadoop.ipc.RpcNoSuchMethodException;
 import org.apache.hadoop.util.Progressable;
 import org.apache.hadoop.util.ToolRunner;
@@ -178,7 +179,8 @@ public class TestAclCommands {
 
     public AclStatus getAclStatus(Path path) throws IOException {
       if (getConf().getBoolean("stubfs.noRpcForGetAclStatus", false)) {
-        throw new RpcNoSuchMethodException("test exception");
+        throw new RemoteException(RpcNoSuchMethodException.class.getName(),
+          "test exception");
       }
       return super.getAclStatus(path);
     }

@@ -31,6 +31,7 @@ import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.ipc.RemoteException;
 import org.apache.hadoop.ipc.RpcNoSuchMethodException;
 
 import com.google.common.collect.Sets;
@@ -176,9 +177,13 @@ class Ls extends FsCommand {
     }
     try {
       return !fs.getAclStatus(item.path).getEntries().isEmpty();
-    } catch (RpcNoSuchMethodException e) {
-      // The client is connected to an older NameNode that doesn't support ACLs.
-      // Keep going.
+    } catch (RemoteException e) {
+      // If this is a RpcNoSuchMethodException, then the client is connected to
+      // an older NameNode that doesn't support ACLs.  Keep going.
+      IOException e2 = e.unwrapRemoteException(RpcNoSuchMethodException.class);
+      if (!(e2 instanceof RpcNoSuchMethodException)) {
+        throw e;
+      }
     } catch (IOException e) {
       // The NameNode supports ACLs, but they are not enabled.  Keep going.
       String message = e.getMessage();
