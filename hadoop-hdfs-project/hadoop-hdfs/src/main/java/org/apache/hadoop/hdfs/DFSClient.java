@@ -162,7 +162,6 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.retry.LossyRetryInvocationHandler;
 import org.apache.hadoop.ipc.Client;
 import org.apache.hadoop.ipc.RPC;
-import org.apache.hadoop.ipc.RpcNoSuchMethodException;
 import org.apache.hadoop.ipc.RemoteException;
 import org.apache.hadoop.net.DNS;
 import org.apache.hadoop.net.NetUtils;
@@ -2734,7 +2733,6 @@ public class DFSClient implements java.io.Closeable {
       throw re.unwrapRemoteException(AccessControlException.class,
                                      AclException.class,
                                      FileNotFoundException.class,
-                                     RpcNoSuchMethodException.class,
                                      UnresolvedPathException.class);
     }
   }
