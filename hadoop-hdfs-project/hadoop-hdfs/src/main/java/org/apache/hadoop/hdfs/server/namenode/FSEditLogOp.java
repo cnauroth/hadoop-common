@@ -322,7 +322,8 @@ public abstract class FSEditLogOp {
         return null;
       }
 
-      List<AclEntry> aclEntries = Lists.newArrayListWithCapacity(size);
+      List<AclEntry> aclEntries = Lists.newArrayListWithCapacity(
+        Math.min(AclTransformation.MAX_ENTRIES, size));
       for (int i = 0; i < size; ++i) {
         int v = in.read();
         int p = v & ACL_EDITLOG_PERM_MASK;

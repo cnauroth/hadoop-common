@@ -61,7 +61,14 @@ import org.apache.hadoop.hdfs.protocol.AclException;
  */
 @InterfaceAudience.Private
 final class AclTransformation {
-  private static final int MAX_ENTRIES = 32;
+
+  /**
+   * The maximum supported number of ACL entries.  Maintenance note: we can
+   * consider increasing this number in future releases, but we can never
+   * decrease it, or we'd risk breaking backwards-compatibility with existing
+   * deployments that already have files with this many ACL entries.
+   */
+  static final int MAX_ENTRIES = 32;
 
   /**
    * Filters (discards) any existing ACL entries that have the same scope, type
