@@ -124,6 +124,8 @@ Trunk (Unreleased)
     HADOOP-10342. Add a new method to UGI to use a Kerberos login subject to
     build a new UGI. (Larry McCay via omalley)
 
+    HADOOP-9968. Makes ProxyUsers to work with NetGroups (Benoy Antony via ddas)
+
   BUG FIXES
 
     HADOOP-9451. Fault single-layer config if node group topology is enabled.
@@ -405,6 +407,9 @@ Release 2.4.0 - UNRELEASED
     (Haohui Mai via cnauroth)
 
     HADOOP-10355. Fix TestLoadGenerator#testLoadGenerator. (Haohui Mai via jing9)
+
+    HADOOP-10070. RPC client doesn't use per-connection conf to determine
+    server's expected Kerberos principal name. (atm)
 
 Release 2.3.1 - UNRELEASED
 
