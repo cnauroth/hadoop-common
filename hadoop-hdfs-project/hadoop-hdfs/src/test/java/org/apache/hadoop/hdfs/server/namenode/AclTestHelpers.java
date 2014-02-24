@@ -27,6 +27,7 @@ import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.AclEntryScope;
 import org.apache.hadoop.fs.permission.AclEntryType;
 import org.apache.hadoop.fs.permission.FsAction;
+import org.apache.hadoop.hdfs.DFSTestUtil;
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.hadoop.security.UserGroupInformation;
 
@@ -152,7 +153,7 @@ public final class AclTestHelpers {
   public static void assertFilePermissionDenied(FileSystem fs,
       UserGroupInformation user, Path pathToCheck) throws Exception {
     try {
-      fs.open(pathToCheck).close();
+      DFSTestUtil.readFileBuffer(fs, pathToCheck);
       fail("expected AccessControlException for user " + user + ", path = " +
         pathToCheck);
     } catch (AccessControlException e) {
@@ -171,7 +172,7 @@ public final class AclTestHelpers {
   public static void assertFilePermissionGranted(FileSystem fs,
       UserGroupInformation user, Path pathToCheck) throws Exception {
     try {
-      fs.open(pathToCheck).close();
+      DFSTestUtil.readFileBuffer(fs, pathToCheck);
     } catch (AccessControlException e) {
       fail("expected permission granted for user " + user + ", path = " +
         pathToCheck);

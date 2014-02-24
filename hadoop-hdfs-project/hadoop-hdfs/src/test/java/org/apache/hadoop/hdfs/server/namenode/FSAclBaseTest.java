@@ -1124,7 +1124,7 @@ public abstract class FSAclBaseTest {
     fs.setOwner(bruceDir, "bruce", null);
     fsAsBruce.create(bruceFile).close();
     List<AclEntry> aclSpec = Lists.newArrayList(
-      aclEntry(ACCESS, USER, "diana", ALL));
+      aclEntry(ACCESS, USER, "diana"));
     fsAsBruce.removeAclEntries(bruceFile, aclSpec);
     fs.removeAclEntries(bruceFile, aclSpec);
     fsAsSupergroupMember.removeAclEntries(bruceFile, aclSpec);
