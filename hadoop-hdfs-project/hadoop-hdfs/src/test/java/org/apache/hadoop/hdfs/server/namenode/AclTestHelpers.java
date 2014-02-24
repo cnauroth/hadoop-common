@@ -27,6 +27,8 @@ import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.AclEntryScope;
 import org.apache.hadoop.fs.permission.AclEntryType;
 import org.apache.hadoop.fs.permission.FsAction;
+import org.apache.hadoop.security.AccessControlException;
+import org.apache.hadoop.security.UserGroupInformation;
 
 /**
  * Helper methods useful for writing ACL tests.
@@ -98,6 +100,82 @@ public final class AclTestHelpers {
       .setScope(scope)
       .setType(type)
       .build();
+  }
+
+  /**
+   * Asserts that permission is denied to the given fs/user for the given
+   * directory.
+   *
+   * @param fs FileSystem to check
+   * @param user UserGroupInformation owner of fs
+   * @param pathToCheck Path directory to check
+   * @throws Exception if there is an unexpected error
+   */
+  public static void assertDirPermissionDenied(FileSystem fs,
+      UserGroupInformation user, Path pathToCheck) throws Exception {
+    try {
+      fs.listStatus(pathToCheck);
+      fail("expected AccessControlException for user " + user + ", path = " +
+        pathToCheck);
+    } catch (AccessControlException e) {
+      // expected
+    }
+  }
+
+  /**
+   * Asserts that permission is granted to the given fs/user for the given
+   * directory.
+   *
+   * @param fs FileSystem to check
+   * @param user UserGroupInformation owner of fs
+   * @param pathToCheck Path directory to check
+   * @throws Exception if there is an unexpected error
+   */
+  public static void assertDirPermissionGranted(FileSystem fs,
+      UserGroupInformation user, Path pathToCheck) throws Exception {
+    try {
+      fs.listStatus(pathToCheck);
+    } catch (AccessControlException e) {
+      fail("expected permission granted for user " + user + ", path = " +
+        pathToCheck);
+    }
+  }
+
+  /**
+   * Asserts that permission is denied to the given fs/user for the given file.
+   *
+   * @param fs FileSystem to check
+   * @param user UserGroupInformation owner of fs
+   * @param pathToCheck Path file to check
+   * @throws Exception if there is an unexpected error
+   */
+  public static void assertFilePermissionDenied(FileSystem fs,
+      UserGroupInformation user, Path pathToCheck) throws Exception {
+    try {
+      fs.open(pathToCheck).close();
+      fail("expected AccessControlException for user " + user + ", path = " +
+        pathToCheck);
+    } catch (AccessControlException e) {
+      // expected
+    }
+  }
+
+  /**
+   * Asserts that permission is granted to the given fs/user for the given file.
+   *
+   * @param fs FileSystem to check
+   * @param user UserGroupInformation owner of fs
+   * @param pathToCheck Path file to check
+   * @throws Exception if there is an unexpected error
+   */
+  public static void assertFilePermissionGranted(FileSystem fs,
+      UserGroupInformation user, Path pathToCheck) throws Exception {
+    try {
+      fs.open(pathToCheck).close();
+    } catch (AccessControlException e) {
+      fail("expected permission granted for user " + user + ", path = " +
+        pathToCheck);
+    }
   }
 
   /**
