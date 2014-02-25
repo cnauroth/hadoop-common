@@ -104,45 +104,6 @@ public final class AclTestHelpers {
   }
 
   /**
-   * Asserts that permission is denied to the given fs/user for the given
-   * directory.
-   *
-   * @param fs FileSystem to check
-   * @param user UserGroupInformation owner of fs
-   * @param pathToCheck Path directory to check
-   * @throws Exception if there is an unexpected error
-   */
-  public static void assertDirPermissionDenied(FileSystem fs,
-      UserGroupInformation user, Path pathToCheck) throws Exception {
-    try {
-      fs.listStatus(pathToCheck);
-      fail("expected AccessControlException for user " + user + ", path = " +
-        pathToCheck);
-    } catch (AccessControlException e) {
-      // expected
-    }
-  }
-
-  /**
-   * Asserts that permission is granted to the given fs/user for the given
-   * directory.
-   *
-   * @param fs FileSystem to check
-   * @param user UserGroupInformation owner of fs
-   * @param pathToCheck Path directory to check
-   * @throws Exception if there is an unexpected error
-   */
-  public static void assertDirPermissionGranted(FileSystem fs,
-      UserGroupInformation user, Path pathToCheck) throws Exception {
-    try {
-      fs.listStatus(pathToCheck);
-    } catch (AccessControlException e) {
-      fail("expected permission granted for user " + user + ", path = " +
-        pathToCheck);
-    }
-  }
-
-  /**
    * Asserts that permission is denied to the given fs/user for the given file.
    *
    * @param fs FileSystem to check
