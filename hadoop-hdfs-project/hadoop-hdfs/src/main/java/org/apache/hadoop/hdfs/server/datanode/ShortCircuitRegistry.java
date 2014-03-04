@@ -30,6 +30,7 @@ import java.util.Iterator;
 import java.util.Set;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.SystemUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -152,6 +153,11 @@ public class ShortCircuitRegistry {
       if (!NativeIO.isAvailable()) {
         LOG.debug("Disabling ShortCircuitRegistry because NativeIO is " +
             "not available.");
+        return;
+      }
+      if (SystemUtils.IS_OS_WINDOWS) {
+        LOG.debug("Disabling ShortCircuitRegistry because it is not " +
+            "available on Windows.");
         return;
       }
       String shmPath = conf.get(DFS_DATANODE_SHARED_FILE_DESCRIPTOR_PATH,
