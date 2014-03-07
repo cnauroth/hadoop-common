@@ -150,5 +150,5 @@ public interface FSNamesystemMBean {
    * Number of blocks pending deletion
    * @return number of blocks pending deletion
    */
-  public long getPendingDeletionBlocks();
+  long getPendingDeletionBlocks();
 }
