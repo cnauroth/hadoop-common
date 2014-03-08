@@ -281,7 +281,7 @@
 
 <property>
   <name>dfs.namenode.fs-limits.max-component-length</name>
-  <value>0</value>
+  <value>255</value>
   <description>Defines the maximum number of characters in each component
       of a path.  A value of 0 will disable the check.</description>
 </property>
