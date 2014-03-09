@@ -42,6 +42,8 @@ Release 2.5.0 - UNRELEASED
     YARN-1718. Fix a couple isTerminals in Fair Scheduler queue placement rules
     (Sandy Ryza)
 
+    YARN-1790. Fair Scheduler UI not showing apps table (bc Wong via Sandy Ryza)
+
 Release 2.4.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -271,6 +273,14 @@ Release 2.4.0 - UNRELEASED
     YARN-1525. Web UI should redirect to active RM when HA is enabled. (Cindy Li
     via kasha)
 
+    YARN-1781. Modified NodeManagers to allow admins to specify max disk
+    utilization for local disks so as to be able to offline full disks. (Varun
+    Vasudev via vinodkv)
+
+    YARN-1410. Added tests to validate that clients can fail-over to a new RM
+    after getting an application-ID but before submission and can still submit to
+    the newly active RM with no issues. (Xuan Gong via vinodkv)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -411,8 +421,17 @@ Release 2.4.0 - UNRELEASED
     configuration-provider when booting up. (Xuan Gong via vinodkv)
 
     YARN-1768. Fixed error message being too verbose when killing a non-existent
-    application
+    application. (Tsuyoshi OZAWA via raviprak)
     
+    YARN-1774. FS: Submitting to non-leaf queue throws NPE. (Anubhav Dhoot and
+    Karthik Kambatla via kasha)
+
+    YARN-1783. Fixed a bug in NodeManager's status-updater that was losing
+    completed container statuses when NodeManager is forced to resync by the
+    ResourceManager. (Jian He via vinodkv) 
+
+    YARN-1787. Fixed help messages for applicationattempt and container
+    sub-commands in bin/yarn. (Zhijie Shen via vinodkv)
 
 Release 2.3.1 - UNRELEASED
 

@@ -122,6 +122,9 @@ Trunk (Unreleased)
 
     HDFS-5138. Support HDFS upgrade in HA. (atm via todd)
 
+    HDFS-3405. Checkpointing should use HTTP POST or PUT instead of GET-GET
+    to send merged fsimages. (Vinayakumar B via wang)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -393,6 +396,10 @@ BREAKDOWN OF HDFS-5535 ROLLING UPGRADE SUBTASKS AND RELATED JIRAS
     purging it. (jing9)
 
     HDFS-6060. NameNode should not check DataNode layout version (brandonli)
+
+    HDFS-6076. DataNode with SimulatedDataSet should not create
+    DatanodeRegistration with namenode layout version and namenode node type.
+    (szetszwo)
 
 Release 2.5.0 - UNRELEASED
 
@@ -716,6 +723,11 @@ Release 2.4.0 - UNRELEASED
 
     HDFS-6065. HDFS zero-copy reads should return null on EOF when doing ZCR
     (cmccabe)
+
+    HDFS-5064. Standby checkpoints should not block concurrent readers.
+    (atm via wang)
+
+    HDFS-6078. TestIncrementalBlockReports is flaky. (Arpit Agarwal)
 
   BREAKDOWN OF HDFS-5698 SUBTASKS AND RELATED JIRAS
 
