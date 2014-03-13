@@ -112,7 +112,7 @@ public class TestFsLimits {
     mkdirs("/333", null);
     mkdirs("/4444", null);
     mkdirs("/55555", null);
-    mkdirs("/" + HdfsConstants.DOT_SNAPSHOT_DIR,
+    mkdirs("/1/" + HdfsConstants.DOT_SNAPSHOT_DIR,
         HadoopIllegalArgumentException.class);
   }
 
@@ -156,13 +156,16 @@ public class TestFsLimits {
     mkdirs("/1", null);
     mkdirs("/2", null);
 
-    mkdirs("/2/3", null);
-    rename("/2/3", "/3", MaxDirectoryItemsExceededException.class);
-    rename("/2/3", "/1/3", null);
+    mkdirs("/2/A", null);
+    rename("/2/A", "/A", MaxDirectoryItemsExceededException.class);
+    rename("/2/A", "/1/A", null);
 
-    mkdirs("/2/4", null);
-    deprecatedRename("/2/4", "/4", MaxDirectoryItemsExceededException.class);
-    deprecatedRename("/2/4", "/1/4", null);
+    mkdirs("/2/B", null);
+    deprecatedRename("/2/B", "/B", MaxDirectoryItemsExceededException.class);
+    deprecatedRename("/2/B", "/1/B", null);
+
+    rename("/1", "/3", null);
+    deprecatedRename("/2", "/4", null);
   }
 
   @Test
@@ -182,12 +185,12 @@ public class TestFsLimits {
     conf.setInt(DFSConfigKeys.DFS_NAMENODE_MAX_DIRECTORY_ITEMS_KEY, 2);
     fsIsReady = false;
     
-    mkdirs("/" + HdfsConstants.DOT_SNAPSHOT_DIR,
-        HadoopIllegalArgumentException.class);
     mkdirs("/1", null);
     mkdirs("/22", null);
     mkdirs("/333", null);
     mkdirs("/4444", null);
+    mkdirs("/1/" + HdfsConstants.DOT_SNAPSHOT_DIR,
+        HadoopIllegalArgumentException.class);
   }
 
   private void mkdirs(String name, Class<?> expected)
