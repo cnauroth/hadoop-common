@@ -2143,7 +2143,7 @@ public class FSDirectory implements Closeable {
     INode[] dstInodes = dstIIP.getINodes();
     int pos = dstInodes.length - 1;
     verifyMaxComponentLength(dstChildName, dstInodes, pos);
-    boolean isRenameInSameDir = srcIIP.getINode(-2) == dstIIP.getINode(-2);
+    boolean isRenameInSameDir = (srcIIP.getINode(-2) == dstIIP.getINode(-2));
     verifyMaxDirItems(dstInodes, pos, isRenameInSameDir);
   }
 
