@@ -15,24 +15,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.fs.slive;
+package org.apache.hadoop.hdfs.server.datanode;
 
-import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.Partitioner;
+import com.google.common.annotations.VisibleForTesting;
+
+import org.apache.hadoop.classification.InterfaceAudience;
 
 /**
- * The partitioner partitions the map output according to the operation type.
- * The partition number is the hash of the operation type modular the total
- * number of the reducers.
+ * Used for injecting faults in DFSClient and DFSOutputStream tests.
+ * Calls into this are a no-op in production code. 
  */
-public class SlivePartitioner implements Partitioner<Text, Text> {
-  @Override // JobConfigurable
-  public void configure(JobConf conf) {}
+@VisibleForTesting
+@InterfaceAudience.Private
+public class DataNodeFaultInjector {
+  public static DataNodeFaultInjector instance = new DataNodeFaultInjector();
 
-  @Override // Partitioner
-  public int getPartition(Text key, Text value, int numPartitions) {
-    OperationOutput oo = new OperationOutput(key, value);
-    return (oo.getOperationType().hashCode() & Integer.MAX_VALUE) % numPartitions;
+  public static DataNodeFaultInjector get() {
+    return instance;
   }
+
+  public void getHdfsBlocksMetadata() {}
 }

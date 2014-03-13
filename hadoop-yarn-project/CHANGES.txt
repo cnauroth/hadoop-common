@@ -284,6 +284,10 @@ Release 2.4.0 - UNRELEASED
     YARN-1764. Modified YarnClient to correctly handle failover of ResourceManager
     after the submitApplication call goes through. (Xuan Gong via vinodkv)
 
+    YARN-1389. Made ApplicationClientProtocol and ApplicationHistoryProtocol
+    expose analogous getApplication(s)/Attempt(s)/Container(s) APIs. (Mayank
+    Bansal via zjshen)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -456,6 +460,13 @@ Release 2.4.0 - UNRELEASED
     YARN-1812. Fixed ResourceManager to synchrously renew tokens after recovery
     and thus recover app itself synchronously and avoid races with resyncing
     NodeManagers. (Jian He via vinodkv)
+
+    YARN-1816. Fixed ResourceManager to get RMApp correctly handle
+    ATTEMPT_FINISHED event at ACCEPTED state that can happen after RM restarts.
+    (Jian He via vinodkv)
+
+    YARN-1789. ApplicationSummary does not escape newlines in the app name
+    (Tsuyoshi OZAWA via jlowe)
 
 Release 2.3.1 - UNRELEASED
 

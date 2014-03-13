@@ -44,6 +44,7 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.util.ExitUtil;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
+import org.apache.hadoop.yarn.api.records.ApplicationAttemptReport;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationResourceUsageReport;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
@@ -872,6 +873,11 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
     @Override
     public RMAppAttemptState transition(RMAppAttemptImpl appAttempt,
         RMAppAttemptEvent event) {
+      /*
+       * If last attempt recovered final state is null .. it means attempt was
+       * started but AM container may or may not have started / finished.
+       * Therefore we should wait for it to finish.
+       */
       if (appAttempt.recoveredFinalState != null) {
         appAttempt.progress = 1.0f;
         RMApp rmApp =appAttempt.rmContext.getRMApps().get(
@@ -1598,7 +1604,7 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
       ExitUtil.terminate(1, storeEvent.getStoredException());
     }
   }
-  
+
   private void storeAttempt() {
     // store attempt data in a non-blocking manner to prevent dispatcher
     // thread starvation and wait for state to be saved
@@ -1624,5 +1630,21 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
 
   private static String sanitizeTrackingUrl(String url) {
     return (url == null || url.trim().isEmpty()) ? "N/A" : url;
+  }
+
+  @Override
+  public ApplicationAttemptReport createApplicationAttemptReport() {
+    this.readLock.lock();
+    ApplicationAttemptReport attemptReport = null;
+    try {
+      attemptReport = ApplicationAttemptReport.newInstance(this
+          .getAppAttemptId(), this.getHost(), this.getRpcPort(), this
+          .getTrackingUrl(), this.getDiagnostics(), YarnApplicationAttemptState
+          .valueOf(this.getState().toString()), this.getMasterContainer()
+          .getId());
+    } finally {
+      this.readLock.unlock();
+    }
+    return attemptReport;
   }
 }

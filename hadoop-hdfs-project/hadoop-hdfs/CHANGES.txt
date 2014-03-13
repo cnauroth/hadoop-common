@@ -241,9 +241,6 @@ Trunk (Unreleased)
     HDFS-4366. Block Replication Policy Implementation May Skip Higher-Priority
     Blocks for Lower-Priority Blocks (Derek Dagit via kihwal)
 
-    HDFS-5705. TestSecondaryNameNodeUpgrade#testChangeNsIDFails may fail due
-    to ConcurrentModificationException. (Ted Yu via brandonli)
-
     HDFS-5719. FSImage#doRollback() should close prevState before return
     (Ted Yu via brandonli)
 
@@ -402,6 +399,9 @@ Release 2.4.0 - UNRELEASED
     HDFS-6085. Improve CacheReplicationMonitor log messages a bit (cmccabe)
 
     HDFS-6072. Clean up dead code of FSImage. (wheat9)
+
+    HDFS-6080. Improve NFS gateway performance by making rtmax and wtmax
+    configurable. (Abin Shahab via brandonli)
 
   OPTIMIZATIONS
 
@@ -600,6 +600,16 @@ Release 2.4.0 - UNRELEASED
 
     HDFS-6086. Fix a case where zero-copy or no-checksum reads were not allowed
     even when the block was cached (cmccabe)
+
+    HDFS-6079. Timeout for getFileBlockStorageLocations does not work. (wang)
+
+    HDFS-5705. TestSecondaryNameNodeUpgrade#testChangeNsIDFails may fail due
+    to ConcurrentModificationException. (Ted Yu via brandonli)
+
+    HDFS-6096. TestWebHdfsTokens may timeout. (szetszwo via Arpit Agarwal)
+
+    HDFS-5244. TestNNStorageRetentionManager#testPurgeMultipleDirs fails.
+    (Jinghui Wang via suresh)
 
   BREAKDOWN OF HDFS-5698 SUBTASKS AND RELATED JIRAS
 

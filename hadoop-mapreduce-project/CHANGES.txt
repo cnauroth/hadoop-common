@@ -156,6 +156,13 @@ Release 2.5.0 - UNRELEASED
     MAPREDUCE-5665. Add audience annotations to MiniMRYarnCluster and 
     MiniMRCluster. (Anubhav Dhoot via kasha)
 
+    MAPREDUCE-5765. Update hadoop-pipes examples README (Mit Desai via jeagles)
+
+    MAPREDUCE-5713. InputFormat and JobConf JavaDoc Fixes (Chen He via jeagles)
+
+    MAPREDUCE-5456. TestFetcher.testCopyFromHostExtraBytes is missing (Jason
+    Lowe via jeagles)
+
   OPTIMIZATIONS
 
   BUG FIXES 
@@ -188,6 +195,10 @@ Release 2.4.0 - UNRELEASED
     MAPREDUCE-5773. Provide dedicated MRAppMaster syslog length limit (Gera
     Shegalov via jlowe)
 
+    MAPREDUCE-5553. Allow users to easily access
+    completed/pending/successful/failed tasks on MR AM web-ui. (Paul Han via
+    acmurthy)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -213,6 +224,15 @@ Release 2.4.0 - UNRELEASED
 
     MAPREDUCE-5028. Fixed a bug in MapTask that was causing mappers to fail
     when a large value of io.sort.mb is set. (Karthik Kambatla via vinodkv)
+
+    MAPREDUCE-5778. JobSummary does not escape newlines in the job name (Akira
+    AJISAKA via jlowe)
+
+    MAPREDUCE-5789. Average Reduce time is incorrect on Job Overview page
+    (Rushabh S Shah via jlowe)
+
+    MAPREDUCE-5794. SliveMapper always uses default FileSystem. (szetszwo via
+    Arpit Agarwal)
 
 Release 2.3.1 - UNRELEASED
 
