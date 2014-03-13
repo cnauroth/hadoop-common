@@ -636,6 +636,7 @@ public class FSDirectory implements Closeable {
     
     // Ensure dst has quota to accommodate rename
     verifyQuotaForRename(srcIIP.getINodes(), dstIIP.getINodes());
+    verifyFsLimitsForRename(dstIIP);
     
     boolean added = false;
     INode srcChild = srcIIP.getLastINode();
@@ -707,8 +708,6 @@ public class FSDirectory implements Closeable {
         toDst = ref;
       }
       
-      verifyFsLimitsForRename(dstChildName, dstIIP);
-
       added = addLastINodeNoQuotaCheck(dstIIP, toDst);
       if (added) {
         if (NameNode.stateChangeLog.isDebugEnabled()) {
@@ -889,6 +888,7 @@ public class FSDirectory implements Closeable {
 
     // Ensure dst has quota to accommodate rename
     verifyQuotaForRename(srcIIP.getINodes(), dstIIP.getINodes());
+    verifyFsLimitsForRename(dstIIP);
 
     INode srcChild = srcIIP.getLastINode();
     final byte[] srcChildName = srcChild.getLocalNameBytes();
@@ -965,8 +965,6 @@ public class FSDirectory implements Closeable {
             dstIIP.getINode(-2).asDirectory(), withCount, dstSnapshotId);
         toDst = ref;
       }
-
-      verifyFsLimitsForRename(dstChildName, dstIIP);
 
       // add src as dst to complete rename
       if (addLastINodeNoQuotaCheck(dstIIP, toDst)) {
@@ -2134,16 +2132,14 @@ public class FSDirectory implements Closeable {
    * Checks file system limits (max component length and max directory items)
    * during a rename operation.
    *
-   * @param dstChildName byte[] containing name of final path component of
-   *   rename destination
    * @param dstIIP INodesInPath containing every existing inode in the rename
    *   destination
    * @throws PathComponentTooLongException child's name is too long.
    * @throws MaxDirectoryItemsExceededException too many children.
    */
-  private void verifyFsLimitsForRename(byte[] dstChildName,
-      INodesInPath dstIIP) throws PathComponentTooLongException,
-      MaxDirectoryItemsExceededException {
+  private void verifyFsLimitsForRename(INodesInPath dstIIP)
+      throws PathComponentTooLongException, MaxDirectoryItemsExceededException {
+    byte[] dstChildName = dstIIP.getLastLocalName();
     INode[] dstInodes = dstIIP.getINodes();
     int pos = dstInodes.length - 1;
     verifyMaxComponentLength(dstChildName, dstInodes, pos);

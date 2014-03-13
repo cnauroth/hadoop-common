@@ -26,9 +26,11 @@ import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.EnumSet;
 
 import org.apache.hadoop.HadoopIllegalArgumentException;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Options.Rename;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.permission.PermissionStatus;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
@@ -49,7 +51,12 @@ public class TestFsLimits {
   static PermissionStatus perms
     = new PermissionStatus("admin", "admin", FsPermission.getDefault());
 
-  static INodeDirectory rootInode;
+  static private FSImage getMockFSImage() {
+    FSEditLog editLog = mock(FSEditLog.class);
+    FSImage fsImage = mock(FSImage.class);
+    when(fsImage.getEditLog()).thenReturn(editLog);
+    return fsImage;
+  }
 
   static private FSNamesystem getMockNamesystem() {
     FSNamesystem fsn = mock(FSNamesystem.class);
@@ -63,7 +70,7 @@ public class TestFsLimits {
   
   private static class MockFSDirectory extends FSDirectory {
     public MockFSDirectory() throws IOException {
-      super(new FSImage(conf), getMockNamesystem(), conf);
+      super(getMockFSImage(), getMockNamesystem(), conf);
       setReady(fsIsReady);
     }
   }
@@ -75,9 +82,6 @@ public class TestFsLimits {
              fileAsURI(new File(MiniDFSCluster.getBaseDirectory(),
                                 "namenode")).toString());
 
-    rootInode = new INodeDirectory(getMockNamesystem().allocateNewInodeId(),
-        INodeDirectory.ROOT_NAME, perms, 0L);
-    inodes = new INode[]{ rootInode, null };
     fs = null;
     fsIsReady = true;
   }
@@ -117,6 +121,14 @@ public class TestFsLimits {
     addChildWithName("22", null);
     addChildWithName("333", PathComponentTooLongException.class);
     addChildWithName("4444", PathComponentTooLongException.class);
+
+    addChildWithName("5", null);
+    rename("/5", "/555", PathComponentTooLongException.class);
+    rename("/5", "/55", null);
+
+    addChildWithName("6", null);
+    deprecatedRename("/6", "/666", PathComponentTooLongException.class);
+    deprecatedRename("/6", "/66", null);
   }
 
   @Test
@@ -156,9 +168,7 @@ public class TestFsLimits {
 
   private void addChildWithName(String name, Class<?> expected)
   throws Exception {
-    // have to create after the caller has had a chance to set conf values
-    if (fs == null) fs = new MockFSDirectory();
-
+    lazyInitFSDirectory();
     INode child = new INodeDirectory(getMockNamesystem().allocateNewInodeId(),
         DFSUtil.string2Bytes(name), perms, 0L);
     
@@ -168,10 +178,46 @@ public class TestFsLimits {
       fs.verifyMaxDirItems(inodes, 1);
       fs.verifyINodeName(child.getLocalNameBytes());
 
-      rootInode.addChild(child);
+      fs.rootDir.addChild(child);
     } catch (Throwable e) {
       generated = e.getClass();
     }
     assertEquals(expected, generated);
+  }
+
+  private void rename(String src, String dst, Class<?> expected)
+      throws Exception {
+    lazyInitFSDirectory();
+    Class<?> generated = null;
+    try {
+      fs.renameTo(src, dst, false, new Rename[] { });
+    } catch (Throwable e) {
+      generated = e.getClass();
+      e.printStackTrace();
+    }
+    assertEquals(expected, generated);
+  }
+
+  @SuppressWarnings("deprecation")
+  private void deprecatedRename(String src, String dst, Class<?> expected)
+      throws Exception {
+    lazyInitFSDirectory();
+    Class<?> generated = null;
+    try {
+      fs.renameTo(src, dst, false);
+    } catch (Throwable e) {
+      generated = e.getClass();
+    }
+    assertEquals(expected, generated);
+  }
+
+  private static void lazyInitFSDirectory() throws IOException {
+    // have to create after the caller has had a chance to set conf values
+    if (fs == null) {
+      fs = new MockFSDirectory();
+      fs.rootDir = new INodeDirectory(getMockNamesystem().allocateNewInodeId(),
+          INodeDirectory.ROOT_NAME, perms, 0L);
+      inodes = new INode[]{ fs.rootDir, null };
+    }
   }
 }
