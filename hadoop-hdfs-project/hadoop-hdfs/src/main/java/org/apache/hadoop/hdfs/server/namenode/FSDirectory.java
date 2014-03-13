@@ -2132,10 +2132,8 @@ public class FSDirectory implements Closeable {
    * Checks file system limits (max component length and max directory items)
    * during a rename operation.
    *
-   * @param srcIIP INodesInPath containing every existing inode in the rename
-   *   source
-   * @param dstIIP INodesInPath containing every existing inode in the rename
-   *   destination
+   * @param srcIIP INodesInPath containing every inode in the rename source
+   * @param dstIIP INodesInPath containing every inode in the rename destination
    * @throws PathComponentTooLongException child's name is too long.
    * @throws MaxDirectoryItemsExceededException too many children.
    */
