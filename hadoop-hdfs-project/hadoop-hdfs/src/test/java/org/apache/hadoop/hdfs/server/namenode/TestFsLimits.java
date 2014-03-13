@@ -198,7 +198,6 @@ public class TestFsLimits {
       fs.mkdirs(name, perms, false, now());
     } catch (Throwable e) {
       generated = e.getClass();
-      e.printStackTrace();
     }
     assertEquals(expected, generated);
   }
@@ -211,7 +210,6 @@ public class TestFsLimits {
       fs.renameTo(src, dst, false, new Rename[] { });
     } catch (Throwable e) {
       generated = e.getClass();
-      e.printStackTrace();
     }
     assertEquals(expected, generated);
   }
