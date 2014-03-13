@@ -2172,10 +2172,14 @@ public class FSDirectory implements Closeable {
 
   /**
    * Verify child's name for fs limit.
+   *
+   * @param childName byte[] containing new child name
+   * @param parentPath Object either INode[] or String containing parent path
+   * @param pos int position of new child in path
    * @throws PathComponentTooLongException child's name is too long.
    */
-  void verifyMaxComponentLength(byte[] childName, Object parentPath, int pos)
-      throws PathComponentTooLongException {
+  private void verifyMaxComponentLength(byte[] childName, Object parentPath,
+      int pos) throws PathComponentTooLongException {
     if (maxComponentLength == 0) {
       return;
     }
@@ -2204,7 +2208,7 @@ public class FSDirectory implements Closeable {
    *   operation where source and destination are in the same directory
    * @throws MaxDirectoryItemsExceededException too many children.
    */
-  void verifyMaxDirItems(INode[] pathComponents, int pos,
+  private void verifyMaxDirItems(INode[] pathComponents, int pos,
       boolean isRenameInSameDir) throws MaxDirectoryItemsExceededException {
     if (maxDirItems == 0) {
       return;
