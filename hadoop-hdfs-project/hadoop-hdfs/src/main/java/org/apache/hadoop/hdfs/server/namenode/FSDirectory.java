@@ -2151,8 +2151,10 @@ public class FSDirectory implements Closeable {
     INode[] dstInodes = dstIIP.getINodes();
     int pos = dstInodes.length - 1;
     verifyMaxComponentLength(dstChildName, dstInodes, pos);
-    boolean isRenameInSameDir = (srcIIP.getINode(-2) == dstIIP.getINode(-2));
-    verifyMaxDirItems(dstInodes, pos, isRenameInSameDir);
+    // Do not enforce max directory items if renaming within same directory.
+    if (srcIIP.getINode(-2) != dstIIP.getINode(-2)) {
+      verifyMaxDirItems(dstInodes, pos);
+    }
   }
 
   /** Verify if the snapshot name is legal. */
@@ -2212,16 +2214,10 @@ public class FSDirectory implements Closeable {
    *
    * @param pathComponents INode[] containing full path of inodes to new child
    * @param pos int position of new child in pathComponents
-   * @param isRenameInSameDir boolean true if checking on behalf of a rename
-   *   operation where source and destination are in the same directory.  This
-   *   is always allowed, regardless of current number of children.
    * @throws MaxDirectoryItemsExceededException too many children.
    */
-  private void verifyMaxDirItems(INode[] pathComponents, int pos,
-      boolean isRenameInSameDir) throws MaxDirectoryItemsExceededException {
-    if (isRenameInSameDir) {
-      return;
-    }
+  private void verifyMaxDirItems(INode[] pathComponents, int pos)
+      throws MaxDirectoryItemsExceededException {
     final INodeDirectory parent = pathComponents[pos-1].asDirectory();
     final int count = parent.getChildrenList(Snapshot.CURRENT_STATE_ID).size();
     if (count >= maxDirItems) {
@@ -2276,7 +2272,7 @@ public class FSDirectory implements Closeable {
     // to go "poof".  The fs limits must be bypassed for the same reason.
     if (checkQuota) {
       verifyMaxComponentLength(child.getLocalNameBytes(), inodes, pos);
-      verifyMaxDirItems(inodes, pos, false);
+      verifyMaxDirItems(inodes, pos);
     }
     // always verify inode name
     verifyINodeName(child.getLocalNameBytes());
