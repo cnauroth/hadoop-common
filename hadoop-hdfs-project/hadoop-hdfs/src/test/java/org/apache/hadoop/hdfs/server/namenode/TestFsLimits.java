@@ -155,13 +155,13 @@ public class TestFsLimits {
   public void testMaxDirItemsLimits() throws Exception {
     conf.setInt(DFSConfigKeys.DFS_NAMENODE_MAX_DIRECTORY_ITEMS_KEY, 0);
     try {
-      addChildWithName("1", null);
+      mkdirs("1", null);
     } catch (IllegalArgumentException e) {
       GenericTestUtils.assertExceptionContains("Cannot set dfs", e);
     }
     conf.setInt(DFSConfigKeys.DFS_NAMENODE_MAX_DIRECTORY_ITEMS_KEY, 64*100*1024);
     try {
-      addChildWithName("1", null);
+      mkdirs("1", null);
     } catch (IllegalArgumentException e) {
       GenericTestUtils.assertExceptionContains("Cannot set dfs", e);
     }
