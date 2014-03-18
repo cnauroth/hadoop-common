@@ -2213,20 +2213,18 @@ public class FSDirectory implements Closeable {
    * @param pathComponents INode[] containing full path of inodes to new child
    * @param pos int position of new child in pathComponents
    * @param isRenameInSameDir boolean true if checking on behalf of a rename
-   *   operation where source and destination are in the same directory
+   *   operation where source and destination are in the same directory.  This
+   *   is always allowed, regardless of current number of children.
    * @throws MaxDirectoryItemsExceededException too many children.
    */
   private void verifyMaxDirItems(INode[] pathComponents, int pos,
       boolean isRenameInSameDir) throws MaxDirectoryItemsExceededException {
-
+    if (isRenameInSameDir) {
+      return;
+    }
     final INodeDirectory parent = pathComponents[pos-1].asDirectory();
     final int count = parent.getChildrenList(Snapshot.CURRENT_STATE_ID).size();
-    // Under typical operation, a rename within the same directory can't exceed
-    // max directory items, because the problem would have been caught earlier
-    // at time of file creation.  However, if there are existing directories in
-    // violation at time of startup, then we need to check for that explicitly.
-    if ((!isRenameInSameDir && count >= maxDirItems) ||
-        (isRenameInSameDir && count > maxDirItems)) {
+    if (count >= maxDirItems) {
       final MaxDirectoryItemsExceededException e
           = new MaxDirectoryItemsExceededException(maxDirItems, count);
       if (ready) {
