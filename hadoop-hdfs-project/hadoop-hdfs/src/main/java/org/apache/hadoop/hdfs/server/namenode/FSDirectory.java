@@ -643,8 +643,8 @@ public class FSDirectory implements Closeable {
     }
     
     // Ensure dst has quota to accommodate rename
-    verifyQuotaForRename(srcIIP.getINodes(), dstIIP.getINodes());
     verifyFsLimitsForRename(srcIIP, dstIIP);
+    verifyQuotaForRename(srcIIP.getINodes(), dstIIP.getINodes());
     
     boolean added = false;
     INode srcChild = srcIIP.getLastINode();
@@ -895,8 +895,8 @@ public class FSDirectory implements Closeable {
     }
 
     // Ensure dst has quota to accommodate rename
-    verifyQuotaForRename(srcIIP.getINodes(), dstIIP.getINodes());
     verifyFsLimitsForRename(srcIIP, dstIIP);
+    verifyQuotaForRename(srcIIP.getINodes(), dstIIP.getINodes());
 
     INode srcChild = srcIIP.getLastINode();
     final byte[] srcChildName = srcChild.getLocalNameBytes();
