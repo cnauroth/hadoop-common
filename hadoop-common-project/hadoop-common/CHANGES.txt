@@ -370,6 +370,9 @@ Release 2.4.0 - UNRELEASED
     HADOOP-10386. Log proxy hostname in various exceptions being thrown in a HA
     setup. (wheat9)
 
+    HADOOP-3679. Fixup assert ordering in unit tests to yield meaningful error
+    messages. (Jay Vyas via cdouglas)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -419,6 +422,9 @@ Release 2.4.0 - UNRELEASED
     
     HADOOP-10337 ConcurrentModificationException from
     MetricsDynamicMBeanBase.createMBeanInfo() (Liang Xie via stack)
+
+    HADOOP-10407. Fix the javac warnings in org.apache.hadoop.ipc package.
+    (szetszwo)
 
   BREAKDOWN OF HADOOP-10184 SUBTASKS AND RELATED JIRAS
 

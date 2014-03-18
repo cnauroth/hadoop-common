@@ -27,6 +27,7 @@ import org.apache.hadoop.HadoopIllegalArgumentException;
 import org.apache.hadoop.classification.InterfaceAudience.Private;
 import org.apache.hadoop.classification.InterfaceAudience.Public;
 import org.apache.hadoop.classification.InterfaceStability.Evolving;
+import org.apache.hadoop.classification.InterfaceStability.Unstable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.http.HttpConfig;
 import org.apache.hadoop.net.NetUtils;
@@ -955,8 +956,39 @@ public class YarnConfiguration extends Configuration {
       + "application.classpath";
 
   /**
-   * Default CLASSPATH for YARN applications. A comma-separated list of
-   * CLASSPATH entries
+   * Default platform-agnostic CLASSPATH for YARN applications. A
+   * comma-separated list of CLASSPATH entries. The parameter expansion marker
+   * will be replaced with real parameter expansion marker ('%' for Windows and
+   * '$' for Linux) by NodeManager on container launch. For example: {{VAR}}
+   * will be replaced as $VAR on Linux, and %VAR% on Windows.
+   */
+  @Public
+  @Unstable
+  public static final String[] DEFAULT_YARN_CROSS_PLATFORM_APPLICATION_CLASSPATH= {
+      ApplicationConstants.Environment.HADOOP_CONF_DIR.$$(),
+      ApplicationConstants.Environment.HADOOP_COMMON_HOME.$$()
+          + "/share/hadoop/common/*",
+      ApplicationConstants.Environment.HADOOP_COMMON_HOME.$$()
+          + "/share/hadoop/common/lib/*",
+      ApplicationConstants.Environment.HADOOP_HDFS_HOME.$$()
+          + "/share/hadoop/hdfs/*",
+      ApplicationConstants.Environment.HADOOP_HDFS_HOME.$$()
+          + "/share/hadoop/hdfs/lib/*",
+      ApplicationConstants.Environment.HADOOP_YARN_HOME.$$()
+          + "/share/hadoop/yarn/*",
+      ApplicationConstants.Environment.HADOOP_YARN_HOME.$$()
+          + "/share/hadoop/yarn/lib/*" };
+  /**
+   * <p>
+   * Default platform-specific CLASSPATH for YARN applications. A
+   * comma-separated list of CLASSPATH entries constructed based on the client
+   * OS environment expansion syntax.
+   * </p>
+   * <p>
+   * Note: Use {@link DEFAULT_YARN_CROSS_PLATFORM_APPLICATION_CLASSPATH} for
+   * cross-platform practice i.e. submit an application from a Windows client to
+   * a Linux/Unix server or vice versa.
+   * </p>
    */
   public static final String[] DEFAULT_YARN_APPLICATION_CLASSPATH = {
       ApplicationConstants.Environment.HADOOP_CONF_DIR.$(),
@@ -1100,6 +1132,17 @@ public class YarnConfiguration extends Configuration {
   public static final String TIMELINE_SERVICE_STORE =
       TIMELINE_SERVICE_PREFIX + "store-class";
 
+  /** Timeline service enable data age off */
+  public static final String TIMELINE_SERVICE_TTL_ENABLE =
+      TIMELINE_SERVICE_PREFIX + "ttl-enable";
+
+  /** Timeline service length of time to retain data */
+  public static final String TIMELINE_SERVICE_TTL_MS =
+      TIMELINE_SERVICE_PREFIX + "ttl-ms";
+
+  public static final long DEFAULT_TIMELINE_SERVICE_TTL_MS =
+      1000 * 60 * 60 * 24 * 7;
+
   public static final String TIMELINE_SERVICE_LEVELDB_PREFIX =
       TIMELINE_SERVICE_PREFIX + "leveldb-timeline-store.";
 
@@ -1107,15 +1150,35 @@ public class YarnConfiguration extends Configuration {
   public static final String TIMELINE_SERVICE_LEVELDB_PATH =
       TIMELINE_SERVICE_LEVELDB_PREFIX + "path";
 
+  /** Timeline service leveldb read cache (uncompressed blocks) */
+  public static final String TIMELINE_SERVICE_LEVELDB_READ_CACHE_SIZE =
+      TIMELINE_SERVICE_LEVELDB_PREFIX + "read-cache-size";
+
+  public static final long DEFAULT_TIMELINE_SERVICE_LEVELDB_READ_CACHE_SIZE =
+      100 * 1024 * 1024;
+
   /** Timeline service leveldb start time read cache (number of entities) */
   public static final String
       TIMELINE_SERVICE_LEVELDB_START_TIME_READ_CACHE_SIZE =
       TIMELINE_SERVICE_LEVELDB_PREFIX + "start-time-read-cache-size";
 
+  public static final int
+      DEFAULT_TIMELINE_SERVICE_LEVELDB_START_TIME_READ_CACHE_SIZE = 10000;
+
   /** Timeline service leveldb start time write cache (number of entities) */
   public static final String
       TIMELINE_SERVICE_LEVELDB_START_TIME_WRITE_CACHE_SIZE =
       TIMELINE_SERVICE_LEVELDB_PREFIX + "start-time-write-cache-size";
+
+  public static final int
+      DEFAULT_TIMELINE_SERVICE_LEVELDB_START_TIME_WRITE_CACHE_SIZE = 10000;
+
+  /** Timeline service leveldb interval to wait between deletion rounds */
+  public static final String TIMELINE_SERVICE_LEVELDB_TTL_INTERVAL_MS =
+      TIMELINE_SERVICE_LEVELDB_PREFIX + "ttl-interval-ms";
+
+  public static final long DEFAULT_TIMELINE_SERVICE_LEVELDB_TTL_INTERVAL_MS =
+      1000 * 60 * 5;
 
   ////////////////////////////////
   // Other Configs

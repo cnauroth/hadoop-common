@@ -35,6 +35,18 @@ Release 2.5.0 - UNRELEASED
     YARN-1429. *nix: Allow a way for users to augment classpath of YARN daemons.
     (Jarek Jarcec Cecho via kasha)
 
+    YARN-1833. TestRMAdminService Fails in trunk and branch-2 (Mit Desais via
+    jeagles)
+
+    YARN-1520. update capacity scheduler docs to include necessary parameters
+    (Chen He via jeagles)
+
+    YARN-1845. Elapsed time for failed tasks that never started is wrong
+    (Rushabh S Shah via jeagles)
+
+    YARN-1136. Replace junit.framework.Assert with org.junit.Assert (Chen He
+    via jeagles)
+
   OPTIMIZATIONS
 
   BUG FIXES 
@@ -154,6 +166,14 @@ Release 2.4.0 - UNRELEASED
     YARN-1588. Enhanced RM and the scheduling protocol to also send NMTokens of
     transferred containers from previous app-attempts to new AMs after YARN-1490.
     (Jian He via vinodkv)
+
+    YARN-1717. Enabled periodically discarding old data in LeveldbTimelineStore.
+    (Billie Rinaldi via zjshen)
+
+    YARN-1846. TestRM#testNMTokenSentForNormalContainer assumes CapacityScheduler.
+    (Robert Kanter via kasha)
+
+    YARN-1705. Reset cluster-metrics on transition to standby. (Rohith via kasha)
 
   IMPROVEMENTS
 
@@ -287,6 +307,18 @@ Release 2.4.0 - UNRELEASED
     YARN-1389. Made ApplicationClientProtocol and ApplicationHistoryProtocol
     expose analogous getApplication(s)/Attempt(s)/Container(s) APIs. (Mayank
     Bansal via zjshen)
+
+    YARN-1771. Reduce the number of NameNode operations during localization of
+    public resources using a cache. (Sangjin Lee via cdouglas)
+
+    YARN-1658. Modified web-app framework to let standby RMs redirect
+    web-service calls to the active RM. (Cindy Li via vinodkv)
+
+    YARN-1824. Improved NodeManager and clients to be able to handle cross
+    platform application submissions. (Jian He via vinodkv)
+
+    YARN-1512. Enhanced CapacityScheduler to be able to decouple scheduling from
+    node-heartbeats. (Arun C Murthy via vinodkv)
 
   OPTIMIZATIONS
 
@@ -467,6 +499,23 @@ Release 2.4.0 - UNRELEASED
 
     YARN-1789. ApplicationSummary does not escape newlines in the app name
     (Tsuyoshi OZAWA via jlowe)
+
+    YARN-1830. Fixed TestRMRestart#testQueueMetricsOnRMRestart failure due to
+    race condition when app is submitted. (Zhijie Shen via jianhe)
+
+    YARN-1685. Fixed few bugs related to handling of containers' log-URLs on
+    ResourceManager and history-service. (Zhijie Shen via vinodkv)
+
+    YARN-1206. Fixed AM container log to show on NM web page after application
+    finishes if log-aggregation is disabled. (Rohith Sharmaks via jianhe)
+
+    YARN-1591. Fixed AsyncDispatcher to handle interrupts on shutdown in a sane
+    manner and thus fix failure of TestResourceTrackerService. (Tsuyoshi Ozawa
+    via vinodkv)
+
+    YARN-1839. Fixed handling of NMTokens in ResourceManager such that containers
+    launched by AMs running on the same machine as the AM are correctly
+    propagated. (Jian He via vinodkv)
 
 Release 2.3.1 - UNRELEASED
 

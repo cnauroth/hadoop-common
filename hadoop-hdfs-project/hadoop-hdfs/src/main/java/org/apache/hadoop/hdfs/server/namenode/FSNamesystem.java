@@ -5402,7 +5402,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       throws IOException {
     writeLock();
     try {
-      blockManager.processIncrementalBlockReport(nodeID, poolId, srdb);
+      blockManager.processIncrementalBlockReport(nodeID, srdb);
     } finally {
       writeUnlock();
     }
@@ -6932,6 +6932,12 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
 
       if (snapshotName == null || snapshotName.isEmpty()) {
         snapshotName = Snapshot.generateDefaultSnapshotName();
+      }
+      if(snapshotName != null){
+        if (!DFSUtil.isValidNameForComponent(snapshotName)) {
+            throw new InvalidPathException("Invalid snapshot name: "
+                + snapshotName);
+        }
       }
       dir.verifySnapshotName(snapshotName, snapshotRoot);
       dir.writeLock();

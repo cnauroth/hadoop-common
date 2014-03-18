@@ -89,10 +89,10 @@ public class TestEncryptedShuffle {
     conf.set("hadoop.security.authentication", "simple");
     String cp = conf.get(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
         StringUtils.join(",",
-            YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH))
+            YarnConfiguration.DEFAULT_YARN_CROSS_PLATFORM_APPLICATION_CLASSPATH))
         + File.pathSeparator + classpathDir;
     conf.set(YarnConfiguration.YARN_APPLICATION_CLASSPATH, cp);
-    dfsCluster = new MiniDFSCluster(conf, 1, true, null);
+    dfsCluster = new MiniDFSCluster.Builder(conf).build();
     FileSystem fileSystem = dfsCluster.getFileSystem();
     fileSystem.mkdirs(new Path("/tmp"));
     fileSystem.mkdirs(new Path("/user"));

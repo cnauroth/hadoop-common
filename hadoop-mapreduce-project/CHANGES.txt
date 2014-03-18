@@ -150,9 +150,6 @@ Release 2.5.0 - UNRELEASED
     MAPREDUCE-5671. NaN can be created by client and assign to Progress (Chen
     He via jeagles)
 
-    MAPREDUCE-5688. TestStagingCleanup fails intermittently with JDK7 (Mit
-    Desai via jeagles)
-
     MAPREDUCE-5665. Add audience annotations to MiniMRYarnCluster and 
     MiniMRCluster. (Anubhav Dhoot via kasha)
 
@@ -199,6 +196,9 @@ Release 2.4.0 - UNRELEASED
     completed/pending/successful/failed tasks on MR AM web-ui. (Paul Han via
     acmurthy)
 
+    MAPREDUCE-4052. Improved MapReduce clients to use NodeManagers' ability to
+    handle cross platform application submissions. (Jian He via vinodkv)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -233,6 +233,18 @@ Release 2.4.0 - UNRELEASED
 
     MAPREDUCE-5794. SliveMapper always uses default FileSystem. (szetszwo via
     Arpit Agarwal)
+
+    MAPREDUCE-5751. MR app master fails to start in some cases if
+    mapreduce.job.classloader is true (Sangjin Lee via jlowe)
+
+    MAPREDUCE-5688. TestStagingCleanup fails intermittently with JDK7 (Mit
+    Desai via jeagles)
+
+    MAPREDUCE-5769. Unregistration to RM should not be called if AM is crashed
+    before registering with RM (Rohith via jlowe)
+
+    MAPREDUCE-5570. Map task attempt with fetch failure has incorrect attempt
+    finish time (Rushabh S Shah via jlowe)
 
 Release 2.3.1 - UNRELEASED
 

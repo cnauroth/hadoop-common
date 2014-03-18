@@ -255,6 +255,9 @@ Release 2.5.0 - UNRELEASED
 
   IMPROVEMENTS
 
+    HDFS-6007. Update documentation about short-circuit local reads (iwasakims
+    via cmccabe)
+
   OPTIMIZATIONS
 
   BUG FIXES 
@@ -402,6 +405,18 @@ Release 2.4.0 - UNRELEASED
 
     HDFS-6080. Improve NFS gateway performance by making rtmax and wtmax
     configurable. (Abin Shahab via brandonli)
+
+    HDFS-6084. Namenode UI - "Hadoop" logo link shouldn't go to hadoop
+    homepage. (Travis Thompson via wheat9)
+
+    HDFS-6106. Reduce default for
+    dfs.namenode.path.based.cache.refresh.interval.ms (cmccabe)
+
+    HDFS-6090. Use MiniDFSCluster.Builder instead of deprecated constructors.
+    (Akira AJISAKA via jing9)
+
+    HDFS-6068. Disallow snapshot names that are also invalid directory names.
+    (sathish via szetszwo)
 
   OPTIMIZATIONS
 
@@ -610,6 +625,21 @@ Release 2.4.0 - UNRELEASED
 
     HDFS-5244. TestNNStorageRetentionManager#testPurgeMultipleDirs fails.
     (Jinghui Wang via suresh)
+
+    HDFS-6097. zero-copy reads are incorrectly disabled on file offsets above
+    2GB (cmccabe)
+
+    HDFS-6102. Lower the default maximum items per directory to fix PB fsimage
+    loading. (wang)
+
+    HDFS-6094. The same block can be counted twice towards safe mode
+    threshold. (Arpit Agarwal)
+
+    HDFS-6107. When a block can't be cached due to limited space on the
+    DataNode, that block becomes uncacheable (cmccabe)
+
+    HDFS-5516. WebHDFS does not require user name when anonymous http requests
+    are disallowed. (Miodrag Radulovic via cnauroth)
 
   BREAKDOWN OF HDFS-5698 SUBTASKS AND RELATED JIRAS
 
