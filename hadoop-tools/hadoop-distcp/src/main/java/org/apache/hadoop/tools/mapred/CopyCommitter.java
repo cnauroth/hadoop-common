@@ -186,8 +186,7 @@ public class CopyCommitter extends FileOutputCommitter {
         // on the target is undefined.)
         if (targetRoot.equals(targetFile)) continue;
 
-        // TODO
-        FileSystem sourceFS = null;
+        FileSystem sourceFS = srcFileStatus.getPath().getFileSystem(conf);
         FileSystem targetFS = targetFile.getFileSystem(conf);
         DistCpUtils.preserve(sourceFS, targetFS, targetFile, srcFileStatus,  attributes);
 
