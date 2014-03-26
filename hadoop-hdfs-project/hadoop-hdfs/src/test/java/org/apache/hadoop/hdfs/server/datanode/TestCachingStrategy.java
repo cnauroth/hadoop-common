@@ -45,8 +45,8 @@ import org.junit.Test;
 
 public class TestCachingStrategy {
   private static final Log LOG = LogFactory.getLog(TestCachingStrategy.class);
-  private static int MAX_TEST_FILE_LEN = 1024 * 1024;
-  private static int WRITE_PACKET_SIZE = DFSConfigKeys.DFS_CLIENT_WRITE_PACKET_SIZE_DEFAULT;
+  private static final int MAX_TEST_FILE_LEN = 1024 * 1024;
+  private static final int WRITE_PACKET_SIZE = DFSConfigKeys.DFS_CLIENT_WRITE_PACKET_SIZE_DEFAULT;
   
   private final static TestRecordingCacheTracker tracker =
       new TestRecordingCacheTracker();
@@ -79,8 +79,8 @@ public class TestCachingStrategy {
       LOG.debug("got fadvise(offset=" + offset + ", len=" + len +
           ",flags=" + flags + ")");
       if (flags == NativeIO.POSIX.POSIX_FADV_DONTNEED) {
-        for (int i = 0; i < (int)len; i++) {
-          dropped[(int)(offset + i)] = true;
+        for (int i = 0; i < len; i++) {
+          dropped[(offset + i)] = true;
         }
       }
     }
@@ -165,7 +165,7 @@ public class TestCachingStrategy {
       }
       byte buf[] = new byte[8196];
       while (length > 0) {
-        int amt = (length > buf.length) ? (int)buf.length : (int)length;
+        int amt = (length > buf.length) ? buf.length : (int)length;
         fos.write(buf, 0, amt);
         length -= amt;
       }
@@ -189,7 +189,7 @@ public class TestCachingStrategy {
       }
       byte buf[] = new byte[8196];
       while (length > 0) {
-        int amt = (length > buf.length) ? (int)buf.length : (int)length;
+        int amt = (length > buf.length) ? buf.length : (int)length;
         int ret = fis.read(buf, 0, amt);
         if (ret == -1) {
           return totalRead;

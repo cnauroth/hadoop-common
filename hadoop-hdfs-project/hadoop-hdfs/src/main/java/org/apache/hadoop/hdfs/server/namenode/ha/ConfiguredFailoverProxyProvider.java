@@ -128,7 +128,7 @@ public class ConfiguredFailoverProxyProvider<T> implements
         throw new RuntimeException(e);
       }
     }
-    return new ProxyInfo<T>((T)current.namenode, current.address.toString());
+    return new ProxyInfo<T>(current.namenode, current.address.toString());
   }
 
   @Override
@@ -141,7 +141,7 @@ public class ConfiguredFailoverProxyProvider<T> implements
    * an NN. Note that {@link AddressRpcProxyPair#namenode} may be null.
    */
   private static class AddressRpcProxyPair<T> {
-    public InetSocketAddress address;
+    public final InetSocketAddress address;
     public T namenode;
     
     public AddressRpcProxyPair(InetSocketAddress address) {

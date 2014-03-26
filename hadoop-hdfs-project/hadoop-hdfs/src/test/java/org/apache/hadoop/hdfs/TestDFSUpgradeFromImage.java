@@ -65,7 +65,7 @@ public class TestDFSUpgradeFromImage {
   
   private static final Log LOG = LogFactory
       .getLog(TestDFSUpgradeFromImage.class);
-  private static File TEST_ROOT_DIR =
+  private static final File TEST_ROOT_DIR =
                       new File(MiniDFSCluster.getBaseDirectory());
   private static final String HADOOP_DFS_DIR_TXT = "hadoop-dfs-dir.txt";
   private static final String HADOOP22_IMAGE = "hadoop-22-dfs-dir.tgz";
@@ -87,7 +87,7 @@ public class TestDFSUpgradeFromImage {
     }
   }
   
-  LinkedList<ReferenceFileInfo> refList = new LinkedList<ReferenceFileInfo>();
+  final LinkedList<ReferenceFileInfo> refList = new LinkedList<ReferenceFileInfo>();
   Iterator<ReferenceFileInfo> refIter;
   
   boolean printChecksum = false;
@@ -443,7 +443,7 @@ public class TestDFSUpgradeFromImage {
         .clusterId("testClusterId");
       cluster = bld.build();
       cluster.waitActive();
-      DistributedFileSystem dfs = (DistributedFileSystem)cluster.getFileSystem();
+      DistributedFileSystem dfs = cluster.getFileSystem();
       DFSClient dfsClient = dfs.dfs;
       //Safemode will be off only after upgrade is complete. Wait for it.
       while ( dfsClient.setSafeMode(HdfsConstants.SafeModeAction.SAFEMODE_GET) ) {

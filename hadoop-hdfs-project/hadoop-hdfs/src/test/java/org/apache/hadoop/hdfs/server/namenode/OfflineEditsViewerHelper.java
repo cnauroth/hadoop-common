@@ -48,9 +48,9 @@ public class OfflineEditsViewerHelper {
   private static final Log LOG = 
     LogFactory.getLog(OfflineEditsViewerHelper.class);
 
-    long           blockSize = 512;
+    final long           blockSize = 512;
     MiniDFSCluster cluster   = null;
-    Configuration  config    = new Configuration();
+    final Configuration  config    = new Configuration();
 
   /**
    * Generates edits with all op codes and returns the edits filename
@@ -126,7 +126,7 @@ public class OfflineEditsViewerHelper {
   private CheckpointSignature runOperations() throws IOException {
     LOG.info("Creating edits by performing fs operations");
     // no check, if it's not it throws an exception which is what we want
-    DistributedFileSystem dfs = (DistributedFileSystem) cluster.getFileSystem();
+    DistributedFileSystem dfs = cluster.getFileSystem();
     DFSTestUtil.runOperations(cluster, dfs, cluster.getConfiguration(0),
         dfs.getDefaultBlockSize(), 0);
 

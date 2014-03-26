@@ -65,7 +65,7 @@ public class TestDecommission {
   static final int BLOCKREPORT_INTERVAL_MSEC = 1000; //block report in msec
   static final int NAMENODE_REPLICATION_INTERVAL = 1; //replication interval
 
-  Random myrand = new Random();
+  final Random myrand = new Random();
   Path hostsFile;
   Path excludeFile;
   FileSystem localFileSys;
@@ -155,7 +155,7 @@ public class TestDecommission {
     assertTrue("Not HDFS:"+fileSys.getUri(),
         fileSys instanceof DistributedFileSystem);
     HdfsDataInputStream dis = (HdfsDataInputStream)
-        ((DistributedFileSystem)fileSys).open(name);
+        fileSys.open(name);
     Collection<LocatedBlock> dinfo = dis.getAllBlocks();
     for (LocatedBlock blk : dinfo) { // for each block
       int hasdown = 0;

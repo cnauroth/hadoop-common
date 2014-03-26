@@ -136,7 +136,7 @@ public abstract class FSEditLogOp {
   int rpcCallId = RpcConstants.INVALID_CALL_ID;
 
   final public static class OpInstanceCache {
-    private EnumMap<FSEditLogOpCodes, FSEditLogOp> inst = 
+    private final EnumMap<FSEditLogOpCodes, FSEditLogOp> inst =
         new EnumMap<FSEditLogOpCodes, FSEditLogOp>(FSEditLogOpCodes.class);
     
     public OpInstanceCache() {
@@ -3505,7 +3505,7 @@ public abstract class FSEditLogOp {
 
     @Override
     void readFields(DataInputStream in, int logVersion) throws IOException {
-      AclEditLogProto p = AclEditLogProto.parseDelimitedFrom((DataInputStream)in);
+      AclEditLogProto p = AclEditLogProto.parseDelimitedFrom(in);
       if (p == null) {
         throw new IOException("Failed to read fields from SetAclOp");
       }

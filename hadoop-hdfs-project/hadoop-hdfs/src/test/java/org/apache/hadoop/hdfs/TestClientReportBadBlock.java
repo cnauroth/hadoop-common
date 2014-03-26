@@ -64,7 +64,7 @@ public class TestClientReportBadBlock {
   private static int buffersize;
   private static MiniDFSCluster cluster;
   private static DistributedFileSystem dfs;
-  private static int numDataNodes = 3;
+  private static final int numDataNodes = 3;
   private static final Configuration conf = new HdfsConfiguration();
 
   Random rand = new Random();
@@ -77,7 +77,7 @@ public class TestClientReportBadBlock {
     cluster = new MiniDFSCluster.Builder(conf).numDataNodes(numDataNodes)
         .build();
     cluster.waitActive();
-    dfs = (DistributedFileSystem) cluster.getFileSystem();
+    dfs = cluster.getFileSystem();
     buffersize = conf.getInt(CommonConfigurationKeys.IO_FILE_BUFFER_SIZE_KEY, 4096);
   }
 

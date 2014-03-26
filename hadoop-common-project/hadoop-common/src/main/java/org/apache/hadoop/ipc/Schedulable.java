@@ -15,22 +15,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdfs.server.namenode.snapshot;
+
+package org.apache.hadoop.ipc;
+
+import java.nio.ByteBuffer;
+
+import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.io.Writable;
 
 /**
- * This is an interface used to retrieve statistic information related to
- * snapshots
+ * Interface which allows extracting information necessary to
+ * create schedulable identity strings.
  */
-public interface SnapshotStats {
-
-  /**
-   * @return The number of snapshottale directories in the system 
-   */
-  public int getNumSnapshottableDirs();
-  
-  /**
-   * @return The number of directories that have been snapshotted
-   */
-  public int getNumSnapshots();
-  
+@InterfaceAudience.Private
+public interface Schedulable {
+  public UserGroupInformation getUserGroupInformation();
 }

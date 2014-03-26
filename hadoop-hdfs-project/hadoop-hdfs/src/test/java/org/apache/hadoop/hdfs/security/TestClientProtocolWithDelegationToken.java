@@ -54,7 +54,7 @@ public class TestClientProtocolWithDelegationToken {
   public static final Log LOG = LogFactory
       .getLog(TestClientProtocolWithDelegationToken.class);
 
-  private static Configuration conf;
+  private static final Configuration conf;
   static {
     conf = new Configuration();
     conf.set(HADOOP_SECURITY_AUTHENTICATION, "kerberos");
@@ -102,7 +102,7 @@ public class TestClientProtocolWithDelegationToken {
       public Object run() throws Exception {
         ClientProtocol proxy = null;
         try {
-          proxy = (ClientProtocol) RPC.getProxy(ClientProtocol.class,
+          proxy = RPC.getProxy(ClientProtocol.class,
               ClientProtocol.versionID, addr, conf);
           proxy.getServerDefaults();
         } finally {

@@ -153,6 +153,7 @@ import org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferEncryptor;
 import org.apache.hadoop.hdfs.protocol.datatransfer.IOStreamPair;
 import org.apache.hadoop.hdfs.protocol.datatransfer.Op;
 import org.apache.hadoop.hdfs.protocol.datatransfer.ReplaceDatanodeOnFailure;
+import org.apache.hadoop.hdfs.protocol.datatransfer.TrustedChannelResolver;
 import org.apache.hadoop.hdfs.protocol.datatransfer.Sender;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.BlockOpResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.OpBlockChecksumResponseProto;
@@ -221,18 +222,19 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
   private volatile FsServerDefaults serverDefaults;
   private volatile long serverDefaultsLastUpdate;
   final String clientName;
-  SocketFactory socketFactory;
+  final SocketFactory socketFactory;
   final ReplaceDatanodeOnFailure dtpReplaceDatanodeOnFailure;
   final FileSystem.Statistics stats;
   private final String authority;
-  private Random r = new Random();
+  private final Random r = new Random();
   private SocketAddress[] localInterfaceAddrs;
   private DataEncryptionKey encryptionKey;
+  final TrustedChannelResolver trustedChannelResolver;
   private final CachingStrategy defaultReadCachingStrategy;
   private final CachingStrategy defaultWriteCachingStrategy;
   private final ClientContext clientContext;
   private volatile long hedgedReadThresholdMillis;
-  private static DFSHedgedReadMetrics HEDGED_READ_METRIC =
+  private static final DFSHedgedReadMetrics HEDGED_READ_METRIC =
       new DFSHedgedReadMetrics();
   private static ThreadPoolExecutor HEDGED_READ_THREAD_POOL;
   
@@ -609,6 +611,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
     if (numThreads > 0) {
       this.initThreadsNumForHedgedReads(numThreads);
     }
+    this.trustedChannelResolver = TrustedChannelResolver.getInstance(getConfiguration());
   }
   
   /**
@@ -962,7 +965,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
     }
   }
   
-  private static Map<String, Boolean> localAddrMap = Collections
+  private static final Map<String, Boolean> localAddrMap = Collections
       .synchronizedMap(new HashMap<String, Boolean>());
   
   static boolean isLocalAddress(InetSocketAddress targetAddr) {
@@ -1813,7 +1816,8 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
   @InterfaceAudience.Private
   public DataEncryptionKey getDataEncryptionKey()
       throws IOException {
-    if (shouldEncryptData()) {
+    if (shouldEncryptData() && 
+        !this.trustedChannelResolver.isTrusted()) {
       synchronized (this) {
         if (encryptionKey == null ||
             encryptionKey.expiryDate < Time.now()) {

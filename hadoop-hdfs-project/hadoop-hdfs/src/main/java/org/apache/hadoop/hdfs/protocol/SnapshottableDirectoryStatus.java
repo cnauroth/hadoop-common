@@ -44,16 +44,16 @@ public class SnapshottableDirectoryStatus {
   };
 
   /** Basic information of the snapshottable directory */
-  private HdfsFileStatus dirStatus;
+  private final HdfsFileStatus dirStatus;
   
   /** Number of snapshots that have been taken*/
-  private int snapshotNumber;
+  private final int snapshotNumber;
   
   /** Number of snapshots allowed. */
-  private int snapshotQuota;
+  private final int snapshotQuota;
   
   /** Full path of the parent. */
-  private byte[] parentFullPath;
+  private final byte[] parentFullPath;
   
   public SnapshottableDirectoryStatus(long modification_time, long access_time,
       FsPermission permission, String owner, String group, byte[] localName,
@@ -165,5 +165,55 @@ public class SnapshottableDirectoryStatus {
 
   private static int maxLength(int n, Object value) {
     return Math.max(n, String.valueOf(value).length());
+  }
+
+  public static class Bean {
+    private final String path;
+    private final int snapshotNumber;
+    private final int snapshotQuota;
+    private final long modificationTime;
+    private final short permission;
+    private final String owner;
+    private final String group;
+
+    public Bean(SnapshottableDirectoryStatus s) {
+      this.path = s.getFullPath().toString();
+      this.snapshotNumber = s.getSnapshotNumber();
+      this.snapshotQuota = s.getSnapshotQuota();
+      this.modificationTime = s.getDirStatus().getModificationTime();
+      this.permission =
+          Short.valueOf(Integer.toOctalString(
+              s.getDirStatus().getPermission().toShort()));
+      this.owner = s.getDirStatus().getOwner();
+      this.group = s.getDirStatus().getGroup();
+    }
+
+    public String getPath() {
+      return path;
+    }
+
+    public int getSnapshotNumber() {
+      return snapshotNumber;
+    }
+
+    public int getSnapshotQuota() {
+      return snapshotQuota;
+    }
+
+    public long getModificationTime() {
+      return modificationTime;
+    }
+
+    public short getPermission() {
+      return permission;
+    }
+
+    public String getOwner() {
+      return owner;
+    }
+
+    public String getGroup() {
+      return group;
+    }
   }
 }

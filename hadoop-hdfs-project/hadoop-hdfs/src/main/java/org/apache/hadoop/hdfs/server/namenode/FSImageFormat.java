@@ -522,6 +522,8 @@ public class FSImageFormat {
         updateRootAttr(newNode.asDirectory());
         continue;
       }
+
+      namesystem.dir.addToInodeMap(newNode);
       // check if the new inode belongs to the same parent
       if(!isParent(pathComponents, parentPath)) {
         parentINode = getParentINodeDirectory(pathComponents);
@@ -903,7 +905,7 @@ public class FSImageFormat {
   }
 
   @VisibleForTesting
-  public static TreeMap<String, String> renameReservedMap =
+  public static final TreeMap<String, String> renameReservedMap =
       new TreeMap<String, String>();
 
   /**

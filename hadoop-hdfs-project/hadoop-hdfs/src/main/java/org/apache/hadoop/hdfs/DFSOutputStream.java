@@ -148,20 +148,20 @@ public class DFSOutputStream extends FSOutputSummer
   private final AtomicBoolean persistBlocks = new AtomicBoolean(false);
   private volatile boolean appendChunk = false;   // appending to existing partial block
   private long initialFileSize = 0; // at time of file open
-  private Progressable progress;
+  private final Progressable progress;
   private final short blockReplication; // replication factor of file
   private boolean shouldSyncBlock = false; // force blocks to disk upon close
-  private AtomicReference<CachingStrategy> cachingStrategy;
+  private final AtomicReference<CachingStrategy> cachingStrategy;
   private boolean failPacket = false;
   
   private static class Packet {
     private static final long HEART_BEAT_SEQNO = -1L;
-    long seqno; // sequencenumber of buffer in block
+    final long seqno; // sequencenumber of buffer in block
     final long offsetInBlock; // offset in block
     boolean syncBlock; // this packet forces the current block to disk
     int numChunks; // number of chunks currently in packet
     final int maxChunks; // max chunks in packet
-    byte[]  buf;
+    final byte[]  buf;
     private boolean lastPacketInBlock; // is this the last packet in block?
 
     /**
@@ -314,7 +314,7 @@ public class DFSOutputStream extends FSOutputSummer
     private ResponseProcessor response = null;
     private volatile DatanodeInfo[] nodes = null; // list of targets for current block
     private volatile String[] storageIDs = null;
-    private LoadingCache<DatanodeInfo, DatanodeInfo> excludedNodes =
+    private final LoadingCache<DatanodeInfo, DatanodeInfo> excludedNodes =
         CacheBuilder.newBuilder()
         .expireAfterWrite(
             dfsClient.getConf().excludedNodesCacheExpiry,
@@ -1038,7 +1038,8 @@ public class DFSOutputStream extends FSOutputSummer
         
         OutputStream unbufOut = NetUtils.getOutputStream(sock, writeTimeout);
         InputStream unbufIn = NetUtils.getInputStream(sock);
-        if (dfsClient.shouldEncryptData()) {
+        if (dfsClient.shouldEncryptData() && 
+            !dfsClient.trustedChannelResolver.isTrusted(sock.getInetAddress())) {
           IOStreamPair encryptedStreams =
               DataTransferEncryptor.getEncryptedStreams(
                   unbufOut, unbufIn, dfsClient.getDataEncryptionKey());
@@ -1314,7 +1315,8 @@ public class DFSOutputStream extends FSOutputSummer
           
           OutputStream unbufOut = NetUtils.getOutputStream(s, writeTimeout);
           InputStream unbufIn = NetUtils.getInputStream(s);
-          if (dfsClient.shouldEncryptData()) {
+          if (dfsClient.shouldEncryptData()  && 
+              !dfsClient.trustedChannelResolver.isTrusted(s.getInetAddress())) {
             IOStreamPair encryptedStreams =
                 DataTransferEncryptor.getEncryptedStreams(unbufOut,
                     unbufIn, dfsClient.getDataEncryptionKey());

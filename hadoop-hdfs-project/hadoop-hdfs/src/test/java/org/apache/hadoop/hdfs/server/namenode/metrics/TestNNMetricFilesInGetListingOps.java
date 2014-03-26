@@ -50,14 +50,14 @@ public class TestNNMetricFilesInGetListingOps {
      
   private MiniDFSCluster cluster;
   private DistributedFileSystem fs;
-  private Random rand = new Random();
+  private final Random rand = new Random();
 
   @Before
   public void setUp() throws Exception {
     cluster = new MiniDFSCluster.Builder(CONF).build();
     cluster.waitActive();
     cluster.getNameNode();
-    fs = (DistributedFileSystem) cluster.getFileSystem();
+    fs = cluster.getFileSystem();
   }
 
   @After

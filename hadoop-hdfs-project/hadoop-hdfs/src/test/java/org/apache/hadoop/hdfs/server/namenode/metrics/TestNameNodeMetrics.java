@@ -91,7 +91,7 @@ public class TestNameNodeMetrics {
   
   private MiniDFSCluster cluster;
   private DistributedFileSystem fs;
-  private Random rand = new Random();
+  private final Random rand = new Random();
   private FSNamesystem namesystem;
   private BlockManager bm;
 
@@ -105,7 +105,7 @@ public class TestNameNodeMetrics {
     cluster.waitActive();
     namesystem = cluster.getNamesystem();
     bm = namesystem.getBlockManager();
-    fs = (DistributedFileSystem) cluster.getFileSystem();
+    fs = cluster.getFileSystem();
   }
   
   @After

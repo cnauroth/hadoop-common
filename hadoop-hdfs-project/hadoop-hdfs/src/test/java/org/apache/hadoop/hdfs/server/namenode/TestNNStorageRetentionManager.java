@@ -51,7 +51,7 @@ import com.google.common.collect.Sets;
 
 
 public class TestNNStorageRetentionManager {
-  Configuration conf = new Configuration();
+  final Configuration conf = new Configuration();
 
   /**
    * For the purpose of this test, purge as many edits as we can 
@@ -268,13 +268,13 @@ public class TestNNStorageRetentionManager {
   }
   
   private class TestCaseDescription {
-    private Map<File, FakeRoot> dirRoots = Maps.newLinkedHashMap();
-    private Set<File> expectedPurgedLogs = Sets.newLinkedHashSet();
-    private Set<File> expectedPurgedImages = Sets.newLinkedHashSet();
+    private final Map<File, FakeRoot> dirRoots = Maps.newLinkedHashMap();
+    private final Set<File> expectedPurgedLogs = Sets.newLinkedHashSet();
+    private final Set<File> expectedPurgedImages = Sets.newLinkedHashSet();
     
     private class FakeRoot {
-      NameNodeDirType type;
-      List<File> files;
+      final NameNodeDirType type;
+      final List<File> files;
       
       FakeRoot(NameNodeDirType type) {
         this.type = type;
@@ -361,7 +361,7 @@ public class TestNNStorageRetentionManager {
         public Void answer(InvocationOnMock invocation) throws Throwable {
           Object[] args = invocation.getArguments();
           journalSet.selectInputStreams((Collection<EditLogInputStream>)args[0],
-              (long)((Long)args[1]), (boolean)((Boolean)args[2]));
+              (Long)args[1], (Boolean)args[2]);
           return null;
         }
       }).when(mockLog).selectInputStreams(Mockito.anyCollection(),

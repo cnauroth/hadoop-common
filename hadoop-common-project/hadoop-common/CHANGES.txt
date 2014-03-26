@@ -321,6 +321,10 @@ Release 2.5.0 - UNRELEASED
     HADOOP-10418. SaslRpcClient should not assume that remote principals are in
     the default_realm. (atm)
 
+    HADOOP-10426. Declare CreateOpts.getOpt(..) with generic type argument,
+    removes unused FileContext.getFileStatus(..) and fixes various javac
+    warnings.  (szetszwo)
+
 Release 2.4.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -383,6 +387,12 @@ Release 2.4.0 - UNRELEASED
     HADOOP-10015. UserGroupInformation prints out excessive warnings.
     (Nicolas Liochon via szetszwo)
 
+    HADOOP-10423. Clarify compatibility policy document for combination of 
+    new client and old server. (Chris Nauroth via kasha)
+
+    HADOOP-10280. Make Schedulables return a configurable identity of user
+    or group. (Chris Li via Arpit Agarwal)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -438,6 +448,17 @@ Release 2.4.0 - UNRELEASED
 
     HADOOP-10191. Missing executable permission on viewfs internal dirs.
     (Gera Shegalov via cnauroth)
+
+    HADOOP-10422. Remove redundant logging of RPC retry attempts. (cnauroth)
+
+    HADOOP-10425. LocalFileSystem.getContentSummary should not count crc files.
+    (szetszwo)
+
+    HADOOP-10440. HarFsInputStream.read(byte[]) updates position incorrectly.
+    (guodongdong via szetszwo)
+
+    HADOOP-10437. Fix the javac warnings in the conf and the util package.
+    (szetszwo)
 
   BREAKDOWN OF HADOOP-10184 SUBTASKS AND RELATED JIRAS
 

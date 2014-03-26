@@ -256,6 +256,11 @@ Release 2.5.0 - UNRELEASED
     HDFS-6007. Update documentation about short-circuit local reads (iwasakims
     via cmccabe)
 
+    HDFS-6125. Cleanup unnecessary cast in HDFS code base. (suresh)
+
+    HDFS-5196. Provide more snapshot information in WebUI.
+    (Shinichi Yamashita via wheat9)
+
   OPTIMIZATIONS
 
   BUG FIXES 
@@ -437,6 +442,15 @@ Release 2.4.0 - UNRELEASED
     (brandonli)
 
     HDFS-5138. Support HDFS upgrade in HA. (atm via todd)
+
+    HDFS-6124. Add final modifier to class members. (Suresh Srinivas via
+    Arpit Agarwal)
+
+    HDFS-5910. Enhance DataTransferProtocol to allow per-connection choice
+    of encryption/plain-text. (Benoy Antony via Arpit Agarwal)
+
+    HDFS-6150. Add inode id information in the logs to make debugging easier.
+    (suresh)
 
   OPTIMIZATIONS
 
@@ -682,6 +696,17 @@ Release 2.4.0 - UNRELEASED
 
     HDFS-5846. Assigning DEFAULT_RACK in resolveNetworkLocation method can break
     data resiliency. (Nikola Vujic via cnauroth)
+    
+    HDFS-5840. Follow-up to HDFS-5138 to improve error handling during partial
+    upgrade failures. (atm, jing9 and suresh via jing9)
+
+    HDFS-6130. NPE when upgrading namenode from fsimages older than -32.
+    (wheat9)
+
+    HDFS-6115. Call flush() for every append on block scan verification log.
+    (Vinayakumar B via szetszwo)
+
+    HDFS-5672. TestHASafeMode#testSafeBlockTracking fails in trunk. (jing9)
 
   BREAKDOWN OF HDFS-5698 SUBTASKS AND RELATED JIRAS
 

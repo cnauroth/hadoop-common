@@ -393,6 +393,10 @@ public class FSImage implements Closeable {
 
     saveFSImageInAllDirs(target, editLog.getLastWrittenTxId());
 
+    // upgrade shared edit storage first
+    if (target.isHaEnabled()) {
+      editLog.doUpgradeOfSharedLog();
+    }
     for (Iterator<StorageDirectory> it = storage.dirIterator(false); it.hasNext();) {
       StorageDirectory sd = it.next();
       try {
@@ -401,9 +405,6 @@ public class FSImage implements Closeable {
         errorSDs.add(sd);
         continue;
       }
-    }
-    if (target.isHaEnabled()) {
-      editLog.doUpgradeOfSharedLog();
     }
     storage.reportErrorsOnDirectories(errorSDs);
     
@@ -430,14 +431,19 @@ public class FSImage implements Closeable {
             HdfsConstants.NAMENODE_LAYOUT_VERSION)) {
           continue;
         }
+        LOG.info("Can perform rollback for " + sd);
         canRollback = true;
       }
       
       if (fsns.isHaEnabled()) {
         // If HA is enabled, check if the shared log can be rolled back as well.
         editLog.initJournalsForWrite();
-        canRollback |= editLog.canRollBackSharedLog(prevState.getStorage(),
-            HdfsConstants.NAMENODE_LAYOUT_VERSION);
+        boolean canRollBackSharedEditLog = editLog.canRollBackSharedLog(
+            prevState.getStorage(), HdfsConstants.NAMENODE_LAYOUT_VERSION);
+        if (canRollBackSharedEditLog) {
+          LOG.info("Can perform rollback for shared edit log.");
+          canRollback = true;
+        }
       }
       
       if (!canRollback)
@@ -940,7 +946,7 @@ public class FSImage implements Closeable {
    */
   private class FSImageSaver implements Runnable {
     private final SaveNamespaceContext context;
-    private StorageDirectory sd;
+    private final StorageDirectory sd;
     private final NameNodeFile nnf;
 
     public FSImageSaver(SaveNamespaceContext context, StorageDirectory sd,
