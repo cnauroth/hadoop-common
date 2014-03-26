@@ -29,6 +29,7 @@ import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.AclEntryScope;
 import org.apache.hadoop.fs.permission.AclEntryType;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.fs.permission.AclUtil;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.ipc.RemoteException;
@@ -242,25 +243,7 @@ public class DistCpUtils {
       FileStatus fileStatus) throws IOException {
     List<AclEntry> entries = fileSystem.getAclStatus(fileStatus.getPath())
       .getEntries();
-    List<AclEntry> acl = Lists.newArrayListWithCapacity(entries.size() + 3);
-    FsPermission perm = fileStatus.getPermission();
-    acl.add(new AclEntry.Builder()
-      .setScope(AclEntryScope.ACCESS)
-      .setType(AclEntryType.USER)
-      .setPermission(perm.getUserAction())
-      .build());
-    acl.add(new AclEntry.Builder()
-      .setScope(AclEntryScope.ACCESS)
-      .setType(AclEntryType.GROUP)
-      .setPermission(perm.getGroupAction())
-      .build());
-    acl.add(new AclEntry.Builder()
-      .setScope(AclEntryScope.ACCESS)
-      .setType(AclEntryType.OTHER)
-      .setPermission(perm.getOtherAction())
-      .build());
-    acl.addAll(entries);
-    return acl;
+    return AclUtil.getAclFromPermAndEntries(fileStatus.getPermission(), entries);
   }
 
   /**
