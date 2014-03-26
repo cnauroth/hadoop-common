@@ -230,7 +230,7 @@ public class CopyMapper extends Mapper<Text, FileStatus, Text, Text> {
                           fileAttributes);
       }
 
-      DistCpUtils.preserve(target.getFileSystem(conf), target,
+      DistCpUtils.preserve(sourceFS, target.getFileSystem(conf), target,
                            sourceCurrStatus, fileAttributes);
 
     } catch (IOException exception) {

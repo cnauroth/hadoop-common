@@ -25,20 +25,30 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.FileChecksum;
+import org.apache.hadoop.fs.permission.AclEntry;
+import org.apache.hadoop.fs.permission.AclEntryScope;
+import org.apache.hadoop.fs.permission.AclEntryType;
+import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.ipc.RemoteException;
+import org.apache.hadoop.ipc.RpcNoSuchMethodException;
 import org.apache.hadoop.tools.DistCpOptions.FileAttribute;
 import org.apache.hadoop.tools.mapred.UniformSizeInputFormat;
+import org.apache.hadoop.tools.CopyListing.AclsNotSupportedException;
 import org.apache.hadoop.tools.DistCpOptions;
 import org.apache.hadoop.mapreduce.InputFormat;
 
 import java.io.IOException;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Locale;
 import java.text.DecimalFormat;
 import java.net.URI;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+
+import com.google.common.collect.Lists;
 
 /**
  * Utility functions used in DistCp.
@@ -173,15 +183,16 @@ public class DistCpUtils {
    * as argument. Barring the block size, all the other attributes are preserved
    * by this function
    *
-   * @param targetFS - File system
+   * @param sourceFS - source file system
+   * @param targetFS - target file system
    * @param path - Path that needs to preserve original file status
    * @param srcFileStatus - Original file status
    * @param attributes - Attribute set that need to be preserved
    * @throws IOException - Exception if any (particularly relating to group/owner
    *                       change or any transient error)
    */
-  public static void preserve(FileSystem targetFS, Path path,
-                              FileStatus srcFileStatus,
+  public static void preserve(FileSystem sourceFS, FileSystem targetFS,
+                              Path path, FileStatus srcFileStatus,
                               EnumSet<FileAttribute> attributes) throws IOException {
 
     FileStatus targetFileStatus = targetFS.getFileStatus(path);
@@ -189,7 +200,13 @@ public class DistCpUtils {
     String user = targetFileStatus.getOwner();
     boolean chown = false;
 
-    if (attributes.contains(FileAttribute.PERMISSION) &&
+    if (attributes.contains(FileAttribute.ACL)) {
+      List<AclEntry> srcAcl = getAcl(sourceFS, srcFileStatus);
+      List<AclEntry> targetAcl = getAcl(targetFS, targetFileStatus);
+      if (!srcAcl.equals(targetAcl)) {
+        targetFS.setAcl(path, srcAcl);
+      }
+    } else if (attributes.contains(FileAttribute.PERMISSION) &&
       !srcFileStatus.getPermission().equals(targetFileStatus.getPermission())) {
       targetFS.setPermission(path, srcFileStatus.getPermission());
     }
@@ -216,6 +233,31 @@ public class DistCpUtils {
     }
   }
 
+  private static List<AclEntry> getAcl(FileSystem fileSystem,
+      FileStatus fileStatus) throws IOException {
+    List<AclEntry> entries = fileSystem.getAclStatus(fileStatus.getPath())
+      .getEntries();
+    List<AclEntry> acl = Lists.newArrayListWithCapacity(entries.size() + 3);
+    FsPermission perm = fileStatus.getPermission();
+    acl.add(new AclEntry.Builder()
+      .setScope(AclEntryScope.ACCESS)
+      .setType(AclEntryType.USER)
+      .setPermission(perm.getUserAction())
+      .build());
+    acl.add(new AclEntry.Builder()
+      .setScope(AclEntryScope.ACCESS)
+      .setType(AclEntryType.GROUP)
+      .setPermission(perm.getGroupAction())
+      .build());
+    acl.add(new AclEntry.Builder()
+      .setScope(AclEntryScope.ACCESS)
+      .setType(AclEntryType.OTHER)
+      .setPermission(perm.getOtherAction())
+      .build());
+    acl.addAll(entries);
+    return acl;
+  }
+
   /**
    * Sort sequence file containing FileStatus and Text as key and value respecitvely
    *
@@ -236,6 +278,30 @@ public class DistCpUtils {
 
     sorter.sort(sourceListing, output);
     return output;
+  }
+
+  public static void checkFileSystemAclSupport(FileSystem fs, URI fsUri)
+      throws IOException {
+    try {
+      fs.getAclStatus(new Path(Path.SEPARATOR));
+    } catch (RemoteException e) {
+      IOException e2 = e.unwrapRemoteException(RpcNoSuchMethodException.class);
+      if (e2 instanceof RpcNoSuchMethodException) {
+        throw new AclsNotSupportedException(
+          "ACL RPC endpoint not found for file system: " + fsUri);
+      }
+      throw e;
+    } catch (IOException e) {
+      String message = e.getMessage();
+      if (message != null && message.contains("ACLs has been disabled")) {
+        throw new AclsNotSupportedException(
+          "ACLs are not enabled for file system: " + fsUri);
+      }
+      throw e;
+    } catch (UnsupportedOperationException e) {
+      throw new AclsNotSupportedException(
+        "ACLs not implemented for file system: " + fsUri);
+    }
   }
 
   /**

@@ -61,7 +61,7 @@ public class DistCpOptions {
   private Path targetPath;
 
   public static enum FileAttribute{
-    REPLICATION, BLOCKSIZE, USER, GROUP, PERMISSION, CHECKSUMTYPE;
+    REPLICATION, BLOCKSIZE, USER, GROUP, PERMISSION, CHECKSUMTYPE, ACL;
 
     public static FileAttribute getAttribute(char symbol) {
       for (FileAttribute attribute : values()) {

@@ -186,8 +186,10 @@ public class CopyCommitter extends FileOutputCommitter {
         // on the target is undefined.)
         if (targetRoot.equals(targetFile)) continue;
 
+        // TODO
+        FileSystem sourceFS = null;
         FileSystem targetFS = targetFile.getFileSystem(conf);
-        DistCpUtils.preserve(targetFS, targetFile, srcFileStatus,  attributes);
+        DistCpUtils.preserve(sourceFS, targetFS, targetFile, srcFileStatus,  attributes);
 
         taskAttemptContext.progress();
         taskAttemptContext.setStatus("Preserving status on directory entries. [" +

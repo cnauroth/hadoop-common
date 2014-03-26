@@ -31,6 +31,10 @@ import org.apache.hadoop.security.Credentials;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.net.URI;
+import java.util.Set;
+
+import com.google.common.collect.Sets;
 
 /**
  * The CopyListing abstraction is responsible for how the list of
@@ -85,7 +89,7 @@ public abstract class CopyListing extends Configured {
     config.setLong(DistCpConstants.CONF_LABEL_TOTAL_BYTES_TO_BE_COPIED, getBytesToCopy());
     config.setLong(DistCpConstants.CONF_LABEL_TOTAL_NUMBER_OF_RECORDS, getNumberOfPaths());
 
-    checkForDuplicates(pathToListFile);
+    validateFinalListing(pathToListFile, options);
   }
 
   /**
@@ -124,13 +128,15 @@ public abstract class CopyListing extends Configured {
   protected abstract long getNumberOfPaths();
 
   /**
-   * Validate the final resulting path listing to see if there are any duplicate entries
+   * Validate the final resulting path listing.  Checks if there are duplicate
+   * entries.  If preserving ACLs, checks that file system can support ACLs.
    *
    * @param pathToListFile - path listing build by doBuildListing
+   * @param options - Input options to distcp
    * @throws IOException - Any issues while checking for duplicates and throws
    * @throws DuplicateFileException - if there are duplicates
    */
-  private void checkForDuplicates(Path pathToListFile)
+  private void validateFinalListing(Path pathToListFile, DistCpOptions options)
       throws DuplicateFileException, IOException {
 
     Configuration config = getConf();
@@ -145,6 +151,7 @@ public abstract class CopyListing extends Configured {
       FileStatus lastFileStatus = new FileStatus();
 
       Text currentKey = new Text();
+      Set<URI> aclSupportCheckFsSet = Sets.newHashSet();
       while (reader.next(currentKey)) {
         if (currentKey.equals(lastKey)) {
           FileStatus currentFileStatus = new FileStatus();
@@ -153,6 +160,14 @@ public abstract class CopyListing extends Configured {
               currentFileStatus.getPath() + " would cause duplicates. Aborting");
         }
         reader.getCurrentValue(lastFileStatus);
+        if (options.shouldPreserve(DistCpOptions.FileAttribute.ACL)) {
+          FileSystem lastFs = lastFileStatus.getPath().getFileSystem(config);
+          URI lastFsUri = lastFs.getUri();
+          if (!aclSupportCheckFsSet.contains(lastFsUri)) {
+            DistCpUtils.checkFileSystemAclSupport(lastFs, lastFsUri);
+            aclSupportCheckFsSet.add(lastFsUri);
+          }
+        }
         lastKey.set(currentKey);
       }
     } finally {
@@ -233,6 +248,12 @@ public abstract class CopyListing extends Configured {
 
   static class InvalidInputException extends RuntimeException {
     public InvalidInputException(String message) {
+      super(message);
+    }
+  }
+
+  public static class AclsNotSupportedException extends RuntimeException {
+    public AclsNotSupportedException(String message) {
       super(message);
     }
   }
