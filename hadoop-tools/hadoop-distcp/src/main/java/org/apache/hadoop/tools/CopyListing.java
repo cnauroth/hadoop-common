@@ -164,7 +164,7 @@ public abstract class CopyListing extends Configured {
           FileSystem lastFs = lastFileStatus.getPath().getFileSystem(config);
           URI lastFsUri = lastFs.getUri();
           if (!aclSupportCheckFsSet.contains(lastFsUri)) {
-            DistCpUtils.checkFileSystemAclSupport(lastFs, lastFsUri);
+            DistCpUtils.checkFileSystemAclSupport(lastFs);
             aclSupportCheckFsSet.add(lastFsUri);
           }
         }

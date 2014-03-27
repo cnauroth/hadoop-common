@@ -287,7 +287,7 @@ public class DistCp extends Configured implements Tool {
     targetPath = targetPath.makeQualified(targetFS.getUri(),
                                           targetFS.getWorkingDirectory());
     if (inputOptions.shouldPreserve(DistCpOptions.FileAttribute.ACL)) {
-      DistCpUtils.checkFileSystemAclSupport(targetFS, targetFS.getUri());
+      DistCpUtils.checkFileSystemAclSupport(targetFS);
     }
     if (inputOptions.shouldAtomicCommit()) {
       Path workDir = inputOptions.getAtomicWorkPath();

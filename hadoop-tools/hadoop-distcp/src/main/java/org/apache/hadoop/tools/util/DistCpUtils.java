@@ -239,6 +239,14 @@ public class DistCpUtils {
     }
   }
 
+  /**
+   * Returns a file's full logical ACL.
+   *
+   * @param fileSystem FileSystem containing the file
+   * @param fileStatus FileStatus of file
+   * @return List<AclEntry> containing full logical ACL
+   * @throws IOException if there is an I/O error
+   */
   private static List<AclEntry> getAcl(FileSystem fileSystem,
       FileStatus fileStatus) throws IOException {
     List<AclEntry> entries = fileSystem.getAclStatus(fileStatus.getPath())
@@ -268,27 +276,41 @@ public class DistCpUtils {
     return output;
   }
 
-  public static void checkFileSystemAclSupport(FileSystem fs, URI fsUri)
+  /**
+   * Determines if a file system supports ACLs by running a canary getAclStatus
+   * request on the file system root.  This method is used before distcp job
+   * submission to fail fast if the user requested preserving ACLs, but the file
+   * system cannot support ACLs.
+   *
+   * @param fs FileSystem to check
+   * @throws AclsNotSupportedException if fs does not support ACLs
+   * @throws IOException if there is an I/O error
+   */
+  public static void checkFileSystemAclSupport(FileSystem fs)
       throws IOException {
     try {
       fs.getAclStatus(new Path(Path.SEPARATOR));
     } catch (RemoteException e) {
+      // If this is a RpcNoSuchMethodException, then the client is connected to
+      // an older NameNode that doesn't support ACLs.  Fail.
       IOException e2 = e.unwrapRemoteException(RpcNoSuchMethodException.class);
       if (e2 instanceof RpcNoSuchMethodException) {
         throw new AclsNotSupportedException(
-          "ACL RPC endpoint not found for file system: " + fsUri);
+          "ACL RPC endpoint not found for file system: " + fs.getUri());
       }
       throw e;
     } catch (IOException e) {
+      // The NameNode supports ACLs, but they are not enabled.  Fail.
       String message = e.getMessage();
       if (message != null && message.contains("ACLs has been disabled")) {
         throw new AclsNotSupportedException(
-          "ACLs are not enabled for file system: " + fsUri);
+          "ACLs are not enabled for file system: " + fs.getUri());
       }
       throw e;
     } catch (UnsupportedOperationException e) {
+      // The underlying FileSystem doesn't implement ACLs.  Fail.
       throw new AclsNotSupportedException(
-        "ACLs not implemented for file system: " + fsUri);
+        "ACLs not implemented for file system: " + fs.getUri());
     }
   }
 
