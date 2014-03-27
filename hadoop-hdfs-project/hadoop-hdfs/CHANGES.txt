@@ -261,6 +261,13 @@ Release 2.5.0 - UNRELEASED
     HDFS-5196. Provide more snapshot information in WebUI.
     (Shinichi Yamashita via wheat9)
 
+    HDFS-6155. Fix Boxing/unboxing to parse a primitive findbugs warnings.
+    (suresh)
+
+    HDFS-6119. FSNamesystem code cleanup. (suresh)
+
+    HDFS-6158. Clean up dead code for OfflineImageViewer (wheat9)
+
   OPTIMIZATIONS
 
   BUG FIXES 
@@ -270,6 +277,9 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-3087. Decomissioning on NN restart can complete without blocks being
     replicated. (Rushabh S Shah via kihwal)
+
+    HDFS-6162. Format strings should use platform independent line separator.
+    (suresh)
 
 Release 2.4.0 - UNRELEASED
 
@@ -707,6 +717,8 @@ Release 2.4.0 - UNRELEASED
     (Vinayakumar B via szetszwo)
 
     HDFS-5672. TestHASafeMode#testSafeBlockTracking fails in trunk. (jing9)
+
+    HDFS-6157. Fix the entry point of OfflineImageViewer for hdfs.cmd. (wheat9)
 
   BREAKDOWN OF HDFS-5698 SUBTASKS AND RELATED JIRAS
 
