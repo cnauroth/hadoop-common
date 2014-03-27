@@ -109,7 +109,6 @@ class AclCommands extends FsCommand {
       if (entries.isEmpty()) {
         return;
       }
-      boolean isMinimalAcl = AclUtil.isMinimalAcl(entries);
       if (AclUtil.isMinimalAcl(entries)) {
         for (AclEntry entry: entries) {
           out.println(entry);
