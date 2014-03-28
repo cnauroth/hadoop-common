@@ -28,9 +28,13 @@ import java.io.PrintWriter;
 import java.io.RandomAccessFile;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -52,8 +56,12 @@ import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants.SafeModeAction;
 import org.apache.hadoop.hdfs.server.namenode.FSImageTestUtil;
 import org.apache.hadoop.io.IOUtils;
+import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.token.Token;
+import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.type.TypeReference;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
@@ -70,16 +78,6 @@ public class TestOfflineImageViewer {
   private static final int FILES_PER_DIR = 4;
   private static final String TEST_RENEWER = "JobTracker";
   private static File originalFsimage = null;
-
-  // Elements of lines of ls-file output to be compared to FileStatus instance
-  private static final class LsElements {
-    private String perms;
-    private int replication;
-    private String username;
-    private String groupname;
-    private long filesize;
-    private boolean isDir;
-  }
 
   // namespace as written to dfs, to be compared with viewer's output
   final static HashMap<String, FileStatus> writtenFiles = Maps.newHashMap();
@@ -168,37 +166,6 @@ public class TestOfflineImageViewer {
     return hdfs.getFileStatus(new Path(file));
   }
 
-  // Verify that we can correctly generate an ls-style output for a valid
-  // fsimage
-  @Test
-  public void outputOfLSVisitor() throws IOException {
-    StringWriter output = new StringWriter();
-    PrintWriter out = new PrintWriter(output);
-    LsrPBImage v = new LsrPBImage(new Configuration(), out);
-    v.visit(new RandomAccessFile(originalFsimage, "r"));
-    out.close();
-    Pattern pattern = Pattern
-        .compile("([d\\-])([rwx\\-]{9})\\s*(-|\\d+)\\s*(\\w+)\\s*(\\w+)\\s*(\\d+)\\s*(\\d+)\\s*([\b/]+)");
-    int count = 0;
-    for (String s : output.toString().split("\n")) {
-      Matcher m = pattern.matcher(s);
-      assertTrue(m.find());
-      LsElements e = new LsElements();
-      e.isDir = m.group(1).equals("d");
-      e.perms = m.group(2);
-      e.replication = m.group(3).equals("-") ? 0 : Integer.parseInt(m.group(3));
-      e.username = m.group(4);
-      e.groupname = m.group(5);
-      e.filesize = Long.parseLong(m.group(7));
-      String path = m.group(8);
-      if (!path.equals("/")) {
-        compareFiles(writtenFiles.get(path), e);
-      }
-      ++count;
-    }
-    assertEquals(writtenFiles.size() + 1, count);
-  }
-
   @Test(expected = IOException.class)
   public void testTruncatedFSImage() throws IOException {
     File truncatedFile = folder.newFile();
@@ -206,18 +173,6 @@ public class TestOfflineImageViewer {
     copyPartOfFile(originalFsimage, truncatedFile);
     new FileDistributionCalculator(new Configuration(), 0, 0, new PrintWriter(
         output)).visit(new RandomAccessFile(truncatedFile, "r"));
-  }
-
-  // Compare two files as listed in the original namespace FileStatus and
-  // the output of the ls file from the image processor
-  private void compareFiles(FileStatus fs, LsElements elements) {
-    assertEquals("directory listed as such", fs.isDirectory(), elements.isDir);
-    assertEquals("perms string equal", fs.getPermission().toString(),
-        elements.perms);
-    assertEquals("replication equal", fs.getReplication(), elements.replication);
-    assertEquals("owner equal", fs.getOwner(), elements.username);
-    assertEquals("group equal", fs.getGroup(), elements.groupname);
-    assertEquals("lengths equal", fs.getLen(), elements.filesize);
   }
 
   private void copyPartOfFile(File src, File dest) throws IOException {
@@ -288,5 +243,67 @@ public class TestOfflineImageViewer {
     SAXParser parser = spf.newSAXParser();
     final String xml = output.getBuffer().toString();
     parser.parse(new InputSource(new StringReader(xml)), new DefaultHandler());
+  }
+
+  @Test
+  public void testWebImageViewer() throws IOException, InterruptedException {
+    WebImageViewer viewer = new WebImageViewer(
+        NetUtils.createSocketAddr("localhost:0"));
+    try {
+      viewer.initServer(originalFsimage.getAbsolutePath());
+      int port = viewer.getPort();
+
+      // 1. LISTSTATUS operation to a valid path
+      URL url = new URL("http://localhost:" + port + "/?op=LISTSTATUS");
+      HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+      connection.setRequestMethod("GET");
+      connection.connect();
+      assertEquals(HttpURLConnection.HTTP_OK, connection.getResponseCode());
+      assertEquals("application/json", connection.getContentType());
+
+      String content = org.apache.commons.io.IOUtils.toString(
+          connection.getInputStream());
+      LOG.info("content: " + content);
+
+      // verify the number of directories listed
+      ObjectMapper mapper = new ObjectMapper();
+      Map<String, Map<String, List<Map<String, Object>>>> fileStatuses =
+          mapper.readValue(content, new TypeReference
+          <Map<String, Map<String, List<Map<String, Object>>>>>(){});
+      List<Map<String, Object>> fileStatusList = fileStatuses
+          .get("FileStatuses").get("FileStatus");
+      assertEquals(NUM_DIRS, fileStatusList.size());
+
+      // verify the number of files in a directory
+      Map<String, Object> fileStatusMap = fileStatusList.get(0);
+      assertEquals(FILES_PER_DIR, fileStatusMap.get("childrenNum"));
+
+      // 2. LISTSTATUS operation to a invalid path
+      url = new URL("http://localhost:" + port + "/invalid/?op=LISTSTATUS");
+      connection = (HttpURLConnection) url.openConnection();
+      connection.setRequestMethod("GET");
+      connection.connect();
+      assertEquals(HttpURLConnection.HTTP_NOT_FOUND,
+                   connection.getResponseCode());
+
+      // 3. invalid operation
+      url = new URL("http://localhost:" + port + "/?op=INVALID");
+      connection = (HttpURLConnection) url.openConnection();
+      connection.setRequestMethod("GET");
+      connection.connect();
+      assertEquals(HttpURLConnection.HTTP_BAD_REQUEST,
+          connection.getResponseCode());
+
+      // 4. invalid method
+      url = new URL("http://localhost:" + port + "/?op=LISTSTATUS");
+      connection = (HttpURLConnection) url.openConnection();
+      connection.setRequestMethod("POST");
+      connection.connect();
+      assertEquals(HttpURLConnection.HTTP_BAD_METHOD,
+          connection.getResponseCode());
+    } finally {
+      // shutdown the viewer
+      viewer.shutdown();
+    }
   }
 }

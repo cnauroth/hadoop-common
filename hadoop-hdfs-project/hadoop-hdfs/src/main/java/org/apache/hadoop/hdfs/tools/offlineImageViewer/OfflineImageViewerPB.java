@@ -34,6 +34,7 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.IOUtils;
+import org.apache.hadoop.net.NetUtils;
 
 /**
  * OfflineImageViewerPB to dump the contents of an Hadoop image file to XML or
@@ -56,11 +57,6 @@ public class OfflineImageViewerPB {
       + "order to process an image file.\n"
       + "\n"
       + "The following image processors are available:\n"
-      + "  * Ls: The default image processor generates an lsr-style listing\n"
-      + "    of the files in the namespace, with the same fields in the same\n"
-      + "    order.  Note that in order to correctly determine file sizes,\n"
-      + "    this formatter cannot skip blocks and will override the\n"
-      + "    -skipBlocks option.\n"
       + "  * XML: This processor creates an XML document with all elements of\n"
       + "    the fsimage enumerated, suitable for further analysis by XML\n"
       + "    tools.\n"
@@ -69,6 +65,8 @@ public class OfflineImageViewerPB {
       + "    -maxSize specifies the range [0, maxSize] of file sizes to be\n"
       + "     analyzed (128GB by default).\n"
       + "    -step defines the granularity of the distribution. (2MB by default)\n"
+      + "  * Web: Run a viewer to expose read-only WebHDFS API.\n"
+      + "    -addr specifies the address to listen. (localhost:5978 by default)\n"
       + "\n"
       + "Required command line arguments:\n"
       + "-i,--inputFile <arg>   FSImage file to process.\n"
@@ -103,6 +101,7 @@ public class OfflineImageViewerPB {
     options.addOption("h", "help", false, "");
     options.addOption("maxSize", true, "");
     options.addOption("step", true, "");
+    options.addOption("addr", true, "");
 
     return options;
   }
@@ -161,8 +160,10 @@ public class OfflineImageViewerPB {
       } else if (processor.equals("XML")) {
         new PBImageXmlWriter(conf, out).visit(new RandomAccessFile(inputFile,
             "r"));
-      } else {
-        new LsrPBImage(conf, out).visit(new RandomAccessFile(inputFile, "r"));
+      } else if (processor.equals("Web")) {
+        String addr = cmd.getOptionValue("addr", "localhost:5978");
+        new WebImageViewer(NetUtils.createSocketAddr(addr))
+            .initServerAndWait(inputFile);
       }
       return 0;
     } catch (EOFException e) {
