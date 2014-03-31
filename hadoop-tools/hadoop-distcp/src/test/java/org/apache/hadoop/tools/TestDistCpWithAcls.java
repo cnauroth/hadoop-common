@@ -76,8 +76,11 @@ public class TestDistCpWithAcls {
     fs.modifyAclEntries(new Path("/src/dir2/file2"), Arrays.asList(
       aclEntry(ACCESS, GROUP, "sales", NONE)));
 
+    fs.setPermission(new Path("/src/dir2/file3"),
+      new FsPermission((short)0660));
+
     fs.modifyAclEntries(new Path("/src/file1"), Arrays.asList(
-      aclEntry(ACCESS, USER, "diana", NONE)));
+      aclEntry(ACCESS, USER, "diana", READ)));
 
     fs.setPermission(new Path("/src/dir3sticky"),
       new FsPermission((short)01777));
@@ -97,6 +100,7 @@ public class TestDistCpWithAcls {
       new Path("/dstPreserveAcls"));
     options.preserve(FileAttribute.ACL);
     new DistCp(conf, options).execute();
+
     assertAclEntries("/dstPreserveAcls/dir1", new AclEntry[] {
       aclEntry(DEFAULT, USER, ALL),
       aclEntry(DEFAULT, USER, "bruce", ALL),
@@ -104,6 +108,28 @@ public class TestDistCpWithAcls {
       aclEntry(DEFAULT, MASK, ALL),
       aclEntry(DEFAULT, OTHER, READ_EXECUTE) } );
     assertPermission("/dstPreserveAcls/dir1", (short)0755);
+
+    assertAclEntries("/dstPreserveAcls/dir1/subdir1", new AclEntry[] { });
+    assertPermission("/dstPreserveAcls/dir1/subdir1", (short)0755);
+
+    assertAclEntries("/dstPreserveAcls/dir2", new AclEntry[] { });
+    assertPermission("/dstPreserveAcls/dir2", (short)0755);
+
+    assertAclEntries("/dstPreserveAcls/dir2/file2", new AclEntry[] {
+      aclEntry(ACCESS, GROUP, READ),
+      aclEntry(ACCESS, GROUP, "sales", NONE) } );
+    assertPermission("/dstPreserveAcls/dir2/file2", (short)0644);
+
+    assertAclEntries("/dstPreserveAcls/dir2/file3", new AclEntry[] { });
+    assertPermission("/dstPreserveAcls/dir2/file3", (short)0660);
+
+    assertAclEntries("/dstPreserveAcls/dir3sticky", new AclEntry[] { });
+    assertPermission("/dstPreserveAcls/dir3sticky", (short)01777);
+
+    assertAclEntries("/dstPreserveAcls/file1", new AclEntry[] {
+      aclEntry(ACCESS, USER, "diana", READ),
+      aclEntry(ACCESS, GROUP, READ) } );
+    assertPermission("/dstPreserveAcls/file1", (short)0644);
   }
 
   @Test
