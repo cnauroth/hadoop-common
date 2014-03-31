@@ -36,7 +36,7 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.io.IOUtils;
-import org.apache.hadoop.tools.DistCpOptions.FileAttribute;
+import org.apache.hadoop.util.ToolRunner;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -96,10 +96,7 @@ public class TestDistCpWithAcls {
 
   @Test
   public void testPreserveAcls() throws Exception {
-    DistCpOptions options = new DistCpOptions(Arrays.asList(new Path("/src")),
-      new Path("/dstPreserveAcls"));
-    options.preserve(FileAttribute.ACL);
-    new DistCp(conf, options).execute();
+    assertRunDistCp(DistCpConstants.SUCCESS, "/dstPreserveAcls");
 
     assertAclEntries("/dstPreserveAcls/dir1", new AclEntry[] {
       aclEntry(DEFAULT, USER, ALL),
@@ -136,6 +133,7 @@ public class TestDistCpWithAcls {
   public void testAclsNotEnabled() throws Exception {
     try {
       restart(false);
+      assertRunDistCp(DistCpConstants.ACLS_NOT_SUPPORTED, "/dstAclsNotEnabled");
     } finally {
       restart(true);
     }
@@ -143,6 +141,7 @@ public class TestDistCpWithAcls {
 
   @Test
   public void testAclsNotImplemented() {
+    fail();
   }
 
   /**
@@ -205,6 +204,21 @@ public class TestDistCpWithAcls {
       throws Exception {
     assertEquals(perm,
       fs.getFileStatus(new Path(path)).getPermission().toShort());
+  }
+
+  /**
+   * Runs distcp from /src to specified destination, preserving ACLs.  Asserts
+   * expected exit code.
+   *
+   * @param int exitCode expected exit code
+   * @param dst String distcp destination
+   * @throws Exception if there is any error
+   */
+  private static void assertRunDistCp(int exitCode, String dst)
+      throws Exception {
+    DistCp distCp = new DistCp(conf, null);
+    assertEquals(exitCode, ToolRunner.run(
+      conf, distCp, new String[] { "-pa", "/src", dst }));
   }
 
   /**
