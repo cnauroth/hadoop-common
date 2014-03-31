@@ -23,9 +23,15 @@ import static org.apache.hadoop.fs.permission.AclEntryType.*;
 import static org.apache.hadoop.fs.permission.FsAction.*;
 import static org.junit.Assert.*;
 
+import java.io.IOException;
+import java.net.URI;
 import java.util.Arrays;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.CommonConfigurationKeys;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.AclEntry;
@@ -36,6 +42,7 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.io.IOUtils;
+import org.apache.hadoop.util.Progressable;
 import org.apache.hadoop.util.ToolRunner;
 
 import org.junit.AfterClass;
@@ -54,7 +61,7 @@ public class TestDistCpWithAcls {
   @BeforeClass
   public static void init() throws Exception {
     initCluster(true, true);
-    // Create this directory structure with a mix of ACLs and plain permissions:
+    // Create this directory structure:
     // /src
     //   /dir1
     //     /subdir1
@@ -70,6 +77,7 @@ public class TestDistCpWithAcls {
     fs.mkdirs(new Path("/src/dir3sticky"));
     fs.create(new Path("/src/file1")).close();
 
+    // Set a mix of ACLs and plain permissions throughout the tree.
     fs.modifyAclEntries(new Path("/src/dir1"), Arrays.asList(
       aclEntry(DEFAULT, USER, "bruce", ALL)));
 
@@ -140,8 +148,76 @@ public class TestDistCpWithAcls {
   }
 
   @Test
-  public void testAclsNotImplemented() {
-    fail();
+  public void testAclsNotImplemented() throws Exception {
+    assertRunDistCp(DistCpConstants.ACLS_NOT_SUPPORTED,
+      "stubfs://dstAclsNotImplemented");
+  }
+
+  /**
+   * Stub FileSystem implementation used for testing the case of attempting
+   * distcp with ACLs preserved on a file system that does not support ACLs.
+   * The base class implementation throws UnsupportedOperationException for the
+   * ACL methods, so we don't need to override them.
+   */
+  public static class StubFileSystem extends FileSystem {
+
+    @Override
+    public FSDataOutputStream append(Path f, int bufferSize,
+        Progressable progress) throws IOException {
+      return null;
+    }
+
+    @Override
+    public FSDataOutputStream create(Path f, FsPermission permission,
+        boolean overwrite, int bufferSize, short replication, long blockSize,
+        Progressable progress) throws IOException {
+      return null;
+    }
+
+    @Override
+    public boolean delete(Path f, boolean recursive) throws IOException {
+      return false;
+    }
+
+    @Override
+    public FileStatus getFileStatus(Path f) throws IOException {
+      return null;
+    }
+
+    @Override
+    public URI getUri() {
+      return URI.create("stubfs:///");
+    }
+
+    @Override
+    public Path getWorkingDirectory() {
+      return new Path(Path.SEPARATOR);
+    }
+
+    @Override
+    public FileStatus[] listStatus(Path f) throws IOException {
+      return null;
+    }
+
+    @Override
+    public boolean mkdirs(Path f, FsPermission permission)
+        throws IOException {
+      return false;
+    }
+
+    @Override
+    public FSDataInputStream open(Path f, int bufferSize) throws IOException {
+      return null;
+    }
+
+    @Override
+    public boolean rename(Path src, Path dst) throws IOException {
+      return false;
+    }
+
+    @Override
+    public void setWorkingDirectory(Path dir) {
+    }
   }
 
   /**
@@ -152,7 +228,7 @@ public class TestDistCpWithAcls {
    * @param permission FsAction set of permissions in the ACL entry
    * @return AclEntry new AclEntry
    */
-  public static AclEntry aclEntry(AclEntryScope scope, AclEntryType type,
+  private static AclEntry aclEntry(AclEntryScope scope, AclEntryType type,
       FsAction permission) {
     return new AclEntry.Builder()
       .setScope(scope)
@@ -170,7 +246,7 @@ public class TestDistCpWithAcls {
    * @param permission FsAction set of permissions in the ACL entry
    * @return AclEntry new AclEntry
    */
-  public static AclEntry aclEntry(AclEntryScope scope, AclEntryType type,
+  private static AclEntry aclEntry(AclEntryScope scope, AclEntryType type,
       String name, FsAction permission) {
     return new AclEntry.Builder()
       .setScope(scope)
@@ -200,7 +276,7 @@ public class TestDistCpWithAcls {
    * @param perm short expected permission bits
    * @throws Exception if there is any error
    */
-  public static void assertPermission(String path, short perm)
+  private static void assertPermission(String path, short perm)
       throws Exception {
     assertEquals(perm,
       fs.getFileStatus(new Path(path)).getPermission().toShort());
@@ -232,6 +308,8 @@ public class TestDistCpWithAcls {
       throws Exception {
     conf = new Configuration();
     conf.setBoolean(DFSConfigKeys.DFS_NAMENODE_ACLS_ENABLED_KEY, aclsEnabled);
+    conf.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, "stubfs:///");
+    conf.setClass("fs.stubfs.impl", StubFileSystem.class, FileSystem.class);
     cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).format(format)
       .build();
     cluster.waitActive();
