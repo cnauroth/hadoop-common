@@ -167,7 +167,19 @@ Release 2.5.0 - UNRELEASED
 
   BUG FIXES 
 
-Release 2.4.0 - UNRELEASED
+Release 2.4.1 - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+  OPTIMIZATIONS
+
+  BUG FIXES 
+
+Release 2.4.0 - 2014-04-07 
 
   INCOMPATIBLE CHANGES
 
@@ -268,6 +280,13 @@ Release 2.4.0 - UNRELEASED
 
     MAPREDUCE-5805. Fixed MapReduce JobHistory encoding of queue-name to escape
     hyphens and thus avoid parsing errors. (Akira AJISAKA via vinodkv)
+
+    MAPREDUCE-5810. Removed the faulty and failing streaming test
+    TestStreamingTaskLog. (Akira Ajisaka via vinodkv)
+
+    MAPREDUCE-5813. Fix YarnChild to explicitly load job.xml from the
+    local-filesystem, rather than rely on the classpath. (Gera Shegalov via
+    acmurthy) 
 
 Release 2.3.1 - UNRELEASED
 

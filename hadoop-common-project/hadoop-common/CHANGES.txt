@@ -315,6 +315,9 @@ Release 2.5.0 - UNRELEASED
 
   IMPROVEMENTS
 
+    HADOOP-10451. Remove unused field and imports from SaslRpcServer.
+    (Benoy Antony via jing9)
+
   OPTIMIZATIONS
 
   BUG FIXES 
@@ -329,7 +332,19 @@ Release 2.5.0 - UNRELEASED
     removes unused FileContext.getFileStatus(..) and fixes various javac
     warnings.  (szetszwo)
 
-Release 2.4.0 - UNRELEASED
+Release 2.4.1 - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+  OPTIMIZATIONS
+
+  BUG FIXES 
+
+Release 2.4.0 - 2014-04-07 
 
   INCOMPATIBLE CHANGES
 
@@ -471,6 +486,12 @@ Release 2.4.0 - UNRELEASED
 
     HADOOP-10450. Build zlib native code bindings in hadoop.dll for Windows.
     (cnauroth)
+
+    HADOOP-10301. AuthenticationFilter should return Forbidden for failed
+    authentication. (Daryn Sharp via jing9)
+
+    HADOOP-9525. Add tests that validate winutils chmod behavior on folders
+    (ivanmi)
 
   BREAKDOWN OF HADOOP-10184 SUBTASKS AND RELATED JIRAS
 

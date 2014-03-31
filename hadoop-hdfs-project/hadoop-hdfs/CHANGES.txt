@@ -293,7 +293,22 @@ Release 2.5.0 - UNRELEASED
     HDFS-6156. Simplify the JMX API that provides snapshot information.
     (wheat9)
 
-Release 2.4.0 - UNRELEASED
+    HDFS-6173. Move the default processor from Ls to Web in OfflineImageViewer.
+    (Akira Ajisaka via wheat9)
+
+Release 2.4.1 - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+  OPTIMIZATIONS
+
+  BUG FIXES 
+
+Release 2.4.0 - 2014-04-07 
 
   INCOMPATIBLE CHANGES
 
@@ -735,6 +750,9 @@ Release 2.4.0 - UNRELEASED
     HDFS-6163. Fix a minor bug in the HA upgrade document. (Fengdong Yu via
     jing9)
 
+    HDFS-6166. Change Balancer socket read timeout to 20 minutes and add
+    10 seconds delay after error.  (Nathan Roberts via szetszwo)
+
   BREAKDOWN OF HDFS-5698 SUBTASKS AND RELATED JIRAS
 
     HDFS-5717. Save FSImage header in protobuf. (Haohui Mai via jing9)
@@ -1046,6 +1064,9 @@ BREAKDOWN OF HDFS-5535 ROLLING UPGRADE SUBTASKS AND RELATED JIRAS
 
     HDFS-6038. Allow JournalNode to handle editlog produced by new release with
     future layoutversion. (jing9)
+
+    HDFS-4564. Ensure webhdfs returns correct HTTP response codes for denied
+    operations. (daryn via acmurthy)
 
 Release 2.3.1 - UNRELEASED
 
