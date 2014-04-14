@@ -196,7 +196,7 @@ public class StandbyCheckpointer {
       @Override
       public Void call() throws IOException {
         TransferFsImage.uploadImageFromStorage(activeNNAddress, conf,
-            namesystem.getFSImage().getStorage(), imageType, txid);
+            namesystem.getFSImage().getStorage(), imageType, txid, canceler);
         return null;
       }
     });
