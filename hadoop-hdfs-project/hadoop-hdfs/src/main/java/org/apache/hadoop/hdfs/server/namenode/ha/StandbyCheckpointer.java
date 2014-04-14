@@ -203,6 +203,9 @@ public class StandbyCheckpointer {
     executor.shutdown();
     try {
       upload.get();
+    } catch (InterruptedException e) {
+      upload.cancel(true);
+      throw e;
     } catch (ExecutionException e) {
       throw new IOException("Exception during image upload: " + e.getMessage(),
           e.getCause());

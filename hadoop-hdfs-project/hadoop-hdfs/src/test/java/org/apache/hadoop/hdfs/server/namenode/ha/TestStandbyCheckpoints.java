@@ -294,6 +294,9 @@ public class TestStandbyCheckpoints {
         return true;
       }
     }, 1000, 30000);
+
+    // Assert that former active did not accept the canceled checkpoint file.
+    assertEquals(0, nn0.getFSImage().getMostRecentCheckpointTxId());
   }
   
   /**
