@@ -26,7 +26,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.util.List;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.logging.Log;
@@ -169,7 +168,8 @@ public class TestOfflineEditsViewer {
     assertTrue("Edits " + editsStored + " should have all op codes",
         hasAllOpCodes(editsStored));
     assertTrue("Reference XML edits and parsed to XML should be same",
-        textFilesEqual(editsStoredXml, editsStoredParsedXml));
+        FileUtils.contentEqualsIgnoreEOL(new File(editsStoredXml),
+          new File(editsStoredParsedXml), "UTF-8"));
     assertTrue(
         "Reference edits and reparsed (bin to XML to bin) should be same",
         filesEqualIgnoreTrailingZeros(editsStored, editsStoredReparsed));
@@ -272,20 +272,5 @@ public class TestOfflineEditsViewer {
     }
 
     return true;
-  }
-
-  /**
-   * Compare two text files, ignoring line ending differences.
-   *
-   * @param filename1 first file to compare
-   * @param filename2 second file to compare
-   * @return boolean true if the files are equal
-   * @throws IOException if there is an I/O error reading the files
-   */
-  private boolean textFilesEqual(String filename1, String filename2)
-      throws IOException {
-    List<String> lines1 = FileUtils.readLines(new File(filename1), "UTF-8");
-    List<String> lines2 = FileUtils.readLines(new File(filename2), "UTF-8");
-    return lines1.equals(lines2);
   }
 }
