@@ -21,11 +21,14 @@ package org.apache.hadoop.hdfs.tools.offlineEditsViewer;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.List;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hdfs.DFSTestUtil;
@@ -166,7 +169,7 @@ public class TestOfflineEditsViewer {
     assertTrue("Edits " + editsStored + " should have all op codes",
         hasAllOpCodes(editsStored));
     assertTrue("Reference XML edits and parsed to XML should be same",
-        filesEqual(editsStoredXml, editsStoredParsedXml));
+        textFilesEqual(editsStoredXml, editsStoredParsedXml));
     assertTrue(
         "Reference edits and reparsed (bin to XML to bin) should be same",
         filesEqualIgnoreTrailingZeros(editsStored, editsStoredReparsed));
@@ -272,24 +275,17 @@ public class TestOfflineEditsViewer {
   }
 
   /**
-   * Compare two files, throw exception is they are not same
+   * Compare two text files, ignoring line ending differences.
    *
    * @param filename1 first file to compare
    * @param filename2 second file to compare
+   * @return boolean true if the files are equal
+   * @throws IOException if there is an I/O error reading the files
    */
-  private boolean filesEqual(String filename1,
-    String filename2) throws IOException {
-
-    // make file 1 the small one
-    ByteBuffer bb1 = ByteBuffer.wrap(DFSTestUtil.loadFile(filename1));
-    ByteBuffer bb2 = ByteBuffer.wrap(DFSTestUtil.loadFile(filename2));
-
-    // compare from 0 to capacity
-    bb1.position(0);
-    bb1.limit(bb1.capacity());
-    bb2.position(0);
-    bb2.limit(bb2.capacity());
-
-    return bb1.equals(bb2);
+  private boolean textFilesEqual(String filename1, String filename2)
+      throws IOException {
+    List<String> lines1 = FileUtils.readLines(new File(filename1), "UTF-8");
+    List<String> lines2 = FileUtils.readLines(new File(filename2), "UTF-8");
+    return lines1.equals(lines2);
   }
 }
