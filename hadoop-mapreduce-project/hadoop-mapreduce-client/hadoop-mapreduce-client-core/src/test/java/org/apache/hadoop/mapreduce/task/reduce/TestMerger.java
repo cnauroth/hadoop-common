@@ -193,7 +193,7 @@ public class TestMerger {
     RawKeyValueIterator mergeQueue = Merger.merge(conf, fs, keyClass,
         valueClass, segments, 2, tmpDir, comparator, getReporter(),
         readsCounter, writesCounter, mergePhase);
-    Assert.assertEquals(1.0f, mergeQueue.getProgress().get());
+    Assert.assertEquals(1.0f, mergeQueue.getProgress().get(), 0.0f);
   }
 
   private Progressable getReporter() {
