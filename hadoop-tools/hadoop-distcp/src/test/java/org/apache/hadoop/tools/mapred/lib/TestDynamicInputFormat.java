@@ -18,7 +18,7 @@
 
 package org.apache.hadoop.tools.mapred.lib;
 
-import junit.framework.Assert;
+import org.junit.Assert;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -59,7 +59,9 @@ public class TestDynamicInputFormat {
 
     for (int i=0; i<N_FILES; ++i)
       createFile("/tmp/source/" + String.valueOf(i));
-
+    FileSystem fileSystem = cluster.getFileSystem();
+    expectedFilePaths.add(fileSystem.listStatus(
+        new Path("/tmp/source/0"))[0].getPath().getParent().toString());
   }
 
   private static Configuration getConfigurationForCluster() {

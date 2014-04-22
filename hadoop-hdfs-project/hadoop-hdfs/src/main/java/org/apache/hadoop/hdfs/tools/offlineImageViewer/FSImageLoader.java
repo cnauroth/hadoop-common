@@ -51,7 +51,7 @@ import com.google.common.io.LimitInputStream;
  * FSImageLoader loads fsimage and provide methods to return JSON formatted
  * file status of the namespace of the fsimage.
  */
-public class FSImageLoader {
+class FSImageLoader {
   public static final Log LOG = LogFactory.getLog(FSImageHandler.class);
 
   private static String[] stringTable;
@@ -69,7 +69,7 @@ public class FSImageLoader {
    * @return FSImageLoader
    * @throws IOException if failed to load fsimage.
    */
-  public static FSImageLoader load(String inputFile) throws IOException {
+  static FSImageLoader load(String inputFile) throws IOException {
     Configuration conf = new Configuration();
     RandomAccessFile file = new RandomAccessFile(inputFile, "r");
     if (!FSImageUtil.checkFileFormat(file)) {
@@ -221,12 +221,25 @@ public class FSImageLoader {
   }
 
   /**
+   * Return the JSON formatted FileStatus of the specified file.
+   * @param path a path specifies a file
+   * @return JSON formatted FileStatus
+   * @throws IOException if failed to serialize fileStatus to JSON.
+   */
+  String getFileStatus(String path) throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    FsImageProto.INodeSection.INode inode = inodes.get(getINodeId(path));
+    return "{\"FileStatus\":\n"
+        + mapper.writeValueAsString(getFileStatus(inode, false)) + "\n}\n";
+  }
+
+  /**
    * Return the JSON formatted list of the files in the specified directory.
    * @param path a path specifies a directory to list
    * @return JSON formatted file list in the directory
    * @throws IOException if failed to serialize fileStatus to JSON.
    */
-  public String listStatus(String path) throws IOException {
+  String listStatus(String path) throws IOException {
     StringBuilder sb = new StringBuilder();
     ObjectMapper mapper = new ObjectMapper();
     List<Map<String, Object>> fileStatusList = getFileStatusList(path);
@@ -271,7 +284,7 @@ public class FSImageLoader {
     long id = INodeId.ROOT_INODE_ID;
     for (int i = 1; i < nameList.length; i++) {
       long[] children = dirmap.get(id);
-      Preconditions.checkNotNull(children, "The specified path: " +
+      Preconditions.checkNotNull(children, "File: " +
           strPath + " is not found in the fsimage.");
       String cName = nameList[i];
       boolean findChildren = false;
@@ -282,7 +295,7 @@ public class FSImageLoader {
           break;
         }
       }
-      Preconditions.checkArgument(findChildren, "The specified path: " +
+      Preconditions.checkArgument(findChildren, "File: " +
           strPath + " is not found in the fsimage.");
     }
     return id;

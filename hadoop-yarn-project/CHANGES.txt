@@ -21,6 +21,8 @@ Release 2.5.0 - UNRELEASED
 
   NEW FEATURES
 
+    YARN-1757. NM Recovery. Auxiliary service support. (Jason Lowe via kasha)
+
   IMPROVEMENTS
 
     YARN-1479. Invalid NaN values in Hadoop REST API JSON response (Chen He via
@@ -36,9 +38,6 @@ Release 2.5.0 - UNRELEASED
     YARN-1429. *nix: Allow a way for users to augment classpath of YARN daemons.
     (Jarek Jarcec Cecho via kasha)
 
-    YARN-1833. TestRMAdminService Fails in trunk and branch-2 (Mit Desais via
-    jeagles)
-
     YARN-1520. update capacity scheduler docs to include necessary parameters
     (Chen He via jeagles)
 
@@ -48,11 +47,16 @@ Release 2.5.0 - UNRELEASED
     YARN-1136. Replace junit.framework.Assert with org.junit.Assert (Chen He
     via jeagles)
 
-    YARN-1883. TestRMAdminService fails due to inconsistent entries in
-    UserGroups (Mit Desai via jeagles)
-
     YARN-1889. In Fair Scheduler, avoid creating objects on each call to
     AppSchedulable comparator (Hong Zhiguo via Sandy Ryza)
+
+    YARN-1923. Make Fair Scheduler resource ratio calculations terminate faster
+    (Anubhav Dhoot via Sandy Ryza)
+
+    YARN-1870. FileInputStream is not closed in ProcfsBasedProcessTree#constructProcessSMAPInfo. 
+    (Fengdong Yu via junping_du)
+
+    YARN-1970. Prepare YARN codebase for JUnit 4.11. (cnauroth)
 
   OPTIMIZATIONS
 
@@ -63,6 +67,15 @@ Release 2.5.0 - UNRELEASED
 
     YARN-1790. Fair Scheduler UI not showing apps table (bc Wong via Sandy Ryza)
 
+    YARN-1784. TestContainerAllocation assumes CapacityScheduler.
+    (Robert Kanter via kasha)
+
+    YARN-1940. deleteAsUser() terminates early without deleting more files on
+    error (Rushabh S Shah via jlowe)
+
+    YARN-1865. ShellScriptBuilder does not check for some error conditions.
+    (Remus Rusanu via ivanmi)
+
 Release 2.4.1 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -71,9 +84,76 @@ Release 2.4.1 - UNRELEASED
 
   IMPROVEMENTS
 
+    YARN-1892. Improved some logs in the scheduler. (Jian He via zjshen)
+
   OPTIMIZATIONS
 
-  BUG FIXES 
+  BUG FIXES
+
+    YARN-1898. Made Standby RM links conf, stacks, logLevel, metrics, jmx, logs
+    and static not be redirected to Active RM. (Xuan Gong via zjshen)
+
+    YARN-1837. Fixed TestMoveApplication#testMoveRejectedByScheduler failure.
+    (Hong Zhiguo via jianhe)
+
+    YARN-1905. TestProcfsBasedProcessTree must only run on Linux. (cnauroth)
+
+    YARN-1883. TestRMAdminService fails due to inconsistent entries in
+    UserGroups (Mit Desai via jeagles)
+
+    YARN-1908. Fixed DistributedShell to not fail in secure clusters. (Vinod
+    Kumar Vavilapalli and Jian He via vinodkv)
+
+    YARN-1910. Fixed a race condition in TestAMRMTokens that causes the test to
+    fail more often on Windows. (Xuan Gong via vinodkv)
+
+    YARN-1920. Fixed TestFileSystemApplicationHistoryStore failure on windows.
+    (Vinod Kumar Vavilapalli via zjshen)
+
+    YARN-1914. Fixed resource-download on NodeManagers to skip permission
+    verification of public cache files in Windows+local file-system environment.
+    (Varun Vasudev via vinodkv)
+
+    YARN-1903. Set exit code and diagnostics when container is killed at
+    NEW/LOCALIZING state. (Zhijie Shen via jianhe)
+
+    YARN-1924. Made ZKRMStateStore updateApplication(Attempt)StateInternal work
+    when Application(Attempt) state hasn't been stored before. (Jian He via
+    zjshen)
+
+    YARN-1926. Changed DistributedShell to use appIDs as unique identifiers for
+    HDFS paths and thus avoid test failures on Windows. (Varun Vasudev via
+    vinodkv)
+
+    YARN-1833. TestRMAdminService Fails in trunk and branch-2 (Mit Desai via
+    jeagles)
+
+    YARN-1907. TestRMApplicationHistoryWriter#testRMWritingMassiveHistory 
+    intermittently fails. (Mit Desai via kihwal)
+
+    YARN-1933. Fixed test issues with TestAMRestart and TestNodeHealthService.
+    (Jian He via vinodkv)
+
+    YARN-1928. Fixed a race condition in TestAMRMRPCNodeUpdates which caused it
+    to fail occassionally. (Zhijie Shen via vinodkv)
+
+    YARN-1934. Fixed a potential NPE in ZKRMStateStore caused by handling
+    Disconnected event from ZK. (Karthik Kambatla via jianhe)
+
+    YARN-1931. Private API change in YARN-1824 in 2.4 broke compatibility 
+    with previous releases (Sandy Ryza via tgraves)
+
+    YARN-1750. TestNodeStatusUpdater#testNMRegistration is incorrect in test 
+    case. (Wangda Tan via junping_du)
+
+    YARN-1947. TestRMDelegationTokens#testRMDTMasterKeyStateOnRollingMasterKey 
+    is failing intermittently. (Jian He via junping_du)
+
+    YARN-1281. Fixed TestZKRMStateStoreZKClientConnections to not fail
+    intermittently due to ZK-client timeouts. (Tsuyoshi Ozawa via vinodkv) 
+
+    YARN-1932. Javascript injection on the job status page (Mit Desai via
+    jlowe)
 
 Release 2.4.0 - 2014-04-07 
 

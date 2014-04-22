@@ -805,7 +805,19 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
   public RetryCache getRetryCache() {
     return retryCache;
   }
-  
+
+  void lockRetryCache() {
+    if (retryCache != null) {
+      retryCache.lock();
+    }
+  }
+
+  void unlockRetryCache() {
+    if (retryCache != null) {
+      retryCache.unlock();
+    }
+  }
+
   /** Whether or not retry cache is enabled */
   boolean hasRetryCache() {
     return retryCache != null;
@@ -1033,7 +1045,9 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
 
         dir.fsImage.editLog.openForWrite();
       }
-      
+
+      // Enable quota checks.
+      dir.enableQuotaChecks();
       if (haEnabled) {
         // Renew all of the leases before becoming active.
         // This is because, while we were in standby mode,
@@ -1140,6 +1154,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     
     blockManager.setPostponeBlocksFromFuture(true);
 
+    // Disable quota checks while in standby.
+    dir.disableQuotaChecks();
     editLogTailer = new EditLogTailer(this, conf);
     editLogTailer.start();
     if (standbyShouldCheckpoint) {
@@ -6930,8 +6946,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     if (cacheEntry != null && cacheEntry.isSuccess()) {
       return (String) cacheEntry.getPayload();
     }
-    writeLock();
     String snapshotPath = null;
+    writeLock();
     try {
       checkOperation(OperationCategory.WRITE);
       checkNameNodeSafeMode("Cannot create snapshot for " + snapshotRoot);

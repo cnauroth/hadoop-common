@@ -25,9 +25,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.Random;
 
 import org.apache.commons.logging.Log;
@@ -44,7 +42,9 @@ import org.apache.hadoop.hdfs.protocol.DatanodeInfo.AdminStates;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants.DatanodeReportType;
 import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
+import org.apache.hadoop.hdfs.server.datanode.DataNode;
 import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
+import org.apache.hadoop.hdfs.server.namenode.ha.HATestUtil;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.server.namenode.NameNodeAdapter;
 import org.apache.hadoop.test.PathUtils;
@@ -204,10 +204,11 @@ public class TestDecommission {
   }
 
   /*
-   * decommission one random node and wait for each to reach the
-   * given {@code waitForState}.
+   * decommission the DN at index dnIndex or one random node if dnIndex is set
+   * to -1 and wait for the node to reach the given {@code waitForState}.
    */
   private DatanodeInfo decommissionNode(int nnIndex,
+                                  String datanodeUuid,
                                   ArrayList<DatanodeInfo>decommissionedNodes,
                                   AdminStates waitForState)
     throws IOException {
@@ -215,14 +216,26 @@ public class TestDecommission {
     DatanodeInfo[] info = client.datanodeReport(DatanodeReportType.LIVE);
 
     //
-    // pick one datanode randomly.
+    // pick one datanode randomly unless the caller specifies one.
     //
     int index = 0;
-    boolean found = false;
-    while (!found) {
-      index = myrand.nextInt(info.length);
-      if (!info[index].isDecommissioned()) {
-        found = true;
+    if (datanodeUuid == null) {
+      boolean found = false;
+      while (!found) {
+        index = myrand.nextInt(info.length);
+        if (!info[index].isDecommissioned()) {
+          found = true;
+        }
+      }
+    } else {
+      // The caller specifies a DN
+      for (; index < info.length; index++) {
+        if (info[index].getDatanodeUuid().equals(datanodeUuid)) {
+          break;
+        }
+      }
+      if (index == info.length) {
+        throw new IOException("invalid datanodeUuid " + datanodeUuid);
       }
     }
     String nodename = info[index].getXferAddr();
@@ -244,11 +257,13 @@ public class TestDecommission {
     return ret;
   }
 
-  /* stop decommission of the datanode and wait for each to reach the NORMAL state */
-  private void recomissionNode(DatanodeInfo decommissionedNode) throws IOException {
+  /* Ask a specific NN to stop decommission of the datanode and wait for each
+   * to reach the NORMAL state.
+   */
+  private void recomissionNode(int nnIndex, DatanodeInfo decommissionedNode) throws IOException {
     LOG.info("Recommissioning node: " + decommissionedNode);
     writeConfigFile(excludeFile, null);
-    refreshNodes(cluster.getNamesystem(), conf);
+    refreshNodes(cluster.getNamesystem(nnIndex), conf);
     waitNodeState(decommissionedNode, AdminStates.NORMAL);
 
   }
@@ -369,7 +384,7 @@ public class TestDecommission {
     int liveDecomissioned = ns.getNumDecomLiveDataNodes();
 
     // Decommission one node. Verify that node is decommissioned.
-    DatanodeInfo decomNode = decommissionNode(0, decommissionedNodes,
+    DatanodeInfo decomNode = decommissionNode(0, null, decommissionedNodes,
         AdminStates.DECOMMISSIONED);
     decommissionedNodes.add(decomNode);
     assertEquals(deadDecomissioned, ns.getNumDecomDeadDataNodes());
@@ -405,7 +420,130 @@ public class TestDecommission {
   public void testDecommissionFederation() throws IOException {
     testDecommission(2, 2);
   }
-  
+
+  /**
+   * Test decommission process on standby NN.
+   * Verify admins can run "dfsadmin -refreshNodes" on SBN and decomm
+   * process can finish as long as admins run "dfsadmin -refreshNodes"
+   * on active NN.
+   * SBN used to mark excess replica upon recommission. The SBN's pick
+   * for excess replica could be different from the one picked by ANN.
+   * That creates inconsistent state and prevent SBN from finishing
+   * decommission.
+   */
+  @Test(timeout=360000)
+  public void testDecommissionOnStandby() throws Exception {
+    Configuration hdfsConf = new HdfsConfiguration(conf);
+    hdfsConf.setInt(DFSConfigKeys.DFS_HA_TAILEDITS_PERIOD_KEY, 1);
+    hdfsConf.setInt(DFSConfigKeys.DFS_NAMENODE_HEARTBEAT_RECHECK_INTERVAL_KEY, 30000);
+    hdfsConf.setInt(DFSConfigKeys.DFS_NAMENODE_TOLERATE_HEARTBEAT_MULTIPLIER_KEY, 2);
+
+    // The time to wait so that the slow DN's heartbeat is considered old
+    // by BlockPlacementPolicyDefault and thus will choose that DN for
+    // excess replica.
+    long slowHeartbeatDNwaitTime =
+        hdfsConf.getLong(DFSConfigKeys.DFS_HEARTBEAT_INTERVAL_KEY,
+        DFSConfigKeys.DFS_HEARTBEAT_INTERVAL_DEFAULT) * 1000 * (hdfsConf.getInt(
+        DFSConfigKeys.DFS_NAMENODE_TOLERATE_HEARTBEAT_MULTIPLIER_KEY,
+        DFSConfigKeys.DFS_NAMENODE_TOLERATE_HEARTBEAT_MULTIPLIER_DEFAULT) + 1);
+
+    cluster = new MiniDFSCluster.Builder(hdfsConf)
+        .nnTopology(MiniDFSNNTopology.simpleHATopology()).numDataNodes(3).build();
+
+    cluster.transitionToActive(0);
+    cluster.waitActive();
+
+
+    // Step 1, create a cluster with 4 DNs. Blocks are stored on the first 3 DNs.
+    // The last DN is empty. Also configure the last DN to have slow heartbeat
+    // so that it will be chosen as excess replica candidate during recommission.
+
+    // Step 1.a, copy blocks to the first 3 DNs. Given the replica count is the
+    // same as # of DNs, each DN will have a replica for any block.
+    Path file1 = new Path("testDecommissionHA.dat");
+    int replicas = 3;
+    FileSystem activeFileSys = cluster.getFileSystem(0);
+    writeFile(activeFileSys, file1, replicas);
+
+    HATestUtil.waitForStandbyToCatchUp(cluster.getNameNode(0),
+        cluster.getNameNode(1));
+
+    // Step 1.b, start a DN with slow heartbeat, so that we can know for sure it
+    // will be chosen as the target of excess replica during recommission.
+    hdfsConf.setLong(DFSConfigKeys.DFS_HEARTBEAT_INTERVAL_KEY, 30);
+    cluster.startDataNodes(hdfsConf, 1, true, null, null, null);
+    DataNode lastDN = cluster.getDataNodes().get(3);
+    lastDN.getDatanodeUuid();
+
+    // Step 2, decommission the first DN at both ANN and SBN.
+    DataNode firstDN = cluster.getDataNodes().get(0);
+
+    // Step 2.a, ask ANN to decomm the first DN
+    DatanodeInfo decommissionedNodeFromANN = decommissionNode(
+        0, firstDN.getDatanodeUuid(), null, AdminStates.DECOMMISSIONED);
+
+    // Step 2.b, ask SBN to decomm the first DN
+    DatanodeInfo decomNodeFromSBN = decommissionNode(1, firstDN.getDatanodeUuid(), null,
+        AdminStates.DECOMMISSIONED);
+
+    // Step 3, recommission the first DN on SBN and ANN to create excess replica
+    // It recommissions the node on SBN first to create potential
+    // inconsistent state. In production cluster, such insistent state can happen
+    // even if recommission command was issued on ANN first given the async nature
+    // of the system.
+
+    // Step 3.a, ask SBN to recomm the first DN.
+    // SBN has been fixed so that it no longer invalidates excess replica during
+    // recommission.
+    // Before the fix, SBN could get into the following state.
+    //    1. the last DN would have been chosen as excess replica, given its
+    //    heartbeat is considered old.
+    //    Please refer to BlockPlacementPolicyDefault#chooseReplicaToDelete
+    //    2. After recomissionNode finishes, SBN has 3 live replicas ( 0, 1, 2 )
+    //    and one excess replica ( 3 )
+    // After the fix,
+    //    After recomissionNode finishes, SBN has 4 live replicas ( 0, 1, 2, 3 )
+    Thread.sleep(slowHeartbeatDNwaitTime);
+    recomissionNode(1, decomNodeFromSBN);
+
+    // Step 3.b, ask ANN to recommission the first DN.
+    // To verify the fix, the test makes sure the excess replica picked by ANN
+    // is different from the one picked by SBN before the fix.
+    // To achieve that, we make sure next-to-last DN is chosen as excess replica
+    // by ANN.
+    // 1. restore LastDNprop's heartbeat interval.
+    // 2. Make next-to-last DN's heartbeat slow.
+    MiniDFSCluster.DataNodeProperties LastDNprop = cluster.stopDataNode(3);
+    LastDNprop.conf.setLong(
+        DFSConfigKeys.DFS_HEARTBEAT_INTERVAL_KEY, HEARTBEAT_INTERVAL);
+    cluster.restartDataNode(LastDNprop);
+
+    MiniDFSCluster.DataNodeProperties nextToLastDNprop = cluster.stopDataNode(2);
+    nextToLastDNprop.conf.setLong(DFSConfigKeys.DFS_HEARTBEAT_INTERVAL_KEY, 30);
+    cluster.restartDataNode(nextToLastDNprop);
+    cluster.waitActive();
+    Thread.sleep(slowHeartbeatDNwaitTime);
+    recomissionNode(0, decommissionedNodeFromANN);
+
+    // Step 3.c, make sure the DN has deleted the block and report to NNs
+    cluster.triggerHeartbeats();
+    HATestUtil.waitForDNDeletions(cluster);
+    cluster.triggerDeletionReports();
+
+    // Step 4, decommission the first DN on both ANN and SBN
+    // With the fix to make sure SBN no longer marks excess replica
+    // during recommission, SBN's decommission can finish properly
+    decommissionNode(0, firstDN.getDatanodeUuid(), null,
+        AdminStates.DECOMMISSIONED);
+
+    // Ask SBN to decomm the first DN
+    decommissionNode(1, firstDN.getDatanodeUuid(), null,
+        AdminStates.DECOMMISSIONED);
+
+    cluster.shutdown();
+
+  }
+
   private void testDecommission(int numNamenodes, int numDatanodes)
       throws IOException {
     LOG.info("Starting test testDecommission");
@@ -432,7 +570,7 @@ public class TestDecommission {
         int liveDecomissioned = ns.getNumDecomLiveDataNodes();
 
         // Decommission one node. Verify that node is decommissioned.
-        DatanodeInfo decomNode = decommissionNode(i, decommissionedNodes,
+        DatanodeInfo decomNode = decommissionNode(i, null, decommissionedNodes,
             AdminStates.DECOMMISSIONED);
         decommissionedNodes.add(decomNode);
         assertEquals(deadDecomissioned, ns.getNumDecomDeadDataNodes());
@@ -460,7 +598,7 @@ public class TestDecommission {
       }
     }
 
-    // Restart the cluster and ensure recommissioned datanodes
+    // Restart the cluster and ensure decommissioned datanodes
     // are allowed to register with the namenode
     cluster.shutdown();
     startCluster(numNamenodes, numDatanodes, conf);
@@ -488,7 +626,7 @@ public class TestDecommission {
       writeFile(fileSys, file1, replicas);
         
       // Decommission one node. Verify that node is decommissioned.
-      DatanodeInfo decomNode = decommissionNode(i, decommissionedNodes,
+      DatanodeInfo decomNode = decommissionNode(i, null, decommissionedNodes,
           AdminStates.DECOMMISSIONED);
       decommissionedNodes.add(decomNode);
         
@@ -512,7 +650,7 @@ public class TestDecommission {
           + tries + " times.", tries < 20);
 
       // stop decommission and check if the new replicas are removed
-      recomissionNode(decomNode);
+      recomissionNode(0, decomNode);
       // wait for the block to be deleted
       tries = 0;
       while (tries++ < 20) {
@@ -563,7 +701,7 @@ public class TestDecommission {
       
       FSNamesystem fsn = cluster.getNamesystem(i);
       NameNode namenode = cluster.getNameNode(i);
-      DatanodeInfo downnode = decommissionNode(i, null,
+      DatanodeInfo downnode = decommissionNode(i, null, null,
           AdminStates.DECOMMISSION_INPROGRESS);
       // Check namenode stats for multiple datanode heartbeats
       verifyStats(namenode, fsn, downnode, true);
@@ -636,149 +774,6 @@ public class TestDecommission {
       DatanodeID id = cluster.getDataNodes().get(0).getDatanodeId();
       assertEquals(id.getHostName(), info[0].getHostName());
       assertEquals(bogusIp, info[1].getHostName());
-    }
-  }
-
-  @Test(timeout=360000)
-  public void testDuplicateHostsEntries() throws IOException,
-      InterruptedException {
-    Configuration hdfsConf = new Configuration(conf);
-    cluster = new MiniDFSCluster.Builder(hdfsConf)
-        .numDataNodes(1).setupHostsFile(true).build();
-    cluster.waitActive();
-    int dnPort = cluster.getDataNodes().get(0).getXferPort();
-
-    // pick some random ports that don't overlap with our DN's port
-    // or with each other.
-    Random random = new Random(System.currentTimeMillis());
-    int port1 = dnPort;
-    while (port1 == dnPort) {
-      port1 = random.nextInt(6000) + 1000;
-    }
-    int port2 = dnPort;
-    while ((port2 == dnPort) || (port2 == port1)) {
-      port2 = random.nextInt(6000) + 1000;
-    }
-
-    // Now empty hosts file and ensure the datanode is disallowed
-    // from talking to namenode, resulting in it's shutdown.
-    ArrayList<String> nodes = new ArrayList<String>();
-
-    // These entries will be de-duped by the NameNode, since they refer
-    // to the same IP address + port combo.
-    nodes.add("127.0.0.1:" + port1);
-    nodes.add("localhost:" + port1);
-    nodes.add("127.0.0.1:" + port1);
-
-    // The following entries should not be de-duped.
-    nodes.add("127.0.0.1:" + port2);
-    nodes.add("127.0.30.1:" + port1);
-    writeConfigFile(hostsFile,  nodes);
-
-    refreshNodes(cluster.getNamesystem(0), hdfsConf);
-
-    DFSClient client = getDfsClient(cluster.getNameNode(0), hdfsConf);
-    DatanodeInfo[] info = client.datanodeReport(DatanodeReportType.LIVE);
-    for (int i = 0 ; i < 5 && info.length != 0; i++) {
-      LOG.info("Waiting for datanode to be marked dead");
-      Thread.sleep(HEARTBEAT_INTERVAL * 1000);
-      info = client.datanodeReport(DatanodeReportType.LIVE);
-    }
-    assertEquals("Number of live nodes should be 0", 0, info.length);
-
-    // Test that non-live and bogus hostnames are considered "dead".
-    // The dead report should have an entry for (1) the DN  that is
-    // now considered dead because it is no longer allowed to connect
-    // and (2) the bogus entries in the hosts file.
-    DatanodeInfo deadDns[] = client.datanodeReport(DatanodeReportType.DEAD);
-    HashMap<String, DatanodeInfo> deadByXferAddr =
-        new HashMap<String, DatanodeInfo>();
-    for (DatanodeInfo dn : deadDns) {
-      LOG.info("DEAD DatanodeInfo: xferAddr = " + dn.getXferAddr() +
-          ", ipAddr = " + dn.getIpAddr() +
-          ", hostname = " + dn.getHostName());
-      deadByXferAddr.put(dn.getXferAddr(), dn);
-    }
-    // The real DataNode should be included in the list.
-    String realDnIpPort = cluster.getDataNodes().get(0).
-        getXferAddress().getAddress().getHostAddress() + ":" +
-        cluster.getDataNodes().get(0).getXferPort();
-    Assert.assertNotNull("failed to find real datanode IP " + realDnIpPort,
-        deadByXferAddr.remove(realDnIpPort));
-    // The fake datanode with address 127.0.30.1 should be included in this list.
-    Assert.assertNotNull(deadByXferAddr.remove(
-        "127.0.30.1:" + port1));
-    // Now look for the two copies of 127.0.0.1 with port1 and port2.
-    Iterator<Map.Entry<String, DatanodeInfo>> iter =
-            deadByXferAddr.entrySet().iterator();
-    boolean foundPort1 = false, foundPort2 = false;
-    while (iter.hasNext()) {
-      Map.Entry<String, DatanodeInfo> entry = iter.next();
-      DatanodeInfo dn = entry.getValue();
-      if (dn.getXferPort() == port1) {
-        foundPort1 = true;
-        iter.remove();
-      } else if (dn.getXferPort() == port2) {
-        foundPort2 = true;
-        iter.remove();
-      }
-    }
-    Assert.assertTrue("did not find a dead entry with port " + port1,
-        foundPort1);
-    Assert.assertTrue("did not find a dead entry with port " + port2,
-        foundPort2);
-    Assert.assertTrue(deadByXferAddr.isEmpty());
-  }
-
-  @Test(timeout=360000)
-  public void testIncludeByRegistrationName() throws IOException,
-      InterruptedException {
-    Configuration hdfsConf = new Configuration(conf);
-    final String registrationName = "--registration-name--";
-    final String nonExistentDn = "127.0.0.40";
-    hdfsConf.set(DFSConfigKeys.DFS_DATANODE_HOST_NAME_KEY, registrationName);
-    cluster = new MiniDFSCluster.Builder(hdfsConf)
-        .numDataNodes(1).checkDataNodeHostConfig(true)
-        .setupHostsFile(true).build();
-    cluster.waitActive();
-
-    // Set up an includes file that doesn't have our datanode.
-    ArrayList<String> nodes = new ArrayList<String>();
-    nodes.add(nonExistentDn);
-    writeConfigFile(hostsFile,  nodes);
-    refreshNodes(cluster.getNamesystem(0), hdfsConf);
-
-    // Wait for the DN to be marked dead.
-    DFSClient client = getDfsClient(cluster.getNameNode(0), hdfsConf);
-    while (true) {
-      DatanodeInfo info[] = client.datanodeReport(DatanodeReportType.DEAD);
-      if (info.length == 1) {
-        break;
-      }
-      LOG.info("Waiting for datanode to be marked dead");
-      Thread.sleep(HEARTBEAT_INTERVAL * 1000);
-    }
-
-    // Use a non-empty include file with our registration name.
-    // It should work.
-    int dnPort = cluster.getDataNodes().get(0).getXferPort();
-    nodes = new ArrayList<String>();
-    nodes.add(registrationName + ":" + dnPort);
-    writeConfigFile(hostsFile,  nodes);
-    refreshNodes(cluster.getNamesystem(0), hdfsConf);
-    cluster.restartDataNode(0);
-
-    // Wait for the DN to come back.
-    while (true) {
-      DatanodeInfo info[] = client.datanodeReport(DatanodeReportType.LIVE);
-      if (info.length == 1) {
-        Assert.assertFalse(info[0].isDecommissioned());
-        Assert.assertFalse(info[0].isDecommissionInProgress());
-        assertEquals(registrationName, info[0].getHostName());
-        break;
-      }
-      LOG.info("Waiting for datanode to come back");
-      Thread.sleep(HEARTBEAT_INTERVAL * 1000);
     }
   }
   

@@ -68,9 +68,6 @@ Trunk (Unreleased)
     MAPREDUCE-4735. Make arguments in TestDFSIO case insensitive.
     (Brandon Li via suresh)
 
-    MAPREDUCE-5014. Extend Distcp to accept a custom CopyListing.
-    (Srikanth Sundarrajan via amareshwari)
-
     MAPREDUCE-5197. Add a service for checkpointing task state.
     (Carlo Curino via cdouglas)
 
@@ -163,11 +160,30 @@ Release 2.5.0 - UNRELEASED
     MAPREDUCE-5804. TestMRJobsWithProfiler#testProfiler timesout (Mit Desai
     via kihwal)
 
+    MAPREDUCE-5825. Provide diagnostics for reducers killed during ramp down
+    (Gera Shegalov via jlowe)
+
+    MAPREDUCE-5836. Fix typo in RandomTextWriter (Akira AJISAKA via jeagles)
+
+    MAPREDUCE-5852. Prepare MapReduce codebase for JUnit 4.11. (cnauroth)
+
   OPTIMIZATIONS
 
   BUG FIXES 
 
     MAPREDUCE-5759. Remove unnecessary conf load in Limits (Sandy Ryza)
+
+    MAPREDUCE-5014. Extend Distcp to accept a custom CopyListing.
+    (Srikanth Sundarrajan via amareshwari)
+
+    MAPREDUCE-5775. Remove unnecessary job.setNumReduceTasks in SleepJob.createJob 
+    (jhanver chand sharma via devaraj)
+
+    MAPREDUCE-4937. MR AM handles an oversized split metainfo file poorly
+    (Eric Payne via jlowe)
+
+    MAPREDUCE-5642. TestMiniMRChildTask fails on Windows.
+    (Chuan Liu via cnauroth)
 
 Release 2.4.1 - UNRELEASED
 
@@ -179,7 +195,28 @@ Release 2.4.1 - UNRELEASED
 
   OPTIMIZATIONS
 
-  BUG FIXES 
+  BUG FIXES
+
+    MAPREDUCE-5818. Added "hsadmin" command into mapred.cmd. (Jian He via zjshen)
+
+    MAPREDUCE-5824. Fixed test-failure of TestPipesNonJavaInputFormat in
+    Windows. (Xuan Gong via vinodkv)
+
+    MAPREDUCE-5815. Fixed test-failure of TestMRAppMaster by making MRAppMaster
+    gracefully handle empty-queue names. (Akira Ajisaka via vinodkv)
+
+    MAPREDUCE-5826. Fixed HistoryServerFileSystemStore to use right permissions
+    on Windows for temporary files and thus also fix the test-issue with
+    TestHistoryServerFileSystemStateStoreService. (Varun Vasudev via vinodkv)
+
+    MAPREDUCE-5828. Fixed a test issue with TestMapReduceJobControl that was
+    causing it to fail on Windows. (vinodkv)
+
+    MAPREDUCE-5827. TestSpeculativeExecutionWithMRApp fails.
+    (Zhijie Shen via cnauroth)
+
+    MAPREDUCE-5833. TestRMContainerAllocator fails ocassionally.
+    (Zhijie Shen via cnauroth)
 
 Release 2.4.0 - 2014-04-07 
 
@@ -1760,6 +1797,9 @@ Release 0.23.10 - UNRELEASED
 
     MAPREDUCE-5640. Rename TestLineRecordReader in jobclient module (Jason Lowe
     via jeagles)
+
+    MAPREDUCE-3191. docs for map output compression incorrectly reference
+    SequenceFile (Chen He via jeagles)
 
   OPTIMIZATIONS
 
