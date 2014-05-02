@@ -356,6 +356,29 @@ public class INodeDirectory extends INodeWithAdditionalFields
     
     return sf.getChild(this, name, snapshotId);
   }
+
+  /**
+   * Search for the given INode in the children list and the deleted lists of
+   * snapshots.
+   * @return {@link Snapshot#CURRENT_STATE_ID} if the inode is in the children
+   * list; {@link Snapshot#NO_SNAPSHOT_ID} if the inode is neither in the
+   * children list nor in any snapshot; otherwise the snapshot id of the
+   * corresponding snapshot diff list.
+   */
+  int searchChild(INode inode) {
+    INode child = getChild(inode.getLocalNameBytes(), Snapshot.CURRENT_STATE_ID);
+    if (child != inode) {
+      // inode is not in parent's children list, thus inode must be in
+      // snapshot. identify the snapshot id and later add it into the path
+      DirectoryDiffList diffs = getDiffs();
+      if (diffs == null) {
+        return Snapshot.NO_SNAPSHOT_ID;
+      }
+      return diffs.findSnapshotDeleted(inode);
+    } else {
+      return Snapshot.CURRENT_STATE_ID;
+    }
+  }
   
   /**
    * @param snapshotId
@@ -378,53 +401,6 @@ public class INodeDirectory extends INodeWithAdditionalFields
   private ReadOnlyList<INode> getCurrentChildrenList() {
     return children == null ? ReadOnlyList.Util.<INode> emptyList()
         : ReadOnlyList.Util.asReadOnlyList(children);
-  }
-
-  /** @return the {@link INodesInPath} containing only the last inode. */
-  INodesInPath getLastINodeInPath(String path, boolean resolveLink
-      ) throws UnresolvedLinkException {
-    return INodesInPath.resolve(this, getPathComponents(path), 1, resolveLink);
-  }
-
-  /** @return the {@link INodesInPath} containing all inodes in the path. */
-  INodesInPath getINodesInPath(String path, boolean resolveLink
-      ) throws UnresolvedLinkException {
-    final byte[][] components = getPathComponents(path);
-    return INodesInPath.resolve(this, components, components.length, resolveLink);
-  }
-
-  /** @return the last inode in the path. */
-  INode getNode(String path, boolean resolveLink) 
-    throws UnresolvedLinkException {
-    return getLastINodeInPath(path, resolveLink).getINode(0);
-  }
-
-  /**
-   * @return the INode of the last component in src, or null if the last
-   * component does not exist.
-   * @throws UnresolvedLinkException if symlink can't be resolved
-   * @throws SnapshotAccessControlException if path is in RO snapshot
-   */
-  INode getINode4Write(String src, boolean resolveLink)
-      throws UnresolvedLinkException, SnapshotAccessControlException {
-    return getINodesInPath4Write(src, resolveLink).getLastINode();
-  }
-
-  /**
-   * @return the INodesInPath of the components in src
-   * @throws UnresolvedLinkException if symlink can't be resolved
-   * @throws SnapshotAccessControlException if path is in RO snapshot
-   */
-  INodesInPath getINodesInPath4Write(String src, boolean resolveLink)
-      throws UnresolvedLinkException, SnapshotAccessControlException {
-    final byte[][] components = INode.getPathComponents(src);
-    INodesInPath inodesInPath = INodesInPath.resolve(this, components,
-        components.length, resolveLink);
-    if (inodesInPath.isSnapshot()) {
-      throw new SnapshotAccessControlException(
-          "Modification on a read-only snapshot is disallowed");
-    }
-    return inodesInPath;
   }
 
   /**

@@ -83,10 +83,12 @@ import org.apache.hadoop.hdfs.server.common.Util;
 import org.apache.hadoop.hdfs.server.datanode.DataNode;
 import org.apache.hadoop.hdfs.server.datanode.DataNodeTestUtils;
 import org.apache.hadoop.hdfs.server.datanode.DataStorage;
+import org.apache.hadoop.hdfs.server.datanode.DatanodeUtil;
 import org.apache.hadoop.hdfs.server.datanode.SecureDataNodeStarter;
 import org.apache.hadoop.hdfs.server.datanode.SecureDataNodeStarter.SecureResources;
 import org.apache.hadoop.hdfs.server.datanode.SimulatedFSDataset;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsDatasetSpi;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetUtil;
 import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.server.namenode.NameNodeAdapter;
@@ -842,6 +844,13 @@ public class MiniDFSCluster {
         
         nnCounterForFormat++;
         if (formatThisOne) {
+          // Allow overriding clusterID for specific NNs to test
+          // misconfiguration.
+          if (nn.getClusterId() == null) {
+            StartupOption.FORMAT.setClusterId(clusterId);
+          } else {
+            StartupOption.FORMAT.setClusterId(nn.getClusterId());
+          }
           DFSTestUtil.formatNameNode(conf);
         }
         prevNNDirs = namespaceDirs;
@@ -903,7 +912,7 @@ public class MiniDFSCluster {
     }
   }
 
-  private void copyNameDirs(Collection<URI> srcDirs, Collection<URI> dstDirs,
+  public static void copyNameDirs(Collection<URI> srcDirs, Collection<URI> dstDirs,
       Configuration dstConf) throws IOException {
     URI srcDir = Lists.newArrayList(srcDirs).get(0);
     FileSystem dstFS = FileSystem.getLocal(dstConf).getRaw();
@@ -1384,8 +1393,8 @@ public class MiniDFSCluster {
   /**
    * Finalize cluster for the namenode at the given index 
    * @see MiniDFSCluster#finalizeCluster(Configuration)
-   * @param nnIndex
-   * @param conf
+   * @param nnIndex index of the namenode
+   * @param conf configuration
    * @throws Exception
    */
   public void finalizeCluster(int nnIndex, Configuration conf) throws Exception {
@@ -1697,6 +1706,14 @@ public class MiniDFSCluster {
     raFile.close();
     LOG.warn("Corrupting the block " + blockFile);
     return true;
+  }
+  
+  public static boolean changeGenStampOfBlock(int dnIndex, ExtendedBlock blk,
+      long newGenStamp) throws IOException {
+    File blockFile = getBlockFile(dnIndex, blk);
+    File metaFile = FsDatasetUtil.findMetaFile(blockFile);
+    return metaFile.renameTo(new File(DatanodeUtil.getMetaName(
+        blockFile.getAbsolutePath(), newGenStamp)));
   }
 
   /*
@@ -2216,7 +2233,7 @@ public class MiniDFSCluster {
    * to determine the location of the storage of a DN instance in the mini cluster
    * @param dnIndex datanode index
    * @param dirIndex directory index.
-   * @return
+   * @return storage directory path
    */
   private static String getStorageDirPath(int dnIndex, int dirIndex) {
     return "data/data" + (2 * dnIndex + 1 + dirIndex);
@@ -2242,8 +2259,8 @@ public class MiniDFSCluster {
   }
   /**
    * Get directory relative to block pool directory in the datanode
-   * @param storageDir
-   * @return current directory
+   * @param storageDir storage directory
+   * @return current directory in the given storage directory
    */
   public static String getBPDir(File storageDir, String bpid, String dirName) {
     return getBPDir(storageDir, bpid) + dirName + "/";

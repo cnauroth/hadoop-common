@@ -58,6 +58,9 @@ Release 2.5.0 - UNRELEASED
 
     YARN-1970. Prepare YARN codebase for JUnit 4.11. (cnauroth)
 
+    YARN-483. Improve documentation on log aggregation in yarn-default.xml
+    (Akira Ajisaka via Sandy Ryza)
+
   OPTIMIZATIONS
 
   BUG FIXES 
@@ -76,6 +79,9 @@ Release 2.5.0 - UNRELEASED
     YARN-1865. ShellScriptBuilder does not check for some error conditions.
     (Remus Rusanu via ivanmi)
 
+    YARN-738. TestClientRMTokens is failing irregularly while running all yarn
+    tests (Ming Ma via jlowe)
+
 Release 2.4.1 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -85,6 +91,9 @@ Release 2.4.1 - UNRELEASED
   IMPROVEMENTS
 
     YARN-1892. Improved some logs in the scheduler. (Jian He via zjshen)
+
+    YARN-1696. Added documentation for ResourceManager fail-over. (Karthik
+    Kambatla, Masatake Iwasaki, Tsuyoshi OZAWA via vinodkv)
 
   OPTIMIZATIONS
 
@@ -154,6 +163,12 @@ Release 2.4.1 - UNRELEASED
 
     YARN-1932. Javascript injection on the job status page (Mit Desai via
     jlowe)
+
+    YARN-1975. Used resources shows escaped html in CapacityScheduler and
+    FairScheduler page (Mit Desai via jlowe)
+
+    YARN-1929. Fixed a deadlock in ResourceManager that occurs when failover
+    happens right at the time of shutdown. (Karthik Kambatla via vinodkv)
 
 Release 2.4.0 - 2014-04-07 
 

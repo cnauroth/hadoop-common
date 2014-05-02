@@ -99,13 +99,13 @@ public class TestFsck {
       "ugi=.*?\\s" + 
       "ip=/\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\s" + 
       "cmd=fsck\\ssrc=\\/\\sdst=null\\s" + 
-      "perm=null");
+      "perm=null\\s" + "proto=.*");
   static final Pattern getfileinfoPattern = Pattern.compile(
       "allowed=.*?\\s" +
       "ugi=.*?\\s" + 
       "ip=/\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\s" + 
       "cmd=getfileinfo\\ssrc=\\/\\sdst=null\\s" + 
-      "perm=null");
+      "perm=null\\s" + "proto=.*");
   
   static final Pattern numCorruptBlocksPattern = Pattern.compile(
       ".*Corrupt blocks:\t\t([0123456789]*).*");
@@ -699,7 +699,7 @@ public class TestFsck {
       DFSTestUtil.waitReplication(fs, filePath, (short)1);
       
       // intentionally corrupt NN data structure
-      INodeFile node = (INodeFile)cluster.getNamesystem().dir.rootDir.getNode(
+      INodeFile node = (INodeFile)cluster.getNamesystem().dir.getNode(
           fileName, true);
       final BlockInfo[] blocks = node.getBlocks(); 
       assertEquals(blocks.length, 1);

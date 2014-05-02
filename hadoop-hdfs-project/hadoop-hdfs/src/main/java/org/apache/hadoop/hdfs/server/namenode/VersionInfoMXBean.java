@@ -1,7 +1,6 @@
-<%
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file 
+ * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
  * regarding copyright ownership.  The ASF licenses this file
  * to you under the Apache License, Version 2.0 (the
@@ -16,27 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-%>
-<%@ page
-  contentType="text/html; charset=UTF-8"
-  import="org.apache.hadoop.hdfs.server.common.JspHelper"
-  import="org.apache.hadoop.util.ServletUtil"
-%>
-<%!
-  //for java.io.Serializable
-  private static final long serialVersionUID = 1L;
-%>
+package org.apache.hadoop.hdfs.server.namenode;
 
-<!DOCTYPE html>
-<html>
-<link rel="stylesheet" type="text/css" href="/static/hadoop.css">
-<title>Hadoop JournalNode</title>
-    
-<body>
-<h1>JournalNode</h1>
-<%= JspHelper.getVersionTable() %>
-<hr />
+import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.classification.InterfaceStability;
 
-<br />
-<b><a href="/logs/">Logs</a></b>
-<%= ServletUtil.htmlFooter() %>
+@InterfaceAudience.Private
+@InterfaceStability.Evolving
+public interface VersionInfoMXBean {
+  /**
+   * @return the compilation information which contains date, user and branch
+   */
+  public String getCompileInfo();
+
+  /**
+   * @return the software version
+   */
+  public String getSoftwareVersion();
+}

@@ -646,7 +646,6 @@ public class DataNode extends Configured
   
   /**
    * Return the BPOfferService instance corresponding to the given block.
-   * @param block
    * @return the BPOS
    * @throws IOException if no such BPOS can be found
    */
@@ -811,9 +810,7 @@ public class DataNode extends Configured
   /**
    * After the block pool has contacted the NN, registers that block pool
    * with the secret manager, updating it with the secrets provided by the NN.
-   * @param bpRegistration
-   * @param blockPoolId
-   * @throws IOException
+   * @throws IOException on error
    */
   private synchronized void registerBlockPoolWithSecretManager(
       DatanodeRegistration bpRegistration, String blockPoolId) throws IOException {
@@ -850,19 +847,24 @@ public class DataNode extends Configured
    */
   void shutdownBlockPool(BPOfferService bpos) {
     blockPoolManager.remove(bpos);
+    if (bpos.hasBlockPoolId()) {
+      // Possible that this is shutting down before successfully
+      // registering anywhere. If that's the case, we wouldn't have
+      // a block pool id
+      String bpId = bpos.getBlockPoolId();
+      if (blockScanner != null) {
+        blockScanner.removeBlockPool(bpId);
+      }
 
-    String bpId = bpos.getBlockPoolId();
-    if (blockScanner != null) {
-      blockScanner.removeBlockPool(bpId);
-    }
-  
-    if (data != null) { 
-      data.shutdownBlockPool(bpId);
+      if (data != null) {
+        data.shutdownBlockPool(bpId);
+      }
+
+      if (storage != null) {
+        storage.removeBlockPoolStorage(bpId);
+      }
     }
 
-    if (storage != null) {
-      storage.removeBlockPoolStorage(bpId);
-    }
   }
 
   /**
@@ -883,10 +885,10 @@ public class DataNode extends Configured
           + " should have retrieved namespace info before initBlockPool.");
     }
     
+    setClusterId(nsInfo.clusterID, nsInfo.getBlockPoolID());
+
     // Register the new block pool with the BP manager.
     blockPoolManager.addBlockPool(bpos);
-
-    setClusterId(nsInfo.clusterID, nsInfo.getBlockPoolID());
     
     // In the case that this is the first block pool to connect, initialize
     // the dataset, block scanners, etc.
@@ -981,9 +983,8 @@ public class DataNode extends Configured
   
   /**
    * get BP registration by blockPool id
-   * @param bpid
    * @return BP registration object
-   * @throws IOException
+   * @throws IOException on error
    */
   @VisibleForTesting
   public DatanodeRegistration getDNRegistrationForBP(String bpid) 
@@ -1071,6 +1072,7 @@ public class DataNode extends Configured
       Token<BlockTokenIdentifier> token) throws IOException {
     checkBlockLocalPathAccess();
     checkBlockToken(block, token, BlockTokenSecretManager.AccessMode.READ);
+    Preconditions.checkNotNull(data, "Storage not yet initialized");
     BlockLocalPathInfo info = data.getBlockLocalPathInfo(block);
     if (LOG.isDebugEnabled()) {
       if (info != null) {
@@ -1687,8 +1689,9 @@ public class DataNode extends Configured
   /**
    * After a block becomes finalized, a datanode increases metric counter,
    * notifies namenode, and adds it to the block scanner
-   * @param block
-   * @param delHint
+   * @param block block to close
+   * @param delHint hint on which excess block to delete
+   * @param storageUuid UUID of the storage where block is stored
    */
   void closeBlock(ExtendedBlock block, String delHint, String storageUuid) {
     metrics.incrBlocksWritten();
@@ -2318,8 +2321,8 @@ public class DataNode extends Configured
    *          The corresponding replica must be an RBW or a Finalized.
    *          Its GS and numBytes will be set to
    *          the stored GS and the visible length. 
-   * @param targets
-   * @param client
+   * @param targets targets to transfer the block to
+   * @param client client name
    */
   void transferReplicaForPipelineRecovery(final ExtendedBlock b,
       final DatanodeInfo[] targets, final String client) throws IOException {
@@ -2430,6 +2433,7 @@ public class DataNode extends Configured
    */
   @Override // DataNodeMXBean
   public String getVolumeInfo() {
+    Preconditions.checkNotNull(data, "Storage not yet initialized");
     return JSON.toString(data.getVolumeInfoMap());
   }
   

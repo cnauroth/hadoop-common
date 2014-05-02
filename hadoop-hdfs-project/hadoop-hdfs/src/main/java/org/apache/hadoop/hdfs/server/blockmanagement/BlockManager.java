@@ -423,10 +423,8 @@ public class BlockManager {
 
   public void close() {
     try {
-      if (replicationThread != null) {
-        replicationThread.interrupt();
-        replicationThread.join(3000);
-      }
+      replicationThread.interrupt();
+      replicationThread.join(3000);
     } catch (InterruptedException ie) {
     }
     datanodeManager.close();
@@ -549,7 +547,6 @@ public class BlockManager {
   }
 
   /**
-   * @param block
    * @return true if the block has minimum replicas
    */
   public boolean checkMinReplication(Block block) {
@@ -819,7 +816,7 @@ public class BlockManager {
       for(DatanodeStorageInfo storage : blocksMap.getStorages(blk)) {
         final DatanodeDescriptor d = storage.getDatanodeDescriptor();
         final boolean replicaCorrupt = corruptReplicas.isReplicaCorrupt(blk, d);
-        if (isCorrupt || (!isCorrupt && !replicaCorrupt))
+        if (isCorrupt || (!replicaCorrupt))
           machines[j++] = storage;
       }
     }
@@ -1010,6 +1007,8 @@ public class BlockManager {
     while(it.hasNext()) {
       removeStoredBlock(it.next(), node);
     }
+    // Remove all pending DN messages referencing this DN.
+    pendingDNMessages.removeAllMessagesForDatanode(node);
 
     node.resetBlocks();
     invalidateBlocks.remove(node.getDatanodeUuid());
@@ -1084,7 +1083,8 @@ public class BlockManager {
     DatanodeDescriptor node = getDatanodeManager().getDatanode(dn);
     if (node == null) {
       throw new IOException("Cannot mark " + b
-          + " as corrupt because datanode " + dn + " does not exist");
+          + " as corrupt because datanode " + dn + " (" + dn.getDatanodeUuid()
+          + ") does not exist");
     }
 
     BlockCollection bc = b.corrupted.getBlockCollection();
@@ -1984,6 +1984,9 @@ public class BlockManager {
         // If the block is an out-of-date generation stamp or state,
         // but we're the standby, we shouldn't treat it as corrupt,
         // but instead just queue it for later processing.
+        // TODO: Pretty confident this should be s/storedBlock/block below,
+        // since we should be postponing the info of the reported block, not
+        // the stored block. See HDFS-6289 for more context.
         queueReportedBlock(dn, storageID, storedBlock, reportedState,
             QUEUE_REASON_CORRUPT_STATE);
       } else {
@@ -2243,7 +2246,6 @@ public class BlockManager {
       // it will happen in next block report otherwise.
       return block;
     }
-    assert storedBlock != null : "Block must be stored by now";
     BlockCollection bc = storedBlock.getBlockCollection();
     assert bc != null : "Block must belong to a file";
 
@@ -3293,12 +3295,7 @@ public class BlockManager {
   }
 
   public int getCapacity() {
-    namesystem.readLock();
-    try {
-      return blocksMap.getCapacity();
-    } finally {
-      namesystem.readUnlock();
-    }
+    return blocksMap.getCapacity();
   }
   
   /**
@@ -3382,7 +3379,6 @@ public class BlockManager {
    * heartbeat.
    * 
    * @return number of blocks scheduled for replication or removal.
-   * @throws IOException
    */
   int computeDatanodeWork() {
     // Blocks should not be replicated or removed if in safe mode.
