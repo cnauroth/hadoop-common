@@ -26,9 +26,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.fs.permission.AclEntry;
-import org.apache.hadoop.fs.permission.AclEntryScope;
-import org.apache.hadoop.fs.permission.AclEntryType;
-import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.permission.AclUtil;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
@@ -48,8 +45,6 @@ import java.text.DecimalFormat;
 import java.net.URI;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-
-import com.google.common.collect.Lists;
 
 /**
  * Utility functions used in DistCp.
