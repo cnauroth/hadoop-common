@@ -75,10 +75,10 @@ class AclCommands extends FsCommand {
 
     @Override
     protected void processPath(PathData item) throws IOException {
-      FsPermission perm = item.stat.getPermission();
       out.println("# file: " + item);
       out.println("# owner: " + item.stat.getOwner());
       out.println("# group: " + item.stat.getGroup());
+      FsPermission perm = item.stat.getPermission();
       if (perm.getStickyBit()) {
         out.println("# flags: --" +
           (perm.getOtherAction().implies(FsAction.EXECUTE) ? "t" : "T"));
