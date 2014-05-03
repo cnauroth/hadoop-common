@@ -2631,7 +2631,7 @@ public class FSDirectory implements Closeable {
         blocksize,
         node.getModificationTime(snapshot),
         node.getAccessTime(snapshot),
-        node.getFsPermission(snapshot),
+        getPermissionForFileStatus(node, snapshot),
         node.getUserName(snapshot),
         node.getGroupName(snapshot),
         node.isSymlink() ? node.asSymlink().getSymlink() : null,
@@ -2673,7 +2673,8 @@ public class FSDirectory implements Closeable {
     HdfsLocatedFileStatus status =
         new HdfsLocatedFileStatus(size, node.isDirectory(), replication,
           blocksize, node.getModificationTime(snapshot),
-          node.getAccessTime(snapshot), node.getFsPermission(snapshot),
+          node.getAccessTime(snapshot),
+          getPermissionForFileStatus(node, snapshot),
           node.getUserName(snapshot), node.getGroupName(snapshot),
           node.isSymlink() ? node.asSymlink().getSymlink() : null, path,
           node.getId(), loc, childrenNum);
@@ -2687,6 +2688,15 @@ public class FSDirectory implements Closeable {
     return status;
   }
 
+  private static FsPermission getPermissionForFileStatus(INode node,
+      int snapshot) {
+    if (node.getAclFeature(snapshot) != null) {
+      short permBits = node.getFsPermission(snapshot).toShort();
+      return new FsPermission((short)(permBits | 02000));
+    } else {
+      return node.getFsPermission(snapshot);
+    }
+  }
     
   /**
    * Add the given symbolic link to the fs. Record it in the edits log.
