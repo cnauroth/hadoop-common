@@ -85,11 +85,11 @@ class AclCommands extends FsCommand {
       }
 
       if (perm.getAclBit()) {
-        printMinimalAcl(perm);
-      } else {
         AclStatus aclStatus = item.fs.getAclStatus(item.path);
         List<AclEntry> entries = aclStatus.getEntries();
         printExtendedAcl(perm, entries);
+      } else {
+        printMinimalAcl(perm);
       }
 
       out.println();
