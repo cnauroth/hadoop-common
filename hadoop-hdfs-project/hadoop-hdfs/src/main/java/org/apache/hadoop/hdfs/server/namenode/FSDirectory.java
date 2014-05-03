@@ -2688,6 +2688,15 @@ public class FSDirectory implements Closeable {
     return status;
   }
 
+  /**
+   * Returns an inode's FsPermission for use in an outbound FileStatus.  If the
+   * inode has an ACL, then this method will toggle on the ACL bit in the
+   * returned FsPermission.
+   *
+   * @param node INode to check
+   * @param snapshot int snapshot ID
+   * @return FsPermission from inode, with ACL bit on if the inode has an ACL
+   */
   private static FsPermission getPermissionForFileStatus(INode node,
       int snapshot) {
     if (node.getAclFeature(snapshot) != null) {
