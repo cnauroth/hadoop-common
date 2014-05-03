@@ -75,11 +75,9 @@ class AclCommands extends FsCommand {
 
     @Override
     protected void processPath(PathData item) throws IOException {
-      AclStatus aclStatus = item.fs.getAclStatus(item.path);
       out.println("# file: " + item);
-      out.println("# owner: " + aclStatus.getOwner());
-      out.println("# group: " + aclStatus.getGroup());
-      List<AclEntry> entries = aclStatus.getEntries();
+      out.println("# owner: " + item.stat.getOwner());
+      out.println("# group: " + item.stat.getGroup());
       if (aclStatus.isStickyBit()) {
         String stickyFlag = "T";
         for (AclEntry aclEntry : entries) {
@@ -94,9 +92,11 @@ class AclCommands extends FsCommand {
       }
 
       FsPermission perm = item.stat.getPermission();
-      if (entries.isEmpty()) {
+      if (perm.getAclBit()) {
         printMinimalAcl(perm);
       } else {
+        AclStatus aclStatus = item.fs.getAclStatus(item.path);
+        List<AclEntry> entries = aclStatus.getEntries();
         printExtendedAcl(perm, entries);
       }
 
