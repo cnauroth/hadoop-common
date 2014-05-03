@@ -61,6 +61,7 @@ public class FsPermission implements Writable {
   private FsAction groupaction = null;
   private FsAction otheraction = null;
   private boolean stickyBit = false;
+  private boolean aclBit = false;
 
   private FsPermission() {}
 
@@ -75,7 +76,20 @@ public class FsPermission implements Writable {
   }
 
   public FsPermission(FsAction u, FsAction g, FsAction o, boolean sb) {
-    set(u, g, o, sb);
+    this(u, g, o, sb, false);
+  }
+
+  /**
+   * Construct by the given {@link FsAction} and special bits.
+   * @param u user action
+   * @param g group action
+   * @param o other action
+   * @param sb sticky bit
+   * @param ab ACL bit
+   */
+  public FsPermission(FsAction u, FsAction g, FsAction o, boolean sb,
+      boolean ab) {
+    set(u, g, o, sb, ab);
   }
 
   /**
@@ -95,6 +109,7 @@ public class FsPermission implements Writable {
     this.groupaction = other.groupaction;
     this.otheraction = other.otheraction;
     this.stickyBit = other.stickyBit;
+    this.aclBit = other.aclBit;
   }
   
   /**
@@ -115,16 +130,18 @@ public class FsPermission implements Writable {
   /** Return other {@link FsAction}. */
   public FsAction getOtherAction() {return otheraction;}
 
-  private void set(FsAction u, FsAction g, FsAction o, boolean sb) {
+  private void set(FsAction u, FsAction g, FsAction o, boolean sb, boolean ab) {
     useraction = u;
     groupaction = g;
     otheraction = o;
     stickyBit = sb;
+    aclBit = ab;
   }
 
   public void fromShort(short n) {
     FsAction[] v = FSACTION_VALUES;
-    set(v[(n >>> 6) & 7], v[(n >>> 3) & 7], v[n & 7], (((n >>> 9) & 1) == 1) );
+    set(v[(n >>> 6) & 7], v[(n >>> 3) & 7], v[n & 7], (((n >>> 9) & 1) == 1),
+      (((n >>> 10) & 1) == 1) );
   }
 
   @Override
@@ -150,7 +167,8 @@ public class FsPermission implements Writable {
    * Encode the object to a short.
    */
   public short toShort() {
-    int s =  (stickyBit ? 1 << 9 : 0)     |
+    int s =  (aclBit ? 1 << 10 : 0)       |
+             (stickyBit ? 1 << 9 : 0)     |
              (useraction.ordinal() << 6)  |
              (groupaction.ordinal() << 3) |
              otheraction.ordinal();
@@ -165,7 +183,8 @@ public class FsPermission implements Writable {
       return this.useraction == that.useraction
           && this.groupaction == that.groupaction
           && this.otheraction == that.otheraction
-          && this.stickyBit == that.stickyBit;
+          && this.stickyBit == that.stickyBit
+          && this.aclBit == that.aclBit;
     }
     return false;
   }
@@ -175,15 +194,19 @@ public class FsPermission implements Writable {
 
   @Override
   public String toString() {
-    String str = useraction.SYMBOL + groupaction.SYMBOL + otheraction.SYMBOL;
-    if(stickyBit) {
-      StringBuilder str2 = new StringBuilder(str);
-      str2.replace(str2.length() - 1, str2.length(),
+    StringBuilder sb = new StringBuilder();
+    sb.append(useraction.SYMBOL);
+    sb.append(groupaction.SYMBOL);
+    sb.append(otheraction.SYMBOL);
+    if (stickyBit) {
+      sb.replace(sb.length() - 1, sb.length(),
            otheraction.implies(FsAction.EXECUTE) ? "t" : "T");
-      str = str2.toString();
+    }
+    if (aclBit) {
+      sb.append('+');
     }
 
-    return str;
+    return sb.toString();
   }
 
   /**
@@ -273,6 +296,15 @@ public class FsPermission implements Writable {
     return stickyBit;
   }
 
+  /**
+   * Returns true if there is also an ACL (access control list).
+   *
+   * @return boolean true if there is also an ACL (access control list).
+   */
+  public boolean getAclBit() {
+    return aclBit;
+  }
+
   /** Set the user file creation mask (umask) */
   public static void setUMask(Configuration conf, FsPermission umask) {
     conf.set(UMASK_LABEL, String.format("%1$03o", umask.toShort()));
@@ -322,14 +354,14 @@ public class FsPermission implements Writable {
     if (unixSymbolicPermission == null) {
       return null;
     }
-    else if (unixSymbolicPermission.length() != MAX_PERMISSION_LENGTH) {
-      throw new IllegalArgumentException(String.format(
-        "length != %d(unixSymbolicPermission=%s)", MAX_PERMISSION_LENGTH,
-        unixSymbolicPermission));
+    else if (unixSymbolicPermission.length() != 10 &&
+        unixSymbolicPermission.length() != 11) {
+      throw new IllegalArgumentException("invalid length(unixSymbolicPermission="
+           + unixSymbolicPermission + ")");
     }
 
     int n = 0;
-    for(int i = 1; i < unixSymbolicPermission.length(); i++) {
+    for(int i = 1; i < 10; i++) {
       n = n << 1;
       char c = unixSymbolicPermission.charAt(i);
       n += (c == '-' || c == 'T' || c == 'S') ? 0: 1;
@@ -339,6 +371,11 @@ public class FsPermission implements Writable {
     if(unixSymbolicPermission.charAt(9) == 't' ||
         unixSymbolicPermission.charAt(9) == 'T')
       n += 01000;
+
+    // Add ACL bit value if set
+    if (unixSymbolicPermission.length() == 11 &&
+         unixSymbolicPermission.charAt(10) == '+')
+      n += (1 << 10);
 
     return new FsPermission((short)n);
   }

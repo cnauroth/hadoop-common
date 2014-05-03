@@ -54,7 +54,7 @@ public class TestFsPermission extends TestCase {
    * the expected values back out for all combinations
    */
   public void testConvertingPermissions() {
-    for(short s = 0; s <= 01777; s++) {
+    for(short s = 0; s <= 03777; s++) {
       assertEquals(s, new FsPermission(s).toShort());
     }
 
@@ -69,6 +69,15 @@ public class TestFsPermission extends TestCase {
             assertEquals(s, f.toShort());
             FsPermission f2 = new FsPermission(f);
             assertEquals(s, f2.toShort());
+
+            // Cover constructor with sticky bit and ACL bit.
+            for(boolean ab : new boolean [] { false, true }) {
+              short s2 = (short)(ab ? s | (1 << 10) : s);
+              FsPermission f3 = new FsPermission(u, g, o, sb, ab);
+              assertEquals(s2, f3.toShort());
+              FsPermission f4 = new FsPermission(f3);
+              assertEquals(s2, f4.toShort());
+            }
 
             s++;
           }
@@ -95,7 +104,13 @@ public class TestFsPermission extends TestCase {
             else
               assertEquals('-', fString.charAt(8));
 
-            assertEquals(9, fString.length());
+              // Check that ACL bit is represented correctly.
+              if (f.getAclBit()) {
+                assertEquals(10, fString.length());
+                assertEquals('+', fString.charAt(9));
+              } else {
+                assertEquals(9, fString.length());
+              }
           }
         }
 
@@ -106,7 +121,7 @@ public class TestFsPermission extends TestCase {
   public void testFsPermission() {
     String symbolic = "-rwxrwxrwx";
 
-    for(int i = 0; i < (1 << 10); i++) {
+    for(int i = 0; i < (1 << 11); i++) {
       StringBuilder b = new StringBuilder("----------");
       String binary = String.format("%11s", Integer.toBinaryString(i));
       String permBinary = binary.substring(2, binary.length());
@@ -123,6 +138,11 @@ public class TestFsPermission extends TestCase {
       if (binary.charAt(1) == '1') {
         char replacement = b.charAt(9) == 'x' ? 't' : 'T';
         b.setCharAt(9, replacement);
+      }
+
+      // Check for ACL bit.
+      if (binary.charAt(0) == '1') {
+        b.append('+');
       }
 
       assertEquals(i, FsPermission.valueOf(b.toString()).toShort());
