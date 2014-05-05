@@ -2631,7 +2631,7 @@ public class FSDirectory implements Closeable {
         blocksize,
         node.getModificationTime(snapshot),
         node.getAccessTime(snapshot),
-        getPermissionForFileStatus(node, snapshot),
+        node.getFsPermission(snapshot),
         node.getUserName(snapshot),
         node.getGroupName(snapshot),
         node.isSymlink() ? node.asSymlink().getSymlink() : null,
@@ -2673,8 +2673,7 @@ public class FSDirectory implements Closeable {
     HdfsLocatedFileStatus status =
         new HdfsLocatedFileStatus(size, node.isDirectory(), replication,
           blocksize, node.getModificationTime(snapshot),
-          node.getAccessTime(snapshot),
-          getPermissionForFileStatus(node, snapshot),
+          node.getAccessTime(snapshot), node.getFsPermission(snapshot),
           node.getUserName(snapshot), node.getGroupName(snapshot),
           node.isSymlink() ? node.asSymlink().getSymlink() : null, path,
           node.getId(), loc, childrenNum);
@@ -2688,24 +2687,6 @@ public class FSDirectory implements Closeable {
     return status;
   }
 
-  /**
-   * Returns an inode's FsPermission for use in an outbound FileStatus.  If the
-   * inode has an ACL, then this method will toggle on the ACL bit in the
-   * returned FsPermission.
-   *
-   * @param node INode to check
-   * @param snapshot int snapshot ID
-   * @return FsPermission from inode, with ACL bit on if the inode has an ACL
-   */
-  private static FsPermission getPermissionForFileStatus(INode node,
-      int snapshot) {
-    if (node.getAclFeature(snapshot) != null) {
-      short permBits = node.getFsPermission(snapshot).toShort();
-      return new FsPermission((short)(permBits | 02000));
-    } else {
-      return node.getFsPermission(snapshot);
-    }
-  }
     
   /**
    * Add the given symbolic link to the fs. Record it in the edits log.
