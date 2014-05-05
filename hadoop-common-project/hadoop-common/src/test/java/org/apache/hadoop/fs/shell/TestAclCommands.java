@@ -159,6 +159,17 @@ public class TestAclCommands {
       0, ToolRunner.run(conf, new FsShell(), new String[] { "-ls", "/" }));
   }
 
+  @Test
+  public void testLsIllegalArgumentExceptionForGetAclStatus() throws Exception {
+    Configuration conf = new Configuration();
+    conf.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, "stubfs:///");
+    conf.setClass("fs.stubfs.impl", StubFileSystem.class, FileSystem.class);
+    conf.setBoolean("stubfs.illegalArgumentExceptionForGetAclStatus", true);
+    assertEquals(
+      "ls must succeed even if getAclStatus throws IllegalArgumentException.",
+      0, ToolRunner.run(conf, new FsShell(), new String[] { "-ls", "/" }));
+  }
+
   public static class StubFileSystem extends FileSystem {
 
     public FSDataOutputStream append(Path f, int bufferSize,
@@ -181,6 +192,10 @@ public class TestAclCommands {
       if (getConf().getBoolean("stubfs.noRpcForGetAclStatus", false)) {
         throw new RemoteException(RpcNoSuchMethodException.class.getName(),
           "test exception");
+      }
+      if (getConf().getBoolean("stubfs.illegalArgumentExceptionForGetAclStatus",
+          false)) {
+        throw new IllegalArgumentException("test exception");
       }
       return super.getAclStatus(path);
     }

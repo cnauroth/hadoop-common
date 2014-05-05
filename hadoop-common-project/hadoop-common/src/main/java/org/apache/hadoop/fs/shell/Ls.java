@@ -31,8 +31,6 @@ import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.ipc.RemoteException;
-import org.apache.hadoop.ipc.RpcNoSuchMethodException;
 
 import com.google.common.collect.Sets;
 
@@ -155,13 +153,17 @@ class Ls extends FsCommand {
 
   /**
    * Calls getAclStatus to determine if the given item has an ACL.  For
-   * compatibility, this method traps errors caused by the RPC method missing
-   * from the server side.  This would happen if the client was connected to an
-   * old NameNode that didn't have the ACL APIs.  This method also traps the
-   * case of the client-side FileSystem not implementing the ACL APIs.
-   * FileSystem instances that do not support ACLs are remembered.  This
-   * prevents the client from sending multiple failing RPC calls during a
-   * recursive ls.
+   * compatibility, this method traps all errors while attempting to check ACLs.
+   * There are several known conditions that can cause such a failure: 1) client
+   * connected to an old NameNode version that doesn't have the ACL APIs, 2)
+   * client connected to a NameNode version that does support ACLs but doesn't
+   * have them enabled, 3) client connected to an old WebHDFS version that
+   * doesn't have the ACL APIs, and 4) use of a client-side FileSystem that does
+   * not implement the ACL APIs.  To be defensive, we simply catch all
+   * exceptions so that we also cover unexpected interactions with custom
+   * FileSystem implementations.  FileSystem instances that do not support ACLs
+   * are remembered.  This prevents the client from sending multiple failing
+   * calls during a recursive ls.
    *
    * @param item PathData item to check
    * @return boolean true if item has an ACL
@@ -175,25 +177,11 @@ class Ls extends FsCommand {
     }
     try {
       return !fs.getAclStatus(item.path).getEntries().isEmpty();
-    } catch (RemoteException e) {
-      // If this is a RpcNoSuchMethodException, then the client is connected to
-      // an older NameNode that doesn't support ACLs.  Keep going.
-      IOException e2 = e.unwrapRemoteException(RpcNoSuchMethodException.class);
-      if (!(e2 instanceof RpcNoSuchMethodException)) {
-        throw e;
-      }
-    } catch (IOException e) {
-      // The NameNode supports ACLs, but they are not enabled.  Keep going.
-      String message = e.getMessage();
-      if (message != null && !message.contains("ACLs has been disabled")) {
-        throw e;
-      }
-    } catch (UnsupportedOperationException e) {
-      // The underlying FileSystem doesn't implement ACLs.  Keep going.
+    } catch (Exception e) {
+      // Remember that this FileSystem cannot support ACLs.
+      aclNotSupportedFsSet.add(fs.getUri());
+      return false;
     }
-    // Remember that this FileSystem cannot support ACLs.
-    aclNotSupportedFsSet.add(fs.getUri());
-    return false;
   }
 
   private int maxLength(int n, Object value) {
