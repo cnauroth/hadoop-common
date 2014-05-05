@@ -267,6 +267,9 @@ Release 2.5.0 - UNRELEASED
     HDFS-6281. Provide option to use the NFS Gateway without having to use the
     Hadoop portmapper. (atm)
 
+    HDFS-5168. Add cross node dependency support to BlockPlacementPolicy.
+    (Nikola Vujic via szetszwo)
+
   IMPROVEMENTS
 
     HDFS-6007. Update documentation about short-circuit local reads (iwasakims
@@ -336,6 +339,9 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6304. Consolidate the logic of path resolution in FSDirectory.
     (wheat9)
+
+    HDFS-6295. Add "decommissioning" state and node state filtering to
+    dfsadmin. (wang)
 
   OPTIMIZATIONS
 
@@ -425,6 +431,9 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6289. HA failover can fail if there are pending DN messages for DNs
     which no longer exist. (atm)
+
+    HDFS-6337. Setfacl testcase is failing due to dash character in username
+    in TestAclCLI (umamahesh)
 
 Release 2.4.1 - UNRELEASED
 

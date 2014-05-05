@@ -144,6 +144,8 @@ Trunk (Unreleased)
     HADOOP-10534. KeyProvider getKeysMetadata should take a list of names 
     rather than returning all keys. (omalley)
 
+    HADOOP-10563. Remove the dependency of jsp in trunk. (wheat9)
+
   BUG FIXES
 
     HADOOP-9451. Fault single-layer config if node group topology is enabled.
@@ -361,6 +363,9 @@ Release 2.5.0 - UNRELEASED
     HADOOP-10322. Add ability to read principal names from a keytab.
     (Benoy Antony and Daryn Sharp via kihwal)
 
+    HADOOP-10549. MAX_SUBST and varPat should be final in Configuration.java.
+    (Gera Shegalov via cnauroth)
+
   OPTIMIZATIONS
 
   BUG FIXES 
@@ -430,6 +435,11 @@ Release 2.5.0 - UNRELEASED
 
     HADOOP-10543. RemoteException's unwrapRemoteException method failed for
     PathIOException. (Yongjun Zhang via atm)
+
+    HADOOP-10562. Namenode exits on exception without printing stack trace
+    in AbstractDelegationTokenSecretManager. (Arpit Agarwal)
+
+    HADOOP-10568. Add s3 server-side encryption. (David S. Wang via atm)
 
 Release 2.4.1 - UNRELEASED
 
