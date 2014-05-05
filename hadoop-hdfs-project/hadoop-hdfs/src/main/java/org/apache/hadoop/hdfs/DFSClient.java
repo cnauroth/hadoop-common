@@ -132,6 +132,7 @@ import org.apache.hadoop.hdfs.protocol.CachePoolIterator;
 import org.apache.hadoop.hdfs.protocol.ClientProtocol;
 import org.apache.hadoop.hdfs.protocol.CorruptFileBlocks;
 import org.apache.hadoop.hdfs.protocol.DSQuotaExceededException;
+import org.apache.hadoop.hdfs.protocol.DatanodeID;
 import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
 import org.apache.hadoop.hdfs.protocol.DirectoryListing;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
@@ -159,6 +160,7 @@ import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.BlockOpResponseP
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.OpBlockChecksumResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.Status;
 import org.apache.hadoop.hdfs.protocolPB.PBHelper;
+import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
 import org.apache.hadoop.hdfs.security.token.block.InvalidBlockTokenException;
 import org.apache.hadoop.hdfs.security.token.delegation.DelegationTokenIdentifier;
@@ -1900,7 +1902,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
         try {
           //connect to a datanode
           IOStreamPair pair = connectToDN(socketFactory, connectToDnViaHostname,
-              encryptionKey, datanodes[j], timeout);
+              encryptionKey, datanodes[j], timeout, lb);
           out = new DataOutputStream(new BufferedOutputStream(pair.out,
               HdfsConstants.SMALL_BUFFER_SIZE));
           in = new DataInputStream(pair.in);
@@ -2034,7 +2036,8 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
    */
   private static IOStreamPair connectToDN(
       SocketFactory socketFactory, boolean connectToDnViaHostname,
-      DataEncryptionKey encryptionKey, DatanodeInfo dn, int timeout)
+      DataEncryptionKey encryptionKey, DatanodeInfo dn, int timeout,
+      LocatedBlock lb)
       throws IOException
   {
     boolean success = false;
@@ -2053,7 +2056,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
       IOStreamPair ret;
       if (encryptionKey != null) {
         ret = DataTransferEncryptor.getEncryptedStreams(
-                unbufOut, unbufIn, encryptionKey);
+                unbufOut, unbufIn, encryptionKey, lb.getBlockToken(), dn);
       } else {
         ret = new IOStreamPair(unbufIn, unbufOut);        
       }
@@ -2086,7 +2089,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
       DataEncryptionKey encryptionKey, boolean connectToDnViaHostname)
       throws IOException {
     IOStreamPair pair = connectToDN(socketFactory, connectToDnViaHostname,
-        encryptionKey, dn, socketTimeout);
+        encryptionKey, dn, socketTimeout, lb);
 
     try {
       DataOutputStream out = new DataOutputStream(new BufferedOutputStream(pair.out,
@@ -2759,7 +2762,9 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
   }
 
   @Override // RemotePeerFactory
-  public Peer newConnectedPeer(InetSocketAddress addr) throws IOException {
+  public Peer newConnectedPeer(InetSocketAddress addr,
+      Token<BlockTokenIdentifier> blockToken, DatanodeID datanodeId)
+      throws IOException {
     Peer peer = null;
     boolean success = false;
     Socket sock = null;
@@ -2769,7 +2774,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
         getRandomLocalInterfaceAddr(),
         dfsClientConf.socketTimeout);
       peer = TcpPeerServer.peerFromSocketAndKey(sock, 
-          getDataEncryptionKey());
+          getDataEncryptionKey(), blockToken, datanodeId);
       success = true;
       return peer;
     } finally {

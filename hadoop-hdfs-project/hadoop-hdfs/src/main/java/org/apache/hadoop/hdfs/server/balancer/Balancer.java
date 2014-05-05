@@ -351,10 +351,13 @@ public class Balancer {
         
         OutputStream unbufOut = sock.getOutputStream();
         InputStream unbufIn = sock.getInputStream();
+        ExtendedBlock eb = new ExtendedBlock(nnc.blockpoolID, block.getBlock());
+        Token<BlockTokenIdentifier> accessToken = nnc.getAccessToken(eb);
         if (nnc.getDataEncryptionKey() != null) {
           IOStreamPair encryptedStreams =
               DataTransferEncryptor.getEncryptedStreams(
-                  unbufOut, unbufIn, nnc.getDataEncryptionKey());
+                  unbufOut, unbufIn, nnc.getDataEncryptionKey(), accessToken,
+                  proxySource.getDatanode());
           unbufOut = encryptedStreams.out;
           unbufIn = encryptedStreams.in;
         }
@@ -363,7 +366,7 @@ public class Balancer {
         in = new DataInputStream(new BufferedInputStream(unbufIn,
             HdfsConstants.IO_FILE_BUFFER_SIZE));
         
-        sendRequest(out);
+        sendRequest(out, eb, accessToken);
         receiveResponse(in);
         bytesMoved.inc(block.getNumBytes());
         LOG.info("Successfully moved " + this);
@@ -394,9 +397,8 @@ public class Balancer {
     }
     
     /* Send a block replace request to the output stream*/
-    private void sendRequest(DataOutputStream out) throws IOException {
-      final ExtendedBlock eb = new ExtendedBlock(nnc.blockpoolID, block.getBlock());
-      final Token<BlockTokenIdentifier> accessToken = nnc.getAccessToken(eb);
+    private void sendRequest(DataOutputStream out, ExtendedBlock eb,
+        Token<BlockTokenIdentifier> accessToken) throws IOException {
       new Sender(out).replaceBlock(eb, accessToken,
           source.getStorageID(), proxySource.getDatanode());
     }

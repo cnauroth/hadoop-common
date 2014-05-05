@@ -1607,6 +1607,15 @@ public class DataNode extends Configured
         NetUtils.connect(sock, curTarget, dnConf.socketTimeout);
         sock.setSoTimeout(targets.length * dnConf.socketTimeout);
 
+        //
+        // Header info
+        //
+        Token<BlockTokenIdentifier> accessToken = BlockTokenSecretManager.DUMMY_TOKEN;
+        if (isBlockTokenEnabled) {
+          accessToken = blockPoolTokenSecretManager.generateToken(b, 
+              EnumSet.of(BlockTokenSecretManager.AccessMode.WRITE));
+        }
+
         long writeTimeout = dnConf.socketWriteTimeout + 
                             HdfsServerConstants.WRITE_TIMEOUT_EXTENSION * (targets.length-1);
         OutputStream unbufOut = NetUtils.getOutputStream(sock, writeTimeout);
@@ -1617,7 +1626,7 @@ public class DataNode extends Configured
               DataTransferEncryptor.getEncryptedStreams(
                   unbufOut, unbufIn,
                   blockPoolTokenSecretManager.generateDataEncryptionKey(
-                      b.getBlockPoolId()));
+                      b.getBlockPoolId()), accessToken, bpReg);
           unbufOut = encryptedStreams.out;
           unbufIn = encryptedStreams.in;
         }
@@ -1628,15 +1637,6 @@ public class DataNode extends Configured
         blockSender = new BlockSender(b, 0, b.getNumBytes(), 
             false, false, true, DataNode.this, null, cachingStrategy);
         DatanodeInfo srcNode = new DatanodeInfo(bpReg);
-
-        //
-        // Header info
-        //
-        Token<BlockTokenIdentifier> accessToken = BlockTokenSecretManager.DUMMY_TOKEN;
-        if (isBlockTokenEnabled) {
-          accessToken = blockPoolTokenSecretManager.generateToken(b, 
-              EnumSet.of(BlockTokenSecretManager.AccessMode.WRITE));
-        }
 
         new Sender(out).writeBlock(b, accessToken, clientname, targets, srcNode,
             stage, 0, 0, 0, 0, blockSender.getChecksum(), cachingStrategy);

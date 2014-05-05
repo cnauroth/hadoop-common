@@ -1042,7 +1042,8 @@ public class DFSOutputStream extends FSOutputSummer
             !dfsClient.trustedChannelResolver.isTrusted(sock.getInetAddress())) {
           IOStreamPair encryptedStreams =
               DataTransferEncryptor.getEncryptedStreams(
-                  unbufOut, unbufIn, dfsClient.getDataEncryptionKey());
+                  unbufOut, unbufIn, dfsClient.getDataEncryptionKey(),
+                  blockToken, src);
           unbufOut = encryptedStreams.out;
           unbufIn = encryptedStreams.in;
         }
@@ -1319,7 +1320,8 @@ public class DFSOutputStream extends FSOutputSummer
               !dfsClient.trustedChannelResolver.isTrusted(s.getInetAddress())) {
             IOStreamPair encryptedStreams =
                 DataTransferEncryptor.getEncryptedStreams(unbufOut,
-                    unbufIn, dfsClient.getDataEncryptionKey());
+                    unbufIn, dfsClient.getDataEncryptionKey(), accessToken,
+                    nodes[0]);
             unbufOut = encryptedStreams.out;
             unbufIn = encryptedStreams.in;
           }

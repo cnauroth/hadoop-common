@@ -19,6 +19,7 @@ package org.apache.hadoop.hdfs.protocol.datatransfer;
 
 import static org.apache.hadoop.hdfs.protocolPB.PBHelper.vintPrefixed;
 
+import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -44,12 +45,16 @@ import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.hdfs.protocol.DatanodeID;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.DataTransferEncryptorMessageProto;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.DataTransferEncryptorMessageProto.DataTransferEncryptorStatus;
 import org.apache.hadoop.hdfs.security.token.block.BlockPoolTokenSecretManager;
+import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
 import org.apache.hadoop.security.SaslInputStream;
 import org.apache.hadoop.security.SaslOutputStream;
+import org.apache.hadoop.security.token.Token;
+import org.apache.hadoop.util.Time;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.Maps;
@@ -88,7 +93,7 @@ public class DataTransferEncryptor {
   private static final Map<String, String> SASL_PROPS = new TreeMap<String, String>();
   
   static {
-    SASL_PROPS.put(Sasl.QOP, "auth-conf");
+    SASL_PROPS.put(Sasl.QOP, "auth");
     SASL_PROPS.put(Sasl.SERVER_AUTH, "true");
   }
   
@@ -116,7 +121,7 @@ public class DataTransferEncryptor {
   public static IOStreamPair getEncryptedStreams(
       OutputStream underlyingOut, InputStream underlyingIn,
       BlockPoolTokenSecretManager blockPoolTokenSecretManager,
-      String encryptionAlgorithm) throws IOException {
+      String encryptionAlgorithm, DatanodeID datanodeId) throws IOException {
     
     DataInputStream in = new DataInputStream(underlyingIn);
     DataOutputStream out = new DataOutputStream(underlyingOut);
@@ -130,7 +135,7 @@ public class DataTransferEncryptor {
     
     SaslParticipant sasl = new SaslParticipant(Sasl.createSaslServer(MECHANISM,
         PROTOCOL, SERVER_NAME, saslProps,
-        new SaslServerCallbackHandler(blockPoolTokenSecretManager)));
+        new SaslServerCallbackHandler(blockPoolTokenSecretManager, datanodeId)));
     
     int magicNumber = in.readInt();
     if (magicNumber != ENCRYPTED_TRANSFER_MAGIC_NUMBER) {
@@ -184,7 +189,8 @@ public class DataTransferEncryptor {
    */
   public static IOStreamPair getEncryptedStreams(
       OutputStream underlyingOut, InputStream underlyingIn,
-      DataEncryptionKey encryptionKey)
+      DataEncryptionKey encryptionKey, Token<BlockTokenIdentifier> blockToken,
+      DatanodeID datanodeId)
           throws IOException {
     
     Map<String, String> saslProps = Maps.newHashMap(SASL_PROPS);
@@ -199,10 +205,12 @@ public class DataTransferEncryptor {
     DataOutputStream out = new DataOutputStream(underlyingOut);
     DataInputStream in = new DataInputStream(underlyingIn);
     
-    String userName = getUserNameFromEncryptionKey(encryptionKey);
+    long timestamp = Time.now();
+    String userName = buildUserName(blockToken.getIdentifier(), timestamp);
     SaslParticipant sasl = new SaslParticipant(Sasl.createSaslClient(
         new String[] { MECHANISM }, userName, PROTOCOL, SERVER_NAME, saslProps,
-        new SaslClientCallbackHandler(encryptionKey.encryptionKey, userName)));
+        new SaslClientCallbackHandler(encryptionKey.encryptionKey, blockToken,
+          datanodeId, userName, timestamp)));
     
     out.writeInt(ENCRYPTED_TRANSFER_MAGIC_NUMBER);
     out.flush();
@@ -239,11 +247,6 @@ public class DataTransferEncryptor {
   private static void checkSaslComplete(SaslParticipant sasl) throws IOException {
     if (!sasl.isComplete()) {
       throw new IOException("Failed to complete SASL handshake");
-    }
-    
-    if (!sasl.supportsConfidentiality()) {
-      throw new IOException("SASL handshake completed, but channel does not " +
-          "support encryption");
     }
   }
   
@@ -300,10 +303,12 @@ public class DataTransferEncryptor {
   private static class SaslServerCallbackHandler implements CallbackHandler {
     
     private final BlockPoolTokenSecretManager blockPoolTokenSecretManager;
+    private final DatanodeID datanodeId;
     
     public SaslServerCallbackHandler(BlockPoolTokenSecretManager
-        blockPoolTokenSecretManager) {
+        blockPoolTokenSecretManager, DatanodeID datanodeId) {
       this.blockPoolTokenSecretManager = blockPoolTokenSecretManager;
+      this.datanodeId = datanodeId;
     }
 
     @Override
@@ -328,9 +333,7 @@ public class DataTransferEncryptor {
       }
       
       if (pc != null) {
-        byte[] encryptionKey = getEncryptionKeyFromUserName(
-            blockPoolTokenSecretManager, nc.getDefaultName());
-        pc.setPassword(encryptionKeyToPassword(encryptionKey));
+        pc.setPassword(buildServerPassword(nc.getDefaultName()));
       }
       
       if (ac != null) {
@@ -339,7 +342,55 @@ public class DataTransferEncryptor {
       }
       
     }
-    
+
+    /**
+     * Calculates the expected correct password on the server side.  The
+     * password consists of the block access token's password (known to the
+     * DataNode via its secret manager), the target DataNode UUID (also known to
+     * the DataNode), and a request timestamp (provided in the client request).
+     * This expects that the client has supplied a user name consisting of its
+     * serialized block access token identifier and the client-generated
+     * timestamp.  The timestamp is checked against a configurable expiration to
+     * make replay attacks harder.
+     *
+     * @param userName String user name containing serialized block access token
+     *   and client-generated timestamp
+     * @return char[] expected correct password
+     * @throws IOException if there is any I/O error
+     */    
+    private char[] buildServerPassword(String userName) throws IOException {
+      // TOOD: probably want to include block pool ID in password too
+      String[] parts = userName.split(NAME_DELIMITER);
+      String[] nameComponents = userName.split(NAME_DELIMITER);
+      if (nameComponents.length != 2) {
+        throw new IOException("Provided name '" + userName + "' has " +
+          nameComponents.length + " components instead of the expected 2.");
+      }
+      BlockTokenIdentifier identifier = deserializeIdentifier(nameComponents[0]);
+      long timestamp = Long.parseLong(nameComponents[1]);
+      // TODO: Check timestamp within configurable threshold.
+      byte[] tokenPassword = blockPoolTokenSecretManager.retrievePassword(
+        identifier);
+      return (new String(Base64.encodeBase64(tokenPassword, false),
+        Charsets.UTF_8) + NAME_DELIMITER + datanodeId.getDatanodeUuid() +
+        NAME_DELIMITER + timestamp).toCharArray();
+    }
+
+    /**
+     * Deserializes a base64-encoded binary representatino of a block access
+     * token.
+     *
+     * @param str String to deserialize
+     * @return BlockTokenIdentifier deserialized from str
+     * @throws IOException if there is any I/O error
+     */
+    private BlockTokenIdentifier deserializeIdentifier(String str)
+        throws IOException {
+      BlockTokenIdentifier identifier = new BlockTokenIdentifier();
+      identifier.readFields(new DataInputStream(
+        new ByteArrayInputStream(Base64.decodeBase64(str))));
+      return identifier;
+    }
   }
   
   /**
@@ -349,10 +400,18 @@ public class DataTransferEncryptor {
     
     private final byte[] encryptionKey;
     private final String userName;
+    private final Token<BlockTokenIdentifier> blockToken;
+    private final DatanodeID datanodeId;
+    private final long timestamp;
     
-    public SaslClientCallbackHandler(byte[] encryptionKey, String userName) {
+    public SaslClientCallbackHandler(byte[] encryptionKey,
+        Token<BlockTokenIdentifier> blockToken, DatanodeID datanodeId,
+        String userName, long timestamp) {
       this.encryptionKey = encryptionKey;
       this.userName = userName;
+      this.blockToken = blockToken;
+      this.datanodeId = datanodeId;
+      this.timestamp = timestamp;
     }
 
     @Override
@@ -379,13 +438,26 @@ public class DataTransferEncryptor {
         nc.setName(userName);
       }
       if (pc != null) {
-        pc.setPassword(encryptionKeyToPassword(encryptionKey));
+        pc.setPassword(buildClientPassword());
       }
       if (rc != null) {
         rc.setText(rc.getDefaultText());
       }
     }
-    
+
+    /**
+     * Calculates the password on the client side.  The password consists of the
+     * block access token's password, the target DataNode UUID, and a
+     * client-generated request timestamp.
+     *
+     * @return char[] client password
+     */    
+    private char[] buildClientPassword() {
+      // TOOD: probably want to include block pool ID in password too
+      return (new String(Base64.encodeBase64(blockToken.getPassword(), false),
+        Charsets.UTF_8) + NAME_DELIMITER + datanodeId.getDatanodeUuid() +
+        NAME_DELIMITER + timestamp).toCharArray();
+    }
   }
   
   /**
@@ -401,6 +473,23 @@ public class DataTransferEncryptor {
     return encryptionKey.keyId + NAME_DELIMITER +
         encryptionKey.blockPoolId + NAME_DELIMITER +
         new String(Base64.encodeBase64(encryptionKey.nonce, false), Charsets.UTF_8);
+  }
+
+  /**
+   * Builds the client's user name, consisting of the base64-encoded serialized
+   * block access token identifier and a client-generated timestamp.  Note that
+   * this includes only the token identifier, not the token itself, which would
+   * include the password.  The password is a shared secret, and we must not
+   * write it on the network during the SASL authentication exchange.
+   *
+   * @param identifier byte[] containing serialized block access token
+   *   identifier
+   * @param timestamp long client-generated timestamp
+   * @return String client's user name
+   */
+  private static String buildUserName(byte[] identifier, long timestamp) {
+    return new String(Base64.encodeBase64(identifier, false), Charsets.UTF_8) +
+        NAME_DELIMITER + timestamp;
   }
   
   /**

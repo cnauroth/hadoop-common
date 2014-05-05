@@ -178,7 +178,7 @@ class DataXceiver extends Receiver implements Runnable {
         try {
           encryptedStreams = DataTransferEncryptor.getEncryptedStreams(socketOut,
               socketIn, datanode.blockPoolTokenSecretManager,
-              dnConf.encryptionAlgorithm);
+              dnConf.encryptionAlgorithm, datanode.getDatanodeId());
         } catch (InvalidMagicNumberException imne) {
           LOG.info("Failed to read expected encryption handshake from client " +
               "at " + peer.getRemoteAddressString() + ". Perhaps the client " +
@@ -660,7 +660,8 @@ class DataXceiver extends Receiver implements Runnable {
                 DataTransferEncryptor.getEncryptedStreams(
                     unbufMirrorOut, unbufMirrorIn,
                     datanode.blockPoolTokenSecretManager
-                        .generateDataEncryptionKey(block.getBlockPoolId()));
+                        .generateDataEncryptionKey(block.getBlockPoolId()),
+                    blockToken, datanode.getDatanodeId());
             
             unbufMirrorOut = encryptedStreams.out;
             unbufMirrorIn = encryptedStreams.in;
@@ -988,7 +989,8 @@ class DataXceiver extends Receiver implements Runnable {
             DataTransferEncryptor.getEncryptedStreams(
                 unbufProxyOut, unbufProxyIn,
                 datanode.blockPoolTokenSecretManager
-                    .generateDataEncryptionKey(block.getBlockPoolId()));
+                    .generateDataEncryptionKey(block.getBlockPoolId()),
+                blockToken, datanode.getDatanodeId());
         unbufProxyOut = encryptedStreams.out;
         unbufProxyIn = encryptedStreams.in;
       }

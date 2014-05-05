@@ -19,10 +19,13 @@ package org.apache.hadoop.hdfs.net;
 
 import java.io.IOException;
 import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.hdfs.protocol.DatanodeID;
 import org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferEncryptor;
 import org.apache.hadoop.hdfs.protocol.datatransfer.IOStreamPair;
+import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
 import org.apache.hadoop.net.unix.DomainSocket;
+import org.apache.hadoop.security.token.Token;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -51,11 +54,13 @@ public class EncryptedPeer implements Peer {
    */
   private final ReadableByteChannel channel;
 
-  public EncryptedPeer(Peer enclosedPeer, DataEncryptionKey key)
+    public EncryptedPeer(Peer enclosedPeer, DataEncryptionKey key,
+      Token<BlockTokenIdentifier> blockToken, DatanodeID datanodeId)
       throws IOException {
     this.enclosedPeer = enclosedPeer;
     IOStreamPair ios = DataTransferEncryptor.getEncryptedStreams(
-        enclosedPeer.getOutputStream(), enclosedPeer.getInputStream(), key);
+        enclosedPeer.getOutputStream(), enclosedPeer.getInputStream(), key,
+        blockToken, datanodeId);
     this.in = ios.in;
     this.out = ios.out;
     this.channel = ios.in instanceof ReadableByteChannel ? 

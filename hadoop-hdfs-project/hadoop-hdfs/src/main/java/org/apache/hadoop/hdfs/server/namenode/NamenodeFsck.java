@@ -47,6 +47,7 @@ import org.apache.hadoop.hdfs.DFSUtil;
 import org.apache.hadoop.hdfs.RemotePeerFactory;
 import org.apache.hadoop.hdfs.net.Peer;
 import org.apache.hadoop.hdfs.net.TcpPeerServer;
+import org.apache.hadoop.hdfs.protocol.DatanodeID;
 import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
 import org.apache.hadoop.hdfs.protocol.DirectoryListing;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
@@ -55,6 +56,7 @@ import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
 import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
 import org.apache.hadoop.hdfs.protocol.SnapshottableDirectoryStatus;
+import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockPlacementPolicy;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockPlacementStatus;
 import org.apache.hadoop.hdfs.server.blockmanagement.NumberReplicas;
@@ -65,6 +67,7 @@ import org.apache.hadoop.net.NetworkTopology;
 import org.apache.hadoop.net.NodeBase;
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.util.Time;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -616,7 +619,8 @@ public class NamenodeFsck {
             setConfiguration(namenode.conf).
             setRemotePeerFactory(new RemotePeerFactory() {
               @Override
-              public Peer newConnectedPeer(InetSocketAddress addr)
+              public Peer newConnectedPeer(InetSocketAddress addr,
+                  Token<BlockTokenIdentifier> blockToken, DatanodeID datanodeId)
                   throws IOException {
                 Peer peer = null;
                 Socket s = NetUtils.getDefaultSocketFactory(conf).createSocket();
@@ -624,7 +628,7 @@ public class NamenodeFsck {
                   s.connect(addr, HdfsServerConstants.READ_TIMEOUT);
                   s.setSoTimeout(HdfsServerConstants.READ_TIMEOUT);
                   peer = TcpPeerServer.peerFromSocketAndKey(s, namenode.getRpcServer().
-                        getDataEncryptionKey());
+                        getDataEncryptionKey(), blockToken, datanodeId);
                 } finally {
                   if (peer == null) {
                     IOUtils.closeQuietly(s);
