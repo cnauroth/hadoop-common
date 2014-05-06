@@ -23,11 +23,13 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.DataInputBuffer;
+import org.apache.hadoop.tools.DistCpOptions.FileAttribute;
 import org.apache.hadoop.tools.util.DistCpUtils;
 import org.apache.hadoop.mapreduce.security.TokenCache;
 import org.apache.hadoop.security.Credentials;
@@ -35,6 +37,7 @@ import org.apache.hadoop.security.Credentials;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.io.*;
+import java.util.List;
 import java.util.Stack;
 
 /**
@@ -144,16 +147,32 @@ public class SimpleCopyListing extends CopyListing {
         FileStatus[] sourceFiles = sourceFS.listStatus(path);
         boolean explore = (sourceFiles != null && sourceFiles.length > 0);
         if (!explore || rootStatus.isDirectory()) {
-          writeToFileListingRoot(fileListWriter, rootStatus, sourcePathRoot,
-              localFile, options);
+          CopyListingFileStatus rootCopyListingStatus =
+            new CopyListingFileStatus(rootStatus);
+          if (options.shouldPreserve(FileAttribute.ACL)) {
+            List<AclEntry> aclEntries = DistCpUtils.getAcl(sourceFS, rootStatus);
+            if (!aclEntries.isEmpty()) {
+              rootCopyListingStatus.setAclEntries(aclEntries);
+            }
+          }
+          writeToFileListingRoot(fileListWriter, rootCopyListingStatus,
+              sourcePathRoot, localFile, options);
         }
         if (explore) {
           for (FileStatus sourceStatus: sourceFiles) {
             if (LOG.isDebugEnabled()) {
               LOG.debug("Recording source-path: " + sourceStatus.getPath() + " for copy.");
             }
-            writeToFileListing(fileListWriter, sourceStatus, sourcePathRoot,
-                localFile, options);
+            CopyListingFileStatus sourceCopyListingStatus =
+              new CopyListingFileStatus(sourceStatus);
+            if (options.shouldPreserve(FileAttribute.ACL)) {
+              List<AclEntry> aclEntries = DistCpUtils.getAcl(sourceFS, sourceStatus);
+              if (!aclEntries.isEmpty()) {
+                sourceCopyListingStatus.setAclEntries(aclEntries);
+              }
+            }
+            writeToFileListing(fileListWriter, sourceCopyListingStatus,
+                sourcePathRoot, localFile, options);
 
             if (isDirectoryAndNotEmpty(sourceFS, sourceStatus)) {
               if (LOG.isDebugEnabled()) {
@@ -233,7 +252,7 @@ public class SimpleCopyListing extends CopyListing {
     return SequenceFile.createWriter(getConf(),
             SequenceFile.Writer.file(pathToListFile),
             SequenceFile.Writer.keyClass(Text.class),
-            SequenceFile.Writer.valueClass(FileStatus.class),
+            SequenceFile.Writer.valueClass(CopyListingFileStatus.class),
             SequenceFile.Writer.compression(SequenceFile.CompressionType.NONE));
   }
 
@@ -262,8 +281,16 @@ public class SimpleCopyListing extends CopyListing {
         if (LOG.isDebugEnabled())
           LOG.debug("Recording source-path: "
                     + sourceStatus.getPath() + " for copy.");
-        writeToFileListing(fileListWriter, child, sourcePathRoot,
-             localFile, options);
+        CopyListingFileStatus childCopyListingStatus =
+          new CopyListingFileStatus(child);
+        if (options.shouldPreserve(FileAttribute.ACL)) {
+          List<AclEntry> aclEntries = DistCpUtils.getAcl(sourceFS, child);
+          if (!aclEntries.isEmpty()) {
+            childCopyListingStatus.setAclEntries(aclEntries);
+          }
+        }
+        writeToFileListing(fileListWriter, childCopyListingStatus,
+             sourcePathRoot, localFile, options);
         if (isDirectoryAndNotEmpty(sourceFS, child)) {
           if (LOG.isDebugEnabled())
             LOG.debug("Traversing non-empty source dir: "
@@ -275,7 +302,7 @@ public class SimpleCopyListing extends CopyListing {
   }
   
   private void writeToFileListingRoot(SequenceFile.Writer fileListWriter,
-      FileStatus fileStatus, Path sourcePathRoot,
+      CopyListingFileStatus fileStatus, Path sourcePathRoot,
       boolean localFile,
       DistCpOptions options) throws IOException {
     boolean syncOrOverwrite = options.shouldSyncFolder() ||
@@ -293,7 +320,7 @@ public class SimpleCopyListing extends CopyListing {
   }
 
   private void writeToFileListing(SequenceFile.Writer fileListWriter,
-                                  FileStatus fileStatus,
+                                  CopyListingFileStatus fileStatus,
                                   Path sourcePathRoot,
                                   boolean localFile,
                                   DistCpOptions options) throws IOException {
@@ -324,8 +351,9 @@ public class SimpleCopyListing extends CopyListing {
   private static final ByteArrayOutputStream buffer = new ByteArrayOutputStream(64);
   private DataInputBuffer in = new DataInputBuffer();
   
-  private FileStatus getFileStatus(FileStatus fileStatus) throws IOException {
-    FileStatus status = new FileStatus();
+  private CopyListingFileStatus getFileStatus(CopyListingFileStatus fileStatus)
+      throws IOException {
+    CopyListingFileStatus status = new CopyListingFileStatus();
 
     buffer.reset();
     DataOutputStream out = new DataOutputStream(buffer);

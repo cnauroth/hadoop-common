@@ -24,9 +24,11 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.tools.CopyListingFileStatus;
 import org.apache.hadoop.tools.DistCpConstants;
 import org.apache.hadoop.tools.DistCpOptionSwitch;
 import org.apache.hadoop.tools.DistCpOptions;
@@ -37,12 +39,13 @@ import org.apache.hadoop.util.StringUtils;
 import java.io.*;
 import java.util.EnumSet;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Mapper class that executes the DistCp copy operation.
  * Implements the o.a.h.mapreduce.Mapper<> interface.
  */
-public class CopyMapper extends Mapper<Text, FileStatus, Text, Text> {
+public class CopyMapper extends Mapper<Text, CopyListingFileStatus, Text, Text> {
 
   /**
    * Hadoop counters for the DistCp CopyMapper.
@@ -172,8 +175,8 @@ public class CopyMapper extends Mapper<Text, FileStatus, Text, Text> {
    * @throws IOException
    */
   @Override
-  public void map(Text relPath, FileStatus sourceFileStatus, Context context)
-          throws IOException, InterruptedException {
+  public void map(Text relPath, CopyListingFileStatus sourceFileStatus,
+          Context context) throws IOException, InterruptedException {
     Path sourcePath = sourceFileStatus.getPath();
 
     if (LOG.isDebugEnabled())
@@ -191,11 +194,18 @@ public class CopyMapper extends Mapper<Text, FileStatus, Text, Text> {
     LOG.info(description);
 
     try {
-      FileStatus sourceCurrStatus;
+      CopyListingFileStatus sourceCurrStatus;
       FileSystem sourceFS;
       try {
         sourceFS = sourcePath.getFileSystem(conf);
-        sourceCurrStatus = sourceFS.getFileStatus(sourcePath);
+        sourceCurrStatus = new CopyListingFileStatus(
+          sourceFS.getFileStatus(sourcePath));
+        if (fileAttributes.contains(FileAttribute.ACL)) {
+          List<AclEntry> aclEntries = DistCpUtils.getAcl(sourceFS, sourceFileStatus);
+          if (!aclEntries.isEmpty()) {
+            sourceCurrStatus.setAclEntries(aclEntries);
+          }
+        }
       } catch (FileNotFoundException e) {
         throw new IOException(new RetriableFileCopyCommand.CopyReadException(e));
       }
@@ -230,7 +240,7 @@ public class CopyMapper extends Mapper<Text, FileStatus, Text, Text> {
                           fileAttributes);
       }
 
-      DistCpUtils.preserve(sourceFS, target.getFileSystem(conf), target,
+      DistCpUtils.preserve(target.getFileSystem(conf), target,
                            sourceCurrStatus, fileAttributes);
 
     } catch (IOException exception) {

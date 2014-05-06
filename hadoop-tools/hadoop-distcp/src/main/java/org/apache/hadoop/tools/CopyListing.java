@@ -22,7 +22,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.IOUtils;
@@ -39,7 +38,7 @@ import com.google.common.collect.Sets;
 /**
  * The CopyListing abstraction is responsible for how the list of
  * sources and targets is constructed, for DistCp's copy function.
- * The copy-listing should be a SequenceFile<Text, FileStatus>,
+ * The copy-listing should be a SequenceFile<Text, CopyListingFileStatus>,
  * located at the path specified to buildListing(),
  * each entry being a pair of (Source relative path, source file status),
  * all the paths being fully qualified.
@@ -148,13 +147,13 @@ public abstract class CopyListing extends Configured {
                           config, SequenceFile.Reader.file(sortedList));
     try {
       Text lastKey = new Text("*"); //source relative path can never hold *
-      FileStatus lastFileStatus = new FileStatus();
+      CopyListingFileStatus lastFileStatus = new CopyListingFileStatus();
 
       Text currentKey = new Text();
       Set<URI> aclSupportCheckFsSet = Sets.newHashSet();
       while (reader.next(currentKey)) {
         if (currentKey.equals(lastKey)) {
-          FileStatus currentFileStatus = new FileStatus();
+          CopyListingFileStatus currentFileStatus = new CopyListingFileStatus();
           reader.getCurrentValue(currentFileStatus);
           throw new DuplicateFileException("File " + lastFileStatus.getPath() + " and " +
               currentFileStatus.getPath() + " would cause duplicates. Aborting");

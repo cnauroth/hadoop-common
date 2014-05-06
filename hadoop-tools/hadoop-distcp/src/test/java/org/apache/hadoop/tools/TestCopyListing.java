@@ -24,9 +24,9 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputCommitter;
+import org.apache.hadoop.tools.CopyListingFileStatus;
 import org.apache.hadoop.tools.util.TestDistCpUtils;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.security.Credentials;
@@ -106,7 +106,7 @@ public class TestCopyListing extends SimpleCopyListing {
     Assert.assertEquals(listing.getNumberOfPaths(), 3);
     SequenceFile.Reader reader = new SequenceFile.Reader(getConf(),
         SequenceFile.Reader.file(listingFile));
-    FileStatus fileStatus = new FileStatus();
+    CopyListingFileStatus fileStatus = new CopyListingFileStatus();
     Text relativePath = new Text();
     Assert.assertTrue(reader.next(relativePath, fileStatus));
     Assert.assertEquals(relativePath.toString(), "/1");
@@ -274,7 +274,7 @@ public class TestCopyListing extends SimpleCopyListing {
 
       reader = new SequenceFile.Reader(getConf(), SequenceFile.Reader.file(listFile));
 
-      FileStatus fileStatus = new FileStatus();
+      CopyListingFileStatus fileStatus = new CopyListingFileStatus();
       Text relativePath = new Text();
       Assert.assertTrue(reader.next(relativePath, fileStatus));
       Assert.assertTrue(relativePath.toString().equals(""));

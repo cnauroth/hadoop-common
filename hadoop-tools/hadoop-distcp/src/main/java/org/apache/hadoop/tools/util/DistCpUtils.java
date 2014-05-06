@@ -31,6 +31,7 @@ import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.ipc.RemoteException;
 import org.apache.hadoop.ipc.RpcNoSuchMethodException;
+import org.apache.hadoop.tools.CopyListingFileStatus;
 import org.apache.hadoop.tools.DistCpOptions.FileAttribute;
 import org.apache.hadoop.tools.mapred.UniformSizeInputFormat;
 import org.apache.hadoop.tools.CopyListing.AclsNotSupportedException;
@@ -179,16 +180,15 @@ public class DistCpUtils {
    * as argument. Barring the block size, all the other attributes are preserved
    * by this function
    *
-   * @param sourceFS - source file system
-   * @param targetFS - target file system
+   * @param targetFS - File system
    * @param path - Path that needs to preserve original file status
    * @param srcFileStatus - Original file status
    * @param attributes - Attribute set that need to be preserved
    * @throws IOException - Exception if any (particularly relating to group/owner
    *                       change or any transient error)
    */
-  public static void preserve(FileSystem sourceFS, FileSystem targetFS,
-                              Path path, FileStatus srcFileStatus,
+  public static void preserve(FileSystem targetFS, Path path,
+                              CopyListingFileStatus srcFileStatus,
                               EnumSet<FileAttribute> attributes) throws IOException {
 
     FileStatus targetFileStatus = targetFS.getFileStatus(path);
@@ -197,7 +197,7 @@ public class DistCpUtils {
     boolean chown = false;
 
     if (attributes.contains(FileAttribute.ACL)) {
-      List<AclEntry> srcAcl = getAcl(sourceFS, srcFileStatus);
+      List<AclEntry> srcAcl = srcFileStatus.getAclEntries();
       List<AclEntry> targetAcl = getAcl(targetFS, targetFileStatus);
       if (!srcAcl.equals(targetAcl)) {
         targetFS.setAcl(path, srcAcl);
@@ -242,7 +242,7 @@ public class DistCpUtils {
    * @return List<AclEntry> containing full logical ACL
    * @throws IOException if there is an I/O error
    */
-  private static List<AclEntry> getAcl(FileSystem fileSystem,
+  public static List<AclEntry> getAcl(FileSystem fileSystem,
       FileStatus fileStatus) throws IOException {
     List<AclEntry> entries = fileSystem.getAclStatus(fileStatus.getPath())
       .getEntries();
@@ -260,7 +260,8 @@ public class DistCpUtils {
    */
   public static Path sortListing(FileSystem fs, Configuration conf, Path sourceListing)
       throws IOException {
-    SequenceFile.Sorter sorter = new SequenceFile.Sorter(fs, Text.class, FileStatus.class, conf);
+    SequenceFile.Sorter sorter = new SequenceFile.Sorter(fs, Text.class,
+      CopyListingFileStatus.class, conf);
     Path output = new Path(sourceListing.toString() +  "_sorted");
 
     if (fs.exists(output)) {
