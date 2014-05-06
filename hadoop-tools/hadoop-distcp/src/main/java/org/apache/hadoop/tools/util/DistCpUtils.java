@@ -250,6 +250,29 @@ public class DistCpUtils {
   }
 
   /**
+   * Converts a FileStatus to a CopyListingFileStatus.  If preserving ACLs,
+   * populates the CopyListingFileStatus with the ACLs.
+   *
+   * @param fileSystem FileSystem containing the file
+   * @param fileStatus FileStatus of file
+   * @param preserveAcls boolean true if preserving ACLs
+   * @throws IOException if there is an I/O error
+   */
+  public static CopyListingFileStatus toCopyListingFileStatus(
+      FileSystem fileSystem, FileStatus fileStatus, boolean preserveAcls)
+      throws IOException {
+    CopyListingFileStatus copyListingFileStatus =
+      new CopyListingFileStatus(fileStatus);
+    if (preserveAcls) {
+      List<AclEntry> aclEntries = fileSystem.getAclStatus(fileStatus.getPath())
+        .getEntries();
+      copyListingFileStatus.setAclEntries(AclUtil.getAclFromPermAndEntries(
+        fileStatus.getPermission(), aclEntries));
+    }
+    return copyListingFileStatus;
+  }
+
+  /**
    * Sort sequence file containing FileStatus and Text as key and value respecitvely
    *
    * @param fs - File System

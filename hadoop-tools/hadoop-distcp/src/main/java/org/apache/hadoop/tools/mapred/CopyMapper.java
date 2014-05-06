@@ -198,14 +198,9 @@ public class CopyMapper extends Mapper<Text, CopyListingFileStatus, Text, Text> 
       FileSystem sourceFS;
       try {
         sourceFS = sourcePath.getFileSystem(conf);
-        sourceCurrStatus = new CopyListingFileStatus(
-          sourceFS.getFileStatus(sourcePath));
-        if (fileAttributes.contains(FileAttribute.ACL)) {
-          List<AclEntry> aclEntries = DistCpUtils.getAcl(sourceFS, sourceFileStatus);
-          if (!aclEntries.isEmpty()) {
-            sourceCurrStatus.setAclEntries(aclEntries);
-          }
-        }
+        sourceCurrStatus = DistCpUtils.toCopyListingFileStatus(sourceFS,
+          sourceFS.getFileStatus(sourcePath),
+          fileAttributes.contains(FileAttribute.ACL));
       } catch (FileNotFoundException e) {
         throw new IOException(new RetriableFileCopyCommand.CopyReadException(e));
       }

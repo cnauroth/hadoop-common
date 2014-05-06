@@ -148,13 +148,8 @@ public class SimpleCopyListing extends CopyListing {
         boolean explore = (sourceFiles != null && sourceFiles.length > 0);
         if (!explore || rootStatus.isDirectory()) {
           CopyListingFileStatus rootCopyListingStatus =
-            new CopyListingFileStatus(rootStatus);
-          if (options.shouldPreserve(FileAttribute.ACL)) {
-            List<AclEntry> aclEntries = DistCpUtils.getAcl(sourceFS, rootStatus);
-            if (!aclEntries.isEmpty()) {
-              rootCopyListingStatus.setAclEntries(aclEntries);
-            }
-          }
+            DistCpUtils.toCopyListingFileStatus(sourceFS, rootStatus,
+              options.shouldPreserve(FileAttribute.ACL));
           writeToFileListingRoot(fileListWriter, rootCopyListingStatus,
               sourcePathRoot, localFile, options);
         }
@@ -164,13 +159,8 @@ public class SimpleCopyListing extends CopyListing {
               LOG.debug("Recording source-path: " + sourceStatus.getPath() + " for copy.");
             }
             CopyListingFileStatus sourceCopyListingStatus =
-              new CopyListingFileStatus(sourceStatus);
-            if (options.shouldPreserve(FileAttribute.ACL)) {
-              List<AclEntry> aclEntries = DistCpUtils.getAcl(sourceFS, sourceStatus);
-              if (!aclEntries.isEmpty()) {
-                sourceCopyListingStatus.setAclEntries(aclEntries);
-              }
-            }
+              DistCpUtils.toCopyListingFileStatus(sourceFS, sourceStatus,
+                options.shouldPreserve(FileAttribute.ACL));
             writeToFileListing(fileListWriter, sourceCopyListingStatus,
                 sourcePathRoot, localFile, options);
 
@@ -282,13 +272,8 @@ public class SimpleCopyListing extends CopyListing {
           LOG.debug("Recording source-path: "
                     + sourceStatus.getPath() + " for copy.");
         CopyListingFileStatus childCopyListingStatus =
-          new CopyListingFileStatus(child);
-        if (options.shouldPreserve(FileAttribute.ACL)) {
-          List<AclEntry> aclEntries = DistCpUtils.getAcl(sourceFS, child);
-          if (!aclEntries.isEmpty()) {
-            childCopyListingStatus.setAclEntries(aclEntries);
-          }
-        }
+          DistCpUtils.toCopyListingFileStatus(sourceFS, child,
+            options.shouldPreserve(FileAttribute.ACL));
         writeToFileListing(fileListWriter, childCopyListingStatus,
              sourcePathRoot, localFile, options);
         if (isDirectoryAndNotEmpty(sourceFS, child)) {

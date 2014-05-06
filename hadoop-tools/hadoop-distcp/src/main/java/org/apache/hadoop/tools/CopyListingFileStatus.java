@@ -52,17 +52,36 @@ public class CopyListingFileStatus extends FileStatus {
 
   private List<AclEntry> aclEntries;
 
+  /**
+   * Default constructor.
+   */
   public CopyListingFileStatus() {
   }
 
+  /**
+   * Creates a new CopyListingFileStatus by copying the members of the given
+   * FileStatus.
+   *
+   * @param fileStatus FileStatus to copy
+   */
   public CopyListingFileStatus(FileStatus fileStatus) throws IOException {
     super(fileStatus);
   }
 
+  /**
+   * Returns optional ACL entries.
+   *
+   * @return List<AclEntry> containing all ACL entries, possibly null
+   */
   public List<AclEntry> getAclEntries() {
     return aclEntries;
   }
 
+  /**
+   * Sets optional ACL entries.
+   *
+   * @param aclEntries List<AclEntry> containing all ACL entries
+   */
   public void setAclEntries(List<AclEntry> aclEntries) {
     this.aclEntries = aclEntries;
   }
