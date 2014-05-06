@@ -8,6 +8,8 @@ Trunk (Unreleased)
     FSDataOutputStream.sync() and Syncable.sync().  (szetszwo)
 
   NEW FEATURES
+
+    HADOOP-10433. Key Management Server based on KeyProvider API. (tucu)
     
   IMPROVEMENTS
 
@@ -440,6 +442,9 @@ Release 2.5.0 - UNRELEASED
     in AbstractDelegationTokenSecretManager. (Arpit Agarwal)
 
     HADOOP-10568. Add s3 server-side encryption. (David S. Wang via atm)
+
+    HADOOP-10541. InputStream in MiniKdc#initKDCServer for minikdc.ldiff is not
+    closed. (Swarnim Kulkarni via cnauroth)
 
 Release 2.4.1 - UNRELEASED
 

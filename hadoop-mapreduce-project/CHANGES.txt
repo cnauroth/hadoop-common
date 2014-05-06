@@ -178,6 +178,16 @@ Release 2.5.0 - UNRELEASED
     MAPREDUCE-5638. Port Hadoop Archives document to trunk (Akira AJISAKA via
     jeagles)
 
+    MAPREDUCE-5402. In DynamicInputFormat, change MAX_CHUNKS_TOLERABLE,
+    MAX_CHUNKS_IDEAL, MIN_RECORDS_PER_CHUNK and SPLIT_RATIO to be configurable.
+    (Tsuyoshi OZAWA via szetszwo)
+
+    MAPREDUCE-5637. Convert Hadoop Streaming document to APT (Akira AJISAKA via
+    jeagles)
+
+    MAPREDUCE-5636. Convert MapReduce Tutorial document to APT (Akira AJISAKA
+    via jeagles)
+
   OPTIMIZATIONS
 
   BUG FIXES 
