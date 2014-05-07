@@ -160,7 +160,8 @@ public class SimpleCopyListing extends CopyListing {
             }
             CopyListingFileStatus sourceCopyListingStatus =
               DistCpUtils.toCopyListingFileStatus(sourceFS, sourceStatus,
-                options.shouldPreserve(FileAttribute.ACL));
+                options.shouldPreserve(FileAttribute.ACL) &&
+                sourceStatus.isDirectory());
             writeToFileListing(fileListWriter, sourceCopyListingStatus,
                 sourcePathRoot, localFile, options);
 
@@ -273,7 +274,7 @@ public class SimpleCopyListing extends CopyListing {
                     + sourceStatus.getPath() + " for copy.");
         CopyListingFileStatus childCopyListingStatus =
           DistCpUtils.toCopyListingFileStatus(sourceFS, child,
-            options.shouldPreserve(FileAttribute.ACL));
+            options.shouldPreserve(FileAttribute.ACL) && child.isDirectory());
         writeToFileListing(fileListWriter, childCopyListingStatus,
              sourcePathRoot, localFile, options);
         if (isDirectoryAndNotEmpty(sourceFS, child)) {
