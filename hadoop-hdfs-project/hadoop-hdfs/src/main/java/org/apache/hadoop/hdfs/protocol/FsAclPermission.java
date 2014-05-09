@@ -18,14 +18,12 @@
 package org.apache.hadoop.hdfs.protocol;
 
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.fs.permission.FsPermission;
 
 /**
  * HDFS permission subclass used to indicate an ACL is present.
  */
 @InterfaceAudience.Private
-@InterfaceStability.Evolving
 public class FsAclPermission extends FsPermission {
 
   /**
