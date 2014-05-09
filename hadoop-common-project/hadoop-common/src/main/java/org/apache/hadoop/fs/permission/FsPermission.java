@@ -344,7 +344,7 @@ public class FsPermission implements Writable {
     }
 
     int n = 0;
-    for(int i = 1; i < 10; i++) {
+    for(int i = 1; i < unixSymbolicPermission.length(); i++) {
       n = n << 1;
       char c = unixSymbolicPermission.charAt(i);
       n += (c == '-' || c == 'T' || c == 'S') ? 0: 1;
