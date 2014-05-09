@@ -57,6 +57,7 @@ import org.apache.hadoop.hdfs.protocol.DatanodeInfo.AdminStates;
 import org.apache.hadoop.hdfs.protocol.DatanodeLocalInfo;
 import org.apache.hadoop.hdfs.protocol.DirectoryListing;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
+import org.apache.hadoop.hdfs.protocol.FsAclPermission;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants.DatanodeReportType;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants.RollingUpgradeAction;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants.SafeModeAction;
@@ -1187,12 +1188,15 @@ public class PBHelper {
   
   public static FsPermissionProto convert(FsPermission p) {
     if (p == null) return null;
-    return FsPermissionProto.newBuilder().setPerm(p.toShort()).build();
+    short perm = (short)(p.toShort() | (p.getAclBit() ? 1 << 10 : 0));
+    return FsPermissionProto.newBuilder().setPerm(perm).build();
   }
   
   public static FsPermission convert(FsPermissionProto p) {
     if (p == null) return null;
-    return new FsPermission((short)p.getPerm());
+    short perm = (short)p.getPerm();
+    return (perm >> 10 == 1) ? new FsAclPermission(perm) :
+      new FsPermission(perm);
   }
   
   

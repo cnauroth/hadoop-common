@@ -74,6 +74,13 @@ public class FsPermission implements Writable {
     this(u, g, o, false);
   }
 
+  /**
+   * Construct by the given {@link FsAction} and special bits.
+   * @param u user action
+   * @param g group action
+   * @param o other action
+   * @param sb sticky bit
+   */
   public FsPermission(FsAction u, FsAction g, FsAction o, boolean sb) {
     set(u, g, o, sb);
   }
@@ -165,7 +172,8 @@ public class FsPermission implements Writable {
       return this.useraction == that.useraction
           && this.groupaction == that.groupaction
           && this.otheraction == that.otheraction
-          && this.stickyBit == that.stickyBit;
+          && this.stickyBit == that.stickyBit
+          && this.getAclBit() == that.getAclBit();
     }
     return false;
   }
@@ -175,15 +183,19 @@ public class FsPermission implements Writable {
 
   @Override
   public String toString() {
-    String str = useraction.SYMBOL + groupaction.SYMBOL + otheraction.SYMBOL;
-    if(stickyBit) {
-      StringBuilder str2 = new StringBuilder(str);
-      str2.replace(str2.length() - 1, str2.length(),
+    StringBuilder sb = new StringBuilder();
+    sb.append(useraction.SYMBOL);
+    sb.append(groupaction.SYMBOL);
+    sb.append(otheraction.SYMBOL);
+    if (stickyBit) {
+      sb.replace(sb.length() - 1, sb.length(),
            otheraction.implies(FsAction.EXECUTE) ? "t" : "T");
-      str = str2.toString();
+    }
+    if (getAclBit()) {
+      sb.append('+');
     }
 
-    return str;
+    return sb.toString();
   }
 
   /**
@@ -273,6 +285,16 @@ public class FsPermission implements Writable {
     return stickyBit;
   }
 
+  /**
+   * Returns true if there is also an ACL (access control list).
+   *
+   * @return boolean true if there is also an ACL (access control list).
+   */
+  public boolean getAclBit() {
+    // File system subclasses that support the ACL bit would override this.
+    return false;
+  }
+
   /** Set the user file creation mask (umask) */
   public static void setUMask(Configuration conf, FsPermission umask) {
     conf.set(UMASK_LABEL, String.format("%1$03o", umask.toShort()));
@@ -329,7 +351,7 @@ public class FsPermission implements Writable {
     }
 
     int n = 0;
-    for(int i = 1; i < unixSymbolicPermission.length(); i++) {
+    for(int i = 1; i < 10; i++) {
       n = n << 1;
       char c = unixSymbolicPermission.charAt(i);
       n += (c == '-' || c == 'T' || c == 'S') ? 0: 1;

@@ -114,7 +114,7 @@ class Ls extends FsCommand {
     FileStatus stat = item.stat;
     String line = String.format(lineFormat,
         (stat.isDirectory() ? "d" : "-"),
-        stat.getPermission() + (hasAcl(item) ? "+" : " "),
+        stat.getPermission(),
         (stat.isFile() ? stat.getReplication() : "-"),
         stat.getOwner(),
         stat.getGroup(),
@@ -149,39 +149,6 @@ class Ls extends FsCommand {
     fmt.append("%"  + maxLen   + "s ");
     fmt.append("%s %s"); // mod time & path
     lineFormat = fmt.toString();
-  }
-
-  /**
-   * Calls getAclStatus to determine if the given item has an ACL.  For
-   * compatibility, this method traps all errors while attempting to check ACLs.
-   * There are several known conditions that can cause such a failure: 1) client
-   * connected to an old NameNode version that doesn't have the ACL APIs, 2)
-   * client connected to a NameNode version that does support ACLs but doesn't
-   * have them enabled, 3) client connected to an old WebHDFS version that
-   * doesn't have the ACL APIs, and 4) use of a client-side FileSystem that does
-   * not implement the ACL APIs.  To be defensive, we simply catch all
-   * exceptions so that we also cover unexpected interactions with custom
-   * FileSystem implementations.  FileSystem instances that do not support ACLs
-   * are remembered.  This prevents the client from sending multiple failing
-   * calls during a recursive ls.
-   *
-   * @param item PathData item to check
-   * @return boolean true if item has an ACL
-   * @throws IOException if there is a failure
-   */
-  private boolean hasAcl(PathData item) throws IOException {
-    FileSystem fs = item.fs;
-    if (aclNotSupportedFsSet.contains(fs.getUri())) {
-      // This FileSystem failed to run the ACL API in an earlier iteration.
-      return false;
-    }
-    try {
-      return !fs.getAclStatus(item.path).getEntries().isEmpty();
-    } catch (Exception e) {
-      // Remember that this FileSystem cannot support ACLs.
-      aclNotSupportedFsSet.add(fs.getUri());
-      return false;
-    }
   }
 
   private int maxLength(int n, Object value) {
