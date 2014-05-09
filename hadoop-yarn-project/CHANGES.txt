@@ -23,6 +23,9 @@ Release 2.5.0 - UNRELEASED
 
     YARN-1757. NM Recovery. Auxiliary service support. (Jason Lowe via kasha)
 
+    YARN-1864. Fair Scheduler Dynamic Hierarchical User Queues (Ashwin Shankar
+    via Sandy Ryza)
+
   IMPROVEMENTS
 
     YARN-1479. Invalid NaN values in Hadoop REST API JSON response (Chen He via
@@ -82,6 +85,9 @@ Release 2.5.0 - UNRELEASED
     YARN-738. TestClientRMTokens is failing irregularly while running all yarn
     tests (Ming Ma via jlowe)
 
+    YARN-2018. TestClientRMService.testTokenRenewalWrongUser fails after
+    HADOOP-10562 (Ming Ma via Arpit Agarwal)
+
 Release 2.4.1 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -94,6 +100,9 @@ Release 2.4.1 - UNRELEASED
 
     YARN-1696. Added documentation for ResourceManager fail-over. (Karthik
     Kambatla, Masatake Iwasaki, Tsuyoshi OZAWA via vinodkv)
+
+    YARN-1701. Improved default paths of the timeline store and the generic
+    history store. (Tsuyoshi Ozawa via zjshen)
 
   OPTIMIZATIONS
 

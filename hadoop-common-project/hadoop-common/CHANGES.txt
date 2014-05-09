@@ -8,6 +8,8 @@ Trunk (Unreleased)
     FSDataOutputStream.sync() and Syncable.sync().  (szetszwo)
 
   NEW FEATURES
+
+    HADOOP-10433. Key Management Server based on KeyProvider API. (tucu)
     
   IMPROVEMENTS
 
@@ -366,6 +368,18 @@ Release 2.5.0 - UNRELEASED
     HADOOP-10549. MAX_SUBST and varPat should be final in Configuration.java.
     (Gera Shegalov via cnauroth)
 
+    HADOOP-10471. Reduce the visibility of constants in ProxyUsers.
+    (Benoy Antony via wheat9)
+
+    HADOOP-10556. Add toLowerCase support to auth_to_local rules 
+    for service name. (tucu)
+
+    HADOOP-10467. Enable proxyuser specification to support list of users in
+    addition to list of groups (Benoy Antony via Arpit Agarwal)
+
+    HADOOP-10158. SPNEGO should work with multiple interfaces/SPNs.
+    (daryn via kihwal)
+
   OPTIMIZATIONS
 
   BUG FIXES 
@@ -440,6 +454,16 @@ Release 2.5.0 - UNRELEASED
     in AbstractDelegationTokenSecretManager. (Arpit Agarwal)
 
     HADOOP-10568. Add s3 server-side encryption. (David S. Wang via atm)
+
+    HADOOP-10541. InputStream in MiniKdc#initKDCServer for minikdc.ldiff is not
+    closed. (Swarnim Kulkarni via cnauroth)
+
+    HADOOP-10517. InputStream is not closed in two methods of JarFinder.
+    (Ted Yu via cnauroth)
+
+    HADOOP-10581. TestUserGroupInformation#testGetServerSideGroups fails
+    because groups stored in Set and ArrayList are compared. 
+    (Mit Desai via kihwal)
 
 Release 2.4.1 - UNRELEASED
 

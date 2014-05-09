@@ -435,6 +435,12 @@ Release 2.5.0 - UNRELEASED
     HDFS-6337. Setfacl testcase is failing due to dash character in username
     in TestAclCLI (umamahesh)
 
+    HDFS-5381. ExtendedBlock#hashCode should use both blockId and block pool ID    
+    (Benoy Antony via Colin Patrick McCabe)
+
+    HDFS-6240. WebImageViewer returns 404 if LISTSTATUS to an empty directory.
+    (Akira Ajisaka via wheat9)
+
 Release 2.4.1 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -492,6 +498,14 @@ Release 2.4.1 - UNRELEASED
 
     HDFS-2882. DN continues to start up, even if block pool fails to initialize
     (vinayakumarb)
+
+    HDFS-6340. DN can't finalize upgrade. (Rahul Singhal via Arpit Agarwal)
+
+    HDFS-6329. WebHdfs does not work if HA is enabled on NN but logical URI is
+    not configured. (kihwal)
+
+    HDFS-6313. WebHdfs may use the wrong NN when configured for multiple HA NNs
+    (kihwal)
 
 Release 2.4.0 - 2014-04-07 
 
