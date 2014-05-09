@@ -74,13 +74,6 @@ public class FsPermission implements Writable {
     this(u, g, o, false);
   }
 
-  /**
-   * Construct by the given {@link FsAction} and special bits.
-   * @param u user action
-   * @param g group action
-   * @param o other action
-   * @param sb sticky bit
-   */
   public FsPermission(FsAction u, FsAction g, FsAction o, boolean sb) {
     set(u, g, o, sb);
   }
