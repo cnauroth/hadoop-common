@@ -34,7 +34,7 @@ public class FsAclPermission extends FsPermission {
    * @param perm short containing permission bits
    */
   public FsAclPermission(short perm) {
-    super((short)(perm & 01777));
+    super(perm);
   }
 
   @Override
