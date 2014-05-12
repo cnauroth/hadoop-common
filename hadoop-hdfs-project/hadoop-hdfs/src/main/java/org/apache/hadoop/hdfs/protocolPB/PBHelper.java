@@ -1195,7 +1195,7 @@ public class PBHelper {
   public static FsPermission convert(FsPermissionProto p) {
     if (p == null) return null;
     short perm = (short)p.getPerm();
-    return (perm >> 10 == 1) ? new FsAclPermission(perm) :
+    return ((perm & (1 << 10)) != 0) ? new FsAclPermission(perm) :
       new FsPermission(perm);
   }
   
