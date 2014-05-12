@@ -21,7 +21,10 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.fs.permission.FsPermission;
 
 /**
- * HDFS permission subclass used to indicate an ACL is present.
+ * HDFS permission subclass used to indicate an ACL is present.  The ACL bit is
+ * not visible directly to users of {@link FsPermission} serialization.  This is
+ * done for backwards compatibility in case any existing clients assume the
+ * value of FsPermission is in a particular range.
  */
 @InterfaceAudience.Private
 public class FsAclPermission extends FsPermission {
