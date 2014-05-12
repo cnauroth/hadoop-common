@@ -114,7 +114,7 @@ class Ls extends FsCommand {
     FileStatus stat = item.stat;
     String line = String.format(lineFormat,
         (stat.isDirectory() ? "d" : "-"),
-        stat.getPermission() + (stat.getPermission().getAclBit() ? "" : " "),
+        stat.getPermission() + (stat.getPermission().getAclBit() ? "+" : " "),
         (stat.isFile() ? stat.getReplication() : "-"),
         stat.getOwner(),
         stat.getGroup(),

@@ -154,6 +154,6 @@ public final class AclTestHelpers {
     short filteredPerm = (short)(perm & 01777);
     FsPermission fsPermission = fs.getFileStatus(pathToCheck).getPermission();
     assertEquals(filteredPerm, fsPermission.toShort());
-    assertEquals(((perm & (1 << 10)) != 0), fsPermission.getAclBit());
+    assertEquals(((perm & (1 << 12)) != 0), fsPermission.getAclBit());
   }
 }

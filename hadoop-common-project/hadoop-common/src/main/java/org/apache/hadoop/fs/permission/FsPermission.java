@@ -165,8 +165,7 @@ public class FsPermission implements Writable {
       return this.useraction == that.useraction
           && this.groupaction == that.groupaction
           && this.otheraction == that.otheraction
-          && this.stickyBit == that.stickyBit
-          && this.getAclBit() == that.getAclBit();
+          && this.stickyBit == that.stickyBit;
     }
     return false;
   }
@@ -176,19 +175,15 @@ public class FsPermission implements Writable {
 
   @Override
   public String toString() {
-    StringBuilder sb = new StringBuilder();
-    sb.append(useraction.SYMBOL);
-    sb.append(groupaction.SYMBOL);
-    sb.append(otheraction.SYMBOL);
-    if (stickyBit) {
-      sb.replace(sb.length() - 1, sb.length(),
+    String str = useraction.SYMBOL + groupaction.SYMBOL + otheraction.SYMBOL;
+    if(stickyBit) {
+      StringBuilder str2 = new StringBuilder(str);
+      str2.replace(str2.length() - 1, str2.length(),
            otheraction.implies(FsAction.EXECUTE) ? "t" : "T");
-    }
-    if (getAclBit()) {
-      sb.append('+');
+      str = str2.toString();
     }
 
-    return sb.toString();
+    return str;
   }
 
   /**
