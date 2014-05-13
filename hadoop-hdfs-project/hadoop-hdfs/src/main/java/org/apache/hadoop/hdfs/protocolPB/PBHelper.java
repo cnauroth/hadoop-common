@@ -1187,16 +1187,11 @@ public class PBHelper {
   }
   
   public static FsPermissionProto convert(FsPermission p) {
-    if (p == null) return null;
-    short perm = (short)(p.toShort() | (p.getAclBit() ? 1 << 12 : 0));
-    return FsPermissionProto.newBuilder().setPerm(perm).build();
+    return FsPermissionProto.newBuilder().setPerm(p.toExtendedShort()).build();
   }
   
   public static FsPermission convert(FsPermissionProto p) {
-    if (p == null) return null;
-    short perm = (short)p.getPerm();
-    return ((perm & (1 << 12)) != 0) ? new FsAclPermission(perm) :
-      new FsPermission(perm);
+    return new FsAclPermission((short)p.getPerm());
   }
   
   

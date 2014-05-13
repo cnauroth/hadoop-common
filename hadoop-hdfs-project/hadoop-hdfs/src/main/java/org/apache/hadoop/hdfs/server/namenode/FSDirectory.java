@@ -2660,12 +2660,11 @@ public class FSDirectory implements Closeable {
    */
   private static FsPermission getPermissionForFileStatus(INode node,
       int snapshot) {
+    FsPermission perm = node.getFsPermission(snapshot);
     if (node.getAclFeature(snapshot) != null) {
-      short permBits = node.getFsPermission(snapshot).toShort();
-      return new FsAclPermission(permBits);
-    } else {
-      return node.getFsPermission(snapshot);
+      perm = new FsAclPermission(perm);
     }
+    return perm;
   }
     
   /**

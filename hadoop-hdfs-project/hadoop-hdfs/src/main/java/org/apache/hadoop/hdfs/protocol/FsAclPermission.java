@@ -28,6 +28,18 @@ import org.apache.hadoop.fs.permission.FsPermission;
  */
 @InterfaceAudience.Private
 public class FsAclPermission extends FsPermission {
+  private final static short ACL_BIT = 1 << 12;
+  private final boolean aclBit;
+
+  /**
+   * Constructs a new FsAclPermission based on the given FsPermission.
+   *
+   * @param perm FsPermission containing permission bits
+   */
+  public FsAclPermission(FsPermission perm) {
+    super(perm.toShort());
+    aclBit = true;
+  }
 
   /**
    * Creates a new FsAclPermission by calling the base class constructor.
@@ -36,10 +48,16 @@ public class FsAclPermission extends FsPermission {
    */
   public FsAclPermission(short perm) {
     super(perm);
+    aclBit = (perm & ACL_BIT) != 0;
+  }
+
+  @Override
+  public short toExtendedShort() {
+    return (short)(toShort() | (aclBit ? ACL_BIT : 0));
   }
 
   @Override
   public boolean getAclBit() {
-    return true;
+    return aclBit;
   }
 }

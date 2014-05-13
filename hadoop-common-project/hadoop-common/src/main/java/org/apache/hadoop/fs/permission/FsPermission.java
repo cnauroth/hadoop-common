@@ -158,6 +158,17 @@ public class FsPermission implements Writable {
     return (short)s;
   }
 
+  /**
+   * Encodes the object to a short.  Unlike {@link toShort()}, this method may
+   * return values outside the fixed range 00000 - 01777 if extended features
+   * are encoded into this permission, such as the ACL bit.
+   *
+   * @return short extended short representation of this permission
+   */
+  public short toExtendedShort() {
+    return toShort();
+  }
+
   @Override
   public boolean equals(Object obj) {
     if (obj instanceof FsPermission) {

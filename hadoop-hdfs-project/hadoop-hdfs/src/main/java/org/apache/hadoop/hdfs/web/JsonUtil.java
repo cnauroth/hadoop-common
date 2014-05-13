@@ -177,9 +177,8 @@ public class JsonUtil {
 
   /** Convert a string to a FsPermission object. */
   private static FsPermission toFsPermission(final String s, Boolean aclBit) {
-    return (aclBit != null && aclBit) ?
-      new FsAclPermission(Short.parseShort(s, 8)) :
-      new FsPermission(Short.parseShort(s, 8));
+    FsPermission perm = new FsPermission(Short.parseShort(s, 8));
+    return (aclBit != null && aclBit) ? new FsAclPermission(perm) : perm;
   }
 
   static enum PathType {
