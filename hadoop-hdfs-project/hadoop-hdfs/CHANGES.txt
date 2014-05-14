@@ -270,6 +270,9 @@ Release 2.5.0 - UNRELEASED
     HDFS-5168. Add cross node dependency support to BlockPlacementPolicy.
     (Nikola Vujic via szetszwo)
 
+    HDFS-6334. Client failover proxy provider for IP failover based NN HA.
+    (kihwal)
+
   IMPROVEMENTS
 
     HDFS-6007. Update documentation about short-circuit local reads (iwasakims
@@ -350,6 +353,10 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6230. Expose upgrade status through NameNode web UI.
     (Mit Desai via wheat9)
+
+    HDFS-6186. Pause deletion of blocks when the namenode starts up. (jing9)
+
+    HDFS-6293. Issues with OIV processing PB-based fsimages. (kihwal)
 
   OPTIMIZATIONS
 
@@ -457,6 +464,17 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6367. EnumSetParam$Domain#parse fails for parameter containing more than one enum.
     (Yi Liu via umamahesh)
+
+    HDFS-6305. WebHdfs response decoding may throw RuntimeExceptions (Daryn
+    Sharp via jeagles)
+
+    HDFS-6355. Fix divide-by-zero, improper use of wall-clock time in
+    BlockPoolSliceScanner (cmccabe)
+
+    HDFS-6370. Web UI fails to display in intranet under IE.
+    (Haohui Mai via cnauroth)
+
+    HDFS-6381. Fix a typo in INodeReference.java. (Binglin Chang via jing9)
 
 Release 2.4.1 - UNRELEASED
 
