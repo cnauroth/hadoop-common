@@ -18,6 +18,7 @@
 package org.apache.hadoop.fs.shell;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -32,6 +33,7 @@ import org.apache.hadoop.fs.permission.AclEntryType;
 import org.apache.hadoop.fs.permission.AclStatus;
 import org.apache.hadoop.fs.permission.AclUtil;
 import org.apache.hadoop.fs.permission.FsAction;
+import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.permission.ScopedAclEntries;
 
 /**
@@ -75,26 +77,20 @@ class AclCommands extends FsCommand {
 
     @Override
     protected void processPath(PathData item) throws IOException {
-      AclStatus aclStatus = item.fs.getAclStatus(item.path);
       out.println("# file: " + item);
-      out.println("# owner: " + aclStatus.getOwner());
-      out.println("# group: " + aclStatus.getGroup());
-      List<AclEntry> entries = aclStatus.getEntries();
-      if (aclStatus.isStickyBit()) {
-        String stickyFlag = "T";
-        for (AclEntry aclEntry : entries) {
-          if (aclEntry.getType() == AclEntryType.OTHER
-              && aclEntry.getScope() == AclEntryScope.ACCESS
-              && aclEntry.getPermission().implies(FsAction.EXECUTE)) {
-            stickyFlag = "t";
-            break;
-          }
-        }
-        out.println("# flags: --" + stickyFlag);
+      out.println("# owner: " + item.stat.getOwner());
+      out.println("# group: " + item.stat.getGroup());
+      FsPermission perm = item.stat.getPermission();
+      if (perm.getStickyBit()) {
+        out.println("# flags: --" +
+          (perm.getOtherAction().implies(FsAction.EXECUTE) ? "t" : "T"));
       }
 
+      List<AclEntry> entries = perm.getAclBit() ?
+        item.fs.getAclStatus(item.path).getEntries() :
+        Collections.<AclEntry>emptyList();
       ScopedAclEntries scopedEntries = new ScopedAclEntries(
-        AclUtil.getAclFromPermAndEntries(item.stat.getPermission(), entries));
+        AclUtil.getAclFromPermAndEntries(perm, entries));
       printAclEntriesForSingleScope(scopedEntries.getAccessEntries());
       printAclEntriesForSingleScope(scopedEntries.getDefaultEntries());
       out.println();
