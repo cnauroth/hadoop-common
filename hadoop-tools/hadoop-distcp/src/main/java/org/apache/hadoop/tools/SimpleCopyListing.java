@@ -142,7 +142,6 @@ public class SimpleCopyListing extends CopyListing {
 
         FileStatus rootStatus = sourceFS.getFileStatus(path);
         Path sourcePathRoot = computeSourceRootPath(rootStatus, options);
-        boolean localFile = (rootStatus.getClass() != FileStatus.class);
 
         FileStatus[] sourceFiles = sourceFS.listStatus(path);
         boolean explore = (sourceFiles != null && sourceFiles.length > 0);
@@ -151,7 +150,7 @@ public class SimpleCopyListing extends CopyListing {
             DistCpUtils.toCopyListingFileStatus(sourceFS, rootStatus,
               options.shouldPreserve(FileAttribute.ACL));
           writeToFileListingRoot(fileListWriter, rootCopyListingStatus,
-              sourcePathRoot, localFile, options);
+              sourcePathRoot, options);
         }
         if (explore) {
           for (FileStatus sourceStatus: sourceFiles) {
@@ -163,14 +162,14 @@ public class SimpleCopyListing extends CopyListing {
                 options.shouldPreserve(FileAttribute.ACL) &&
                 sourceStatus.isDirectory());
             writeToFileListing(fileListWriter, sourceCopyListingStatus,
-                sourcePathRoot, localFile, options);
+                sourcePathRoot, options);
 
             if (isDirectoryAndNotEmpty(sourceFS, sourceStatus)) {
               if (LOG.isDebugEnabled()) {
                 LOG.debug("Traversing non-empty source dir: " + sourceStatus.getPath());
               }
               traverseNonEmptyDirectory(fileListWriter, sourceStatus, sourcePathRoot,
-                  localFile, options);
+                  options);
             }
           }
         }
@@ -260,7 +259,6 @@ public class SimpleCopyListing extends CopyListing {
   private void traverseNonEmptyDirectory(SequenceFile.Writer fileListWriter,
                                          FileStatus sourceStatus,
                                          Path sourcePathRoot,
-                                         boolean localFile,
                                          DistCpOptions options)
                                          throws IOException {
     FileSystem sourceFS = sourcePathRoot.getFileSystem(getConf());
@@ -276,7 +274,7 @@ public class SimpleCopyListing extends CopyListing {
           DistCpUtils.toCopyListingFileStatus(sourceFS, child,
             options.shouldPreserve(FileAttribute.ACL) && child.isDirectory());
         writeToFileListing(fileListWriter, childCopyListingStatus,
-             sourcePathRoot, localFile, options);
+             sourcePathRoot, options);
         if (isDirectoryAndNotEmpty(sourceFS, child)) {
           if (LOG.isDebugEnabled())
             LOG.debug("Traversing non-empty source dir: "
@@ -289,7 +287,6 @@ public class SimpleCopyListing extends CopyListing {
   
   private void writeToFileListingRoot(SequenceFile.Writer fileListWriter,
       CopyListingFileStatus fileStatus, Path sourcePathRoot,
-      boolean localFile,
       DistCpOptions options) throws IOException {
     boolean syncOrOverwrite = options.shouldSyncFolder() ||
         options.shouldOverwrite();
@@ -301,14 +298,12 @@ public class SimpleCopyListing extends CopyListing {
       }      
       return;
     }
-    writeToFileListing(fileListWriter, fileStatus, sourcePathRoot, localFile,
-        options);
+    writeToFileListing(fileListWriter, fileStatus, sourcePathRoot, options);
   }
 
   private void writeToFileListing(SequenceFile.Writer fileListWriter,
                                   CopyListingFileStatus fileStatus,
                                   Path sourcePathRoot,
-                                  boolean localFile,
                                   DistCpOptions options) throws IOException {
     if (LOG.isDebugEnabled()) {
       LOG.debug("REL PATH: " + DistCpUtils.getRelativePath(sourcePathRoot,
@@ -316,9 +311,6 @@ public class SimpleCopyListing extends CopyListing {
     }
 
     FileStatus status = fileStatus;
-    if (localFile) {
-      status = getFileStatus(fileStatus);
-    }
 
     if (!shouldCopy(fileStatus.getPath(), options)) {
       return;
@@ -332,21 +324,5 @@ public class SimpleCopyListing extends CopyListing {
       totalBytesToCopy += fileStatus.getLen();
     }
     totalPaths++;
-  }
-
-  private static final ByteArrayOutputStream buffer = new ByteArrayOutputStream(64);
-  private DataInputBuffer in = new DataInputBuffer();
-  
-  private CopyListingFileStatus getFileStatus(CopyListingFileStatus fileStatus)
-      throws IOException {
-    CopyListingFileStatus status = new CopyListingFileStatus();
-
-    buffer.reset();
-    DataOutputStream out = new DataOutputStream(buffer);
-    fileStatus.write(out);
-
-    in.reset(buffer.toByteArray(), 0, buffer.size());
-    status.readFields(in);
-    return status;
   }
 }

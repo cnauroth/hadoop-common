@@ -42,7 +42,7 @@ import com.google.common.collect.Lists;
  * are not relevant to sort order.
  */
 @InterfaceAudience.Private
-public class CopyListingFileStatus extends FileStatus {
+public final class CopyListingFileStatus extends FileStatus {
 
   private static final byte NO_ACL_ENTRIES = -1;
 
