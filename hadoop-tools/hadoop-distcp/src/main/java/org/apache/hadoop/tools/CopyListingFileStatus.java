@@ -20,6 +20,7 @@ package org.apache.hadoop.tools;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -27,6 +28,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.AclEntryType;
 import org.apache.hadoop.fs.permission.AclEntryScope;
+import org.apache.hadoop.fs.permission.AclUtil;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.io.WritableUtils;
 
@@ -69,12 +71,13 @@ public class CopyListingFileStatus extends FileStatus {
   }
 
   /**
-   * Returns optional ACL entries.
+   * Returns the full logical ACL.
    *
-   * @return List<AclEntry> containing all ACL entries, possibly null
+   * @return List<AclEntry> containing full logical ACL
    */
   public List<AclEntry> getAclEntries() {
-    return aclEntries;
+    return AclUtil.getAclFromPermAndEntries(getPermission(),
+      aclEntries != null ? aclEntries : Collections.<AclEntry>emptyList());
   }
 
   /**
@@ -117,6 +120,8 @@ public class CopyListingFileStatus extends FileStatus {
           .setPermission(FS_ACTIONS[in.readByte()])
           .build());
       }
+    } else {
+      aclEntries = null;
     }
   }
 

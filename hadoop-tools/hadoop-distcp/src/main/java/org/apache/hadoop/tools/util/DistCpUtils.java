@@ -269,8 +269,7 @@ public class DistCpUtils {
       if (perm.getAclBit()) {
         List<AclEntry> aclEntries = fileSystem.getAclStatus(
           fileStatus.getPath()).getEntries();
-        copyListingFileStatus.setAclEntries(AclUtil.getAclFromPermAndEntries(
-          perm, aclEntries));
+        copyListingFileStatus.setAclEntries(aclEntries);
       }
     }
     return copyListingFileStatus;
