@@ -30,8 +30,6 @@ import org.apache.hadoop.fs.permission.AclUtil;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.ipc.RemoteException;
-import org.apache.hadoop.ipc.RpcNoSuchMethodException;
 import org.apache.hadoop.tools.CopyListingFileStatus;
 import org.apache.hadoop.tools.DistCpOptions.FileAttribute;
 import org.apache.hadoop.tools.mapred.UniformSizeInputFormat;
@@ -306,33 +304,14 @@ public class DistCpUtils {
    *
    * @param fs FileSystem to check
    * @throws AclsNotSupportedException if fs does not support ACLs
-   * @throws IOException if there is an I/O error
    */
   public static void checkFileSystemAclSupport(FileSystem fs)
-      throws IOException {
+      throws AclsNotSupportedException {
     try {
       fs.getAclStatus(new Path(Path.SEPARATOR));
-    } catch (RemoteException e) {
-      // If this is a RpcNoSuchMethodException, then the client is connected to
-      // an older NameNode that doesn't support ACLs.  Fail.
-      IOException e2 = e.unwrapRemoteException(RpcNoSuchMethodException.class);
-      if (e2 instanceof RpcNoSuchMethodException) {
-        throw new AclsNotSupportedException(
-          "ACL RPC endpoint not found for file system: " + fs.getUri());
-      }
-      throw e;
-    } catch (IOException e) {
-      // The NameNode supports ACLs, but they are not enabled.  Fail.
-      String message = e.getMessage();
-      if (message != null && message.contains("ACLs has been disabled")) {
-        throw new AclsNotSupportedException(
-          "ACLs are not enabled for file system: " + fs.getUri());
-      }
-      throw e;
-    } catch (UnsupportedOperationException e) {
-      // The underlying FileSystem doesn't implement ACLs.  Fail.
-      throw new AclsNotSupportedException(
-        "ACLs not implemented for file system: " + fs.getUri());
+    } catch (Exception e) {
+      throw new AclsNotSupportedException("ACLs not supported for file system: "
+        + fs.getUri());
     }
   }
 
