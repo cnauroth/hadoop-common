@@ -358,6 +358,11 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6293. Issues with OIV processing PB-based fsimages. (kihwal)
 
+    HDFS-2949. Add check to active state transition to prevent operator-induced
+    split brain. (Rushabh S Shah via kihwal)
+
+    HDFS-6287. Add vecsum test of libhdfs read access times (cmccabe)
+
   OPTIMIZATIONS
 
     HDFS-6214. Webhdfs has poor throughput for files >2GB (daryn)
@@ -541,6 +546,8 @@ Release 2.4.1 - UNRELEASED
 
     HDFS-6313. WebHdfs may use the wrong NN when configured for multiple HA NNs
     (kihwal)
+
+    HDFS-6326. WebHdfs ACL compatibility is broken. (cnauroth)
 
 Release 2.4.0 - 2014-04-07 
 
