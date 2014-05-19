@@ -37,9 +37,7 @@ import javax.security.sasl.AuthorizeCallback;
 import javax.security.sasl.RealmCallback;
 import javax.security.sasl.RealmChoiceCallback;
 import javax.security.sasl.Sasl;
-import javax.security.sasl.SaslClient;
 import javax.security.sasl.SaslException;
-import javax.security.sasl.SaslServer;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.logging.Log;
@@ -518,67 +516,6 @@ public class DataTransferEncryptor {
   
   private static char[] encryptionKeyToPassword(byte[] encryptionKey) {
     return new String(Base64.encodeBase64(encryptionKey, false), Charsets.UTF_8).toCharArray();
-  }
-  
-  /**
-   * Strongly inspired by Thrift's TSaslTransport class.
-   * 
-   * Used to abstract over the <code>SaslServer</code> and
-   * <code>SaslClient</code> classes, which share a lot of their interface, but
-   * unfortunately don't share a common superclass.
-   */
-  private static class SaslParticipant {
-    // One of these will always be null.
-    public SaslServer saslServer;
-    public SaslClient saslClient;
-
-    public SaslParticipant(SaslServer saslServer) {
-      this.saslServer = saslServer;
-    }
-
-    public SaslParticipant(SaslClient saslClient) {
-      this.saslClient = saslClient;
-    }
-    
-    public byte[] evaluateChallengeOrResponse(byte[] challengeOrResponse) throws SaslException {
-      if (saslClient != null) {
-        return saslClient.evaluateChallenge(challengeOrResponse);
-      } else {
-        return saslServer.evaluateResponse(challengeOrResponse);
-      }
-    }
-
-    public boolean isComplete() {
-      if (saslClient != null)
-        return saslClient.isComplete();
-      else
-        return saslServer.isComplete();
-    }
-    
-    public boolean supportsConfidentiality() {
-      String qop = null;
-      if (saslClient != null) {
-        qop = (String) saslClient.getNegotiatedProperty(Sasl.QOP);
-      } else {
-        qop = (String) saslServer.getNegotiatedProperty(Sasl.QOP);
-      }
-      return qop != null && qop.equals("auth-conf");
-    }
-    
-    // Return some input/output streams that will henceforth have their
-    // communication encrypted.
-    private IOStreamPair createEncryptedStreamPair(
-        DataOutputStream out, DataInputStream in) {
-      if (saslClient != null) {
-        return new IOStreamPair(
-            new SaslInputStream(in, saslClient),
-            new SaslOutputStream(out, saslClient));
-      } else {
-        return new IOStreamPair(
-            new SaslInputStream(in, saslServer),
-            new SaslOutputStream(out, saslServer));
-      }
-    }
   }
   
   @InterfaceAudience.Private
