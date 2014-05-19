@@ -270,6 +270,12 @@ Release 2.5.0 - UNRELEASED
     HDFS-5168. Add cross node dependency support to BlockPlacementPolicy.
     (Nikola Vujic via szetszwo)
 
+    HDFS-6334. Client failover proxy provider for IP failover based NN HA.
+    (kihwal)
+
+    HDFS-6406. Add capability for NFS gateway to reject connections from
+    unprivileged ports. (atm)
+
   IMPROVEMENTS
 
     HDFS-6007. Update documentation about short-circuit local reads (iwasakims
@@ -342,6 +348,29 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6295. Add "decommissioning" state and node state filtering to
     dfsadmin. (wang)
+
+    HDFS-6294. Use INode IDs to avoid conflicts when a file open for write is
+    renamed. (cmccabe)
+
+    HDFS-6328. Clean up dead code in FSDirectory. (wheat9)
+
+    HDFS-6230. Expose upgrade status through NameNode web UI.
+    (Mit Desai via wheat9)
+
+    HDFS-6186. Pause deletion of blocks when the namenode starts up. (jing9)
+
+    HDFS-6293. Issues with OIV processing PB-based fsimages. (kihwal)
+
+    HDFS-2949. Add check to active state transition to prevent operator-induced
+    split brain. (Rushabh S Shah via kihwal)
+
+    HDFS-6287. Add vecsum test of libhdfs read access times (cmccabe)
+
+    HDFS-5683. Better audit log messages for caching operations.
+    (Abhiraj Butala via wang)
+
+    HDFS-6345. DFS.listCacheDirectives() should allow filtering based on
+    cache directive ID. (wang)
 
   OPTIMIZATIONS
 
@@ -435,6 +464,40 @@ Release 2.5.0 - UNRELEASED
     HDFS-6337. Setfacl testcase is failing due to dash character in username
     in TestAclCLI (umamahesh)
 
+    HDFS-5381. ExtendedBlock#hashCode should use both blockId and block pool ID
+    (Benoy Antony via Colin Patrick McCabe)
+
+    HDFS-6240. WebImageViewer returns 404 if LISTSTATUS to an empty directory.
+    (Akira Ajisaka via wheat9)
+
+    HDFS-6351. Command hdfs dfs -rm -r can't remove empty directory.
+    (Yongjun Zhang via wang)
+
+    HDFS-5522. Datanode disk error check may be incorrectly skipped.
+    (Rushabh S Shah via kihwal)
+
+    HDFS-6367. EnumSetParam$Domain#parse fails for parameter containing more than one enum.
+    (Yi Liu via umamahesh)
+
+    HDFS-6305. WebHdfs response decoding may throw RuntimeExceptions (Daryn
+    Sharp via jeagles)
+
+    HDFS-6355. Fix divide-by-zero, improper use of wall-clock time in
+    BlockPoolSliceScanner (cmccabe)
+
+    HDFS-6370. Web UI fails to display in intranet under IE.
+    (Haohui Mai via cnauroth)
+
+    HDFS-6381. Fix a typo in INodeReference.java. (Binglin Chang via jing9)
+
+    HDFS-6400. Cannot execute hdfs oiv_legacy. (Akira AJISAKA via kihwal)
+
+    HDFS-6250. Fix test failed in TestBalancerWithNodeGroup.testBalancerWithRackLocality
+    (Binglin Chang and Chen He via junping_du)
+
+    HDFS-4913. Deleting file through fuse-dfs when using trash fails requiring
+    root permissions (cmccabe)
+
 Release 2.4.1 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -492,6 +555,31 @@ Release 2.4.1 - UNRELEASED
 
     HDFS-2882. DN continues to start up, even if block pool fails to initialize
     (vinayakumarb)
+
+    HDFS-6340. DN can't finalize upgrade. (Rahul Singhal via Arpit Agarwal)
+
+    HDFS-6329. WebHdfs does not work if HA is enabled on NN but logical URI is
+    not configured. (kihwal)
+
+    HDFS-6313. WebHdfs may use the wrong NN when configured for multiple HA NNs
+    (kihwal)
+
+    HDFS-6326. WebHdfs ACL compatibility is broken. (cnauroth)
+
+    HDFS-6361. TestIdUserGroup.testUserUpdateSetting failed due to out of range
+    nfsnobody Id. (Yongjun Zhang via brandonli)
+
+    HDFS-6362. InvalidateBlocks is inconsistent in usage of DatanodeUuid and
+    StorageID. (Arpit Agarwal)
+
+    HDFS-6402. Suppress findbugs warning for failure to override equals and
+    hashCode in FsAclPermission. (cnauroth)
+
+    HDFS-6325. Append should fail if the last block has insufficient number of
+    replicas (Keith Pak via cos)
+
+    HDFS-6397. NN shows inconsistent value in deadnode count.
+    (Mohammad Kamrul Islam via kihwal)
 
 Release 2.4.0 - 2014-04-07 
 

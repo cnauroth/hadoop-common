@@ -19,12 +19,10 @@
 package org.apache.hadoop.security.authorize;
 
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -40,22 +38,22 @@ import com.google.common.annotations.VisibleForTesting;
 public class ProxyUsers {
 
   private static final String CONF_HOSTS = ".hosts";
-  public static final String CONF_GROUPS = ".groups";
-  public static final String CONF_HADOOP_PROXYUSER = "hadoop.proxyuser.";
-  public static final String CONF_HADOOP_PROXYUSER_RE = "hadoop\\.proxyuser\\.";
-  public static final String CONF_HADOOP_PROXYSERVERS = "hadoop.proxyservers";
+  private static final String CONF_USERS = ".users";
+  private static final String CONF_GROUPS = ".groups";
+  private static final String CONF_HADOOP_PROXYUSER = "hadoop.proxyuser.";
+  private static final String CONF_HADOOP_PROXYUSER_RE = "hadoop\\.proxyuser\\.";
   
   private static boolean init = false;
-  // list of groups and hosts per proxyuser
+  //list of users, groups and hosts per proxyuser
+  private static Map<String, Collection<String>> proxyUsers =
+    new HashMap<String, Collection<String>>();
   private static Map<String, Collection<String>> proxyGroups = 
     new HashMap<String, Collection<String>>();
   private static Map<String, Collection<String>> proxyHosts = 
     new HashMap<String, Collection<String>>();
-  private static Collection<String> proxyServers =
-    new HashSet<String>();
 
   /**
-   * reread the conf and get new values for "hadoop.proxyuser.*.groups/hosts"
+   * reread the conf and get new values for "hadoop.proxyuser.*.groups/users/hosts"
    */
   public static void refreshSuperUserGroupsConfiguration() {
     //load server side configuration;
@@ -71,11 +69,19 @@ public class ProxyUsers {
     // remove all existing stuff
     proxyGroups.clear();
     proxyHosts.clear();
-    proxyServers.clear();
+    proxyUsers.clear();
+    
+    // get all the new keys for users
+    String regex = CONF_HADOOP_PROXYUSER_RE+"[^.]*\\"+CONF_USERS;
+    Map<String,String> allMatchKeys = conf.getValByRegex(regex);
+    for(Entry<String, String> entry : allMatchKeys.entrySet()) {  
+        Collection<String> users = StringUtils.getTrimmedStringCollection(entry.getValue());
+        proxyUsers.put(entry.getKey(), users);
+      }
 
     // get all the new keys for groups
-    String regex = CONF_HADOOP_PROXYUSER_RE+"[^.]*\\"+CONF_GROUPS;
-    Map<String,String> allMatchKeys = conf.getValByRegex(regex);
+    regex = CONF_HADOOP_PROXYUSER_RE+"[^.]*\\"+CONF_GROUPS;
+    allMatchKeys = conf.getValByRegex(regex);
     for(Entry<String, String> entry : allMatchKeys.entrySet()) {
       Collection<String> groups = StringUtils.getTrimmedStringCollection(entry.getValue());
       proxyGroups.put(entry.getKey(), groups );
@@ -91,24 +97,20 @@ public class ProxyUsers {
       proxyHosts.put(entry.getKey(),
           StringUtils.getTrimmedStringCollection(entry.getValue()));
     }
-    
-    // trusted proxy servers such as http proxies
-    for (String host : conf.getTrimmedStrings(CONF_HADOOP_PROXYSERVERS)) {
-      InetSocketAddress addr = new InetSocketAddress(host, 0);
-      if (!addr.isUnresolved()) {
-        proxyServers.add(addr.getAddress().getHostAddress());
-      }
-    }
     init = true;
+    ProxyServers.refresh(conf);
   }
-
-  public static synchronized boolean isProxyServer(String remoteAddr) { 
-    if(!init) {
-      refreshSuperUserGroupsConfiguration(); 
-    }
-    return proxyServers.contains(remoteAddr);
+  
+  /**
+   * Returns configuration key for effective users allowed for a superuser
+   * 
+   * @param userName name of the superuser
+   * @return configuration key for superuser users
+   */
+  public static String getProxySuperuserUserConfKey(String userName) {
+    return ProxyUsers.CONF_HADOOP_PROXYUSER+userName+ProxyUsers.CONF_USERS;
   }
-
+  
   /**
    * Returns configuration key for effective user groups allowed for a superuser
    * 
@@ -146,27 +148,40 @@ public class ProxyUsers {
     if (user.getRealUser() == null) {
       return;
     }
-    boolean groupAuthorized = false;
+    boolean userAuthorized = false;
     boolean ipAuthorized = false;
     UserGroupInformation superUser = user.getRealUser();
-
-    Collection<String> allowedUserGroups = proxyGroups.get(
-        getProxySuperuserGroupConfKey(superUser.getShortUserName()));
     
-    if (isWildcardList(allowedUserGroups)) {
-      groupAuthorized = true;
-    } else if (allowedUserGroups != null && !allowedUserGroups.isEmpty()) {
-      for (String group : user.getGroupNames()) {
-        if (allowedUserGroups.contains(group)) {
-          groupAuthorized = true;
-          break;
-        }
+    Collection<String> allowedUsers = proxyUsers.get(
+        getProxySuperuserUserConfKey(superUser.getShortUserName()));
+
+    if (isWildcardList(allowedUsers)) {
+      userAuthorized = true;
+    } else if (allowedUsers != null && !allowedUsers.isEmpty()) {
+      if (allowedUsers.contains(user.getShortUserName())) {
+        userAuthorized = true;
       }
     }
 
-    if (!groupAuthorized) {
-      throw new AuthorizationException("User: " + superUser.getUserName()
-          + " is not allowed to impersonate " + user.getUserName());
+    if (!userAuthorized) {
+      Collection<String> allowedUserGroups = proxyGroups.get(
+          getProxySuperuserGroupConfKey(superUser.getShortUserName()));
+      
+      if (isWildcardList(allowedUserGroups)) {
+        userAuthorized = true;
+      } else if (allowedUserGroups != null && !allowedUserGroups.isEmpty()) {
+        for (String group : user.getGroupNames()) {
+          if (allowedUserGroups.contains(group)) {
+            userAuthorized = true;
+            break;
+          }
+        }
+      }
+
+      if (!userAuthorized) {
+        throw new AuthorizationException("User: " + superUser.getUserName()
+            + " is not allowed to impersonate " + user.getUserName());
+      }
     }
     
     Collection<String> ipList = proxyHosts.get(
@@ -188,7 +203,7 @@ public class ProxyUsers {
         }
       }
     }
-    if(!ipAuthorized) {
+    if (!ipAuthorized) {
       throw new AuthorizationException("Unauthorized connection for super-user: "
           + superUser.getUserName() + " from IP " + remoteAddress);
     }
@@ -216,6 +231,11 @@ public class ProxyUsers {
     return (list != null) &&
       (list.size() == 1) &&
       (list.contains("*"));
+  }
+   
+  @VisibleForTesting
+  public static Map<String, Collection<String>> getProxyUsers() {
+    return proxyUsers;
   }
 
   @VisibleForTesting

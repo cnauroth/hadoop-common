@@ -326,6 +326,10 @@ Trunk (Unreleased)
 
     HADOOP-10431. Change visibility of KeyStore.Options getter methods to public. (tucu)
 
+    HADOOP-10583. bin/hadoop key throws NPE with no args and assorted other fixups. (clamb via tucu)
+
+    HADOOP-10586. KeyShell doesn't allow setting Options via CLI. (clamb via tucu)
+
   OPTIMIZATIONS
 
     HADOOP-7761. Improve the performance of raw comparisons. (todd)
@@ -367,6 +371,29 @@ Release 2.5.0 - UNRELEASED
 
     HADOOP-10549. MAX_SUBST and varPat should be final in Configuration.java.
     (Gera Shegalov via cnauroth)
+
+    HADOOP-10471. Reduce the visibility of constants in ProxyUsers.
+    (Benoy Antony via wheat9)
+
+    HADOOP-10556. Add toLowerCase support to auth_to_local rules 
+    for service name. (tucu)
+
+    HADOOP-10467. Enable proxyuser specification to support list of users in
+    addition to list of groups (Benoy Antony via Arpit Agarwal)
+
+    HADOOP-10158. SPNEGO should work with multiple interfaces/SPNs.
+    (daryn via kihwal)
+
+    HADOOP-10566. Refactor proxyservers out of ProxyUsers.
+    (Benoy Antony via suresh)
+
+    HADOOP-10572. Example NFS mount command must pass noacl as it isn't
+    supported by the server yet. (Harsh J via brandonli)
+
+    HADOOP-10609. .gitignore should ignore .orig and .rej files. (kasha)
+
+    HADOOP-10614. CBZip2InputStream is not threadsafe (Xiangrui Meng via
+    Sandy Ryza)
 
   OPTIMIZATIONS
 
@@ -442,6 +469,25 @@ Release 2.5.0 - UNRELEASED
     in AbstractDelegationTokenSecretManager. (Arpit Agarwal)
 
     HADOOP-10568. Add s3 server-side encryption. (David S. Wang via atm)
+
+    HADOOP-10541. InputStream in MiniKdc#initKDCServer for minikdc.ldiff is not
+    closed. (Swarnim Kulkarni via cnauroth)
+
+    HADOOP-10517. InputStream is not closed in two methods of JarFinder.
+    (Ted Yu via cnauroth)
+
+    HADOOP-10581. TestUserGroupInformation#testGetServerSideGroups fails
+    because groups stored in Set and ArrayList are compared. 
+    (Mit Desai via kihwal)
+
+    HADOOP-10585. Retry polices ignore interrupted exceptions (Daryn Sharp via
+    jeagles)
+
+    HADOOP-10401. ShellBasedUnixGroupsMapping#getGroups does not always return
+    primary group first (Akira AJISAKA via Colin Patrick McCabe)
+
+    HADOOP-10489. UserGroupInformation#getTokens and UserGroupInformation
+    #addToken can lead to ConcurrentModificationException (Robert Kanter via atm)
 
 Release 2.4.1 - UNRELEASED
 

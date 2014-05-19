@@ -1012,7 +1012,7 @@ public class DFSOutputStream extends FSOutputSummer
       //get a new datanode
       final DatanodeInfo[] original = nodes;
       final LocatedBlock lb = dfsClient.namenode.getAdditionalDatanode(
-          src, block, nodes, storageIDs,
+          src, fileId, block, nodes, storageIDs,
           failed.toArray(new DatanodeInfo[failed.size()]),
           1, dfsClient.clientName);
       setPipeline(lb);
@@ -1269,7 +1269,8 @@ public class DFSOutputStream extends FSOutputSummer
 
         if (!success) {
           DFSClient.LOG.info("Abandoning " + block);
-          dfsClient.namenode.abandonBlock(block, src, dfsClient.clientName);
+          dfsClient.namenode.abandonBlock(block, fileId, src,
+              dfsClient.clientName);
           block = null;
           DFSClient.LOG.info("Excluding datanode " + nodes[errorIndex]);
           excludedNodes.put(nodes[errorIndex], nodes[errorIndex]);
@@ -1916,7 +1917,8 @@ public class DFSOutputStream extends FSOutputSummer
       // namenode.
       if (persistBlocks.getAndSet(false) || updateLength) {
         try {
-          dfsClient.namenode.fsync(src, dfsClient.clientName, lastBlockLength);
+          dfsClient.namenode.fsync(src, fileId,
+              dfsClient.clientName, lastBlockLength);
         } catch (IOException ioe) {
           DFSClient.LOG.warn("Unable to persist blocks in hflush for " + src, ioe);
           // If we got an error here, it might be because some other thread called
@@ -2037,7 +2039,7 @@ public class DFSOutputStream extends FSOutputSummer
     streamer.setLastException(new IOException("Lease timeout of "
         + (dfsClient.getHdfsTimeout()/1000) + " seconds expired."));
     closeThreads(true);
-    dfsClient.endFileLease(src);
+    dfsClient.endFileLease(fileId);
   }
 
   // shutdown datastreamer and responseprocessor threads.
@@ -2092,7 +2094,7 @@ public class DFSOutputStream extends FSOutputSummer
       ExtendedBlock lastBlock = streamer.getBlock();
       closeThreads(false);
       completeFile(lastBlock);
-      dfsClient.endFileLease(src);
+      dfsClient.endFileLease(fileId);
     } catch (ClosedChannelException e) {
     } finally {
       closed = true;
@@ -2186,7 +2188,7 @@ public class DFSOutputStream extends FSOutputSummer
   }
 
   @VisibleForTesting
-  long getFileId() {
+  public long getFileId() {
     return fileId;
   }
 }
