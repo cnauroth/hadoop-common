@@ -98,7 +98,7 @@ public class SaslDataTransferClient {
     this.trustedChannelResolver = TrustedChannelResolver.getInstance(conf);
   }
 
-  public IOStreamPair protectStreams(Peer peer, OutputStream underlyingOut,
+  public IOStreamPair saslConnect(Peer peer, OutputStream underlyingOut,
       InputStream underlyingIn, DataEncryptionKey encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {

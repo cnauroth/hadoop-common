@@ -83,12 +83,15 @@ public class SaslDataTransferServer {
 
   private static final Log LOG = LogFactory.getLog(SaslDataTransferServer.class);
 
+  private final BlockPoolTokenSecretManager blockPoolTokenSecretManager;
   private final boolean encryptDataTransfer;
   private final SaslPropertiesResolver saslPropsResolver;
   private final String encryptionAlgorithm;
   private final TrustedChannelResolver trustedChannelResolver;
 
-  public SaslDataTransferServer(Configuration conf) {
+  public SaslDataTransferServer(Configuration conf,
+      BlockPoolTokenSecretManager blockPoolTokenSecretManager) {
+    this.blockPoolTokenSecretManager = blockPoolTokenSecretManager;
     this.encryptDataTransfer = conf.getBoolean(DFS_ENCRYPT_DATA_TRANSFER_KEY,
       DFS_ENCRYPT_DATA_TRANSFER_DEFAULT);
     this.encryptionAlgorithm = conf.get(DFS_DATA_ENCRYPTION_ALGORITHM_KEY);
@@ -103,20 +106,16 @@ public class SaslDataTransferServer {
     this.trustedChannelResolver = TrustedChannelResolver.getInstance(conf);
   }
 
-  public IOStreamPair protectStreams(Peer peer, OutputStream underlyingOut,
-      InputStream underlyingIn,
-      BlockPoolTokenSecretManager blockPoolTokenSecretManager,
-      DatanodeID datanodeId) throws IOException {
+  public IOStreamPair saslConnect(Peer peer, OutputStream underlyingOut,
+      InputStream underlyingIn, DatanodeID datanodeId) throws IOException {
     if (encryptDataTransfer) {
-      return getEncryptedStreams(peer, underlyingOut, underlyingIn,
-        blockPoolTokenSecretManager, datanodeId);
+      return getEncryptedStreams(peer, underlyingOut, underlyingIn, datanodeId);
     }
     if (UserGroupInformation.isSecurityEnabled()) {
       if (datanodeId.getXferPort() < 1024) {
         return new IOStreamPair(underlyingIn, underlyingOut);
       } else {
-        return getSaslStreams(underlyingOut, underlyingIn,
-          blockPoolTokenSecretManager, datanodeId);
+        return getSaslStreams(underlyingOut, underlyingIn, datanodeId);
       }
     }
     return new IOStreamPair(underlyingIn, underlyingOut);
@@ -124,7 +123,6 @@ public class SaslDataTransferServer {
 
   private IOStreamPair getEncryptedStreams(Peer peer,
       OutputStream underlyingOut, InputStream underlyingIn,
-      BlockPoolTokenSecretManager blockPoolTokenSecretManager,
       DatanodeID datanodeId) throws IOException {
     if (!peer.hasSecureChannel() &&
         !trustedChannelResolver.isTrusted(getClientAddress(peer))) {
@@ -142,9 +140,7 @@ public class SaslDataTransferServer {
   }
 
   private IOStreamPair getSaslStreams(OutputStream underlyingOut,
-      InputStream underlyingIn,
-      BlockPoolTokenSecretManager blockPoolTokenSecretManager,
-      DatanodeID datanodeId) throws IOException {
+      InputStream underlyingIn, DatanodeID datanodeId) throws IOException {
   /*
       throw new IOException(String.format("Cannot create a secured " +
         "connection if DataNode listens on unprivileged port (%d) and no " +
