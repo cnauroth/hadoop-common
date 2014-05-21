@@ -28,6 +28,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
+import java.util.Map;
+import javax.security.sasl.Sasl;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -36,8 +38,10 @@ import org.apache.hadoop.hdfs.net.Peer;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.DataTransferEncryptorMessageProto;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.DataTransferEncryptorMessageProto.DataTransferEncryptorStatus;
 import org.apache.hadoop.security.SaslPropertiesResolver;
+import org.apache.hadoop.security.SaslRpcServer.QualityOfProtection;
 
 import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.net.InetAddresses;
 import com.google.protobuf.ByteString;
 
@@ -60,6 +64,14 @@ final class DataTransferSaslUtil {
     if (!sasl.isComplete()) {
       throw new IOException("Failed to complete SASL handshake");
     }
+  }
+
+  public static Map<String, String> createSaslPropertiesForEncryption(
+      String encryptionAlgorithm) {
+    return ImmutableMap.of(
+      Sasl.QOP, QualityOfProtection.PRIVACY.getSaslQop(),
+      Sasl.SERVER_AUTH, "true",
+      "com.sun.security.sasl.digest.cipher", encryptionAlgorithm);
   }
 
   public static char[] encryptionKeyToPassword(byte[] encryptionKey) {

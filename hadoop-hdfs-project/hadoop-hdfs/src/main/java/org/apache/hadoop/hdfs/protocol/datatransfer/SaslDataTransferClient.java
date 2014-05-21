@@ -37,7 +37,6 @@ import javax.security.auth.callback.UnsupportedCallbackException;
 import javax.security.sasl.AuthorizeCallback;
 import javax.security.sasl.RealmCallback;
 import javax.security.sasl.RealmChoiceCallback;
-import javax.security.sasl.Sasl;
 import javax.security.sasl.SaslClient;
 import javax.security.sasl.SaslException;
 import javax.security.sasl.SaslServer;
@@ -57,14 +56,11 @@ import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
 import org.apache.hadoop.security.SaslInputStream;
 import org.apache.hadoop.security.SaslOutputStream;
 import org.apache.hadoop.security.SaslPropertiesResolver;
-import org.apache.hadoop.security.SaslRpcServer.QualityOfProtection;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.util.Time;
 
 import com.google.common.base.Charsets;
-import com.google.common.collect.Maps;
-import com.google.common.collect.ImmutableMap;
 
 @InterfaceAudience.Private
 public class SaslDataTransferClient {
@@ -112,10 +108,8 @@ public class SaslDataTransferClient {
       DatanodeID datanodeId) throws IOException {
     if (!peer.hasSecureChannel() &&
         !trustedChannelResolver.isTrusted(getClientAddress(peer))) {
-      Map<String, String> saslProps = ImmutableMap.of(
-        Sasl.QOP, "auth-conf",
-        Sasl.SERVER_AUTH, "true",
-        "com.sun.security.sasl.digest.cipher", encryptionKey.encryptionAlgorithm);
+      Map<String, String> saslProps = createSaslPropertiesForEncryption(
+        encryptionKey.encryptionAlgorithm);
 
       if (LOG.isDebugEnabled()) {
         LOG.debug("Client using encryption algorithm " +
