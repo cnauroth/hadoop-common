@@ -18,7 +18,13 @@
 package org.apache.hadoop.hdfs.protocol.datatransfer;
 
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_KEY;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.checkSaslComplete;
 import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.getClientAddress;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.performSaslStep1;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.readMagicNumber;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.readSaslMessage;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.sendGenericSaslErrorMessage;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.sendSaslMessage;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -110,9 +116,15 @@ public class SaslDataTransferServer {
       DatanodeID datanodeId) throws IOException {
     if (!peer.hasSecureChannel() &&
         !trustedChannelResolver.isTrusted(getClientAddress(peer))) {
-      return DataTransferEncryptor.getEncryptedStreams(underlyingOut,
-        underlyingIn, blockPoolTokenSecretManager, encryptionAlgorithm,
-        datanodeId);
+      Map<String, String> encryptedSaslProps = ImmutableMap.of(
+        Sasl.QOP, "auth-conf",
+        Sasl.SERVER_AUTH, "true",
+        "com.sun.security.sasl.digest.cipher", encryptionAlgorithm);
+      // TODO
+      String userName = null;
+      CallbackHandler callbackHandler = null;
+      return doSaslHandshake(underlyingOut, underlyingIn, encryptedSaslProps,
+        callbackHandler);
     }
     return new IOStreamPair(underlyingIn, underlyingOut);
   }
@@ -129,5 +141,51 @@ public class SaslDataTransferServer {
   */
     // TODO
     return null;
+  }
+
+  private IOStreamPair doSaslHandshake(OutputStream underlyingOut,
+      InputStream underlyingIn, Map<String, String> saslProps,
+      CallbackHandler callbackHandler) throws IOException {
+
+    DataInputStream in = new DataInputStream(underlyingIn);
+    DataOutputStream out = new DataOutputStream(underlyingOut);
+
+    SaslParticipant sasl = SaslParticipant.createServerSaslParticipant(saslProps,
+      callbackHandler);
+
+    readMagicNumber(in);
+    try {
+      // step 1
+      performSaslStep1(out, in, sasl);
+
+      // step 2 (server-side only)
+      byte[] remoteResponse = readSaslMessage(in);
+      byte[] localResponse = sasl.evaluateChallengeOrResponse(remoteResponse);
+      sendSaslMessage(out, localResponse);
+
+      // SASL handshake is complete
+      checkSaslComplete(sasl);
+
+      return sasl.createEncryptedStreamPair(out, in);
+    } catch (IOException ioe) {
+      if (ioe instanceof SaslException &&
+          ioe.getCause() != null &&
+          ioe.getCause() instanceof InvalidEncryptionKeyException) {
+        // This could just be because the client is long-lived and hasn't gotten
+        // a new encryption key from the NN in a while. Upon receiving this
+        // error, the client will get a new encryption key from the NN and retry
+        // connecting to this DN.
+        sendInvalidKeySaslErrorMessage(out, ioe.getCause().getMessage());
+      } else {
+        sendGenericSaslErrorMessage(out, ioe.getMessage());
+      }
+      throw ioe;
+    }
+  }
+
+  private static void sendInvalidKeySaslErrorMessage(DataOutputStream out,
+      String message) throws IOException {
+    sendSaslMessage(out, DataTransferEncryptorStatus.ERROR_UNKNOWN_KEY, null,
+        message);
   }
 }

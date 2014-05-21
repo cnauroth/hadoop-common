@@ -21,7 +21,13 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_DEFAULT;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.checkSaslComplete;
 import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.getClientAddress;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.performSaslStep1;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.readSaslMessage;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.sendGenericSaslErrorMessage;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.sendSaslMessage;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.writeMagicNumber;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -115,8 +121,15 @@ public class SaslDataTransferClient {
       DatanodeID datanodeId) throws IOException {
     if (!peer.hasSecureChannel() &&
         !trustedChannelResolver.isTrusted(getClientAddress(peer))) {
-      return DataTransferEncryptor.getEncryptedStreams(underlyingOut,
-        underlyingIn, encryptionKey, accessToken, datanodeId);
+      Map<String, String> encryptedSaslProps = ImmutableMap.of(
+        Sasl.QOP, "auth-conf",
+        Sasl.SERVER_AUTH, "true",
+        "com.sun.security.sasl.digest.cipher", encryptionKey.encryptionAlgorithm);
+      // TODO
+      String userName = null;
+      CallbackHandler callbackHandler = null;
+      return doSaslHandshake(underlyingOut, underlyingIn, userName,
+        encryptedSaslProps, callbackHandler);
     }
     return new IOStreamPair(underlyingIn, underlyingOut);
   }
@@ -132,5 +145,39 @@ public class SaslDataTransferClient {
   */
     // TODO
     return null;
+  }
+
+  private IOStreamPair doSaslHandshake(OutputStream underlyingOut,
+      InputStream underlyingIn, String userName, Map<String, String> saslProps,
+      CallbackHandler callbackHandler) throws IOException {
+
+    DataOutputStream out = new DataOutputStream(underlyingOut);
+    DataInputStream in = new DataInputStream(underlyingIn);
+
+    SaslParticipant sasl= SaslParticipant.createClientSaslParticipant(userName,
+      saslProps, callbackHandler);
+
+    writeMagicNumber(out);
+    
+    try {
+      // Start of handshake - "initial response" in SASL terminology.
+      sendSaslMessage(out, new byte[0]);
+
+      // step 1
+      performSaslStep1(out, in, sasl);
+
+      // step 2 (client-side only)
+      byte[] remoteResponse = readSaslMessage(in);
+      byte[] localResponse = sasl.evaluateChallengeOrResponse(remoteResponse);
+      assert localResponse == null;
+
+      // SASL handshake is complete
+      checkSaslComplete(sasl);
+
+      return sasl.createEncryptedStreamPair(out, in);
+    } catch (IOException ioe) {
+      sendGenericSaslErrorMessage(out, ioe.getMessage());
+      throw ioe;
+    }
   }
 }
