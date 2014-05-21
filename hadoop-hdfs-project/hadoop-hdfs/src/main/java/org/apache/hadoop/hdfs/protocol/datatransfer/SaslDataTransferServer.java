@@ -18,9 +18,6 @@
 package org.apache.hadoop.hdfs.protocol.datatransfer;
 
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_DEFAULT;
 import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.getClientAddress;
 
 import java.io.ByteArrayInputStream;
@@ -57,12 +54,12 @@ import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.DataTransferEncr
 import org.apache.hadoop.hdfs.security.token.block.BlockPoolTokenSecretManager;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
+import org.apache.hadoop.hdfs.server.datanode.DNConf;
 import org.apache.hadoop.security.SaslInputStream;
 import org.apache.hadoop.security.SaslOutputStream;
 import org.apache.hadoop.security.SaslRpcServer.QualityOfProtection;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
-import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.Time;
 
 import com.google.common.base.Charsets;
@@ -70,40 +67,38 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.ImmutableMap;
 
 @InterfaceAudience.Private
-public class ClientDataTransferProtector {
+public class SaslDataTransferServer {
+
+  private static final Log LOG = LogFactory.getLog(SaslDataTransferServer.class);
 
   private final boolean encryptDataTransfer;
+  private final String encryptionAlgorithm;
   private final Map<String, String> saslProps;
   private final TrustedChannelResolver trustedChannelResolver;
 
-  public ClientDataTransferProtector(Configuration conf) {
-    this.encryptDataTransfer = conf.getBoolean(DFS_ENCRYPT_DATA_TRANSFER_KEY,
-      DFS_ENCRYPT_DATA_TRANSFER_DEFAULT);
-    String[] qop = conf.getStrings(DFS_DATA_TRANSFER_PROTECTION_KEY,
-      DFS_DATA_TRANSFER_PROTECTION_DEFAULT);
-    for (int i=0; i < qop.length; i++) {
-      qop[i] = QualityOfProtection.valueOf(qop[i].toUpperCase()).getSaslQop();
-    }    
+  public SaslDataTransferServer(DNConf dnConf) {
+    this.encryptDataTransfer = dnConf.getEncryptDataTransfer();
+    this.encryptionAlgorithm = dnConf.getEncryptionAlgorithm();
     this.saslProps = ImmutableMap.of(
-      Sasl.QOP, StringUtils.join(",", qop),
+      Sasl.QOP, dnConf.getDataTransferSaslQop(),
       Sasl.SERVER_AUTH, "true");
-    this.trustedChannelResolver = TrustedChannelResolver.getInstance(conf);
+    this.trustedChannelResolver = dnConf.getTrustedChannelResolver();
   }
 
   public IOStreamPair protectStreams(Peer peer, OutputStream underlyingOut,
-      InputStream underlyingIn, DataEncryptionKey encryptionKey,
-      Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
-      throws IOException {
+      InputStream underlyingIn,
+      BlockPoolTokenSecretManager blockPoolTokenSecretManager,
+      DatanodeID datanodeId) throws IOException {
     if (encryptDataTransfer) {
       return getEncryptedStreams(peer, underlyingOut, underlyingIn,
-        encryptionKey, accessToken, datanodeId);
+        blockPoolTokenSecretManager, datanodeId);
     }
     if (UserGroupInformation.isSecurityEnabled()) {
       if (datanodeId.getXferPort() < 1024) {
         return new IOStreamPair(underlyingIn, underlyingOut);
       } else {
-        return getSaslStreams(underlyingOut, underlyingIn, accessToken,
-          datanodeId);
+        return getSaslStreams(underlyingOut, underlyingIn,
+          blockPoolTokenSecretManager, datanodeId);
       }
     }
     return new IOStreamPair(underlyingIn, underlyingOut);
@@ -111,18 +106,20 @@ public class ClientDataTransferProtector {
 
   private IOStreamPair getEncryptedStreams(Peer peer,
       OutputStream underlyingOut, InputStream underlyingIn,
-      DataEncryptionKey encryptionKey, Token<BlockTokenIdentifier> accessToken,
+      BlockPoolTokenSecretManager blockPoolTokenSecretManager,
       DatanodeID datanodeId) throws IOException {
     if (!peer.hasSecureChannel() &&
         !trustedChannelResolver.isTrusted(getClientAddress(peer))) {
       return DataTransferEncryptor.getEncryptedStreams(underlyingOut,
-        underlyingIn, encryptionKey, accessToken, datanodeId);
+        underlyingIn, blockPoolTokenSecretManager, encryptionAlgorithm,
+        datanodeId);
     }
     return new IOStreamPair(underlyingIn, underlyingOut);
   }
 
   private IOStreamPair getSaslStreams(OutputStream underlyingOut,
-      InputStream underlyingIn, Token<BlockTokenIdentifier> accessToken,
+      InputStream underlyingIn,
+      BlockPoolTokenSecretManager blockPoolTokenSecretManager,
       DatanodeID datanodeId) throws IOException {
   /*
       throw new IOException(String.format("Cannot create a secured " +
