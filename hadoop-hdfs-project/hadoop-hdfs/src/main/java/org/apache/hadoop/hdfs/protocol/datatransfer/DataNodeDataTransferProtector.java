@@ -18,6 +18,7 @@
 package org.apache.hadoop.hdfs.protocol.datatransfer;
 
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_KEY;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.getClientAddress;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -25,7 +26,6 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.InetAddress;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -65,7 +65,6 @@ import org.apache.hadoop.util.Time;
 import com.google.common.base.Charsets;
 import com.google.common.collect.Maps;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.net.InetAddresses;
 
 @InterfaceAudience.Private
 public class DataNodeDataTransferProtector {
@@ -131,18 +130,5 @@ public class DataNodeDataTransferProtector {
   */
     // TODO
     return null;
-  }
-
-  /**
-   * Returns InetAddress from peer
-   * The getRemoteAddressString is the form  /ip-address:port
-   * The ip-address is extracted from peer and InetAddress is formed
-   * @param peer
-   * @return
-   * @throws UnknownHostException
-   */
-  private static InetAddress getClientAddress(Peer peer) {
-    return InetAddresses.forString(
-        peer.getRemoteAddressString().split(":")[0].substring(1));
   }
 }

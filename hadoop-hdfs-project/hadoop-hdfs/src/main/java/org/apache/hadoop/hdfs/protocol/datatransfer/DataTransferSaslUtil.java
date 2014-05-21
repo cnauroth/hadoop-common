@@ -23,11 +23,14 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetAddress;
 
 import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.hdfs.net.Peer;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.DataTransferEncryptorMessageProto;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.DataTransferEncryptorMessageProto.DataTransferEncryptorStatus;
 
+import com.google.common.net.InetAddresses;
 import com.google.protobuf.ByteString;
 
 @InterfaceAudience.Private
@@ -43,6 +46,19 @@ final class DataTransferSaslUtil {
     if (!sasl.isComplete()) {
       throw new IOException("Failed to complete SASL handshake");
     }
+  }
+
+  /**
+   * Returns InetAddress from peer
+   * The getRemoteAddressString is the form  /ip-address:port
+   * The ip-address is extracted from peer and InetAddress is formed
+   * @param peer
+   * @return
+   * @throws UnknownHostException
+   */
+  public static InetAddress getClientAddress(Peer peer) {
+    return InetAddresses.forString(
+        peer.getRemoteAddressString().split(":")[0].substring(1));
   }
 
   public static void performSaslStep1(DataOutputStream out, DataInputStream in,
