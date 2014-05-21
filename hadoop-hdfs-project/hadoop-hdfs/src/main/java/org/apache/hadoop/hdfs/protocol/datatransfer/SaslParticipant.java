@@ -19,6 +19,8 @@ package org.apache.hadoop.hdfs.protocol.datatransfer;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.util.Map;
+import javax.security.auth.callback.CallbackHandler;
 import javax.security.sasl.Sasl;
 import javax.security.sasl.SaslClient;
 import javax.security.sasl.SaslException;
@@ -37,15 +39,39 @@ import org.apache.hadoop.security.SaslOutputStream;
  */
 @InterfaceAudience.Private
 class SaslParticipant {
-  // One of these will always be null.
-  public SaslServer saslServer;
-  public SaslClient saslClient;
 
-  public SaslParticipant(SaslServer saslServer) {
-    this.saslServer = saslServer;
+  // This has to be set as part of the SASL spec, but it don't matter for
+  // our purposes, but may not be empty. It's sent over the wire, so use
+  // a short string.
+  private static final String SERVER_NAME = "0";
+  private static final String PROTOCOL = "hdfs";
+  private static final String MECHANISM = "DIGEST-MD5";
+
+  // One of these will always be null.
+  private final SaslServer saslServer;
+  private final SaslClient saslClient;
+
+  public static SaslParticipant createServerSaslParticipant(
+      Map<String, String> saslProps, CallbackHandler callbackHandler)
+      throws SaslException {
+    return new SaslParticipant(Sasl.createSaslServer(MECHANISM,
+      PROTOCOL, SERVER_NAME, saslProps, callbackHandler));
   }
 
-  public SaslParticipant(SaslClient saslClient) {
+  public static SaslParticipant createClientSaslParticipant(String userName,
+      Map<String, String> saslProps, CallbackHandler callbackHandler)
+      throws SaslException {
+    return new SaslParticipant(Sasl.createSaslClient(new String[] { MECHANISM },
+      userName, PROTOCOL, SERVER_NAME, saslProps, callbackHandler));
+  }
+
+  private SaslParticipant(SaslServer saslServer) {
+    this.saslServer = saslServer;
+    this.saslClient = null;
+  }
+
+  private SaslParticipant(SaslClient saslClient) {
+    this.saslServer = null;
     this.saslClient = saslClient;
   }
 

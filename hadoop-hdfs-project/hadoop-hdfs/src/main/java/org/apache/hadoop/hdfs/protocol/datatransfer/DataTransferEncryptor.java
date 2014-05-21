@@ -17,7 +17,14 @@
  */
 package org.apache.hadoop.hdfs.protocol.datatransfer;
 
-import static org.apache.hadoop.hdfs.protocolPB.PBHelper.vintPrefixed;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.SASL_TRANSFER_MAGIC_NUMBER;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.checkMagicNumber;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.checkSaslComplete;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.performSaslStep1;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.performSaslStep1;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.readSaslMessage;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.sendGenericSaslErrorMessage;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.sendSaslMessage;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -56,7 +63,6 @@ import org.apache.hadoop.util.Time;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.Maps;
-import com.google.protobuf.ByteString;
 
 /**
  * A class which, given connected input/output streams, will perform a
@@ -71,23 +77,9 @@ public class DataTransferEncryptor {
   public static final Log LOG = LogFactory.getLog(DataTransferEncryptor.class);
   
   /**
-   * Sent by clients and validated by servers. We use a number that's unlikely
-   * to ever be sent as the value of the DATA_TRANSFER_VERSION.
-   */
-  private static final int ENCRYPTED_TRANSFER_MAGIC_NUMBER = 0xDEADBEEF;
-  
-  /**
    * Delimiter for the three-part SASL username string.
    */
   private static final String NAME_DELIMITER = " ";
-  
-  // This has to be set as part of the SASL spec, but it don't matter for
-  // our purposes, but may not be empty. It's sent over the wire, so use
-  // a short string.
-  private static final String SERVER_NAME = "0";
-  
-  private static final String PROTOCOL = "hdfs";
-  private static final String MECHANISM = "DIGEST-MD5";
   private static final Map<String, String> SASL_PROPS = new TreeMap<String, String>();
   
   static {
@@ -131,14 +123,10 @@ public class DataTransferEncryptor {
       LOG.debug("Server using encryption algorithm " + encryptionAlgorithm);
     }
     
-    SaslParticipant sasl = new SaslParticipant(Sasl.createSaslServer(MECHANISM,
-        PROTOCOL, SERVER_NAME, saslProps,
-        new SaslServerCallbackHandler(blockPoolTokenSecretManager, datanodeId)));
+    SaslParticipant sasl = SaslParticipant.createServerSaslParticipant(saslProps,
+      new SaslServerCallbackHandler(blockPoolTokenSecretManager, datanodeId));
     
-    int magicNumber = in.readInt();
-    if (magicNumber != ENCRYPTED_TRANSFER_MAGIC_NUMBER) {
-      throw new InvalidMagicNumberException(magicNumber);
-    }
+    checkMagicNumber(in.readInt());
     try {
       // step 1
       performSaslStep1(out, in, sasl);
@@ -205,12 +193,11 @@ public class DataTransferEncryptor {
     
     long timestamp = Time.now();
     String userName = buildUserName(blockToken.getIdentifier(), timestamp);
-    SaslParticipant sasl = new SaslParticipant(Sasl.createSaslClient(
-        new String[] { MECHANISM }, userName, PROTOCOL, SERVER_NAME, saslProps,
-        new SaslClientCallbackHandler(encryptionKey.encryptionKey, blockToken,
-          datanodeId, userName, timestamp)));
+    SaslParticipant sasl= SaslParticipant.createClientSaslParticipant(userName,
+      saslProps, new SaslClientCallbackHandler(encryptionKey.encryptionKey,
+        blockToken, datanodeId, userName, timestamp));
     
-    out.writeInt(ENCRYPTED_TRANSFER_MAGIC_NUMBER);
+    out.writeInt(SASL_TRANSFER_MAGIC_NUMBER);
     out.flush();
     
     try {
@@ -235,64 +222,10 @@ public class DataTransferEncryptor {
     }
   }
   
-  private static void performSaslStep1(DataOutputStream out, DataInputStream in,
-      SaslParticipant sasl) throws IOException {
-    byte[] remoteResponse = readSaslMessage(in);
-    byte[] localResponse = sasl.evaluateChallengeOrResponse(remoteResponse);
-    sendSaslMessage(out, localResponse);
-  }
-  
-  private static void checkSaslComplete(SaslParticipant sasl) throws IOException {
-    if (!sasl.isComplete()) {
-      throw new IOException("Failed to complete SASL handshake");
-    }
-  }
-  
-  private static void sendSaslMessage(DataOutputStream out, byte[] payload)
-      throws IOException {
-    sendSaslMessage(out, DataTransferEncryptorStatus.SUCCESS, payload, null);
-  }
-  
   private static void sendInvalidKeySaslErrorMessage(DataOutputStream out,
       String message) throws IOException {
     sendSaslMessage(out, DataTransferEncryptorStatus.ERROR_UNKNOWN_KEY, null,
         message);
-  }
-  
-  private static void sendGenericSaslErrorMessage(DataOutputStream out,
-      String message) throws IOException {
-    sendSaslMessage(out, DataTransferEncryptorStatus.ERROR, null, message);
-  }
-  
-  private static void sendSaslMessage(OutputStream out,
-      DataTransferEncryptorStatus status, byte[] payload, String message)
-          throws IOException {
-    DataTransferEncryptorMessageProto.Builder builder =
-        DataTransferEncryptorMessageProto.newBuilder();
-    
-    builder.setStatus(status);
-    if (payload != null) {
-      builder.setPayload(ByteString.copyFrom(payload));
-    }
-    if (message != null) {
-      builder.setMessage(message);
-    }
-    
-    DataTransferEncryptorMessageProto proto = builder.build();
-    proto.writeDelimitedTo(out);
-    out.flush();
-  }
-  
-  private static byte[] readSaslMessage(DataInputStream in) throws IOException {
-    DataTransferEncryptorMessageProto proto =
-        DataTransferEncryptorMessageProto.parseFrom(vintPrefixed(in));
-    if (proto.getStatus() == DataTransferEncryptorStatus.ERROR_UNKNOWN_KEY) {
-      throw new InvalidEncryptionKeyException(proto.getMessage());
-    } else if (proto.getStatus() == DataTransferEncryptorStatus.ERROR) {
-      throw new IOException(proto.getMessage());
-    } else {
-      return proto.getPayload().toByteArray();
-    }
   }
   
   /**
@@ -517,16 +450,4 @@ public class DataTransferEncryptor {
   private static char[] encryptionKeyToPassword(byte[] encryptionKey) {
     return new String(Base64.encodeBase64(encryptionKey, false), Charsets.UTF_8).toCharArray();
   }
-  
-  @InterfaceAudience.Private
-  public static class InvalidMagicNumberException extends IOException {
-    
-    private static final long serialVersionUID = 1L;
-
-    public InvalidMagicNumberException(int magicNumber) {
-      super(String.format("Received %x instead of %x from client.",
-          magicNumber, ENCRYPTED_TRANSFER_MAGIC_NUMBER));
-    }
-  }
-  
 }

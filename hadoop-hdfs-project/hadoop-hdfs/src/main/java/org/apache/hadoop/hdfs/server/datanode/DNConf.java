@@ -48,11 +48,15 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_DEF
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_ENCRYPTION_ALGORITHM_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_RESTART_REPLICA_EXPIRY_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_RESTART_REPLICA_EXPIRY_DEFAULT;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_DEFAULT;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.datatransfer.TrustedChannelResolver;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants;
+import org.apache.hadoop.security.SaslRpcServer.QualityOfProtection;
+import org.apache.hadoop.util.StringUtils;
 
 /**
  * Simple class encapsulating all of the configuration that the DataNode
@@ -89,6 +93,7 @@ public class DNConf {
   final long restartReplicaExpiry;
 
   final long maxLockedMemory;
+  final String dataTransferSaslQop;
 
   public DNConf(Configuration conf) {
     socketTimeout = conf.getInt(DFS_CLIENT_SOCKET_TIMEOUT_KEY,
@@ -167,8 +172,27 @@ public class DNConf {
     this.restartReplicaExpiry = conf.getLong(
         DFS_DATANODE_RESTART_REPLICA_EXPIRY_KEY,
         DFS_DATANODE_RESTART_REPLICA_EXPIRY_DEFAULT) * 1000L;
+
+    String[] qop = conf.getStrings(DFS_DATA_TRANSFER_PROTECTION_KEY,
+      DFS_DATA_TRANSFER_PROTECTION_DEFAULT);
+    for (int i=0; i < qop.length; i++) {
+      qop[i] = QualityOfProtection.valueOf(qop[i].toUpperCase()).getSaslQop();
+    }
+    this.dataTransferSaslQop = StringUtils.join(",", qop);
   }
-  
+
+  public String getDataTransferSaslQop() {
+    return dataTransferSaslQop;
+  }
+
+  public boolean getEncryptDataTransfer() {
+    return encryptDataTransfer;
+  }
+
+  public String getEncryptionAlgorithm() {
+    return encryptionAlgorithm;
+  }
+
   // We get minimumNameNodeVersion via a method so it can be mocked out in tests.
   String getMinimumNameNodeVersion() {
     return this.minimumNameNodeVersion;
@@ -180,5 +204,9 @@ public class DNConf {
 
   public long getMaxLockedMemory() {
     return maxLockedMemory;
+  }
+
+  public TrustedChannelResolver getTrustedChannelResolver() {
+    return trustedChannelResolver;
   }
 }
