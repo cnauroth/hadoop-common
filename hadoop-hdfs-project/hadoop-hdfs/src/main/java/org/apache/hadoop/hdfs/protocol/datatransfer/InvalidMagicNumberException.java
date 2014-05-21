@@ -26,8 +26,8 @@ public class InvalidMagicNumberException extends IOException {
 
   private static final long serialVersionUID = 1L;
 
-  public InvalidMagicNumberException(int magicNumber) {
-    super(String.format("Received %x instead of %x from client.",
-      magicNumber, DataTransferSaslUtil.SASL_TRANSFER_MAGIC_NUMBER));
+  public InvalidMagicNumberException(int actualNumber, int expectedNumber) {
+    super(String.format("Received %x instead of %x from client.", actualNumber,
+      expectedNumber));
   }
 }

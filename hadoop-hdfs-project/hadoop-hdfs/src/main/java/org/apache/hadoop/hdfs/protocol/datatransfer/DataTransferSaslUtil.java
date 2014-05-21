@@ -37,14 +37,7 @@ final class DataTransferSaslUtil {
    * Sent by clients and validated by servers. We use a number that's unlikely
    * to ever be sent as the value of the DATA_TRANSFER_VERSION.
    */
-  public static final int SASL_TRANSFER_MAGIC_NUMBER = 0xDEADBEEF;
-
-  public static void checkMagicNumber(int magicNumber)
-      throws InvalidMagicNumberException {
-    if (magicNumber != DataTransferSaslUtil.SASL_TRANSFER_MAGIC_NUMBER) {
-      throw new InvalidMagicNumberException(magicNumber);
-    }
-  }
+  private static final int SASL_TRANSFER_MAGIC_NUMBER = 0xDEADBEEF;
 
   public static void checkSaslComplete(SaslParticipant sasl) throws IOException {
     if (!sasl.isComplete()) {
@@ -57,6 +50,13 @@ final class DataTransferSaslUtil {
     byte[] remoteResponse = readSaslMessage(in);
     byte[] localResponse = sasl.evaluateChallengeOrResponse(remoteResponse);
     sendSaslMessage(out, localResponse);
+  }
+
+  public static void readMagicNumber(DataInputStream in) throws IOException {
+    int number = in.readInt();
+    if (number != SASL_TRANSFER_MAGIC_NUMBER) {
+      throw new InvalidMagicNumberException(number, SASL_TRANSFER_MAGIC_NUMBER);
+    }
   }
   
   public static byte[] readSaslMessage(DataInputStream in) throws IOException {
@@ -97,6 +97,11 @@ final class DataTransferSaslUtil {
     
     DataTransferEncryptorMessageProto proto = builder.build();
     proto.writeDelimitedTo(out);
+    out.flush();
+  }
+
+  public static void writeMagicNumber(DataOutputStream out) throws IOException {
+    out.writeInt(SASL_TRANSFER_MAGIC_NUMBER);
     out.flush();
   }
 
