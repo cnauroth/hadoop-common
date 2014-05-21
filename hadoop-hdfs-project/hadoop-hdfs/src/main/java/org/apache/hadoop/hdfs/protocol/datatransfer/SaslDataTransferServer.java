@@ -26,6 +26,7 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_SASL_PROPS_
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_KEY;
 import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.checkSaslComplete;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.encryptionKeyToPassword;
 import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.getClientAddress;
 import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.performSaslStep1;
 import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.readMagicNumber;
@@ -82,6 +83,11 @@ import com.google.common.collect.ImmutableMap;
 public class SaslDataTransferServer {
 
   private static final Log LOG = LogFactory.getLog(SaslDataTransferServer.class);
+  
+  /**
+   * Delimiter for the three-part SASL username string.
+   */
+  private static final String NAME_DELIMITER = " ";
 
   private final BlockPoolTokenSecretManager blockPoolTokenSecretManager;
   private final boolean encryptDataTransfer;
@@ -130,13 +136,78 @@ public class SaslDataTransferServer {
         Sasl.QOP, "auth-conf",
         Sasl.SERVER_AUTH, "true",
         "com.sun.security.sasl.digest.cipher", encryptionAlgorithm);
-      // TODO
-      String userName = null;
-      CallbackHandler callbackHandler = null;
+
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Server using encryption algorithm " + encryptionAlgorithm);
+      }
+
+      CallbackHandler callbackHandler = new SaslServerCallbackHandler();
       return doSaslHandshake(underlyingOut, underlyingIn, saslProps,
         callbackHandler);
     }
     return new IOStreamPair(underlyingIn, underlyingOut);
+  }
+
+  /**
+   * Set the encryption key when asked by the server-side SASL object.
+   */
+  private class SaslServerCallbackHandler implements CallbackHandler {
+
+    @Override
+    public void handle(Callback[] callbacks) throws IOException,
+        UnsupportedCallbackException {
+      NameCallback nc = null;
+      PasswordCallback pc = null;
+      AuthorizeCallback ac = null;
+      for (Callback callback : callbacks) {
+        if (callback instanceof AuthorizeCallback) {
+          ac = (AuthorizeCallback) callback;
+        } else if (callback instanceof PasswordCallback) {
+          pc = (PasswordCallback) callback;
+        } else if (callback instanceof NameCallback) {
+          nc = (NameCallback) callback;
+        } else if (callback instanceof RealmCallback) {
+          continue; // realm is ignored
+        } else {
+          throw new UnsupportedCallbackException(callback,
+              "Unrecognized SASL DIGEST-MD5 Callback: " + callback);
+        }
+      }
+
+      if (pc != null) {
+        byte[] encryptionKey = getEncryptionKeyFromUserName(nc.getDefaultName());
+        pc.setPassword(encryptionKeyToPassword(encryptionKey));
+      }
+
+      if (ac != null) {
+        ac.setAuthorized(true);
+        ac.setAuthorizedID(ac.getAuthorizationID());
+      }
+
+    }
+
+  }
+
+  /**
+   * Given a secret manager and a username encoded as described above, determine
+   * the encryption key.
+   * 
+   * @param userName containing the keyId, blockPoolId, and nonce.
+   * @return secret encryption key.
+   * @throws IOException
+   */
+  private byte[] getEncryptionKeyFromUserName(String userName)
+      throws IOException {
+    String[] nameComponents = userName.split(NAME_DELIMITER);
+    if (nameComponents.length != 3) {
+      throw new IOException("Provided name '" + userName + "' has " +
+          nameComponents.length + " components instead of the expected 3.");
+    }
+    int keyId = Integer.parseInt(nameComponents[0]);
+    String blockPoolId = nameComponents[1];
+    byte[] nonce = Base64.decodeBase64(nameComponents[2]);
+    return blockPoolTokenSecretManager.retrieveDataEncryptionKey(keyId,
+        blockPoolId, nonce);
   }
 
   private IOStreamPair getSaslStreams(OutputStream underlyingOut,

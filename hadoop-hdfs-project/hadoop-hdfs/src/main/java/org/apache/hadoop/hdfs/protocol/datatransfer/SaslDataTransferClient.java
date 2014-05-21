@@ -25,6 +25,7 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_SASL_PROPS_
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_KEY;
 import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.checkSaslComplete;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.encryptionKeyToPassword;
 import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.getClientAddress;
 import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.performSaslStep1;
 import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.readSaslMessage;
@@ -80,6 +81,13 @@ import com.google.common.collect.ImmutableMap;
 @InterfaceAudience.Private
 public class SaslDataTransferClient {
 
+  private static final Log LOG = LogFactory.getLog(SaslDataTransferClient.class);
+  
+  /**
+   * Delimiter for the three-part SASL username string.
+   */
+  private static final String NAME_DELIMITER = " ";
+
   private final boolean encryptDataTransfer;
   private final SaslPropertiesResolver saslPropsResolver;
   private final TrustedChannelResolver trustedChannelResolver;
@@ -127,13 +135,80 @@ public class SaslDataTransferClient {
         Sasl.QOP, "auth-conf",
         Sasl.SERVER_AUTH, "true",
         "com.sun.security.sasl.digest.cipher", encryptionKey.encryptionAlgorithm);
-      // TODO
-      String userName = null;
-      CallbackHandler callbackHandler = null;
+
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Client using encryption algorithm " +
+            encryptionKey.encryptionAlgorithm);
+      }
+
+      String userName = getUserNameFromEncryptionKey(encryptionKey);
+      CallbackHandler callbackHandler = new SaslClientCallbackHandler(
+        encryptionKey.encryptionKey, userName);
       return doSaslHandshake(underlyingOut, underlyingIn, userName, saslProps,
         callbackHandler);
     }
     return new IOStreamPair(underlyingIn, underlyingOut);
+  }
+  
+  /**
+   * The SASL username consists of the keyId, blockPoolId, and nonce with the
+   * first two encoded as Strings, and the third encoded using Base64. The
+   * fields are each separated by a single space.
+   * 
+   * @param encryptionKey the encryption key to encode as a SASL username.
+   * @return encoded username containing keyId, blockPoolId, and nonce
+   */
+  private static String getUserNameFromEncryptionKey(
+      DataEncryptionKey encryptionKey) {
+    return encryptionKey.keyId + NAME_DELIMITER +
+        encryptionKey.blockPoolId + NAME_DELIMITER +
+        new String(Base64.encodeBase64(encryptionKey.nonce, false), Charsets.UTF_8);
+  }
+  
+  /**
+   * Set the encryption key when asked by the client-side SASL object.
+   */
+  private class SaslClientCallbackHandler implements CallbackHandler {
+    
+    private final byte[] encryptionKey;
+    private final String userName;
+    
+    public SaslClientCallbackHandler(byte[] encryptionKey, String userName) {
+      this.encryptionKey = encryptionKey;
+      this.userName = userName;
+    }
+
+    @Override
+    public void handle(Callback[] callbacks) throws IOException,
+        UnsupportedCallbackException {
+      NameCallback nc = null;
+      PasswordCallback pc = null;
+      RealmCallback rc = null;
+      for (Callback callback : callbacks) {
+        if (callback instanceof RealmChoiceCallback) {
+          continue;
+        } else if (callback instanceof NameCallback) {
+          nc = (NameCallback) callback;
+        } else if (callback instanceof PasswordCallback) {
+          pc = (PasswordCallback) callback;
+        } else if (callback instanceof RealmCallback) {
+          rc = (RealmCallback) callback;
+        } else {
+          throw new UnsupportedCallbackException(callback,
+              "Unrecognized SASL client callback");
+        }
+      }
+      if (nc != null) {
+        nc.setName(userName);
+      }
+      if (pc != null) {
+        pc.setPassword(encryptionKeyToPassword(encryptionKey));
+      }
+      if (rc != null) {
+        rc.setText(rc.getDefaultText());
+      }
+    }
+    
   }
 
   private IOStreamPair getSaslStreams(OutputStream underlyingOut,

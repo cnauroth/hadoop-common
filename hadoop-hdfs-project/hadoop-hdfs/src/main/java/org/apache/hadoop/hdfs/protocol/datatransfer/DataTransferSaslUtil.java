@@ -25,11 +25,13 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetAddress;
 
+import org.apache.commons.codec.binary.Base64;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.hdfs.net.Peer;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.DataTransferEncryptorMessageProto;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.DataTransferEncryptorMessageProto.DataTransferEncryptorStatus;
 
+import com.google.common.base.Charsets;
 import com.google.common.net.InetAddresses;
 import com.google.protobuf.ByteString;
 
@@ -43,9 +45,15 @@ final class DataTransferSaslUtil {
   private static final int SASL_TRANSFER_MAGIC_NUMBER = 0xDEADBEEF;
 
   public static void checkSaslComplete(SaslParticipant sasl) throws IOException {
+    // TODO method of SaslParticipant
     if (!sasl.isComplete()) {
       throw new IOException("Failed to complete SASL handshake");
     }
+  }
+
+  public static char[] encryptionKeyToPassword(byte[] encryptionKey) {
+    return new String(Base64.encodeBase64(encryptionKey, false), Charsets.UTF_8)
+      .toCharArray();
   }
 
   /**
