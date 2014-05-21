@@ -17,10 +17,13 @@
  */
 package org.apache.hadoop.hdfs.protocol.datatransfer;
 
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_KEY;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_RPC_PROTECTION;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SECURITY_SASL_PROPS_RESOLVER_CLASS;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_SASL_PROPS_RESOLVER_CLASS_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_DEFAULT;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_KEY;
 import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.checkSaslComplete;
 import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.getClientAddress;
 import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.performSaslStep1;
@@ -36,7 +39,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Map;
-import java.util.TreeMap;
 
 import javax.security.auth.callback.Callback;
 import javax.security.auth.callback.CallbackHandler;
@@ -65,10 +67,10 @@ import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
 import org.apache.hadoop.security.SaslInputStream;
 import org.apache.hadoop.security.SaslOutputStream;
+import org.apache.hadoop.security.SaslPropertiesResolver;
 import org.apache.hadoop.security.SaslRpcServer.QualityOfProtection;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
-import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.Time;
 
 import com.google.common.base.Charsets;
@@ -79,20 +81,20 @@ import com.google.common.collect.ImmutableMap;
 public class SaslDataTransferClient {
 
   private final boolean encryptDataTransfer;
-  private final Map<String, String> saslProps;
+  private final SaslPropertiesResolver saslPropsResolver;
   private final TrustedChannelResolver trustedChannelResolver;
 
   public SaslDataTransferClient(Configuration conf) {
     this.encryptDataTransfer = conf.getBoolean(DFS_ENCRYPT_DATA_TRANSFER_KEY,
       DFS_ENCRYPT_DATA_TRANSFER_DEFAULT);
-    String[] qop = conf.getStrings(DFS_DATA_TRANSFER_PROTECTION_KEY,
-      DFS_DATA_TRANSFER_PROTECTION_DEFAULT);
-    for (int i=0; i < qop.length; i++) {
-      qop[i] = QualityOfProtection.valueOf(qop[i].toUpperCase()).getSaslQop();
-    }    
-    this.saslProps = ImmutableMap.of(
-      Sasl.QOP, StringUtils.join(",", qop),
-      Sasl.SERVER_AUTH, "true");
+    Configuration saslPropsResolverConf = new Configuration(conf);
+    saslPropsResolverConf.set(HADOOP_RPC_PROTECTION,
+      conf.get(DFS_DATA_TRANSFER_PROTECTION_KEY,
+        DFS_DATA_TRANSFER_PROTECTION_DEFAULT));
+    saslPropsResolverConf.setClass(HADOOP_SECURITY_SASL_PROPS_RESOLVER_CLASS,
+      conf.getClass(DFS_DATA_TRANSFER_SASL_PROPS_RESOLVER_CLASS_KEY,
+        SaslPropertiesResolver.class), SaslPropertiesResolver.class);
+    this.saslPropsResolver = SaslPropertiesResolver.getInstance(conf);
     this.trustedChannelResolver = TrustedChannelResolver.getInstance(conf);
   }
 
@@ -121,15 +123,15 @@ public class SaslDataTransferClient {
       DatanodeID datanodeId) throws IOException {
     if (!peer.hasSecureChannel() &&
         !trustedChannelResolver.isTrusted(getClientAddress(peer))) {
-      Map<String, String> encryptedSaslProps = ImmutableMap.of(
+      Map<String, String> saslProps = ImmutableMap.of(
         Sasl.QOP, "auth-conf",
         Sasl.SERVER_AUTH, "true",
         "com.sun.security.sasl.digest.cipher", encryptionKey.encryptionAlgorithm);
       // TODO
       String userName = null;
       CallbackHandler callbackHandler = null;
-      return doSaslHandshake(underlyingOut, underlyingIn, userName,
-        encryptedSaslProps, callbackHandler);
+      return doSaslHandshake(underlyingOut, underlyingIn, userName, saslProps,
+        callbackHandler);
     }
     return new IOStreamPair(underlyingIn, underlyingOut);
   }
