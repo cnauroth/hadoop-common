@@ -17,13 +17,7 @@
  */
 package org.apache.hadoop.hdfs.protocol.datatransfer;
 
-import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.checkSaslComplete;
-import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.performSaslStep1;
-import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.readMagicNumber;
-import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.readSaslMessage;
-import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.sendGenericSaslErrorMessage;
-import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.sendSaslMessage;
-import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.writeMagicNumber;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.*;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -125,7 +119,10 @@ public class DataTransferEncryptor {
     SaslParticipant sasl = SaslParticipant.createServerSaslParticipant(saslProps,
       new SaslServerCallbackHandler(blockPoolTokenSecretManager, datanodeId));
     
-    readMagicNumber(in);
+    int magicNumber = in.readInt();
+    if (magicNumber != SASL_TRANSFER_MAGIC_NUMBER) {
+      throw new InvalidMagicNumberException(magicNumber);
+    }
     try {
       // step 1
       performSaslStep1(out, in, sasl);
@@ -196,7 +193,8 @@ public class DataTransferEncryptor {
       saslProps, new SaslClientCallbackHandler(encryptionKey.encryptionKey,
         blockToken, datanodeId, userName, timestamp));
     
-    writeMagicNumber(out);
+    out.writeInt(SASL_TRANSFER_MAGIC_NUMBER);
+    out.flush();
     
     try {
       // Start of handshake - "initial response" in SASL terminology.

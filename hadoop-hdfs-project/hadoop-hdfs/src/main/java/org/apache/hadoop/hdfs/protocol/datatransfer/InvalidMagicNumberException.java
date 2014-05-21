@@ -17,6 +17,8 @@
  */
 package org.apache.hadoop.hdfs.protocol.datatransfer;
 
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.SASL_TRANSFER_MAGIC_NUMBER;
+
 import java.io.IOException;
 
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -26,8 +28,8 @@ public class InvalidMagicNumberException extends IOException {
 
   private static final long serialVersionUID = 1L;
 
-  public InvalidMagicNumberException(int actualNumber, int expectedNumber) {
-    super(String.format("Received %x instead of %x from client.", actualNumber,
-      expectedNumber));
+  public InvalidMagicNumberException(int magicNumber) {
+    super(String.format("Received %x instead of %x from client.",
+        magicNumber, SASL_TRANSFER_MAGIC_NUMBER));
   }
 }

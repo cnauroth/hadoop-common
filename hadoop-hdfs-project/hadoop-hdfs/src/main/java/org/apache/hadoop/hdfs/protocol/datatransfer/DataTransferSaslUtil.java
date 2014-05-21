@@ -17,19 +17,25 @@
  */
 package org.apache.hadoop.hdfs.protocol.datatransfer;
 
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_RPC_PROTECTION;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SECURITY_SASL_PROPS_RESOLVER_CLASS;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_DEFAULT;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_SASL_PROPS_RESOLVER_CLASS_KEY;
 import static org.apache.hadoop.hdfs.protocolPB.PBHelper.vintPrefixed;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.net.Peer;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.DataTransferEncryptorMessageProto;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.DataTransferEncryptorMessageProto.DataTransferEncryptorStatus;
+import org.apache.hadoop.security.SaslPropertiesResolver;
 
 import com.google.common.base.Charsets;
 import com.google.common.net.InetAddresses;
@@ -39,10 +45,15 @@ import com.google.protobuf.ByteString;
 final class DataTransferSaslUtil {
 
   /**
+   * Delimiter for the three-part SASL username string.
+   */
+  public static final String NAME_DELIMITER = " ";
+
+  /**
    * Sent by clients and validated by servers. We use a number that's unlikely
    * to ever be sent as the value of the DATA_TRANSFER_VERSION.
    */
-  private static final int SASL_TRANSFER_MAGIC_NUMBER = 0xDEADBEEF;
+  public static final int SASL_TRANSFER_MAGIC_NUMBER = 0xDEADBEEF;
 
   public static void checkSaslComplete(SaslParticipant sasl) throws IOException {
     // TODO method of SaslParticipant
@@ -69,21 +80,26 @@ final class DataTransferSaslUtil {
         peer.getRemoteAddressString().split(":")[0].substring(1));
   }
 
-  public static void performSaslStep1(DataOutputStream out, DataInputStream in,
+  public static SaslPropertiesResolver getSaslPropertiesResolver(
+      Configuration conf) {
+    Configuration saslPropsResolverConf = new Configuration(conf);
+    saslPropsResolverConf.set(HADOOP_RPC_PROTECTION,
+      conf.get(DFS_DATA_TRANSFER_PROTECTION_KEY,
+        DFS_DATA_TRANSFER_PROTECTION_DEFAULT));
+    saslPropsResolverConf.setClass(HADOOP_SECURITY_SASL_PROPS_RESOLVER_CLASS,
+      conf.getClass(DFS_DATA_TRANSFER_SASL_PROPS_RESOLVER_CLASS_KEY,
+        SaslPropertiesResolver.class), SaslPropertiesResolver.class);
+    return SaslPropertiesResolver.getInstance(conf);
+  }
+
+  public static void performSaslStep1(OutputStream out, InputStream in,
       SaslParticipant sasl) throws IOException {
     byte[] remoteResponse = readSaslMessage(in);
     byte[] localResponse = sasl.evaluateChallengeOrResponse(remoteResponse);
     sendSaslMessage(out, localResponse);
   }
-
-  public static void readMagicNumber(DataInputStream in) throws IOException {
-    int number = in.readInt();
-    if (number != SASL_TRANSFER_MAGIC_NUMBER) {
-      throw new InvalidMagicNumberException(number, SASL_TRANSFER_MAGIC_NUMBER);
-    }
-  }
   
-  public static byte[] readSaslMessage(DataInputStream in) throws IOException {
+  public static byte[] readSaslMessage(InputStream in) throws IOException {
     DataTransferEncryptorMessageProto proto =
         DataTransferEncryptorMessageProto.parseFrom(vintPrefixed(in));
     if (proto.getStatus() == DataTransferEncryptorStatus.ERROR_UNKNOWN_KEY) {
@@ -95,12 +111,12 @@ final class DataTransferSaslUtil {
     }
   }
 
-  public static void sendGenericSaslErrorMessage(DataOutputStream out,
+  public static void sendGenericSaslErrorMessage(OutputStream out,
       String message) throws IOException {
     sendSaslMessage(out, DataTransferEncryptorStatus.ERROR, null, message);
   }
 
-  public static void sendSaslMessage(DataOutputStream out, byte[] payload)
+  public static void sendSaslMessage(OutputStream out, byte[] payload)
       throws IOException {
     sendSaslMessage(out, DataTransferEncryptorStatus.SUCCESS, payload, null);
   }
@@ -121,11 +137,6 @@ final class DataTransferSaslUtil {
     
     DataTransferEncryptorMessageProto proto = builder.build();
     proto.writeDelimitedTo(out);
-    out.flush();
-  }
-
-  public static void writeMagicNumber(DataOutputStream out) throws IOException {
-    out.writeInt(SASL_TRANSFER_MAGIC_NUMBER);
     out.flush();
   }
 

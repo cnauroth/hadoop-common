@@ -17,21 +17,9 @@
  */
 package org.apache.hadoop.hdfs.protocol.datatransfer;
 
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_RPC_PROTECTION;
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SECURITY_SASL_PROPS_RESOLVER_CLASS;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_SASL_PROPS_RESOLVER_CLASS_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_KEY;
-import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.checkSaslComplete;
-import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.encryptionKeyToPassword;
-import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.getClientAddress;
-import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.performSaslStep1;
-import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.readSaslMessage;
-import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.sendGenericSaslErrorMessage;
-import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.sendSaslMessage;
-import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.writeMagicNumber;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.*;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -95,14 +83,7 @@ public class SaslDataTransferClient {
   public SaslDataTransferClient(Configuration conf) {
     this.encryptDataTransfer = conf.getBoolean(DFS_ENCRYPT_DATA_TRANSFER_KEY,
       DFS_ENCRYPT_DATA_TRANSFER_DEFAULT);
-    Configuration saslPropsResolverConf = new Configuration(conf);
-    saslPropsResolverConf.set(HADOOP_RPC_PROTECTION,
-      conf.get(DFS_DATA_TRANSFER_PROTECTION_KEY,
-        DFS_DATA_TRANSFER_PROTECTION_DEFAULT));
-    saslPropsResolverConf.setClass(HADOOP_SECURITY_SASL_PROPS_RESOLVER_CLASS,
-      conf.getClass(DFS_DATA_TRANSFER_SASL_PROPS_RESOLVER_CLASS_KEY,
-        SaslPropertiesResolver.class), SaslPropertiesResolver.class);
-    this.saslPropsResolver = SaslPropertiesResolver.getInstance(conf);
+    this.saslPropsResolver = getSaslPropertiesResolver(conf);
     this.trustedChannelResolver = TrustedChannelResolver.getInstance(conf);
   }
 
@@ -234,8 +215,9 @@ public class SaslDataTransferClient {
     SaslParticipant sasl= SaslParticipant.createClientSaslParticipant(userName,
       saslProps, callbackHandler);
 
-    writeMagicNumber(out);
-    
+    out.writeInt(SASL_TRANSFER_MAGIC_NUMBER);
+    out.flush();
+
     try {
       // Start of handshake - "initial response" in SASL terminology.
       sendSaslMessage(out, new byte[0]);
