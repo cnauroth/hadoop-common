@@ -88,6 +88,8 @@ Release 2.5.0 - UNRELEASED
     YARN-1938. Added kerberos login for the Timeline Server. (Zhijie Shen via
     vinodkv)
 
+    YARN-2017. Merged some of the common scheduler code. (Jian He via vinodkv)
+
   OPTIMIZATIONS
 
   BUG FIXES 
@@ -119,6 +121,9 @@ Release 2.5.0 - UNRELEASED
 
     YARN-2050. Fix LogCLIHelpers to create the correct FileContext (Ming Ma
     via jlowe)
+
+    YARN-2089. FairScheduler: QueuePlacementPolicy and QueuePlacementRule 
+    are missing audience annotations. (Zhihai Xu via kasha)
 
 Release 2.4.1 - UNRELEASED
 
@@ -239,6 +244,9 @@ Release 2.4.1 - UNRELEASED
 
     YARN-2066. Wrong field is referenced in GetApplicationsRequestPBImpl#mergeLocalToBuilder()
     (Hong Zhiguo via junping_du)
+
+    YARN-2081. Fixed TestDistributedShell failure after YARN-1962. (Zhiguo Hong
+    via zjshen)
 
 Release 2.4.0 - 2014-04-07 
 
