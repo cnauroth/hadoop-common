@@ -28,7 +28,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
+import java.util.Arrays;
 import java.util.Map;
+import java.util.Set;
 import javax.security.sasl.Sasl;
 
 import org.apache.commons.codec.binary.Base64;
@@ -42,6 +44,7 @@ import org.apache.hadoop.security.SaslRpcServer.QualityOfProtection;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.InetAddresses;
 import com.google.protobuf.ByteString;
 
@@ -59,19 +62,19 @@ final class DataTransferSaslUtil {
    */
   public static final int SASL_TRANSFER_MAGIC_NUMBER = 0xDEADBEEF;
 
-  public static void checkSaslComplete(SaslParticipant sasl) throws IOException {
+  public static void checkSaslComplete(SaslParticipant sasl,
+      Map<String, String> saslProps) throws IOException {
     if (!sasl.isComplete()) {
       throw new IOException("Failed to complete SASL handshake");
     }
-
-    if (!sasl.supportsConfidentiality()) {
-      throw new IOException("SASL handshake completed, but channel does not " +
-          "support encryption");
+    Set<String> requestedQops = ImmutableSet.copyOf(Arrays.asList(
+      saslProps.get(Sasl.QOP).split(",")));
+    String negotiatedQop = sasl.getNegotiatedQop();
+    if (!requestedQops.contains(negotiatedQop)) {
+      throw new IOException(String.format("SASL handshake completed, but " +
+        "channel does not have acceptable quality of protection, " +
+        "requested = %s, negotiated = %s", requestedQops, negotiatedQop));
     }
-  }
-
-  public static void checkSaslSupportsConfidentiality(SaslParticipant sasl)
-      throws IOException {
   }
 
   public static Map<String, String> createSaslPropertiesForEncryption(

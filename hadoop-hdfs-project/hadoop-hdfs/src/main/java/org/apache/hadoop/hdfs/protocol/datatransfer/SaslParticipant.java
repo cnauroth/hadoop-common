@@ -29,6 +29,7 @@ import javax.security.sasl.SaslServer;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.security.SaslInputStream;
 import org.apache.hadoop.security.SaslOutputStream;
+import org.apache.hadoop.security.SaslRpcServer.QualityOfProtection;
 
 /**
  * Strongly inspired by Thrift's TSaslTransport class.
@@ -84,27 +85,29 @@ class SaslParticipant {
     }
   }
 
-  public boolean isComplete() {
-    if (saslClient != null)
-      return saslClient.isComplete();
-    else
-      return saslServer.isComplete();
+  public String getNegotiatedQop() {
+    if (saslClient != null) {
+      return (String) saslClient.getNegotiatedProperty(Sasl.QOP);
+    } else {
+      return (String) saslServer.getNegotiatedProperty(Sasl.QOP);
+    }
   }
 
-  public boolean supportsConfidentiality() {
-    String qop = null;
+  public boolean isComplete() {
     if (saslClient != null) {
-      qop = (String) saslClient.getNegotiatedProperty(Sasl.QOP);
+      return saslClient.isComplete();
     } else {
-      qop = (String) saslServer.getNegotiatedProperty(Sasl.QOP);
+      return saslServer.isComplete();
     }
-    return qop != null && qop.equals("auth-conf");
   }
 
   // Return some input/output streams that will henceforth have their
   // communication encrypted.
-  public IOStreamPair createEncryptedStreamPair(DataOutputStream out,
+  public IOStreamPair createStreamPair(DataOutputStream out,
       DataInputStream in) {
+    if (getNegotiatedQop() == QualityOfProtection.AUTHENTICATION.getSaslQop()) {
+      return new IOStreamPair(in, out);
+    }
     if (saslClient != null) {
       return new IOStreamPair(
           new SaslInputStream(in, saslClient),

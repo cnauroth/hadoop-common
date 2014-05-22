@@ -236,9 +236,9 @@ public class SaslDataTransferServer {
       sendSaslMessage(out, localResponse);
 
       // SASL handshake is complete
-      checkSaslComplete(sasl);
+      checkSaslComplete(sasl, saslProps);
 
-      return sasl.createEncryptedStreamPair(out, in);
+      return sasl.createStreamPair(out, in);
     } catch (IOException ioe) {
       if (ioe instanceof SaslException &&
           ioe.getCause() != null &&
