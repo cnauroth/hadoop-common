@@ -114,17 +114,36 @@ public class SaslDataTransferServer {
         LOG.debug("Server using encryption algorithm " + encryptionAlgorithm);
       }
 
-      CallbackHandler callbackHandler = new SaslServerCallbackHandler();
+      CallbackHandler callbackHandler = new SaslServerCallbackHandler(
+        new PasswordFunction() {
+          @Override
+          public char[] apply(String userName) throws IOException {
+            return encryptionKeyToPassword(getEncryptionKeyFromUserName(
+              userName));
+          }
+      });
+      SaslParticipant sasl = SaslParticipant.createServerSaslParticipant(
+        saslProps, callbackHandler);
       return doSaslHandshake(underlyingOut, underlyingIn, saslProps,
         callbackHandler);
     }
     return new IOStreamPair(underlyingIn, underlyingOut);
   }
 
+  private interface PasswordFunction {
+    char[] apply(String userName) throws IOException;
+  }
+
   /**
    * Set the encryption key when asked by the server-side SASL object.
    */
   private class SaslServerCallbackHandler implements CallbackHandler {
+
+    private final PasswordFunction passwordFunction;
+
+    public SaslServerCallbackHandler(PasswordFunction passwordFunction) {
+      this.passwordFunction = passwordFunction;
+    }
 
     @Override
     public void handle(Callback[] callbacks) throws IOException,
@@ -149,16 +168,14 @@ public class SaslDataTransferServer {
 
       if (pc != null) {
         byte[] encryptionKey = getEncryptionKeyFromUserName(nc.getDefaultName());
-        pc.setPassword(encryptionKeyToPassword(encryptionKey));
+        pc.setPassword(passwordFunction.apply(nc.getDefaultName()));
       }
 
       if (ac != null) {
         ac.setAuthorized(true);
         ac.setAuthorizedID(ac.getAuthorizationID());
       }
-
     }
-
   }
 
   /**

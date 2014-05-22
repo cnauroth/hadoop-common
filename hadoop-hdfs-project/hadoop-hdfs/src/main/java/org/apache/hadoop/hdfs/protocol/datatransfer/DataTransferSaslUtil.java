@@ -60,10 +60,18 @@ final class DataTransferSaslUtil {
   public static final int SASL_TRANSFER_MAGIC_NUMBER = 0xDEADBEEF;
 
   public static void checkSaslComplete(SaslParticipant sasl) throws IOException {
-    // TODO method of SaslParticipant
     if (!sasl.isComplete()) {
       throw new IOException("Failed to complete SASL handshake");
     }
+
+    if (!sasl.supportsConfidentiality()) {
+      throw new IOException("SASL handshake completed, but channel does not " +
+          "support encryption");
+    }
+  }
+
+  public static void checkSaslSupportsConfidentiality(SaslParticipant sasl)
+      throws IOException {
   }
 
   public static Map<String, String> createSaslPropertiesForEncryption(

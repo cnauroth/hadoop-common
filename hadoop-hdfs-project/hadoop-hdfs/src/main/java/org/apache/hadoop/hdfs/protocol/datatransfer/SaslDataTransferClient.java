@@ -117,14 +117,15 @@ public class SaslDataTransferClient {
       }
 
       String userName = getUserNameFromEncryptionKey(encryptionKey);
-      CallbackHandler callbackHandler = new SaslClientCallbackHandler(
-        encryptionKey.encryptionKey, userName);
+      char[] password = encryptionKeyToPassword(encryptionKey.encryptionKey);
+      CallbackHandler callbackHandler = new SaslClientCallbackHandler(userName,
+        password);
       return doSaslHandshake(underlyingOut, underlyingIn, userName, saslProps,
         callbackHandler);
     }
     return new IOStreamPair(underlyingIn, underlyingOut);
   }
-  
+
   /**
    * The SASL username consists of the keyId, blockPoolId, and nonce with the
    * first two encoded as Strings, and the third encoded using Base64. The
@@ -144,12 +145,12 @@ public class SaslDataTransferClient {
    * Set the encryption key when asked by the client-side SASL object.
    */
   private class SaslClientCallbackHandler implements CallbackHandler {
-    
-    private final byte[] encryptionKey;
+
+    private final char[] password;
     private final String userName;
-    
-    public SaslClientCallbackHandler(byte[] encryptionKey, String userName) {
-      this.encryptionKey = encryptionKey;
+
+    public SaslClientCallbackHandler(String userName, char[] password) {
+      this.password = password;
       this.userName = userName;
     }
 
@@ -177,13 +178,12 @@ public class SaslDataTransferClient {
         nc.setName(userName);
       }
       if (pc != null) {
-        pc.setPassword(encryptionKeyToPassword(encryptionKey));
+        pc.setPassword(password);
       }
       if (rc != null) {
         rc.setText(rc.getDefaultText());
       }
     }
-    
   }
 
   private IOStreamPair getSaslStreams(OutputStream underlyingOut,
