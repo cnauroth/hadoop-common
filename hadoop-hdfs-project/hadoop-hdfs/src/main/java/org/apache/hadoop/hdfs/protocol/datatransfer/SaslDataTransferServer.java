@@ -17,9 +17,6 @@
  */
 package org.apache.hadoop.hdfs.protocol.datatransfer;
 
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_ENCRYPTION_ALGORITHM_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_KEY;
 import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.*;
 
 import java.io.ByteArrayInputStream;
@@ -49,7 +46,6 @@ import org.apache.hadoop.hdfs.protocol.DatanodeID;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.DataTransferEncryptorMessageProto.DataTransferEncryptorStatus;
 import org.apache.hadoop.hdfs.security.token.block.BlockPoolTokenSecretManager;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
-import org.apache.hadoop.security.SaslPropertiesResolver;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import com.google.common.base.Charsets;
@@ -65,24 +61,17 @@ public class SaslDataTransferServer {
   private static final String NAME_DELIMITER = " ";
 
   private final BlockPoolTokenSecretManager blockPoolTokenSecretManager;
-  private final boolean encryptDataTransfer;
-  private final String encryptionAlgorithm;
-  private final SaslPropertiesResolver saslPropsResolver;
-  private final TrustedChannelResolver trustedChannelResolver;
+  private final DataTransferSaslConf saslConf;
 
-  public SaslDataTransferServer(Configuration conf,
+  public SaslDataTransferServer(DataTransferSaslConf saslConf,
       BlockPoolTokenSecretManager blockPoolTokenSecretManager) {
     this.blockPoolTokenSecretManager = blockPoolTokenSecretManager;
-    this.encryptDataTransfer = conf.getBoolean(DFS_ENCRYPT_DATA_TRANSFER_KEY,
-      DFS_ENCRYPT_DATA_TRANSFER_DEFAULT);
-    this.encryptionAlgorithm = conf.get(DFS_DATA_ENCRYPTION_ALGORITHM_KEY);
-    this.saslPropsResolver = getSaslPropertiesResolver(conf);
-    this.trustedChannelResolver = TrustedChannelResolver.getInstance(conf);
+    this.saslConf = saslConf;
   }
 
   public IOStreamPair saslConnect(Peer peer, OutputStream underlyingOut,
       InputStream underlyingIn, DatanodeID datanodeId) throws IOException {
-    if (encryptDataTransfer) {
+    if (saslConf.encryptDataTransfer) {
       return getEncryptedStreams(peer, underlyingOut, underlyingIn, datanodeId);
     }
     if (UserGroupInformation.isSecurityEnabled()) {
@@ -99,12 +88,13 @@ public class SaslDataTransferServer {
       OutputStream underlyingOut, InputStream underlyingIn,
       DatanodeID datanodeId) throws IOException {
     if (!peer.hasSecureChannel() &&
-        !trustedChannelResolver.isTrusted(getPeerAddress(peer))) {
+        !saslConf.trustedChannelResolver.isTrusted(getPeerAddress(peer))) {
       Map<String, String> saslProps = createSaslPropertiesForEncryption(
-        encryptionAlgorithm);
+        saslConf.encryptionAlgorithm);
 
       if (LOG.isDebugEnabled()) {
-        LOG.debug("Server using encryption algorithm " + encryptionAlgorithm);
+        LOG.debug("Server using encryption algorithm " +
+          saslConf.encryptionAlgorithm);
       }
 
       CallbackHandler callbackHandler = new SaslServerCallbackHandler(
@@ -202,8 +192,8 @@ public class SaslDataTransferServer {
         datanodeId.getXferPort(), DFS_DATA_TRANSFER_PROTECTION_KEY));
   */
     // TODO
-    Map<String, String> saslProps = saslPropsResolver.getServerProperties(
-      getPeerAddress(peer));
+    Map<String, String> saslProps = saslConf.saslPropsResolver
+      .getServerProperties(getPeerAddress(peer));
 
     CallbackHandler callbackHandler = new SaslServerCallbackHandler(
       new PasswordFunction() {

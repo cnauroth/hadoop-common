@@ -17,8 +17,6 @@
  */
 package org.apache.hadoop.hdfs.protocol.datatransfer;
 
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_KEY;
 import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.*;
 
 import java.io.DataInputStream;
@@ -45,7 +43,6 @@ import org.apache.hadoop.hdfs.net.Peer;
 import org.apache.hadoop.hdfs.protocol.DatanodeID;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
-import org.apache.hadoop.security.SaslPropertiesResolver;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.util.Time;
@@ -62,22 +59,17 @@ public class SaslDataTransferClient {
    */
   private static final String NAME_DELIMITER = " ";
 
-  private final boolean encryptDataTransfer;
-  private final SaslPropertiesResolver saslPropsResolver;
-  private final TrustedChannelResolver trustedChannelResolver;
+  private final DataTransferSaslConf saslConf;
 
-  public SaslDataTransferClient(Configuration conf) {
-    this.encryptDataTransfer = conf.getBoolean(DFS_ENCRYPT_DATA_TRANSFER_KEY,
-      DFS_ENCRYPT_DATA_TRANSFER_DEFAULT);
-    this.saslPropsResolver = getSaslPropertiesResolver(conf);
-    this.trustedChannelResolver = TrustedChannelResolver.getInstance(conf);
+  public SaslDataTransferClient(DataTransferSaslConf saslConf) {
+    this.saslConf = saslConf;
   }
 
   public IOStreamPair saslConnect(Peer peer, OutputStream underlyingOut,
       InputStream underlyingIn, DataEncryptionKey encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
-    if (encryptDataTransfer) {
+    if (saslConf.encryptDataTransfer) {
       return getEncryptedStreams(peer, underlyingOut, underlyingIn,
         encryptionKey, accessToken, datanodeId);
     }
@@ -97,7 +89,7 @@ public class SaslDataTransferClient {
       DataEncryptionKey encryptionKey, Token<BlockTokenIdentifier> accessToken,
       DatanodeID datanodeId) throws IOException {
     if (!peer.hasSecureChannel() &&
-        !trustedChannelResolver.isTrusted(getPeerAddress(peer))) {
+        !saslConf.trustedChannelResolver.isTrusted(getPeerAddress(peer))) {
       Map<String, String> saslProps = createSaslPropertiesForEncryption(
         encryptionKey.encryptionAlgorithm);
 
@@ -186,8 +178,8 @@ public class SaslDataTransferClient {
         datanodeId.getXferPort(), DFS_DATA_TRANSFER_PROTECTION_KEY));
   */
     // TODO
-    Map<String, String> saslProps = saslPropsResolver.getClientProperties(
-      getPeerAddress(peer));
+    Map<String, String> saslProps = saslConf.saslPropsResolver
+      .getClientProperties(getPeerAddress(peer));
 
     long timestamp = Time.now();
     String userName = buildUserName(accessToken.getIdentifier(), timestamp);
