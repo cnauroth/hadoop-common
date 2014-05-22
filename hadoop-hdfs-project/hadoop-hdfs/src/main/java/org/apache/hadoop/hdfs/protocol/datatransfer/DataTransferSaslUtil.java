@@ -98,7 +98,7 @@ final class DataTransferSaslUtil {
    * @return
    * @throws UnknownHostException
    */
-  public static InetAddress getClientAddress(Peer peer) {
+  public static InetAddress getPeerAddress(Peer peer) {
     return InetAddresses.forString(
         peer.getRemoteAddressString().split(":")[0].substring(1));
   }

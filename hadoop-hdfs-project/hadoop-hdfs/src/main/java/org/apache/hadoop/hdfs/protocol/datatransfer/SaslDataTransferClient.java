@@ -95,7 +95,7 @@ public class SaslDataTransferClient {
       if (datanodeId.getXferPort() < 1024) {
         return new IOStreamPair(underlyingIn, underlyingOut);
       } else {
-        return getSaslStreams(underlyingOut, underlyingIn, accessToken,
+        return getSaslStreams(peer, underlyingOut, underlyingIn, accessToken,
           datanodeId);
       }
     }
@@ -107,7 +107,7 @@ public class SaslDataTransferClient {
       DataEncryptionKey encryptionKey, Token<BlockTokenIdentifier> accessToken,
       DatanodeID datanodeId) throws IOException {
     if (!peer.hasSecureChannel() &&
-        !trustedChannelResolver.isTrusted(getClientAddress(peer))) {
+        !trustedChannelResolver.isTrusted(getPeerAddress(peer))) {
       Map<String, String> saslProps = createSaslPropertiesForEncryption(
         encryptionKey.encryptionAlgorithm);
 
@@ -186,7 +186,7 @@ public class SaslDataTransferClient {
     }
   }
 
-  private IOStreamPair getSaslStreams(OutputStream underlyingOut,
+  private IOStreamPair getSaslStreams(Peer peer, OutputStream underlyingOut,
       InputStream underlyingIn, Token<BlockTokenIdentifier> accessToken,
       DatanodeID datanodeId) throws IOException {
   /*
@@ -196,7 +196,50 @@ public class SaslDataTransferClient {
         datanodeId.getXferPort(), DFS_DATA_TRANSFER_PROTECTION_KEY));
   */
     // TODO
-    return null;
+    Map<String, String> saslProps = saslPropsResolver.getClientProperties(
+      getPeerAddress(peer));
+
+    long timestamp = Time.now();
+    String userName = buildUserName(accessToken.getIdentifier(), timestamp);
+    char[] password = buildClientPassword(accessToken, datanodeId, timestamp);
+    CallbackHandler callbackHandler = new SaslClientCallbackHandler(userName,
+      password);
+    return doSaslHandshake(underlyingOut, underlyingIn, userName, saslProps,
+      callbackHandler);
+  }
+
+  /**
+   * Builds the client's user name, consisting of the base64-encoded serialized
+   * block access token identifier and a client-generated timestamp.  Note that
+   * this includes only the token identifier, not the token itself, which would
+   * include the password.  The password is a shared secret, and we must not
+   * write it on the network during the SASL authentication exchange.
+   *
+   * @param identifier byte[] containing serialized block access token
+   *   identifier
+   * @param timestamp long client-generated timestamp
+   * @return String client's user name
+   */
+  private static String buildUserName(byte[] identifier, long timestamp) {
+    return new String(Base64.encodeBase64(identifier, false), Charsets.UTF_8) +
+        NAME_DELIMITER + timestamp;
+  }
+
+  /**
+   * Calculates the password on the client side.  The password consists of the
+   * block access token's password, the target DataNode UUID, and a
+   * client-generated request timestamp.
+   *
+   * @param blockToken Token<BlockTokenIdentifier> for block access
+   * @param datanodeId DatanodeID of DataNode receiving connection
+   * @return char[] client password
+   */    
+  private char[] buildClientPassword(Token<BlockTokenIdentifier> blockToken,
+      DatanodeID datanodeId, long timestamp) {
+    // TOOD: probably want to include block pool ID in password too
+    return (new String(Base64.encodeBase64(blockToken.getPassword(), false),
+      Charsets.UTF_8) + NAME_DELIMITER + datanodeId.getDatanodeUuid() +
+      NAME_DELIMITER + timestamp).toCharArray();
   }
 
   private IOStreamPair doSaslHandshake(OutputStream underlyingOut,

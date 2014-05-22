@@ -61,6 +61,8 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.util.Time;
 
+import com.google.common.base.Charsets;
+
 @InterfaceAudience.Private
 public class SaslDataTransferServer {
 
@@ -96,7 +98,7 @@ public class SaslDataTransferServer {
       if (datanodeId.getXferPort() < 1024) {
         return new IOStreamPair(underlyingIn, underlyingOut);
       } else {
-        return getSaslStreams(underlyingOut, underlyingIn, datanodeId);
+        return getSaslStreams(peer, underlyingOut, underlyingIn, datanodeId);
       }
     }
     return new IOStreamPair(underlyingIn, underlyingOut);
@@ -106,7 +108,7 @@ public class SaslDataTransferServer {
       OutputStream underlyingOut, InputStream underlyingIn,
       DatanodeID datanodeId) throws IOException {
     if (!peer.hasSecureChannel() &&
-        !trustedChannelResolver.isTrusted(getClientAddress(peer))) {
+        !trustedChannelResolver.isTrusted(getPeerAddress(peer))) {
       Map<String, String> saslProps = createSaslPropertiesForEncryption(
         encryptionAlgorithm);
 
@@ -200,8 +202,8 @@ public class SaslDataTransferServer {
         blockPoolId, nonce);
   }
 
-  private IOStreamPair getSaslStreams(OutputStream underlyingOut,
-      InputStream underlyingIn, DatanodeID datanodeId) throws IOException {
+  private IOStreamPair getSaslStreams(Peer peer, OutputStream underlyingOut,
+      InputStream underlyingIn, final DatanodeID datanodeId) throws IOException {
   /*
       throw new IOException(String.format("Cannot create a secured " +
         "connection if DataNode listens on unprivileged port (%d) and no " +
@@ -209,7 +211,71 @@ public class SaslDataTransferServer {
         datanodeId.getXferPort(), DFS_DATA_TRANSFER_PROTECTION_KEY));
   */
     // TODO
-    return null;
+    Map<String, String> saslProps = saslPropsResolver.getServerProperties(
+      getPeerAddress(peer));
+
+    CallbackHandler callbackHandler = new SaslServerCallbackHandler(
+      new PasswordFunction() {
+        @Override
+        public char[] apply(String userName) throws IOException {
+          return buildServerPassword(userName, datanodeId);
+        }
+    });
+    SaslParticipant sasl = SaslParticipant.createServerSaslParticipant(
+      saslProps, callbackHandler);
+    return doSaslHandshake(underlyingOut, underlyingIn, saslProps,
+        callbackHandler);
+  }
+
+  /**
+   * Calculates the expected correct password on the server side.  The
+   * password consists of the block access token's password (known to the
+   * DataNode via its secret manager), the target DataNode UUID (also known to
+   * the DataNode), and a request timestamp (provided in the client request).
+   * This expects that the client has supplied a user name consisting of its
+   * serialized block access token identifier and the client-generated
+   * timestamp.  The timestamp is checked against a configurable expiration to
+   * make replay attacks harder.
+   *
+   * @param userName String user name containing serialized block access token
+   *   and client-generated timestamp
+   * @param datanodeId DatanodeID of DataNode accepting connection
+   * @return char[] expected correct password
+   * @throws IOException if there is any I/O error
+   */    
+  private char[] buildServerPassword(String userName, DatanodeID datanodeId)
+      throws IOException {
+    // TOOD: probably want to include block pool ID in password too
+    String[] parts = userName.split(NAME_DELIMITER);
+    String[] nameComponents = userName.split(NAME_DELIMITER);
+    if (nameComponents.length != 2) {
+      throw new IOException("Provided name '" + userName + "' has " +
+        nameComponents.length + " components instead of the expected 2.");
+    }
+    BlockTokenIdentifier identifier = deserializeIdentifier(nameComponents[0]);
+    long timestamp = Long.parseLong(nameComponents[1]);
+    // TODO: Check timestamp within configurable threshold.
+    byte[] tokenPassword = blockPoolTokenSecretManager.retrievePassword(
+      identifier);
+    return (new String(Base64.encodeBase64(tokenPassword, false),
+      Charsets.UTF_8) + NAME_DELIMITER + datanodeId.getDatanodeUuid() +
+      NAME_DELIMITER + timestamp).toCharArray();
+  }
+
+  /**
+   * Deserializes a base64-encoded binary representation of a block access
+   * token.
+   *
+   * @param str String to deserialize
+   * @return BlockTokenIdentifier deserialized from str
+   * @throws IOException if there is any I/O error
+   */
+  private BlockTokenIdentifier deserializeIdentifier(String str)
+      throws IOException {
+    BlockTokenIdentifier identifier = new BlockTokenIdentifier();
+    identifier.readFields(new DataInputStream(new ByteArrayInputStream(
+      Base64.decodeBase64(str))));
+    return identifier;
   }
 
   private IOStreamPair doSaslHandshake(OutputStream underlyingOut,
