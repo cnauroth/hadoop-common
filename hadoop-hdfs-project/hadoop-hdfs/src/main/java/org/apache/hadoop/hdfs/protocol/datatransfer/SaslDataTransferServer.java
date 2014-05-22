@@ -25,6 +25,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.Socket;
 import java.util.Map;
 
 import javax.security.auth.callback.Callback;
@@ -43,12 +44,16 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.net.Peer;
 import org.apache.hadoop.hdfs.protocol.DatanodeID;
+import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.DataTransferEncryptorMessageProto.DataTransferEncryptorStatus;
 import org.apache.hadoop.hdfs.security.token.block.BlockPoolTokenSecretManager;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
+import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.security.token.Token;
 
 import com.google.common.base.Charsets;
+import com.google.common.base.Supplier;
 
 @InterfaceAudience.Private
 public class SaslDataTransferServer {
@@ -62,11 +67,29 @@ public class SaslDataTransferServer {
 
   private final BlockPoolTokenSecretManager blockPoolTokenSecretManager;
   private final DataTransferSaslConf saslConf;
+  private final SaslDataTransferClient saslDataTransferClient;
 
   public SaslDataTransferServer(DataTransferSaslConf saslConf,
       BlockPoolTokenSecretManager blockPoolTokenSecretManager) {
     this.blockPoolTokenSecretManager = blockPoolTokenSecretManager;
     this.saslConf = saslConf;
+    this.saslDataTransferClient = new SaslDataTransferClient(saslConf);
+  }
+
+  public IOStreamPair saslClientConnect(Socket socket,
+      OutputStream underlyingOut, InputStream underlyingIn,
+      final ExtendedBlock block, Token<BlockTokenIdentifier> accessToken,
+      DatanodeID datanodeId) throws IOException {
+    Supplier<DataEncryptionKey> encryptionKeySupplier =
+      new Supplier<DataEncryptionKey>() {
+        @Override
+        public DataEncryptionKey get() {
+          return blockPoolTokenSecretManager.generateDataEncryptionKey(
+            block.getBlockPoolId());
+        }
+      };
+    return saslDataTransferClient.saslConnect(socket, underlyingOut,
+      underlyingIn, encryptionKeySupplier, accessToken, datanodeId);
   }
 
   public IOStreamPair saslConnect(Peer peer, OutputStream underlyingOut,

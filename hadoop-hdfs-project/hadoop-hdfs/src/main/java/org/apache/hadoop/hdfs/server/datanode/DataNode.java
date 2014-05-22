@@ -224,6 +224,7 @@ public class DataNode extends Configured
   private final List<String> usersWithLocalPathAccess;
   private final boolean connectToDnViaHostname;
   ReadaheadPool readaheadPool;
+  SaslDataTransferServer saslDataTransferServer;
   private final boolean getHdfsBlockLocationsEnabled;
   private ObjectName dataNodeInfoBeanName;
   private Thread checkDiskErrorThread = null;
@@ -745,6 +746,8 @@ public class DataNode extends Configured
     // Create the ReadaheadPool from the DataNode context so we can
     // exit without having to explicitly shutdown its thread pool.
     readaheadPool = ReadaheadPool.getInstance();
+    saslDataTransferServer = new SaslDataTransferServer(
+      new DataTransferSaslConf(conf), blockPoolTokenSecretManager);
   }
   
   public static String generateUuid() {
@@ -1590,16 +1593,10 @@ public class DataNode extends Configured
                             HdfsServerConstants.WRITE_TIMEOUT_EXTENSION * (targets.length-1);
         OutputStream unbufOut = NetUtils.getOutputStream(sock, writeTimeout);
         InputStream unbufIn = NetUtils.getInputStream(sock);
-        if (dnConf.encryptDataTransfer && 
-            !dnConf.trustedChannelResolver.isTrusted(sock.getInetAddress())) {
-          IOStreamPair encryptedStreams =
-              DataTransferEncryptor.getEncryptedStreams(
-                  unbufOut, unbufIn,
-                  blockPoolTokenSecretManager.generateDataEncryptionKey(
-                      b.getBlockPoolId()), accessToken, bpReg);
-          unbufOut = encryptedStreams.out;
-          unbufIn = encryptedStreams.in;
-        }
+        IOStreamPair saslStreams = saslDataTransferServer.saslClientConnect(sock,
+          unbufOut, unbufIn, b, accessToken, bpReg);
+        unbufOut = saslStreams.out;
+        unbufIn = saslStreams.in;
         
         out = new DataOutputStream(new BufferedOutputStream(unbufOut,
             HdfsConstants.SMALL_BUFFER_SIZE));

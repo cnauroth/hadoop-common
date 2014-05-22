@@ -24,6 +24,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.Socket;
 import java.util.Map;
 
 import javax.security.auth.callback.Callback;
@@ -48,6 +49,8 @@ import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.util.Time;
 
 import com.google.common.base.Charsets;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 
 @InterfaceAudience.Private
 public class SaslDataTransferClient {
@@ -65,47 +68,51 @@ public class SaslDataTransferClient {
     this.saslConf = saslConf;
   }
 
-  public IOStreamPair saslConnect(Peer peer, OutputStream underlyingOut,
+  public IOStreamPair saslConnect(Socket socket, OutputStream underlyingOut,
       InputStream underlyingIn, DataEncryptionKey encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
+    return saslConnect(socket, underlyingOut, underlyingIn,
+      Suppliers.ofInstance(encryptionKey), accessToken, datanodeId);
+  }
+
+  public IOStreamPair saslConnect(Socket socket, OutputStream underlyingOut,
+      InputStream underlyingIn, Supplier<DataEncryptionKey> encryptionKey,
+      Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
+      throws IOException {
     if (saslConf.encryptDataTransfer) {
-      return getEncryptedStreams(peer, underlyingOut, underlyingIn,
-        encryptionKey, accessToken, datanodeId);
+      return getEncryptedStreams(underlyingOut, underlyingIn,
+        encryptionKey.get(), accessToken, datanodeId);
     }
     if (UserGroupInformation.isSecurityEnabled()) {
       if (datanodeId.getXferPort() < 1024) {
         return new IOStreamPair(underlyingIn, underlyingOut);
       } else {
-        return getSaslStreams(peer, underlyingOut, underlyingIn, accessToken,
+        return getSaslStreams(socket, underlyingOut, underlyingIn, accessToken,
           datanodeId);
       }
     }
     return new IOStreamPair(underlyingIn, underlyingOut);
   }
 
-  private IOStreamPair getEncryptedStreams(Peer peer,
-      OutputStream underlyingOut, InputStream underlyingIn,
-      DataEncryptionKey encryptionKey, Token<BlockTokenIdentifier> accessToken,
-      DatanodeID datanodeId) throws IOException {
-    if (!peer.hasSecureChannel() &&
-        !saslConf.trustedChannelResolver.isTrusted(getPeerAddress(peer))) {
-      Map<String, String> saslProps = createSaslPropertiesForEncryption(
-        encryptionKey.encryptionAlgorithm);
+  private IOStreamPair getEncryptedStreams(OutputStream underlyingOut,
+      InputStream underlyingIn, DataEncryptionKey encryptionKey,
+      Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
+      throws IOException {
+    Map<String, String> saslProps = createSaslPropertiesForEncryption(
+      encryptionKey.encryptionAlgorithm);
 
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Client using encryption algorithm " +
-            encryptionKey.encryptionAlgorithm);
-      }
-
-      String userName = getUserNameFromEncryptionKey(encryptionKey);
-      char[] password = encryptionKeyToPassword(encryptionKey.encryptionKey);
-      CallbackHandler callbackHandler = new SaslClientCallbackHandler(userName,
-        password);
-      return doSaslHandshake(underlyingOut, underlyingIn, userName, saslProps,
-        callbackHandler);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Client using encryption algorithm " +
+          encryptionKey.encryptionAlgorithm);
     }
-    return new IOStreamPair(underlyingIn, underlyingOut);
+
+    String userName = getUserNameFromEncryptionKey(encryptionKey);
+    char[] password = encryptionKeyToPassword(encryptionKey.encryptionKey);
+    CallbackHandler callbackHandler = new SaslClientCallbackHandler(userName,
+      password);
+    return doSaslHandshake(underlyingOut, underlyingIn, userName, saslProps,
+      callbackHandler);
   }
 
   /**
@@ -168,7 +175,7 @@ public class SaslDataTransferClient {
     }
   }
 
-  private IOStreamPair getSaslStreams(Peer peer, OutputStream underlyingOut,
+  private IOStreamPair getSaslStreams(Socket socket, OutputStream underlyingOut,
       InputStream underlyingIn, Token<BlockTokenIdentifier> accessToken,
       DatanodeID datanodeId) throws IOException {
   /*
@@ -179,7 +186,7 @@ public class SaslDataTransferClient {
   */
     // TODO
     Map<String, String> saslProps = saslConf.saslPropsResolver
-      .getClientProperties(getPeerAddress(peer));
+      .getClientProperties(socket.getInetAddress());
 
     long timestamp = Time.now();
     String userName = buildUserName(accessToken.getIdentifier(), timestamp);
