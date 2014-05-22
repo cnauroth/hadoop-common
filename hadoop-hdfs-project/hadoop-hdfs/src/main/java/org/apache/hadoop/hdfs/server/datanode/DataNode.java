@@ -746,8 +746,8 @@ public class DataNode extends Configured
     // Create the ReadaheadPool from the DataNode context so we can
     // exit without having to explicitly shutdown its thread pool.
     readaheadPool = ReadaheadPool.getInstance();
-    saslDataTransferServer = new SaslDataTransferServer(
-      new DataTransferSaslConf(conf), blockPoolTokenSecretManager);
+    saslDataTransferServer = new SaslDataTransferServer(dnConf,
+      blockPoolTokenSecretManager);
   }
   
   public static String generateUuid() {

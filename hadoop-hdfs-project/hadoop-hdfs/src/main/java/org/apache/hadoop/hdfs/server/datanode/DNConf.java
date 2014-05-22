@@ -51,8 +51,10 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_RESTART_REPLICA_
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
+import org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil;
 import org.apache.hadoop.hdfs.protocol.datatransfer.TrustedChannelResolver;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants;
+import org.apache.hadoop.security.SaslPropertiesResolver;
 
 /**
  * Simple class encapsulating all of the configuration that the DataNode
@@ -83,6 +85,7 @@ public class DNConf {
   
   final String minimumNameNodeVersion;
   final String encryptionAlgorithm;
+  final SaslPropertiesResolver saslPropsResolver;
   final TrustedChannelResolver trustedChannelResolver;
   
   final long xceiverStopTimeout;
@@ -155,6 +158,8 @@ public class DNConf {
         DFS_ENCRYPT_DATA_TRANSFER_DEFAULT);
     this.encryptionAlgorithm = conf.get(DFS_DATA_ENCRYPTION_ALGORITHM_KEY);
     this.trustedChannelResolver = TrustedChannelResolver.getInstance(conf);
+    this.saslPropsResolver = DataTransferSaslUtil.getSaslPropertiesResolver(
+      conf);
     
     this.xceiverStopTimeout = conf.getLong(
         DFS_DATANODE_XCEIVER_STOP_TIMEOUT_MILLIS_KEY,
@@ -173,12 +178,28 @@ public class DNConf {
   String getMinimumNameNodeVersion() {
     return this.minimumNameNodeVersion;
   }
-  
+
+  public boolean getEncryptDataTransfer() {
+    return encryptDataTransfer;
+  }
+
+  public String getEncryptionAlgorithm() {
+    return encryptionAlgorithm;
+  }
+
   public long getXceiverStopTimeout() {
     return xceiverStopTimeout;
   }
 
   public long getMaxLockedMemory() {
     return maxLockedMemory;
+  }
+
+  public SaslPropertiesResolver getSaslPropsResolver() {
+    return saslPropsResolver;
+  }
+
+  public TrustedChannelResolver getTrustedChannelResolver() {
+    return trustedChannelResolver;
   }
 }

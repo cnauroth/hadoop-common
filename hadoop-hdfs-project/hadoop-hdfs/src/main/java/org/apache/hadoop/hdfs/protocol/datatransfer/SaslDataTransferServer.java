@@ -49,6 +49,7 @@ import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.DataTransferEncr
 import org.apache.hadoop.hdfs.security.token.block.BlockPoolTokenSecretManager;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
+import org.apache.hadoop.hdfs.server.datanode.DNConf;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
 
@@ -66,14 +67,15 @@ public class SaslDataTransferServer {
   private static final String NAME_DELIMITER = " ";
 
   private final BlockPoolTokenSecretManager blockPoolTokenSecretManager;
-  private final DataTransferSaslConf saslConf;
+  private final DNConf dnConf;
   private final SaslDataTransferClient saslDataTransferClient;
 
-  public SaslDataTransferServer(DataTransferSaslConf saslConf,
+  public SaslDataTransferServer(DNConf dnConf,
       BlockPoolTokenSecretManager blockPoolTokenSecretManager) {
     this.blockPoolTokenSecretManager = blockPoolTokenSecretManager;
-    this.saslConf = saslConf;
-    this.saslDataTransferClient = new SaslDataTransferClient(saslConf);
+    this.dnConf = dnConf;
+    this.saslDataTransferClient = new SaslDataTransferClient(
+      dnConf.getSaslPropsResolver());
   }
 
   public IOStreamPair saslClientConnect(Socket socket,
@@ -94,7 +96,7 @@ public class SaslDataTransferServer {
 
   public IOStreamPair saslConnect(Peer peer, OutputStream underlyingOut,
       InputStream underlyingIn, DatanodeID datanodeId) throws IOException {
-    if (saslConf.encryptDataTransfer) {
+    if (dnConf.getEncryptDataTransfer()) {
       return getEncryptedStreams(peer, underlyingOut, underlyingIn, datanodeId);
     }
     if (UserGroupInformation.isSecurityEnabled()) {
@@ -111,13 +113,13 @@ public class SaslDataTransferServer {
       OutputStream underlyingOut, InputStream underlyingIn,
       DatanodeID datanodeId) throws IOException {
     if (!peer.hasSecureChannel() &&
-        !saslConf.trustedChannelResolver.isTrusted(getPeerAddress(peer))) {
+        !dnConf.getTrustedChannelResolver().isTrusted(getPeerAddress(peer))) {
       Map<String, String> saslProps = createSaslPropertiesForEncryption(
-        saslConf.encryptionAlgorithm);
+        dnConf.getEncryptionAlgorithm());
 
       if (LOG.isDebugEnabled()) {
         LOG.debug("Server using encryption algorithm " +
-          saslConf.encryptionAlgorithm);
+          dnConf.getEncryptionAlgorithm());
       }
 
       CallbackHandler callbackHandler = new SaslServerCallbackHandler(
@@ -215,7 +217,7 @@ public class SaslDataTransferServer {
         datanodeId.getXferPort(), DFS_DATA_TRANSFER_PROTECTION_KEY));
   */
     // TODO
-    Map<String, String> saslProps = saslConf.saslPropsResolver
+    Map<String, String> saslProps = dnConf.getSaslPropsResolver()
       .getServerProperties(getPeerAddress(peer));
 
     CallbackHandler callbackHandler = new SaslServerCallbackHandler(

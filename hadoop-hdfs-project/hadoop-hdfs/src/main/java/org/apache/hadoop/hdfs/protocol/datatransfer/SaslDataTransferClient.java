@@ -44,6 +44,7 @@ import org.apache.hadoop.hdfs.net.Peer;
 import org.apache.hadoop.hdfs.protocol.DatanodeID;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
+import org.apache.hadoop.security.SaslPropertiesResolver;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.util.Time;
@@ -62,10 +63,10 @@ public class SaslDataTransferClient {
    */
   private static final String NAME_DELIMITER = " ";
 
-  private final DataTransferSaslConf saslConf;
+  private final SaslPropertiesResolver saslPropsResolver;
 
-  public SaslDataTransferClient(DataTransferSaslConf saslConf) {
-    this.saslConf = saslConf;
+  public SaslDataTransferClient(SaslPropertiesResolver saslPropsResolver) {
+    this.saslPropsResolver = saslPropsResolver;
   }
 
   public IOStreamPair saslConnect(Socket socket, OutputStream underlyingOut,
@@ -80,7 +81,7 @@ public class SaslDataTransferClient {
       InputStream underlyingIn, Supplier<DataEncryptionKey> encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
-    if (saslConf.encryptDataTransfer) {
+    if (encryptionKey != null) {
       return getEncryptedStreams(underlyingOut, underlyingIn,
         encryptionKey.get(), accessToken, datanodeId);
     }
@@ -185,8 +186,8 @@ public class SaslDataTransferClient {
         datanodeId.getXferPort(), DFS_DATA_TRANSFER_PROTECTION_KEY));
   */
     // TODO
-    Map<String, String> saslProps = saslConf.saslPropsResolver
-      .getClientProperties(socket.getInetAddress());
+    Map<String, String> saslProps = saslPropsResolver.getClientProperties(
+      socket.getInetAddress());
 
     long timestamp = Time.now();
     String userName = buildUserName(accessToken.getIdentifier(), timestamp);

@@ -49,7 +49,7 @@ import com.google.common.net.InetAddresses;
 import com.google.protobuf.ByteString;
 
 @InterfaceAudience.Private
-final class DataTransferSaslUtil {
+public final class DataTransferSaslUtil {
 
   /**
    * Delimiter for the three-part SASL username string.
