@@ -37,8 +37,6 @@ import javax.security.sasl.RealmCallback;
 import javax.security.sasl.RealmChoiceCallback;
 
 import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.net.Peer;
@@ -49,6 +47,8 @@ import org.apache.hadoop.security.SaslPropertiesResolver;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.util.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Supplier;
@@ -57,8 +57,9 @@ import com.google.common.base.Suppliers;
 @InterfaceAudience.Private
 public class SaslDataTransferClient {
 
-  private static final Log LOG = LogFactory.getLog(SaslDataTransferClient.class);
-  
+  private static final Logger LOG = LoggerFactory.getLogger(
+    SaslDataTransferClient.class);
+
   /**
    * Delimiter for the three-part SASL username string.
    */
