@@ -102,44 +102,42 @@ public class SaslDataTransferServer {
       InputStream underlyingIn, DatanodeID datanodeId) throws IOException {
     if (dnConf.getEncryptDataTransfer()) {
       return getEncryptedStreams(peer, underlyingOut, underlyingIn, datanodeId);
+    } else if (!UserGroupInformation.isSecurityEnabled()) {
+      return new IOStreamPair(underlyingIn, underlyingOut);
+    } else if (datanodeId.getXferPort() < 1024) {
+      return new IOStreamPair(underlyingIn, underlyingOut);
+    } else {
+      return getSaslStreams(peer, underlyingOut, underlyingIn, datanodeId);
     }
-    if (UserGroupInformation.isSecurityEnabled()) {
-      if (datanodeId.getXferPort() < 1024) {
-        return new IOStreamPair(underlyingIn, underlyingOut);
-      } else {
-        return getSaslStreams(peer, underlyingOut, underlyingIn, datanodeId);
-      }
-    }
-    return new IOStreamPair(underlyingIn, underlyingOut);
   }
 
   private IOStreamPair getEncryptedStreams(Peer peer,
       OutputStream underlyingOut, InputStream underlyingIn,
       DatanodeID datanodeId) throws IOException {
-    if (!peer.hasSecureChannel() &&
-        !dnConf.getTrustedChannelResolver().isTrusted(getPeerAddress(peer))) {
-      Map<String, String> saslProps = createSaslPropertiesForEncryption(
-        dnConf.getEncryptionAlgorithm());
-
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Server using encryption algorithm " +
-          dnConf.getEncryptionAlgorithm());
-      }
-
-      CallbackHandler callbackHandler = new SaslServerCallbackHandler(
-        new PasswordFunction() {
-          @Override
-          public char[] apply(String userName) throws IOException {
-            return encryptionKeyToPassword(getEncryptionKeyFromUserName(
-              userName));
-          }
-      });
-      SaslParticipant sasl = SaslParticipant.createServerSaslParticipant(
-        saslProps, callbackHandler);
-      return doSaslHandshake(underlyingOut, underlyingIn, saslProps,
-        callbackHandler);
+    if (peer.hasSecureChannel() ||
+        dnConf.getTrustedChannelResolver().isTrusted(getPeerAddress(peer))) {
+      return new IOStreamPair(underlyingIn, underlyingOut);
     }
-    return new IOStreamPair(underlyingIn, underlyingOut);
+
+    Map<String, String> saslProps = createSaslPropertiesForEncryption(
+      dnConf.getEncryptionAlgorithm());
+
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Server using encryption algorithm " +
+        dnConf.getEncryptionAlgorithm());
+    }
+
+    CallbackHandler callbackHandler = new SaslServerCallbackHandler(
+      new PasswordFunction() {
+        @Override
+        public char[] apply(String userName) throws IOException {
+          return encryptionKeyToPassword(getEncryptionKeyFromUserName(userName));
+        }
+      });
+    SaslParticipant sasl = SaslParticipant.createServerSaslParticipant(
+      saslProps, callbackHandler);
+    return doSaslHandshake(underlyingOut, underlyingIn, saslProps,
+        callbackHandler);
   }
 
   private interface PasswordFunction {

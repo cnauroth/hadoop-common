@@ -250,19 +250,6 @@ class DataXceiver extends Receiver implements Runnable {
       }
     }
   }
-  
-  /**
-   * Returns InetAddress from peer
-   * The getRemoteAddressString is the form  /ip-address:port
-   * The ip-address is extracted from peer and InetAddress is formed
-   * @param peer
-   * @return
-   * @throws UnknownHostException
-   */
-  private static InetAddress getClientAddress(Peer peer) {
-    return InetAddresses.forString(
-        peer.getRemoteAddressString().split(":")[0].substring(1));
-  }
 
   @Override
   public void requestShortCircuitFds(final ExtendedBlock blk,

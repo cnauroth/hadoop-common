@@ -103,16 +103,14 @@ public class SaslDataTransferClient {
     if (encryptionKey != null) {
       return getEncryptedStreams(underlyingOut, underlyingIn,
         encryptionKey.get(), accessToken, datanodeId);
+    } else if (!UserGroupInformation.isSecurityEnabled()) {
+      return new IOStreamPair(underlyingIn, underlyingOut);
+    } else if (datanodeId.getXferPort() < 1024) {
+      return new IOStreamPair(underlyingIn, underlyingOut);
+    } else {
+      return getSaslStreams(addr, underlyingOut, underlyingIn, accessToken,
+        datanodeId);
     }
-    if (UserGroupInformation.isSecurityEnabled()) {
-      if (datanodeId.getXferPort() < 1024) {
-        return new IOStreamPair(underlyingIn, underlyingOut);
-      } else {
-        return getSaslStreams(addr, underlyingOut, underlyingIn, accessToken,
-          datanodeId);
-      }
-    }
-    return new IOStreamPair(underlyingIn, underlyingOut);
   }
 
   private IOStreamPair getEncryptedStreams(OutputStream underlyingOut,
