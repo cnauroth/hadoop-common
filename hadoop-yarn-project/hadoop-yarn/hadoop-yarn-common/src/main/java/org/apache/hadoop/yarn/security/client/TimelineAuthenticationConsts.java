@@ -16,27 +16,29 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.yarn.server.applicationhistoryservice.timeline;
+package org.apache.hadoop.yarn.security.client;
 
 import org.apache.hadoop.classification.InterfaceAudience.Private;
 import org.apache.hadoop.classification.InterfaceStability.Unstable;
-import org.apache.hadoop.service.Service;
-import org.apache.hadoop.yarn.api.records.timeline.TimelineEntity;
+
+/**
+ * The constants that are going to be used by the timeline Kerberos + delegation
+ * token authentication.
+ */
 
 @Private
 @Unstable
-public interface TimelineStore extends
-    Service, TimelineReader, TimelineWriter {
+public class TimelineAuthenticationConsts {
 
-  /**
-   * The system filter which will be automatically added to a
-   * {@link TimelineEntity}'s primary filter section when storing the entity.
-   * The filter key is case sensitive. Users are supposed not to use the key
-   * reserved by the timeline system.
-   */
-  @Private
-  enum SystemFilter {
-    ENTITY_OWNER
-  }
+  public static final String ERROR_EXCEPTION_JSON = "exception";
+  public static final String ERROR_CLASSNAME_JSON = "javaClassName";
+  public static final String ERROR_MESSAGE_JSON = "message";
 
+  public static final String OP_PARAM = "op";
+  public static final String DELEGATION_PARAM = "delegation";
+  public static final String TOKEN_PARAM = "token";
+  public static final String RENEWER_PARAM = "renewer";
+  public static final String DELEGATION_TOKEN_URL = "url";
+  public static final String DELEGATION_TOKEN_EXPIRATION_TIME =
+      "expirationTime";
 }
