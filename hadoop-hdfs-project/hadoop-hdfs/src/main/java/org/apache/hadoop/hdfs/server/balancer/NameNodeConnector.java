@@ -18,9 +18,11 @@
 package org.apache.hadoop.hdfs.server.balancer;
 
 import java.io.DataOutputStream;
+import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetAddress;
+import java.net.Socket;
 import java.net.URI;
 import java.util.EnumSet;
 
@@ -33,8 +35,12 @@ import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.NameNodeProxies;
 import org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException;
 import org.apache.hadoop.hdfs.protocol.ClientProtocol;
+import org.apache.hadoop.hdfs.protocol.DatanodeID;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
+import org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil;
+import org.apache.hadoop.hdfs.protocol.datatransfer.IOStreamPair;
+import org.apache.hadoop.hdfs.protocol.datatransfer.SaslDataTransferClient;
 import org.apache.hadoop.hdfs.protocol.datatransfer.TrustedChannelResolver;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenSecretManager;
@@ -73,6 +79,7 @@ class NameNodeConnector {
   private Daemon keyupdaterthread; // AccessKeyUpdater thread
   private DataEncryptionKey encryptionKey;
   private final TrustedChannelResolver trustedChannelResolver;
+  private final SaslDataTransferClient saslDataTransferClient;
 
   NameNodeConnector(URI nameNodeUri,
       Configuration conf) throws IOException {
@@ -123,6 +130,8 @@ class NameNodeConnector {
       throw new IOException("Another balancer is running");
     }
     this.trustedChannelResolver = TrustedChannelResolver.getInstance(conf);
+    this.saslDataTransferClient = new SaslDataTransferClient(
+      DataTransferSaslUtil.getSaslPropertiesResolver(conf));
   }
 
   boolean shouldContinue(long dispatchBlockMoveBytes) {
@@ -154,8 +163,15 @@ class NameNodeConnector {
           BlockTokenSecretManager.AccessMode.COPY));
     }
   }
-  
-  DataEncryptionKey getDataEncryptionKey()
+
+  IOStreamPair saslConnect(Socket socket, OutputStream underlyingOut,
+      InputStream underlyingIn, Token<BlockTokenIdentifier> accessToken,
+      DatanodeID datanodeId) throws IOException {
+    return saslDataTransferClient.saslConnect(socket, underlyingOut,
+      underlyingIn, getDataEncryptionKey(), accessToken, datanodeId);
+  }
+
+  private DataEncryptionKey getDataEncryptionKey()
       throws IOException {
     if (encryptDataTransfer && !this.trustedChannelResolver.isTrusted()) {
       synchronized (this) {
