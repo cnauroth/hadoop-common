@@ -82,16 +82,21 @@ public class SaslDataTransferServer {
       OutputStream underlyingOut, InputStream underlyingIn,
       final ExtendedBlock block, Token<BlockTokenIdentifier> accessToken,
       DatanodeID datanodeId) throws IOException {
-    Supplier<DataEncryptionKey> encryptionKeySupplier =
-      new Supplier<DataEncryptionKey>() {
+    final Supplier<DataEncryptionKey> encKeySupplier;
+    if (dnConf.getEncryptDataTransfer() &&
+        !dnConf.getTrustedChannelResolver().isTrusted(socket.getInetAddress())) {
+      encKeySupplier = new Supplier<DataEncryptionKey>() {
         @Override
         public DataEncryptionKey get() {
           return blockPoolTokenSecretManager.generateDataEncryptionKey(
             block.getBlockPoolId());
         }
       };
+    } else {
+      encKeySupplier = null;
+    }
     return saslDataTransferClient.saslConnect(socket, underlyingOut,
-      underlyingIn, encryptionKeySupplier, accessToken, datanodeId);
+      underlyingIn, encKeySupplier, accessToken, datanodeId);
   }
 
   public IOStreamPair saslConnect(Peer peer, OutputStream underlyingOut,

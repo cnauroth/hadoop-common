@@ -82,8 +82,10 @@ public class SaslDataTransferClient {
       InputStream underlyingIn, DataEncryptionKey encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
+    Supplier<DataEncryptionKey> encKeySupplier = encryptionKey != null ?
+      Suppliers.ofInstance(encryptionKey) : null;
     return saslConnect(socket.getInetAddress(), underlyingOut, underlyingIn,
-      Suppliers.ofInstance(encryptionKey), accessToken, datanodeId);
+      encKeySupplier, accessToken, datanodeId);
   }
 
   public IOStreamPair saslConnect(Socket socket, OutputStream underlyingOut,

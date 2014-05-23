@@ -1007,7 +1007,6 @@ class DataXceiver extends Receiver implements Runnable {
       OutputStream unbufProxyOut = NetUtils.getOutputStream(proxySock,
           dnConf.socketWriteTimeout);
       InputStream unbufProxyIn = NetUtils.getInputStream(proxySock);
-      // TODO client flow
       IOStreamPair saslStreams = datanode.saslDataTransferServer
         .saslClientConnect(proxySock, unbufProxyOut, unbufProxyIn, block,
         blockToken, datanode.getDatanodeId());
