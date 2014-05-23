@@ -152,10 +152,11 @@ import org.apache.hadoop.hdfs.protocol.SnapshotAccessControlException;
 import org.apache.hadoop.hdfs.protocol.SnapshotDiffReport;
 import org.apache.hadoop.hdfs.protocol.SnapshottableDirectoryStatus;
 import org.apache.hadoop.hdfs.protocol.UnresolvedPathException;
-import org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferEncryptor;
+import org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil;
 import org.apache.hadoop.hdfs.protocol.datatransfer.IOStreamPair;
 import org.apache.hadoop.hdfs.protocol.datatransfer.Op;
 import org.apache.hadoop.hdfs.protocol.datatransfer.ReplaceDatanodeOnFailure;
+import org.apache.hadoop.hdfs.protocol.datatransfer.SaslDataTransferClient;
 import org.apache.hadoop.hdfs.protocol.datatransfer.TrustedChannelResolver;
 import org.apache.hadoop.hdfs.protocol.datatransfer.Sender;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.BlockOpResponseProto;
@@ -234,6 +235,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
   private SocketAddress[] localInterfaceAddrs;
   private DataEncryptionKey encryptionKey;
   final TrustedChannelResolver trustedChannelResolver;
+  final SaslDataTransferClient saslDataTransferClient;
   private final CachingStrategy defaultReadCachingStrategy;
   private final CachingStrategy defaultWriteCachingStrategy;
   private final ClientContext clientContext;
@@ -632,6 +634,8 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
       this.initThreadsNumForHedgedReads(numThreads);
     }
     this.trustedChannelResolver = TrustedChannelResolver.getInstance(getConfiguration());
+    this.saslDataTransferClient = new SaslDataTransferClient(
+      DataTransferSaslUtil.getSaslPropertiesResolver(getConfiguration()));
   }
   
   /**
@@ -1812,7 +1816,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
     checkOpen();
     return getFileChecksum(src, clientName, namenode, socketFactory,
         dfsClientConf.socketTimeout, getDataEncryptionKey(),
-        dfsClientConf.connectToDnViaHostname);
+        dfsClientConf.connectToDnViaHostname, saslDataTransferClient);
   }
   
   @InterfaceAudience.Private
@@ -1860,13 +1864,14 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
    * @param socketTimeout timeout to use when connecting and waiting for a response
    * @param encryptionKey the key needed to communicate with DNs in this cluster
    * @param connectToDnViaHostname whether the client should use hostnames instead of IPs
+   * @param saslDataTransferClient used for negotiating SASL
    * @return The checksum 
    */
   private static MD5MD5CRC32FileChecksum getFileChecksum(String src,
       String clientName,
       ClientProtocol namenode, SocketFactory socketFactory, int socketTimeout,
-      DataEncryptionKey encryptionKey, boolean connectToDnViaHostname)
-      throws IOException {
+      DataEncryptionKey encryptionKey, boolean connectToDnViaHostname,
+      SaslDataTransferClient saslDataTransferClient) throws IOException {
     //get all block locations
     LocatedBlocks blockLocations = callGetBlockLocations(namenode, src, 0, Long.MAX_VALUE);
     if (null == blockLocations) {
@@ -1904,7 +1909,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
         try {
           //connect to a datanode
           IOStreamPair pair = connectToDN(socketFactory, connectToDnViaHostname,
-              encryptionKey, datanodes[j], timeout, lb);
+              encryptionKey, datanodes[j], timeout, lb, saslDataTransferClient);
           out = new DataOutputStream(new BufferedOutputStream(pair.out,
               HdfsConstants.SMALL_BUFFER_SIZE));
           in = new DataInputStream(pair.in);
@@ -1962,7 +1967,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
                       "inferring checksum by reading first byte");
             ct = inferChecksumTypeByReading(
                 clientName, socketFactory, socketTimeout, lb, datanodes[j],
-                encryptionKey, connectToDnViaHostname);
+                encryptionKey, connectToDnViaHostname, saslDataTransferClient);
           }
 
           if (i == 0) { // first block
@@ -2039,7 +2044,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
   private static IOStreamPair connectToDN(
       SocketFactory socketFactory, boolean connectToDnViaHostname,
       DataEncryptionKey encryptionKey, DatanodeInfo dn, int timeout,
-      LocatedBlock lb)
+      LocatedBlock lb, SaslDataTransferClient saslDataTransferClient)
       throws IOException
   {
     boolean success = false;
@@ -2055,13 +2060,8 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
   
       OutputStream unbufOut = NetUtils.getOutputStream(sock);
       InputStream unbufIn = NetUtils.getInputStream(sock);
-      IOStreamPair ret;
-      if (encryptionKey != null) {
-        ret = DataTransferEncryptor.getEncryptedStreams(
-                unbufOut, unbufIn, encryptionKey, lb.getBlockToken(), dn);
-      } else {
-        ret = new IOStreamPair(unbufIn, unbufOut);        
-      }
+      IOStreamPair ret = saslDataTransferClient.saslConnect(sock, unbufOut,
+        unbufIn, encryptionKey, lb.getBlockToken(), dn);
       success = true;
       return ret;
     } finally {
@@ -2088,10 +2088,11 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
   private static Type inferChecksumTypeByReading(
       String clientName, SocketFactory socketFactory, int socketTimeout,
       LocatedBlock lb, DatanodeInfo dn,
-      DataEncryptionKey encryptionKey, boolean connectToDnViaHostname)
+      DataEncryptionKey encryptionKey, boolean connectToDnViaHostname,
+      SaslDataTransferClient saslDataTransferClient)
       throws IOException {
     IOStreamPair pair = connectToDN(socketFactory, connectToDnViaHostname,
-        encryptionKey, dn, socketTimeout, lb);
+        encryptionKey, dn, socketTimeout, lb, saslDataTransferClient);
 
     try {
       DataOutputStream out = new DataOutputStream(new BufferedOutputStream(pair.out,

@@ -61,7 +61,6 @@ import org.apache.hadoop.hdfs.protocol.NSQuotaExceededException;
 import org.apache.hadoop.hdfs.protocol.SnapshotAccessControlException;
 import org.apache.hadoop.hdfs.protocol.UnresolvedPathException;
 import org.apache.hadoop.hdfs.protocol.datatransfer.BlockConstructionStage;
-import org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferEncryptor;
 import org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferProtocol;
 import org.apache.hadoop.hdfs.protocol.datatransfer.IOStreamPair;
 import org.apache.hadoop.hdfs.protocol.datatransfer.InvalidEncryptionKeyException;
@@ -72,6 +71,7 @@ import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.BlockOpResponseP
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.Status;
 import org.apache.hadoop.hdfs.protocolPB.PBHelper;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
+import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
 import org.apache.hadoop.hdfs.security.token.block.InvalidBlockTokenException;
 import org.apache.hadoop.hdfs.server.datanode.CachingStrategy;
 import org.apache.hadoop.hdfs.server.namenode.NotReplicatedYetException;
@@ -1038,15 +1038,17 @@ public class DFSOutputStream extends FSOutputSummer
         
         OutputStream unbufOut = NetUtils.getOutputStream(sock, writeTimeout);
         InputStream unbufIn = NetUtils.getInputStream(sock);
+        final DataEncryptionKey encryptionKey;
         if (dfsClient.shouldEncryptData() && 
             !dfsClient.trustedChannelResolver.isTrusted(sock.getInetAddress())) {
-          IOStreamPair encryptedStreams =
-              DataTransferEncryptor.getEncryptedStreams(
-                  unbufOut, unbufIn, dfsClient.getDataEncryptionKey(),
-                  blockToken, src);
-          unbufOut = encryptedStreams.out;
-          unbufIn = encryptedStreams.in;
+          encryptionKey = dfsClient.getDataEncryptionKey();
+        } else {
+          encryptionKey = null;
         }
+        IOStreamPair saslStreams = dfsClient.saslDataTransferClient.saslConnect(
+          sock, unbufOut, unbufIn, encryptionKey, blockToken, src);
+        unbufOut = saslStreams.out;
+        unbufIn = saslStreams.in;
         out = new DataOutputStream(new BufferedOutputStream(unbufOut,
             HdfsConstants.SMALL_BUFFER_SIZE));
         in = new DataInputStream(unbufIn);
@@ -1317,15 +1319,18 @@ public class DFSOutputStream extends FSOutputSummer
           
           OutputStream unbufOut = NetUtils.getOutputStream(s, writeTimeout);
           InputStream unbufIn = NetUtils.getInputStream(s);
-          if (dfsClient.shouldEncryptData()  && 
+          final DataEncryptionKey encryptionKey;
+          if (dfsClient.shouldEncryptData() && 
               !dfsClient.trustedChannelResolver.isTrusted(s.getInetAddress())) {
-            IOStreamPair encryptedStreams =
-                DataTransferEncryptor.getEncryptedStreams(unbufOut,
-                    unbufIn, dfsClient.getDataEncryptionKey(), accessToken,
-                    nodes[0]);
-            unbufOut = encryptedStreams.out;
-            unbufIn = encryptedStreams.in;
+            encryptionKey = dfsClient.getDataEncryptionKey();
+          } else {
+            encryptionKey = null;
           }
+          IOStreamPair saslStreams = dfsClient.saslDataTransferClient
+            .saslConnect(s, unbufOut, unbufIn, encryptionKey, accessToken,
+            nodes[0]);
+          unbufOut = saslStreams.out;
+          unbufIn = saslStreams.in;
           out = new DataOutputStream(new BufferedOutputStream(unbufOut,
               HdfsConstants.SMALL_BUFFER_SIZE));
           blockReplyStream = new DataInputStream(unbufIn);
