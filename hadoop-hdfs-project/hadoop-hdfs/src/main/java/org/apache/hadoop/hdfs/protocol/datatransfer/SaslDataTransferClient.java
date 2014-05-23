@@ -24,6 +24,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.util.Map;
 
@@ -69,15 +70,31 @@ public class SaslDataTransferClient {
     this.saslPropsResolver = saslPropsResolver;
   }
 
+  public IOStreamPair saslConnect(Peer peer, DataEncryptionKey encryptionKey,
+      Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
+      throws IOException {
+    return saslConnect(getPeerAddress(peer), peer.getOutputStream(),
+      peer.getInputStream(), Suppliers.ofInstance(encryptionKey),
+      accessToken, datanodeId);
+  }
+
   public IOStreamPair saslConnect(Socket socket, OutputStream underlyingOut,
       InputStream underlyingIn, DataEncryptionKey encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
-    return saslConnect(socket, underlyingOut, underlyingIn,
+    return saslConnect(socket.getInetAddress(), underlyingOut, underlyingIn,
       Suppliers.ofInstance(encryptionKey), accessToken, datanodeId);
   }
 
   public IOStreamPair saslConnect(Socket socket, OutputStream underlyingOut,
+      InputStream underlyingIn, Supplier<DataEncryptionKey> encryptionKey,
+      Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
+      throws IOException {
+    return saslConnect(socket.getInetAddress(), underlyingOut, underlyingIn,
+      encryptionKey, accessToken, datanodeId);
+  }
+
+  private IOStreamPair saslConnect(InetAddress addr, OutputStream underlyingOut,
       InputStream underlyingIn, Supplier<DataEncryptionKey> encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
@@ -89,7 +106,7 @@ public class SaslDataTransferClient {
       if (datanodeId.getXferPort() < 1024) {
         return new IOStreamPair(underlyingIn, underlyingOut);
       } else {
-        return getSaslStreams(socket, underlyingOut, underlyingIn, accessToken,
+        return getSaslStreams(addr, underlyingOut, underlyingIn, accessToken,
           datanodeId);
       }
     }
@@ -176,9 +193,10 @@ public class SaslDataTransferClient {
     }
   }
 
-  private IOStreamPair getSaslStreams(Socket socket, OutputStream underlyingOut,
-      InputStream underlyingIn, Token<BlockTokenIdentifier> accessToken,
-      DatanodeID datanodeId) throws IOException {
+  private IOStreamPair getSaslStreams(InetAddress addr,
+      OutputStream underlyingOut, InputStream underlyingIn,
+      Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
+      throws IOException {
   /*
       throw new IOException(String.format("Cannot create a secured " +
         "connection if DataNode listens on unprivileged port (%d) and no " +
@@ -186,8 +204,7 @@ public class SaslDataTransferClient {
         datanodeId.getXferPort(), DFS_DATA_TRANSFER_PROTECTION_KEY));
   */
     // TODO
-    Map<String, String> saslProps = saslPropsResolver.getClientProperties(
-      socket.getInetAddress());
+    Map<String, String> saslProps = saslPropsResolver.getClientProperties(addr);
 
     long timestamp = Time.now();
     String userName = buildUserName(accessToken.getIdentifier(), timestamp);

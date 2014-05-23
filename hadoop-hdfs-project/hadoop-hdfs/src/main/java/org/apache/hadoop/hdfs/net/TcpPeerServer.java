@@ -29,6 +29,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.hdfs.protocol.DatanodeID;
+import org.apache.hadoop.hdfs.protocol.datatransfer.SaslDataTransferClient;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
 import org.apache.hadoop.hdfs.server.datanode.SecureDataNodeStarter.SecureResources;
@@ -77,7 +78,8 @@ public class TcpPeerServer implements PeerServer {
     }
   }
 
-  public static Peer peerFromSocketAndKey(Socket s,
+  public static Peer peerFromSocketAndKey(
+        SaslDataTransferClient saslDataTransferClient, Socket s,
         DataEncryptionKey key, Token<BlockTokenIdentifier> blockToken,
         DatanodeID datanodeId) throws IOException {
     Peer peer = null;
@@ -85,7 +87,8 @@ public class TcpPeerServer implements PeerServer {
     try {
       peer = peerFromSocket(s); 
       if (key != null) {
-        peer = new EncryptedPeer(peer, key, blockToken, datanodeId);
+        peer = new EncryptedPeer(saslDataTransferClient, peer, key, blockToken,
+          datanodeId);
       }
       success = true;
       return peer;
