@@ -1877,7 +1877,6 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
       SocketFactory socketFactory, int socketTimeout,
       DataEncryptionKey encryptionKey, boolean connectToDnViaHostname,
       SaslDataTransferClient saslDataTransferClient) throws IOException {
-      throws IOException {
     //get block locations for the file range
     LocatedBlocks blockLocations = callGetBlockLocations(namenode, src, 0,
         length);
