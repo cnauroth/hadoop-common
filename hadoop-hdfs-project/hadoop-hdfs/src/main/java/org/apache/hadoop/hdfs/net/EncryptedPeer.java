@@ -54,13 +54,12 @@ public class EncryptedPeer implements Peer {
    */
   private final ReadableByteChannel channel;
 
-  public EncryptedPeer(SaslDataTransferClient saslDataTransferClient,
-      Peer enclosedPeer, DataEncryptionKey key,
-      Token<BlockTokenIdentifier> blockToken, DatanodeID datanodeId)
-      throws IOException {
+  public EncryptedPeer(SaslDataTransferClient saslClient, Peer enclosedPeer,
+      DataEncryptionKey key, Token<BlockTokenIdentifier> blockToken,
+      DatanodeID datanodeId) throws IOException {
     this.enclosedPeer = enclosedPeer;
-    IOStreamPair ios = saslDataTransferClient.saslConnect(enclosedPeer, key,
-      blockToken, datanodeId);
+    IOStreamPair ios = saslClient.peerSend(enclosedPeer, key, blockToken,
+      datanodeId);
     this.in = ios.in;
     this.out = ios.out;
     this.channel = ios.in instanceof ReadableByteChannel ? 

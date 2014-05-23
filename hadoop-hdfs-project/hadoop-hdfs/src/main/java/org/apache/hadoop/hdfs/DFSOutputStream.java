@@ -1045,8 +1045,8 @@ public class DFSOutputStream extends FSOutputSummer
         } else {
           encryptionKey = null;
         }
-        IOStreamPair saslStreams = dfsClient.saslDataTransferClient.saslConnect(
-          sock, unbufOut, unbufIn, encryptionKey, blockToken, src);
+        IOStreamPair saslStreams = dfsClient.saslClient.socketSend(sock,
+          unbufOut, unbufIn, encryptionKey, blockToken, src);
         unbufOut = saslStreams.out;
         unbufIn = saslStreams.in;
         out = new DataOutputStream(new BufferedOutputStream(unbufOut,
@@ -1326,9 +1326,8 @@ public class DFSOutputStream extends FSOutputSummer
           } else {
             encryptionKey = null;
           }
-          IOStreamPair saslStreams = dfsClient.saslDataTransferClient
-            .saslConnect(s, unbufOut, unbufIn, encryptionKey, accessToken,
-            nodes[0]);
+          IOStreamPair saslStreams = dfsClient.saslClient.socketSend(s,
+            unbufOut, unbufIn, encryptionKey, accessToken, nodes[0]);
           unbufOut = saslStreams.out;
           unbufIn = saslStreams.in;
           out = new DataOutputStream(new BufferedOutputStream(unbufOut,

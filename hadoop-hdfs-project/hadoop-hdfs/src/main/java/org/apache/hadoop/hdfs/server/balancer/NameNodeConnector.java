@@ -79,7 +79,7 @@ class NameNodeConnector {
   private Daemon keyupdaterthread; // AccessKeyUpdater thread
   private DataEncryptionKey encryptionKey;
   private final TrustedChannelResolver trustedChannelResolver;
-  private final SaslDataTransferClient saslDataTransferClient;
+  private final SaslDataTransferClient saslClient;
 
   NameNodeConnector(URI nameNodeUri,
       Configuration conf) throws IOException {
@@ -130,7 +130,7 @@ class NameNodeConnector {
       throw new IOException("Another balancer is running");
     }
     this.trustedChannelResolver = TrustedChannelResolver.getInstance(conf);
-    this.saslDataTransferClient = new SaslDataTransferClient(
+    this.saslClient = new SaslDataTransferClient(
       DataTransferSaslUtil.getSaslPropertiesResolver(conf));
   }
 
@@ -164,11 +164,11 @@ class NameNodeConnector {
     }
   }
 
-  IOStreamPair saslConnect(Socket socket, OutputStream underlyingOut,
+  IOStreamPair saslClientConnect(Socket socket, OutputStream underlyingOut,
       InputStream underlyingIn, Token<BlockTokenIdentifier> accessToken,
       DatanodeID datanodeId) throws IOException {
-    return saslDataTransferClient.saslConnect(socket, underlyingOut,
-      underlyingIn, getDataEncryptionKey(), accessToken, datanodeId);
+    return saslClient.socketSend(socket, underlyingOut, underlyingIn,
+      getDataEncryptionKey(), accessToken, datanodeId);
   }
 
   private DataEncryptionKey getDataEncryptionKey()

@@ -68,20 +68,19 @@ public class SaslDataTransferServer {
 
   private final BlockPoolTokenSecretManager blockPoolTokenSecretManager;
   private final DNConf dnConf;
-  private final SaslDataTransferClient saslDataTransferClient;
+  private final SaslDataTransferClient saslClient;
 
   public SaslDataTransferServer(DNConf dnConf,
       BlockPoolTokenSecretManager blockPoolTokenSecretManager) {
     this.blockPoolTokenSecretManager = blockPoolTokenSecretManager;
     this.dnConf = dnConf;
-    this.saslDataTransferClient = new SaslDataTransferClient(
-      dnConf.getSaslPropsResolver());
+    this.saslClient = new SaslDataTransferClient(dnConf.getSaslPropsResolver());
   }
 
-  public IOStreamPair saslClientConnect(Socket socket,
-      OutputStream underlyingOut, InputStream underlyingIn,
-      final ExtendedBlock block, Token<BlockTokenIdentifier> accessToken,
-      DatanodeID datanodeId) throws IOException {
+  public IOStreamPair pipelineSend(Socket socket, OutputStream underlyingOut,
+      InputStream underlyingIn, final ExtendedBlock block,
+      Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
+      throws IOException {
     final Supplier<DataEncryptionKey> encKeySupplier;
     if (dnConf.getEncryptDataTransfer() &&
         !dnConf.getTrustedChannelResolver().isTrusted(socket.getInetAddress())) {
@@ -95,11 +94,11 @@ public class SaslDataTransferServer {
     } else {
       encKeySupplier = null;
     }
-    return saslDataTransferClient.saslConnect(socket, underlyingOut,
-      underlyingIn, encKeySupplier, accessToken, datanodeId);
+    return saslClient.socketSend(socket, underlyingOut, underlyingIn,
+      encKeySupplier, accessToken, datanodeId);
   }
 
-  public IOStreamPair saslConnect(Peer peer, OutputStream underlyingOut,
+  public IOStreamPair receive(Peer peer, OutputStream underlyingOut,
       InputStream underlyingIn, DatanodeID datanodeId) throws IOException {
     if (dnConf.getEncryptDataTransfer()) {
       return getEncryptedStreams(peer, underlyingOut, underlyingIn, datanodeId);

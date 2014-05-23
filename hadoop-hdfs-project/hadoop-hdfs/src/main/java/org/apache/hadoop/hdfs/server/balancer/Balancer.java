@@ -353,8 +353,8 @@ public class Balancer {
         InputStream unbufIn = sock.getInputStream();
         ExtendedBlock eb = new ExtendedBlock(nnc.blockpoolID, block.getBlock());
         Token<BlockTokenIdentifier> accessToken = nnc.getAccessToken(eb);
-        IOStreamPair saslStreams = nnc.saslConnect(sock, unbufOut, unbufIn,
-          accessToken, proxySource.getDatanode());
+        IOStreamPair saslStreams = nnc.saslClientConnect(sock, unbufOut,
+          unbufIn, accessToken, proxySource.getDatanode());
         unbufOut = saslStreams.out;
         unbufIn = saslStreams.in;
         out = new DataOutputStream(new BufferedOutputStream(unbufOut,

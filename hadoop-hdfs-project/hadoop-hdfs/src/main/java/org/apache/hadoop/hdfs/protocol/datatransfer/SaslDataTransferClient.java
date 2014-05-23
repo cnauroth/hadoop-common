@@ -70,33 +70,33 @@ public class SaslDataTransferClient {
     this.saslPropsResolver = saslPropsResolver;
   }
 
-  public IOStreamPair saslConnect(Peer peer, DataEncryptionKey encryptionKey,
+  public IOStreamPair peerSend(Peer peer, DataEncryptionKey encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
-    return saslConnect(getPeerAddress(peer), peer.getOutputStream(),
+    return getStreams(getPeerAddress(peer), peer.getOutputStream(),
       peer.getInputStream(), Suppliers.ofInstance(encryptionKey),
       accessToken, datanodeId);
   }
 
-  public IOStreamPair saslConnect(Socket socket, OutputStream underlyingOut,
+  public IOStreamPair socketSend(Socket socket, OutputStream underlyingOut,
       InputStream underlyingIn, DataEncryptionKey encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
     Supplier<DataEncryptionKey> encKeySupplier = encryptionKey != null ?
       Suppliers.ofInstance(encryptionKey) : null;
-    return saslConnect(socket.getInetAddress(), underlyingOut, underlyingIn,
+    return getStreams(socket.getInetAddress(), underlyingOut, underlyingIn,
       encKeySupplier, accessToken, datanodeId);
   }
 
-  public IOStreamPair saslConnect(Socket socket, OutputStream underlyingOut,
+  public IOStreamPair socketSend(Socket socket, OutputStream underlyingOut,
       InputStream underlyingIn, Supplier<DataEncryptionKey> encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
-    return saslConnect(socket.getInetAddress(), underlyingOut, underlyingIn,
+    return getStreams(socket.getInetAddress(), underlyingOut, underlyingIn,
       encryptionKey, accessToken, datanodeId);
   }
 
-  private IOStreamPair saslConnect(InetAddress addr, OutputStream underlyingOut,
+  private IOStreamPair getStreams(InetAddress addr, OutputStream underlyingOut,
       InputStream underlyingIn, Supplier<DataEncryptionKey> encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {

@@ -235,7 +235,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
   private SocketAddress[] localInterfaceAddrs;
   private DataEncryptionKey encryptionKey;
   final TrustedChannelResolver trustedChannelResolver;
-  final SaslDataTransferClient saslDataTransferClient;
+  final SaslDataTransferClient saslClient;
   private final CachingStrategy defaultReadCachingStrategy;
   private final CachingStrategy defaultWriteCachingStrategy;
   private final ClientContext clientContext;
@@ -634,7 +634,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
       this.initThreadsNumForHedgedReads(numThreads);
     }
     this.trustedChannelResolver = TrustedChannelResolver.getInstance(getConfiguration());
-    this.saslDataTransferClient = new SaslDataTransferClient(
+    this.saslClient = new SaslDataTransferClient(
       DataTransferSaslUtil.getSaslPropertiesResolver(getConfiguration()));
   }
   
@@ -1820,7 +1820,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
     Preconditions.checkArgument(length >= 0);
     return getFileChecksum(src, length, clientName, namenode, socketFactory,
         dfsClientConf.socketTimeout, getDataEncryptionKey(),
-        dfsClientConf.connectToDnViaHostname, saslDataTransferClient);
+        dfsClientConf.connectToDnViaHostname, saslClient);
   }
   
   @InterfaceAudience.Private
@@ -1869,14 +1869,14 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
    * @param socketTimeout timeout to use when connecting and waiting for a response
    * @param encryptionKey the key needed to communicate with DNs in this cluster
    * @param connectToDnViaHostname whether the client should use hostnames instead of IPs
-   * @param saslDataTransferClient used for negotiating SASL
+   * @param saslClient used for negotiating SASL
    * @return The checksum 
    */
   private static MD5MD5CRC32FileChecksum getFileChecksum(String src,
       long length, String clientName, ClientProtocol namenode,
       SocketFactory socketFactory, int socketTimeout,
       DataEncryptionKey encryptionKey, boolean connectToDnViaHostname,
-      SaslDataTransferClient saslDataTransferClient) throws IOException {
+      SaslDataTransferClient saslClient) throws IOException {
     //get block locations for the file range
     LocatedBlocks blockLocations = callGetBlockLocations(namenode, src, 0,
         length);
@@ -1920,7 +1920,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
         try {
           //connect to a datanode
           IOStreamPair pair = connectToDN(socketFactory, connectToDnViaHostname,
-              encryptionKey, datanodes[j], timeout, lb, saslDataTransferClient);
+              encryptionKey, datanodes[j], timeout, lb, saslClient);
           out = new DataOutputStream(new BufferedOutputStream(pair.out,
               HdfsConstants.SMALL_BUFFER_SIZE));
           in = new DataInputStream(pair.in);
@@ -1978,7 +1978,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
                       "inferring checksum by reading first byte");
             ct = inferChecksumTypeByReading(
                 clientName, socketFactory, socketTimeout, lb, datanodes[j],
-                encryptionKey, connectToDnViaHostname, saslDataTransferClient);
+                encryptionKey, connectToDnViaHostname, saslClient);
           }
 
           if (i == 0) { // first block
@@ -2055,7 +2055,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
   private static IOStreamPair connectToDN(
       SocketFactory socketFactory, boolean connectToDnViaHostname,
       DataEncryptionKey encryptionKey, DatanodeInfo dn, int timeout,
-      LocatedBlock lb, SaslDataTransferClient saslDataTransferClient)
+      LocatedBlock lb, SaslDataTransferClient saslClient)
       throws IOException
   {
     boolean success = false;
@@ -2071,8 +2071,8 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
   
       OutputStream unbufOut = NetUtils.getOutputStream(sock);
       InputStream unbufIn = NetUtils.getInputStream(sock);
-      IOStreamPair ret = saslDataTransferClient.saslConnect(sock, unbufOut,
-        unbufIn, encryptionKey, lb.getBlockToken(), dn);
+      IOStreamPair ret = saslClient.socketSend(sock, unbufOut, unbufIn,
+        encryptionKey, lb.getBlockToken(), dn);
       success = true;
       return ret;
     } finally {
@@ -2100,10 +2100,10 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
       String clientName, SocketFactory socketFactory, int socketTimeout,
       LocatedBlock lb, DatanodeInfo dn,
       DataEncryptionKey encryptionKey, boolean connectToDnViaHostname,
-      SaslDataTransferClient saslDataTransferClient)
+      SaslDataTransferClient saslClient)
       throws IOException {
     IOStreamPair pair = connectToDN(socketFactory, connectToDnViaHostname,
-        encryptionKey, dn, socketTimeout, lb, saslDataTransferClient);
+        encryptionKey, dn, socketTimeout, lb, saslClient);
 
     try {
       DataOutputStream out = new DataOutputStream(new BufferedOutputStream(pair.out,
@@ -2853,7 +2853,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory {
       NetUtils.connect(sock, addr,
         getRandomLocalInterfaceAddr(),
         dfsClientConf.socketTimeout);
-      peer = TcpPeerServer.peerFromSocketAndKey(saslDataTransferClient, sock,
+      peer = TcpPeerServer.peerFromSocketAndKey(saslClient, sock,
           getDataEncryptionKey(), blockToken, datanodeId);
       success = true;
       return peer;

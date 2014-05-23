@@ -174,8 +174,8 @@ class DataXceiver extends Receiver implements Runnable {
       dataXceiverServer.addPeer(peer, Thread.currentThread());
       peer.setWriteTimeout(datanode.getDnConf().socketWriteTimeout);
       InputStream input = socketIn;
-      IOStreamPair saslStreams = datanode.saslDataTransferServer.saslConnect(
-        peer, socketOut, socketIn, datanode.getDatanodeId());
+      IOStreamPair saslStreams = datanode.saslServer.receive(peer, socketOut,
+        socketIn, datanode.getDatanodeId());
       input = new BufferedInputStream(saslStreams.in,
         HdfsConstants.SMALL_BUFFER_SIZE);
       socketOut = saslStreams.out;
@@ -643,9 +643,9 @@ class DataXceiver extends Receiver implements Runnable {
           OutputStream unbufMirrorOut = NetUtils.getOutputStream(mirrorSock,
               writeTimeout);
           InputStream unbufMirrorIn = NetUtils.getInputStream(mirrorSock);
-          IOStreamPair saslStreams = datanode.saslDataTransferServer
-            .saslClientConnect(mirrorSock, unbufMirrorOut, unbufMirrorIn, block,
-            blockToken, datanode.getDatanodeId());
+          IOStreamPair saslStreams = datanode.saslServer.pipelineSend(
+            mirrorSock, unbufMirrorOut, unbufMirrorIn, block, blockToken,
+            datanode.getDatanodeId());
           unbufMirrorOut = saslStreams.out;
           unbufMirrorIn = saslStreams.in;
           mirrorOut = new DataOutputStream(new BufferedOutputStream(unbufMirrorOut,
@@ -1007,9 +1007,8 @@ class DataXceiver extends Receiver implements Runnable {
       OutputStream unbufProxyOut = NetUtils.getOutputStream(proxySock,
           dnConf.socketWriteTimeout);
       InputStream unbufProxyIn = NetUtils.getInputStream(proxySock);
-      IOStreamPair saslStreams = datanode.saslDataTransferServer
-        .saslClientConnect(proxySock, unbufProxyOut, unbufProxyIn, block,
-        blockToken, datanode.getDatanodeId());
+      IOStreamPair saslStreams = datanode.saslServer.pipelineSend(proxySock,
+        unbufProxyOut, unbufProxyIn, block,blockToken, datanode.getDatanodeId());
       unbufProxyOut = saslStreams.out;
       unbufProxyIn = saslStreams.in;
       
