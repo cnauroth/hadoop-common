@@ -41,6 +41,8 @@ import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.DataTransferEncr
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.DataTransferEncryptorMessageProto.DataTransferEncryptorStatus;
 import org.apache.hadoop.security.SaslPropertiesResolver;
 import org.apache.hadoop.security.SaslRpcServer.QualityOfProtection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableSet;
@@ -50,6 +52,9 @@ import com.google.protobuf.ByteString;
 
 @InterfaceAudience.Private
 public final class DataTransferSaslUtil {
+
+  private static final Logger LOG = LoggerFactory.getLogger(
+    DataTransferSaslUtil.class);
 
   /**
    * Delimiter for the three-part SASL username string.
@@ -67,13 +72,15 @@ public final class DataTransferSaslUtil {
     if (!sasl.isComplete()) {
       throw new IOException("Failed to complete SASL handshake");
     }
-    Set<String> requestedQops = ImmutableSet.copyOf(Arrays.asList(
+    Set<String> requestedQop = ImmutableSet.copyOf(Arrays.asList(
       saslProps.get(Sasl.QOP).split(",")));
     String negotiatedQop = sasl.getNegotiatedQop();
-    if (!requestedQops.contains(negotiatedQop)) {
+    LOG.debug("Verifying QOP, requested QOP = {}, negotiated QOP = {}",
+      requestedQop, negotiatedQop);
+    if (!requestedQop.contains(negotiatedQop)) {
       throw new IOException(String.format("SASL handshake completed, but " +
         "channel does not have acceptable quality of protection, " +
-        "requested = %s, negotiated = %s", requestedQops, negotiatedQop));
+        "requested = %s, negotiated = %s", requestedQop, negotiatedQop));
     }
   }
 

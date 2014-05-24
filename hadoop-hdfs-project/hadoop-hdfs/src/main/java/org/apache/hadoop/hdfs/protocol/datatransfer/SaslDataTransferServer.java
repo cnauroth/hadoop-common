@@ -60,7 +60,7 @@ import com.google.common.base.Supplier;
 public class SaslDataTransferServer {
 
   private static final Logger LOG = LoggerFactory.getLogger(
-    SaslDataTransferClient.class);
+    SaslDataTransferServer.class);
   
   /**
    * Delimiter for the three-part SASL username string.
@@ -102,12 +102,24 @@ public class SaslDataTransferServer {
   public IOStreamPair receive(Peer peer, OutputStream underlyingOut,
       InputStream underlyingIn, DatanodeID datanodeId) throws IOException {
     if (dnConf.getEncryptDataTransfer()) {
+      LOG.debug(
+        "SASL server doing encrypted handshake for peer = {}, datanodeId = {}",
+        peer, datanodeId);
       return getEncryptedStreams(peer, underlyingOut, underlyingIn, datanodeId);
     } else if (!UserGroupInformation.isSecurityEnabled()) {
+      LOG.debug(
+        "SASL server skipping handshake in unsecured configuration for "
+        + "peer = {}, datanodeId = {}", peer, datanodeId);
       return new IOStreamPair(underlyingIn, underlyingOut);
     } else if (datanodeId.getXferPort() < 1024) {
+      LOG.debug(
+        "SASL server skipping handshake in unsecured configuration for "
+        + "peer = {}, datanodeId = {}", peer, datanodeId);
       return new IOStreamPair(underlyingIn, underlyingOut);
     } else {
+      LOG.debug(
+        "SASL server doing general handshake for peer = {}, datanodeId = {}",
+        peer, datanodeId);
       return getSaslStreams(peer, underlyingOut, underlyingIn, datanodeId);
     }
   }

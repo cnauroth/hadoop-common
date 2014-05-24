@@ -89,7 +89,7 @@ public class SaslDataTransferClient {
       encKeySupplier, accessToken, datanodeId);
   }
 
-  public IOStreamPair socketSend(Socket socket, OutputStream underlyingOut,
+  IOStreamPair socketSend(Socket socket, OutputStream underlyingOut,
       InputStream underlyingIn, Supplier<DataEncryptionKey> encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
@@ -102,13 +102,25 @@ public class SaslDataTransferClient {
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
     if (encryptionKey != null) {
+      LOG.debug(
+        "SASL client doing encrypted handshake for addr = {}, datanodeId = {}",
+        addr, datanodeId);
       return getEncryptedStreams(underlyingOut, underlyingIn,
         encryptionKey.get(), accessToken, datanodeId);
     } else if (!UserGroupInformation.isSecurityEnabled()) {
+      LOG.debug(
+        "SASL client skipping handshake in unsecured configuration for "
+        + "addr = {}, datanodeId = {}", addr, datanodeId);
       return new IOStreamPair(underlyingIn, underlyingOut);
     } else if (datanodeId.getXferPort() < 1024) {
+      LOG.debug(
+        "SASL client skipping handshake in secured configuration with "
+        + "privileged port for addr = {}, datanodeId = {}", addr, datanodeId);
       return new IOStreamPair(underlyingIn, underlyingOut);
     } else {
+      LOG.debug(
+        "SASL client doing general handshake for addr = {}, datanodeId = {}",
+        addr, datanodeId);
       return getSaslStreams(addr, underlyingOut, underlyingIn, accessToken,
         datanodeId);
     }
@@ -121,10 +133,8 @@ public class SaslDataTransferClient {
     Map<String, String> saslProps = createSaslPropertiesForEncryption(
       encryptionKey.encryptionAlgorithm);
 
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Client using encryption algorithm " +
-          encryptionKey.encryptionAlgorithm);
-    }
+    LOG.debug("Client using encryption algorithm {}",
+      encryptionKey.encryptionAlgorithm);
 
     String userName = getUserNameFromEncryptionKey(encryptionKey);
     char[] password = encryptionKeyToPassword(encryptionKey.encryptionKey);
