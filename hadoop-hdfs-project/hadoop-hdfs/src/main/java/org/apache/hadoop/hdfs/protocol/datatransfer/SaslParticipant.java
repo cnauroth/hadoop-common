@@ -105,9 +105,6 @@ class SaslParticipant {
   // communication encrypted.
   public IOStreamPair createStreamPair(DataOutputStream out,
       DataInputStream in) {
-    if (getNegotiatedQop() == QualityOfProtection.AUTHENTICATION.getSaslQop()) {
-      return new IOStreamPair(in, out);
-    }
     if (saslClient != null) {
       return new IOStreamPair(
           new SaslInputStream(in, saslClient),

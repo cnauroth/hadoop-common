@@ -74,9 +74,10 @@ public class SaslDataTransferClient {
   public IOStreamPair peerSend(Peer peer, DataEncryptionKey encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
+    Supplier<DataEncryptionKey> encKeySupplier = encryptionKey != null ?
+      Suppliers.ofInstance(encryptionKey) : null;
     return getStreams(getPeerAddress(peer), peer.getOutputStream(),
-      peer.getInputStream(), Suppliers.ofInstance(encryptionKey),
-      accessToken, datanodeId);
+      peer.getInputStream(), encKeySupplier, accessToken, datanodeId);
   }
 
   public IOStreamPair socketSend(Socket socket, OutputStream underlyingOut,

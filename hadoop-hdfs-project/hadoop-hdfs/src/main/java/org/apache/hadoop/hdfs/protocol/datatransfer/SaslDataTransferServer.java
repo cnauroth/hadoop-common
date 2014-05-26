@@ -190,7 +190,6 @@ public class SaslDataTransferServer {
       }
 
       if (pc != null) {
-        byte[] encryptionKey = getEncryptionKeyFromUserName(nc.getDefaultName());
         pc.setPassword(passwordFunction.apply(nc.getDefaultName()));
       }
 
@@ -267,7 +266,6 @@ public class SaslDataTransferServer {
   private char[] buildServerPassword(String userName, DatanodeID datanodeId)
       throws IOException {
     // TOOD: probably want to include block pool ID in password too
-    String[] parts = userName.split(NAME_DELIMITER);
     String[] nameComponents = userName.split(NAME_DELIMITER);
     if (nameComponents.length != 2) {
       throw new IOException("Provided name '" + userName + "' has " +
