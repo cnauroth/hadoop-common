@@ -64,8 +64,7 @@ public class TestSaslDataTransfer extends KerberosSecurityTestcase {
       "hdfs/localhost@" + getKdc().getRealm());
     conf.setBoolean(DFS_BLOCK_ACCESS_TOKEN_ENABLE_KEY, true);
     conf.set(DFS_DATA_TRANSFER_PROTECTION_KEY, "auth,auth-int,auth-conf");
-    //cluster = new MiniDFSCluster.Builder(conf).numDataNodes(3).build();
-    cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
+    cluster = new MiniDFSCluster.Builder(conf).numDataNodes(3).build();
     cluster.waitActive();
     fs = cluster.getFileSystem();
   }
