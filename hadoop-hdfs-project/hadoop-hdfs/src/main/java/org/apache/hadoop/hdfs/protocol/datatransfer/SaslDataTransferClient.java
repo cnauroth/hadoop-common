@@ -39,6 +39,7 @@ import javax.security.sasl.RealmChoiceCallback;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hdfs.net.EncryptedPeer;
 import org.apache.hadoop.hdfs.net.Peer;
 import org.apache.hadoop.hdfs.protocol.DatanodeID;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
@@ -71,13 +72,15 @@ public class SaslDataTransferClient {
     this.saslPropsResolver = saslPropsResolver;
   }
 
-  public IOStreamPair peerSend(Peer peer, DataEncryptionKey encryptionKey,
+  public Peer peerSend(Peer peer, DataEncryptionKey encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
     Supplier<DataEncryptionKey> encKeySupplier = encryptionKey != null ?
       Suppliers.ofInstance(encryptionKey) : null;
-    return getStreams(getPeerAddress(peer), peer.getOutputStream(),
+    IOStreamPair ios = getStreams(getPeerAddress(peer), peer.getOutputStream(),
       peer.getInputStream(), encKeySupplier, accessToken, datanodeId);
+    // TODO: Consider renaming EncryptedPeer to SaslPeer.
+    return ios != null ? new EncryptedPeer(peer, ios) : peer;
   }
 
   public IOStreamPair socketSend(Socket socket, OutputStream underlyingOut,
@@ -86,16 +89,18 @@ public class SaslDataTransferClient {
       throws IOException {
     Supplier<DataEncryptionKey> encKeySupplier = encryptionKey != null ?
       Suppliers.ofInstance(encryptionKey) : null;
-    return getStreams(socket.getInetAddress(), underlyingOut, underlyingIn,
+    IOStreamPair ios = getStreams(socket.getInetAddress(), underlyingOut, underlyingIn,
       encKeySupplier, accessToken, datanodeId);
+    return ios != null ? ios : new IOStreamPair(underlyingIn, underlyingOut);
   }
 
   IOStreamPair socketSend(Socket socket, OutputStream underlyingOut,
       InputStream underlyingIn, Supplier<DataEncryptionKey> encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
-    return getStreams(socket.getInetAddress(), underlyingOut, underlyingIn,
-      encryptionKey, accessToken, datanodeId);
+    IOStreamPair ios = getStreams(socket.getInetAddress(), underlyingOut,
+      underlyingIn, encryptionKey, accessToken, datanodeId);
+    return ios != null ? ios : new IOStreamPair(underlyingIn, underlyingOut);
   }
 
   private IOStreamPair getStreams(InetAddress addr, OutputStream underlyingOut,
@@ -112,12 +117,12 @@ public class SaslDataTransferClient {
       LOG.debug(
         "SASL client skipping handshake in unsecured configuration for "
         + "addr = {}, datanodeId = {}", addr, datanodeId);
-      return new IOStreamPair(underlyingIn, underlyingOut);
+      return null;
     } else if (datanodeId.getXferPort() < 1024) {
       LOG.debug(
         "SASL client skipping handshake in secured configuration with "
         + "privileged port for addr = {}, datanodeId = {}", addr, datanodeId);
-      return new IOStreamPair(underlyingIn, underlyingOut);
+      return null;
     } else {
       LOG.debug(
         "SASL client doing general handshake for addr = {}, datanodeId = {}",

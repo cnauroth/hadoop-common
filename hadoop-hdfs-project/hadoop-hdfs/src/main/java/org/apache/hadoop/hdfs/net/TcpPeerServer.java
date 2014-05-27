@@ -85,11 +85,8 @@ public class TcpPeerServer implements PeerServer {
     Peer peer = null;
     boolean success = false;
     try {
-      peer = peerFromSocket(s); 
-      if (key != null) {
-        peer = new EncryptedPeer(saslDataTransferClient, peer, key, blockToken,
-          datanodeId);
-      }
+      peer = peerFromSocket(s);
+      peer = saslDataTransferClient.peerSend(peer, key, blockToken, datanodeId);
       success = true;
       return peer;
     } finally {
