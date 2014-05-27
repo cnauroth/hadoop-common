@@ -121,7 +121,7 @@ public final class DataTransferSaslUtil {
     saslPropsResolverConf.setClass(HADOOP_SECURITY_SASL_PROPS_RESOLVER_CLASS,
       conf.getClass(DFS_DATA_TRANSFER_SASL_PROPS_RESOLVER_CLASS_KEY,
         SaslPropertiesResolver.class), SaslPropertiesResolver.class);
-    return SaslPropertiesResolver.getInstance(conf);
+    return SaslPropertiesResolver.getInstance(saslPropsResolverConf);
   }
 
   public static void performSaslStep1(OutputStream out, InputStream in,

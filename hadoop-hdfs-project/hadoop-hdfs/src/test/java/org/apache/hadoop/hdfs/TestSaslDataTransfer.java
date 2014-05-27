@@ -27,7 +27,10 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_WEB_AUTHENTICATION_KERBER
 import static org.junit.Assert.*;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IOUtils;
@@ -40,6 +43,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class TestSaslDataTransfer extends KerberosSecurityTestcase {
+
+  private static String TEST_FILE_CONTENT = "testing SASL";
 
   private MiniDFSCluster cluster;
   private HdfsConfiguration conf;
@@ -63,10 +68,10 @@ public class TestSaslDataTransfer extends KerberosSecurityTestcase {
     conf.set(DFS_DATANODE_KERBEROS_PRINCIPAL_KEY,
       "hdfs/localhost@" + getKdc().getRealm());
     conf.setBoolean(DFS_BLOCK_ACCESS_TOKEN_ENABLE_KEY, true);
-    conf.set(DFS_DATA_TRANSFER_PROTECTION_KEY, "auth,auth-int,auth-conf");
+    conf.set(DFS_DATA_TRANSFER_PROTECTION_KEY,
+      "authentication,integrity,privacy");
     cluster = new MiniDFSCluster.Builder(conf).numDataNodes(3).build();
     cluster.waitActive();
-    fs = cluster.getFileSystem();
   }
 
   @After
@@ -78,8 +83,36 @@ public class TestSaslDataTransfer extends KerberosSecurityTestcase {
   }
 
   @Test
-  public void testClientAuth() throws Exception {
-    DFSTestUtil.createFile(fs, new Path("/file1"), 1024, (short)3, 0);
-    String file1Content = DFSTestUtil.readFile(fs, new Path("/file1"));
+  public void testAuthentication() throws Exception {
+    doTestForQop("authentication");
+  }
+
+  @Test
+  public void testIntegrity() throws Exception {
+    doTestForQop("integrity");
+  }
+
+  @Test
+  public void testPrivacy() throws Exception {
+    doTestForQop("privacy");
+  }
+
+  private void doTestForQop(String qop) throws IOException {
+    Configuration fsConf = new Configuration(conf);
+    fsConf.set(DFS_DATA_TRANSFER_PROTECTION_KEY, qop);
+    fs = FileSystem.get(cluster.getURI(), fsConf);
+    createFile("/file");
+    String fileContent = DFSTestUtil.readFile(fs, new Path("/file"));
+    assertEquals(TEST_FILE_CONTENT, fileContent);
+  }
+
+  private void createFile(String path) throws IOException {
+    OutputStream os = null;
+    try {
+      os = fs.create(new Path(path));
+      os.write(TEST_FILE_CONTENT.getBytes("UTF-8"));
+    } finally {
+      IOUtils.cleanup(null, os);
+    }
   }
 }
