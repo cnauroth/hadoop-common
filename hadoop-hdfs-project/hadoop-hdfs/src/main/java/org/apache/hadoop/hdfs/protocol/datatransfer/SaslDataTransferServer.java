@@ -54,7 +54,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
-import com.google.common.base.Supplier;
 
 @InterfaceAudience.Private
 public class SaslDataTransferServer {
@@ -82,21 +81,16 @@ public class SaslDataTransferServer {
       InputStream underlyingIn, final ExtendedBlock block,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
-    final Supplier<DataEncryptionKey> encKeySupplier;
+    final DataEncryptionKey encryptionKey;
     if (dnConf.getEncryptDataTransfer() &&
         !dnConf.getTrustedChannelResolver().isTrusted(socket.getInetAddress())) {
-      encKeySupplier = new Supplier<DataEncryptionKey>() {
-        @Override
-        public DataEncryptionKey get() {
-          return blockPoolTokenSecretManager.generateDataEncryptionKey(
-            block.getBlockPoolId());
-        }
-      };
+      encryptionKey = blockPoolTokenSecretManager.generateDataEncryptionKey(
+        block.getBlockPoolId());
     } else {
-      encKeySupplier = null;
+      encryptionKey = null;
     }
     return saslClient.socketSend(socket, underlyingOut, underlyingIn,
-      encKeySupplier, accessToken, datanodeId);
+      encryptionKey, accessToken, datanodeId);
   }
 
   public IOStreamPair receive(Peer peer, OutputStream underlyingOut,

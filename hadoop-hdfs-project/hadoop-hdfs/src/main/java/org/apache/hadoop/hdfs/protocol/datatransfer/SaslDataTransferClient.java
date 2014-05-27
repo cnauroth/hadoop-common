@@ -52,8 +52,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 
 @InterfaceAudience.Private
 public class SaslDataTransferClient {
@@ -75,10 +73,8 @@ public class SaslDataTransferClient {
   public Peer peerSend(Peer peer, DataEncryptionKey encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
-    Supplier<DataEncryptionKey> encKeySupplier = encryptionKey != null ?
-      Suppliers.ofInstance(encryptionKey) : null;
     IOStreamPair ios = getStreams(getPeerAddress(peer), peer.getOutputStream(),
-      peer.getInputStream(), encKeySupplier, accessToken, datanodeId);
+      peer.getInputStream(), encryptionKey, accessToken, datanodeId);
     // TODO: Consider renaming EncryptedPeer to SaslPeer.
     return ios != null ? new EncryptedPeer(peer, ios) : peer;
   }
@@ -87,24 +83,13 @@ public class SaslDataTransferClient {
       InputStream underlyingIn, DataEncryptionKey encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
-    Supplier<DataEncryptionKey> encKeySupplier = encryptionKey != null ?
-      Suppliers.ofInstance(encryptionKey) : null;
     IOStreamPair ios = getStreams(socket.getInetAddress(), underlyingOut, underlyingIn,
-      encKeySupplier, accessToken, datanodeId);
-    return ios != null ? ios : new IOStreamPair(underlyingIn, underlyingOut);
-  }
-
-  IOStreamPair socketSend(Socket socket, OutputStream underlyingOut,
-      InputStream underlyingIn, Supplier<DataEncryptionKey> encryptionKey,
-      Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
-      throws IOException {
-    IOStreamPair ios = getStreams(socket.getInetAddress(), underlyingOut,
-      underlyingIn, encryptionKey, accessToken, datanodeId);
+      encryptionKey, accessToken, datanodeId);
     return ios != null ? ios : new IOStreamPair(underlyingIn, underlyingOut);
   }
 
   private IOStreamPair getStreams(InetAddress addr, OutputStream underlyingOut,
-      InputStream underlyingIn, Supplier<DataEncryptionKey> encryptionKey,
+      InputStream underlyingIn, DataEncryptionKey encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
     if (encryptionKey != null) {
@@ -112,7 +97,7 @@ public class SaslDataTransferClient {
         "SASL client doing encrypted handshake for addr = {}, datanodeId = {}",
         addr, datanodeId);
       return getEncryptedStreams(underlyingOut, underlyingIn,
-        encryptionKey.get(), accessToken, datanodeId);
+        encryptionKey, accessToken, datanodeId);
     } else if (!UserGroupInformation.isSecurityEnabled()) {
       LOG.debug(
         "SASL client skipping handshake in unsecured configuration for "
