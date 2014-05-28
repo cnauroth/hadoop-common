@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hdfs.protocol.datatransfer.sasl;
 
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_KEY;
 import static org.apache.hadoop.hdfs.protocol.datatransfer.sasl.DataTransferSaslUtil.*;
 
 import java.io.ByteArrayInputStream;
@@ -50,6 +51,7 @@ import org.apache.hadoop.hdfs.security.token.block.BlockPoolTokenSecretManager;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
 import org.apache.hadoop.hdfs.server.datanode.DNConf;
+import org.apache.hadoop.security.SaslPropertiesResolver;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
 import org.slf4j.Logger;
@@ -202,15 +204,15 @@ public class SaslDataTransferServer {
 
   private IOStreamPair getSaslStreams(Peer peer, OutputStream underlyingOut,
       InputStream underlyingIn, final DatanodeID datanodeId) throws IOException {
-  /*
+    SaslPropertiesResolver saslPropsResolver = dnConf.getSaslPropsResolver();
+    if (saslPropsResolver == null) {
       throw new IOException(String.format("Cannot create a secured " +
         "connection if DataNode listens on unprivileged port (%d) and no " +
         "protection is defined in configuration property %s.",
         datanodeId.getXferPort(), DFS_DATA_TRANSFER_PROTECTION_KEY));
-  */
-    // TODO
-    Map<String, String> saslProps = dnConf.getSaslPropsResolver()
-      .getServerProperties(getPeerAddress(peer));
+    }
+    Map<String, String> saslProps = saslPropsResolver.getServerProperties(
+      getPeerAddress(peer));
 
     CallbackHandler callbackHandler = new SaslServerCallbackHandler(
       new PasswordFunction() {

@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hdfs.protocol.datatransfer.sasl;
 
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_KEY;
 import static org.apache.hadoop.hdfs.protocol.datatransfer.sasl.DataTransferSaslUtil.*;
 
 import java.io.DataInputStream;
@@ -235,13 +236,12 @@ public class SaslDataTransferClient {
       OutputStream underlyingOut, InputStream underlyingIn,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
-  /*
+    if (saslPropsResolver == null) {
       throw new IOException(String.format("Cannot create a secured " +
         "connection if DataNode listens on unprivileged port (%d) and no " +
         "protection is defined in configuration property %s.",
         datanodeId.getXferPort(), DFS_DATA_TRANSFER_PROTECTION_KEY));
-  */
-    // TODO
+    }
     Map<String, String> saslProps = saslPropsResolver.getClientProperties(addr);
 
     long timestamp = Time.now();
