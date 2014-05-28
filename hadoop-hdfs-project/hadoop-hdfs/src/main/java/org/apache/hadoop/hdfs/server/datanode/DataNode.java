@@ -771,6 +771,10 @@ public class DataNode extends Configured
       return;
     }
     if (conf.get(DFS_DATA_TRANSFER_PROTECTION_KEY) != null) {
+      // TODO: Add check for SPNEGO configured on HTTP server.
+      // If token auth was in use, then we'd have the same problem of passing
+      // around token secrets on an untrusted port.  I believe only SPNEGO
+      // would establish mutual authentication.
       return;
     }
     throw new RuntimeException("Cannot start secure DataNode without " +
