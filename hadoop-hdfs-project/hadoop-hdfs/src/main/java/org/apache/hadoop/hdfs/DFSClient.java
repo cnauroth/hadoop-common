@@ -281,6 +281,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     final int retryTimesForGetLastBlockLength;
     final int retryIntervalForGetLastBlockLength;
     final long datanodeRestartTimeout;
+    final long dfsclientSlowIoWarningThresholdMs;
 
     final boolean useLegacyBlockReader;
     final boolean useLegacyBlockReaderLocal;
@@ -435,6 +436,9 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
       datanodeRestartTimeout = conf.getLong(
           DFS_CLIENT_DATANODE_RESTART_TIMEOUT_KEY,
           DFS_CLIENT_DATANODE_RESTART_TIMEOUT_DEFAULT) * 1000;
+      dfsclientSlowIoWarningThresholdMs = conf.getLong(
+          DFSConfigKeys.DFS_CLIENT_SLOW_IO_WARNING_THRESHOLD_KEY,
+          DFSConfigKeys.DFS_CLIENT_SLOW_IO_WARNING_THRESHOLD_DEFAULT);
     }
 
     public boolean isUseLegacyBlockReaderLocal() {
