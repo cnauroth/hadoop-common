@@ -80,7 +80,7 @@ public class TcpPeerServer implements PeerServer {
   }
 
   public static Peer peerFromSocketAndKey(
-        SaslDataTransferClient saslDataTransferClient, Socket s,
+        SaslDataTransferClient saslClient, Socket s,
         DataEncryptionKeyFactory keyFactory,
         Token<BlockTokenIdentifier> blockToken, DatanodeID datanodeId)
         throws IOException {
@@ -88,8 +88,7 @@ public class TcpPeerServer implements PeerServer {
     boolean success = false;
     try {
       peer = peerFromSocket(s);
-      peer = saslDataTransferClient.peerSend(peer, keyFactory, blockToken,
-        datanodeId);
+      peer = saslClient.peerSend(peer, keyFactory, blockToken, datanodeId);
       success = true;
       return peer;
     } finally {
