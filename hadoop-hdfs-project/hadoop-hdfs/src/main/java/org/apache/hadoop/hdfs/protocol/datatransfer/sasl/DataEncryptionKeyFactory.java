@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdfs.protocol.datatransfer;
+package org.apache.hadoop.hdfs.protocol.datatransfer.sasl;
 
 import java.io.IOException;
 

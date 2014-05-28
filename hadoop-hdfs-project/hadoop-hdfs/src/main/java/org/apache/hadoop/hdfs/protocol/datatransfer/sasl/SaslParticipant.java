@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdfs.protocol.datatransfer;
+package org.apache.hadoop.hdfs.protocol.datatransfer.sasl;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -27,6 +27,7 @@ import javax.security.sasl.SaslException;
 import javax.security.sasl.SaslServer;
 
 import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.hdfs.protocol.datatransfer.IOStreamPair;
 import org.apache.hadoop.security.SaslInputStream;
 import org.apache.hadoop.security.SaslOutputStream;
 import org.apache.hadoop.security.SaslRpcServer.QualityOfProtection;

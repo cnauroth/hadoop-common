@@ -15,9 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdfs.protocol.datatransfer;
+package org.apache.hadoop.hdfs.protocol.datatransfer.sasl;
 
-import static org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil.*;
+import static org.apache.hadoop.hdfs.protocol.datatransfer.sasl.DataTransferSaslUtil.*;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -42,6 +42,8 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.net.EncryptedPeer;
 import org.apache.hadoop.hdfs.net.Peer;
 import org.apache.hadoop.hdfs.protocol.DatanodeID;
+import org.apache.hadoop.hdfs.protocol.datatransfer.IOStreamPair;
+import org.apache.hadoop.hdfs.protocol.datatransfer.TrustedChannelResolver;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
 import org.apache.hadoop.security.SaslPropertiesResolver;
