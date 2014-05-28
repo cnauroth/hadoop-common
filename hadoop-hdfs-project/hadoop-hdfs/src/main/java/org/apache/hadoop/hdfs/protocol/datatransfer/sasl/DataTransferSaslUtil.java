@@ -50,6 +50,9 @@ import com.google.common.collect.Maps;
 import com.google.common.net.InetAddresses;
 import com.google.protobuf.ByteString;
 
+/**
+ * Utility methods implementing SASL negotiation for DataTransferProtocol.
+ */
 @InterfaceAudience.Private
 public final class DataTransferSaslUtil {
 
@@ -67,6 +70,15 @@ public final class DataTransferSaslUtil {
    */
   public static final int SASL_TRANSFER_MAGIC_NUMBER = 0xDEADBEEF;
 
+  /**
+   * Checks that SASL negotiation has completed for the given participant, and
+   * the negotiated quality of protection is included in the given SASL
+   * properties and therefore acceptable.
+   *
+   * @param sasl participant to check
+   * @param saslProps properties of SASL negotiation
+   * @throws IOException for any error
+   */
   public static void checkSaslComplete(SaslParticipant sasl,
       Map<String, String> saslProps) throws IOException {
     if (!sasl.isComplete()) {
@@ -84,6 +96,12 @@ public final class DataTransferSaslUtil {
     }
   }
 
+  /**
+   * Creates SASL properties required for an encrypted SASL negotiation.
+   *
+   * @param encryptionAlgorithm to use for SASL negotation
+   * @return properties of encrypted SASL negotiation
+   */
   public static Map<String, String> createSaslPropertiesForEncryption(
       String encryptionAlgorithm) {
     Map<String, String> saslProps = Maps.newHashMapWithExpectedSize(3);
@@ -93,6 +111,13 @@ public final class DataTransferSaslUtil {
     return saslProps;
   }
 
+  /**
+   * For an encrypted SASL negotiation, encodes an encryption key to a SASL
+   * password.
+   *
+   * @param encryptionKey to encode
+   * @return key encoded as SASL password
+   */
   public static char[] encryptionKeyToPassword(byte[] encryptionKey) {
     return new String(Base64.encodeBase64(encryptionKey, false), Charsets.UTF_8)
       .toCharArray();
@@ -103,14 +128,25 @@ public final class DataTransferSaslUtil {
    * The getRemoteAddressString is the form  /ip-address:port
    * The ip-address is extracted from peer and InetAddress is formed
    * @param peer
-   * @return
-   * @throws UnknownHostException
+   * @return InetAddress from peer
    */
   public static InetAddress getPeerAddress(Peer peer) {
     return InetAddresses.forString(
         peer.getRemoteAddressString().split(":")[0].substring(1));
   }
 
+  /**
+   * Creates a SaslPropertiesResolver from the given configuration.  This method
+   * works by cloning the configuration, translating configuration properties
+   * specific to DataTransferProtocol to what SaslPropertiesResolver expects,
+   * and then delegating to SaslPropertiesResolver for initialization.  This
+   * method returns null if SASL protection has not been configured for
+   * DataTransferProtocol.
+   *
+   * @param conf configuration to read
+   * @return SaslPropertiesResolver for DataTransferProtocol, or null if not
+   *   configured
+   */
   public static SaslPropertiesResolver getSaslPropertiesResolver(
       Configuration conf) {
     String qops = conf.get(DFS_DATA_TRANSFER_PROTECTION_KEY);
@@ -125,13 +161,27 @@ public final class DataTransferSaslUtil {
     return SaslPropertiesResolver.getInstance(saslPropsResolverConf);
   }
 
+  /**
+   * Performs the first step of SASL negotiation.
+   *
+   * @param out connection output stream
+   * @param in connection input stream
+   * @param sasl participant
+   */
   public static void performSaslStep1(OutputStream out, InputStream in,
       SaslParticipant sasl) throws IOException {
     byte[] remoteResponse = readSaslMessage(in);
     byte[] localResponse = sasl.evaluateChallengeOrResponse(remoteResponse);
     sendSaslMessage(out, localResponse);
   }
-  
+
+  /**
+   * Reads a SASL negotiation message.
+   *
+   * @param in stream to read
+   * @return bytes of SASL negotiation messsage
+   * @throws IOException for any error
+   */
   public static byte[] readSaslMessage(InputStream in) throws IOException {
     DataTransferEncryptorMessageProto proto =
         DataTransferEncryptorMessageProto.parseFrom(vintPrefixed(in));
@@ -144,16 +194,39 @@ public final class DataTransferSaslUtil {
     }
   }
 
+  /**
+   * Sends a SASL negotiation message indicating an error.
+   *
+   * @param out stream to receive message
+   * @param message to send
+   * @throws IOException for any error
+   */
   public static void sendGenericSaslErrorMessage(OutputStream out,
       String message) throws IOException {
     sendSaslMessage(out, DataTransferEncryptorStatus.ERROR, null, message);
   }
 
+  /**
+   * Sends a SASL negotiation message.
+   *
+   * @param out stream to receive message
+   * @param payload to send
+   * @throws IOException for any error
+   */
   public static void sendSaslMessage(OutputStream out, byte[] payload)
       throws IOException {
     sendSaslMessage(out, DataTransferEncryptorStatus.SUCCESS, payload, null);
   }
-  
+
+  /**
+   * Sends a SASL negotiation message.
+   *
+   * @param out stream to receive message
+   * @param status negotiation status
+   * @param payload to send
+   * @param message to send
+   * @throws IOException for any error
+   */
   public static void sendSaslMessage(OutputStream out,
       DataTransferEncryptorStatus status, byte[] payload, String message)
           throws IOException {
@@ -173,6 +246,9 @@ public final class DataTransferSaslUtil {
     out.flush();
   }
 
+  /**
+   * There is no reason to instantiate this class.
+   */
   private DataTransferSaslUtil() {
   }
 }

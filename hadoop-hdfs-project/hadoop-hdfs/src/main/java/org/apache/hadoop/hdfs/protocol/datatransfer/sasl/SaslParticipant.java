@@ -53,6 +53,14 @@ class SaslParticipant {
   private final SaslServer saslServer;
   private final SaslClient saslClient;
 
+  /**
+   * Creates a SaslParticipant wrapping a SaslServer.
+   *
+   * @param saslProps properties of SASL negotiation
+   * @param callbackHandler for handling all SASL callbacks
+   * @return SaslParticipant wrapping SaslServer
+   * @throws SaslException for any error
+   */
   public static SaslParticipant createServerSaslParticipant(
       Map<String, String> saslProps, CallbackHandler callbackHandler)
       throws SaslException {
@@ -60,6 +68,15 @@ class SaslParticipant {
       PROTOCOL, SERVER_NAME, saslProps, callbackHandler));
   }
 
+  /**
+   * Creates a SaslParticipant wrapping a SaslClient.
+   *
+   * @param userName SASL user name
+   * @param saslProps properties of SASL negotiation
+   * @param callbackHandler for handling all SASL callbacks
+   * @return SaslParticipant wrapping SaslClient
+   * @throws SaslException for any error
+   */
   public static SaslParticipant createClientSaslParticipant(String userName,
       Map<String, String> saslProps, CallbackHandler callbackHandler)
       throws SaslException {
@@ -67,16 +84,30 @@ class SaslParticipant {
       userName, PROTOCOL, SERVER_NAME, saslProps, callbackHandler));
   }
 
+  /**
+   * Private constructor wrapping a SaslServer.
+   *
+   * @param saslServer to wrap
+   */
   private SaslParticipant(SaslServer saslServer) {
     this.saslServer = saslServer;
     this.saslClient = null;
   }
 
+  /**
+   * Private constructor wrapping a SaslClient.
+   *
+   * @param saslClient to wrap
+   */
   private SaslParticipant(SaslClient saslClient) {
     this.saslServer = null;
     this.saslClient = saslClient;
   }
 
+  /**
+   * @see {@link SaslServer#evaluateResponse}
+   * @see {@link SaslClient#evaluateChallenge}
+   */
   public byte[] evaluateChallengeOrResponse(byte[] challengeOrResponse)
       throws SaslException {
     if (saslClient != null) {
@@ -86,6 +117,12 @@ class SaslParticipant {
     }
   }
 
+  /**
+   * After successful SASL negotation, returns the negotiated quality of
+   * protection.
+   *
+   * @return negotiated quality of protection
+   */
   public String getNegotiatedQop() {
     if (saslClient != null) {
       return (String) saslClient.getNegotiatedProperty(Sasl.QOP);
@@ -94,6 +131,11 @@ class SaslParticipant {
     }
   }
 
+  /**
+   * Returns true if SASL negotiation is complete.
+   *
+   * @return true if SASL negotiation is complete
+   */
   public boolean isComplete() {
     if (saslClient != null) {
       return saslClient.isComplete();
@@ -102,8 +144,14 @@ class SaslParticipant {
     }
   }
 
-  // Return some input/output streams that will henceforth have their
-  // communication encrypted.
+  /**
+   * Return some input/output streams that may henceforth have their
+   * communication encrypted, depending on the negotiated quality of protection.
+   *
+   * @param out output stream to wrap
+   * @param in input stream to wrap
+   * @return IOStreamPair wrapping the streams
+   */
   public IOStreamPair createStreamPair(DataOutputStream out,
       DataInputStream in) {
     if (saslClient != null) {

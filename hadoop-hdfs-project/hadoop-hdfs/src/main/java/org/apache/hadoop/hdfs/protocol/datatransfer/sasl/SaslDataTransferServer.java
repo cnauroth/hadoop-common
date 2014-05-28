@@ -59,6 +59,15 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
 
+/**
+ * Negotiates SASL for DataTransferProtocol on behalf of a server.  There are
+ * two possible supported variants of SASL negotiation: either a general-purpose
+ * negotiation supporting any quality of protection, or a specialized
+ * negotiation that enforces privacy as the quality of protection using a
+ * cryptographically strong encryption key.
+ *
+ * This class is used in the DataNode for handling inbound connections.
+ */
 @InterfaceAudience.Private
 public class SaslDataTransferServer {
 
@@ -68,12 +77,29 @@ public class SaslDataTransferServer {
   private final BlockPoolTokenSecretManager blockPoolTokenSecretManager;
   private final DNConf dnConf;
 
+  /**
+   * Creates a new SaslDataTransferServer.
+   *
+   * @param dnConf configuration of DataNode
+   * @param blockPoolTokenSecretManager used for checking block access tokens
+   *   and encryption keys
+   */
   public SaslDataTransferServer(DNConf dnConf,
       BlockPoolTokenSecretManager blockPoolTokenSecretManager) {
     this.blockPoolTokenSecretManager = blockPoolTokenSecretManager;
     this.dnConf = dnConf;
   }
 
+  /**
+   * Receives SASL negotiation from a peer on behalf of a server.
+   *
+   * @param peer connection peer
+   * @param underlyingOut connection output stream
+   * @param underlyingIn connection input stream
+   * @param datanodeId ID of DataNode accepting connection
+   * @return new pair of streams, wrapped after SASL negotiation
+   * @throws IOException for any error
+   */
   public IOStreamPair receive(Peer peer, OutputStream underlyingOut,
       InputStream underlyingIn, DatanodeID datanodeId) throws IOException {
     if (dnConf.getEncryptDataTransfer()) {
@@ -99,6 +125,16 @@ public class SaslDataTransferServer {
     }
   }
 
+  /**
+   * Receives SASL negotiation for specialized encrypted handshake.
+   *
+   * @param peer connection peer
+   * @param underlyingOut connection output stream
+   * @param underlyingIn connection input stream
+   * @param datanodeId ID of DataNode accepting connection
+   * @return new pair of streams, wrapped after SASL negotiation
+   * @throws IOException for any error
+   */
   private IOStreamPair getEncryptedStreams(Peer peer,
       OutputStream underlyingOut, InputStream underlyingIn,
       DatanodeID datanodeId) throws IOException {
@@ -128,17 +164,36 @@ public class SaslDataTransferServer {
         callbackHandler);
   }
 
+  /**
+   * The SASL handshake for encrypted vs. general-purpose uses different logic
+   * for determining the password.  This interface is used to parameterize that
+   * logic.  It's similar to a Guava Function, but we need to let it throw
+   * exceptions.
+   */
   private interface PasswordFunction {
+
+    /**
+     * Returns the SASL password for the given user name.
+     *
+     * @param userName SASL user name
+     * @return SASL password
+     * @throws IOException for any error
+     */
     char[] apply(String userName) throws IOException;
   }
 
   /**
-   * Set the encryption key when asked by the server-side SASL object.
+   * Sets user name and password when asked by the server-side SASL object.
    */
   private class SaslServerCallbackHandler implements CallbackHandler {
 
     private final PasswordFunction passwordFunction;
 
+    /**
+     * Creates a new SaslServerCallbackHandler.
+     *
+     * @param passwordFunction for determing the user's password
+     */
     public SaslServerCallbackHandler(PasswordFunction passwordFunction) {
       this.passwordFunction = passwordFunction;
     }
@@ -176,8 +231,8 @@ public class SaslDataTransferServer {
   }
 
   /**
-   * Given a secret manager and a username encoded as described above, determine
-   * the encryption key.
+   * Given a secret manager and a username encoded for the encrypted handshake,
+   * determine the encryption key.
    * 
    * @param userName containing the keyId, blockPoolId, and nonce.
    * @return secret encryption key.
@@ -197,6 +252,16 @@ public class SaslDataTransferServer {
         blockPoolId, nonce);
   }
 
+  /**
+   * Receives SASL negotiation for general-purpose handshake.
+   *
+   * @param peer connection peer
+   * @param underlyingOut connection output stream
+   * @param underlyingIn connection input stream
+   * @param datanodeId ID of DataNode accepting connection
+   * @return new pair of streams, wrapped after SASL negotiation
+   * @throws IOException for any error
+   */
   private IOStreamPair getSaslStreams(Peer peer, OutputStream underlyingOut,
       InputStream underlyingIn, final DatanodeID datanodeId) throws IOException {
     SaslPropertiesResolver saslPropsResolver = dnConf.getSaslPropsResolver();
@@ -223,20 +288,20 @@ public class SaslDataTransferServer {
   }
 
   /**
-   * Calculates the expected correct password on the server side.  The
-   * password consists of the block access token's password (known to the
-   * DataNode via its secret manager), the target DataNode UUID (also known to
-   * the DataNode), and a request timestamp (provided in the client request).
-   * This expects that the client has supplied a user name consisting of its
-   * serialized block access token identifier and the client-generated
-   * timestamp.  The timestamp is checked against a configurable expiration to
-   * make replay attacks harder.
+   * Calculates the expected correct password on the server side for the
+   * general-purpose handshake.  The password consists of the block access
+   * token's password (known to the DataNode via its secret manager), the target
+   * DataNode UUID (also known to the DataNode), and a request timestamp
+   * (provided in the client request).  This expects that the client has
+   * supplied a user name consisting of its serialized block access token
+   * identifier and the client-generated timestamp.  The timestamp is checked
+   * against a configurable expiration to make replay attacks harder.
    *
-   * @param userName String user name containing serialized block access token
-   *   and client-generated timestamp
-   * @param datanodeId DatanodeID of DataNode accepting connection
-   * @return char[] expected correct password
-   * @throws IOException if there is any I/O error
+   * @param userName SASL user name containing serialized block access token and
+   *   client-generated timestamp
+   * @param datanodeId ID of DataNode accepting connection
+   * @return expected correct SASL password
+   * @throws IOException for any error
    */    
   private char[] buildServerPassword(String userName, DatanodeID datanodeId)
       throws IOException {
@@ -272,6 +337,16 @@ public class SaslDataTransferServer {
     return identifier;
   }
 
+  /**
+   * This method actually executes the server-side SASL handshake.
+   *
+   * @param underlyingOut connection output stream
+   * @param underlyingIn connection input stream
+   * @param saslProps properties of SASL negotiation
+   * @param callbackHandler for responding to SASL callbacks
+   * @return new pair of streams, wrapped after SASL negotiation
+   * @throws IOException for any error
+   */
   private IOStreamPair doSaslHandshake(OutputStream underlyingOut,
       InputStream underlyingIn, Map<String, String> saslProps,
       CallbackHandler callbackHandler) throws IOException {
@@ -315,6 +390,13 @@ public class SaslDataTransferServer {
     }
   }
 
+  /**
+   * Sends a SASL negotiation message indicating an invalid key error.
+   *
+   * @param out stream to receive message
+   * @param message to send
+   * @throws IOException for any error
+   */
   private static void sendInvalidKeySaslErrorMessage(DataOutputStream out,
       String message) throws IOException {
     sendSaslMessage(out, DataTransferEncryptorStatus.ERROR_UNKNOWN_KEY, null,

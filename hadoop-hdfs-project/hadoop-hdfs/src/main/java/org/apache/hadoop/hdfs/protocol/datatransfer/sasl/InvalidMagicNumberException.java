@@ -23,11 +23,20 @@ import java.io.IOException;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 
+/**
+ * Indicates that SASL protocol negotiation expected to read a pre-defined magic
+ * number, but the expected value was not seen.
+ */
 @InterfaceAudience.Private
 public class InvalidMagicNumberException extends IOException {
 
   private static final long serialVersionUID = 1L;
 
+  /**
+   * Creates a new InvalidMagicNumberException.
+   *
+   * @param magicNumber expected value
+   */
   public InvalidMagicNumberException(int magicNumber) {
     super(String.format("Received %x instead of %x from client.",
         magicNumber, SASL_TRANSFER_MAGIC_NUMBER));

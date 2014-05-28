@@ -56,6 +56,17 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
 
+/**
+ * Negotiates SASL for DataTransferProtocol on behalf of a client.  There are
+ * two possible supported variants of SASL negotiation: either a general-purpose
+ * negotiation supporting any quality of protection, or a specialized
+ * negotiation that enforces privacy as the quality of protection using a
+ * cryptographically strong encryption key.
+ *
+ * This class is used in both the HDFS client and the DataNode.  The DataNode
+ * needs it, because it acts as a client to other DataNodes during write
+ * pipelines and block transfers.
+ */
 @InterfaceAudience.Private
 public class SaslDataTransferClient {
 
@@ -65,12 +76,31 @@ public class SaslDataTransferClient {
   private final SaslPropertiesResolver saslPropsResolver;
   private final TrustedChannelResolver trustedChannelResolver;
 
+  /**
+   * Creates a new SaslDataTransferClient.
+   *
+   * @param saslPropsResolver for determining properties of SASL negotiation
+   * @param trustedChannelResolver for identifying trusted connections that do
+   *   not require SASL negotiation
+   */
   public SaslDataTransferClient(SaslPropertiesResolver saslPropsResolver,
       TrustedChannelResolver trustedChannelResolver) {
     this.saslPropsResolver = saslPropsResolver;
     this.trustedChannelResolver = trustedChannelResolver;
   }
 
+  /**
+   * Sends client SASL negotiation for a newly allocated socket if required.
+   *
+   * @param socket connection socket
+   * @param underlyingOut connection output stream
+   * @param underlyingIn connection input stream
+   * @param encryptionKeyFactory for creation of an encryption key
+   * @param accessToken connection block access token
+   * @param datanodeId ID of destination DataNode
+   * @return new pair of streams, wrapped after SASL negotiation
+   * @throws IOException for any error
+   */
   public IOStreamPair newSocketSend(Socket socket, OutputStream underlyingOut,
       InputStream underlyingIn, DataEncryptionKeyFactory encryptionKeyFactory,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
@@ -82,6 +112,16 @@ public class SaslDataTransferClient {
     return ios != null ? ios : new IOStreamPair(underlyingIn, underlyingOut);
   }
 
+  /**
+   * Sends client SASL negotiation for a peer if required.
+   *
+   * @param peer connection peer
+   * @param encryptionKeyFactory for creation of an encryption key
+   * @param accessToken connection block access token
+   * @param datanodeId ID of destination DataNode
+   * @return new pair of streams, wrapped after SASL negotiation
+   * @throws IOException for any error
+   */
   public Peer peerSend(Peer peer, DataEncryptionKeyFactory encryptionKeyFactory,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
@@ -92,6 +132,18 @@ public class SaslDataTransferClient {
     return ios != null ? new EncryptedPeer(peer, ios) : peer;
   }
 
+  /**
+   * Sends client SASL negotiation for a socket if required.
+   *
+   * @param socket connection socket
+   * @param underlyingOut connection output stream
+   * @param underlyingIn connection input stream
+   * @param encryptionKeyFactory for creation of an encryption key
+   * @param accessToken connection block access token
+   * @param datanodeId ID of destination DataNode
+   * @return new pair of streams, wrapped after SASL negotiation
+   * @throws IOException for any error
+   */
   public IOStreamPair socketSend(Socket socket, OutputStream underlyingOut,
       InputStream underlyingIn, DataEncryptionKeyFactory encryptionKeyFactory,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
@@ -101,6 +153,19 @@ public class SaslDataTransferClient {
     return ios != null ? ios : new IOStreamPair(underlyingIn, underlyingOut);
   }
 
+  /**
+   * Checks if an address is already trusted and then sends client SASL
+   * negotiation if required.
+   *
+   * @param addr connection address
+   * @param underlyingOut connection output stream
+   * @param underlyingIn connection input stream
+   * @param encryptionKeyFactory for creation of an encryption key
+   * @param accessToken connection block access token
+   * @param datanodeId ID of destination DataNode
+   * @return new pair of streams, wrapped after SASL negotiation
+   * @throws IOException for any error
+   */
   private IOStreamPair checkTrustAndSend(InetAddress addr,
       OutputStream underlyingOut, InputStream underlyingIn,
       DataEncryptionKeyFactory encryptionKeyFactory,
@@ -120,6 +185,19 @@ public class SaslDataTransferClient {
     }
   }
 
+  /**
+   * Sends client SASL negotiation if required.  Determines the correct type of
+   * SASL handshake based on configuration.
+   *
+   * @param addr connection address
+   * @param underlyingOut connection output stream
+   * @param underlyingIn connection input stream
+   * @param encryptionKey for an encrypted SASL handshake
+   * @param accessToken connection block access token
+   * @param datanodeId ID of destination DataNode
+   * @return new pair of streams, wrapped after SASL negotiation
+   * @throws IOException for any error
+   */
   private IOStreamPair send(InetAddress addr, OutputStream underlyingOut,
       InputStream underlyingIn, DataEncryptionKey encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
@@ -149,6 +227,17 @@ public class SaslDataTransferClient {
     }
   }
 
+  /**
+   * Sends client SASL negotiation for specialized encrypted handshake.
+   *
+   * @param underlyingOut connection output stream
+   * @param underlyingIn connection input stream
+   * @param encryptionKey for an encrypted SASL handshake
+   * @param accessToken connection block access token
+   * @param datanodeId ID of destination DataNode
+   * @return new pair of streams, wrapped after SASL negotiation
+   * @throws IOException for any error
+   */
   private IOStreamPair getEncryptedStreams(OutputStream underlyingOut,
       InputStream underlyingIn, DataEncryptionKey encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
@@ -168,9 +257,9 @@ public class SaslDataTransferClient {
   }
 
   /**
-   * The SASL username consists of the keyId, blockPoolId, and nonce with the
-   * first two encoded as Strings, and the third encoded using Base64. The
-   * fields are each separated by a single space.
+   * The SASL username for an encrypted handshake consists of the keyId,
+   * blockPoolId, and nonce with the first two encoded as Strings, and the third
+   * encoded using Base64. The fields are each separated by a single space.
    * 
    * @param encryptionKey the encryption key to encode as a SASL username.
    * @return encoded username containing keyId, blockPoolId, and nonce
@@ -181,15 +270,21 @@ public class SaslDataTransferClient {
         encryptionKey.blockPoolId + NAME_DELIMITER +
         new String(Base64.encodeBase64(encryptionKey.nonce, false), Charsets.UTF_8);
   }
-  
+
   /**
-   * Set the encryption key when asked by the client-side SASL object.
+   * Sets user name and password when asked by the client-side SASL object.
    */
   private class SaslClientCallbackHandler implements CallbackHandler {
 
     private final char[] password;
     private final String userName;
 
+    /**
+     * Creates a new SaslClientCallbackHandler.
+     *
+     * @param userName SASL user name
+     * @Param password SASL password
+     */
     public SaslClientCallbackHandler(String userName, char[] password) {
       this.password = password;
       this.userName = userName;
@@ -227,6 +322,17 @@ public class SaslDataTransferClient {
     }
   }
 
+  /**
+   * Sends client SASL negotiation for general-purpose handshake.
+   *
+   * @param addr connection address
+   * @param underlyingOut connection output stream
+   * @param underlyingIn connection input stream
+   * @param accessToken connection block access token
+   * @param datanodeId ID of destination DataNode
+   * @return new pair of streams, wrapped after SASL negotiation
+   * @throws IOException for any error
+   */
   private IOStreamPair getSaslStreams(InetAddress addr,
       OutputStream underlyingOut, InputStream underlyingIn,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
@@ -249,16 +355,16 @@ public class SaslDataTransferClient {
   }
 
   /**
-   * Builds the client's user name, consisting of the base64-encoded serialized
-   * block access token identifier and a client-generated timestamp.  Note that
-   * this includes only the token identifier, not the token itself, which would
-   * include the password.  The password is a shared secret, and we must not
-   * write it on the network during the SASL authentication exchange.
+   * Builds the client's user name for the general-purpose handshake, consisting
+   * of the base64-encoded serialized block access token identifier and a
+   * client-generated timestamp.  Note that this includes only the token
+   * identifier, not the token itself, which would include the password.  The
+   * password is a shared secret, and we must not write it on the network during
+   * the SASL authentication exchange.
    *
-   * @param identifier byte[] containing serialized block access token
-   *   identifier
-   * @param timestamp long client-generated timestamp
-   * @return String client's user name
+   * @param identifier serialized block access token identifier
+   * @param timestamp client-generated timestamp
+   * @return SASL user name
    */
   private static String buildUserName(byte[] identifier, long timestamp) {
     return new String(Base64.encodeBase64(identifier, false), Charsets.UTF_8) +
@@ -266,13 +372,13 @@ public class SaslDataTransferClient {
   }
 
   /**
-   * Calculates the password on the client side.  The password consists of the
-   * block access token's password, the target DataNode UUID, and a
-   * client-generated request timestamp.
+   * Calculates the password on the client side for the general-purpose
+   * handshake.  The password consists of the block access token's password, the
+   * target DataNode UUID, and a client-generated request timestamp.
    *
-   * @param blockToken Token<BlockTokenIdentifier> for block access
-   * @param datanodeId DatanodeID of DataNode receiving connection
-   * @return char[] client password
+   * @param blockToken for block access
+   * @param datanodeId ID of destination DataNode
+   * @return SASL password
    */    
   private char[] buildClientPassword(Token<BlockTokenIdentifier> blockToken,
       DatanodeID datanodeId, long timestamp) {
@@ -282,6 +388,17 @@ public class SaslDataTransferClient {
       NAME_DELIMITER + timestamp).toCharArray();
   }
 
+  /**
+   * This method actually executes the client-side SASL handshake.
+   *
+   * @param underlyingOut connection output stream
+   * @param underlyingIn connection input stream
+   * @param userName SASL user name
+   * @param saslProps properties of SASL negotiation
+   * @param callbackHandler for responding to SASL callbacks
+   * @return new pair of streams, wrapped after SASL negotiation
+   * @throws IOException for any error
+   */
   private IOStreamPair doSaslHandshake(OutputStream underlyingOut,
       InputStream underlyingIn, String userName, Map<String, String> saslProps,
       CallbackHandler callbackHandler) throws IOException {
