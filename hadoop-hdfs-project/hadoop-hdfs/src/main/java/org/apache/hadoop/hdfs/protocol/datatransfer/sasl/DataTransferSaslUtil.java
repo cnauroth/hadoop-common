@@ -19,7 +19,6 @@ package org.apache.hadoop.hdfs.protocol.datatransfer.sasl;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_RPC_PROTECTION;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SECURITY_SASL_PROPS_RESOLVER_CLASS;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_SASL_PROPS_RESOLVER_CLASS_KEY;
 import static org.apache.hadoop.hdfs.protocolPB.PBHelper.vintPrefixed;
@@ -115,10 +114,12 @@ public final class DataTransferSaslUtil {
 
   public static SaslPropertiesResolver getSaslPropertiesResolver(
       Configuration conf) {
+    String qops = conf.get(DFS_DATA_TRANSFER_PROTECTION_KEY);
+    if (qops == null || qops.isEmpty()) {
+      return null;
+    }
     Configuration saslPropsResolverConf = new Configuration(conf);
-    saslPropsResolverConf.set(HADOOP_RPC_PROTECTION,
-      conf.get(DFS_DATA_TRANSFER_PROTECTION_KEY,
-        DFS_DATA_TRANSFER_PROTECTION_DEFAULT));
+    saslPropsResolverConf.set(HADOOP_RPC_PROTECTION, qops);
     saslPropsResolverConf.setClass(HADOOP_SECURITY_SASL_PROPS_RESOLVER_CLASS,
       conf.getClass(DFS_DATA_TRANSFER_SASL_PROPS_RESOLVER_CLASS_KEY,
         SaslPropertiesResolver.class), SaslPropertiesResolver.class);

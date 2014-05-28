@@ -1405,7 +1405,7 @@
 
 <property>
   <name>dfs.data.transfer.protection</name>
-  <value>authentication</value>
+  <value></value>
   <description>
     A comma-separated list of SASL protection values used for secured
     connections to the DataNode when reading or writing block data.  Possible
