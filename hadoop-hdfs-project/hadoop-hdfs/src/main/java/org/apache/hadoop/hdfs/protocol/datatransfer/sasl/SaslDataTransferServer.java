@@ -158,8 +158,6 @@ public class SaslDataTransferServer {
           return encryptionKeyToPassword(getEncryptionKeyFromUserName(userName));
         }
       });
-    SaslParticipant sasl = SaslParticipant.createServerSaslParticipant(
-      saslProps, callbackHandler);
     return doSaslHandshake(underlyingOut, underlyingIn, saslProps,
         callbackHandler);
   }
@@ -185,7 +183,8 @@ public class SaslDataTransferServer {
   /**
    * Sets user name and password when asked by the server-side SASL object.
    */
-  private class SaslServerCallbackHandler implements CallbackHandler {
+  private static final class SaslServerCallbackHandler
+      implements CallbackHandler {
 
     private final PasswordFunction passwordFunction;
 
@@ -281,8 +280,6 @@ public class SaslDataTransferServer {
           return buildServerPassword(userName, datanodeId);
         }
     });
-    SaslParticipant sasl = SaslParticipant.createServerSaslParticipant(
-      saslProps, callbackHandler);
     return doSaslHandshake(underlyingOut, underlyingIn, saslProps,
         callbackHandler);
   }

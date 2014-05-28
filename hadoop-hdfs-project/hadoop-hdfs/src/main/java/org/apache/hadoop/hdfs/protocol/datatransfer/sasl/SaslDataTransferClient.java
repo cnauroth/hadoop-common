@@ -274,7 +274,8 @@ public class SaslDataTransferClient {
   /**
    * Sets user name and password when asked by the client-side SASL object.
    */
-  private class SaslClientCallbackHandler implements CallbackHandler {
+  private static final class SaslClientCallbackHandler
+      implements CallbackHandler {
 
     private final char[] password;
     private final String userName;
