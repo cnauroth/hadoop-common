@@ -164,6 +164,17 @@ class NameNodeConnector implements DataEncryptionKeyFactory {
     }
   }
 
+  /**
+   * Negotiates SASL if needed on a DataTransferProtocol connection.
+   *
+   * @param socket connection socket
+   * @param underlyingOut connection output stream
+   * @param underlyingIn connection input stream
+   * @param accessToken connection block access token
+   * @param datanodeId ID of destination datanode
+   * @return new pair of streams, wrapped after SASL negotiation
+   * @throws IOException for any error
+   */
   IOStreamPair saslClientConnect(Socket socket, OutputStream underlyingOut,
       InputStream underlyingIn, Token<BlockTokenIdentifier> accessToken,
       DatanodeID datanodeId) throws IOException {

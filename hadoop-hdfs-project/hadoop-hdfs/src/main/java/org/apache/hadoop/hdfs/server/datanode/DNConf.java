@@ -189,10 +189,21 @@ public class DNConf {
     return this.minimumNameNodeVersion;
   }
 
+  /**
+   * Returns true if encryption enabled for DataTransferProtocol.
+   *
+   * @return boolean true if encryption enabled for DataTransferProtocol
+   */
   public boolean getEncryptDataTransfer() {
     return encryptDataTransfer;
   }
 
+  /**
+   * Returns encryption algorithm configured for DataTransferProtocol, or null
+   * if not configured.
+   *
+   * @return encryption algorithm configured for DataTransferProtocol
+   */
   public String getEncryptionAlgorithm() {
     return encryptionAlgorithm;
   }
@@ -205,10 +216,22 @@ public class DNConf {
     return maxLockedMemory;
   }
 
+  /**
+   * Returns the SaslPropertiesResolver configured for use with
+   * DataTransferProtocol, or null if not configured.
+   *
+   * @return SaslPropertiesResolver configured for use with DataTransferProtocol
+   */
   public SaslPropertiesResolver getSaslPropsResolver() {
     return saslPropsResolver;
   }
 
+  /**
+   * Returns the TrustedChannelResolver configured for use with
+   * DataTransferProtocol, or null if not configured.
+   *
+   * @return TrustedChannelResolver configured for use with DataTransferProtocol
+   */
   public TrustedChannelResolver getTrustedChannelResolver() {
     return trustedChannelResolver;
   }
