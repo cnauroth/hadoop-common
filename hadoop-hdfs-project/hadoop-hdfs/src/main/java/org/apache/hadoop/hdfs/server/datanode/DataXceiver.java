@@ -52,6 +52,7 @@ import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.protocol.datatransfer.BlockConstructionStage;
+import org.apache.hadoop.hdfs.protocol.datatransfer.DataEncryptionKeyFactory;
 import org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferProtoUtil;
 import org.apache.hadoop.hdfs.protocol.datatransfer.IOStreamPair;
 import org.apache.hadoop.hdfs.protocol.datatransfer.InvalidMagicNumberException;
@@ -630,8 +631,11 @@ class DataXceiver extends Receiver implements Runnable {
           OutputStream unbufMirrorOut = NetUtils.getOutputStream(mirrorSock,
               writeTimeout);
           InputStream unbufMirrorIn = NetUtils.getInputStream(mirrorSock);
-          IOStreamPair saslStreams = datanode.saslServer.pipelineSend(
-            mirrorSock, unbufMirrorOut, unbufMirrorIn, block, blockToken,
+          DataEncryptionKeyFactory keyFactory =
+            datanode.getDataEncryptionKeyFactoryForBlock(block);
+          // TODO: wrong datanode ID here?
+          IOStreamPair saslStreams = datanode.saslClient.socketSend(mirrorSock,
+            unbufMirrorOut, unbufMirrorIn, keyFactory, blockToken,
             datanode.getDatanodeId());
           unbufMirrorOut = saslStreams.out;
           unbufMirrorIn = saslStreams.in;
@@ -994,8 +998,12 @@ class DataXceiver extends Receiver implements Runnable {
       OutputStream unbufProxyOut = NetUtils.getOutputStream(proxySock,
           dnConf.socketWriteTimeout);
       InputStream unbufProxyIn = NetUtils.getInputStream(proxySock);
-      IOStreamPair saslStreams = datanode.saslServer.pipelineSend(proxySock,
-        unbufProxyOut, unbufProxyIn, block,blockToken, datanode.getDatanodeId());
+      DataEncryptionKeyFactory keyFactory =
+        datanode.getDataEncryptionKeyFactoryForBlock(block);
+      // TODO: wrong datanode ID here?
+      IOStreamPair saslStreams = datanode.saslClient.socketSend(proxySock,
+        unbufProxyOut, unbufProxyIn, keyFactory, blockToken,
+        datanode.getDatanodeId());
       unbufProxyOut = saslStreams.out;
       unbufProxyIn = saslStreams.in;
       

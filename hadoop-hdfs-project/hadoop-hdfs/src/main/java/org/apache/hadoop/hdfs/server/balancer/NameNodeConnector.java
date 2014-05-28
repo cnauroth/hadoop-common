@@ -38,6 +38,7 @@ import org.apache.hadoop.hdfs.protocol.ClientProtocol;
 import org.apache.hadoop.hdfs.protocol.DatanodeID;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
+import org.apache.hadoop.hdfs.protocol.datatransfer.DataEncryptionKeyFactory;
 import org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferSaslUtil;
 import org.apache.hadoop.hdfs.protocol.datatransfer.IOStreamPair;
 import org.apache.hadoop.hdfs.protocol.datatransfer.SaslDataTransferClient;
@@ -56,7 +57,7 @@ import org.apache.hadoop.util.Daemon;
  * The class provides utilities for {@link Balancer} to access a NameNode
  */
 @InterfaceAudience.Private
-class NameNodeConnector {
+class NameNodeConnector implements DataEncryptionKeyFactory {
   private static final Log LOG = Balancer.LOG;
   private static final Path BALANCER_ID_PATH = new Path("/system/balancer.id");
   private static final int MAX_NOT_CHANGED_ITERATIONS = 5;
@@ -78,7 +79,6 @@ class NameNodeConnector {
   private BlockTokenSecretManager blockTokenSecretManager;
   private Daemon keyupdaterthread; // AccessKeyUpdater thread
   private DataEncryptionKey encryptionKey;
-  private final TrustedChannelResolver trustedChannelResolver;
   private final SaslDataTransferClient saslClient;
 
   NameNodeConnector(URI nameNodeUri,
@@ -129,9 +129,9 @@ class NameNodeConnector {
     if (out == null) {
       throw new IOException("Another balancer is running");
     }
-    this.trustedChannelResolver = TrustedChannelResolver.getInstance(conf);
     this.saslClient = new SaslDataTransferClient(
-      DataTransferSaslUtil.getSaslPropertiesResolver(conf));
+      DataTransferSaslUtil.getSaslPropertiesResolver(conf),
+      TrustedChannelResolver.getInstance(conf));
   }
 
   boolean shouldContinue(long dispatchBlockMoveBytes) {
@@ -168,12 +168,12 @@ class NameNodeConnector {
       InputStream underlyingIn, Token<BlockTokenIdentifier> accessToken,
       DatanodeID datanodeId) throws IOException {
     return saslClient.socketSend(socket, underlyingOut, underlyingIn,
-      getDataEncryptionKey(), accessToken, datanodeId);
+      this, accessToken, datanodeId);
   }
 
-  private DataEncryptionKey getDataEncryptionKey()
-      throws IOException {
-    if (encryptDataTransfer && !this.trustedChannelResolver.isTrusted()) {
+  @Override
+  public DataEncryptionKey newDataEncryptionKey() {
+    if (encryptDataTransfer) {
       synchronized (this) {
         if (encryptionKey == null) {
           encryptionKey = blockTokenSecretManager.generateDataEncryptionKey();

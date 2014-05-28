@@ -65,30 +65,64 @@ public class SaslDataTransferClient {
   private static final String NAME_DELIMITER = " ";
 
   private final SaslPropertiesResolver saslPropsResolver;
+  private final TrustedChannelResolver trustedChannelResolver;
 
-  public SaslDataTransferClient(SaslPropertiesResolver saslPropsResolver) {
+  public SaslDataTransferClient(SaslPropertiesResolver saslPropsResolver,
+      TrustedChannelResolver trustedChannelResolver) {
     this.saslPropsResolver = saslPropsResolver;
+    this.trustedChannelResolver = trustedChannelResolver;
   }
 
-  public Peer peerSend(Peer peer, DataEncryptionKey encryptionKey,
+  public IOStreamPair newSocketSend(Socket socket, OutputStream underlyingOut,
+      InputStream underlyingIn, DataEncryptionKeyFactory encryptionKeyFactory,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
-    IOStreamPair ios = getStreams(getPeerAddress(peer), peer.getOutputStream(),
-      peer.getInputStream(), encryptionKey, accessToken, datanodeId);
+    DataEncryptionKey encryptionKey = !trustedChannelResolver.isTrusted() ?
+      encryptionKeyFactory.newDataEncryptionKey() : null;
+    IOStreamPair ios = send(socket.getInetAddress(), underlyingOut,
+      underlyingIn, encryptionKey, accessToken, datanodeId);
+    return ios != null ? ios : new IOStreamPair(underlyingIn, underlyingOut);
+  }
+
+  public Peer peerSend(Peer peer, DataEncryptionKeyFactory encryptionKeyFactory,
+      Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
+      throws IOException {
+    IOStreamPair ios = checkTrustAndSend(getPeerAddress(peer),
+      peer.getOutputStream(), peer.getInputStream(), encryptionKeyFactory,
+      accessToken, datanodeId);
     // TODO: Consider renaming EncryptedPeer to SaslPeer.
     return ios != null ? new EncryptedPeer(peer, ios) : peer;
   }
 
   public IOStreamPair socketSend(Socket socket, OutputStream underlyingOut,
-      InputStream underlyingIn, DataEncryptionKey encryptionKey,
+      InputStream underlyingIn, DataEncryptionKeyFactory encryptionKeyFactory,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
-    IOStreamPair ios = getStreams(socket.getInetAddress(), underlyingOut, underlyingIn,
-      encryptionKey, accessToken, datanodeId);
+    IOStreamPair ios = checkTrustAndSend(socket.getInetAddress(), underlyingOut,
+      underlyingIn, encryptionKeyFactory, accessToken, datanodeId);
     return ios != null ? ios : new IOStreamPair(underlyingIn, underlyingOut);
   }
 
-  private IOStreamPair getStreams(InetAddress addr, OutputStream underlyingOut,
+  private IOStreamPair checkTrustAndSend(InetAddress addr,
+      OutputStream underlyingOut, InputStream underlyingIn,
+      DataEncryptionKeyFactory encryptionKeyFactory,
+      Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
+      throws IOException {
+    if (!trustedChannelResolver.isTrusted() &&
+        !trustedChannelResolver.isTrusted(addr)) {
+      DataEncryptionKey encryptionKey =
+        encryptionKeyFactory.newDataEncryptionKey();
+      return send(addr, underlyingOut, underlyingIn, encryptionKey, accessToken,
+        datanodeId);
+    } else {
+      LOG.debug(
+        "SASL client skipping handshake on trusted connection for addr = {}, "
+        + "datanodeId = {}", addr, datanodeId);
+      return null;
+    }
+  }
+
+  private IOStreamPair send(InetAddress addr, OutputStream underlyingOut,
       InputStream underlyingIn, DataEncryptionKey encryptionKey,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {

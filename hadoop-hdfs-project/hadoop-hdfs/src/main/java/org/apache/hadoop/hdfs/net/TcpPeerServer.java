@@ -29,6 +29,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.hdfs.protocol.DatanodeID;
+import org.apache.hadoop.hdfs.protocol.datatransfer.DataEncryptionKeyFactory;
 import org.apache.hadoop.hdfs.protocol.datatransfer.SaslDataTransferClient;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
@@ -80,13 +81,15 @@ public class TcpPeerServer implements PeerServer {
 
   public static Peer peerFromSocketAndKey(
         SaslDataTransferClient saslDataTransferClient, Socket s,
-        DataEncryptionKey key, Token<BlockTokenIdentifier> blockToken,
-        DatanodeID datanodeId) throws IOException {
+        DataEncryptionKeyFactory keyFactory,
+        Token<BlockTokenIdentifier> blockToken, DatanodeID datanodeId)
+        throws IOException {
     Peer peer = null;
     boolean success = false;
     try {
       peer = peerFromSocket(s);
-      peer = saslDataTransferClient.peerSend(peer, key, blockToken, datanodeId);
+      peer = saslDataTransferClient.peerSend(peer, keyFactory, blockToken,
+        datanodeId);
       success = true;
       return peer;
     } finally {

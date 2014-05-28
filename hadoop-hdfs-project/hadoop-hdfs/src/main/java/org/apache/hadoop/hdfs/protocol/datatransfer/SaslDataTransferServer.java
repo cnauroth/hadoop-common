@@ -68,29 +68,11 @@ public class SaslDataTransferServer {
 
   private final BlockPoolTokenSecretManager blockPoolTokenSecretManager;
   private final DNConf dnConf;
-  private final SaslDataTransferClient saslClient;
 
   public SaslDataTransferServer(DNConf dnConf,
       BlockPoolTokenSecretManager blockPoolTokenSecretManager) {
     this.blockPoolTokenSecretManager = blockPoolTokenSecretManager;
     this.dnConf = dnConf;
-    this.saslClient = new SaslDataTransferClient(dnConf.getSaslPropsResolver());
-  }
-
-  public IOStreamPair pipelineSend(Socket socket, OutputStream underlyingOut,
-      InputStream underlyingIn, final ExtendedBlock block,
-      Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
-      throws IOException {
-    final DataEncryptionKey encryptionKey;
-    if (dnConf.getEncryptDataTransfer() &&
-        !dnConf.getTrustedChannelResolver().isTrusted(socket.getInetAddress())) {
-      encryptionKey = blockPoolTokenSecretManager.generateDataEncryptionKey(
-        block.getBlockPoolId());
-    } else {
-      encryptionKey = null;
-    }
-    return saslClient.socketSend(socket, underlyingOut, underlyingIn,
-      encryptionKey, accessToken, datanodeId);
   }
 
   public IOStreamPair receive(Peer peer, OutputStream underlyingOut,

@@ -1038,15 +1038,8 @@ public class DFSOutputStream extends FSOutputSummer
         
         OutputStream unbufOut = NetUtils.getOutputStream(sock, writeTimeout);
         InputStream unbufIn = NetUtils.getInputStream(sock);
-        final DataEncryptionKey encryptionKey;
-        if (dfsClient.shouldEncryptData() && 
-            !dfsClient.trustedChannelResolver.isTrusted(sock.getInetAddress())) {
-          encryptionKey = dfsClient.getDataEncryptionKey();
-        } else {
-          encryptionKey = null;
-        }
         IOStreamPair saslStreams = dfsClient.saslClient.socketSend(sock,
-          unbufOut, unbufIn, encryptionKey, blockToken, src);
+          unbufOut, unbufIn, dfsClient, blockToken, src);
         unbufOut = saslStreams.out;
         unbufIn = saslStreams.in;
         out = new DataOutputStream(new BufferedOutputStream(unbufOut,
@@ -1319,15 +1312,8 @@ public class DFSOutputStream extends FSOutputSummer
           
           OutputStream unbufOut = NetUtils.getOutputStream(s, writeTimeout);
           InputStream unbufIn = NetUtils.getInputStream(s);
-          final DataEncryptionKey encryptionKey;
-          if (dfsClient.shouldEncryptData() && 
-              !dfsClient.trustedChannelResolver.isTrusted(s.getInetAddress())) {
-            encryptionKey = dfsClient.getDataEncryptionKey();
-          } else {
-            encryptionKey = null;
-          }
           IOStreamPair saslStreams = dfsClient.saslClient.socketSend(s,
-            unbufOut, unbufIn, encryptionKey, accessToken, nodes[0]);
+            unbufOut, unbufIn, dfsClient, accessToken, nodes[0]);
           unbufOut = saslStreams.out;
           unbufIn = saslStreams.in;
           out = new DataOutputStream(new BufferedOutputStream(unbufOut,
