@@ -62,11 +62,6 @@ public class SaslDataTransferClient {
   private static final Logger LOG = LoggerFactory.getLogger(
     SaslDataTransferClient.class);
 
-  /**
-   * Delimiter for the three-part SASL username string.
-   */
-  private static final String NAME_DELIMITER = " ";
-
   private final SaslPropertiesResolver saslPropsResolver;
   private final TrustedChannelResolver trustedChannelResolver;
 

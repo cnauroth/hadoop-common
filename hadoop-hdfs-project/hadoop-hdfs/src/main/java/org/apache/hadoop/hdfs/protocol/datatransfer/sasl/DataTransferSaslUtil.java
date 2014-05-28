@@ -86,7 +86,6 @@ public final class DataTransferSaslUtil {
 
   public static Map<String, String> createSaslPropertiesForEncryption(
       String encryptionAlgorithm) {
-    // encryptionAlgorithm might be null
     Map<String, String> saslProps = Maps.newHashMapWithExpectedSize(3);
     saslProps.put(Sasl.QOP, QualityOfProtection.PRIVACY.getSaslQop());
     saslProps.put(Sasl.SERVER_AUTH, "true");

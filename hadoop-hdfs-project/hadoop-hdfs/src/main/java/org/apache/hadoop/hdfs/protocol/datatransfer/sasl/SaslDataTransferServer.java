@@ -64,11 +64,6 @@ public class SaslDataTransferServer {
 
   private static final Logger LOG = LoggerFactory.getLogger(
     SaslDataTransferServer.class);
-  
-  /**
-   * Delimiter for the three-part SASL username string.
-   */
-  private static final String NAME_DELIMITER = " ";
 
   private final BlockPoolTokenSecretManager blockPoolTokenSecretManager;
   private final DNConf dnConf;
