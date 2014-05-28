@@ -29,57 +29,78 @@ import static org.junit.Assert.*;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Properties;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IOUtils;
-import org.apache.hadoop.minikdc.KerberosSecurityTestcase;
 import org.apache.hadoop.minikdc.MiniKdc;
 import org.apache.hadoop.security.SecurityUtil;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod;
-import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
-public class TestSaslDataTransfer extends KerberosSecurityTestcase {
+public class TestSaslDataTransfer {
 
   private static String TEST_FILE_CONTENT = "testing SASL";
 
-  private MiniDFSCluster cluster;
-  private HdfsConfiguration conf;
-  private FileSystem fs;
+  private static MiniDFSCluster cluster;
+  private static HdfsConfiguration conf;
+  private static FileSystem fs;
+  private static MiniKdc kdc;
+  private static int pathCount = 0;
+  private static Path path;
+  private static File workDir;
 
-  @Before
-  public void init() throws Exception {
-    File hdfsKtb = new File(getWorkDir(), "hdfs.keytab");
-    getKdc().createPrincipal(hdfsKtb, "hdfs/localhost");
-    String hdfsKeytabPath = hdfsKtb.getAbsolutePath();
+  @BeforeClass
+  public static void init() throws Exception {
+    workDir = new File(System.getProperty("test.dir", "target"));
+    Properties kdcConf = MiniKdc.createConf();
+    kdc = new MiniKdc(kdcConf, workDir);
+    kdc.start();
+
+    String userName = UserGroupInformation.getLoginUser().getShortUserName();
+    File keytab = new File(workDir, userName + ".keytab");
+    kdc.createPrincipal(keytab, userName + "/localhost");
+    String keytabPath = keytab.getAbsolutePath();
+    String principal = userName + "/localhost@" + kdc.getRealm();
 
     conf = new HdfsConfiguration();
     SecurityUtil.setAuthenticationMethod(AuthenticationMethod.KERBEROS, conf);
-    conf.set(DFS_NAMENODE_KEYTAB_FILE_KEY, hdfsKeytabPath);
-    conf.set(DFS_NAMENODE_KERBEROS_PRINCIPAL_KEY,
-      "hdfs/localhost@" + getKdc().getRealm());
-    conf.set(DFS_NAMENODE_KEYTAB_FILE_KEY, hdfsKeytabPath);
-    conf.set(DFS_WEB_AUTHENTICATION_KERBEROS_PRINCIPAL_KEY,
-      "hdfs/localhost@" + getKdc().getRealm());
-    conf.set(DFS_DATANODE_KEYTAB_FILE_KEY, hdfsKeytabPath);
-    conf.set(DFS_DATANODE_KERBEROS_PRINCIPAL_KEY,
-      "hdfs/localhost@" + getKdc().getRealm());
+    conf.set(DFS_NAMENODE_KEYTAB_FILE_KEY, keytabPath);
+    conf.set(DFS_NAMENODE_KERBEROS_PRINCIPAL_KEY, principal);
+    conf.set(DFS_NAMENODE_KEYTAB_FILE_KEY, keytabPath);
+    conf.set(DFS_WEB_AUTHENTICATION_KERBEROS_PRINCIPAL_KEY, principal);
+    conf.set(DFS_DATANODE_KEYTAB_FILE_KEY, keytabPath);
+    conf.set(DFS_DATANODE_KERBEROS_PRINCIPAL_KEY, principal);
     conf.setBoolean(DFS_BLOCK_ACCESS_TOKEN_ENABLE_KEY, true);
     conf.set(DFS_DATA_TRANSFER_PROTECTION_KEY,
       "authentication,integrity,privacy");
+
     cluster = new MiniDFSCluster.Builder(conf).numDataNodes(3).build();
     cluster.waitActive();
   }
 
-  @After
-  public void shutdown() {
+  @AfterClass
+  public static void shutdown() {
     IOUtils.cleanup(null, fs);
     if (cluster != null) {
       cluster.shutdown();
     }
+    if (kdc != null) {
+      kdc.stop();
+    }
+  }
+
+  @Before
+  public void setUp() throws Exception {
+    pathCount += 1;
+    path = new Path("/p" + pathCount);
   }
 
   @Test
@@ -97,19 +118,25 @@ public class TestSaslDataTransfer extends KerberosSecurityTestcase {
     doTestForQop("privacy");
   }
 
-  private void doTestForQop(String qop) throws IOException {
+  private static void doTestForQop(String qop) throws IOException {
     Configuration fsConf = new Configuration(conf);
     fsConf.set(DFS_DATA_TRANSFER_PROTECTION_KEY, qop);
     fs = FileSystem.get(cluster.getURI(), fsConf);
-    createFile("/file");
-    String fileContent = DFSTestUtil.readFile(fs, new Path("/file"));
+    createFile();
+    String fileContent = DFSTestUtil.readFile(fs, path);
     assertEquals(TEST_FILE_CONTENT, fileContent);
+    BlockLocation[] blockLocations = fs.getFileBlockLocations(path, 0,
+      Long.MAX_VALUE);
+    assertNotNull(blockLocations);
+    assertEquals(1, blockLocations.length);
+    assertNotNull(blockLocations[0].getHosts());
+    assertEquals(3, blockLocations[0].getHosts().length);
   }
 
-  private void createFile(String path) throws IOException {
+  private static void createFile() throws IOException {
     OutputStream os = null;
     try {
-      os = fs.create(new Path(path));
+      os = fs.create(path);
       os.write(TEST_FILE_CONTENT.getBytes("UTF-8"));
     } finally {
       IOUtils.cleanup(null, os);

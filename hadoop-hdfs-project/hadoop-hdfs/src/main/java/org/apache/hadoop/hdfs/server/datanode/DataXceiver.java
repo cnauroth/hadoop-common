@@ -631,10 +631,8 @@ class DataXceiver extends Receiver implements Runnable {
           InputStream unbufMirrorIn = NetUtils.getInputStream(mirrorSock);
           DataEncryptionKeyFactory keyFactory =
             datanode.getDataEncryptionKeyFactoryForBlock(block);
-          // TODO: wrong datanode ID here?
           IOStreamPair saslStreams = datanode.saslClient.socketSend(mirrorSock,
-            unbufMirrorOut, unbufMirrorIn, keyFactory, blockToken,
-            datanode.getDatanodeId());
+            unbufMirrorOut, unbufMirrorIn, keyFactory, blockToken, targets[0]);
           unbufMirrorOut = saslStreams.out;
           unbufMirrorIn = saslStreams.in;
           mirrorOut = new DataOutputStream(new BufferedOutputStream(unbufMirrorOut,
@@ -998,10 +996,8 @@ class DataXceiver extends Receiver implements Runnable {
       InputStream unbufProxyIn = NetUtils.getInputStream(proxySock);
       DataEncryptionKeyFactory keyFactory =
         datanode.getDataEncryptionKeyFactoryForBlock(block);
-      // TODO: wrong datanode ID here?
       IOStreamPair saslStreams = datanode.saslClient.socketSend(proxySock,
-        unbufProxyOut, unbufProxyIn, keyFactory, blockToken,
-        datanode.getDatanodeId());
+        unbufProxyOut, unbufProxyIn, keyFactory, blockToken, proxySource);
       unbufProxyOut = saslStreams.out;
       unbufProxyIn = saslStreams.in;
       

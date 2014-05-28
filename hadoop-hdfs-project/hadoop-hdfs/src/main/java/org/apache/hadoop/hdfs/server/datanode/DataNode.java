@@ -1682,8 +1682,9 @@ public class DataNode extends Configured
     return new DataEncryptionKeyFactory() {
       @Override
       public DataEncryptionKey newDataEncryptionKey() {
-        return blockPoolTokenSecretManager.generateDataEncryptionKey(
-          block.getBlockPoolId());
+        return dnConf.encryptDataTransfer ?
+          blockPoolTokenSecretManager.generateDataEncryptionKey(
+            block.getBlockPoolId()) : null;
       }
     };
   }
