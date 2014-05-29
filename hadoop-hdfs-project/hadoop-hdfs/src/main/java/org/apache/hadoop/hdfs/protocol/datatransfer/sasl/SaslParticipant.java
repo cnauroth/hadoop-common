@@ -30,7 +30,6 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.hdfs.protocol.datatransfer.IOStreamPair;
 import org.apache.hadoop.security.SaslInputStream;
 import org.apache.hadoop.security.SaslOutputStream;
-import org.apache.hadoop.security.SaslRpcServer.QualityOfProtection;
 
 /**
  * Strongly inspired by Thrift's TSaslTransport class.
