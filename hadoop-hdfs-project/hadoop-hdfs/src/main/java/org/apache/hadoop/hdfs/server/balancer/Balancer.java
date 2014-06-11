@@ -693,7 +693,7 @@ public class Balancer {
             // update locations
             for (String datanodeUuid : blk.getDatanodeUuids()) {
               final BalancerDatanode d = datanodeMap.get(datanodeUuid);
-              if (datanode != null) { // not an unknown datanode
+              if (d != null) { // not an unknown datanode
                 block.addLocation(d);
               }
             }
@@ -1549,6 +1549,7 @@ public class Balancer {
         System.out.println(e + ".  Exiting ...");
         return ReturnStatus.INTERRUPTED.code;
       } finally {
+        System.out.format("%-24s ", DateFormat.getDateTimeInstance().format(new Date()));
         System.out.println("Balancing took " + time2Str(Time.now()-startTime));
       }
     }

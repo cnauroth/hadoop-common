@@ -22,6 +22,7 @@ import static org.apache.hadoop.service.Service.STATE.STARTED;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -63,6 +64,7 @@ import org.apache.hadoop.yarn.api.protocolrecords.StartContainersResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.StopContainersRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.StopContainersResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
+import org.apache.hadoop.yarn.api.records.ContainerExitStatus;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.ContainerState;
@@ -116,6 +118,7 @@ import org.apache.hadoop.yarn.server.nodemanager.containermanager.monitor.Contai
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.monitor.ContainersMonitorEventType;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.monitor.ContainersMonitorImpl;
 import org.apache.hadoop.yarn.server.nodemanager.metrics.NodeManagerMetrics;
+import org.apache.hadoop.yarn.server.nodemanager.recovery.NMStateStoreService;
 import org.apache.hadoop.yarn.server.nodemanager.security.authorize.NMPolicyProvider;
 import org.apache.hadoop.yarn.server.security.ApplicationACLsManager;
 import org.apache.hadoop.yarn.server.utils.BuilderUtils;
@@ -218,6 +221,15 @@ public class ContainerManagerImpl extends CompositeService implements
         SHUTDOWN_CLEANUP_SLOP_MS;
 
     super.serviceInit(conf);
+    recover();
+  }
+
+  private void recover() throws IOException, URISyntaxException {
+    NMStateStoreService stateStore = context.getNMStateStore();
+    if (stateStore.canRecover()) {
+      rsrcLocalizationSrvc.recoverLocalizedResources(
+          stateStore.loadLocalizationState());
+    }
   }
 
   protected LogHandler createLogHandler(Configuration conf, Context context,
@@ -239,7 +251,7 @@ public class ContainerManagerImpl extends CompositeService implements
   protected ResourceLocalizationService createResourceLocalizationService(
       ContainerExecutor exec, DeletionService deletionContext) {
     return new ResourceLocalizationService(this.dispatcher, exec,
-        deletionContext, dirsHandler);
+        deletionContext, dirsHandler, context.getNMStateStore());
   }
 
   protected ContainersLauncher createContainersLauncher(Context context,
@@ -727,7 +739,8 @@ public class ContainerManagerImpl extends CompositeService implements
     } else {
       dispatcher.getEventHandler().handle(
         new ContainerKillEvent(containerID,
-          "Container killed by the ApplicationMaster."));
+            ContainerExitStatus.KILLED_BY_APPMASTER,
+            "Container killed by the ApplicationMaster."));
 
       NMAuditLogger.logSuccess(container.getUser(),    
         AuditConstants.STOP_CONTAINER, "ContainerManageImpl", containerID
@@ -876,6 +889,7 @@ public class ContainerManagerImpl extends CompositeService implements
           .getContainersToCleanup()) {
           this.dispatcher.getEventHandler().handle(
               new ContainerKillEvent(container,
+                  ContainerExitStatus.KILLED_BY_RESOURCEMANAGER,
                   "Container Killed by ResourceManager"));
       }
       break;

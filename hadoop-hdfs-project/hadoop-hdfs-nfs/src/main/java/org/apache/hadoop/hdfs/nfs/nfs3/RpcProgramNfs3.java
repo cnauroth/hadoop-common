@@ -28,7 +28,6 @@ import java.util.EnumSet;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
 import org.apache.hadoop.fs.CreateFlag;
 import org.apache.hadoop.fs.DirectoryListingStartAfterNotFoundException;
@@ -41,10 +40,11 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.DFSClient;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.client.HdfsDataOutputStream;
+import org.apache.hadoop.hdfs.nfs.conf.NfsConfigKeys;
+import org.apache.hadoop.hdfs.nfs.conf.NfsConfiguration;
 import org.apache.hadoop.hdfs.protocol.DirectoryListing;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
-import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.ipc.RemoteException;
 import org.apache.hadoop.nfs.AccessPrivilege;
 import org.apache.hadoop.nfs.NfsExports;
@@ -132,9 +132,6 @@ import org.jboss.netty.channel.ChannelHandlerContext;
 
 import com.google.common.annotations.VisibleForTesting;
 
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NFS_KEYTAB_FILE_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NFS_KERBEROS_PRINCIPAL_KEY;
-
 /**
  * RPC program corresponding to nfs daemon. See {@link Nfs3}.
  */
@@ -145,19 +142,12 @@ public class RpcProgramNfs3 extends RpcProgram implements Nfs3Interface {
   
   static final Log LOG = LogFactory.getLog(RpcProgramNfs3.class);
 
-  private final Configuration config = new Configuration();
+  private final NfsConfiguration config;
   private final WriteManager writeManager;
   private final IdUserGroup iug;
   private final DFSClientCache clientCache;
 
   private final NfsExports exports;
-  
-  /**
-   * superUserClient should always impersonate HDFS file system owner to send
-   * requests which requires supergroup privilege. This requires the same user
-   * to start HDFS and NFS.
-   */
-  private final DFSClient superUserClient;
   
   private final short replication;
   private final long blockSize;
@@ -167,20 +157,21 @@ public class RpcProgramNfs3 extends RpcProgram implements Nfs3Interface {
   
   private final RpcCallCache rpcCallCache;
 
-  public RpcProgramNfs3(Configuration config, DatagramSocket registrationSocket,
+  public RpcProgramNfs3(NfsConfiguration config, DatagramSocket registrationSocket,
       boolean allowInsecurePorts) throws IOException {
-    super("NFS3", "localhost", config.getInt(Nfs3Constant.NFS3_SERVER_PORT,
-        Nfs3Constant.NFS3_SERVER_PORT_DEFAULT), Nfs3Constant.PROGRAM,
+    super("NFS3", "localhost", config.getInt(
+        NfsConfigKeys.DFS_NFS_SERVER_PORT_KEY,
+        NfsConfigKeys.DFS_NFS_SERVER_PORT_DEFAULT), Nfs3Constant.PROGRAM,
         Nfs3Constant.VERSION, Nfs3Constant.VERSION, registrationSocket,
         allowInsecurePorts);
    
+    this.config = config;
     config.set(FsPermission.UMASK_LABEL, "000");
-    iug = new IdUserGroup();
+    iug = new IdUserGroup(config);
     
     exports = NfsExports.getInstance(config);
     writeManager = new WriteManager(iug, config);
     clientCache = new DFSClientCache(config);
-    superUserClient = new DFSClient(NameNode.getAddress(config), config);
     replication = (short) config.getInt(DFSConfigKeys.DFS_REPLICATION_KEY,
         DFSConfigKeys.DFS_REPLICATION_DEFAULT);
     blockSize = config.getLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY,
@@ -189,13 +180,13 @@ public class RpcProgramNfs3 extends RpcProgram implements Nfs3Interface {
         CommonConfigurationKeysPublic.IO_FILE_BUFFER_SIZE_KEY,
         CommonConfigurationKeysPublic.IO_FILE_BUFFER_SIZE_DEFAULT);
     
-    writeDumpDir = config.get(Nfs3Constant.FILE_DUMP_DIR_KEY,
-        Nfs3Constant.FILE_DUMP_DIR_DEFAULT);
-    boolean enableDump = config.getBoolean(Nfs3Constant.ENABLE_FILE_DUMP_KEY,
-        Nfs3Constant.ENABLE_FILE_DUMP_DEFAULT);
+    writeDumpDir = config.get(NfsConfigKeys.DFS_NFS_FILE_DUMP_DIR_KEY,
+        NfsConfigKeys.DFS_NFS_FILE_DUMP_DIR_DEFAULT);
+    boolean enableDump = config.getBoolean(NfsConfigKeys.DFS_NFS_FILE_DUMP_KEY,
+        NfsConfigKeys.DFS_NFS_FILE_DUMP_DEFAULT);
     UserGroupInformation.setConfiguration(config);
-    SecurityUtil.login(config, DFS_NFS_KEYTAB_FILE_KEY,
-            DFS_NFS_KERBEROS_PRINCIPAL_KEY);
+    SecurityUtil.login(config, NfsConfigKeys.DFS_NFS_KEYTAB_FILE_KEY,
+        NfsConfigKeys.DFS_NFS_KERBEROS_PRINCIPAL_KEY);
 
     if (!enableDump) {
       writeDumpDir = null;
@@ -576,8 +567,8 @@ public class RpcProgramNfs3 extends RpcProgram implements Nfs3Interface {
             + handle.getFileId());
         return new READLINK3Response(Nfs3Status.NFS3ERR_SERVERFAULT);
       }
-      int rtmax = config.getInt(Nfs3Constant.MAX_READ_TRANSFER_SIZE_KEY,
-              Nfs3Constant.MAX_READ_TRANSFER_SIZE_DEFAULT);
+      int rtmax = config.getInt(NfsConfigKeys.DFS_NFS_MAX_READ_TRANSFER_SIZE_KEY,
+          NfsConfigKeys.DFS_NFS_MAX_READ_TRANSFER_SIZE_DEFAULT);
       if (rtmax < target.getBytes().length) {
         LOG.error("Link size: " + target.getBytes().length
             + " is larger than max transfer size: " + rtmax);
@@ -674,8 +665,8 @@ public class RpcProgramNfs3 extends RpcProgram implements Nfs3Interface {
     }
 
     try {
-      int rtmax = config.getInt(Nfs3Constant.MAX_READ_TRANSFER_SIZE_KEY,
-              Nfs3Constant.MAX_READ_TRANSFER_SIZE_DEFAULT);
+      int rtmax = config.getInt(NfsConfigKeys.DFS_NFS_MAX_READ_TRANSFER_SIZE_KEY,
+          NfsConfigKeys.DFS_NFS_MAX_READ_TRANSFER_SIZE_DEFAULT);
       int buffSize = Math.min(rtmax, count);
       byte[] readbuffer = new byte[buffSize];
 
@@ -1681,8 +1672,7 @@ public class RpcProgramNfs3 extends RpcProgram implements Nfs3Interface {
     }
 
     try {
-      // Use superUserClient to get file system status
-      FsStatus fsStatus = superUserClient.getDiskStatus();
+      FsStatus fsStatus = dfsClient.getDiskStatus();
       long totalBytes = fsStatus.getCapacity();
       long freeBytes = fsStatus.getRemaining();
       
@@ -1750,12 +1740,15 @@ public class RpcProgramNfs3 extends RpcProgram implements Nfs3Interface {
     }
 
     try {
-      int rtmax = config.getInt(Nfs3Constant.MAX_READ_TRANSFER_SIZE_KEY,
-              Nfs3Constant.MAX_READ_TRANSFER_SIZE_DEFAULT);
-      int wtmax = config.getInt(Nfs3Constant.MAX_WRITE_TRANSFER_SIZE_KEY,
-              Nfs3Constant.MAX_WRITE_TRANSFER_SIZE_DEFAULT);
-      int dtperf = config.getInt(Nfs3Constant.MAX_READDIR_TRANSFER_SIZE_KEY,
-              Nfs3Constant.MAX_READDIR_TRANSFER_SIZE_DEFAULT);
+      int rtmax = config.getInt(
+          NfsConfigKeys.DFS_NFS_MAX_READ_TRANSFER_SIZE_KEY,
+          NfsConfigKeys.DFS_NFS_MAX_READ_TRANSFER_SIZE_DEFAULT);
+      int wtmax = config.getInt(
+          NfsConfigKeys.DFS_NFS_MAX_WRITE_TRANSFER_SIZE_KEY,
+          NfsConfigKeys.DFS_NFS_MAX_WRITE_TRANSFER_SIZE_DEFAULT);
+      int dtperf = config.getInt(
+          NfsConfigKeys.DFS_NFS_MAX_READDIR_TRANSFER_SIZE_KEY,
+          NfsConfigKeys.DFS_NFS_MAX_READDIR_TRANSFER_SIZE_DEFAULT);
 
       Nfs3FileAttributes attrs = Nfs3Utils.getFileAttr(dfsClient,
           Nfs3Utils.getFileIdPath(handle), iug);

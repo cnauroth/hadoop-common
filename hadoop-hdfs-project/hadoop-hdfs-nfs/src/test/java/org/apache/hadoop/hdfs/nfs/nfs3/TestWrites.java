@@ -27,11 +27,10 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentNavigableMap;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.DFSClient;
-import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.client.HdfsDataOutputStream;
+import org.apache.hadoop.hdfs.nfs.conf.NfsConfiguration;
 import org.apache.hadoop.hdfs.nfs.nfs3.OpenFileCtx.COMMIT_STATUS;
 import org.apache.hadoop.hdfs.nfs.nfs3.OpenFileCtx.CommitCtx;
 import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
@@ -50,6 +49,7 @@ import org.apache.hadoop.nfs.nfs3.response.CREATE3Response;
 import org.apache.hadoop.nfs.nfs3.response.READ3Response;
 import org.apache.hadoop.oncrpc.XDR;
 import org.apache.hadoop.oncrpc.security.SecurityHandler;
+import org.apache.hadoop.security.authorize.DefaultImpersonationProvider;
 import org.apache.hadoop.security.authorize.ProxyUsers;
 import org.jboss.netty.channel.Channel;
 import org.junit.Assert;
@@ -138,7 +138,7 @@ public class TestWrites {
     Mockito.when(fos.getPos()).thenReturn((long) 0);
 
     OpenFileCtx ctx = new OpenFileCtx(fos, attr, "/dumpFilePath", dfsClient,
-        new IdUserGroup());
+        new IdUserGroup(new NfsConfiguration()));
 
     COMMIT_STATUS ret;
 
@@ -200,13 +200,14 @@ public class TestWrites {
     Nfs3FileAttributes attr = new Nfs3FileAttributes();
     HdfsDataOutputStream fos = Mockito.mock(HdfsDataOutputStream.class);
     Mockito.when(fos.getPos()).thenReturn((long) 0);
+    NfsConfiguration config = new NfsConfiguration();
 
     OpenFileCtx ctx = new OpenFileCtx(fos, attr, "/dumpFilePath", dfsClient,
-        new IdUserGroup());
+        new IdUserGroup(config));
 
     FileHandle h = new FileHandle(1); // fake handle for "/dumpFilePath"
     COMMIT_STATUS ret;
-    WriteManager wm = new WriteManager(new IdUserGroup(), new Configuration());
+    WriteManager wm = new WriteManager(new IdUserGroup(config), config);
     assertTrue(wm.addOpenFileStream(h, ctx));
     
     // Test inactive open file context
@@ -279,7 +280,7 @@ public class TestWrites {
 
   @Test
   public void testWriteStableHow() throws IOException, InterruptedException {
-    HdfsConfiguration config = new HdfsConfiguration();
+    NfsConfiguration config = new NfsConfiguration();
     DFSClient client = null;
     MiniDFSCluster cluster = null;
     RpcProgramNfs3 nfsd;
@@ -288,10 +289,10 @@ public class TestWrites {
         System.getProperty("user.name"));
     String currentUser = System.getProperty("user.name");
     config.set(
-            ProxyUsers.getProxySuperuserGroupConfKey(currentUser),
+            DefaultImpersonationProvider.getProxySuperuserGroupConfKey(currentUser),
             "*");
     config.set(
-            ProxyUsers.getProxySuperuserIpConfKey(currentUser),
+            DefaultImpersonationProvider.getProxySuperuserIpConfKey(currentUser),
             "*");
     ProxyUsers.refreshSuperUserGroupsConfiguration(config);
 
