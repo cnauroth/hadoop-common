@@ -424,6 +424,17 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6315. Decouple recording edit logs from FSDirectory. (wheat9)
 
+    HDFS-6379. HTTPFS - Implement ACLs support. (yoderme via tucu)
+
+    HDFS-6471. Make moveFromLocal CLI testcases to be non-disruptive
+    (Dasha Boudnik via cos)
+
+    HDFS-6395. Skip checking xattr limits for non-user-visible namespaces.
+    (Yi Liu via wang).
+
+    HDFS-3493. Invalidate excess corrupted blocks as long as minimum
+    replication is satisfied. (Juan Yu and Vinayakumar B via wang)
+
   OPTIMIZATIONS
 
     HDFS-6214. Webhdfs has poor throughput for files >2GB (daryn)
