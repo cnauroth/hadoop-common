@@ -67,20 +67,18 @@ public class TestSaslDataTransfer {
     kdc = new MiniKdc(kdcConf, workDir);
     kdc.start();
 
-    String userName = UserGroupInformation.getLoginUser().getShortUserName();
-    File keytab = new File(workDir, userName + ".keytab");
-    kdc.createPrincipal(keytab, userName + "/localhost");
-    String keytabPath = keytab.getAbsolutePath();
-    String principal = userName + "/localhost@" + kdc.getRealm();
+    File keytab = new File(workDir, "hdfs.keytab");
+    kdc.createPrincipal(keytab, "hdfs/localhost", "HTTP/localhost");
+    String hdfsPrincipal = "hdfs/localhost@" + kdc.getRealm();
+    String spnegoPrincipal = "HTTP/localhost@" + kdc.getRealm();
 
     conf = new HdfsConfiguration();
     SecurityUtil.setAuthenticationMethod(AuthenticationMethod.KERBEROS, conf);
-    conf.set(DFS_NAMENODE_KEYTAB_FILE_KEY, keytabPath);
-    conf.set(DFS_NAMENODE_KERBEROS_PRINCIPAL_KEY, principal);
-    conf.set(DFS_NAMENODE_KEYTAB_FILE_KEY, keytabPath);
-    conf.set(DFS_WEB_AUTHENTICATION_KERBEROS_PRINCIPAL_KEY, principal);
-    conf.set(DFS_DATANODE_KEYTAB_FILE_KEY, keytabPath);
-    conf.set(DFS_DATANODE_KERBEROS_PRINCIPAL_KEY, principal);
+    conf.set(DFS_NAMENODE_KERBEROS_PRINCIPAL_KEY, hdfsPrincipal);
+    conf.set(DFS_NAMENODE_KEYTAB_FILE_KEY, keytab.getAbsolutePath());
+    conf.set(DFS_DATANODE_KERBEROS_PRINCIPAL_KEY, hdfsPrincipal);
+    conf.set(DFS_DATANODE_KEYTAB_FILE_KEY, keytab.getAbsolutePath());
+    conf.set(DFS_WEB_AUTHENTICATION_KERBEROS_PRINCIPAL_KEY, spnegoPrincipal);
     conf.setBoolean(DFS_BLOCK_ACCESS_TOKEN_ENABLE_KEY, true);
     conf.set(DFS_DATA_TRANSFER_PROTECTION_KEY,
       "authentication,integrity,privacy");
@@ -121,6 +119,12 @@ public class TestSaslDataTransfer {
     doTestForQop("privacy");
   }
 
+  /**
+   * Tests DataTransferProtocol with a specific QOP requested by the client.
+   *
+   * @param qop String QOP to test
+   * @throws IOException if there is an I/O error
+   */
   private static void doTestForQop(String qop) throws IOException {
     Configuration fsConf = new Configuration(conf);
     fsConf.set(DFS_DATA_TRANSFER_PROTECTION_KEY, qop);
@@ -136,6 +140,11 @@ public class TestSaslDataTransfer {
     assertEquals(3, blockLocations[0].getHosts().length);
   }
 
+  /**
+   * Creates a file at the testing path.
+   *
+   * @throws IOException if there is an I/O error
+   */
   private static void createFile() throws IOException {
     OutputStream os = null;
     try {
