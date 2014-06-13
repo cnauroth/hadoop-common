@@ -58,18 +58,18 @@ public class TestSaslDataTransfer {
   private static MiniKdc kdc;
   private static int pathCount = 0;
   private static Path path;
-  private static File workDir;
 
   @BeforeClass
   public static void init() throws Exception {
-    workDir = new File(System.getProperty("test.dir", "target"));
+    File workDir = new File(System.getProperty("test.dir", "target"));
     Properties kdcConf = MiniKdc.createConf();
     kdc = new MiniKdc(kdcConf, workDir);
     kdc.start();
 
-    File keytab = new File(workDir, "hdfs.keytab");
-    kdc.createPrincipal(keytab, "hdfs/localhost", "HTTP/localhost");
-    String hdfsPrincipal = "hdfs/localhost@" + kdc.getRealm();
+    String userName = UserGroupInformation.getLoginUser().getShortUserName();
+    File keytab = new File(workDir, userName + ".keytab");
+    kdc.createPrincipal(keytab, userName + "/localhost", "HTTP/localhost");
+    String hdfsPrincipal = userName + "/localhost@" + kdc.getRealm();
     String spnegoPrincipal = "HTTP/localhost@" + kdc.getRealm();
 
     conf = new HdfsConfiguration();
