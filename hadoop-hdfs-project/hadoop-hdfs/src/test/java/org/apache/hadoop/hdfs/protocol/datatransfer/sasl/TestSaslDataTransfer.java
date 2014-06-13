@@ -61,7 +61,8 @@ public class TestSaslDataTransfer {
 
   @BeforeClass
   public static void init() throws Exception {
-    File workDir = new File(System.getProperty("test.dir", "target"));
+    File workDir = new File(System.getProperty("test.build.dir",
+      "target/test-dir"));
     Properties kdcConf = MiniKdc.createConf();
     kdc = new MiniKdc(kdcConf, workDir);
     kdc.start();
