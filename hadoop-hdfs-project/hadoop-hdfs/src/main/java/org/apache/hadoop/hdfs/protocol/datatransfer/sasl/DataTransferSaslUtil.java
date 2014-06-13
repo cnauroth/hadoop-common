@@ -151,14 +151,23 @@ public final class DataTransferSaslUtil {
       Configuration conf) {
     String qops = conf.get(DFS_DATA_TRANSFER_PROTECTION_KEY);
     if (qops == null || qops.isEmpty()) {
+      LOG.debug("DataTransferProtocol not using SaslPropertiesResolver, no " +
+        "QOP found in configuration for {}", DFS_DATA_TRANSFER_PROTECTION_KEY);
       return null;
     }
     Configuration saslPropsResolverConf = new Configuration(conf);
     saslPropsResolverConf.set(HADOOP_RPC_PROTECTION, qops);
+    Class<? extends SaslPropertiesResolver> resolverClass = conf.getClass(
+      DFS_DATA_TRANSFER_SASL_PROPS_RESOLVER_CLASS_KEY,
+      SaslPropertiesResolver.class, SaslPropertiesResolver.class);
     saslPropsResolverConf.setClass(HADOOP_SECURITY_SASL_PROPS_RESOLVER_CLASS,
-      conf.getClass(DFS_DATA_TRANSFER_SASL_PROPS_RESOLVER_CLASS_KEY,
-        SaslPropertiesResolver.class), SaslPropertiesResolver.class);
-    return SaslPropertiesResolver.getInstance(saslPropsResolverConf);
+      resolverClass, SaslPropertiesResolver.class);
+    SaslPropertiesResolver resolver = SaslPropertiesResolver.getInstance(
+      saslPropsResolverConf);
+    LOG.debug("DataTransferProtocol using SaslPropertiesResolver, configured " +
+      "QOP {} = {}, configured class {} = {}", DFS_DATA_TRANSFER_PROTECTION_KEY, qops, 
+      DFS_DATA_TRANSFER_SASL_PROPS_RESOLVER_CLASS_KEY, resolverClass);
+    return resolver;
   }
 
   /**
