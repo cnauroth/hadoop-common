@@ -297,7 +297,6 @@ public class SaslDataTransferServer {
    */    
   private char[] buildServerPassword(String userName, DatanodeID datanodeId)
       throws IOException {
-    // TOOD: probably want to include block pool ID in password too
     String[] nameComponents = userName.split(NAME_DELIMITER);
     if (nameComponents.length != 2) {
       throw new IOException("Provided name '" + userName + "' has " +

@@ -382,7 +382,6 @@ public class SaslDataTransferClient {
    */    
   private char[] buildClientPassword(Token<BlockTokenIdentifier> blockToken,
       DatanodeID datanodeId, long timestamp) {
-    // TOOD: probably want to include block pool ID in password too
     return (new String(Base64.encodeBase64(blockToken.getPassword(), false),
       Charsets.UTF_8) + NAME_DELIMITER + datanodeId.getDatanodeUuid() +
       NAME_DELIMITER + timestamp).toCharArray();
