@@ -427,6 +427,9 @@ Release 2.5.0 - UNRELEASED
 
     HADOOP-10688. Expose thread-level FileSystem StatisticsData (Sandy Ryza)
 
+    HADOOP-10657. Have RetryInvocationHandler log failover attempt at INFO
+    level. (Ming Ma via jing9)
+
   OPTIMIZATIONS
 
   BUG FIXES 
@@ -550,6 +553,9 @@ Release 2.5.0 - UNRELEASED
     HADOOP-10678. SecurityUtil has unnecessary synchronization on collection
     used for only tests. (Benoy Antony via cnauroth)
 
+    HADOOP-10683. Users authenticated with KERBEROS are recorded as being
+    authenticated with SIMPLE. (Benoy Antony via cnauroth)
+
   BREAKDOWN OF HADOOP-10514 SUBTASKS AND RELATED JIRAS
 
     HADOOP-10520. Extended attributes definition and FileSystem APIs for
@@ -571,7 +577,7 @@ Release 2.5.0 - UNRELEASED
     HADOOP-10561. Copy command with preserve option should handle Xattrs.
     (Yi Liu via cnauroth)
 
-Release 2.4.1 - UNRELEASED
+Release 2.4.1 - 2014-06-23 
 
   INCOMPATIBLE CHANGES
 

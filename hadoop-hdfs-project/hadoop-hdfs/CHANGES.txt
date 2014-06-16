@@ -254,9 +254,6 @@ Trunk (Unreleased)
     HDFS-5794. Fix the inconsistency of layout version number of 
     ADD_DATANODE_AND_STORAGE_UUIDS between trunk and branch-2. (jing9)
 
-    HDFS-6464. Support multiple xattr.name parameters for WebHDFS getXAttrs.
-    (Yi Liu via umamahesh)
-
     HDFS-6375. Listing extended attributes with the search permission.
     (Charles Lamb via wang)
 
@@ -439,6 +436,12 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6470. TestBPOfferService.testBPInitErrorHandling is flaky.
     (Ming Ma via wang)
+
+    HDFS-6529. Trace logging for RemoteBlockReader2 to identify remote datanode
+    and file being read. (Anubhav Dhoot via atm)
+
+    HDFS-6499. Use NativeIO#renameTo instead of File#renameTo in
+    FileJournalManager. (Yongjun Zhang via atm)
 
   OPTIMIZATIONS
 
@@ -627,6 +630,15 @@ Release 2.5.0 - UNRELEASED
     HDFS-6503. Fix typo of DFSAdmin restoreFailedStorage.
     (Zesheng Wu via wheat9)
 
+    HDFS-6464. Support multiple xattr.name parameters for WebHDFS getXAttrs.
+    (Yi Liu via umamahesh)
+
+    HDFS-6375. Listing extended attributes with the search permission.
+    (Charles Lamb via wang)
+
+    HDFS-6539. test_native_mini_dfs is skipped in hadoop-hdfs/pom.xml
+    (decstery via cmccabe)
+
   BREAKDOWN OF HDFS-2006 SUBTASKS AND RELATED JIRAS
 
     HDFS-6299. Protobuf for XAttr and client-side implementation. (Yi Liu via umamahesh)
@@ -690,7 +702,7 @@ Release 2.5.0 - UNRELEASED
     HDFS-6374. setXAttr should require the user to be the owner of the file
     or directory (Charles Lamb via wang)
 
-Release 2.4.1 - UNRELEASED
+Release 2.4.1 - 2014-06-23 
 
   INCOMPATIBLE CHANGES
 
