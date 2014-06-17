@@ -282,34 +282,25 @@ public class SaslDataTransferServer {
   /**
    * Calculates the expected correct password on the server side for the
    * general-purpose handshake.  The password consists of the block access
-   * token's password (known to the DataNode via its secret manager), the target
-   * DataNode UUID (also known to the DataNode), and a request timestamp
-   * (provided in the client request).  This expects that the client has
-   * supplied a user name consisting of its serialized block access token
-   * identifier and the client-generated timestamp.  The timestamp is checked
-   * against a configurable expiration to make replay attacks harder.
+   * token's password (known to the DataNode via its secret manager), and the
+   * target DataNode UUID (also known to the DataNode).  This expects that the
+   * client has supplied a user name consisting of its serialized block access
+   * token identifier.
    *
-   * @param userName SASL user name containing serialized block access token and
-   *   client-generated timestamp
+   * @param userName SASL user name containing serialized block access token
+   *   identifier
    * @param datanodeId ID of DataNode accepting connection
    * @return expected correct SASL password
    * @throws IOException for any error
    */    
   private char[] buildServerPassword(String userName, DatanodeID datanodeId)
       throws IOException {
-    String[] nameComponents = userName.split(NAME_DELIMITER);
-    if (nameComponents.length != 2) {
-      throw new IOException("Provided name '" + userName + "' has " +
-        nameComponents.length + " components instead of the expected 2.");
-    }
-    BlockTokenIdentifier identifier = deserializeIdentifier(nameComponents[0]);
-    long timestamp = Long.parseLong(nameComponents[1]);
-    // TODO: Check timestamp within configurable threshold.
+    BlockTokenIdentifier identifier = deserializeIdentifier(userName);
     byte[] tokenPassword = blockPoolTokenSecretManager.retrievePassword(
       identifier);
     return (new String(Base64.encodeBase64(tokenPassword, false),
-      Charsets.UTF_8) + NAME_DELIMITER + datanodeId.getDatanodeUuid() +
-      NAME_DELIMITER + timestamp).toCharArray();
+      Charsets.UTF_8) + NAME_DELIMITER + datanodeId.getDatanodeUuid())
+      .toCharArray();
   }
 
   /**

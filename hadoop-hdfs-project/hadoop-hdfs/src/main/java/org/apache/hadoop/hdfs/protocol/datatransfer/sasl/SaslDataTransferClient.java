@@ -49,7 +49,6 @@ import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
 import org.apache.hadoop.security.SaslPropertiesResolver;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
-import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -345,9 +344,8 @@ public class SaslDataTransferClient {
     }
     Map<String, String> saslProps = saslPropsResolver.getClientProperties(addr);
 
-    long timestamp = Time.now();
-    String userName = buildUserName(accessToken.getIdentifier(), timestamp);
-    char[] password = buildClientPassword(accessToken, datanodeId, timestamp);
+    String userName = buildUserName(accessToken.getIdentifier());
+    char[] password = buildClientPassword(accessToken, datanodeId);
     CallbackHandler callbackHandler = new SaslClientCallbackHandler(userName,
       password);
     return doSaslHandshake(underlyingOut, underlyingIn, userName, saslProps,
@@ -356,35 +354,32 @@ public class SaslDataTransferClient {
 
   /**
    * Builds the client's user name for the general-purpose handshake, consisting
-   * of the base64-encoded serialized block access token identifier and a
-   * client-generated timestamp.  Note that this includes only the token
-   * identifier, not the token itself, which would include the password.  The
-   * password is a shared secret, and we must not write it on the network during
-   * the SASL authentication exchange.
+   * of the base64-encoded serialized block access token identifier.  Note that
+   * this includes only the token identifier, not the token itself, which would
+   * include the password.  The password is a shared secret, and we must not
+   * write it on the network during the SASL authentication exchange.
    *
    * @param identifier serialized block access token identifier
-   * @param timestamp client-generated timestamp
    * @return SASL user name
    */
-  private static String buildUserName(byte[] identifier, long timestamp) {
-    return new String(Base64.encodeBase64(identifier, false), Charsets.UTF_8) +
-        NAME_DELIMITER + timestamp;
+  private static String buildUserName(byte[] identifier) {
+    return new String(Base64.encodeBase64(identifier, false), Charsets.UTF_8);
   }
 
   /**
    * Calculates the password on the client side for the general-purpose
-   * handshake.  The password consists of the block access token's password, the
-   * target DataNode UUID, and a client-generated request timestamp.
+   * handshake.  The password consists of the block access token's password and
+   * the target DataNode UUID.
    *
    * @param blockToken for block access
    * @param datanodeId ID of destination DataNode
    * @return SASL password
    */    
   private char[] buildClientPassword(Token<BlockTokenIdentifier> blockToken,
-      DatanodeID datanodeId, long timestamp) {
+      DatanodeID datanodeId) {
     return (new String(Base64.encodeBase64(blockToken.getPassword(), false),
-      Charsets.UTF_8) + NAME_DELIMITER + datanodeId.getDatanodeUuid() +
-      NAME_DELIMITER + timestamp).toCharArray();
+      Charsets.UTF_8) + NAME_DELIMITER + datanodeId.getDatanodeUuid())
+      .toCharArray();
   }
 
   /**
