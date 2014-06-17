@@ -430,6 +430,9 @@ Release 2.5.0 - UNRELEASED
     HADOOP-10657. Have RetryInvocationHandler log failover attempt at INFO
     level. (Ming Ma via jing9)
 
+    HADOOP-10666. Remove Copyright /d/d/d/d Apache Software Foundation from
+    the source files license header. (Henry Saputra via wang)
+
   OPTIMIZATIONS
 
   BUG FIXES 
@@ -555,6 +558,12 @@ Release 2.5.0 - UNRELEASED
 
     HADOOP-10683. Users authenticated with KERBEROS are recorded as being
     authenticated with SIMPLE. (Benoy Antony via cnauroth)
+
+    HADOOP-10702. KerberosAuthenticationHandler does not log the principal names
+    correctly. (Benoy Antony via cnauroth)
+
+    HADOOP-10699. Fix build native library on mac osx (Binglin Chang via
+    jlowe)
 
   BREAKDOWN OF HADOOP-10514 SUBTASKS AND RELATED JIRAS
 
