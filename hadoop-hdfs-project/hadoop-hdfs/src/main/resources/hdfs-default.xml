@@ -1470,18 +1470,6 @@
 </property>
 
 <property>
-  <name>dfs.data.transfer.protection.timestamp.threshold.ms</name>
-  <value>600000</value>
-  <description>
-    The allowable threshold in milliseconds for elapsed time since the client
-    timestamp that was sent in a SASL-protected connection to the DataNode.  If
-    the DataNode sees that its current time is greater than the timestamp by
-    more than this amount, then it rejects the SASL connection attempt.  This
-    provides an additional protection against replay attacks.
-  </description>
-</property>
-
-<property>
   <name>dfs.data.transfer.saslproperties.resolver.class</name>
   <value></value>
   <description>
