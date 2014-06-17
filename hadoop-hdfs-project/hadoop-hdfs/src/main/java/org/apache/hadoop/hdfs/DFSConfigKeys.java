@@ -550,6 +550,11 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String DFS_DATA_ENCRYPTION_ALGORITHM_KEY = "dfs.encrypt.data.transfer.algorithm";
   public static final String DFS_TRUSTEDCHANNEL_RESOLVER_CLASS = "dfs.trustedchannel.resolver.class";
   public static final String DFS_DATA_TRANSFER_PROTECTION_KEY = "dfs.data.transfer.protection";
+  public static final String DFS_DATA_TRANSFER_PROTECTION_TIMESTAMP_THRESHOLD_MS_KEY ="dfs.data.transfer.protection.timestamp.threshold.ms";
+  // The default is intended to accommodate the long read/write timeouts used by
+  // default in the read/write pipeline.  If latency is high, but not high
+  // enough to timeout, then we don't want SASL to reject it by mistake.
+  public static final int    DFS_DATA_TRANSFER_PROTECTION_TIMESTAMP_THRESHOLD_MS_DEFAULT = 600000;
   public static final String DFS_DATA_TRANSFER_SASL_PROPS_RESOLVER_CLASS_KEY = "dfs.data.transfer.saslproperties.resolver.class";
   
   // Journal-node related configs. These are read on the JN side.
