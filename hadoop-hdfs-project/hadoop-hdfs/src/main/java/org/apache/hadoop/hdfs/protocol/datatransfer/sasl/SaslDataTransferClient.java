@@ -205,7 +205,7 @@ public class SaslDataTransferClient {
         "SASL client doing encrypted handshake for addr = {}, datanodeId = {}",
         addr, datanodeId);
       return getEncryptedStreams(underlyingOut, underlyingIn,
-        encryptionKey, accessToken, datanodeId);
+        encryptionKey, accessToken);
     } else if (!UserGroupInformation.isSecurityEnabled()) {
       LOG.debug(
         "SASL client skipping handshake in unsecured configuration for "
@@ -232,14 +232,12 @@ public class SaslDataTransferClient {
    * @param underlyingIn connection input stream
    * @param encryptionKey for an encrypted SASL handshake
    * @param accessToken connection block access token
-   * @param datanodeId ID of destination DataNode
    * @return new pair of streams, wrapped after SASL negotiation
    * @throws IOException for any error
    */
   private IOStreamPair getEncryptedStreams(OutputStream underlyingOut,
       InputStream underlyingIn, DataEncryptionKey encryptionKey,
-      Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
-      throws IOException {
+      Token<BlockTokenIdentifier> accessToken) throws IOException {
     Map<String, String> saslProps = createSaslPropertiesForEncryption(
       encryptionKey.encryptionAlgorithm);
 
@@ -344,8 +342,8 @@ public class SaslDataTransferClient {
     }
     Map<String, String> saslProps = saslPropsResolver.getClientProperties(addr);
 
-    String userName = buildUserName(accessToken.getIdentifier());
-    char[] password = buildClientPassword(accessToken, datanodeId);
+    String userName = buildUserName(accessToken);
+    char[] password = buildClientPassword(accessToken);
     CallbackHandler callbackHandler = new SaslClientCallbackHandler(userName,
       password);
     return doSaslHandshake(underlyingOut, underlyingIn, userName, saslProps,
@@ -359,27 +357,24 @@ public class SaslDataTransferClient {
    * include the password.  The password is a shared secret, and we must not
    * write it on the network during the SASL authentication exchange.
    *
-   * @param identifier serialized block access token identifier
+   * @param blockToken for block access
    * @return SASL user name
    */
-  private static String buildUserName(byte[] identifier) {
-    return new String(Base64.encodeBase64(identifier, false), Charsets.UTF_8);
+  private static String buildUserName(Token<BlockTokenIdentifier> blockToken) {
+    return new String(Base64.encodeBase64(blockToken.getIdentifier(), false),
+      Charsets.UTF_8);
   }
 
   /**
    * Calculates the password on the client side for the general-purpose
-   * handshake.  The password consists of the block access token's password and
-   * the target DataNode UUID.
+   * handshake.  The password consists of the block access token's password.
    *
    * @param blockToken for block access
-   * @param datanodeId ID of destination DataNode
    * @return SASL password
    */    
-  private char[] buildClientPassword(Token<BlockTokenIdentifier> blockToken,
-      DatanodeID datanodeId) {
-    return (new String(Base64.encodeBase64(blockToken.getPassword(), false),
-      Charsets.UTF_8) + NAME_DELIMITER + datanodeId.getDatanodeUuid())
-      .toCharArray();
+  private char[] buildClientPassword(Token<BlockTokenIdentifier> blockToken) {
+    return new String(Base64.encodeBase64(blockToken.getPassword(), false),
+      Charsets.UTF_8).toCharArray();
   }
 
   /**

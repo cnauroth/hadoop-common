@@ -101,7 +101,7 @@ public class SaslDataTransferServer {
       LOG.debug(
         "SASL server doing encrypted handshake for peer = {}, datanodeId = {}",
         peer, datanodeId);
-      return getEncryptedStreams(peer, underlyingOut, underlyingIn, datanodeId);
+      return getEncryptedStreams(peer, underlyingOut, underlyingIn);
     } else if (!UserGroupInformation.isSecurityEnabled()) {
       LOG.debug(
         "SASL server skipping handshake in unsecured configuration for "
@@ -126,13 +126,11 @@ public class SaslDataTransferServer {
    * @param peer connection peer
    * @param underlyingOut connection output stream
    * @param underlyingIn connection input stream
-   * @param datanodeId ID of DataNode accepting connection
    * @return new pair of streams, wrapped after SASL negotiation
    * @throws IOException for any error
    */
   private IOStreamPair getEncryptedStreams(Peer peer,
-      OutputStream underlyingOut, InputStream underlyingIn,
-      DatanodeID datanodeId) throws IOException {
+      OutputStream underlyingOut, InputStream underlyingIn) throws IOException {
     if (peer.hasSecureChannel() ||
         dnConf.getTrustedChannelResolver().isTrusted(getPeerAddress(peer))) {
       return new IOStreamPair(underlyingIn, underlyingOut);
@@ -272,7 +270,7 @@ public class SaslDataTransferServer {
       new PasswordFunction() {
         @Override
         public char[] apply(String userName) throws IOException {
-          return buildServerPassword(userName, datanodeId);
+          return buildServerPassword(userName);
         }
     });
     return doSaslHandshake(underlyingOut, underlyingIn, saslProps,
@@ -282,25 +280,21 @@ public class SaslDataTransferServer {
   /**
    * Calculates the expected correct password on the server side for the
    * general-purpose handshake.  The password consists of the block access
-   * token's password (known to the DataNode via its secret manager), and the
-   * target DataNode UUID (also known to the DataNode).  This expects that the
-   * client has supplied a user name consisting of its serialized block access
-   * token identifier.
+   * token's password (known to the DataNode via its secret manager).  This
+   * expects that the client has supplied a user name consisting of its
+   * serialized block access token identifier.
    *
    * @param userName SASL user name containing serialized block access token
    *   identifier
-   * @param datanodeId ID of DataNode accepting connection
    * @return expected correct SASL password
    * @throws IOException for any error
    */    
-  private char[] buildServerPassword(String userName, DatanodeID datanodeId)
-      throws IOException {
+  private char[] buildServerPassword(String userName) throws IOException {
     BlockTokenIdentifier identifier = deserializeIdentifier(userName);
     byte[] tokenPassword = blockPoolTokenSecretManager.retrievePassword(
       identifier);
     return (new String(Base64.encodeBase64(tokenPassword, false),
-      Charsets.UTF_8) + NAME_DELIMITER + datanodeId.getDatanodeUuid())
-      .toCharArray();
+      Charsets.UTF_8)).toCharArray();
   }
 
   /**
