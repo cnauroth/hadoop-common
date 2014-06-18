@@ -452,6 +452,8 @@ Release 2.5.0 - UNRELEASED
     HDFS-6545. Finalizing rolling upgrade can make NN unavailable for a long
     duration. (kihwal)
 
+    HDFS-6530. Fix Balancer documentation.  (szetszwo)
+
   OPTIMIZATIONS
 
     HDFS-6214. Webhdfs has poor throughput for files >2GB (daryn)
@@ -647,6 +649,15 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6539. test_native_mini_dfs is skipped in hadoop-hdfs/pom.xml
     (decstery via cmccabe)
+
+    HDFS-6527. Edit log corruption due to defered INode removal. (kihwal and
+    jing9 via jing9)
+
+    HDFS-6552. add DN storage to a BlockInfo will not replace the different
+    storage from same DN. (Amir Langer via Arpit Agarwal)
+
+    HDFS-6551. Rename with OVERWRITE option may throw NPE when the target
+    file/directory is a reference INode. (jing9)
 
   BREAKDOWN OF HDFS-2006 SUBTASKS AND RELATED JIRAS
 
