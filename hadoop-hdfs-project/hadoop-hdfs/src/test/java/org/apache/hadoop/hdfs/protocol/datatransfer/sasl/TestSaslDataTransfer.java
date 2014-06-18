@@ -19,8 +19,11 @@ package org.apache.hadoop.hdfs.protcol.datatransfer.sasl;
 
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_BLOCK_ACCESS_TOKEN_ENABLE_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_HTTPS_ADDRESS_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_KERBEROS_PRINCIPAL_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_KEYTAB_FILE_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_HTTP_POLICY_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_HTTPS_ADDRESS_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_KERBEROS_PRINCIPAL_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_KEYTAB_FILE_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_WEB_AUTHENTICATION_KERBEROS_PRINCIPAL_KEY;
@@ -34,15 +37,18 @@ import java.util.Properties;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.DFSTestUtil;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
+import org.apache.hadoop.http.HttpConfig;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.minikdc.MiniKdc;
 import org.apache.hadoop.security.SecurityUtil;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod;
+import org.apache.hadoop.security.ssl.KeyStoreTestUtil;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -50,7 +56,10 @@ import org.junit.Test;
 
 public class TestSaslDataTransfer {
 
-  private static String TEST_FILE_CONTENT = "testing SASL";
+  private static final File BASEDIR = new File(
+    System.getProperty("test.build.dir", "target/test-dir"),
+    TestSaslDataTransfer.class.getSimpleName());
+  private static final String TEST_FILE_CONTENT = "testing SASL";
 
   private static MiniDFSCluster cluster;
   private static HdfsConfiguration conf;
@@ -61,14 +70,15 @@ public class TestSaslDataTransfer {
 
   @BeforeClass
   public static void init() throws Exception {
-    File workDir = new File(System.getProperty("test.build.dir",
-      "target/test-dir"));
+    FileUtil.fullyDelete(BASEDIR);
+    assertTrue(BASEDIR.mkdirs());
+
     Properties kdcConf = MiniKdc.createConf();
-    kdc = new MiniKdc(kdcConf, workDir);
+    kdc = new MiniKdc(kdcConf, BASEDIR);
     kdc.start();
 
     String userName = UserGroupInformation.getLoginUser().getShortUserName();
-    File keytab = new File(workDir, userName + ".keytab");
+    File keytab = new File(BASEDIR, userName + ".keytab");
     kdc.createPrincipal(keytab, userName + "/localhost", "HTTP/localhost");
     String hdfsPrincipal = userName + "/localhost@" + kdc.getRealm();
     String spnegoPrincipal = "HTTP/localhost@" + kdc.getRealm();
@@ -83,6 +93,14 @@ public class TestSaslDataTransfer {
     conf.setBoolean(DFS_BLOCK_ACCESS_TOKEN_ENABLE_KEY, true);
     conf.set(DFS_DATA_TRANSFER_PROTECTION_KEY,
       "authentication,integrity,privacy");
+    conf.set(DFS_HTTP_POLICY_KEY, HttpConfig.Policy.HTTPS_ONLY.name());
+    conf.set(DFS_NAMENODE_HTTPS_ADDRESS_KEY, "localhost:0");
+    conf.set(DFS_DATANODE_HTTPS_ADDRESS_KEY, "localhost:0");
+
+    String keystoresDir = BASEDIR.getAbsolutePath();
+    String sslConfDir = KeyStoreTestUtil.getClasspathDir(
+      TestSaslDataTransfer.class);
+    KeyStoreTestUtil.setupSSLConfig(keystoresDir, sslConfDir, conf, false);
 
     cluster = new MiniDFSCluster.Builder(conf).numDataNodes(3).build();
     cluster.waitActive();
@@ -97,6 +115,7 @@ public class TestSaslDataTransfer {
     if (kdc != null) {
       kdc.stop();
     }
+    FileUtil.fullyDelete(BASEDIR);
   }
 
   @Before

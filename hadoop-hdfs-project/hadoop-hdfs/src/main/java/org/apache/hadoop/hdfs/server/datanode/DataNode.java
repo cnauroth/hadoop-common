@@ -792,8 +792,15 @@ public class DataNode extends Configured
 
   /**
    * Checks if the DataNode has a secure configuration if security is enabled.
-   * Secure configuration is accomplished by binding the server to privileged
-   * ports or enabling SASL protection on DataTransferProtocol.
+   * There are 2 possible configurations that are considered secure:
+   * 1. The server has bound to privileged ports for RPC and HTTP via
+   *   SecureDataNodeStarter.
+   * 2. The configuration enables SASL on DataTransferProtocol and HTTPS (no
+   *   plain HTTP) for the HTTP server.  The SASL handshake guarantees
+   *   authentication of the RPC server before a client transmits a secret, such
+   *   as a block access token.  Similarly, SSL guarantees authentication of the
+   *   HTTP server before a client transmits a secret, such as a delegation
+   *   token.
    *
    * @param conf Configuration to check
    * @param resources SecuredResources obtained for DataNode
@@ -810,15 +817,13 @@ public class DataNode extends Configured
     if (conf.getBoolean("ignore.secure.ports.for.testing", false)) {
       return;
     }
-    if (conf.get(DFS_DATA_TRANSFER_PROTECTION_KEY) != null) {
-      // TODO: Add check for SPNEGO configured on HTTP server.
-      // If token auth was in use, then we'd have the same problem of passing
-      // around token secrets on an untrusted port.  I believe only SPNEGO
-      // would establish mutual authentication.
+    if (conf.get(DFS_DATA_TRANSFER_PROTECTION_KEY) != null &&
+        DFSUtil.getHttpPolicy(conf) == HttpConfig.Policy.HTTPS_ONLY) {
       return;
     }
     throw new RuntimeException("Cannot start secure DataNode without " +
-      "configuring either privileged resources or data transfer protection.");
+      "configuring either privileged resources or SASL RPC data transfer " +
+      "protection and SSL for HTTP.");
   }
   
   public static String generateUuid() {
