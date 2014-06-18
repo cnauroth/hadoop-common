@@ -339,8 +339,6 @@ Trunk (Unreleased)
     HADOOP-10611. KMS, keyVersion name should not be assumed to be 
     keyName@versionNumber. (tucu)
 
-    HADOOP-10717. Missing JSP support in Jetty (Dapeng Sun via stevel)
-
   OPTIMIZATIONS
 
     HADOOP-7761. Improve the performance of raw comparisons. (todd)
@@ -597,6 +595,8 @@ Release 2.5.0 - UNRELEASED
     (Yi Liu via cnauroth)
 
     HADOOP-10590. ServiceAuthorizationManager is not threadsafe. (Benoy Antony via vinayakumarb)
+
+    HADOOP-10711. Cleanup some extra dependencies from hadoop-auth. (rkanter via tucu)
 
 Release 2.4.1 - 2014-06-23 
 
