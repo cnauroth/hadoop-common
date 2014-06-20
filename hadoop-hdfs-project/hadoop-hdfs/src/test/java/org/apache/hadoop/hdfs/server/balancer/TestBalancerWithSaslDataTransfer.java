@@ -53,8 +53,8 @@ public class TestBalancerWithSaslDataTransfer {
     TestBalancerWithSaslDataTransfer.class.getSimpleName());
   private static final TestBalancer TEST_BALANCER = new TestBalancer();
 
-  private static HdfsConfiguration conf;
-  private static MiniKdc kdc;
+  private HdfsConfiguration conf;
+  private MiniKdc kdc;
 
   @Before
   public void init() throws Exception {
