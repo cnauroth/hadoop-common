@@ -106,7 +106,8 @@ public class TestSaslDataTransfer {
 
   @Test
   public void testAuthentication() throws Exception {
-    HdfsConfiguration clusterConf = createSecureConfig();
+    HdfsConfiguration clusterConf = createSecureConfig(
+      "authentication,integrity,privacy");
     startCluster(clusterConf);
     HdfsConfiguration clientConf = new HdfsConfiguration(clusterConf);
     clientConf.set(DFS_DATA_TRANSFER_PROTECTION_KEY, "authentication");
@@ -115,7 +116,8 @@ public class TestSaslDataTransfer {
 
   @Test
   public void testIntegrity() throws Exception {
-    HdfsConfiguration clusterConf = createSecureConfig();
+    HdfsConfiguration clusterConf = createSecureConfig(
+      "authentication,integrity,privacy");
     startCluster(clusterConf);
     HdfsConfiguration clientConf = new HdfsConfiguration(clusterConf);
     clientConf.set(DFS_DATA_TRANSFER_PROTECTION_KEY, "integrity");
@@ -124,7 +126,8 @@ public class TestSaslDataTransfer {
 
   @Test
   public void testPrivacy() throws Exception {
-    HdfsConfiguration clusterConf = createSecureConfig();
+    HdfsConfiguration clusterConf = createSecureConfig(
+      "authentication,integrity,privacy");
     startCluster(clusterConf);
     HdfsConfiguration clientConf = new HdfsConfiguration(clusterConf);
     clientConf.set(DFS_DATA_TRANSFER_PROTECTION_KEY, "privacy");
@@ -194,9 +197,12 @@ public class TestSaslDataTransfer {
   /**
    * Creates configuration for starting a secure cluster.
    *
+   * @param dataTransferProtection supported QOPs
    * @return configuration for starting a secure cluster
+   * @throws Exception if there is any failure
    */
-  private static HdfsConfiguration createSecureConfig() throws Exception {
+  private static HdfsConfiguration createSecureConfig(
+      String dataTransferProtection) throws Exception {
     HdfsConfiguration conf = new HdfsConfiguration();
     SecurityUtil.setAuthenticationMethod(AuthenticationMethod.KERBEROS, conf);
     conf.set(DFS_NAMENODE_KERBEROS_PRINCIPAL_KEY, hdfsPrincipal);
@@ -205,8 +211,7 @@ public class TestSaslDataTransfer {
     conf.set(DFS_DATANODE_KEYTAB_FILE_KEY, keytab);
     conf.set(DFS_WEB_AUTHENTICATION_KERBEROS_PRINCIPAL_KEY, spnegoPrincipal);
     conf.setBoolean(DFS_BLOCK_ACCESS_TOKEN_ENABLE_KEY, true);
-    conf.set(DFS_DATA_TRANSFER_PROTECTION_KEY,
-      "authentication,integrity,privacy");
+    conf.set(DFS_DATA_TRANSFER_PROTECTION_KEY, dataTransferProtection);
     conf.set(DFS_HTTP_POLICY_KEY, HttpConfig.Policy.HTTPS_ONLY.name());
     conf.set(DFS_NAMENODE_HTTPS_ADDRESS_KEY, "localhost:0");
     conf.set(DFS_DATANODE_HTTPS_ADDRESS_KEY, "localhost:0");
