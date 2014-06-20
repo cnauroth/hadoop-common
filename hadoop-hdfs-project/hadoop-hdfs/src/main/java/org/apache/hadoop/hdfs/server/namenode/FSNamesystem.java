@@ -103,6 +103,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -514,6 +515,62 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
 
   private final NNConf nnConf;
 
+  private volatile boolean imageLoaded = false;
+  private final Condition cond;
+
+  private final FSImage fsImage;
+
+  /**
+   * Notify that loading of this FSDirectory is complete, and
+   * it is imageLoaded for use
+   */
+  void imageLoadComplete() {
+    Preconditions.checkState(!imageLoaded, "FSDirectory already loaded");
+    setImageLoaded();
+  }
+
+  void setImageLoaded() {
+    if(imageLoaded) return;
+    writeLock();
+    try {
+      setImageLoaded(true);
+      dir.markNameCacheInitialized();
+      cond.signalAll();
+    } finally {
+      writeUnlock();
+    }
+  }
+
+  //This is for testing purposes only
+  @VisibleForTesting
+  boolean isImageLoaded() {
+    return imageLoaded;
+  }
+
+  // exposed for unit tests
+  protected void setImageLoaded(boolean flag) {
+    imageLoaded = flag;
+  }
+
+  /**
+   * Block until the object is imageLoaded to be used.
+   */
+  void waitForLoadingFSImage() {
+    if (!imageLoaded) {
+      writeLock();
+      try {
+        while (!imageLoaded) {
+          try {
+            cond.await(5000, TimeUnit.MILLISECONDS);
+          } catch (InterruptedException ignored) {
+          }
+        }
+      } finally {
+        writeUnlock();
+      }
+    }
+  }
+
   /**
    * Set the last allocated inode id when fsimage or editlog is loaded. 
    */
@@ -555,6 +612,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     inodeId.setCurrentValue(INodeId.LAST_RESERVED_ID);
     snapshotManager.clearSnapshottableDirs();
     cacheManager.clear();
+    setImageLoaded(false);
   }
 
   @VisibleForTesting
@@ -682,6 +740,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     boolean fair = conf.getBoolean("dfs.namenode.fslock.fair", true);
     LOG.info("fsLock is fair:" + fair);
     fsLock = new FSNamesystemLock(fair);
+    cond = fsLock.writeLock().newCondition();
+    this.fsImage = fsImage;
     try {
       resourceRecheckInterval = conf.getLong(
           DFS_NAMENODE_RESOURCE_CHECK_INTERVAL_KEY,
@@ -771,7 +831,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
           DFS_NAMENODE_DELEGATION_TOKEN_ALWAYS_USE_DEFAULT);
 
       this.dtSecretManager = createDelegationTokenSecretManager(conf);
-      this.dir = new FSDirectory(fsImage, this, conf);
+      this.dir = new FSDirectory(this, conf);
       this.snapshotManager = new SnapshotManager(dir);
       this.cacheManager = new CacheManager(this, conf, blockManager);
       this.safeMode = new SafeModeInfo(conf);
@@ -921,7 +981,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       }
       writeUnlock();
     }
-    dir.imageLoadComplete();
+    imageLoadComplete();
   }
 
   private void startSecretManager() {
@@ -999,7 +1059,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     LOG.info("Starting services required for active state");
     writeLock();
     try {
-      FSEditLog editLog = dir.fsImage.getEditLog();
+      FSEditLog editLog = getFSImage().getEditLog();
       
       if (!editLog.isOpenForWrite()) {
         // During startup, we're already open for write during initialization.
@@ -1028,12 +1088,12 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
               metaSaveAsString());
         }
         
-        long nextTxId = dir.fsImage.getLastAppliedTxId() + 1;
+        long nextTxId = getFSImage().getLastAppliedTxId() + 1;
         LOG.info("Will take over writing edit logs at txnid " + 
             nextTxId);
         editLog.setNextTxId(nextTxId);
 
-        dir.fsImage.editLog.openForWrite();
+        getFSImage().editLog.openForWrite();
       }
 
       // Enable quota checks.
@@ -1108,13 +1168,13 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
         ((NameNodeEditLogRoller)nnEditLogRoller.getRunnable()).stop();
         nnEditLogRoller.interrupt();
       }
-      if (dir != null && dir.fsImage != null) {
-        if (dir.fsImage.editLog != null) {
-          dir.fsImage.editLog.close();
+      if (dir != null && getFSImage() != null) {
+        if (getFSImage().editLog != null) {
+          getFSImage().editLog.close();
         }
         // Update the fsimage with the last txid that we wrote
         // so that the tailer starts from the right spot.
-        dir.fsImage.updateLastAppliedTxIdFromWritten();
+        getFSImage().updateLastAppliedTxIdFromWritten();
       }
       if (cacheManager != null) {
         cacheManager.stopMonitorThread();
@@ -1137,9 +1197,9 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
    */
   void startStandbyServices(final Configuration conf) throws IOException {
     LOG.info("Starting services required for standby state");
-    if (!dir.fsImage.editLog.isOpenForRead()) {
+    if (!getFSImage().editLog.isOpenForRead()) {
       // During startup, we're already open for read.
-      dir.fsImage.editLog.initSharedJournalsForRead();
+      getFSImage().editLog.initSharedJournalsForRead();
     }
     
     blockManager.setPostponeBlocksFromFuture(true);
@@ -1186,8 +1246,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     if (editLogTailer != null) {
       editLogTailer.stop();
     }
-    if (dir != null && dir.fsImage != null && dir.fsImage.editLog != null) {
-      dir.fsImage.editLog.close();
+    if (dir != null && getFSImage() != null && getFSImage().editLog != null) {
+      getFSImage().editLog.close();
     }
   }
   
@@ -1430,9 +1490,9 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
    * Version of @see #getNamespaceInfo() that is not protected by a lock.
    */
   NamespaceInfo unprotectedGetNamespaceInfo() {
-    return new NamespaceInfo(dir.fsImage.getStorage().getNamespaceID(),
+    return new NamespaceInfo(getFSImage().getStorage().getNamespaceID(),
         getClusterId(), getBlockPoolId(),
-        dir.fsImage.getStorage().getCTime());
+        getFSImage().getStorage().getCTime());
   }
 
   /**
@@ -1450,12 +1510,10 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       try {
         stopActiveServices();
         stopStandbyServices();
-        if (dir != null) {
-          dir.close();
-        }
       } catch (IOException ie) {
-        LOG.error("Error closing FSDirectory", ie);
+      } finally {
         IOUtils.cleanup(LOG, dir);
+        IOUtils.cleanup(LOG, fsImage);
       }
     }
   }
@@ -1840,6 +1898,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     HdfsFileStatus resultingStat = null;
     FSPermissionChecker pc = getPermissionChecker();
     checkOperation(OperationCategory.WRITE);
+    waitForLoadingFSImage();
     writeLock();
     try {
       checkOperation(OperationCategory.WRITE);
@@ -2115,6 +2174,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     FSPermissionChecker pc = getPermissionChecker();
     checkOperation(OperationCategory.WRITE);
     byte[][] pathComponents = FSDirectory.getPathComponentsForReservedPath(src);
+    waitForLoadingFSImage();
     writeLock();
     try {
       checkOperation(OperationCategory.WRITE);
@@ -2242,6 +2302,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     byte[][] pathComponents = FSDirectory.getPathComponentsForReservedPath(src);
     boolean create = flag.contains(CreateFlag.CREATE);
     boolean overwrite = flag.contains(CreateFlag.OVERWRITE);
+
+    waitForLoadingFSImage();
     writeLock();
     try {
       checkOperation(OperationCategory.WRITE);
@@ -2452,7 +2514,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     if (ret != null) {
       // update the quota: use the preferred block size for UC block
       final long diff = file.getPreferredBlockSize() - ret.getBlockSize();
-      dir.updateSpaceConsumed(src, 0, diff);
+      dir.updateSpaceConsumed(src, 0, diff * file.getBlockReplication());
     }
 
     if (writeToEditLog) {
@@ -2524,10 +2586,10 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       // We found the lease for this file. And surprisingly the original
       // holder is trying to recreate this file. This should never occur.
       //
+
       if (!force && lease != null) {
         Lease leaseFile = leaseManager.getLeaseByPath(src);
-        if ((leaseFile != null && leaseFile.equals(lease)) ||
-            lease.getHolder().equals(holder)) { 
+        if (leaseFile != null && leaseFile.equals(lease)) {
           throw new AlreadyBeingCreatedException(
             "failed to create file " + src + " for " + holder +
             " for client " + clientMachine +
@@ -2730,6 +2792,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     Block newBlock = null;
     long offset;
     checkOperation(OperationCategory.WRITE);
+    waitForLoadingFSImage();
     writeLock();
     try {
       checkOperation(OperationCategory.WRITE);
@@ -2952,6 +3015,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     }
     checkOperation(OperationCategory.WRITE);
     byte[][] pathComponents = FSDirectory.getPathComponentsForReservedPath(src);
+    waitForLoadingFSImage();
     writeLock();
     try {
       checkOperation(OperationCategory.WRITE);
@@ -3050,6 +3114,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     boolean success = false;
     checkOperation(OperationCategory.WRITE);
     byte[][] pathComponents = FSDirectory.getPathComponentsForReservedPath(src);
+    waitForLoadingFSImage();
     writeLock();
     try {
       checkOperation(OperationCategory.WRITE);
@@ -3249,6 +3314,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     try {
       checkOperation(OperationCategory.WRITE);
       checkNameNodeSafeMode("Cannot rename " + src);
+      waitForLoadingFSImage();
       src = FSDirectory.resolvePath(src, srcComponents, dir);
       dst = FSDirectory.resolvePath(dst, dstComponents, dir);
       checkOperation(OperationCategory.WRITE);
@@ -3356,6 +3422,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
           false);
     }
 
+    waitForLoadingFSImage();
     long mtime = now();
     dir.renameTo(src, dst, mtime, options);
     getEditLog().logRename(src, dst, mtime, logRetryCache, options);
@@ -3429,6 +3496,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     checkOperation(OperationCategory.WRITE);
     byte[][] pathComponents = FSDirectory.getPathComponentsForReservedPath(src);
     boolean ret = false;
+
+    waitForLoadingFSImage();
     writeLock();
     try {
       checkOperation(OperationCategory.WRITE);
@@ -3902,6 +3971,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     NameNode.stateChangeLog.info("BLOCK* fsync: " + src + " for " + clientName);
     checkOperation(OperationCategory.WRITE);
     byte[][] pathComponents = FSDirectory.getPathComponentsForReservedPath(src);
+
+    waitForLoadingFSImage();
     writeLock();
     try {
       checkOperation(OperationCategory.WRITE);
@@ -4103,6 +4174,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       INodeFile pendingFile, int latestSnapshot) throws IOException,
       UnresolvedLinkException {
     assert hasWriteLock();
+
     FileUnderConstructionFeature uc = pendingFile.getFileUnderConstructionFeature();
     Preconditions.checkArgument(uc != null);
     leaseManager.removeLease(uc.getClientName(), src);
@@ -4114,6 +4186,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     // since we just remove the uc feature from pendingFile
     final INodeFile newFile = pendingFile.toCompleteFile(now());
 
+    waitForLoadingFSImage();
     // close file and persist block allocations for this file
     closeFile(src, newFile);
 
@@ -4172,6 +4245,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
              + ")");
     checkOperation(OperationCategory.WRITE);
     String src = "";
+    waitForLoadingFSImage();
     writeLock();
     try {
       checkOperation(OperationCategory.WRITE);
@@ -4431,7 +4505,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
    * @return registration ID
    */
   String getRegistrationID() {
-    return Storage.getRegistrationID(dir.fsImage.getStorage());
+    return Storage.getRegistrationID(getFSImage().getStorage());
   }
 
   /**
@@ -4517,7 +4591,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
    */
   private void closeFile(String path, INodeFile file) {
     assert hasWriteLock();
-    dir.waitForReady();
+    waitForLoadingFSImage();
     // file is closed
     getEditLog().logCloseFile(path, file);
     if (NameNode.stateChangeLog.isDebugEnabled()) {
@@ -4541,7 +4615,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
                                   boolean createParent, boolean logRetryCache)
       throws UnresolvedLinkException, FileAlreadyExistsException,
       QuotaExceededException, SnapshotAccessControlException, AclException {
-    dir.waitForReady();
+    waitForLoadingFSImage();
 
     final long modTime = now();
     if (createParent) {
@@ -4647,7 +4721,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
   }
 
   public FSImage getFSImage() {
-    return dir.fsImage;
+    return fsImage;
   }
 
   public FSEditLog getEditLog() {
@@ -5804,7 +5878,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
       boolean ignoreEmptyDir, boolean resolveLink)
       throws AccessControlException, UnresolvedLinkException {
     if (!pc.isSuperUser()) {
-      dir.waitForReady();
+      waitForLoadingFSImage();
       readLock();
       try {
         pc.checkPermission(path, dir, doCheckOwner, ancestorAccess,
@@ -6271,6 +6345,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
              + ", newNodes=" + Arrays.asList(newNodes)
              + ", clientName=" + clientName
              + ")");
+    waitForLoadingFSImage();
     writeLock();
     boolean success = false;
     try {
@@ -6971,7 +7046,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
 
   @Override  // NameNodeMXBean
   public String getClusterId() {
-    return dir.fsImage.getStorage().getClusterID();
+    return getFSImage().getStorage().getClusterID();
   }
   
   @Override  // NameNodeMXBean
@@ -8121,8 +8196,10 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
         checkOwner(pc, src);
         checkPathAccess(pc, src, FsAction.WRITE);
       }
-      dir.setXAttr(src, xAttr, flag);
-      getEditLog().logSetXAttr(src, xAttr, logRetryCache);
+      List<XAttr> xAttrs = Lists.newArrayListWithCapacity(1);
+      xAttrs.add(xAttr);
+      dir.setXAttrs(src, xAttrs, flag);
+      getEditLog().logSetXAttrs(src, xAttrs, logRetryCache);
       resultingStat = getAuditFileInfo(src, false);
     } finally {
       writeUnlock();
@@ -8242,10 +8319,12 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
         checkOwner(pc, src);
         checkPathAccess(pc, src, FsAction.WRITE);
       }
-      
-      XAttr removedXAttr = dir.removeXAttr(src, xAttr);
-      if (removedXAttr != null) {
-        getEditLog().logRemoveXAttr(src, removedXAttr);
+
+      List<XAttr> xAttrs = Lists.newArrayListWithCapacity(1);
+      xAttrs.add(xAttr);
+      List<XAttr> removedXAttrs = dir.removeXAttrs(src, xAttrs);
+      if (removedXAttrs != null && !removedXAttrs.isEmpty()) {
+        getEditLog().logRemoveXAttrs(src, removedXAttrs);
       }
       resultingStat = getAuditFileInfo(src, false);
     } catch (AccessControlException e) {
