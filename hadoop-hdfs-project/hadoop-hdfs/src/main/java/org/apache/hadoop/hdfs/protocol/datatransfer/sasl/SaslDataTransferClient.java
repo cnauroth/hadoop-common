@@ -71,6 +71,7 @@ public class SaslDataTransferClient {
   private static final Logger LOG = LoggerFactory.getLogger(
     SaslDataTransferClient.class);
 
+  private final boolean fallbackToSimpleAuthAllowed;
   private final SaslPropertiesResolver saslPropsResolver;
   private final TrustedChannelResolver trustedChannelResolver;
 
@@ -82,7 +83,9 @@ public class SaslDataTransferClient {
    *   not require SASL negotiation
    */
   public SaslDataTransferClient(SaslPropertiesResolver saslPropsResolver,
-      TrustedChannelResolver trustedChannelResolver) {
+      TrustedChannelResolver trustedChannelResolver,
+      boolean fallbackToSimpleAuthAllowed) {
+    this.fallbackToSimpleAuthAllowed = fallbackToSimpleAuthAllowed;
     this.saslPropsResolver = saslPropsResolver;
     this.trustedChannelResolver = trustedChannelResolver;
   }
@@ -215,6 +218,16 @@ public class SaslDataTransferClient {
       LOG.debug(
         "SASL client skipping handshake in secured configuration with "
         + "privileged port for addr = {}, datanodeId = {}", addr, datanodeId);
+      return null;
+    } else if (accessToken.getIdentifier().length == 0) {
+      if (!fallbackToSimpleAuthAllowed) {
+        throw new IOException(
+          "No block access token was provided (insecure cluster), but this " +
+          "client is configured to allow only secure connections.");
+      }
+      LOG.debug(
+        "SASL client skipping handshake in secured configuration with "
+        + "unsecured cluster for addr = {}, datanodeId = {}", addr, datanodeId);
       return null;
     } else {
       LOG.debug(
