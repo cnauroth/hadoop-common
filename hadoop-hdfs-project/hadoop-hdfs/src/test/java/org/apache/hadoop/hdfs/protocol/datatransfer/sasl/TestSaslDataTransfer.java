@@ -17,49 +17,26 @@
  */
 package org.apache.hadoop.hdfs.protcol.datatransfer.sasl;
 
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_BLOCK_ACCESS_TOKEN_ENABLE_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATA_TRANSFER_PROTECTION_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_HTTPS_ADDRESS_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_KERBEROS_PRINCIPAL_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_KEYTAB_FILE_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_HTTP_POLICY_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_HTTPS_ADDRESS_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_KERBEROS_PRINCIPAL_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_KEYTAB_FILE_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_WEB_AUTHENTICATION_KERBEROS_PRINCIPAL_KEY;
 import static org.junit.Assert.*;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.util.Properties;
 
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileSystemTestHelper;
-import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.DFSTestUtil;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
-import org.apache.hadoop.http.HttpConfig;
 import org.apache.hadoop.io.IOUtils;
-import org.apache.hadoop.minikdc.MiniKdc;
-import org.apache.hadoop.security.SecurityUtil;
-import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod;
-import org.apache.hadoop.security.ssl.KeyStoreTestUtil;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
-public class TestSaslDataTransfer {
+public class TestSaslDataTransfer extends SaslDataTransferTestCase {
 
-  private static final File BASEDIR = new File(
-    System.getProperty("test.build.dir", "target/test-dir"),
-    TestSaslDataTransfer.class.getSimpleName());
   private static final int BLOCK_SIZE = 4096;
   private static final int BUFFER_SIZE= 1024;
   private static final int NUM_BLOCKS = 3;
@@ -68,30 +45,9 @@ public class TestSaslDataTransfer {
 
   private MiniDFSCluster cluster;
   private FileSystem fs;
-  private String hdfsPrincipal;
-  private MiniKdc kdc;
-  private String keytab;
-  private String spnegoPrincipal;
 
   @Rule
   public ExpectedException exception = ExpectedException.none();
-
-  @Before
-  public void init() throws Exception {
-    FileUtil.fullyDelete(BASEDIR);
-    assertTrue(BASEDIR.mkdirs());
-
-    Properties kdcConf = MiniKdc.createConf();
-    kdc = new MiniKdc(kdcConf, BASEDIR);
-    kdc.start();
-
-    String userName = UserGroupInformation.getLoginUser().getShortUserName();
-    File keytabFile = new File(BASEDIR, userName + ".keytab");
-    keytab = keytabFile.getAbsolutePath();
-    kdc.createPrincipal(keytabFile, userName + "/localhost", "HTTP/localhost");
-    hdfsPrincipal = userName + "/localhost@" + kdc.getRealm();
-    spnegoPrincipal = "HTTP/localhost@" + kdc.getRealm();
-  }
 
   @After
   public void shutdown() {
@@ -99,10 +55,6 @@ public class TestSaslDataTransfer {
     if (cluster != null) {
       cluster.shutdown();
     }
-    if (kdc != null) {
-      kdc.stop();
-    }
-    FileUtil.fullyDelete(BASEDIR);
   }
 
   @Test
@@ -144,35 +96,6 @@ public class TestSaslDataTransfer {
     exception.expect(IOException.class);
     exception.expectMessage("could only be replicated to 0 nodes");
     doTest(clientConf);
-  }
-
-  /**
-   * Creates configuration for starting a secure cluster.
-   *
-   * @param dataTransferProtection supported QOPs
-   * @return configuration for starting a secure cluster
-   * @throws Exception if there is any failure
-   */
-  private HdfsConfiguration createSecureConfig(
-      String dataTransferProtection) throws Exception {
-    HdfsConfiguration conf = new HdfsConfiguration();
-    SecurityUtil.setAuthenticationMethod(AuthenticationMethod.KERBEROS, conf);
-    conf.set(DFS_NAMENODE_KERBEROS_PRINCIPAL_KEY, hdfsPrincipal);
-    conf.set(DFS_NAMENODE_KEYTAB_FILE_KEY, keytab);
-    conf.set(DFS_DATANODE_KERBEROS_PRINCIPAL_KEY, hdfsPrincipal);
-    conf.set(DFS_DATANODE_KEYTAB_FILE_KEY, keytab);
-    conf.set(DFS_WEB_AUTHENTICATION_KERBEROS_PRINCIPAL_KEY, spnegoPrincipal);
-    conf.setBoolean(DFS_BLOCK_ACCESS_TOKEN_ENABLE_KEY, true);
-    conf.set(DFS_DATA_TRANSFER_PROTECTION_KEY, dataTransferProtection);
-    conf.set(DFS_HTTP_POLICY_KEY, HttpConfig.Policy.HTTPS_ONLY.name());
-    conf.set(DFS_NAMENODE_HTTPS_ADDRESS_KEY, "localhost:0");
-    conf.set(DFS_DATANODE_HTTPS_ADDRESS_KEY, "localhost:0");
-
-    String keystoresDir = BASEDIR.getAbsolutePath();
-    String sslConfDir = KeyStoreTestUtil.getClasspathDir(
-      TestSaslDataTransfer.class);
-    KeyStoreTestUtil.setupSSLConfig(keystoresDir, sslConfDir, conf, false);
-    return conf;
   }
 
   /**
