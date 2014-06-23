@@ -258,8 +258,8 @@ public class FSDirectory implements Closeable {
    * @throws SnapshotAccessControlException 
    */
   INodeFile addFile(String path, PermissionStatus permissions,
-      short replication, long preferredBlockSize, String clientName,
-      String clientMachine, DatanodeDescriptor clientNode)
+                    short replication, long preferredBlockSize,
+                    String clientName, String clientMachine)
     throws FileAlreadyExistsException, QuotaExceededException,
       UnresolvedLinkException, SnapshotAccessControlException, AclException {
 
@@ -267,7 +267,7 @@ public class FSDirectory implements Closeable {
     INodeFile newNode = new INodeFile(namesystem.allocateNewInodeId(), null,
         permissions, modTime, modTime, BlockInfo.EMPTY_ARRAY, replication,
         preferredBlockSize);
-    newNode.toUnderConstruction(clientName, clientMachine, clientNode);
+    newNode.toUnderConstruction(clientName, clientMachine);
 
     boolean added = false;
     writeLock();
@@ -305,7 +305,7 @@ public class FSDirectory implements Closeable {
       newNode = new INodeFile(id, null, permissions, modificationTime,
           modificationTime, BlockInfo.EMPTY_ARRAY, replication,
           preferredBlockSize);
-      newNode.toUnderConstruction(clientName, clientMachine, null);
+      newNode.toUnderConstruction(clientName, clientMachine);
 
     } else {
       newNode = new INodeFile(id, null, permissions, modificationTime, atime,
@@ -2790,60 +2790,13 @@ public class FSDirectory implements Closeable {
    * Note that this method cannot handle scenarios where the inode is in a
    * snapshot.
    */
-  static byte[][] getPathComponents(INode inode) {
+  public static byte[][] getPathComponents(INode inode) {
     List<byte[]> components = new ArrayList<byte[]>();
     components.add(0, inode.getLocalNameBytes());
     while(inode.getParent() != null) {
       components.add(0, inode.getParent().getLocalNameBytes());
       inode = inode.getParent();
     }
-    return components.toArray(new byte[components.size()][]);
-  }
-
-  /**
-   * The same functionality with {@link #getPathComponents(INode)}, but can
-   * handle snapshots.
-   */
-  public static byte[][] getPathComponentsWithSnapshot(INode inode) {
-    List<byte[]> components = new ArrayList<byte[]>();
-    boolean inSnapshot = false;
-    int snapshotId = Snapshot.CURRENT_STATE_ID;
-    do {
-      if (inode instanceof INodeReference.WithCount) {
-        // identify the corresponding WithName or DstReference node
-        inode = ((WithCount) inode).getParentRef(snapshotId);
-      } else { // normal INode and WithName/DstReference
-        if (inode instanceof INodeDirectory
-            && inode.asDirectory().isSnapshottable() && inSnapshot
-            && snapshotId != Snapshot.CURRENT_STATE_ID) {
-          INodeDirectorySnapshottable sdir = (INodeDirectorySnapshottable) inode
-              .asDirectory();
-          Snapshot snapshot = sdir.getSnapshotById(snapshotId);
-          if (snapshot != null) {
-            components.add(0, snapshot.getRoot().getLocalNameBytes());
-            components.add(0, HdfsConstants.DOT_SNAPSHOT_DIR_BYTES);
-            // the snapshot has been found, thus no need to check snapshottable
-            // directory afterwards
-            inSnapshot = false;
-          }
-        }
-        INode parent = inode.getParentReference() != null ? inode
-            .getParentReference() : inode.getParent();
-        if (parent != null && parent instanceof INodeDirectory) {
-          int sid = parent.asDirectory().searchChild(inode);
-          Preconditions.checkState(sid != Snapshot.NO_SNAPSHOT_ID);
-          if (sid != Snapshot.CURRENT_STATE_ID
-              && snapshotId == Snapshot.CURRENT_STATE_ID) {
-            snapshotId = sid;
-            inSnapshot = true;
-          }
-          components.add(0, inode.getLocalNameBytes());
-        } else if (parent == null) { // root
-          components.add(0, inode.getLocalNameBytes());
-        }
-        inode = parent;
-      }
-    } while (inode != null);
     return components.toArray(new byte[components.size()][]);
   }
 

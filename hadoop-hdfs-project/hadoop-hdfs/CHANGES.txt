@@ -458,6 +458,12 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6557. Move the reference of fsimage to FSNamesystem. (wheat9)
 
+    HDFS-4667. Capture renamed files/directories in snapshot diff report. (jing9
+    and Binglin Chang via jing9)
+
+    HDFS-6507. Improve DFSAdmin to support HA cluster better.
+    (Zesheng Wu via vinayakumarb)
+
   OPTIMIZATIONS
 
     HDFS-6214. Webhdfs has poor throughput for files >2GB (daryn)
@@ -465,6 +471,7 @@ Release 2.5.0 - UNRELEASED
     HDFS-6460. Ignore stale and decommissioned nodes in
     NetworkTopology#sortByDistance. (Yongjun Zhang via wang)
 
+    HDFS-6583. Remove clientNode in FileUnderConstructionFeature. (wheat9)
   BUG FIXES 
 
     HDFS-6112. NFS Gateway docs are incorrect for allowed hosts configuration.
@@ -683,6 +690,12 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6535. HDFS quota update is wrong when file is appended. (George Wong
     via jing9)
+
+    HDFS-6222. Remove background token renewer from webhdfs.
+    (Rushabh Shah and Daryn Sharp via cnauroth)
+
+    HDFS-6580. FSNamesystem.mkdirsInt should call the getAuditFileInfo()
+    wrapper. (Zhilei Xu via wheat9)
 
   BREAKDOWN OF HDFS-2006 SUBTASKS AND RELATED JIRAS
 
