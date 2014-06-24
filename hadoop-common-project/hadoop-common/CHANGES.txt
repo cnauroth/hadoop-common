@@ -342,6 +342,9 @@ Trunk (Unreleased)
     HADOOP-10611. KMS, keyVersion name should not be assumed to be 
     keyName@versionNumber. (tucu)
 
+    HADOOP-10717. HttpServer2 should load jsp DTD from local jars instead of
+    going remote. (Dapeng Sun via wheat9)
+
   OPTIMIZATIONS
 
     HADOOP-7761. Improve the performance of raw comparisons. (todd)
@@ -450,6 +453,9 @@ Release 2.5.0 - UNRELEASED
 
     HADOOP-10665. Make Hadoop Authentication Handler loads case in-sensitive
     (Benoy Antony via vinayakumarb)
+
+    HADOOP-10652. Refactor Proxyusers to use AccessControlList. (Benoy
+    Antony via Arpit Agarwal)
 
   OPTIMIZATIONS
 
@@ -597,6 +603,9 @@ Release 2.5.0 - UNRELEASED
     HADOOP-10690. Lack of synchronization on access to InputStream in
     NativeAzureFileSystem#NativeAzureFsInputStream#close().
     (Chen He via cnauroth)
+
+    HADOOP-10746. TestSocketIOWithTimeout#testSocketIOWithTimeout fails on
+    Power PC. (Jinghui Wang via Arpit Agarwal)
 
   BREAKDOWN OF HADOOP-10514 SUBTASKS AND RELATED JIRAS
 
