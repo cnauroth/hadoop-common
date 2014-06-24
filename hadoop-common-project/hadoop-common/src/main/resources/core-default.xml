@@ -686,21 +686,6 @@
 </property>
 
 <property>
-  <name>ipc.client.connect.max.retries.on.sasl.connection.failures</name>
-  <value>5</value>
-  <description>Indicates the number of retries a client will make on SASL
-    connection failures.  If multiple clients try to connect to the same server
-    at the same time, using the same Kerberos principal, then Kerberos may
-    characterize this as a replay attack and choose to reject some of the
-    connections.  Also, if the client's Kerberos ticket has expired, then a
-    relogin is required.  This property controls how many retries the client
-    will attempt after encountering such an error.  In typical usage, this
-    property will not require tuning, because the recommendation is to use
-    a unique Kerberos principal per host.
-  </description>
-</property>
-
-<property>
   <name>ipc.client.connect.max.retries.on.timeouts</name>
   <value>45</value>
   <description>Indicates the number of retries a client will make on socket timeout
