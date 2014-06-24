@@ -41,21 +41,21 @@ import org.apache.hadoop.security.SecurityUtil;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod;
 import org.apache.hadoop.security.ssl.KeyStoreTestUtil;
-import org.junit.After;
-import org.junit.Before;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 
 public abstract class SaslDataTransferTestCase {
 
-  private File baseDir;
-  private String hdfsPrincipal;
-  private MiniKdc kdc;
-  private String keytab;
-  private String spnegoPrincipal;
+  private static File baseDir;
+  private static String hdfsPrincipal;
+  private static MiniKdc kdc;
+  private static String keytab;
+  private static String spnegoPrincipal;
 
-  @Before
-  public void initKdc() throws Exception {
+  @BeforeClass
+  public static void initKdc() throws Exception {
     baseDir = new File(System.getProperty("test.build.dir", "target/test-dir"),
-      this.getClass().getSimpleName());
+      SaslDataTransferTestCase.class.getSimpleName());
     FileUtil.fullyDelete(baseDir);
     assertTrue(baseDir.mkdirs());
 
@@ -71,8 +71,8 @@ public abstract class SaslDataTransferTestCase {
     spnegoPrincipal = "HTTP/localhost@" + kdc.getRealm();
   }
 
-  @After
-  public void shutdownKdc() {
+  @AfterClass
+  public static void shutdownKdc() {
     if (kdc != null) {
       kdc.stop();
     }
