@@ -198,9 +198,6 @@ public class CommonConfigurationKeysPublic {
       "ipc.client.connect.retry.interval";
   /** Default value for IPC_CLIENT_CONNECT_RETRY_INTERVAL_KEY */
   public static final int     IPC_CLIENT_CONNECT_RETRY_INTERVAL_DEFAULT = 1000;
-  public static final String  IPC_CLIENT_CONNECT_MAX_RETRIES_ON_SASL_CONNECTION_FAILURES_KEY =
-    "ipc.client.connect.max.retries.on.sasl.connection.failures";
-  public static final int     IPC_CLIENT_CONNECT_MAX_RETRIES_ON_SASL_CONNECTION_FAILURES_DEFAULT = 5;
   /** See <a href="{@docRoot}/../core-default.html">core-default.xml</a> */
   public static final String  IPC_CLIENT_CONNECT_MAX_RETRIES_ON_SOCKET_TIMEOUTS_KEY =
     "ipc.client.connect.max.retries.on.timeouts";
