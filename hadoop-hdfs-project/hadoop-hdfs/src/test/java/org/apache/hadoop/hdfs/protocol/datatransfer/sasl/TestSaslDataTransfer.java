@@ -88,7 +88,7 @@ public class TestSaslDataTransfer extends SaslDataTransferTestCase {
   }
 
   @Test
-  public void testServerDoesNotSupportDesiredQop() throws Exception {
+  public void testClientAndServerDoNotHaveCommonQop() throws Exception {
     HdfsConfiguration clusterConf = createSecureConfig("privacy");
     startCluster(clusterConf);
     HdfsConfiguration clientConf = new HdfsConfiguration(clusterConf);
@@ -98,8 +98,31 @@ public class TestSaslDataTransfer extends SaslDataTransferTestCase {
     doTest(clientConf);
   }
 
+  @Test
+  public void testClientSaslNoServerSasl() throws Exception {
+    HdfsConfiguration clusterConf = createSecureConfig("");
+    startCluster(clusterConf);
+    HdfsConfiguration clientConf = new HdfsConfiguration(clusterConf);
+    clientConf.set(DFS_DATA_TRANSFER_PROTECTION_KEY, "authentication");
+    exception.expect(IOException.class);
+    exception.expectMessage("could only be replicated to 0 nodes");
+    doTest(clientConf);
+  }
+
+  @Test
+  public void testServerSaslNoClientSasl() throws Exception {
+    HdfsConfiguration clusterConf = createSecureConfig(
+      "authentication,integrity,privacy");
+    startCluster(clusterConf);
+    HdfsConfiguration clientConf = new HdfsConfiguration(clusterConf);
+    clientConf.set(DFS_DATA_TRANSFER_PROTECTION_KEY, "");
+    exception.expect(IOException.class);
+    exception.expectMessage("could only be replicated to 0 nodes");
+    doTest(clientConf);
+  }
+
   /**
-   * Tests DataTransferProtocol with a specific QOP requested by the client.
+   * Tests DataTransferProtocol with the given client configuration.
    *
    * @param conf client configuration
    * @throws IOException if there is an I/O error
