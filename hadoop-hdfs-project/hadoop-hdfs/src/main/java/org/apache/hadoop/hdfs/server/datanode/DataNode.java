@@ -818,19 +818,22 @@ public class DataNode extends Configured
     if (!UserGroupInformation.isSecurityEnabled()) {
       return;
     }
-    if (resources != null) {
+    String dataTransferProtection = conf.get(DFS_DATA_TRANSFER_PROTECTION_KEY);
+    if (resources != null && dataTransferProtection == null) {
       return;
     }
     if (conf.getBoolean("ignore.secure.ports.for.testing", false)) {
       return;
     }
     if (conf.get(DFS_DATA_TRANSFER_PROTECTION_KEY) != null &&
-        DFSUtil.getHttpPolicy(conf) == HttpConfig.Policy.HTTPS_ONLY) {
+        DFSUtil.getHttpPolicy(conf) == HttpConfig.Policy.HTTPS_ONLY &&
+        resources == null) {
       return;
     }
     throw new RuntimeException("Cannot start secure DataNode without " +
       "configuring either privileged resources or SASL RPC data transfer " +
-      "protection and SSL for HTTP.");
+      "protection and SSL for HTTP.  Using privileged resources in " +
+      "combination with SASL RPC data transfer protection is not supported.");
   }
   
   public static String generateUuid() {
