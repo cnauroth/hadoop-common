@@ -170,6 +170,17 @@ Release 2.5.0 - UNRELEASED
     YARN-2159. Better logging in SchedulerNode#allocateContainer.
     (Ray Chiang via kasha)
 
+    YARN-2191. Added a new test to ensure NM will clean up completed applications
+    in the case of RM restart. (Wangda Tan via jianhe)
+
+    YARN-2195. Clean a piece of code in ResourceRequest. (Wei Yan via devaraj)
+
+    YARN-2074. Changed ResourceManager to not count AM preemptions towards app
+    failures. (Jian He via vinodkv)
+
+    YARN-2192. TestRMHA fails when run with a mix of Schedulers.
+    (Anubhav Dhoot via kasha)
+
   OPTIMIZATIONS
 
   BUG FIXES 
@@ -261,6 +272,9 @@ Release 2.5.0 - UNRELEASED
 
     YARN-2187. FairScheduler: Disable max-AM-share check by default.
     (Robert Kanter via kasha)
+
+    YARN-2111. In FairScheduler.attemptScheduling, we don't count containers
+    as assigned if they have 0 memory but non-zero cores (Sandy Ryza)
 
 Release 2.4.1 - 2014-06-23 
 

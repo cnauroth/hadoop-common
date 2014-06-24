@@ -464,6 +464,15 @@ Release 2.5.0 - UNRELEASED
     HDFS-6507. Improve DFSAdmin to support HA cluster better.
     (Zesheng Wu via vinayakumarb)
 
+    HDFS-6578. add toString method to DatanodeStorage for easier debugging.
+    (Yongjun Zhang via Arpit Agarwal)
+
+    HDFS-6562. Refactor rename() in FSDirectory. (wheat9)
+
+    HDFS-6486. Add user doc for XAttrs via WebHDFS. (Yi Liu via umamahesh)
+
+    HDFS-6430. HTTPFS - Implement XAttr support. (Yi Liu via tucu)
+
   OPTIMIZATIONS
 
     HDFS-6214. Webhdfs has poor throughput for files >2GB (daryn)
@@ -696,6 +705,9 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6580. FSNamesystem.mkdirsInt should call the getAuditFileInfo()
     wrapper. (Zhilei Xu via wheat9)
+
+    HDFS-6587. Bug in TestBPOfferService can cause test failure. (Zhilei Xu
+    via Arpit Agarwal)
 
   BREAKDOWN OF HDFS-2006 SUBTASKS AND RELATED JIRAS
 
