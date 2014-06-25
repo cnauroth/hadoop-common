@@ -808,6 +808,10 @@ public class DataNode extends Configured
    *   as a block access token.  Similarly, SSL guarantees authentication of the
    *   HTTP server before a client transmits a secret, such as a delegation
    *   token.
+   * It is not possible to run with both privileged ports and SASL on
+   * DataTransferProtocol.  For backwards-compatibility, the connection logic
+   * must check if the target port is a privileged port, and if so, skip the
+   * SASL handshake.
    *
    * @param conf Configuration to check
    * @param resources SecuredResources obtained for DataNode
@@ -825,7 +829,7 @@ public class DataNode extends Configured
     if (conf.getBoolean("ignore.secure.ports.for.testing", false)) {
       return;
     }
-    if (conf.get(DFS_DATA_TRANSFER_PROTECTION_KEY) != null &&
+    if (dataTransferProtection != null &&
         DFSUtil.getHttpPolicy(conf) == HttpConfig.Policy.HTTPS_ONLY &&
         resources == null) {
       return;
