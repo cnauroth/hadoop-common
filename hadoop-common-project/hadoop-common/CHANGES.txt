@@ -378,6 +378,8 @@ Release 2.5.0 - UNRELEASED
 
     HADOOP-9704. Write metrics sink plugin for Hadoop/Graphite (Chu Tong, Alex Newman and Babak Behzad via raviprak)
 
+    HADOOP-8943. Support multiple group mapping providers. (Kai Zheng via brandonli)
+
   IMPROVEMENTS
 
     HADOOP-10451. Remove unused field and imports from SaslRpcServer.
@@ -474,6 +476,15 @@ Release 2.5.0 - UNRELEASED
 
     HADOOP-10674. Improve PureJavaCrc32 performance and use java.util.zip.CRC32
     for Java 7 and above. (szetszwo)
+
+    HADOOP-10754. Reenable several HA ZooKeeper-related tests on Windows.
+    (cnauroth)
+
+    HADOOP-10565. Support IP ranges (CIDR) in proxyuser.hosts. (Benoy Antony
+    via Arpit Agarwal)
+
+    HADOOP-10649. Allow overriding the default ACL for service authorization
+    (Benoy Antony via Arpit Agarwal)
 
   OPTIMIZATIONS
 
@@ -618,6 +629,9 @@ Release 2.5.0 - UNRELEASED
     HADOOP-10746. TestSocketIOWithTimeout#testSocketIOWithTimeout fails on
     Power PC. (Jinghui Wang via Arpit Agarwal)
 
+    HADOOP-9705. FsShell cp -p does not preserve directory attibutes.
+    (Akira AJISAKA via cnauroth)
+
   BREAKDOWN OF HADOOP-10514 SUBTASKS AND RELATED JIRAS
 
     HADOOP-10520. Extended attributes definition and FileSystem APIs for
@@ -645,6 +659,8 @@ Release 2.5.0 - UNRELEASED
 
     HADOOP-10479. Fix new findbugs warnings in hadoop-minikdc.
     (Swarnim Kulkarni via wheat9)
+
+    HADOOP-10715. Remove public GraphiteSink#setWriter (Babak Behzad via raviprak)
 
 Release 2.4.1 - 2014-06-23 
 

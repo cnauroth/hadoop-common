@@ -479,6 +479,9 @@ Release 2.5.0 - UNRELEASED
     HDFS-6595. Allow the maximum threads for balancing on datanodes to be
     configurable. (Benoy Antony via szetszwo)
 
+    HDFS-6572. Add an option to the NameNode that prints the software and
+    on-disk image versions. (Charles Lamb via cnauroth)
+
   OPTIMIZATIONS
 
     HDFS-6214. Webhdfs has poor throughput for files >2GB (daryn)
@@ -721,6 +724,9 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6475. WebHdfs clients fail without retry because incorrect handling
     of StandbyException. (Yongjun Zhang via atm)
+
+    HADOOP-10701. NFS should not validate the access premission only based on
+    the user's primary group (Harsh J via atm)
 
   BREAKDOWN OF HDFS-2006 SUBTASKS AND RELATED JIRAS
 
