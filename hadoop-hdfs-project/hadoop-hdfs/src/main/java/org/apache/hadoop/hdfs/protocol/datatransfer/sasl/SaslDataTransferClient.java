@@ -106,6 +106,7 @@ public class SaslDataTransferClient {
       InputStream underlyingIn, DataEncryptionKeyFactory encryptionKeyFactory,
       Token<BlockTokenIdentifier> accessToken, DatanodeID datanodeId)
       throws IOException {
+    // The encryption key factory only returns a key if encryption is enabled.
     DataEncryptionKey encryptionKey = !trustedChannelResolver.isTrusted() ?
       encryptionKeyFactory.newDataEncryptionKey() : null;
     IOStreamPair ios = send(socket.getInetAddress(), underlyingOut,
@@ -174,6 +175,7 @@ public class SaslDataTransferClient {
       throws IOException {
     if (!trustedChannelResolver.isTrusted() &&
         !trustedChannelResolver.isTrusted(addr)) {
+      // The encryption key factory only returns a key if encryption is enabled.
       DataEncryptionKey encryptionKey =
         encryptionKeyFactory.newDataEncryptionKey();
       return send(addr, underlyingOut, underlyingIn, encryptionKey, accessToken,
@@ -208,7 +210,7 @@ public class SaslDataTransferClient {
         "SASL client doing encrypted handshake for addr = {}, datanodeId = {}",
         addr, datanodeId);
       return getEncryptedStreams(underlyingOut, underlyingIn,
-        encryptionKey, accessToken);
+        encryptionKey);
     } else if (!UserGroupInformation.isSecurityEnabled()) {
       LOG.debug(
         "SASL client skipping handshake in unsecured configuration for "
@@ -244,13 +246,12 @@ public class SaslDataTransferClient {
    * @param underlyingOut connection output stream
    * @param underlyingIn connection input stream
    * @param encryptionKey for an encrypted SASL handshake
-   * @param accessToken connection block access token
    * @return new pair of streams, wrapped after SASL negotiation
    * @throws IOException for any error
    */
   private IOStreamPair getEncryptedStreams(OutputStream underlyingOut,
-      InputStream underlyingIn, DataEncryptionKey encryptionKey,
-      Token<BlockTokenIdentifier> accessToken) throws IOException {
+      InputStream underlyingIn, DataEncryptionKey encryptionKey)
+      throws IOException {
     Map<String, String> saslProps = createSaslPropertiesForEncryption(
       encryptionKey.encryptionAlgorithm);
 

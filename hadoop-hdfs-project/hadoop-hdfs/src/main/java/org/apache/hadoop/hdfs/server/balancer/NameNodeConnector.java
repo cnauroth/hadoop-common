@@ -17,15 +17,10 @@
  */
 package org.apache.hadoop.hdfs.server.balancer;
 
-import static org.apache.hadoop.fs.CommonConfigurationKeys.IPC_CLIENT_FALLBACK_TO_SIMPLE_AUTH_ALLOWED_DEFAULT;
-import static org.apache.hadoop.fs.CommonConfigurationKeys.IPC_CLIENT_FALLBACK_TO_SIMPLE_AUTH_ALLOWED_KEY;
-
 import java.io.DataOutputStream;
-import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetAddress;
-import java.net.Socket;
 import java.net.URI;
 import java.util.EnumSet;
 
@@ -38,14 +33,9 @@ import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.NameNodeProxies;
 import org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException;
 import org.apache.hadoop.hdfs.protocol.ClientProtocol;
-import org.apache.hadoop.hdfs.protocol.DatanodeID;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
-import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
-import org.apache.hadoop.hdfs.protocol.datatransfer.IOStreamPair;
-import org.apache.hadoop.hdfs.protocol.datatransfer.TrustedChannelResolver;
 import org.apache.hadoop.hdfs.protocol.datatransfer.sasl.DataEncryptionKeyFactory;
-import org.apache.hadoop.hdfs.protocol.datatransfer.sasl.DataTransferSaslUtil;
-import org.apache.hadoop.hdfs.protocol.datatransfer.sasl.SaslDataTransferClient;
+import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenSecretManager;
 import org.apache.hadoop.hdfs.security.token.block.ExportedBlockKeys;
@@ -82,7 +72,6 @@ class NameNodeConnector implements DataEncryptionKeyFactory {
   private BlockTokenSecretManager blockTokenSecretManager;
   private Daemon keyupdaterthread; // AccessKeyUpdater thread
   private DataEncryptionKey encryptionKey;
-  private final SaslDataTransferClient saslClient;
 
   NameNodeConnector(URI nameNodeUri,
       Configuration conf) throws IOException {
@@ -132,12 +121,6 @@ class NameNodeConnector implements DataEncryptionKeyFactory {
     if (out == null) {
       throw new IOException("Another balancer is running");
     }
-    this.saslClient = new SaslDataTransferClient(
-      DataTransferSaslUtil.getSaslPropertiesResolver(conf),
-      TrustedChannelResolver.getInstance(conf),
-      conf.getBoolean(
-        IPC_CLIENT_FALLBACK_TO_SIMPLE_AUTH_ALLOWED_KEY,
-        IPC_CLIENT_FALLBACK_TO_SIMPLE_AUTH_ALLOWED_DEFAULT));
   }
 
   boolean shouldContinue(long dispatchBlockMoveBytes) {
@@ -168,24 +151,6 @@ class NameNodeConnector implements DataEncryptionKeyFactory {
           EnumSet.of(BlockTokenSecretManager.AccessMode.REPLACE,
           BlockTokenSecretManager.AccessMode.COPY));
     }
-  }
-
-  /**
-   * Negotiates SASL if needed on a DataTransferProtocol connection.
-   *
-   * @param socket connection socket
-   * @param underlyingOut connection output stream
-   * @param underlyingIn connection input stream
-   * @param accessToken connection block access token
-   * @param datanodeId ID of destination datanode
-   * @return new pair of streams, wrapped after SASL negotiation
-   * @throws IOException for any error
-   */
-  IOStreamPair saslClientConnect(Socket socket, OutputStream underlyingOut,
-      InputStream underlyingIn, Token<BlockTokenIdentifier> accessToken,
-      DatanodeID datanodeId) throws IOException {
-    return saslClient.socketSend(socket, underlyingOut, underlyingIn,
-      this, accessToken, datanodeId);
   }
 
   @Override

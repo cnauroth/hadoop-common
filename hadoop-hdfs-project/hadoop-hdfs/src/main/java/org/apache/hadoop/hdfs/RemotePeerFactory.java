@@ -28,7 +28,8 @@ import org.apache.hadoop.security.token.Token;
 public interface RemotePeerFactory {
   /**
    * @param addr          The address to connect to.
-   * 
+   * @param blockToken    Token used during optional SASL negotiation
+   * @param datanodeId    ID of destination DataNode
    * @return              A new Peer connected to the address.
    *
    * @throws IOException  If there was an error connecting or creating 
