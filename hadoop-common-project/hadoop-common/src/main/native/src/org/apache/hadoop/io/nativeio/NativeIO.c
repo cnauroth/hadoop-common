@@ -388,10 +388,10 @@ Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_mlock_1native(
   JNIEnv *env, jclass clazz,
   jobject buffer, jlong len)
 {
-#ifdef UNIX
   void* buf = (void*)(*env)->GetDirectBufferAddress(env, buffer);
   PASS_EXCEPTIONS(env);
 
+#ifdef UNIX
   if (mlock(buf, len)) {
     CHECK_DIRECT_BUFFER_ADDRESS(buf);
     throw_ioe(env, errno);
@@ -399,8 +399,10 @@ Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_mlock_1native(
 #endif
 
 #ifdef WINDOWS
-  THROW(env, "java/io/IOException",
-    "The function POSIX.mlock_native() is not supported on Windows");
+  if (!VirtualLock(buf, len)) {
+    CHECK_DIRECT_BUFFER_ADDRESS(buf);
+    throw_ioe(env, GetLastError());
+  }
 #endif
 }
 
