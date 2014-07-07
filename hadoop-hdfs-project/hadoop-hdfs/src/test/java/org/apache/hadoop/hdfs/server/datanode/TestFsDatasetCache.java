@@ -141,6 +141,9 @@ public class TestFsDatasetCache {
 
   @After
   public void tearDown() throws Exception {
+    // Verify that each test uncached whatever it cached.  This cleanup is
+    // required so that file descriptors are not leaked across tests.
+    DFSTestUtil.verifyExpectedCacheUsage(0, 0, fsd);
     if (fs != null) {
       fs.close();
     }
@@ -267,7 +270,7 @@ public class TestFsDatasetCache {
     LOG.info("finishing testCacheAndUncacheBlock");
   }
 
-  //@Test(timeout=600000)
+  @Test(timeout=600000)
   public void testCacheAndUncacheBlockSimple() throws Exception {
     testCacheAndUncacheBlock();
   }
@@ -276,7 +279,7 @@ public class TestFsDatasetCache {
    * Run testCacheAndUncacheBlock with some failures injected into the mlock
    * call.  This tests the ability of the NameNode to resend commands.
    */
-  //@Test(timeout=600000)
+  @Test(timeout=600000)
   public void testCacheAndUncacheBlockWithRetries() throws Exception {
     // We don't have to save the previous cacheManipulator
     // because it will be reinstalled by the @After function.
@@ -299,7 +302,7 @@ public class TestFsDatasetCache {
     testCacheAndUncacheBlock();
   }
 
-  //@Test(timeout=600000)
+  @Test(timeout=600000)
   public void testFilesExceedMaxLockedMemory() throws Exception {
     LOG.info("beginning testFilesExceedMaxLockedMemory");
 
@@ -362,7 +365,7 @@ public class TestFsDatasetCache {
     LOG.info("finishing testFilesExceedMaxLockedMemory");
   }
 
-  //@Test(timeout=600000)
+  @Test(timeout=600000)
   public void testUncachingBlocksBeforeCachingFinishes() throws Exception {
     LOG.info("beginning testUncachingBlocksBeforeCachingFinishes");
     final int NUM_BLOCKS = 5;
@@ -436,7 +439,7 @@ public class TestFsDatasetCache {
     }, 100, 10000);
   }
 
-  //@Test(timeout=60000)
+  @Test(timeout=60000)
   public void testPageRounder() throws Exception {
     // Write a small file
     Path fileName = new Path("/testPageRounder");
@@ -459,7 +462,7 @@ public class TestFsDatasetCache {
     DFSTestUtil.verifyExpectedCacheUsage(0, 0, fsd);
   }
 
-  //@Test(timeout=60000)
+  @Test(timeout=60000)
   public void testUncacheQuiesces() throws Exception {
     // Create a file
     Path fileName = new Path("/testUncacheQuiesces");
@@ -569,5 +572,7 @@ public class TestFsDatasetCache {
         return true;
       }
     }, 1000, 30000);
+
+    dfs.removeCacheDirective(shortCacheDirectiveId);
   }
 }
