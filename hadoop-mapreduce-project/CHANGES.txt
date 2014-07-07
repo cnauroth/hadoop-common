@@ -157,6 +157,9 @@ Release 2.6.0 - UNRELEASED
 
   BUG FIXES
 
+    MAPREDUCE-5866. TestFixedLengthInputFormat fails in windows.
+    (Varun Vasudev via cnauroth)
+
 Release 2.5.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -290,6 +293,13 @@ Release 2.5.0 - UNRELEASED
 
     MAPREDUCE-5900. Changed to the interpret container preemption exit code as a
     task attempt killing event. (Mayank Bansal via zjshen)
+
+    MAPREDUCE-5868. Fixed an issue with TestPipeApplication that was causing the
+    nightly builds to fail. (Akira Ajisaka via vinodkv)
+
+    MAPREDUCE-5517. Fixed MapReduce ApplicationMaster to not validate reduce side
+    resource configuration for deciding uber-mode on map-only jobs. (Siqi Li via
+    vinodkv)
 
 Release 2.4.1 - 2014-06-23 
 
