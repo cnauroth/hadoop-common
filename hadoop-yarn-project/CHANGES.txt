@@ -18,6 +18,24 @@ Trunk - Unreleased
     YARN-2216 TestRMApplicationHistoryWriter sometimes fails in trunk.
     (Zhijie Shen via xgong)
 
+Release 2.6.0 - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+    YARN-2242. Improve exception information on AM launch crashes. (Li Lu 
+    via junping_du)
+
+  OPTIMIZATIONS
+
+  BUG FIXES
+
+    YARN-2251. Avoid negative elapsed time in JHS/MRAM web UI and services.
+    (Zhijie Shen via junping_du)
+
 Release 2.5.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -54,11 +72,10 @@ Release 2.5.0 - UNRELEASED
     YARN-1713. Added get-new-app and submit-app functionality to RM web services.
     (Varun Vasudev via vinodkv)
 
+    YARN-1367. Changed NM to not kill containers on NM resync if RM work-preserving
+    restart is enabled. (Anubhav Dhoot via jianhe)
+
   IMPROVEMENTS
-	
-	YARN-2022 Preempting an Application Master container can be kept as least priority
-	when multiple applications are marked for preemption by 
-	ProportionalCapacityPreemptionPolicy (Sunil G via mayank)
 
     YARN-1479. Invalid NaN values in Hadoop REST API JSON response (Chen He via
     jeagles)
@@ -215,6 +232,13 @@ Release 2.5.0 - UNRELEASED
     TestContainersMonitor#testContainerKillOnMemoryOverflow.
     (Anubhav Dhoot via kasha)
 
+    YARN-2022. Preempting an Application Master container can be kept as least priority
+    when multiple applications are marked for preemption by 
+    ProportionalCapacityPreemptionPolicy (Sunil G via mayank)
+
+    YARN-2241. ZKRMStateStore: On startup, show nicer messages if znodes already 
+    exist. (Robert Kanter via kasha)
+
   OPTIMIZATIONS
 
   BUG FIXES 
@@ -321,6 +345,15 @@ Release 2.5.0 - UNRELEASED
 
     YARN-2201. Made TestRMWebServicesAppsModification be independent of the
     changes on yarn-default.xml. (Varun Vasudev via zjshen)
+
+    YARN-2216 YARN-2065 AM cannot create new containers after restart
+    (Jian He via stevel)
+
+    YARN-2232. Fixed ResourceManager to allow DelegationToken owners to be able
+    to cancel their own tokens in secure mode. (Varun Vasudev via vinodkv)
+
+    YARN-2250. FairScheduler.findLowestCommonAncestorQueue returns null when
+    queues not identical (Krisztian Horvath via Sandy Ryza)
 
 Release 2.4.1 - 2014-06-23 
 

@@ -254,6 +254,25 @@ Trunk (Unreleased)
     HDFS-5794. Fix the inconsistency of layout version number of 
     ADD_DATANODE_AND_STORAGE_UUIDS between trunk and branch-2. (jing9)
 
+Release 2.6.0 - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+    HDFS-6613. Improve logging in caching classes. (wang)
+
+    HDFS-6511. BlockManager#computeInvalidateWork() could do nothing. (Juan Yu via wang)
+
+  OPTIMIZATIONS
+
+  BUG FIXES
+
+    HDFS-6617. Flake TestDFSZKFailoverController.testManualFailoverWithDFSHAAdmin
+    due to a long edit log sync op. (Liang Xie via cnauroth)
+
 Release 2.5.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -481,6 +500,23 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6572. Add an option to the NameNode that prints the software and
     on-disk image versions. (Charles Lamb via cnauroth)
+
+    HDFS-6603. Add XAttr with ACL test. (Stephen Chu via cnauroth)
+
+    HDFS-6612. MiniDFSNNTopology#simpleFederatedTopology(int)
+    always hardcode nameservice ID. (Juan Yu via wang)
+
+    HDFS-6614. shorten TestPread run time with a smaller retry timeout setting.
+    (Liang Xie via cnauroth)
+
+    HDFS-6610. TestShortCircuitLocalRead tests sometimes timeout on slow
+    machines. (Charles Lamb via wang)
+
+    HDFS-6620. Snapshot docs should specify about preserve options with cp command
+    (Stephen Chu via umamahesh)
+
+    HDFS-6493. Change dfs.namenode.startup.delay.block.deletion to second
+    instead of millisecond. (Juan Yu via wang)
 
   OPTIMIZATIONS
 
@@ -741,6 +777,9 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6591. while loop is executed tens of thousands of times in Hedged Read
     (Liang Xie via cnauroth)
+
+    HDFS-6604. The short-circuit cache doesn't correctly time out replicas that
+    haven't been used in a while (cmccabe)
 
   BREAKDOWN OF HDFS-2006 SUBTASKS AND RELATED JIRAS
 

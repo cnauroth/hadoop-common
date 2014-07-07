@@ -23,6 +23,9 @@ Trunk (Unreleased)
     Mike Liddell, Chuan Liu, Lengning Liu, Ivan Mitic, Michael Rys,
     Alexander Stojanovich, Brian Swan, and Min Wei via cnauroth)
     
+    HADOOP-10719. Add generateEncryptedKey and decryptEncryptedKey 
+    methods to KeyProvider. (asuresh via tucu)
+
   IMPROVEMENTS
 
     HADOOP-8017. Configure hadoop-main pom to get rid of M2E plugin execution
@@ -167,6 +170,12 @@ Trunk (Unreleased)
 
     HADOOP-10695. KMSClientProvider should respect a configurable timeout. 
     (yoderme via tucu)
+
+    HADOOP-10757. KeyProvider KeyVersion should provide the key name. 
+    (asuresh via tucu)
+
+    HADOOP-10769. Create KeyProvider extension to handle delegation tokens.
+    (Arun Suresh via atm)
 
   BUG FIXES
 
@@ -371,6 +380,18 @@ Trunk (Unreleased)
 
     HADOOP-8589. ViewFs tests fail when tests and home dirs are nested (sanjay Radia)
 
+Release 2.6.0 - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+  OPTIMIZATIONS
+
+  BUG FIXES
+
 Release 2.5.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -490,6 +511,19 @@ Release 2.5.0 - UNRELEASED
     (Benoy Antony via Arpit Agarwal)
 
     HADOOP-10767. Clean up unused code in Ls shell command. (cnauroth)
+
+    HADOOP-9361 Strictly define the expected behavior of filesystem APIs and
+    write tests to verify compliance (stevel)
+
+    HADOOP-9651 Filesystems to throw FileAlreadyExistsException in
+    createFile(path, overwrite=false) when the file exists (stevel)
+    
+    HADOOP-9495 Define behaviour of Seekable.seek(), write tests,
+    fix all hadoop implementations for compliance
+
+    HADOOP-10312 Shell.ExitCodeException to have more useful toString (stevel)
+
+    HADOOP-10782. Fix typo in DataChecksum class. (Jingguo Yao via suresh)
 
   OPTIMIZATIONS
 
@@ -639,6 +673,11 @@ Release 2.5.0 - UNRELEASED
 
     HADOOP-10739. Renaming a file into a directory containing the same
     filename results in a confusing I/O error (chang li via jlowe)
+
+    HADOOP-10533 S3 input stream NPEs in MapReduce join (stevel)
+
+    HADOOP-10419 BufferedFSInputStream NPEs on getPos() on a closed stream
+    (stevel)
 
   BREAKDOWN OF HADOOP-10514 SUBTASKS AND RELATED JIRAS
 

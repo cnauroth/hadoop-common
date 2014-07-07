@@ -145,6 +145,18 @@ Trunk (Unreleased)
     MAPREDUCE-5867. Fix NPE in KillAMPreemptionPolicy related to 
     ProportionalCapacityPreemptionPolicy (Sunil G via devaraj)
 
+Release 2.6.0 - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+  OPTIMIZATIONS
+
+  BUG FIXES
+
 Release 2.5.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -275,6 +287,9 @@ Release 2.5.0 - UNRELEASED
 
     MAPREDUCE-5939. StartTime showing up as the epoch time in JHS UI after
     upgrade (Chen He via jlowe)
+
+    MAPREDUCE-5900. Changed to the interpret container preemption exit code as a
+    task attempt killing event. (Mayank Bansal via zjshen)
 
 Release 2.4.1 - 2014-06-23 
 
