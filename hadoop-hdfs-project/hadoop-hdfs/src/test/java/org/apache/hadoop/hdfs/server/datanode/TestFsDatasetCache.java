@@ -67,6 +67,7 @@ import org.apache.hadoop.hdfs.server.protocol.DatanodeRegistration;
 import org.apache.hadoop.hdfs.server.protocol.HeartbeatResponse;
 import org.apache.hadoop.hdfs.server.protocol.NNHAStatusHeartbeat;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
+import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.io.nativeio.NativeIO.POSIX.CacheManipulator;
 import org.apache.hadoop.io.nativeio.NativeIO.POSIX.NoMlockCacheManipulator;
@@ -206,9 +207,16 @@ public class TestFsDatasetCache {
       String bpid = loc.getLocatedBlock().getBlock().getBlockPoolId();
       Block block = loc.getLocatedBlock().getBlock().getLocalBlock();
       ExtendedBlock extBlock = new ExtendedBlock(bpid, block);
-      FileChannel blockChannel =
-          ((FileInputStream)fsd.getBlockInputStream(extBlock, 0)).getChannel();
-      sizes[i] = blockChannel.size();
+      FileInputStream blockInputStream = null;
+      FileChannel blockChannel = null;
+      try {
+        blockInputStream =
+          (FileInputStream)fsd.getBlockInputStream(extBlock, 0);
+        blockChannel = blockInputStream.getChannel();
+        sizes[i] = blockChannel.size();
+      } finally {
+        IOUtils.cleanup(LOG, blockChannel, blockInputStream);
+      }
     }
     return sizes;
   }
