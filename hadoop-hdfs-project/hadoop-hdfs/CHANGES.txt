@@ -129,6 +129,9 @@ Trunk (Unreleased)
 
     HDFS-6252. Phase out the old web UI in HDFS. (wheat9)
 
+    HDFS-6609. Use DirectorySnapshottableFeature to represent a snapshottable
+    directory. (Jing Zhao via wheat9)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -265,6 +268,12 @@ Release 2.6.0 - UNRELEASED
     HDFS-6613. Improve logging in caching classes. (wang)
 
     HDFS-6511. BlockManager#computeInvalidateWork() could do nothing. (Juan Yu via wang)
+
+    HDFS-6638. Shorten test run time with a smaller retry timeout setting.
+    (Liang Xie via cnauroth)
+
+    HDFS-6627. Rename DataNode#checkWriteAccess to checkReadAccess.
+    (Liang Xie via cnauroth)
 
   OPTIMIZATIONS
 
@@ -780,6 +789,14 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6604. The short-circuit cache doesn't correctly time out replicas that
     haven't been used in a while (cmccabe)
+
+    HDFS-4286. Changes from BOOKKEEPER-203 broken capability of including 
+    bookkeeper-server jar in hidden package of BKJM (Rakesh R via umamahesh)
+
+    HDFS-4221. Remove the format limitation point from BKJM documentation as HDFS-3810
+    closed. (Rakesh R via umamahesh)
+
+    HDFS-5411. Update Bookkeeper dependency to 4.2.3. (Rakesh R via umamahesh)
 
   BREAKDOWN OF HDFS-2006 SUBTASKS AND RELATED JIRAS
 
