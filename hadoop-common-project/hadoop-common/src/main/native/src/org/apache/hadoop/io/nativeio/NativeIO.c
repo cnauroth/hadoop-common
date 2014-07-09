@@ -1025,7 +1025,6 @@ Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windows_extendWorkingSetSize(
 #ifdef UNIX
   THROW(env, "java/io/IOException",
     "The function extendWorkingSetSize(delta) is not supported on Unix");
-  return NULL;
 #endif
 
 #ifdef WINDOWS
