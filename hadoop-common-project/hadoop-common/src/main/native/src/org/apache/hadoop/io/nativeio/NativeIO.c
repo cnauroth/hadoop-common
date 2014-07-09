@@ -1010,6 +1010,41 @@ cleanup:
 #endif
 }
 
+/*
+ * Class:     org_apache_hadoop_io_nativeio_NativeIO_Windows
+ * Method:    extendWorkingSetSize
+ * Signature: (J)V
+ *
+ * The "00024" in the function name is an artifact of how JNI encodes
+ * special characters. U+0024 is '$'.
+ */
+JNIEXPORT void JNICALL
+Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windows_extendWorkingSetSize(
+  JNIEnv *env, jclass clazz, jlong delta)
+{
+#ifdef UNIX
+  THROW(env, "java/io/IOException",
+    "The function extendWorkingSetSize(delta) is not supported on Unix");
+  return NULL;
+#endif
+
+#ifdef WINDOWS
+  SIZE_T min, max;
+  HANDLE hProcess = GetCurrentProcess();
+  if (!GetProcessWorkingSetSize(hProcess, &min, &max)) {
+    throw_ioe(env, GetLastError());
+    return;
+  }
+  if (!SetProcessWorkingSetSizeEx(hProcess, min + delta, max + delta,
+      QUOTA_LIMITS_HARDWS_MIN_DISABLE | QUOTA_LIMITS_HARDWS_MAX_DISABLE)) {
+    throw_ioe(env, GetLastError());
+    return;
+  }
+  // There is no need to call CloseHandle on the pseudo-handle returned from
+  // GetCurrentProcess.
+#endif
+}
+
 JNIEXPORT void JNICALL 
 Java_org_apache_hadoop_io_nativeio_NativeIO_renameTo0(JNIEnv *env, 
 jclass clazz, jstring jsrc, jstring jdst)
