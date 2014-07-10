@@ -606,6 +606,8 @@ Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_getUserName(
   JNIEnv *env, jclass clazz, jint uid)
 {
 #ifdef UNIX
+  jstring jstr_username = NULL;
+  char *pw_buf = NULL;
   int pw_lock_locked = 0;
   if (pw_lock_object != NULL) {
     if ((*env)->MonitorEnter(env, pw_lock_object) != JNI_OK) {
@@ -614,7 +616,6 @@ Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_getUserName(
     pw_lock_locked = 1;
   }
 
-  char *pw_buf = NULL;
   int rc;
   size_t pw_buflen = get_pw_buflen();
   if ((pw_buf = malloc(pw_buflen)) == NULL) {
@@ -649,7 +650,7 @@ Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_getUserName(
     goto cleanup;
   }
 
-  jstring jstr_username = (*env)->NewStringUTF(env, pwd.pw_name);
+  jstr_username = (*env)->NewStringUTF(env, pwd.pw_name);
 
 cleanup:
   if (pw_lock_locked) {
@@ -690,7 +691,7 @@ Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_mmap(
 #ifdef WINDOWS
   THROW(env, "java/io/IOException",
     "The function POSIX.mmap() is not supported on Windows");
-  return NULL;
+  return (jlong)(intptr_t)NULL;
 #endif
 }
 
@@ -710,7 +711,6 @@ Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_munmap(
 #ifdef WINDOWS
   THROW(env, "java/io/IOException",
     "The function POSIX.munmap() is not supported on Windows");
-  return NULL;
 #endif
 }
 
@@ -726,6 +726,8 @@ Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_getGroupName(
   JNIEnv *env, jclass clazz, jint gid)
 {
 #ifdef UNIX
+  jstring jstr_groupname = NULL;
+  char *pw_buf = NULL;
   int pw_lock_locked = 0;
  
   if (pw_lock_object != NULL) {
@@ -735,7 +737,6 @@ Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_getGroupName(
     pw_lock_locked = 1;
   }
   
-  char *pw_buf = NULL;
   int rc;
   size_t pw_buflen = get_pw_buflen();
   if ((pw_buf = malloc(pw_buflen)) == NULL) {
@@ -770,7 +771,7 @@ Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_getGroupName(
     goto cleanup;
   }
 
-  jstring jstr_groupname = (*env)->NewStringUTF(env, grp.gr_name);
+  jstr_groupname = (*env)->NewStringUTF(env, grp.gr_name);
   PASS_EXCEPTIONS_GOTO(env, cleanup);
   
 cleanup:
@@ -948,7 +949,7 @@ Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windows_setFilePointer
 #ifdef UNIX
   THROW(env, "java/io/IOException",
     "The function setFilePointer(FileDescriptor) is not supported on Unix");
-  return NULL;
+  return (jlong)(intptr_t)NULL;
 #endif
 
 #ifdef WINDOWS
@@ -983,7 +984,7 @@ JNIEXPORT jboolean JNICALL Java_org_apache_hadoop_io_nativeio_NativeIO_00024Wind
 #ifdef UNIX
   THROW(env, "java/io/IOException",
     "The function access0(path, access) is not supported on Unix");
-  return NULL;
+  return (jlong)(intptr_t)NULL;
 #endif
 
 #ifdef WINDOWS
