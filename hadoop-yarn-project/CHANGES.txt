@@ -24,6 +24,8 @@ Release 2.6.0 - UNRELEASED
 
   NEW FEATURES
 
+    YARN-2131. Add a way to format the RMStateStore. (Robert Kanter via kasha)
+
   IMPROVEMENTS
 
     YARN-2242. Improve exception information on AM launch crashes. (Li Lu 
@@ -74,6 +76,9 @@ Release 2.5.0 - UNRELEASED
 
     YARN-1367. Changed NM to not kill containers on NM resync if RM work-preserving
     restart is enabled. (Anubhav Dhoot via jianhe)
+
+    YARN-1366. Changed AMRMClient to re-register with RM and send outstanding requests
+    back to RM on work-preserving RM restart. (Rohith via jianhe)
 
   IMPROVEMENTS
 
