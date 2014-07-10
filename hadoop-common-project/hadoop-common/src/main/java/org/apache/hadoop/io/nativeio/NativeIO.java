@@ -560,7 +560,7 @@ public class NativeIO {
      *
      * @param delta amount to increment minimum and maximum working set size
      * @throws IOException for any error
-     * @see #mlock(ByteBuffer, long)
+     * @see POSIX#mlock(ByteBuffer, long)
      */
     public static native void extendWorkingSetSize(long delta) throws IOException;
 
