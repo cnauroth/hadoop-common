@@ -216,7 +216,6 @@ public class JspHelper {
       JspWriter out, final Configuration conf, DFSClient.Conf dfsConf,
       final DFSClient dfs, final SaslDataTransferClient saslClient)
           throws IOException {
-    System.out.println("cn streamBlockInAscii, addr = " + addr);
     if (chunkSizeToView == 0) return;
     int amtToRead = (int)Math.min(chunkSizeToView, blockSize - offsetIntoBlock);
       

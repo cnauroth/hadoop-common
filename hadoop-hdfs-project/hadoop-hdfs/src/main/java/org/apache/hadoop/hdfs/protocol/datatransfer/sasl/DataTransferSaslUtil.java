@@ -132,7 +132,6 @@ public final class DataTransferSaslUtil {
    * @return InetAddress from peer
    */
   public static InetAddress getPeerAddress(Peer peer) {
-      System.out.println("cn peer.getRemoteAddressString = " + peer.getRemoteAddressString());
     String remoteAddr = peer.getRemoteAddressString().split(":")[0];
     int slashIdx = remoteAddr.indexOf('/');
     return InetAddresses.forString(slashIdx != -1 ?

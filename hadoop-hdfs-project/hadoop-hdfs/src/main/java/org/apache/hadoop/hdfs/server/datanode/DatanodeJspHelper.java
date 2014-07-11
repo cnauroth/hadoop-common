@@ -508,7 +508,6 @@ public class DatanodeJspHelper {
     out.print("<hr>");
     out.print("<textarea cols=\"100\" rows=\"25\" wrap=\"virtual\" style=\"width:100%\" READONLY>");
     try {
-        System.out.println("cn req.getServerName = " + req.getServerName());
       JspHelper.streamBlockInAscii(new InetSocketAddress(req.getServerName(),
           datanodePort), bpid, blockId, blockToken, genStamp, blockSize,
           startOffset, chunkSizeToView, out, conf, dfs.getConf(),
