@@ -125,8 +125,9 @@ public final class DataTransferSaslUtil {
 
   /**
    * Returns InetAddress from peer.  The getRemoteAddressString has the form
-   * [host]/ip-address:port
-   * The ip-address is extracted from peer and InetAddress is formed
+   * [host][/ip-address]:port.  The host may be missing.  The IP address (and
+   * preceding '/') may be missing.  The port preceded by ':' is always present.
+   *
    * @param peer
    * @return InetAddress from peer
    */
