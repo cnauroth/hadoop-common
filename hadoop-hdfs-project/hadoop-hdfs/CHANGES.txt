@@ -129,6 +129,9 @@ Trunk (Unreleased)
 
     HDFS-6252. Phase out the old web UI in HDFS. (wheat9)
 
+    HDFS-6609. Use DirectorySnapshottableFeature to represent a snapshottable
+    directory. (Jing Zhao via wheat9)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -253,6 +256,48 @@ Trunk (Unreleased)
 
     HDFS-5794. Fix the inconsistency of layout version number of 
     ADD_DATANODE_AND_STORAGE_UUIDS between trunk and branch-2. (jing9)
+
+Release 2.6.0 - UNRELEASED
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+    HDFS-6613. Improve logging in caching classes. (wang)
+
+    HDFS-6511. BlockManager#computeInvalidateWork() could do nothing. (Juan Yu via wang)
+
+    HDFS-6638. Shorten test run time with a smaller retry timeout setting.
+    (Liang Xie via cnauroth)
+
+    HDFS-6627. Rename DataNode#checkWriteAccess to checkReadAccess.
+    (Liang Xie via cnauroth)
+
+    HDFS-6645. Add test for successive Snapshots between XAttr modifications.
+    (Stephen Chu via jing9)
+
+    HDFS-6643. Refactor INodeWithAdditionalFields.PermissionStatusFormat and
+    INodeFile.HeaderFormat. (szetszwo)
+
+    HDFS-6640. Syntax for MKDIRS, CREATESYMLINK, and SETXATTR are given wrongly
+    in WebHdfs document (missed webhdfs/v1). (Stephen Chu via jing9)
+
+    HDFS-5202. Support Centralized Cache Management on Windows. (cnauroth)
+
+  OPTIMIZATIONS
+
+  BUG FIXES
+
+    HDFS-6617. Flake TestDFSZKFailoverController.testManualFailoverWithDFSHAAdmin
+    due to a long edit log sync op. (Liang Xie via cnauroth)
+
+    HDFS-6646. [ HDFS Rolling Upgrade - Shell ] shutdownDatanode and getDatanodeInfo
+    usage is missed ( Brahma Reddy Battula via vinayakumarb)
+
+    HDFS-6630. Unable to fetch the block information by Browsing the file system on
+    Namenode UI through IE9 ( Haohui Mai via vinayakumarb)
 
 Release 2.5.0 - UNRELEASED
 
@@ -481,6 +526,23 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6572. Add an option to the NameNode that prints the software and
     on-disk image versions. (Charles Lamb via cnauroth)
+
+    HDFS-6603. Add XAttr with ACL test. (Stephen Chu via cnauroth)
+
+    HDFS-6612. MiniDFSNNTopology#simpleFederatedTopology(int)
+    always hardcode nameservice ID. (Juan Yu via wang)
+
+    HDFS-6614. shorten TestPread run time with a smaller retry timeout setting.
+    (Liang Xie via cnauroth)
+
+    HDFS-6610. TestShortCircuitLocalRead tests sometimes timeout on slow
+    machines. (Charles Lamb via wang)
+
+    HDFS-6620. Snapshot docs should specify about preserve options with cp command
+    (Stephen Chu via umamahesh)
+
+    HDFS-6493. Change dfs.namenode.startup.delay.block.deletion to second
+    instead of millisecond. (Juan Yu via wang)
 
   OPTIMIZATIONS
 
@@ -728,6 +790,37 @@ Release 2.5.0 - UNRELEASED
     HADOOP-10701. NFS should not validate the access premission only based on
     the user's primary group (Harsh J via atm)
 
+    HDFS-6556. Refine XAttr permissions (umamahesh)
+
+    HDFS-6601. Issues in finalizing rolling upgrade when there is a layout 
+    version change (kihwal)
+
+    HDFS-6418. Regression: DFS_NAMENODE_USER_NAME_KEY missing
+    (szetszwo via stevel)
+
+    HDFS-6558. Missing newline in the description of dfsadmin -rollingUpgrade.
+    (Chen He via kihwal)
+
+    HDFS-6591. while loop is executed tens of thousands of times in Hedged Read
+    (Liang Xie via cnauroth)
+
+    HDFS-6604. The short-circuit cache doesn't correctly time out replicas that
+    haven't been used in a while (cmccabe)
+
+    HDFS-4286. Changes from BOOKKEEPER-203 broken capability of including 
+    bookkeeper-server jar in hidden package of BKJM (Rakesh R via umamahesh)
+
+    HDFS-4221. Remove the format limitation point from BKJM documentation as HDFS-3810
+    closed. (Rakesh R via umamahesh)
+
+    HDFS-5411. Update Bookkeeper dependency to 4.2.3. (Rakesh R via umamahesh)
+
+    HDFS-6631. TestPread#testHedgedReadLoopTooManyTimes fails intermittently.
+    (Liang Xie via cnauroth)
+
+    HDFS-6647. Edit log corruption when pipeline recovery occurs for deleted 
+    file present in snapshot (kihwal)
+
   BREAKDOWN OF HDFS-2006 SUBTASKS AND RELATED JIRAS
 
     HDFS-6299. Protobuf for XAttr and client-side implementation. (Yi Liu via umamahesh)
@@ -799,6 +892,12 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6312. WebHdfs HA failover is broken on secure clusters. 
     (daryn via tucu)
+
+    HDFS-6618. FSNamesystem#delete drops the FSN lock between removing INodes
+    from the tree and deleting them from the inode map (kihwal via cmccabe)
+
+    HDFS-6622. Rename and AddBlock may race and produce invalid edits (kihwal
+    via cmccabe)
 
 Release 2.4.1 - 2014-06-23 
 

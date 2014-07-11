@@ -495,31 +495,27 @@ public class RMStateStoreTestBase extends ClientBaseWithFixes{
       Assert.assertTrue(t instanceof RMStateVersionIncompatibleException);
     }
   }
+  
+  public void testEpoch(RMStateStoreHelper stateStoreHelper)
+      throws Exception {
+    RMStateStore store = stateStoreHelper.getRMStateStore();
+    store.setRMDispatcher(new TestDispatcher());
+    
+    int firstTimeEpoch = store.getAndIncrementEpoch();
+    Assert.assertEquals(0, firstTimeEpoch);
+    
+    int secondTimeEpoch = store.getAndIncrementEpoch();
+    Assert.assertEquals(1, secondTimeEpoch);
+    
+    int thirdTimeEpoch = store.getAndIncrementEpoch();
+    Assert.assertEquals(2, thirdTimeEpoch);
+  }
 
   public void testAppDeletion(RMStateStoreHelper stateStoreHelper)
       throws Exception {
     RMStateStore store = stateStoreHelper.getRMStateStore();
     store.setRMDispatcher(new TestDispatcher());
-    // create and store apps
-    ArrayList<RMApp> appList = new ArrayList<RMApp>();
-    int NUM_APPS = 5;
-    for (int i = 0; i < NUM_APPS; i++) {
-      ApplicationId appId = ApplicationId.newInstance(1383183338, i);
-      RMApp app = storeApp(store, appId, 123456789, 987654321);
-      appList.add(app);
-    }
-
-    Assert.assertEquals(NUM_APPS, appList.size());
-    for (RMApp app : appList) {
-      // wait for app to be stored.
-      while (true) {
-        if (stateStoreHelper.appExists(app)) {
-          break;
-        } else {
-          Thread.sleep(100);
-        }
-      }
-    }
+    ArrayList<RMApp> appList = createAndStoreApps(stateStoreHelper, store, 5);
 
     for (RMApp app : appList) {
       // remove the app
@@ -532,6 +528,41 @@ public class RMStateStoreTestBase extends ClientBaseWithFixes{
           Thread.sleep(100);
         }
       }
+    }
+  }
+
+  private ArrayList<RMApp> createAndStoreApps(
+      RMStateStoreHelper stateStoreHelper, RMStateStore store, int numApps)
+      throws Exception {
+    ArrayList<RMApp> appList = new ArrayList<RMApp>();
+    for (int i = 0; i < numApps; i++) {
+      ApplicationId appId = ApplicationId.newInstance(1383183338, i);
+      RMApp app = storeApp(store, appId, 123456789, 987654321);
+      appList.add(app);
+    }
+
+    Assert.assertEquals(numApps, appList.size());
+    for (RMApp app : appList) {
+      // wait for app to be stored.
+      while (true) {
+        if (stateStoreHelper.appExists(app)) {
+          break;
+        } else {
+          Thread.sleep(100);
+        }
+      }
+    }
+    return appList;
+  }
+
+  public void testDeleteStore(RMStateStoreHelper stateStoreHelper)
+      throws Exception {
+    RMStateStore store = stateStoreHelper.getRMStateStore();
+    ArrayList<RMApp> appList = createAndStoreApps(stateStoreHelper, store, 5);
+    store.deleteStore();
+    // verify apps deleted
+    for (RMApp app : appList) {
+      Assert.assertFalse(stateStoreHelper.appExists(app));
     }
   }
 
