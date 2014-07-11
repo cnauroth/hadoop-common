@@ -514,7 +514,6 @@ public class DatanodeJspHelper {
           dfs, getSaslDataTransferClient(req));
     } catch (Exception e) {
       out.print(e);
-      e.printStackTrace();
     }
     out.print("</textarea>");
     dfs.close();
