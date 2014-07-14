@@ -127,7 +127,7 @@ JNIEnv *env, jobject obj, jint fd)
       GetLongField(env, obj, fd_set_data_fid);
   used_size = sd->used_size;
   for (i = 0; i < used_size; i++) {
-    if (sd->pollfd[i]->fd == fd) {
+    if (sd->pollfd[i].fd == fd) {
       pollfd = sd->pollfd + i;
       break;
     }
