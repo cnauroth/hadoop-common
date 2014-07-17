@@ -23,7 +23,6 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <semaphore.h>
-#include <pthread.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>

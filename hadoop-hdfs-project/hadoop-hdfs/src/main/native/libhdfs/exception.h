@@ -40,7 +40,6 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <search.h>
-#include <pthread.h>
 #include <errno.h>
 
 /**

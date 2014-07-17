@@ -20,6 +20,7 @@
 #include "exception.h"
 #include "jni_helper.h"
 
+#include <pthread.h>
 #include <stdio.h> 
 #include <string.h> 
 
