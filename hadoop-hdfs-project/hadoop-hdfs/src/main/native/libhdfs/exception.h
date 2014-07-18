@@ -63,6 +63,14 @@
 #define NOPRINT_EXC_PARENT_NOT_DIRECTORY        0x08
 #define NOPRINT_EXC_ILLEGAL_ARGUMENT            0x10
 
+/* TODO */
+#ifdef UNIX
+#define TYPE_CHECKED_PRINTF_FORMAT(formatArgs, varArgs) \
+  __attribute__((format(printf, formatArg, varArgs)))
+#else
+#define TYPE_CHECKED_PRINTF_FORMAT(formatArgs, varArgs)
+#endif
+
 /**
  * Get information about an exception.
  *
@@ -108,7 +116,7 @@ int printExceptionAndFreeV(JNIEnv *env, jthrowable exc, int noPrintFlags,
  *                        object.
  */
 int printExceptionAndFree(JNIEnv *env, jthrowable exc, int noPrintFlags,
-        const char *fmt, ...) __attribute__((format(printf, 4, 5)));  
+        const char *fmt, ...) TYPE_CHECKED_PRINTF_FORMAT(4, 5);
 
 /**
  * Print out information about the pending exception and free it.
@@ -123,7 +131,7 @@ int printExceptionAndFree(JNIEnv *env, jthrowable exc, int noPrintFlags,
  *                        object.
  */
 int printPendingExceptionAndFree(JNIEnv *env, int noPrintFlags,
-        const char *fmt, ...) __attribute__((format(printf, 3, 4)));  
+        const char *fmt, ...) TYPE_CHECKED_PRINTF_FORMAT(3, 4);
 
 /**
  * Get a local reference to the pending exception and clear it.
@@ -149,6 +157,7 @@ jthrowable getPendingExceptionAndClear(JNIEnv *env);
  * @return                A local reference to a RuntimeError
  */
 jthrowable newRuntimeError(JNIEnv *env, const char *fmt, ...)
-        __attribute__((format(printf, 2, 3)));
+        TYPE_CHECKED_PRINTF_FORMAT(2, 3);
 
+#undef TYPE_CHECKED_PRINTF_FORMAT
 #endif
