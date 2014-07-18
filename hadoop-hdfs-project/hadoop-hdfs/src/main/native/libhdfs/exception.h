@@ -63,12 +63,12 @@
 #define NOPRINT_EXC_PARENT_NOT_DIRECTORY        0x08
 #define NOPRINT_EXC_ILLEGAL_ARGUMENT            0x10
 
-/* TODO */
-#ifdef UNIX
-#define TYPE_CHECKED_PRINTF_FORMAT(formatArgs, varArgs) \
-  __attribute__((format(printf, formatArg, varArgs)))
+// Use gcc type-checked format arguments.  This is not supported on Windows.
+#ifdef _WIN32
+#define TYPE_CHECKED_PRINTF_FORMAT(formatArg, varArgs)
 #else
-#define TYPE_CHECKED_PRINTF_FORMAT(formatArgs, varArgs)
+#define TYPE_CHECKED_PRINTF_FORMAT(formatArg, varArgs) \
+  __attribute__((format(printf, formatArg, varArgs)))
 #endif
 
 /**

@@ -23,13 +23,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-// TODO
-#include <WinSock.h>
 
 // Windows does not define EDQUOT and ESTALE in errno.h.  The closest equivalents
 // are these constants from WinSock.h.
+#ifdef _WIN32
+#include <WinSock.h>
 #define EDQUOT WSAEDQUOT
 #define ESTALE WSAESTALE
+#endif
+
 #define EXCEPTION_INFO_LEN (sizeof(gExceptionInfo)/sizeof(gExceptionInfo[0]))
 
 struct ExceptionInfo {
