@@ -20,7 +20,6 @@
 #include "hdfs.h"
 #include "jni_helper.h"
 
-#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
