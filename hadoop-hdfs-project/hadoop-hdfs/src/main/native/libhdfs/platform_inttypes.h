@@ -19,8 +19,9 @@
 #ifndef LIBHDFS_PLATFORM_INTTYPES_H
 #define LIBHDFS_PLATFORM_INTTYPES_H
 
-// Most platforms have the C99 standard inttypes.h header, but not Windows.
+/* Most platforms have the C99 standard inttypes.h header, but not Windows. */
 #ifdef _WIN32
+#define PRId64 "I64d"
 #else
 #include <inttypes.h>
 #endif
