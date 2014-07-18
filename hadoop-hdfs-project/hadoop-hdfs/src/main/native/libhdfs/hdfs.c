@@ -19,8 +19,8 @@
 #include "exception.h"
 #include "hdfs.h"
 #include "jni_helper.h"
+#include "platform_inttypes.h"
 
-#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -737,6 +737,8 @@ int hdfsDisconnect(hdfsFS fs)
     //Get the JNIEnv* corresponding to current thread
     JNIEnv* env = getJNIEnv();
     int ret;
+    jobject jFS;
+    jthrowable jthr;
 
     if (env == NULL) {
       errno = EINTERNAL;
@@ -744,7 +746,7 @@ int hdfsDisconnect(hdfsFS fs)
     }
 
     //Parameters
-    jobject jFS = (jobject)fs;
+    jFS = (jobject)fs;
 
     //Sanity check
     if (fs == NULL) {
@@ -752,7 +754,7 @@ int hdfsDisconnect(hdfsFS fs)
         return -1;
     }
 
-    jthrowable jthr = invokeMethod(env, NULL, INSTANCE, jFS, HADOOP_FS,
+    jthr = invokeMethod(env, NULL, INSTANCE, jFS, HADOOP_FS,
                      "close", "()V");
     if (jthr) {
         ret = printExceptionAndFree(env, jthr, PRINT_EXC_ALL,

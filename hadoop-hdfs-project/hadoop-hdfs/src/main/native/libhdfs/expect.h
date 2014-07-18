@@ -19,7 +19,8 @@
 #ifndef LIBHDFS_NATIVE_TESTS_EXPECT_H
 #define LIBHDFS_NATIVE_TESTS_EXPECT_H
 
-#include <inttypes.h>
+#include "platform_inttypes.h"
+
 #include <stdio.h>
 
 struct hdfsFile_internal;

@@ -19,9 +19,9 @@
 #include "expect.h"
 #include "hdfs.h"
 #include "native_mini_dfs.h"
+#include "platform_inttypes.h"
 
 #include <errno.h>
-#include <inttypes.h>
 #include <semaphore.h>
 #include <unistd.h>
 #include <stdio.h>

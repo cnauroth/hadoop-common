@@ -18,8 +18,8 @@
 
 #include "hdfs.h" 
 #include "hdfs_test.h" 
+#include "platform_inttypes.h"
 
-#include <inttypes.h>
 #include <jni.h>
 #include <stdio.h>
 #include <stdlib.h>
