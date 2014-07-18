@@ -24,6 +24,12 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef _WIN32
+#ifndef O_ACCMODE
+#define O_ACCMODE 0x0003
+#endif
+#endif
+
 /* Some frequently used Java paths */
 #define HADOOP_CONF     "org/apache/hadoop/conf/Configuration"
 #define HADOOP_PATH     "org/apache/hadoop/fs/Path"
