@@ -16,4 +16,64 @@
  * limitations under the License.
  */
 
+#include <jni.h>
+#include <pthread.h>
+#include <stdio.h>
+
 #include "os/thread_local_storage.h"
+
+/** Key that allows us to retrieve thread-local storage */
+static pthread_key_t gTlsKey;
+
+/** nonzero if we succeeded in initializing gTlsKey. Protected by the jvmMutex */
+static int gTlsKeyInitialized = 0;
+
+/**
+ * The function that is called whenever a thread with libhdfs thread local data
+ * is destroyed.
+ *
+ * @param v         The thread-local data
+ */
+static void hdfsThreadDestructor(void *v)
+{
+  JavaVM *vm;
+  JNIEnv *env = v;
+  jint ret;
+
+  ret = (*env)->GetJavaVM(env, &vm);
+  if (ret) {
+    fprintf(stderr, "hdfsThreadDestructor: GetJavaVM failed with error %d\n",
+      ret);
+    (*env)->ExceptionDescribe(env);
+  } else {
+    (*vm)->DetachCurrentThread(vm);
+  }
+}
+
+int thread_local_storage_get(JNIEnv **env)
+{
+  int ret = 0;
+  if (!gTlsKeyInitialized) {
+    ret = pthread_key_create(&gTlsKey, hdfsThreadDestructor);
+    if (ret) {
+      fprintf(stderr, "getJNIEnv: pthread_key_create failed with error %d\n",
+        ret);
+      goto done;
+    }
+    gTlsKeyInitialized = 1;
+  }
+  *env = pthread_getspecific(gTlsKey);
+done:
+  return ret;
+}
+
+int thread_local_storage_set(const JNIEnv *env)
+{
+  int ret = pthread_setspecific(gTlsKey, env);
+  if (ret) {
+    fprintf(stderr, "getJNIEnv: pthread_setspecific failed with error code %d\n",
+      ret);
+    hdfsThreadDestructor(env);
+  }
+  return ret;
+}

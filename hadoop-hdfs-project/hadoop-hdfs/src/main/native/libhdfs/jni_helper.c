@@ -19,6 +19,7 @@
 #include "config.h"
 #include "exception.h"
 #include "jni_helper.h"
+#include "os/thread_local_storage.h"
 
 #include <pthread.h>
 #include <stdio.h> 
@@ -51,41 +52,6 @@ static volatile int hashTableInited = 0;
  * It's set to 4096 to account for (classNames + No. of threads)
  */
 #define MAX_HASH_TABLE_ELEM 4096
-
-/** Key that allows us to retrieve thread-local storage */
-static pthread_key_t gTlsKey;
-
-/** nonzero if we succeeded in initializing gTlsKey. Protected by the jvmMutex */
-static int gTlsKeyInitialized = 0;
-
-/** Pthreads thread-local storage for each library thread. */
-struct hdfsTls {
-    JNIEnv *env;
-};
-
-/**
- * The function that is called whenever a thread with libhdfs thread local data
- * is destroyed.
- *
- * @param v         The thread-local data
- */
-static void hdfsThreadDestructor(void *v)
-{
-    struct hdfsTls *tls = v;
-    JavaVM *vm;
-    JNIEnv *env = tls->env;
-    jint ret;
-
-    ret = (*env)->GetJavaVM(env, &vm);
-    if (ret) {
-        fprintf(stderr, "hdfsThreadDestructor: GetJavaVM failed with "
-                "error %d\n", ret);
-        (*env)->ExceptionDescribe(env);
-    } else {
-        (*vm)->DetachCurrentThread(vm);
-    }
-    free(tls);
-}
 
 void destroyLocalReference(JNIEnv *env, jobject jObject)
 {
@@ -558,54 +524,28 @@ static JNIEnv* getGlobalJNIEnv(void)
 JNIEnv* getJNIEnv(void)
 {
     JNIEnv *env;
-    struct hdfsTls *tls;
     int ret;
-
-#ifdef HAVE_BETTER_TLS
-    static __thread struct hdfsTls *quickTls = NULL;
-    if (quickTls)
-        return quickTls->env;
-#endif
+    THREAD_LOCAL_STORAGE_GET_QUICK();
     pthread_mutex_lock(&jvmMutex);
-    if (!gTlsKeyInitialized) {
-        ret = pthread_key_create(&gTlsKey, hdfsThreadDestructor);
-        if (ret) {
-            pthread_mutex_unlock(&jvmMutex);
-            fprintf(stderr, "getJNIEnv: pthread_key_create failed with "
-                "error %d\n", ret);
-            return NULL;
-        }
-        gTlsKeyInitialized = 1;
+    if (thread_local_storage_get(&env)) {
+      pthread_mutex_unlock(&jvmMutex);
+      return NULL;
     }
-    tls = pthread_getspecific(gTlsKey);
-    if (tls) {
-        pthread_mutex_unlock(&jvmMutex);
-        return tls->env;
+    if (env) {
+      pthread_mutex_unlock(&jvmMutex);
+      return env;
     }
 
     env = getGlobalJNIEnv();
     pthread_mutex_unlock(&jvmMutex);
     if (!env) {
-        fprintf(stderr, "getJNIEnv: getGlobalJNIEnv failed\n");
-        return NULL;
+      fprintf(stderr, "getJNIEnv: getGlobalJNIEnv failed\n");
+      return NULL;
     }
-    tls = calloc(1, sizeof(struct hdfsTls));
-    if (!tls) {
-        fprintf(stderr, "getJNIEnv: OOM allocating %zd bytes\n",
-                sizeof(struct hdfsTls));
-        return NULL;
+    if (thread_local_storage_set(env)) {
+      return NULL;
     }
-    tls->env = env;
-    ret = pthread_setspecific(gTlsKey, tls);
-    if (ret) {
-        fprintf(stderr, "getJNIEnv: pthread_setspecific failed with "
-            "error code %d\n", ret);
-        hdfsThreadDestructor(tls);
-        return NULL;
-    }
-#ifdef HAVE_BETTER_TLS
-    quickTls = tls;
-#endif
+    THREAD_LOCAL_STORAGE_SET_QUICK(env);
     return env;
 }
 

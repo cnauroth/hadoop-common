@@ -16,4 +16,16 @@
  * limitations under the License.
  */
 
+#include <jni.h>
+
 #include "os/thread_local_storage.h"
+
+int thread_local_storage_get(JNIEnv **env)
+{
+  return 0;
+}
+
+int thread_local_storage_set(const JNIEnv *env)
+{
+  return 0;
+}
