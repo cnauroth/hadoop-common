@@ -69,6 +69,6 @@ int thread_local_storage_get(JNIEnv **env);
  * @param env JNIEnv to set
  * @return 0 if successful, non-zero otherwise
  */
-int thread_local_storage_set(const JNIEnv *env);
+int thread_local_storage_set(JNIEnv *env);
 
 #endif

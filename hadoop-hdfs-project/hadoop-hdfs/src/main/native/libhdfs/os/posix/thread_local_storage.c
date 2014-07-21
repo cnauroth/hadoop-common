@@ -56,22 +56,23 @@ int thread_local_storage_get(JNIEnv **env)
   if (!gTlsKeyInitialized) {
     ret = pthread_key_create(&gTlsKey, hdfsThreadDestructor);
     if (ret) {
-      fprintf(stderr, "getJNIEnv: pthread_key_create failed with error %d\n",
+      fprintf(stderr,
+        "thread_local_storage_get: pthread_key_create failed with error %d\n",
         ret);
-      goto done;
+      return ret;
     }
     gTlsKeyInitialized = 1;
   }
   *env = pthread_getspecific(gTlsKey);
-done:
   return ret;
 }
 
-int thread_local_storage_set(const JNIEnv *env)
+int thread_local_storage_set(JNIEnv *env)
 {
   int ret = pthread_setspecific(gTlsKey, env);
   if (ret) {
-    fprintf(stderr, "getJNIEnv: pthread_setspecific failed with error code %d\n",
+    fprintf(stderr,
+      "thread_local_storage_set: pthread_setspecific failed with error %d\n",
       ret);
     hdfsThreadDestructor(env);
   }
