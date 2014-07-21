@@ -80,6 +80,12 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -Wall -O2")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_REENTRANT -D_GNU_SOURCE")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64")
 
+if (WIN32)
+    set(OS_INCLUDE main/native/libhdfs/os/windows)
+else (WIN32)
+    set(OS_INCLUDE main/native/libhdfs/os/posix)
+endif (WIN32)
+
 include_directories(
     ${GENERATED_JAVAH}
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -87,17 +93,8 @@ include_directories(
     ${JNI_INCLUDE_DIRS}
     main/native
     main/native/libhdfs
+    ${OS_INCLUDE}
 )
-
-if (WIN32)
-    include_directories(
-        main/native/libhdfs/os/windows
-    )
-else (WIN32)
-    include_directories(
-        main/native/libhdfs/os/posix
-    )
-endif (WIN32)
 
 set(_FUSE_DFS_VERSION 0.1.0)
 CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/config.h.cmake ${CMAKE_BINARY_DIR}/config.h)
