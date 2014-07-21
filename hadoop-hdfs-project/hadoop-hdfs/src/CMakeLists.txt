@@ -83,6 +83,13 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64")
 if (WIN32)
     set(OS_INCLUDE main/native/libhdfs/os/windows)
     set(OS_SOURCES main/native/libhdfs/os/windows/thread_local_storage.c)
+    # Set warning level 4, but skip a few warnings about "deprecated" functions
+    # and secure variants of standard functions.
+    add_definitions(
+      /W4
+      -D_CRT_NONSTDC_NO_DEPRECATE
+      -D_CRT_SECURE_NO_WARNINGS
+    )
 else (WIN32)
     set(OS_INCLUDE main/native/libhdfs/os/posix)
     set(OS_SOURCES main/native/libhdfs/os/posix/thread_local_storage.c)
