@@ -177,6 +177,15 @@ Trunk (Unreleased)
 
     HADOOP-10824. Refactor KMSACLs to avoid locking. (Benoy Antony via umamahesh)
 
+    HADOOP-10841. EncryptedKeyVersion should have a key name property. 
+    (asuresh via tucu)
+
+    HADOOP-10842. CryptoExtension generateEncryptedKey method should 
+    receive the key name. (asuresh via tucu)
+
+    HADOOP-10750. KMSKeyProviderCache should be in hadoop-common. 
+    (asuresh via tucu)
+
   BUG FIXES
 
     HADOOP-9451. Fault single-layer config if node group topology is enabled.
@@ -422,6 +431,12 @@ Release 2.6.0 - UNRELEASED
 
     HADOOP-10733. Fix potential null dereference in CredShell. (Ted Yu via
     omalley)
+
+    HADOOP-10610. Upgrade S3n s3.fs.buffer.dir to support multi directories.
+    (Ted Malaska via atm)
+
+    HADOOP-10817. ProxyUsers configuration should support configurable 
+    prefixes. (tucu)
 
   OPTIMIZATIONS
 

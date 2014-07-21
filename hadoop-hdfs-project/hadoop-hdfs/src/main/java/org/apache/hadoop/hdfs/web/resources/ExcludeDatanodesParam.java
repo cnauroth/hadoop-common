@@ -15,32 +15,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.hadoop.hdfs.web.resources;
 
-option java_package = "org.apache.hadoop.yarn.proto";
-option java_outer_classname = "YarnServerNodemanagerRecoveryProtos";
-option java_generic_services = true;
-option java_generate_equals_and_hash = true;
-package hadoop.yarn;
 
-import "yarn_protos.proto";
+/** Exclude datanodes param */
+public class ExcludeDatanodesParam extends StringParam {
+  /** Parameter name. */
+  public static final String NAME = "excludedatanodes";
+  /** Default parameter value. */
+  public static final String DEFAULT = "";
 
-message DeletionServiceDeleteTaskProto {
-  optional int32 id = 1;
-  optional string user = 2;
-  optional string subdir = 3;
-  optional int64 deletionTime = 4;
-  repeated string basedirs = 5;
-  repeated int32 successorIds = 6;
+  private static final Domain DOMAIN = new Domain(NAME, null);
+
+  /**
+   * Constructor.
+   * @param str a string representation of the parameter value.
+   */
+  public ExcludeDatanodesParam(final String str) {
+    super(DOMAIN, str == null || str.equals(DEFAULT)? null: DOMAIN.parse(str));
+  }
+
+  @Override
+  public String getName() {
+    return NAME;
+  }
 }
-
-message LocalizedResourceProto {
-  optional LocalResourceProto resource = 1;
-  optional string localPath = 2;
-  optional int64 size = 3;
-}
-
-message NMDBSchemaVersionProto {
-  optional int32 majorVersion = 1;
-  optional int32 minorVersion = 2;
-}
-

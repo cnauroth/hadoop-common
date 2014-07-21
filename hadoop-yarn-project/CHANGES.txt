@@ -46,6 +46,16 @@ Release 2.6.0 - UNRELEASED
     YARN-2228. Augmented TimelineServer to load pseudo authentication filter when
     authentication = simple. (Zhijie Shen via vinodkv)
 
+    YARN-1341. Recover NMTokens upon nodemanager restart. (Jason Lowe via 
+    junping_du)
+
+    YARN-2208. AMRMTokenManager need to have a way to roll over AMRMToken. (xgong)
+
+    YARN-2323. FairShareComparator creates too many Resource objects (Hong Zhiguo
+    via Sandy Ryza)
+
+    YARN-2045. Data persisted in NM should be versioned (Junping Du via jlowe)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -65,6 +75,9 @@ Release 2.6.0 - UNRELEASED
     YARN-2219. Changed ResourceManager to avoid AMs and NMs getting exceptions
     after RM recovery but before scheduler learns about apps and app-attempts.
     (Jian He via vinodkv)
+
+    YARN-2244. FairScheduler missing handling of containers for unknown 
+    application attempts. (Anubhav Dhoot via kasha)
 
 Release 2.5.0 - UNRELEASED
 
