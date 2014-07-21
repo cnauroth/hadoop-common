@@ -89,6 +89,16 @@ include_directories(
     main/native/libhdfs
 )
 
+if (WIN32)
+    include_directories(
+        main/native/libhdfs/os/windows
+    )
+else (WIN32)
+    include_directories(
+        main/native/libhdfs/os/posix
+    )
+endif (WIN32)
+
 set(_FUSE_DFS_VERSION 0.1.0)
 CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/config.h.cmake ${CMAKE_BINARY_DIR}/config.h)
 

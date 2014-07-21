@@ -16,14 +16,17 @@
  * limitations under the License.
  */
 
-#ifndef LIBHDFS_PLATFORM_INTTYPES_H
-#define LIBHDFS_PLATFORM_INTTYPES_H
+#ifndef LIBHDFS_PLATFORM_FCNTL_H
+#define LIBHDFS_PLATFORM_FCNTL_H
 
-/* Most platforms have the C99 standard inttypes.h header, but not Windows. */
-#ifdef _WIN32
-#define PRId64 "I64d"
-#else
-#include <inttypes.h>
+/*
+ * On Windows, the fcntl.h header does exist, but we also need to add some
+ * definitions manually that are missing.
+ */
+#include <fcntl.h>
+
+#ifndef O_ACCMODE
+#define O_ACCMODE 0x0003
 #endif
 
 #endif

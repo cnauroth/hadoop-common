@@ -19,16 +19,11 @@
 #include "exception.h"
 #include "hdfs.h"
 #include "jni_helper.h"
+#include "platform_fcntl.h"
 #include "platform_inttypes.h"
 
 #include <stdio.h>
 #include <string.h>
-
-#ifdef _WIN32
-#ifndef O_ACCMODE
-#define O_ACCMODE 0x0003
-#endif
-#endif
 
 /* Some frequently used Java paths */
 #define HADOOP_CONF     "org/apache/hadoop/conf/Configuration"
