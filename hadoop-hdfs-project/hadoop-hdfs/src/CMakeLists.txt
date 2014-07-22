@@ -91,7 +91,6 @@ if (WIN32)
     add_definitions(
       /W4
       -D_CRT_NONSTDC_NO_DEPRECATE
-      -D_CRT_SECURE_NO_WARNINGS
     )
 else (WIN32)
     set(OS_INCLUDE main/native/libhdfs/os/posix)

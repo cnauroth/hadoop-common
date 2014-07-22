@@ -19,8 +19,8 @@
 #include "exception.h"
 #include "hdfs.h"
 #include "jni_helper.h"
+#include "platform_stdio.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 

@@ -21,8 +21,8 @@
 #include "jni_helper.h"
 #include "platform_fcntl.h"
 #include "platform_inttypes.h"
+#include "platform_stdio.h"
 
-#include <stdio.h>
 #include <string.h>
 
 /* Some frequently used Java paths */

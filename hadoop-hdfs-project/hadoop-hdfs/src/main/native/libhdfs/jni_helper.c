@@ -19,6 +19,7 @@
 #include "config.h"
 #include "exception.h"
 #include "jni_helper.h"
+#include "platform_stdio.h"
 #include "os/mutexes.h"
 #include "os/thread_local_storage.h"
 
@@ -32,7 +33,7 @@ static volatile int hashTableInited = 0;
 
 
 /** The Native return types that methods could return */
-#define VOID          'V'
+#define JVOID         'V'
 #define JOBJECT       'L'
 #define JARRAYOBJECT  '['
 #define JBOOLEAN      'Z'
@@ -50,6 +51,11 @@ static volatile int hashTableInited = 0;
  * It's set to 4096 to account for (classNames + No. of threads)
  */
 #define MAX_HASH_TABLE_ELEM 4096
+
+/**
+ * Length of buffer for retrieving created JVMs.  (We only ever create one.)
+ */
+#define VM_BUF_LENGTH 1
 
 void destroyLocalReference(JNIEnv *env, jobject jObject)
 {
@@ -200,7 +206,7 @@ jthrowable invokeMethod(JNIEnv *env, jvalue *retval, MethType methType,
         }
         retval->l = jobj;
     }
-    else if (returnType == VOID) {
+    else if (returnType == JVOID) {
         if (methType == STATIC) {
             (*env)->CallStaticVoidMethodV(env, cls, mid, args);
         }
@@ -290,11 +296,11 @@ jthrowable methodIdFromClass(const char *className, const char *methName,
 {
     jclass cls;
     jthrowable jthr;
+    jmethodID mid = 0;
 
     jthr = globalClassReference(className, env, &cls);
     if (jthr)
         return jthr;
-    jmethodID mid = 0;
     jthr = validateMethodType(env, methType);
     if (jthr)
         return jthr;
@@ -401,14 +407,23 @@ done:
  */
 static JNIEnv* getGlobalJNIEnv(void)
 {
-    const jsize vmBufLength = 1;
-    JavaVM* vmBuf[vmBufLength]; 
+    JavaVM* vmBuf[VM_BUF_LENGTH]; 
     JNIEnv *env;
     jint rv = 0; 
     jint noVMs = 0;
     jthrowable jthr;
+    char *hadoopClassPath;
+    char *hadoopClassPathVMArg = "-Djava.class.path=";
+    size_t optHadoopClassPathLen;
+    char *optHadoopClassPath;
+    int noArgs;
+    char *hadoopJvmArgs;
+    char jvmArgDelims[] = " ";
+    char *str, *token, *savePtr;
+    JavaVMInitArgs vm_args;
+    JavaVM *vm;
 
-    rv = JNI_GetCreatedJavaVMs(&(vmBuf[0]), vmBufLength, &noVMs);
+    rv = JNI_GetCreatedJavaVMs(&(vmBuf[0]), VM_BUF_LENGTH, &noVMs);
     if (rv != 0) {
         fprintf(stderr, "JNI_GetCreatedJavaVMs failed with error: %d\n", rv);
         return NULL;
@@ -416,23 +431,19 @@ static JNIEnv* getGlobalJNIEnv(void)
 
     if (noVMs == 0) {
         //Get the environment variables for initializing the JVM
-        char *hadoopClassPath = getenv("CLASSPATH");
+        hadoopClassPath = getenv("CLASSPATH");
         if (hadoopClassPath == NULL) {
             fprintf(stderr, "Environment variable CLASSPATH not set!\n");
             return NULL;
         } 
-        char *hadoopClassPathVMArg = "-Djava.class.path=";
-        size_t optHadoopClassPathLen = strlen(hadoopClassPath) + 
+        optHadoopClassPathLen = strlen(hadoopClassPath) + 
           strlen(hadoopClassPathVMArg) + 1;
-        char *optHadoopClassPath = malloc(sizeof(char)*optHadoopClassPathLen);
+        optHadoopClassPath = malloc(sizeof(char)*optHadoopClassPathLen);
         snprintf(optHadoopClassPath, optHadoopClassPathLen,
                 "%s%s", hadoopClassPathVMArg, hadoopClassPath);
 
         // Determine the # of LIBHDFS_OPTS args
-        int noArgs = 1;
-        char *hadoopJvmArgs = getenv("LIBHDFS_OPTS");
-        char jvmArgDelims[] = " ";
-        char *str, *token, *savePtr;
+        hadoopJvmArgs = getenv("LIBHDFS_OPTS");
         if (hadoopJvmArgs != NULL)  {
           hadoopJvmArgs = strdup(hadoopJvmArgs);
           for (noArgs = 1, str = hadoopJvmArgs; ; noArgs++, str = NULL) {
@@ -460,8 +471,6 @@ static JNIEnv* getGlobalJNIEnv(void)
         }
 
         //Create the VM
-        JavaVMInitArgs vm_args;
-        JavaVM *vm;
         vm_args.version = JNI_VERSION_1_2;
         vm_args.options = options;
         vm_args.nOptions = noArgs; 
@@ -488,7 +497,7 @@ static JNIEnv* getGlobalJNIEnv(void)
     }
     else {
         //Attach this thread to the VM
-        JavaVM* vm = vmBuf[0];
+        vm = vmBuf[0];
         rv = (*vm)->AttachCurrentThread(vm, (void*)&env, 0);
         if (rv != 0) {
             fprintf(stderr, "Call to AttachCurrentThread "

@@ -44,7 +44,7 @@
 
   #define THREAD_LOCAL_STORAGE_SET_QUICK(env) \
     { \
-      quickTlsEnv = env; \
+      quickTlsEnv = (env); \
     }
 #else
   #define THREAD_LOCAL_STORAGE_GET_QUICK()
