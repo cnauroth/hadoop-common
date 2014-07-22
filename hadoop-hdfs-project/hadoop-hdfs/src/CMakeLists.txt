@@ -116,6 +116,7 @@ add_dual_library(hdfs
     main/native/libhdfs/exception.c
     main/native/libhdfs/jni_helper.c
     main/native/libhdfs/hdfs.c
+    main/native/libhdfs/common/htable.c
     ${OS_SOURCES}
 )
 if (NEED_LINK_DL)
