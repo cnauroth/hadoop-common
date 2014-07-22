@@ -519,7 +519,7 @@ static int calcEffectiveURI(struct hdfsBuilder *bld, char ** uri)
     if (bld->port == 0) {
         suffix[0] = '\0';
     } else {
-        lastColon = rindex(bld->nn, ':');
+        lastColon = strrchr(bld->nn, ':');
         if (lastColon && (strspn(lastColon + 1, "0123456789") ==
                           strlen(lastColon + 1))) {
             fprintf(stderr, "port %d was given, but URI '%s' already "
