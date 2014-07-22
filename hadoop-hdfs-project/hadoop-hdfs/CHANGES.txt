@@ -602,6 +602,8 @@ Release 2.5.0 - UNRELEASED
     HDFS-6680. BlockPlacementPolicyDefault does not choose favored nodes
     correctly.  (szetszwo) 
 
+    HDFS-6712. Document HDFS Multihoming Settings. (Arpit Agarwal)
+
   OPTIMIZATIONS
 
     HDFS-6214. Webhdfs has poor throughput for files >2GB (daryn)
@@ -883,6 +885,9 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6378. NFS registration should timeout instead of hanging when
     portmap/rpcbind is not available (Abhiraj Butala via brandonli)
+
+    HDFS-6703. NFS: Files can be deleted from a read-only mount
+    (Srikanth Upputuri via brandonli)
 
   BREAKDOWN OF HDFS-2006 SUBTASKS AND RELATED JIRAS
 
