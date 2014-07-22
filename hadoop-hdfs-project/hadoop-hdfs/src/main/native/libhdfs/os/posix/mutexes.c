@@ -19,6 +19,7 @@
 /* POSIX implementation is a simple passthrough to pthreads mutexes. */
 
 #include <pthread.h>
+#include <stdio.h>
 
 #include "os/mutexes.h"
 
@@ -26,9 +27,19 @@ mutex hdfsHashMutex = PTHREAD_MUTEX_INITIALIZER;
 mutex jvmMutex = PTHREAD_MUTEX_INITIALIZER;
 
 int mutex_lock(mutex *m) {
-  return pthread_mutex_lock(m);
+  int ret = pthread_mutex_lock(m);
+  if (ret) {
+    fprintf(stderr, "mutex_lock: pthread_mutex_lock failed with error %d\n",
+      ret);
+  }
+  return ret;
 }
 
 int mutex_unlock(mutex *m) {
-  return pthread_mutex_unlock(m);
+  int ret = pthread_mutex_unlock(m);
+  if (ret) {
+    fprintf(stderr, "mutex_unlock: pthread_mutex_unlock failed with error %d\n",
+      ret);
+  }
+  return ret;
 }
