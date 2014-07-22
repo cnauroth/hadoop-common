@@ -86,11 +86,10 @@ if (WIN32)
         main/native/libhdfs/os/windows/mutexes.c
         main/native/libhdfs/os/windows/thread_local_storage.c
     )
-    # Set warning level 4, but skip a few warnings about "deprecated" functions
-    # and secure variants of standard functions.
     add_definitions(
-      /W4
-      -D_CRT_NONSTDC_NO_DEPRECATE
+      /W4                         # Set warning level 4,
+      /wd4100                     # but skip "unreferenced formal parameter",
+      -D_CRT_NONSTDC_NO_DEPRECATE # and skip "deprecated" function warnings.
     )
 else (WIN32)
     set(OS_INCLUDE main/native/libhdfs/os/posix)
