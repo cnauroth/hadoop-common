@@ -416,12 +416,13 @@ static JNIEnv* getGlobalJNIEnv(void)
     char *hadoopClassPathVMArg = "-Djava.class.path=";
     size_t optHadoopClassPathLen;
     char *optHadoopClassPath;
-    int noArgs;
+    int noArgs = 1;
     char *hadoopJvmArgs;
     char jvmArgDelims[] = " ";
     char *str, *token, *savePtr;
     JavaVMInitArgs vm_args;
     JavaVM *vm;
+    JavaVMOption *options;
 
     rv = JNI_GetCreatedJavaVMs(&(vmBuf[0]), VM_BUF_LENGTH, &noVMs);
     if (rv != 0) {
@@ -456,7 +457,12 @@ static JNIEnv* getGlobalJNIEnv(void)
         }
 
         // Now that we know the # args, populate the options array
-        JavaVMOption options[noArgs];
+        options = calloc(noArgs, sizeof(JavaVMOption));
+        if (!options) {
+          fprintf(stderr, "Call to calloc failed\n");
+          free(optHadoopClassPath);
+          return NULL;
+        }
         options[0].optionString = optHadoopClassPath;
         hadoopJvmArgs = getenv("LIBHDFS_OPTS");
 	if (hadoopJvmArgs != NULL)  {
@@ -482,6 +488,7 @@ static JNIEnv* getGlobalJNIEnv(void)
           free(hadoopJvmArgs);
         }
         free(optHadoopClassPath);
+        free(options);
 
         if (rv != 0) {
             fprintf(stderr, "Call to JNI_CreateJavaVM failed "
