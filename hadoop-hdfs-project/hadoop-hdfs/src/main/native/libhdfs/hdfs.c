@@ -908,7 +908,7 @@ hdfsFile hdfsOpenFile(hdfsFS fs, const char* path, int flags,
                     path);
                 goto done;
             }
-            jReplication = jVal.i;
+            jReplication = (jshort)jVal.i;
         }
     }
  
