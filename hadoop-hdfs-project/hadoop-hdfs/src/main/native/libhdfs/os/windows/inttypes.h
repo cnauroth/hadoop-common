@@ -16,10 +16,13 @@
  * limitations under the License.
  */
 
-#ifndef LIBHDFS_PLATFORM_INTTYPES_H
-#define LIBHDFS_PLATFORM_INTTYPES_H
+#ifndef LIBHDFS_INTTYPES_H
+#define LIBHDFS_INTTYPES_H
 
-/* On POSIX, we simply can include the standard inttypes.h header. */
-#include <inttypes.h>
+/*
+ * On Windows, the inttypes.h header does not exist, so manually define what we
+ * need.
+ */
+#define PRId64 "I64d"
 
 #endif
