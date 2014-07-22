@@ -390,8 +390,10 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
             <artifactId>maven-antrun-plugin</artifactId>
             <executions>
               <execution>
-                <id>make</id>
-                <phase>compile</phase>
+                <!-- TODO -->
+                <!--<id>make</id>-->
+                <id>default-cli</id>
+                <!--<phase>compile</phase>-->
                 <goals>
                   <goal>run</goal>
                 </goals>
@@ -451,8 +453,10 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
             <artifactId>maven-antrun-plugin</artifactId>
             <executions>
               <execution>
-                <id>make</id>
-                <phase>compile</phase>
+                <!-- TODO -->
+                <!--<id>make</id>-->
+                <id>default-cli</id>
+                <!--<phase>compile</phase>-->
                 <goals><goal>run</goal></goals>
                 <configuration>
                   <target>
