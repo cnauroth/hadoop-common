@@ -41,6 +41,15 @@ static void detach_current_thread_from_jvm(JNIEnv *env)
   }
 }
 
+/*
+ * Unlike pthreads, the Windows API does not seem to provide a convenient way to
+ * hook a callback onto thread shutdown.  However, the Windows portable
+ * executable format does define a concept of thread-local storage callbacks.
+ * Here, we define a function and instruct the linker to set a pointer to that
+ * function in the segment for thread-local storage callbacks.  See page 85 of
+ * Microsoft Portable Executable and Common Object File Format Specification:
+ * http://msdn.microsoft.com/en-us/gg463119.aspx
+ */
 static void NTAPI tls_callback(PVOID h, DWORD reason, PVOID pv)
 {
   switch (reason) {

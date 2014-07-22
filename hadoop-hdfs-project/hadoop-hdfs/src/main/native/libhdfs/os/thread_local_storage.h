@@ -20,8 +20,9 @@
 #define LIBHDFS_THREAD_LOCAL_STORAGE_H
 
 /*
- * libhdfs currently only needs thread-local storage for a single piece of data:
- * the thread's JNIEnv.  For simplicity, this interface is defined in terms of
+ * Defines abstraction over platform-specific thread-local storage.  libhdfs
+ * currently only needs thread-local storage for a single piece of data: the
+ * thread's JNIEnv.  For simplicity, this interface is defined in terms of
  * JNIEnv, not general-purpose thread-local storage of any arbitrary data.
  */
 

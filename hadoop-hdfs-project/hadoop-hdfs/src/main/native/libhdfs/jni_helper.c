@@ -19,18 +19,16 @@
 #include "config.h"
 #include "exception.h"
 #include "jni_helper.h"
+#include "os/mutexes.h"
 #include "os/thread_local_storage.h"
 
-#include <pthread.h>
 #include <stdio.h> 
 #include <string.h> 
 
-static pthread_mutex_t hdfsHashMutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t jvmMutex = PTHREAD_MUTEX_INITIALIZER;
 static volatile int hashTableInited = 0;
 
-#define LOCK_HASH_TABLE() pthread_mutex_lock(&hdfsHashMutex)
-#define UNLOCK_HASH_TABLE() pthread_mutex_unlock(&hdfsHashMutex)
+#define LOCK_HASH_TABLE() mutex_lock(&hdfsHashMutex)
+#define UNLOCK_HASH_TABLE() mutex_unlock(&hdfsHashMutex)
 
 
 /** The Native return types that methods could return */
@@ -526,18 +524,18 @@ JNIEnv* getJNIEnv(void)
     JNIEnv *env;
     int ret;
     THREAD_LOCAL_STORAGE_GET_QUICK();
-    pthread_mutex_lock(&jvmMutex);
+    mutex_lock(&jvmMutex);
     if (thread_local_storage_get(&env)) {
-      pthread_mutex_unlock(&jvmMutex);
+      mutex_unlock(&jvmMutex);
       return NULL;
     }
     if (env) {
-      pthread_mutex_unlock(&jvmMutex);
+      mutex_unlock(&jvmMutex);
       return env;
     }
 
     env = getGlobalJNIEnv();
-    pthread_mutex_unlock(&jvmMutex);
+    mutex_unlock(&jvmMutex);
     if (!env) {
       fprintf(stderr, "getJNIEnv: getGlobalJNIEnv failed\n");
       return NULL;
