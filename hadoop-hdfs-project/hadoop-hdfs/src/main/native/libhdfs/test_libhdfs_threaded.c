@@ -22,7 +22,6 @@
 
 #include <errno.h>
 #include <inttypes.h>
-#include <semaphore.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,8 +33,6 @@
 #define TLH_MAX_THREADS 100
 
 #define TLH_DEFAULT_BLOCK_SIZE 134217728
-
-static sem_t tlhSem;
 
 static struct NativeMiniDfsCluster* tlhCluster;
 
@@ -323,7 +320,6 @@ int main(void)
         ti[i].threadIdx = i;
     }
 
-    EXPECT_ZERO(sem_init(&tlhSem, 0, tlhNumThreads));
     tlhCluster = nmdCreate(&conf);
     EXPECT_NONNULL(tlhCluster);
     EXPECT_ZERO(nmdWaitClusterUp(tlhCluster));
@@ -338,6 +334,5 @@ int main(void)
 
     EXPECT_ZERO(nmdShutdown(tlhCluster));
     nmdFree(tlhCluster);
-    EXPECT_ZERO(sem_destroy(&tlhSem));
     return checkFailures(ti, tlhNumThreads);
 }

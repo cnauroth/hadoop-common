@@ -354,7 +354,7 @@ int nmdConfigureHdfsBuilder(struct NativeMiniDfsCluster *cl,
       fprintf(stderr, "nmdGetNameNodePort failed with error %d\n", -port);
       return EIO;
     }
-    hdfsBuilderSetNameNodePort(bld, port);
+    hdfsBuilderSetNameNodePort(bld, (tPort)port);
     if (cl->domainSocketPath[0]) {
       ret = hdfsBuilderConfSetStr(bld, "dfs.client.read.shortcircuit", "true");
       if (ret) {

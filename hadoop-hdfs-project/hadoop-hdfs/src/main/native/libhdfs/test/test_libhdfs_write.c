@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
       exit(-3);
     }
 
-    bufferSize = tmpBufferSize;
+    bufferSize = (tSize)tmpBufferSize;
 
     writeFile = hdfsOpenFile(fs, writeFileName, O_WRONLY, bufferSize, 0, 0);
     if (!writeFile) {

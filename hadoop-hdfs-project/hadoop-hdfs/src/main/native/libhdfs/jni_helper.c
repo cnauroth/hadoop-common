@@ -139,7 +139,7 @@ static int insertEntryIntoTable(const char *key, void *data)
       return -1;
     }
     LOCK_HASH_TABLE();
-    ret = htable_put(gClassRefHTable, key, data);
+    ret = htable_put(gClassRefHTable, (void*)key, data);
     UNLOCK_HASH_TABLE();
     if (ret) {
         fprintf(stderr, "warn adding key (%s) to hash table, <%d>: %s\n",
@@ -533,7 +533,6 @@ static JNIEnv* getGlobalJNIEnv(void)
 JNIEnv* getJNIEnv(void)
 {
     JNIEnv *env;
-    int ret;
     THREAD_LOCAL_STORAGE_GET_QUICK();
     mutex_lock(&jvmMutex);
     if (thread_local_storage_get(&env)) {

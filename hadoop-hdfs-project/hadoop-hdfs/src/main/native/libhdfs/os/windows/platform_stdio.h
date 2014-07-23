@@ -35,6 +35,8 @@
  */
 #define snprintf(a, b, c, ...) \
   _snprintf_s((a), (b), _TRUNCATE, (c), __VA_ARGS__)
+#define strncpy(a, b, c) \
+  strncpy_s((a), (c), (b), _TRUNCATE)
 #define strtok_r(a, b, c) \
   strtok_s((a), (b), (c))
 #define vsnprintf(a, b, c, d) \

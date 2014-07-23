@@ -18,21 +18,22 @@
 
 #include "hdfs.h" 
 #include "hdfs_test.h" 
+#include "platform_stdio.h"
 
 #include <inttypes.h>
 #include <jni.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
 void permission_disp(short permissions, char *rtr) {
   int i;
-  short permissionsId = permissions >> (i * 3) & (short)7;
+  short permissionsId;
   char* perm;
   rtr[9] = '\0';
   for(i=2;i>=0;i--)
     {
+      permissionsId = permissions >> (i * 3) & (short)7;
       switch(permissionsId) {
       case 7:
         perm = "rwx"; break;
@@ -107,7 +108,8 @@ int main(int argc, char **argv) {
         }
         fprintf(stderr, "Opened %s for writing successfully...\n", writePath);
         num_written_bytes =
-          hdfsWrite(fs, writeFile, (void*)fileContents, strlen(fileContents)+1);
+          hdfsWrite(fs, writeFile, (void*)fileContents,
+            (tSize)(strlen(fileContents)+1));
         if (num_written_bytes != strlen(fileContents) + 1) {
           fprintf(stderr, "Failed to write correct number of bytes - expected %d, got %d\n",
                   (int)(strlen(fileContents) + 1), (int)num_written_bytes);
@@ -233,7 +235,7 @@ int main(int argc, char **argv) {
         }
 
         num_written_bytes = hdfsWrite(lfs, localFile, (void*)fileContents,
-                                      strlen(fileContents) + 1);
+                                      (tSize)(strlen(fileContents) + 1));
 
         hdfsCloseFile(lfs, localFile);
         localFile = hdfsOpenFile(lfs, writePath, O_RDONLY, 0, 0, 0);
@@ -252,31 +254,31 @@ int main(int argc, char **argv) {
     {
         //Generic file-system operations
 
-        fprintf(stderr, "hdfsCopy(remote-local): %s\n", ((result = hdfsCopy(fs, srcPath, lfs, srcPath)) ? "Failed!" : "Success!"));
+        fprintf(stderr, "hdfsCopy(remote-local): %s\n", ((result = hdfsCopy(fs, srcPath, lfs, srcPath)) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
-        fprintf(stderr, "hdfsCopy(remote-remote): %s\n", ((result = hdfsCopy(fs, srcPath, fs, dstPath)) ? "Failed!" : "Success!"));
+        fprintf(stderr, "hdfsCopy(remote-remote): %s\n", ((result = hdfsCopy(fs, srcPath, fs, dstPath)) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
-        fprintf(stderr, "hdfsMove(local-local): %s\n", ((result = hdfsMove(lfs, srcPath, lfs, dstPath)) ? "Failed!" : "Success!"));
+        fprintf(stderr, "hdfsMove(local-local): %s\n", ((result = hdfsMove(lfs, srcPath, lfs, dstPath)) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
-        fprintf(stderr, "hdfsMove(remote-local): %s\n", ((result = hdfsMove(fs, srcPath, lfs, srcPath)) ? "Failed!" : "Success!"));
-        totalResult += result;
-
-        fprintf(stderr, "hdfsRename: %s\n", ((result = hdfsRename(fs, dstPath, srcPath)) ? "Failed!" : "Success!"));
-        totalResult += result;
-        fprintf(stderr, "hdfsCopy(remote-remote): %s\n", ((result = hdfsCopy(fs, srcPath, fs, dstPath)) ? "Failed!" : "Success!"));
+        fprintf(stderr, "hdfsMove(remote-local): %s\n", ((result = hdfsMove(fs, srcPath, lfs, srcPath)) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
 
-        fprintf(stderr, "hdfsCreateDirectory: %s\n", ((result = hdfsCreateDirectory(fs, newDirectory)) ? "Failed!" : "Success!"));
+        fprintf(stderr, "hdfsRename: %s\n", ((result = hdfsRename(fs, dstPath, srcPath)) != 0 ? "Failed!" : "Success!"));
+        totalResult += result;
+        fprintf(stderr, "hdfsCopy(remote-remote): %s\n", ((result = hdfsCopy(fs, srcPath, fs, dstPath)) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
 
-        fprintf(stderr, "hdfsSetReplication: %s\n", ((result = hdfsSetReplication(fs, srcPath, 2)) ? "Failed!" : "Success!"));
+        fprintf(stderr, "hdfsCreateDirectory: %s\n", ((result = hdfsCreateDirectory(fs, newDirectory)) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
 
-        fprintf(stderr, "hdfsGetWorkingDirectory: %s\n", ((resp = hdfsGetWorkingDirectory(fs, buffer2, sizeof(buffer2))) ? buffer2 : "Failed!"));
+        fprintf(stderr, "hdfsSetReplication: %s\n", ((result = hdfsSetReplication(fs, srcPath, 2)) != 0 ? "Failed!" : "Success!"));
+        totalResult += result;
+
+        fprintf(stderr, "hdfsGetWorkingDirectory: %s\n", ((resp = hdfsGetWorkingDirectory(fs, buffer2, sizeof(buffer2))) == 0 ? buffer2 : "Failed!"));
         totalResult += (resp ? 0 : 1);
-        fprintf(stderr, "hdfsSetWorkingDirectory: %s\n", ((result = hdfsSetWorkingDirectory(fs, slashTmp)) ? "Failed!" : "Success!"));
+        fprintf(stderr, "hdfsSetWorkingDirectory: %s\n", ((result = hdfsSetWorkingDirectory(fs, slashTmp)) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
-        fprintf(stderr, "hdfsGetWorkingDirectory: %s\n", ((resp = hdfsGetWorkingDirectory(fs, buffer2, sizeof(buffer2))) ? buffer2 : "Failed!"));
+        fprintf(stderr, "hdfsGetWorkingDirectory: %s\n", ((resp = hdfsGetWorkingDirectory(fs, buffer2, sizeof(buffer2))) == 0 ? buffer2 : "Failed!"));
         totalResult += (resp ? 0 : 1);
 
         fprintf(stderr, "hdfsGetDefaultBlockSize: %ld\n", hdfsGetDefaultBlockSize(fs));
@@ -347,12 +349,12 @@ int main(int argc, char **argv) {
         // setting tmp dir to 777 so later when connectAsUser nobody, we can write to it
 
         // chown write
-        fprintf(stderr, "hdfsChown: %s\n", ((result = hdfsChown(fs, writePath, NULL, "users")) ? "Failed!" : "Success!"));
+        fprintf(stderr, "hdfsChown: %s\n", ((result = hdfsChown(fs, writePath, NULL, "users")) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
-        fprintf(stderr, "hdfsChown: %s\n", ((result = hdfsChown(fs, writePath, newOwner, NULL)) ? "Failed!" : "Success!"));
+        fprintf(stderr, "hdfsChown: %s\n", ((result = hdfsChown(fs, writePath, newOwner, NULL)) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
         // chmod write
-        fprintf(stderr, "hdfsChmod: %s\n", ((result = hdfsChmod(fs, writePath, newPerm)) ? "Failed!" : "Success!"));
+        fprintf(stderr, "hdfsChmod: %s\n", ((result = hdfsChmod(fs, writePath, newPerm)) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
 
 
@@ -362,46 +364,46 @@ int main(int argc, char **argv) {
         newAtime = time(NULL);
 
         // utime write
-        fprintf(stderr, "hdfsUtime: %s\n", ((result = hdfsUtime(fs, writePath, newMtime, newAtime)) ? "Failed!" : "Success!"));
+        fprintf(stderr, "hdfsUtime: %s\n", ((result = hdfsUtime(fs, writePath, newMtime, newAtime)) != 0 ? "Failed!" : "Success!"));
 
         totalResult += result;
 
         // chown/chmod/utime read
         finfo = hdfsGetPathInfo(fs, writePath);
 
-        fprintf(stderr, "hdfsChown read: %s\n", ((result = (strcmp(finfo->mOwner, newOwner) != 0)) ? "Failed!" : "Success!"));
+        fprintf(stderr, "hdfsChown read: %s\n", ((result = (strcmp(finfo->mOwner, newOwner))) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
 
-        fprintf(stderr, "hdfsChmod read: %s\n", ((result = (finfo->mPermissions != newPerm)) ? "Failed!" : "Success!"));
+        fprintf(stderr, "hdfsChmod read: %s\n", ((result = (finfo->mPermissions != newPerm)) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
 
         // will later use /tmp/ as a different user so enable it
-        fprintf(stderr, "hdfsChmod: %s\n", ((result = hdfsChmod(fs, "/tmp/", 0777)) ? "Failed!" : "Success!"));
+        fprintf(stderr, "hdfsChmod: %s\n", ((result = hdfsChmod(fs, "/tmp/", 0777)) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
 
         fprintf(stderr,"newMTime=%ld\n",newMtime);
         fprintf(stderr,"curMTime=%ld\n",finfo->mLastMod);
 
 
-        fprintf(stderr, "hdfsUtime read (mtime): %s\n", ((result = (finfo->mLastMod != newMtime)) ? "Failed!" : "Success!"));
+        fprintf(stderr, "hdfsUtime read (mtime): %s\n", ((result = (finfo->mLastMod != newMtime)) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
 
         // No easy way to turn on access times from hdfs_test right now
-        //        fprintf(stderr, "hdfsUtime read (atime): %s\n", ((result = (finfo->mLastAccess != newAtime)) ? "Failed!" : "Success!"));
+        //        fprintf(stderr, "hdfsUtime read (atime): %s\n", ((result = (finfo->mLastAccess != newAtime)) != 0 ? "Failed!" : "Success!"));
         //        totalResult += result;
 
         hdfsFreeFileInfo(finfo, 1);
 
         // Clean up
-        fprintf(stderr, "hdfsDelete: %s\n", ((result = hdfsDelete(fs, newDirectory, 1)) ? "Failed!" : "Success!"));
+        fprintf(stderr, "hdfsDelete: %s\n", ((result = hdfsDelete(fs, newDirectory, 1)) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
-        fprintf(stderr, "hdfsDelete: %s\n", ((result = hdfsDelete(fs, srcPath, 1)) ? "Failed!" : "Success!"));
+        fprintf(stderr, "hdfsDelete: %s\n", ((result = hdfsDelete(fs, srcPath, 1)) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
-        fprintf(stderr, "hdfsDelete: %s\n", ((result = hdfsDelete(lfs, srcPath, 1)) ? "Failed!" : "Success!"));
+        fprintf(stderr, "hdfsDelete: %s\n", ((result = hdfsDelete(lfs, srcPath, 1)) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
-        fprintf(stderr, "hdfsDelete: %s\n", ((result = hdfsDelete(lfs, dstPath, 1)) ? "Failed!" : "Success!"));
+        fprintf(stderr, "hdfsDelete: %s\n", ((result = hdfsDelete(lfs, dstPath, 1)) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
-        fprintf(stderr, "hdfsExists: %s\n", ((result = hdfsExists(fs, newDirectory)) ? "Success!" : "Failed!"));
+        fprintf(stderr, "hdfsExists: %s\n", ((result = hdfsExists(fs, newDirectory)) == 0 ? "Success!" : "Failed!"));
         totalResult += (result ? 0 : 1);
     }
 
@@ -417,7 +419,8 @@ int main(int argc, char **argv) {
       fprintf(stderr, "Opened %s for writing successfully...\n", appendPath);
 
       buffer3 = "Hello,";
-      num_written_bytes = hdfsWrite(fs, appendFile, (void*)buffer3, strlen(buffer3));
+      num_written_bytes = hdfsWrite(fs, appendFile, (void*)buffer3,
+        (tSize)strlen(buffer3));
       fprintf(stderr, "Wrote %d bytes\n", num_written_bytes);
 
       if (hdfsFlush(fs, appendFile)) {
@@ -437,7 +440,8 @@ int main(int argc, char **argv) {
       fprintf(stderr, "Opened %s for writing successfully...\n", appendPath);
 
       buffer3 = " World";
-      num_written_bytes = hdfsWrite(fs, appendFile, (void*)buffer3, strlen(buffer3) + 1);
+      num_written_bytes = hdfsWrite(fs, appendFile, (void*)buffer3,
+        (tSize)(strlen(buffer3) + 1));
       fprintf(stderr, "Wrote %d bytes\n", num_written_bytes);
 
       if (hdfsFlush(fs, appendFile)) {
@@ -450,7 +454,7 @@ int main(int argc, char **argv) {
 
       // CHECK size
       finfo = hdfsGetPathInfo(fs, appendPath);
-      fprintf(stderr, "fileinfo->mSize: == total %s\n", ((result = (finfo->mSize == strlen("Hello, World") + 1)) ? "Success!" : "Failed!"));
+      fprintf(stderr, "fileinfo->mSize: == total %s\n", ((result = (finfo->mSize == (tOffset)(strlen("Hello, World") + 1))) == 1 ? "Success!" : "Failed!"));
       totalResult += (result ? 0 : 1);
 
       // READ and check data
@@ -464,7 +468,7 @@ int main(int argc, char **argv) {
       fprintf(stderr, "Read following %d bytes:\n%s\n", 
               num_read_bytes, rdbuffer);
 
-      fprintf(stderr, "read == Hello, World %s\n", (result = (strcmp(rdbuffer, "Hello, World") == 0)) ? "Success!" : "Failed!");
+      fprintf(stderr, "read == Hello, World %s\n", ((result = (strcmp(rdbuffer, "Hello, World"))) == 0 ? "Success!" : "Failed!"));
 
       hdfsCloseFile(fs, readFile);
 
@@ -487,27 +491,27 @@ int main(int argc, char **argv) {
         exit(-1);
       } 
 
-        userFile = hdfsOpenFile(fs, writePath, O_WRONLY|O_CREAT, 0, 0, 0);
+        userFile = hdfsOpenFile(fs, userPath, O_WRONLY|O_CREAT, 0, 0, 0);
         if(!userFile) {
-            fprintf(stderr, "Failed to open %s for writing!\n", writePath);
+            fprintf(stderr, "Failed to open %s for writing!\n", userPath);
             exit(-1);
         }
-        fprintf(stderr, "Opened %s for writing successfully...\n", writePath);
+        fprintf(stderr, "Opened %s for writing successfully...\n", userPath);
 
         num_written_bytes = hdfsWrite(fs, userFile, (void*)fileContents,
-          strlen(fileContents)+1);
+          (tSize)(strlen(fileContents)+1));
         fprintf(stderr, "Wrote %d bytes\n", num_written_bytes);
 
         if (hdfsFlush(fs, userFile)) {
-            fprintf(stderr, "Failed to 'flush' %s\n", writePath); 
+            fprintf(stderr, "Failed to 'flush' %s\n", userPath); 
             exit(-1);
         }
-        fprintf(stderr, "Flushed %s successfully!\n", writePath); 
+        fprintf(stderr, "Flushed %s successfully!\n", userPath); 
 
         hdfsCloseFile(fs, userFile);
 
-        finfo = hdfsGetPathInfo(fs, writePath);
-        fprintf(stderr, "hdfs new file user is correct: %s\n", ((result = (strcmp(finfo->mOwner, tuser) != 0)) ? "Failed!" : "Success!"));
+        finfo = hdfsGetPathInfo(fs, userPath);
+        fprintf(stderr, "hdfs new file user is correct: %s\n", ((result = (strcmp(finfo->mOwner, tuser))) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
     }
     
