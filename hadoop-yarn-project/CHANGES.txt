@@ -88,6 +88,12 @@ Release 2.6.0 - UNRELEASED
     YARN-2321. NodeManager web UI can incorrectly report Pmem enforcement
     (Leitao Guo via jlowe)
 
+    YARN-2273. NPE in ContinuousScheduling thread when we lose a node. 
+    (Wei Yan via kasha)
+
+    YARN-2313. Livelock can occur in FairScheduler when there are lots of
+    running apps (Tsuyoshi Ozawa via Sandy Ryza)
+
 Release 2.5.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES

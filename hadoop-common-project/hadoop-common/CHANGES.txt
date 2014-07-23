@@ -399,6 +399,9 @@ Trunk (Unreleased)
     HADOOP-10826. Iteration on KeyProviderFactory.serviceLoader is 
     thread-unsafe. (benoyantony viat tucu)
 
+    HADOOP-10881. Clarify usage of encryption and encrypted encryption
+    key in KeyProviderCryptoExtension. (wang)
+
   OPTIMIZATIONS
 
     HADOOP-7761. Improve the performance of raw comparisons. (todd)
@@ -446,6 +449,8 @@ Release 2.6.0 - UNRELEASED
 
     HADOOP-10755. Support negative caching of user-group mapping.
     (Lei Xu via wang)
+
+    HADOOP-10855. Allow Text to be read with a known Length. (todd)
 
   OPTIMIZATIONS
 
@@ -764,6 +769,9 @@ Release 2.5.0 - UNRELEASED
 
     HADOOP-10801 dead link in site.xml (Akira AJISAKA via stevel)
 
+    HADOOP-10830. Missing lock in JavaKeyStoreProvider.createCredentialEntry.
+    (Benoy Antony via umamahesh)
+
   BREAKDOWN OF HADOOP-10514 SUBTASKS AND RELATED JIRAS
 
     HADOOP-10520. Extended attributes definition and FileSystem APIs for
@@ -799,6 +807,9 @@ Release 2.5.0 - UNRELEASED
 
     HADOOP-10864. Tool documentenation is broken. (Akira Ajisaka
     via Arpit Agarwal)
+
+    HADOOP-10872. TestPathData fails intermittently with "Mkdirs failed
+    to create d1". (Yongjun Zhang via Arpit Agarwal)
 
 Release 2.4.1 - 2014-06-23 
 
