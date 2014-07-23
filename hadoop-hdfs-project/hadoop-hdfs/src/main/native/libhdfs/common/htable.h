@@ -19,7 +19,6 @@
 #ifndef HADOOP_CORE_COMMON_HASH_TABLE
 #define HADOOP_CORE_COMMON_HASH_TABLE
 
-#include <inttypes.h>
 #include <stdio.h>
 #include <stdint.h>
 
