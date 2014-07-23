@@ -20,13 +20,14 @@
 #include "exception.h"
 #include "jni_helper.h"
 #include "platform_stdio.h"
+#include "common/htable.h"
 #include "os/mutexes.h"
 #include "os/thread_local_storage.h"
 
 #include <stdio.h> 
 #include <string.h> 
 
-static volatile int hashTableInited = 0;
+static struct htable *gClassRefHTable = NULL;
 
 #define LOCK_HASH_TABLE() mutex_lock(&hdfsHashMutex)
 #define UNLOCK_HASH_TABLE() mutex_unlock(&hdfsHashMutex)
@@ -111,16 +112,16 @@ jthrowable newCStr(JNIEnv *env, jstring jstr, char **out)
 
 static int hashTableInit(void)
 {
-    if (!hashTableInited) {
+    if (!gClassRefHTable) {
         LOCK_HASH_TABLE();
-        if (!hashTableInited) {
-            if (hcreate(MAX_HASH_TABLE_ELEM) == 0) {
-                fprintf(stderr, "error creating hashtable, <%d>: %s\n",
-                        errno, strerror(errno));
+        if (!gClassRefHTable) {
+            gClassRefHTable = htable_alloc(MAX_HASH_TABLE_ELEM, ht_hash_string,
+              ht_compare_string);
+            if (!gClassRefHTable) {
+                fputs("error creating hashtable\n", stderr);
                 UNLOCK_HASH_TABLE();
                 return 0;
             } 
-            hashTableInited = 1;
         }
         UNLOCK_HASH_TABLE();
     }
@@ -130,21 +131,19 @@ static int hashTableInit(void)
 
 static int insertEntryIntoTable(const char *key, void *data)
 {
-    ENTRY e, *ep;
+    int ret;
     if (key == NULL || data == NULL) {
         return 0;
     }
     if (! hashTableInit()) {
       return -1;
     }
-    e.data = data;
-    e.key = (char*)key;
     LOCK_HASH_TABLE();
-    ep = hsearch(e, ENTER);
+    ret = htable_put(gClassRefHTable, key, data);
     UNLOCK_HASH_TABLE();
-    if (ep == NULL) {
+    if (ret) {
         fprintf(stderr, "warn adding key (%s) to hash table, <%d>: %s\n",
-                key, errno, strerror(errno));
+                key, ret, strerror(ret));
     }  
     return 0;
 }
@@ -153,19 +152,15 @@ static int insertEntryIntoTable(const char *key, void *data)
 
 static void* searchEntryFromTable(const char *key)
 {
-    ENTRY e,*ep;
+    void *value;
     if (key == NULL) {
         return NULL;
     }
     hashTableInit();
-    e.key = (char*)key;
     LOCK_HASH_TABLE();
-    ep = hsearch(e, FIND);
+    value = htable_get(gClassRefHTable, key);
     UNLOCK_HASH_TABLE();
-    if (ep != NULL) {
-        return ep->data;
-    }
-    return NULL;
+    return value;
 }
 
 
@@ -459,7 +454,7 @@ static JNIEnv* getGlobalJNIEnv(void)
         // Now that we know the # args, populate the options array
         options = calloc(noArgs, sizeof(JavaVMOption));
         if (!options) {
-          fprintf(stderr, "Call to calloc failed\n");
+          fputs("Call to calloc failed\n", stderr);
           free(optHadoopClassPath);
           return NULL;
         }
