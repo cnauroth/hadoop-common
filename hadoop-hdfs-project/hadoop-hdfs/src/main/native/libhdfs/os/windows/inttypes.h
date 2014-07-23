@@ -24,5 +24,6 @@
  * need.
  */
 #define PRId64 "I64d"
+typedef unsigned __int64 uint64_t;
 
 #endif

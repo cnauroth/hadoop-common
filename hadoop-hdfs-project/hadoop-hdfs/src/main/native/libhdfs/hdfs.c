@@ -64,9 +64,9 @@ static void hdfsFreeFileInfoEntry(hdfsFileInfo *hdfsFileInfo);
  */
 enum hdfsStreamType
 {
-    UNINITIALIZED = 0,
-    INPUT = 1,
-    OUTPUT = 2,
+    HDFS_STREAM_UNINITIALIZED = 0,
+    HDFS_STREAM_INPUT = 1,
+    HDFS_STREAM_OUTPUT = 2,
 };
 
 /**
@@ -80,7 +80,7 @@ struct hdfsFile_internal {
 
 int hdfsFileIsOpenForRead(hdfsFile file)
 {
-    return (file->type == INPUT);
+    return (file->type == HDFS_STREAM_INPUT);
 }
 
 int hdfsFileGetReadStatistics(hdfsFile file,
@@ -97,7 +97,7 @@ int hdfsFileGetReadStatistics(hdfsFile file,
         errno = EINTERNAL;
         return -1;
     }
-    if (file->type != INPUT) {
+    if (file->type != HDFS_STREAM_INPUT) {
         ret = EINVAL;
         goto done;
     }
@@ -181,7 +181,7 @@ void hdfsFileFreeReadStatistics(struct hdfsReadStatistics *stats)
 
 int hdfsFileIsOpenForWrite(hdfsFile file)
 {
-    return (file->type == OUTPUT);
+    return (file->type == HDFS_STREAM_OUTPUT);
 }
 
 int hdfsFileUsesDirectRead(hdfsFile file)
@@ -958,7 +958,8 @@ hdfsFile hdfsOpenFile(hdfsFS fs, const char* path, int flags,
             "hdfsOpenFile(%s): NewGlobalRef", path); 
         goto done;
     }
-    file->type = (((flags & O_WRONLY) == 0) ? INPUT : OUTPUT);
+    file->type = (((flags & O_WRONLY) == 0) ? HDFS_STREAM_INPUT :
+        HDFS_STREAM_OUTPUT);
     file->flags = 0;
 
     if ((flags & O_WRONLY) == 0) {
@@ -1016,18 +1017,18 @@ int hdfsCloseFile(hdfsFS fs, hdfsFile file)
     }
 
     //Sanity check
-    if (!file || file->type == UNINITIALIZED) {
+    if (!file || file->type == HDFS_STREAM_UNINITIALIZED) {
         errno = EBADF;
         return -1;
     }
 
-    interface = (file->type == INPUT) ?
+    interface = (file->type == HDFS_STREAM_INPUT) ?
         HADOOP_ISTRM : HADOOP_OSTRM;
   
     jthr = invokeMethod(env, NULL, INSTANCE, file->file, interface,
                      "close", "()V");
     if (jthr) {
-        interfaceShortName = (file->type == INPUT) ? 
+        interfaceShortName = (file->type == HDFS_STREAM_INPUT) ? 
             "FSDataInputStream" : "FSDataOutputStream";
         ret = printExceptionAndFree(env, jthr, PRINT_EXC_ALL,
                 "%s#close", interfaceShortName);
@@ -1093,13 +1094,13 @@ static int readPrepare(JNIEnv* env, hdfsFS fs, hdfsFile f,
     *jInputStream = (jobject)(f ? f->file : NULL);
 
     //Sanity check
-    if (!f || f->type == UNINITIALIZED) {
+    if (!f || f->type == HDFS_STREAM_UNINITIALIZED) {
       errno = EBADF;
       return -1;
     }
 
     //Error checking... make sure that this file is 'readable'
-    if (f->type != INPUT) {
+    if (f->type != HDFS_STREAM_INPUT) {
       fprintf(stderr, "Cannot read from a non-InputStream object!\n");
       errno = EINVAL;
       return -1;
@@ -1234,7 +1235,7 @@ tSize hdfsPread(hdfsFS fs, hdfsFile f, tOffset position,
         errno = EINVAL;
         return -1;
     }
-    if (!f || f->type == UNINITIALIZED) {
+    if (!f || f->type == HDFS_STREAM_UNINITIALIZED) {
         errno = EBADF;
         return -1;
     }
@@ -1246,7 +1247,7 @@ tSize hdfsPread(hdfsFS fs, hdfsFile f, tOffset position,
     }
 
     //Error checking... make sure that this file is 'readable'
-    if (f->type != INPUT) {
+    if (f->type != HDFS_STREAM_INPUT) {
         fprintf(stderr, "Cannot read from a non-InputStream object!\n");
         errno = EINVAL;
         return -1;
@@ -1306,7 +1307,7 @@ tSize hdfsWrite(hdfsFS fs, hdfsFile f, const void* buffer, tSize length)
     }
 
     //Sanity check
-    if (!f || f->type == UNINITIALIZED) {
+    if (!f || f->type == HDFS_STREAM_UNINITIALIZED) {
         errno = EBADF;
         return -1;
     }
@@ -1319,7 +1320,7 @@ tSize hdfsWrite(hdfsFS fs, hdfsFile f, const void* buffer, tSize length)
     }
 
     //Error checking... make sure that this file is 'writable'
-    if (f->type != OUTPUT) {
+    if (f->type != HDFS_STREAM_OUTPUT) {
         fprintf(stderr, "Cannot write into a non-OutputStream object!\n");
         errno = EINVAL;
         return -1;
@@ -1375,7 +1376,7 @@ int hdfsSeek(hdfsFS fs, hdfsFile f, tOffset desiredPos)
     }
 
     //Sanity check
-    if (!f || f->type != INPUT) {
+    if (!f || f->type != HDFS_STREAM_INPUT) {
         errno = EBADF;
         return -1;
     }
@@ -1412,21 +1413,21 @@ tOffset hdfsTell(hdfsFS fs, hdfsFile f)
     }
 
     //Sanity check
-    if (!f || f->type == UNINITIALIZED) {
+    if (!f || f->type == HDFS_STREAM_UNINITIALIZED) {
         errno = EBADF;
         return -1;
     }
 
     //Parameters
     jStream = f->file;
-    interface = (f->type == INPUT) ?
+    interface = (f->type == HDFS_STREAM_INPUT) ?
         HADOOP_ISTRM : HADOOP_OSTRM;
     jthr = invokeMethod(env, &jVal, INSTANCE, jStream,
                      interface, "getPos", "()J");
     if (jthr) {
         errno = printExceptionAndFree(env, jthr, PRINT_EXC_ALL,
             "hdfsTell: %s#getPos",
-            ((f->type == INPUT) ? "FSDataInputStream" :
+            ((f->type == HDFS_STREAM_INPUT) ? "FSDataInputStream" :
                                  "FSDataOutputStream"));
         return -1;
     }
@@ -1448,7 +1449,7 @@ int hdfsFlush(hdfsFS fs, hdfsFile f)
     }
 
     //Sanity check
-    if (!f || f->type != OUTPUT) {
+    if (!f || f->type != HDFS_STREAM_OUTPUT) {
         errno = EBADF;
         return -1;
     }
@@ -1475,7 +1476,7 @@ int hdfsHFlush(hdfsFS fs, hdfsFile f)
     }
 
     //Sanity check
-    if (!f || f->type != OUTPUT) {
+    if (!f || f->type != HDFS_STREAM_OUTPUT) {
         errno = EBADF;
         return -1;
     }
@@ -1504,7 +1505,7 @@ int hdfsHSync(hdfsFS fs, hdfsFile f)
     }
 
     //Sanity check
-    if (!f || f->type != OUTPUT) {
+    if (!f || f->type != HDFS_STREAM_OUTPUT) {
         errno = EBADF;
         return -1;
     }
@@ -1537,7 +1538,7 @@ int hdfsAvailable(hdfsFS fs, hdfsFile f)
     }
 
     //Sanity check
-    if (!f || f->type != INPUT) {
+    if (!f || f->type != HDFS_STREAM_INPUT) {
         errno = EBADF;
         return -1;
     }
@@ -2426,7 +2427,7 @@ struct hadoopRzBuffer* hadoopReadZero(hdfsFile file,
         errno = EINTERNAL;
         return NULL;
     }
-    if (file->type != INPUT) {
+    if (file->type != HDFS_STREAM_INPUT) {
         fputs("Cannot read from a non-InputStream object!\n", stderr);
         ret = EINVAL;
         goto done;

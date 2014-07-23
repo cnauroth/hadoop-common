@@ -89,7 +89,9 @@ if (WIN32)
     add_definitions(
       /W4                         # Set warning level 4,
       /wd4100                     # but skip "unreferenced formal parameter",
-      -D_CRT_NONSTDC_NO_DEPRECATE # and skip "deprecated" function warnings.
+      /wd4127                     # and "conditional expression is constant",
+      -D_CRT_NONSTDC_NO_DEPRECATE # and "deprecated" function warnings.
+      -DWIN32_LEAN_AND_MEAN       # Omit unneeded headers.
     )
 else (WIN32)
     set(OS_INCLUDE main/native/libhdfs/os/posix)

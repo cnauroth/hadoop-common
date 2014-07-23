@@ -25,6 +25,9 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <windows.h>
+
+#define PATH_MAX MAX_PATH
 
 /*
  * On Windows, the preprocessor does support variadic macros, even though they

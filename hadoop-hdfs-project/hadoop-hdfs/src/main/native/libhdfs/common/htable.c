@@ -56,7 +56,7 @@ static void htable_insert_internal(struct htable_pair *nelem,
     uint32_t i;
 
     i = hash_fun(key, capacity);
-    for (;;) {
+    while (1) {
         if (!nelem[i].key) {
             nelem[i].key = key;
             nelem[i].val = val;
@@ -171,7 +171,7 @@ static int htable_get_internal(const struct htable *htable,
 
     start_idx = htable->hash_fun(key, htable->capacity);
     idx = start_idx;
-    for (;;) {
+    while (1) {
         struct htable_pair *pair = htable->elem + idx;
         if (!pair->key) {
             // We always maintain the invariant that the entries corresponding
@@ -219,7 +219,7 @@ void htable_pop(struct htable *htable, const void *key,
     // htable_get_internal.  This invariant specifies that the entries for any
     // given key are never separated by NULLs (although they may be separated
     // by entries for other keys.)
-    for (;;) {
+    while (1) {
         i++;
         if (i == htable->capacity) {
             i = 0;
