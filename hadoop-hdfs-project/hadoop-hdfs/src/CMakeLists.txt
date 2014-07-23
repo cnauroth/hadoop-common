@@ -126,8 +126,13 @@ endif(NEED_LINK_DL)
 target_link_dual_libraries(hdfs
     ${JAVA_JVM_LIBRARY}
     ${LIB_DL}
-    pthread
 )
+if (NOT WIN32)
+    target_link_dual_libraries(hdfs
+        pthread
+    )
+endif(NOT WIN32)
+
 dual_output_directory(hdfs target/usr/local/lib)
 set(LIBHDFS_VERSION "0.0.0")
 set_target_properties(hdfs PROPERTIES
@@ -178,8 +183,12 @@ add_executable(test_libhdfs_threaded
 target_link_libraries(test_libhdfs_threaded
     hdfs
     native_mini_dfs
-    pthread
 )
+if (NOT WIN32)
+    target_link_libraries(test_libhdfs_threaded
+        pthread
+    )
+endif(NOT WIN32)
 
 add_executable(test_libhdfs_zerocopy
     main/native/libhdfs/expect.c
@@ -188,17 +197,25 @@ add_executable(test_libhdfs_zerocopy
 target_link_libraries(test_libhdfs_zerocopy
     hdfs
     native_mini_dfs
-    pthread
 )
+if (NOT WIN32)
+    target_link_libraries(test_libhdfs_zerocopy
+        pthread
+    )
+endif(NOT WIN32)
 
 add_executable(test_libhdfs_vecsum
     main/native/libhdfs/test/vecsum.c
 )
 target_link_libraries(test_libhdfs_vecsum
     hdfs
-    pthread
     rt
 )
+if (NOT WIN32)
+    target_link_libraries(test_libhdfs_vecsum
+        pthread
+    )
+endif(NOT WIN32)
 
 IF(REQUIRE_LIBWEBHDFS)
     add_subdirectory(contrib/libwebhdfs)
