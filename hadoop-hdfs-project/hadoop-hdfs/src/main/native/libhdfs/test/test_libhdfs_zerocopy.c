@@ -19,12 +19,10 @@
 #include "expect.h"
 #include "hdfs.h"
 #include "native_mini_dfs.h"
+#include "platform_stdio.h"
 
 #include <errno.h>
 #include <inttypes.h>
-#include <semaphore.h>
-#include <unistd.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -52,7 +50,7 @@ static uint8_t *getZeroCopyBlockData(int blockIdx)
         exit(1);
     }
     for (i = 0; i < TEST_ZEROCOPY_FULL_BLOCK_SIZE; i++) {
-      buf[i] = blockIdx + (i % 17);
+      buf[i] = (uint8_t)(blockIdx + (i % 17));
     }
     return buf;
 }
@@ -66,18 +64,6 @@ static int getZeroCopyBlockLen(int blockIdx)
     } else {
         return TEST_ZEROCOPY_FULL_BLOCK_SIZE;
     }
-}
-
-static void printBuf(const uint8_t *buf, size_t len) __attribute__((unused));
-
-static void printBuf(const uint8_t *buf, size_t len)
-{
-  size_t i;
-
-  for (i = 0; i < len; i++) {
-    fprintf(stderr, "%02x", buf[i]);
-  }
-  fprintf(stderr, "\n");
 }
 
 static int doTestZeroCopyReads(hdfsFS fs, const char *fileName)
@@ -126,8 +112,8 @@ static int doTestZeroCopyReads(hdfsFS fs, const char *fileName)
     EXPECT_NONNULL(block);
     EXPECT_ZERO(memcmp(block, hadoopRzBufferGet(buffer), SMALL_READ_LEN));
     hadoopRzBufferFree(file, buffer);
-    EXPECT_INT_EQ(TEST_ZEROCOPY_FULL_BLOCK_SIZE + SMALL_READ_LEN,
-                  hdfsTell(fs, file));
+    EXPECT_INT64_EQ(TEST_ZEROCOPY_FULL_BLOCK_SIZE + SMALL_READ_LEN,
+                    hdfsTell(fs, file));
     EXPECT_ZERO(expectFileStats(file,
           TEST_ZEROCOPY_FULL_BLOCK_SIZE + SMALL_READ_LEN,
           TEST_ZEROCOPY_FULL_BLOCK_SIZE + SMALL_READ_LEN,
@@ -164,7 +150,7 @@ static int doTestZeroCopyReads(hdfsFS fs, const char *fileName)
     free(block);
     block = getZeroCopyBlockData(2);
     EXPECT_NONNULL(block);
-    EXPECT_ZERO(memcmp(block, hadoopRzBufferGet(buffer) +
+    EXPECT_ZERO(memcmp(block, (uint8_t*)hadoopRzBufferGet(buffer) +
         (TEST_ZEROCOPY_FULL_BLOCK_SIZE - SMALL_READ_LEN), SMALL_READ_LEN));
     hadoopRzBufferFree(file, buffer);
 
@@ -218,8 +204,8 @@ int main(void)
 {
     int port;
     struct NativeMiniDfsConf conf = {
-        .doFormat = 1,
-        .configureShortCircuit = 1,
+        1, /* doFormat */
+        1  /* configureShortCircuit */
     };
     char testFileName[TEST_FILE_NAME_LENGTH];
     hdfsFS fs;
