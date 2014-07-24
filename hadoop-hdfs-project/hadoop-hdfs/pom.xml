@@ -406,7 +406,7 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
                     </exec>
                     <exec executable="msbuild" dir="${project.build.directory}/native"
                         failonerror="true">
-                      <arg line="ALL_BUILD.vcxproj /nologo /p:Configuration=Release /p:OutDir=${project.build.directory}/bin/"/>
+                      <arg line="ALL_BUILD.vcxproj /nologo /p:Configuration=Release"/>
                     </exec>
                   </target>
                 </configuration>
