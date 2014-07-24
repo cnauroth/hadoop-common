@@ -24,5 +24,7 @@
  * need.
  */
 #include <process.h>
+#include <windows.h>
 
+#define sleep(x) Sleep((x))
 #endif
