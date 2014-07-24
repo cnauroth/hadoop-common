@@ -90,7 +90,7 @@ if (WIN32)
       /W4                         # Set warning level 4,
       /wd4100                     # but skip "unreferenced formal parameter",
       /wd4127                     # and "conditional expression is constant",
-      -D_CRT_NONSTDC_NO_DEPRECATE # and "deprecated" function warnings.
+      -D_CRT_NONSTDC_NO_DEPRECATE # and deprecated POSIX function warnings.
       -DWIN32_LEAN_AND_MEAN       # Omit unneeded headers.
     )
 else (WIN32)
