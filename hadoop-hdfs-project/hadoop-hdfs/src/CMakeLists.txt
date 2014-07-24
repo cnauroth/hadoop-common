@@ -206,16 +206,14 @@ if (NOT WIN32)
     )
 endif(NOT WIN32)
 
-add_executable(test_libhdfs_vecsum
-    main/native/libhdfs/test/vecsum.c
-)
-target_link_libraries(test_libhdfs_vecsum
-    hdfs
-    rt
-)
 if (NOT WIN32)
+    add_executable(test_libhdfs_vecsum
+        main/native/libhdfs/test/vecsum.c
+    )
     target_link_libraries(test_libhdfs_vecsum
+        hdfs
         pthread
+        rt
     )
 endif(NOT WIN32)
 
