@@ -452,6 +452,9 @@ Release 2.6.0 - UNRELEASED
 
     HADOOP-10855. Allow Text to be read with a known Length. (todd)
 
+    HADOOP-10887. Add XAttrs to ViewFs and make XAttrs + ViewFileSystem
+    internal dir behavior consistent. (Stephen Chu via wang)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -479,6 +482,9 @@ Release 2.6.0 - UNRELEASED
     HADOOP-10866. RawLocalFileSystem fails to read symlink targets via the stat
     command when the format of the stat command uses non-curly quotes (yzhang
     via cmccabe)
+
+    HADOOP-10830. Missing lock in JavaKeyStoreProvider.createCredentialEntry.
+    (Benoy Antony via umamahesh)
 
 Release 2.5.0 - UNRELEASED
 
@@ -769,9 +775,6 @@ Release 2.5.0 - UNRELEASED
 
     HADOOP-10801 dead link in site.xml (Akira AJISAKA via stevel)
 
-    HADOOP-10830. Missing lock in JavaKeyStoreProvider.createCredentialEntry.
-    (Benoy Antony via umamahesh)
-
   BREAKDOWN OF HADOOP-10514 SUBTASKS AND RELATED JIRAS
 
     HADOOP-10520. Extended attributes definition and FileSystem APIs for
@@ -810,6 +813,9 @@ Release 2.5.0 - UNRELEASED
 
     HADOOP-10872. TestPathData fails intermittently with "Mkdirs failed
     to create d1". (Yongjun Zhang via Arpit Agarwal)
+
+    HADOOP-10890. TestDFVariations.testMount fails intermittently. (Yongjun
+    Zhang via Arpit Agarwal)
 
 Release 2.4.1 - 2014-06-23 
 
