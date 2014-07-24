@@ -19,10 +19,11 @@
 #include "exception.h"
 #include "hdfs.h"
 #include "jni_helper.h"
-#include "platform_fcntl.h"
-#include "platform_stdio.h"
+#include "platform.h"
 
+#include <fcntl.h>
 #include <inttypes.h>
+#include <stdio.h>
 #include <string.h>
 
 /* Some frequently used Java paths */

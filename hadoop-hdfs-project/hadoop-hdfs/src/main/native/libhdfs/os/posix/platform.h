@@ -16,17 +16,24 @@
  * limitations under the License.
  */
 
-#ifndef LIBHDFS_PLATFORM_FCNTL_H
-#define LIBHDFS_PLATFORM_FCNTL_H
+#ifndef LIBHDFS_PLATFORM_H
+#define LIBHDFS_PLATFORM_H
 
 /*
- * On Windows, the fcntl.h header does exist, but we also need to add some
- * definitions manually that are missing.
+ * Platform-specific overrides for POSIX systems.
  */
-#include <fcntl.h>
 
-#ifndef O_ACCMODE
-#define O_ACCMODE 0x0003
-#endif
+#include <pthread.h>
+
+/*
+ * Use gcc type-checked format arguments.
+ */
+#define TYPE_CHECKED_PRINTF_FORMAT(formatArg, varArgs) \
+  __attribute__((format(printf, formatArg, varArgs)))
+
+/*
+ * Mutex data type defined by pthreads.
+ */
+typedef pthread_mutex_t mutex;
 
 #endif

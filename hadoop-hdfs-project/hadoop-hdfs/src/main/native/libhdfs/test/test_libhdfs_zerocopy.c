@@ -19,11 +19,12 @@
 #include "expect.h"
 #include "hdfs.h"
 #include "native_mini_dfs.h"
-#include "platform_stdio.h"
+#include "platform.h"
 
 #include <errno.h>
 #include <inttypes.h>
 #include <unistd.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>

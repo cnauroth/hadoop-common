@@ -19,18 +19,11 @@
 #include "exception.h"
 #include "hdfs.h"
 #include "jni_helper.h"
-#include "platform_stdio.h"
+#include "platform.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-// Windows does not define EDQUOT and ESTALE in errno.h.  The closest equivalents
-// are these constants from WinSock.h.
-#ifdef _WIN32
-#include <WinSock.h>
-#define EDQUOT WSAEDQUOT
-#define ESTALE WSAESTALE
-#endif
 
 #define EXCEPTION_INFO_LEN (sizeof(gExceptionInfo)/sizeof(gExceptionInfo[0]))
 

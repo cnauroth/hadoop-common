@@ -18,10 +18,11 @@
 
 #include "hdfs.h" 
 #include "hdfs_test.h" 
-#include "platform_stdio.h"
+#include "platform.h"
 
 #include <inttypes.h>
 #include <jni.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>

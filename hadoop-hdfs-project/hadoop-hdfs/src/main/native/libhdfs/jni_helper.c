@@ -19,7 +19,7 @@
 #include "config.h"
 #include "exception.h"
 #include "jni_helper.h"
-#include "platform_stdio.h"
+#include "platform.h"
 #include "common/htable.h"
 #include "os/mutexes.h"
 #include "os/thread_local_storage.h"

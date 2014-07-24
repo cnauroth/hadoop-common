@@ -34,6 +34,8 @@
  * usually not what you want.)
  */
 
+#include "platform.h"
+
 #include <jni.h>
 #include <stdio.h>
 
