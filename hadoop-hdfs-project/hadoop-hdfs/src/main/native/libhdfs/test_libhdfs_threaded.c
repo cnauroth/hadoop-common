@@ -63,7 +63,7 @@ static int hdfsSingleNameNodeConnect(struct NativeMiniDfsCluster *cl, hdfsFS *fs
         return -ENOMEM;
     hdfsBuilderSetForceNewInstance(bld);
     hdfsBuilderSetNameNode(bld, "localhost");
-    hdfsBuilderSetNameNodePort(bld, port);
+    hdfsBuilderSetNameNodePort(bld, (tPort)port);
     hdfsBuilderConfSetStr(bld, "dfs.block.size",
                           TO_STR(TLH_DEFAULT_BLOCK_SIZE));
     hdfsBuilderConfSetStr(bld, "dfs.blocksize",
@@ -161,7 +161,7 @@ static int doTestHdfsOperations(struct tlhThreadInfo *ti, hdfsFS fs,
     EXPECT_NONNULL(file);
 
     /* TODO: implement writeFully and use it here */
-    expected = strlen(paths->prefix);
+    expected = (int)strlen(paths->prefix);
     ret = hdfsWrite(fs, file, paths->prefix, expected);
     if (ret < 0) {
         ret = errno;
@@ -183,9 +183,9 @@ static int doTestHdfsOperations(struct tlhThreadInfo *ti, hdfsFS fs,
 
     EXPECT_ZERO(hdfsFileGetReadStatistics(file, &readStats));
     errno = 0;
-    EXPECT_ZERO(readStats->totalBytesRead);
-    EXPECT_ZERO(readStats->totalLocalBytesRead);
-    EXPECT_ZERO(readStats->totalShortCircuitBytesRead);
+    EXPECT_UINT64_EQ(UINT64_C(0), readStats->totalBytesRead);
+    EXPECT_UINT64_EQ(UINT64_C(0), readStats->totalLocalBytesRead);
+    EXPECT_UINT64_EQ(UINT64_C(0), readStats->totalShortCircuitBytesRead);
     hdfsFileFreeReadStatistics(readStats);
     /* TODO: implement readFully and use it here */
     ret = hdfsRead(fs, file, tmp, sizeof(tmp));
@@ -201,7 +201,7 @@ static int doTestHdfsOperations(struct tlhThreadInfo *ti, hdfsFS fs,
     }
     EXPECT_ZERO(hdfsFileGetReadStatistics(file, &readStats));
     errno = 0;
-    EXPECT_INT_EQ(expected, readStats->totalBytesRead);
+    EXPECT_UINT64_EQ((uint64_t)expected, readStats->totalBytesRead);
     hdfsFileFreeReadStatistics(readStats);
     EXPECT_ZERO(memcmp(paths->prefix, tmp, expected));
     EXPECT_ZERO(hdfsCloseFile(fs, file));
