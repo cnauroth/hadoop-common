@@ -23,6 +23,10 @@
 #include <pthread.h>
 #include <stdio.h>
 
+/*
+ * Define a helper structure and function that adapts function pointer provided
+ * by caller to the type required by pthread_create.
+ */
 struct threadProcedureBinding {
   threadProcedure bindingStart;
   void *bindingArg;

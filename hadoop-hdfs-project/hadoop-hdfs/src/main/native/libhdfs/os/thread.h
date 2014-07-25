@@ -25,10 +25,25 @@
 
 #include "platform.h"
 
+/** Pointer to function to run in thread. */
 typedef void (*threadProcedure)(void *);
 
+/**
+ * Creates and immediately starts a new thread.
+ *
+ * @param t thread to create
+ * @param start starting address of procedure to run in thread
+ * @param arg argument to pass to thread procedure
+ * @return 0 if successful, non-zero otherwise
+ */
 int threadCreate(thread *t, threadProcedure start, void *arg);
 
+/**
+ * Joins to the given thread, blocking if necessary.
+ *
+ * @param t thread to join
+ * @return 0 if successful, non-zero otherwise
+ */
 int threadJoin(thread *t);
 
 #endif

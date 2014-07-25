@@ -23,6 +23,10 @@
 
 #include "os/thread.h"
 
+/*
+ * Define a helper structure and function that adapts function pointer provided
+ * by caller to the type required by CreateThread.
+ */
 struct threadProcedureBinding {
   threadProcedure bindingStart;
   LPVOID bindingArg;
