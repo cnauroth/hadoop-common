@@ -59,14 +59,14 @@
  * the preprocessor does support variadic macros, even though they weren't
  * defined until C99.
  */
-#define snprintf(a, b, c, ...) \
-  _snprintf_s((a), (b), _TRUNCATE, (c), __VA_ARGS__)
-#define strncpy(a, b, c) \
-  strncpy_s((a), (c), (b), _TRUNCATE)
-#define strtok_r(a, b, c) \
-  strtok_s((a), (b), (c))
-#define vsnprintf(a, b, c, d) \
-  vsnprintf_s((a), (b), _TRUNCATE, (c), (d))
+#define snprintf(str, size, format, ...) \
+  _snprintf_s((str), (size), _TRUNCATE, (format), __VA_ARGS__)
+#define strncpy(dest, src, n) \
+  strncpy_s((dest), (n), (src), _TRUNCATE)
+#define strtok_r(str, delim, saveptr) \
+  strtok_s((str), (delim), (saveptr))
+#define vsnprintf(str, size, format, ...) \
+  vsnprintf_s((str), (size), _TRUNCATE, (format), __VA_ARGS__)
 
 /*
  * Mutex data type defined as Windows CRITICAL_SECTION.

@@ -26,5 +26,5 @@
 #include <process.h>
 #include <windows.h>
 
-#define sleep(x) Sleep((x))
+#define sleep(x) Sleep((x * 1000))
 #endif
