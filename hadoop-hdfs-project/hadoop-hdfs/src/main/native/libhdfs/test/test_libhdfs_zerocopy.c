@@ -209,7 +209,7 @@ int main(void)
     int port;
     struct NativeMiniDfsConf conf = {
         1, /* doFormat */
-        1  /* configureShortCircuit */
+        1, /* configureShortCircuit */
     };
     char testFileName[TEST_FILE_NAME_LENGTH];
     hdfsFS fs;

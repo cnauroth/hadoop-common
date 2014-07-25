@@ -301,7 +301,7 @@ int main(void)
     const char *tlhNumThreadsStr;
     struct tlhThreadInfo ti[TLH_MAX_THREADS];
     struct NativeMiniDfsConf conf = {
-        1 /* doFormat */
+        1, /* doFormat */
     };
 
     tlhNumThreadsStr = getenv("TLH_NUM_THREADS");
