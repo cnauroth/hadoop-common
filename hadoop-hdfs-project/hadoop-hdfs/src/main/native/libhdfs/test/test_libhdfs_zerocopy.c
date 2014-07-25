@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <unistd.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -114,8 +115,9 @@ static int doTestZeroCopyReads(hdfsFS fs, const char *fileName)
     EXPECT_NONNULL(block);
     EXPECT_ZERO(memcmp(block, hadoopRzBufferGet(buffer), SMALL_READ_LEN));
     hadoopRzBufferFree(file, buffer);
-    EXPECT_INT64_EQ(TEST_ZEROCOPY_FULL_BLOCK_SIZE + SMALL_READ_LEN,
-                    hdfsTell(fs, file));
+    EXPECT_INT64_EQ(
+          (int64_t)TEST_ZEROCOPY_FULL_BLOCK_SIZE + (int64_t)SMALL_READ_LEN,
+          hdfsTell(fs, file));
     EXPECT_ZERO(expectFileStats(file,
           TEST_ZEROCOPY_FULL_BLOCK_SIZE + SMALL_READ_LEN,
           TEST_ZEROCOPY_FULL_BLOCK_SIZE + SMALL_READ_LEN,
