@@ -25,10 +25,10 @@
 
 #include "platform.h"
 
-typedef void (*thread_procedure)(void *);
+typedef void (*threadProcedure)(void *);
 
-int thread_create(thread *t, thread_procedure start, void *arg);
+int threadCreate(thread *t, threadProcedure start, void *arg);
 
-int thread_join(thread *t);
+int threadJoin(thread *t);
 
 #endif

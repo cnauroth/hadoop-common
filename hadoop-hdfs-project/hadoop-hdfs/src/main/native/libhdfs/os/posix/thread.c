@@ -23,33 +23,33 @@
 #include <pthread.h>
 #include <stdio.h>
 
-struct thread_procedure_binding {
-  thread_procedure binding_start;
-  void *binding_arg;
+struct threadProcedureBinding {
+  threadProcedure bindingStart;
+  void *bindingArg;
 };
 
-static void* run_procedure(void *binding) {
-  struct thread_procedure_binding *run_binding = binding;
-  run_binding->binding_start(run_binding->binding_arg);
+static void* runProcedure(void *binding) {
+  struct threadProcedureBinding *runBinding = binding;
+  runBinding->bindingStart(runBinding->bindingArg);
   return NULL;
 }
 
-int thread_create(thread *t, thread_procedure start, void *arg) {
+int threadCreate(thread *t, threadProcedure start, void *arg) {
   int ret;
-  struct thread_procedure_binding binding;
-  binding.binding_start = start;
-  binding.binding_arg = arg;
-  ret = pthread_create(t, NULL, run_procedure, &binding);
+  struct threadProcedureBinding binding;
+  binding.bindingStart = start;
+  binding.bindingArg = arg;
+  ret = pthread_create(t, NULL, runProcedure, &binding);
   if (ret) {
-    fprintf(stderr, "thread_create: pthread_create failed with error %d\n", ret);
+    fprintf(stderr, "threadCreate: pthread_create failed with error %d\n", ret);
   }
   return ret;
 }
 
-int thread_join(thread *t) {
+int threadJoin(thread *t) {
   int ret = pthread_join(*t, NULL);
   if (ret) {
-    fprintf(stderr, "thread_join: pthread_join failed with error %d\n", ret);
+    fprintf(stderr, "threadJoin: pthread_join failed with error %d\n", ret);
   }
   return ret;
 }

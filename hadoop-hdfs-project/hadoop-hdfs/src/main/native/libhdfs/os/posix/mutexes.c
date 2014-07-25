@@ -26,19 +26,19 @@
 mutex hdfsHashMutex = PTHREAD_MUTEX_INITIALIZER;
 mutex jvmMutex = PTHREAD_MUTEX_INITIALIZER;
 
-int mutex_lock(mutex *m) {
+int mutexLock(mutex *m) {
   int ret = pthread_mutex_lock(m);
   if (ret) {
-    fprintf(stderr, "mutex_lock: pthread_mutex_lock failed with error %d\n",
+    fprintf(stderr, "mutexLock: pthread_mutex_lock failed with error %d\n",
       ret);
   }
   return ret;
 }
 
-int mutex_unlock(mutex *m) {
+int mutexUnlock(mutex *m) {
   int ret = pthread_mutex_unlock(m);
   if (ret) {
-    fprintf(stderr, "mutex_unlock: pthread_mutex_unlock failed with error %d\n",
+    fprintf(stderr, "mutexUnlock: pthread_mutex_unlock failed with error %d\n",
       ret);
   }
   return ret;

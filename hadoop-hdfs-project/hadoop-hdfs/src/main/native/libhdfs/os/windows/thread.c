@@ -23,45 +23,45 @@
 
 #include "os/thread.h"
 
-struct thread_procedure_binding {
-  thread_procedure binding_start;
-  LPVOID binding_arg;
+struct threadProcedureBinding {
+  threadProcedure bindingStart;
+  LPVOID bindingArg;
 };
 
-static DWORD run_procedure(LPVOID binding) {
-  struct thread_procedure_binding *run_binding = binding;
-  run_binding->binding_start(run_binding->binding_arg);
+static DWORD runProcedure(LPVOID binding) {
+  struct threadProcedureBinding *runBinding = binding;
+  runBinding->bindingStart(runBinding->bindingArg);
   return 0;
 }
 
-int thread_create(thread *t, thread_procedure start, void *arg) {
+int threadCreate(thread *t, threadProcedure start, void *arg) {
   DWORD ret = 0;
   HANDLE h;
-  struct thread_procedure_binding binding;
-  binding.binding_start = start;
-  binding.binding_arg = arg;
-  h = CreateThread(NULL, 0, run_procedure, &binding, 0, NULL);
+  struct threadProcedureBinding binding;
+  binding.bindingStart = start;
+  binding.bindingArg = arg;
+  h = CreateThread(NULL, 0, runProcedure, &binding, 0, NULL);
   if (h) {
     *t = h;
   } else {
     ret = GetLastError();
-    fprintf(stderr, "thread_create: CreateThread failed with error %d\n", ret);
+    fprintf(stderr, "threadCreate: CreateThread failed with error %d\n", ret);
   }
   return ret;
 }
 
-int thread_join(thread *t) {
+int threadJoin(thread *t) {
   DWORD ret = WaitForSingleObject(*t, INFINITE);
   switch (ret) {
   case WAIT_OBJECT_0:
     return ret;
   case WAIT_FAILED:
     ret = GetLastError();
-    fprintf(stderr, "thread_join: WaitForSingleObject failed with error %d\n",
+    fprintf(stderr, "threadJoin: WaitForSingleObject failed with error %d\n",
       ret);
     return ret;
   default:
-    fprintf(stderr, "thread_join: WaitForSingleObject unexpected error %d\n",
+    fprintf(stderr, "threadJoin: WaitForSingleObject unexpected error %d\n",
       ret);
     return ret;
   }

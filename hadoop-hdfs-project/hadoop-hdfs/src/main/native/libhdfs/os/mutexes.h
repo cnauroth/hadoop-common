@@ -42,7 +42,7 @@ extern mutex jvmMutex;
  * @param m mutex
  * @return 0 if successful, non-zero otherwise
  */
-int mutex_lock(mutex *m);
+int mutexLock(mutex *m);
 
 /**
  * Unlocks a mutex.
@@ -50,6 +50,6 @@ int mutex_lock(mutex *m);
  * @param m mutex
  * @return 0 if successful, non-zero otherwise
  */
-int mutex_unlock(mutex *m);
+int mutexUnlock(mutex *m);
 
 #endif

@@ -25,7 +25,7 @@
 /** Key that allows us to retrieve thread-local storage */
 static DWORD gTlsIndex = TLS_OUT_OF_INDEXES;
 
-static void detach_current_thread_from_jvm(JNIEnv *env)
+static void detachCurrentThreadFromJvm(JNIEnv *env)
 {
   JavaVM *vm;
   jint ret;
@@ -33,7 +33,7 @@ static void detach_current_thread_from_jvm(JNIEnv *env)
   ret = (*env)->GetJavaVM(env, &vm);
   if (ret) {
     fprintf(stderr,
-      "detach_current_thread_from_jvm: GetJavaVM failed with error %d\n",
+      "detachCurrentThreadFromJvm: GetJavaVM failed with error %d\n",
       ret);
     (*env)->ExceptionDescribe(env);
   } else {
@@ -50,36 +50,36 @@ static void detach_current_thread_from_jvm(JNIEnv *env)
  * Microsoft Portable Executable and Common Object File Format Specification:
  * http://msdn.microsoft.com/en-us/gg463119.aspx
  */
-static void NTAPI tls_callback(PVOID h, DWORD reason, PVOID pv)
+static void NTAPI tlsCallback(PVOID h, DWORD reason, PVOID pv)
 {
   switch (reason) {
   case DLL_PROCESS_ATTACH:
-    fprintf(stderr, "tls_callback: DLL_PROCESS_ATTACH\n");
+    fprintf(stderr, "tlsCallback: DLL_PROCESS_ATTACH\n");
     break;
   case DLL_THREAD_ATTACH:
-    fprintf(stderr, "tls_callback: DLL_THREAD_ATTACH\n");
+    fprintf(stderr, "tlsCallback: DLL_THREAD_ATTACH\n");
     break;
   case DLL_THREAD_DETACH:
-    fprintf(stderr, "tls_callback: DLL_THREAD_DETACH\n");
+    fprintf(stderr, "tlsCallback: DLL_THREAD_DETACH\n");
     break;
   case DLL_PROCESS_DETACH:
-    fprintf(stderr, "tls_callback: DLL_PROCESS_DETACH\n");
+    fprintf(stderr, "tlsCallback: DLL_PROCESS_DETACH\n");
     break;
   }
 }
 #pragma const_seg(".CRT$XLB")
 extern const PIMAGE_TLS_CALLBACK pTlsCallback;
-const PIMAGE_TLS_CALLBACK pTlsCallback = tls_callback;
+const PIMAGE_TLS_CALLBACK pTlsCallback = tlsCallback;
 #pragma const_seg()
 
-int thread_local_storage_get(JNIEnv **env)
+int threadLocalStorageGet(JNIEnv **env)
 {
   LPVOID tls;
   if (TLS_OUT_OF_INDEXES == gTlsIndex) {
     gTlsIndex = TlsAlloc();
     if (TLS_OUT_OF_INDEXES == gTlsIndex) {
       fprintf(stderr,
-        "thread_local_storage_get: TlsAlloc failed with error %d\n",
+        "threadLocalStorageGet: TlsAlloc failed with error %d\n",
         TLS_OUT_OF_INDEXES);
       return TLS_OUT_OF_INDEXES;
     }
@@ -91,22 +91,22 @@ int thread_local_storage_get(JNIEnv **env)
    * purely defensive.
    */
   if (!tls) {
-    fprintf(stderr, "thread_local_storage_get: TlsGetValue failed\n");
+    fprintf(stderr, "threadLocalStorageGet: TlsGetValue failed\n");
     return -1;
   }
   *env = tls;
   return 0;
 }
 
-int thread_local_storage_set(JNIEnv *env)
+int threadLocalStorageSet(JNIEnv *env)
 {
   DWORD ret = 0;
   if (!TlsSetValue(gTlsIndex, (LPVOID)env)) {
     ret = GetLastError();
     fprintf(stderr,
-      "thread_local_storage_set: TlsSetValue failed with error %d\n",
+      "threadLocalStorageSet: TlsSetValue failed with error %d\n",
       ret);
-    detach_current_thread_from_jvm(env);
+    detachCurrentThreadFromJvm(env);
   }
   return ret;
 }

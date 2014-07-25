@@ -62,7 +62,7 @@
  * @param env JNIEnv out parameter
  * @return 0 if successful, non-zero otherwise
  */
-int thread_local_storage_get(JNIEnv **env);
+int threadLocalStorageGet(JNIEnv **env);
 
 /**
  * Sets the JNIEnv in thread-local storage for the current thread.
@@ -70,6 +70,6 @@ int thread_local_storage_get(JNIEnv **env);
  * @param env JNIEnv to set
  * @return 0 if successful, non-zero otherwise
  */
-int thread_local_storage_set(JNIEnv *env);
+int threadLocalStorageSet(JNIEnv *env);
 
 #endif

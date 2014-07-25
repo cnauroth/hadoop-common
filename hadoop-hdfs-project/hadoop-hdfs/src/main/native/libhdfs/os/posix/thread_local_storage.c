@@ -50,14 +50,14 @@ static void hdfsThreadDestructor(void *v)
   }
 }
 
-int thread_local_storage_get(JNIEnv **env)
+int threadLocalStorageGet(JNIEnv **env)
 {
   int ret = 0;
   if (!gTlsKeyInitialized) {
     ret = pthread_key_create(&gTlsKey, hdfsThreadDestructor);
     if (ret) {
       fprintf(stderr,
-        "thread_local_storage_get: pthread_key_create failed with error %d\n",
+        "threadLocalStorageGet: pthread_key_create failed with error %d\n",
         ret);
       return ret;
     }
@@ -67,12 +67,12 @@ int thread_local_storage_get(JNIEnv **env)
   return ret;
 }
 
-int thread_local_storage_set(JNIEnv *env)
+int threadLocalStorageSet(JNIEnv *env)
 {
   int ret = pthread_setspecific(gTlsKey, env);
   if (ret) {
     fprintf(stderr,
-      "thread_local_storage_set: pthread_setspecific failed with error %d\n",
+      "threadLocalStorageSet: pthread_setspecific failed with error %d\n",
       ret);
     hdfsThreadDestructor(env);
   }

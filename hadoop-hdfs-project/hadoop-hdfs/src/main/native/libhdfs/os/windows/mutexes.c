@@ -40,20 +40,20 @@ mutex jvmMutex;
  * Initialization:
  * http://msdn.microsoft.com/en-us/library/bb918180.aspx
  */
-static void __cdecl initialize_mutexes(void) {
+static void __cdecl initializeMutexes(void) {
   InitializeCriticalSection(&hdfsHashMutex);
   InitializeCriticalSection(&jvmMutex);
 }
 #pragma section(".CRT$XCU", read)
 __declspec(allocate(".CRT$XCU"))
-void (__cdecl *pInitialize)(void) = initialize_mutexes;
+void (__cdecl *pInitialize)(void) = initializeMutexes;
 
-int mutex_lock(mutex *m) {
+int mutexLock(mutex *m) {
   EnterCriticalSection(m);
   return 0;
 }
 
-int mutex_unlock(mutex *m) {
+int mutexUnlock(mutex *m) {
   LeaveCriticalSection(m);
   return 0;
 }

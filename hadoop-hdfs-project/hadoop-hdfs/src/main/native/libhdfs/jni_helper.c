@@ -29,8 +29,8 @@
 
 static struct htable *gClassRefHTable = NULL;
 
-#define LOCK_HASH_TABLE() mutex_lock(&hdfsHashMutex)
-#define UNLOCK_HASH_TABLE() mutex_unlock(&hdfsHashMutex)
+#define LOCK_HASH_TABLE() mutexLock(&hdfsHashMutex)
+#define UNLOCK_HASH_TABLE() mutexUnlock(&hdfsHashMutex)
 
 
 /** The Native return types that methods could return */
@@ -534,23 +534,23 @@ JNIEnv* getJNIEnv(void)
 {
     JNIEnv *env;
     THREAD_LOCAL_STORAGE_GET_QUICK();
-    mutex_lock(&jvmMutex);
-    if (thread_local_storage_get(&env)) {
-      mutex_unlock(&jvmMutex);
+    mutexLock(&jvmMutex);
+    if (threadLocalStorageGet(&env)) {
+      mutexUnlock(&jvmMutex);
       return NULL;
     }
     if (env) {
-      mutex_unlock(&jvmMutex);
+      mutexUnlock(&jvmMutex);
       return env;
     }
 
     env = getGlobalJNIEnv();
-    mutex_unlock(&jvmMutex);
+    mutexUnlock(&jvmMutex);
     if (!env) {
       fprintf(stderr, "getJNIEnv: getGlobalJNIEnv failed\n");
       return NULL;
     }
-    if (thread_local_storage_set(env)) {
+    if (threadLocalStorageSet(env)) {
       return NULL;
     }
     THREAD_LOCAL_STORAGE_SET_QUICK(env);
