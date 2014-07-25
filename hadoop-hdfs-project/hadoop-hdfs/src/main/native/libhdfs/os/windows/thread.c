@@ -23,9 +23,24 @@
 
 #include "os/thread.h"
 
-int thread_create(thread *t, void *(*start)(void *), void *arg) {
+struct thread_procedure_binding {
+  thread_procedure binding_start;
+  LPVOID binding_arg;
+};
+
+static DWORD run_procedure(LPVOID binding) {
+  struct thread_procedure_binding *run_binding = binding;
+  run_binding->binding_start(run_binding->binding_arg);
+  return 0;
+}
+
+int thread_create(thread *t, thread_procedure start, void *arg) {
   DWORD ret = 0;
-  HANDLE h = CreateThread(NULL, 0, start, arg, 0, NULL, 0);
+  HANDLE h;
+  struct thread_procedure_binding binding;
+  binding.binding_start = start;
+  binding.binding_arg = arg;
+  h = CreateThread(NULL, 0, run_procedure, &binding, 0, NULL);
   if (h) {
     *t = h;
   } else {

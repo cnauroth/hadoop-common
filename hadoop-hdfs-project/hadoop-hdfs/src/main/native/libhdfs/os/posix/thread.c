@@ -24,19 +24,22 @@
 #include <stdio.h>
 
 struct thread_procedure_binding {
-  thread_procedure start;
-  void *arg;
+  thread_procedure binding_start;
+  void *binding_arg;
 };
 
-static void* run_procedure(void *proc) {
-  struct thread_procedure_binding *run_proc = proc;
-  run_proc->start(run_proc->arg);
+static void* run_procedure(void *binding) {
+  struct thread_procedure_binding *run_binding = binding;
+  run_binding->binding_start(run_binding->binding_arg);
   return NULL;
 }
 
 int thread_create(thread *t, thread_procedure start, void *arg) {
-  struct thread_procedure_binding proc = { start, arg };
-  int ret = pthread_create(t, NULL, run_procedure, &proc);
+  int ret;
+  struct thread_procedure_binding binding;
+  binding.binding_start = start;
+  binding.binding_arg = arg;
+  ret = pthread_create(t, NULL, run_procedure, &binding);
   if (ret) {
     fprintf(stderr, "thread_create: pthread_create failed with error %d\n", ret);
   }
