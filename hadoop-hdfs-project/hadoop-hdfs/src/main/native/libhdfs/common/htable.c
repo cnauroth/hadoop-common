@@ -19,8 +19,10 @@
 #include "common/htable.h"
 
 #include <errno.h>
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 struct htable_pair {
     void *key;
