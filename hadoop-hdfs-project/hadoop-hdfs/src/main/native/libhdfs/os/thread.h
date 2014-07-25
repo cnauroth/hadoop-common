@@ -25,7 +25,9 @@
 
 #include "platform.h"
 
-int thread_create(thread *t, void (*start)(void *), void *arg);
+typedef void (*thread_procedure)(void *);
+
+int thread_create(thread *t, thread_procedure start, void *arg);
 
 int thread_join(thread *t);
 
