@@ -28,7 +28,7 @@ struct thread_procedure_binding {
   void *arg;
 };
 
-static void* run_thread(void *proc) {
+static void* run_procedure(void *proc) {
   struct thread_procedure_binding *run_proc = proc;
   run_proc->start(run_proc->arg);
   return NULL;
@@ -36,7 +36,7 @@ static void* run_thread(void *proc) {
 
 int thread_create(thread *t, thread_procedure start, void *arg) {
   struct thread_procedure_binding proc = { start, arg };
-  int ret = pthread_create(t, NULL, run_thread, &proc);
+  int ret = pthread_create(t, NULL, run_procedure, &proc);
   if (ret) {
     fprintf(stderr, "thread_create: pthread_create failed with error %d\n", ret);
   }
