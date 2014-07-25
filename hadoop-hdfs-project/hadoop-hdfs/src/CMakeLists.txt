@@ -98,9 +98,12 @@ if (WIN32)
       /W4                         # Set warning level 4,
       /wd4100                     # but skip "unreferenced formal parameter",
       /wd4127                     # and "conditional expression is constant",
-      -D_CRT_NONSTDC_NO_DEPRECATE # and deprecated POSIX function warnings.
+      -D_CRT_NONSTDC_NO_DEPRECATE # and deprecated POSIX function warnings,
+      -D_CRT_SECURE_NO_WARNINGS   # and CRT non-secure function warnings.
       -DWIN32_LEAN_AND_MEAN       # Omit unneeded headers.
     )
+    # If we can convert usage of strerror, getenv and ctime to their secure CRT
+    # equivalents, then we can re-enable the CRT non-secure function warnings.
 else (WIN32)
     set(OS_INCLUDE main/native/libhdfs/os/posix)
     set(OS_SOURCES
