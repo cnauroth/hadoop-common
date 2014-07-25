@@ -26,12 +26,6 @@
 #include <pthread.h>
 
 /*
- * Use gcc type-checked format arguments.
- */
-#define TYPE_CHECKED_PRINTF_FORMAT(formatArg, varArgs) \
-  __attribute__((format(printf, formatArg, varArgs)))
-
-/*
  * Mutex and thread data types defined by pthreads.
  */
 typedef pthread_mutex_t mutex;

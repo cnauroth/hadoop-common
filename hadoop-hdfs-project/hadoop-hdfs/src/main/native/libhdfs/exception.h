@@ -34,8 +34,6 @@
  * usually not what you want.)
  */
 
-#include "platform.h"
-
 #include <jni.h>
 #include <stdio.h>
 
@@ -65,7 +63,7 @@
 #define NOPRINT_EXC_PARENT_NOT_DIRECTORY        0x08
 #define NOPRINT_EXC_ILLEGAL_ARGUMENT            0x10
 
-// Use gcc type-checked format arguments.  This is not supported on Windows.
+/* Use gcc type-checked format arguments.  This is not supported on Windows. */
 #ifdef _WIN32
 #define TYPE_CHECKED_PRINTF_FORMAT(formatArg, varArgs)
 #else
