@@ -16,11 +16,11 @@
  * limitations under the License.
  */
 
+#include "os/thread_local_storage.h"
+
 #include <jni.h>
 #include <pthread.h>
 #include <stdio.h>
-
-#include "os/thread_local_storage.h"
 
 /** Key that allows us to retrieve thread-local storage */
 static pthread_key_t gTlsKey;

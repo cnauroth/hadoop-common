@@ -23,9 +23,9 @@
  * boundaries.
  */
 
-#include <windows.h>
-
 #include "os/mutexes.h"
+
+#include <windows.h>
 
 mutex hdfsHashMutex;
 mutex jvmMutex;

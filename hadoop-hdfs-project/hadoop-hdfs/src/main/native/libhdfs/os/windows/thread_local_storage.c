@@ -16,11 +16,11 @@
  * limitations under the License.
  */
 
+#include "os/thread_local_storage.h"
+
 #include <jni.h>
 #include <stdio.h>
 #include <windows.h>
-
-#include "os/thread_local_storage.h"
 
 /** Key that allows us to retrieve thread-local storage */
 static DWORD gTlsIndex = TLS_OUT_OF_INDEXES;

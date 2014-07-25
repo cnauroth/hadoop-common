@@ -19,10 +19,10 @@
 #include "expect.h"
 #include "hdfs.h"
 #include "native_mini_dfs.h"
+#include "os/thread.h"
 
 #include <errno.h>
 #include <inttypes.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,8 +41,8 @@ struct tlhThreadInfo {
     int threadIdx;
     /** 0 = thread was successful; error code otherwise */
     int success;
-    /** pthread identifier */
-    pthread_t thread;
+    /** thread identifier */
+    thread theThread;
 };
 
 static int hdfsSingleNameNodeConnect(struct NativeMiniDfsCluster *cl, hdfsFS *fs,
@@ -259,12 +259,11 @@ static int testHdfsOperationsImpl(struct tlhThreadInfo *ti)
     return 0;
 }
 
-static void *testHdfsOperations(void *v)
+static void testHdfsOperations(void *v)
 {
     struct tlhThreadInfo *ti = (struct tlhThreadInfo*)v;
     int ret = testHdfsOperationsImpl(ti);
     ti->success = ret;
-    return NULL;
 }
 
 static int checkFailures(struct tlhThreadInfo *ti, int tlhNumThreads)
@@ -301,7 +300,7 @@ int main(void)
     const char *tlhNumThreadsStr;
     struct tlhThreadInfo ti[TLH_MAX_THREADS];
     struct NativeMiniDfsConf conf = {
-        .doFormat = 1,
+        1 /* doFormat */
     };
 
     tlhNumThreadsStr = getenv("TLH_NUM_THREADS");
@@ -325,11 +324,10 @@ int main(void)
     EXPECT_ZERO(nmdWaitClusterUp(tlhCluster));
 
     for (i = 0; i < tlhNumThreads; i++) {
-        EXPECT_ZERO(pthread_create(&ti[i].thread, NULL,
-            testHdfsOperations, &ti[i]));
+        EXPECT_ZERO(thread_create(&ti[i].theThread, testHdfsOperations, &ti[i]));
     }
     for (i = 0; i < tlhNumThreads; i++) {
-        EXPECT_ZERO(pthread_join(ti[i].thread, NULL));
+        EXPECT_ZERO(thread_join(&ti[i].theThread));
     }
 
     EXPECT_ZERO(nmdShutdown(tlhCluster));

@@ -32,8 +32,9 @@
   __attribute__((format(printf, formatArg, varArgs)))
 
 /*
- * Mutex data type defined by pthreads.
+ * Mutex and thread data types defined by pthreads.
  */
 typedef pthread_mutex_t mutex;
+typedef pthread_t thread;
 
 #endif

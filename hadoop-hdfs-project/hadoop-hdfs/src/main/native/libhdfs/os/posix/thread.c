@@ -16,30 +16,34 @@
  * limitations under the License.
  */
 
-/* POSIX implementation is a simple passthrough to pthreads mutexes. */
+/* POSIX implementation is a simple passthrough to pthreads threads. */
 
-#include "os/mutexes.h"
+#include "os/thread.h"
 
 #include <pthread.h>
 #include <stdio.h>
 
-mutex hdfsHashMutex = PTHREAD_MUTEX_INITIALIZER;
-mutex jvmMutex = PTHREAD_MUTEX_INITIALIZER;
+/*
+static void *thread_start(void *arg) {
+  thread_function start = (thread_function)arg;
+  (*start)(arg);
+  return NULL;
+}
 
-int mutex_lock(mutex *m) {
-  int ret = pthread_mutex_lock(m);
+int thread_create(thread *t, thread_function start, void *arg) {
+*/
+int thread_create(thread *t, void (*start)(void *), void *arg) {
+  int ret = pthread_create(t, NULL, start, arg);
   if (ret) {
-    fprintf(stderr, "mutex_lock: pthread_mutex_lock failed with error %d\n",
-      ret);
+    fprintf(stderr, "thread_create: pthread_create failed with error %d\n", ret);
   }
   return ret;
 }
 
-int mutex_unlock(mutex *m) {
-  int ret = pthread_mutex_unlock(m);
+int thread_join(thread *t) {
+  int ret = pthread_join(*t, NULL);
   if (ret) {
-    fprintf(stderr, "mutex_unlock: pthread_mutex_unlock failed with error %d\n",
-      ret);
+    fprintf(stderr, "thread_join: pthread_join failed with error %d\n", ret);
   }
   return ret;
 }

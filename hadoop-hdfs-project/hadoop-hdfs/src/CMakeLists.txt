@@ -91,6 +91,9 @@ if (WIN32)
         main/native/libhdfs/os/windows/mutexes.c
         main/native/libhdfs/os/windows/thread_local_storage.c
     )
+    set(OS_TEST_SOURCES
+        main/native/libhdfs/os/windows/thread.c
+    )
     add_definitions(
       /W4                         # Set warning level 4,
       /wd4100                     # but skip "unreferenced formal parameter",
@@ -103,6 +106,9 @@ else (WIN32)
     set(OS_SOURCES
         main/native/libhdfs/os/posix/mutexes.c
         main/native/libhdfs/os/posix/thread_local_storage.c
+    )
+    set(OS_TEST_SOURCES
+        main/native/libhdfs/os/posix/thread.c
     )
 endif (WIN32)
 
@@ -186,6 +192,7 @@ target_link_libraries(test_native_mini_dfs
 add_executable(test_libhdfs_threaded
     main/native/libhdfs/expect.c
     main/native/libhdfs/test_libhdfs_threaded.c
+    ${OS_TEST_SOURCES}
 )
 target_link_libraries(test_libhdfs_threaded
     hdfs

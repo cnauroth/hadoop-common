@@ -16,30 +16,38 @@
  * limitations under the License.
  */
 
-/* POSIX implementation is a simple passthrough to pthreads mutexes. */
+/* Windows implementation is a simple passthrough to Windows threads. */
 
-#include "os/mutexes.h"
-
-#include <pthread.h>
 #include <stdio.h>
+#include <windows.h>
 
-mutex hdfsHashMutex = PTHREAD_MUTEX_INITIALIZER;
-mutex jvmMutex = PTHREAD_MUTEX_INITIALIZER;
+#include "os/thread.h"
 
-int mutex_lock(mutex *m) {
-  int ret = pthread_mutex_lock(m);
-  if (ret) {
-    fprintf(stderr, "mutex_lock: pthread_mutex_lock failed with error %d\n",
-      ret);
+int thread_create(thread *t, void *(*start)(void *), void *arg) {
+  DWORD ret = 0;
+  HANDLE h = CreateThread(NULL, 0, start, arg, 0, NULL, 0);
+  if (h) {
+    *t = h;
+  } else {
+    ret = GetLastError();
+    fprintf(stderr, "thread_create: CreateThread failed with error %d\n", ret);
   }
   return ret;
 }
 
-int mutex_unlock(mutex *m) {
-  int ret = pthread_mutex_unlock(m);
-  if (ret) {
-    fprintf(stderr, "mutex_unlock: pthread_mutex_unlock failed with error %d\n",
+int thread_join(thread *t) {
+  DWORD ret = WaitForSingleObject(*t, INFINITE);
+  switch (ret) {
+  case WAIT_OBJECT_0:
+    return ret;
+  case WAIT_FAILED:
+    ret = GetLastError();
+    fprintf(stderr, "thread_join: WaitForSingleObject failed with error %d\n",
       ret);
+    return ret;
+  default:
+    fprintf(stderr, "thread_join: WaitForSingleObject unexpected error %d\n",
+      ret);
+    return ret;
   }
-  return ret;
 }

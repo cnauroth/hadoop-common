@@ -75,10 +75,13 @@
   vsnprintf_s((a), (b), _TRUNCATE, (c), (d))
 
 /*
- * Mutex data type defined as CRITICAL_SECTION, not a HANDLE to a Windows mutex.
- * We only need synchronization of multiple threads within the same process, not
- * synchronization across processes, so CRITICAL_SECTION is sufficient.
+ * Mutex data type defined as Windows CRITICAL_SECTION.
  */
 typedef CRITICAL_SECTION mutex;
+
+/*
+ * Thread data type defined as HANDLE to a Windows thread.
+ */
+typedef HANDLE thread;
 
 #endif
