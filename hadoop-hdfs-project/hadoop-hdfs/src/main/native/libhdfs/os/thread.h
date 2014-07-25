@@ -25,11 +25,6 @@
 
 #include "platform.h"
 
-/*
-typedef void (*thread_function)(void *arg);
-
-int thread_create(thread *t, thread_function start, void *arg);
-*/
 int thread_create(thread *t, void (*start)(void *), void *arg);
 
 int thread_join(thread *t);

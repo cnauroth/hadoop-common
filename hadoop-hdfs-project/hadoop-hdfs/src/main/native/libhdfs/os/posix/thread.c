@@ -23,17 +23,20 @@
 #include <pthread.h>
 #include <stdio.h>
 
-/*
-static void *thread_start(void *arg) {
-  thread_function start = (thread_function)arg;
-  (*start)(arg);
+struct thread_procedure {
+  void (*start)(void *);
+  void *arg;
+};
+
+static void* run_thread(void *proc) {
+  struct thread_procedure *runProc = proc;
+  runProc->start(runProc->arg);
   return NULL;
 }
 
-int thread_create(thread *t, thread_function start, void *arg) {
-*/
 int thread_create(thread *t, void (*start)(void *), void *arg) {
-  int ret = pthread_create(t, NULL, start, arg);
+  struct thread_procedure proc = { start, arg };
+  int ret = pthread_create(t, NULL, run_thread, &proc);
   if (ret) {
     fprintf(stderr, "thread_create: pthread_create failed with error %d\n", ret);
   }
