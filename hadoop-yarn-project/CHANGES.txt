@@ -68,6 +68,9 @@ Release 2.6.0 - UNRELEASED
     YARN-2214. FairScheduler: preemptContainerPreCheck() in FSParentQueue delays 
     convergence towards fairness. (Ashwin Shankar via kasha)
 
+    YARN-2211. Persist AMRMToken master key in RMStateStore for RM recovery.
+    (Xuan Gong via jianhe)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -102,6 +105,8 @@ Release 2.6.0 - UNRELEASED
 
     YARN-2147. client lacks delegation token exception details when
     application submit fails (Chen He via jlowe)
+
+    YARN-1796. container-executor shouldn't require o-r permissions (atm)
 
 Release 2.5.0 - UNRELEASED
 
@@ -440,6 +445,9 @@ Release 2.5.0 - UNRELEASED
     TestRMWebServicesDelegationTokens. (Wenwu Peng via zjshen)
 
     YARN-2335. Annotate all hadoop-sls APIs as @Private. (Wei Yan via kasha)
+
+    YARN-1726. ResourceSchedulerWrapper broken due to AbstractYarnScheduler. 
+    (Wei Yan via kasha)
 
 Release 2.4.1 - 2014-06-23 
 
