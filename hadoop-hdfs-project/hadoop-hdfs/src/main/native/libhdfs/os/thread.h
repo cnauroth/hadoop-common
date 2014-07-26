@@ -16,8 +16,8 @@
  * limitations under the License.
  */
 
-#ifndef LIBHDFS_MUTEXES_H
-#define LIBHDFS_MUTEXES_H
+#ifndef LIBHDFS_THREAD_H
+#define LIBHDFS_THREAD_H
 
 /*
  * Defines abstraction over platform-specific threads.
@@ -28,15 +28,20 @@
 /** Pointer to function to run in thread. */
 typedef void (*threadProcedure)(void *);
 
+/** Structure containing a thread's ID, starting address and argument. */
+typedef struct {
+  threadId id;
+  threadProcedure start;
+  void *arg;
+} thread;
+
 /**
  * Creates and immediately starts a new thread.
  *
  * @param t thread to create
- * @param start starting address of procedure to run in thread
- * @param arg argument to pass to thread procedure
  * @return 0 if successful, non-zero otherwise
  */
-int threadCreate(thread *t, threadProcedure start, void *arg);
+int threadCreate(thread *t);
 
 /**
  * Joins to the given thread, blocking if necessary.
@@ -44,6 +49,6 @@ int threadCreate(thread *t, threadProcedure start, void *arg);
  * @param t thread to join
  * @return 0 if successful, non-zero otherwise
  */
-int threadJoin(thread *t);
+int threadJoin(const thread *t);
 
 #endif

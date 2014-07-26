@@ -325,7 +325,9 @@ int main(void)
     EXPECT_ZERO(nmdWaitClusterUp(tlhCluster));
 
     for (i = 0; i < tlhNumThreads; i++) {
-        EXPECT_ZERO(threadCreate(&ti[i].theThread, testHdfsOperations, &ti[i]));
+        ti[i].theThread.start = testHdfsOperations;
+        ti[i].theThread.arg = &ti[i];
+        EXPECT_ZERO(threadCreate(&ti[i].theThread));
     }
     for (i = 0; i < tlhNumThreads; i++) {
         EXPECT_ZERO(threadJoin(&ti[i].theThread));

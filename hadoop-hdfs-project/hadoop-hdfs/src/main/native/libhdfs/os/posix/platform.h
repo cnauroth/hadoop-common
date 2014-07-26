@@ -29,6 +29,6 @@
  * Mutex and thread data types defined by pthreads.
  */
 typedef pthread_mutex_t mutex;
-typedef pthread_t thread;
+typedef pthread_t threadId;
 
 #endif

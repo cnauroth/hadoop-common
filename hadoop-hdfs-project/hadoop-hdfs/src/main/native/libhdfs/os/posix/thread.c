@@ -16,42 +16,30 @@
  * limitations under the License.
  */
 
-/* POSIX implementation is a simple passthrough to pthreads threads. */
+/* POSIX implementation is a passthrough to pthreads. */
 
 #include "os/thread.h"
 
 #include <pthread.h>
 #include <stdio.h>
 
-/*
- * Define a helper structure and function that adapts function pointer provided
- * by caller to the type required by pthread_create.
- */
-struct threadProcedureBinding {
-  threadProcedure bindingStart;
-  void *bindingArg;
-};
-
-static void* runProcedure(void *binding) {
-  struct threadProcedureBinding *runBinding = binding;
-  runBinding->bindingStart(runBinding->bindingArg);
+static void* runThread(void *toRun) {
+  const thread *t = toRun;
+  t->start(t->arg);
   return NULL;
 }
 
-int threadCreate(thread *t, threadProcedure start, void *arg) {
+int threadCreate(thread *t) {
   int ret;
-  struct threadProcedureBinding binding;
-  binding.bindingStart = start;
-  binding.bindingArg = arg;
-  ret = pthread_create(t, NULL, runProcedure, &binding);
+  ret = pthread_create(&t->id, NULL, runThread, t);
   if (ret) {
     fprintf(stderr, "threadCreate: pthread_create failed with error %d\n", ret);
   }
   return ret;
 }
 
-int threadJoin(thread *t) {
-  int ret = pthread_join(*t, NULL);
+int threadJoin(const thread *t) {
+  int ret = pthread_join(t->id, NULL);
   if (ret) {
     fprintf(stderr, "threadJoin: pthread_join failed with error %d\n", ret);
   }
