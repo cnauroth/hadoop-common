@@ -55,14 +55,13 @@ static void detachCurrentThreadFromJvm()
  */
 static void NTAPI tlsCallback(PVOID h, DWORD reason, PVOID pv)
 {
-  JNIEnv *env;
   DWORD tlsIndex;
   switch (reason) {
   case DLL_THREAD_DETACH:
-    detachCurrentThreadFromJvm(env);
+    detachCurrentThreadFromJvm();
     break;
   case DLL_PROCESS_DETACH:
-    detachCurrentThreadFromJvm(env);
+    detachCurrentThreadFromJvm();
     tlsIndex = gTlsIndex;
     gTlsIndex = TLS_OUT_OF_INDEXES;
     if (!TlsFree(tlsIndex)) {
