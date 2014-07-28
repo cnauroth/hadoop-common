@@ -16,22 +16,14 @@
  * limitations under the License.
  */
 
-/*
- * Windows implementation utilizes critical sections.  A critical section (not
- * Windows mutex) is used, because libhdfs only needs synchronization of multiple
- * threads within a single process, not synchronization across process
- * boundaries.
- */
-
 #include "os/mutexes.h"
 
-#include <stdio.h>
 #include <windows.h>
 
 mutex hdfsHashMutex;
 mutex jvmMutex;
 
-/*
+/**
  * Unfortunately, there is no simple static initializer for a critical section.
  * Instead, the API requires calling InitializeCriticalSection.  Since libhdfs
  * lacks an explicit initialization function, there is no obvious existing place
@@ -42,7 +34,6 @@ mutex jvmMutex;
  * http://msdn.microsoft.com/en-us/library/bb918180.aspx
  */
 static void __cdecl initializeMutexes(void) {
-  fprintf(stderr, "cn initializeMutexes\n");
   InitializeCriticalSection(&hdfsHashMutex);
   InitializeCriticalSection(&jvmMutex);
 }

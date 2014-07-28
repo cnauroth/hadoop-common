@@ -19,12 +19,11 @@
 #ifndef LIBHDFS_UNISTD_H
 #define LIBHDFS_UNISTD_H
 
-/*
- * On Windows, the unistd.h header does not exist, so manually define what we
- * need.
- */
-#include <process.h>
+/* On Windows, unistd.h does not exist, so manually define what we need. */
+
+#include <process.h> /* Declares getpid(). */
 #include <windows.h>
 
-#define sleep(x) Sleep((x * 1000))
+/* Re-route sleep to Sleep, converting units from seconds to milliseconds. */
+#define sleep(seconds) Sleep((seconds) * 1000)
 #endif

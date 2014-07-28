@@ -19,10 +19,6 @@
 #ifndef LIBHDFS_PLATFORM_H
 #define LIBHDFS_PLATFORM_H
 
-/*
- * Platform-specific overrides for POSIX systems.
- */
-
 #include <pthread.h>
 
 /*

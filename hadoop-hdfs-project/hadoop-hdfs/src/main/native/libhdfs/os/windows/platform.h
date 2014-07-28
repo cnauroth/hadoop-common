@@ -19,10 +19,6 @@
 #ifndef LIBHDFS_PLATFORM_H
 #define LIBHDFS_PLATFORM_H
 
-/*
- * Platform-specific overrides for Windows.
- */
-
 #include <stdio.h>
 #include <windows.h>
 #include <winsock.h>
@@ -69,7 +65,10 @@
   vsnprintf_s((str), (size), _TRUNCATE, (format), __VA_ARGS__)
 
 /*
- * Mutex data type defined as Windows CRITICAL_SECTION.
+ * Mutex data type defined as Windows CRITICAL_SECTION.   A critical section (not
+ * Windows mutex) is used, because libhdfs only needs synchronization of multiple
+ * threads within a single process, not synchronization across process
+ * boundaries.
  */
 typedef CRITICAL_SECTION mutex;
 

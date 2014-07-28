@@ -25,6 +25,10 @@
 /** Key that allows us to retrieve thread-local storage */
 static DWORD gTlsIndex = TLS_OUT_OF_INDEXES;
 
+/**
+ * If the current thread has a JNIEnv in thread-local storage, then detaches the
+ * current thread from the JVM.
+ */
 static void detachCurrentThreadFromJvm()
 {
   JNIEnv *env = NULL;
@@ -44,7 +48,7 @@ static void detachCurrentThreadFromJvm()
   }
 }
 
-/*
+/**
  * Unlike pthreads, the Windows API does not seem to provide a convenient way to
  * hook a callback onto thread shutdown.  However, the Windows portable
  * executable format does define a concept of thread-local storage callbacks.
@@ -52,6 +56,14 @@ static void detachCurrentThreadFromJvm()
  * function in the segment for thread-local storage callbacks.  See page 85 of
  * Microsoft Portable Executable and Common Object File Format Specification:
  * http://msdn.microsoft.com/en-us/gg463119.aspx
+ * This technique only works for implicit linking (OS loads DLL on demand), not
+ * for explicit linking (user code calls LoadLibrary directly).  This effectively
+ * means that we have a known limitation: libhdfs may not work correctly if a
+ * Windows application attempts to use it via explicit linking.
+ *
+ * @param h module handle
+ * @param reason the reason for calling the callback
+ * @param pv reserved, unused
  */
 static void NTAPI tlsCallback(PVOID h, DWORD reason, PVOID pv)
 {
@@ -73,8 +85,30 @@ static void NTAPI tlsCallback(PVOID h, DWORD reason, PVOID pv)
     break;
   }
 }
+
+/*
+ * A variable named _tls_used contains the TLS directory, which contains a list
+ * of pointers to callback functions.  Normally, the linker won't retain this
+ * variable unless the executable has implicit thread-local variables, defined
+ * using the __declspec(thread) extended storage-class modifier.  libhdfs
+ * doesn't use __declspec(thread), and we have no guarantee that the executable
+ * linked to libhdfs will use __declspec(thread).  By forcing the linker to
+ * reference _tls_used, we guarantee that the binary retains the TLS directory.
+ * See Microsoft Visual Studio 10.0/VC/crt/src/tlssup.c .
+ */
 #pragma comment(linker, "/INCLUDE:_tls_used")
+
+/*
+ * We must retain a pointer to the callback function.  Force the linker to keep
+ * this symbol, even though it appears that nothing in our source code uses it.
+ */
 #pragma comment(linker, "/INCLUDE:pTlsCallback")
+
+/*
+ * Define constant pointer to our callback, and tell the linker to pin it into
+ * the TLS directory so that it receives thread callbacks.  Use external linkage
+ * to protect against the linker discarding the seemingly unused symbol.
+ */
 #pragma const_seg(".CRT$XLB")
 extern const PIMAGE_TLS_CALLBACK pTlsCallback;
 const PIMAGE_TLS_CALLBACK pTlsCallback = tlsCallback;

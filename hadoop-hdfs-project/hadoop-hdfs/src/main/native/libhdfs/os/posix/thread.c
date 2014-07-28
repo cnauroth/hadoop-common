@@ -16,16 +16,17 @@
  * limitations under the License.
  */
 
-/* POSIX implementation is a passthrough to pthreads. */
-
 #include "os/thread.h"
 
 #include <pthread.h>
 #include <stdio.h>
 
-/*
- * Define a helper function that adapts function pointer provided by caller to
+/**
+ * Defines a helper function that adapts function pointer provided by caller to
  * the type required by pthread_create.
+ *
+ * @param toRun thread to run
+ * @return void* result of running thread (always NULL)
  */
 static void* runThread(void *toRun) {
   const thread *t = toRun;

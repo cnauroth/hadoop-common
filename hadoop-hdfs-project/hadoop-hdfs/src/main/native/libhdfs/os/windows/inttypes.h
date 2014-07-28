@@ -19,10 +19,8 @@
 #ifndef LIBHDFS_INTTYPES_H
 #define LIBHDFS_INTTYPES_H
 
-/*
- * On Windows, the inttypes.h header does not exist, so manually define what we
- * need.
- */
+/* On Windows, inttypes.h does not exist, so manually define what we need. */
+
 #define PRId64 "I64d"
 #define PRIu64 "I64u"
 typedef unsigned __int64 uint64_t;

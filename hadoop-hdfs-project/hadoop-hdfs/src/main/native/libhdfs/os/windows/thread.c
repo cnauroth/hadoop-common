@@ -16,16 +16,17 @@
  * limitations under the License.
  */
 
-/* Windows implementation is a passthrough to Windows threads. */
-
 #include "os/thread.h"
 
 #include <stdio.h>
 #include <windows.h>
 
-/*
- * Define a helper function that adapts function pointer provided by caller to
+/**
+ * Defines a helper function that adapts function pointer provided by caller to
  * the type required by CreateThread.
+ *
+ * @param toRun thread to run
+ * @return DWORD result of running thread (always 0)
  */
 static DWORD runThread(LPVOID toRun) {
   const thread *t = toRun;
@@ -50,15 +51,16 @@ int threadJoin(const thread *t) {
   DWORD ret = WaitForSingleObject(t->id, INFINITE);
   switch (ret) {
   case WAIT_OBJECT_0:
-    return ret;
+    break;
   case WAIT_FAILED:
     ret = GetLastError();
     fprintf(stderr, "threadJoin: WaitForSingleObject failed with error %d\n",
       ret);
-    return ret;
+    break;
   default:
     fprintf(stderr, "threadJoin: WaitForSingleObject unexpected error %d\n",
       ret);
-    return ret;
+    break;
   }
+  return ret;
 }

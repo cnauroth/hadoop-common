@@ -16,8 +16,6 @@
  * limitations under the License.
  */
 
-/* POSIX implementation is a simple passthrough to pthreads mutexes. */
-
 #include "os/mutexes.h"
 
 #include <pthread.h>
