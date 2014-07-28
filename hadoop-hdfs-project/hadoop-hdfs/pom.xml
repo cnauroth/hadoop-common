@@ -433,6 +433,7 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
                       </sequential>
                     </macrodef>
                     <run-test test="test_libhdfs_threaded"/>
+                    <echo message="Skipping test_libhdfs_zerocopy"/>
                     <run-test test="test_native_mini_dfs"/>
                   </target>
                 </configuration>
@@ -488,13 +489,13 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
                         <echo message="Running @{test}"/>
                         <exec executable="${project.build.directory}/native/@{test}" failonerror="true" dir="${project.build.directory}/native/">
                           <env key="CLASSPATH" value="${test_classpath}:${compile_classpath}"/>
-                          <env key="HADOOP_HOME" value="${hadoop.common.build.dir}"/>
-                          <env key="PATH" value="${env.PATH};${hadoop.common.build.dir}/bin;${java.home}/jre/bin/server;${java.home}/bin/server"/>
+                          <env key="LD_LIBRARY_PATH" value="${env.LD_LIBRARY_PATH}:${project.build.directory}/native/target/usr/local/lib:${hadoop.common.build.dir}/native/target/usr/local/lib"/>
                         </exec>
                         <echo message="Finished @{test}"/>
                       </sequential>
                     </macrodef>
                     <run-test test="test_libhdfs_threaded"/>
+                    <run-test test="test_libhdfs_zerocopy"/>
                     <run-test test="test_native_mini_dfs"/>
                   </target>
                 </configuration>
