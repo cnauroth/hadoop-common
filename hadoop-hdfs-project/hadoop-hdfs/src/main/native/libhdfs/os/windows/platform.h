@@ -76,6 +76,6 @@ typedef CRITICAL_SECTION mutex;
 /*
  * Thread data type defined as HANDLE to a Windows thread.
  */
-typedef HANDLE thread;
+typedef HANDLE threadId;
 
 #endif

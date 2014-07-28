@@ -16,37 +16,29 @@
  * limitations under the License.
  */
 
-/* Windows implementation is a simple passthrough to Windows threads. */
+/* Windows implementation is a passthrough to Windows threads. */
+
+#include "os/thread.h"
 
 #include <stdio.h>
 #include <windows.h>
 
-#include "os/thread.h"
-
 /*
- * Define a helper structure and function that adapts function pointer provided
- * by caller to the type required by CreateThread.
+ * Define a helper function that adapts function pointer provided by caller to
+ * the type required by CreateThread.
  */
-struct threadProcedureBinding {
-  threadProcedure bindingStart;
-  LPVOID bindingArg;
-};
-
-static DWORD runProcedure(LPVOID binding) {
-  struct threadProcedureBinding *runBinding = binding;
-  runBinding->bindingStart(runBinding->bindingArg);
+static DWORD runThread(LPVOID toRun) {
+  const thread *t = toRun;
+  t->start(t->arg);
   return 0;
 }
 
-int threadCreate(thread *t, threadProcedure start, void *arg) {
+int threadCreate(thread *t) {
   DWORD ret = 0;
   HANDLE h;
-  struct threadProcedureBinding binding;
-  binding.bindingStart = start;
-  binding.bindingArg = arg;
-  h = CreateThread(NULL, 0, runProcedure, &binding, 0, NULL);
+  h = CreateThread(NULL, 0, runThread, t, 0, NULL);
   if (h) {
-    *t = h;
+    t->id = h;
   } else {
     ret = GetLastError();
     fprintf(stderr, "threadCreate: CreateThread failed with error %d\n", ret);
@@ -54,8 +46,8 @@ int threadCreate(thread *t, threadProcedure start, void *arg) {
   return ret;
 }
 
-int threadJoin(thread *t) {
-  DWORD ret = WaitForSingleObject(*t, INFINITE);
+int threadJoin(const thread *t) {
+  DWORD ret = WaitForSingleObject(t->id, INFINITE);
   switch (ret) {
   case WAIT_OBJECT_0:
     return ret;

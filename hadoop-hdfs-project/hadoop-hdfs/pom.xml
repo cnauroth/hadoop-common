@@ -414,19 +414,24 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
                 <phase>test</phase>
                 <goals><goal>run</goal></goals>
                 <configuration>
+                  <skip>${skipTests}</skip>
                   <target>
                     <property name="compile_classpath" refid="maven.compile.classpath"/>
                     <property name="test_classpath" refid="maven.test.classpath"/>
-                    <exec executable="sh" failonerror="true" dir="${project.build.directory}/native/">
-                      <arg value="-c"/>
-                      <arg value="[ x$SKIPTESTS = xtrue ] || ${project.build.directory}/native/test_libhdfs_threaded"/>
+                    <exec executable="cmd" failonerror="true" dir="${project.build.directory}/native/">
+                      <arg value="/c"/>
+                      <arg value="${project.build.directory}/native/Release/test_libhdfs_threaded"/>
                       <env key="CLASSPATH" value="${test_classpath}:${compile_classpath}"/>
+                      <env key="HADOOP_HOME" value="${hadoop.common.build.dir}"/>
+                      <env key="PATH" value="${env.PATH};${hadoop.common.build.dir}/bin;${java.home}/jre/bin/server;${java.home}/bin/server"/>
                       <env key="SKIPTESTS" value="${skipTests}"/>
                     </exec>
-                    <exec executable="sh" failonerror="true" dir="${project.build.directory}/native/">
-                        <arg value="-c"/>
-                        <arg value="[ x$SKIPTESTS = xtrue ] || ${project.build.directory}/native/test_native_mini_dfs"/>
+                    <exec executable="cmd" failonerror="true" dir="${project.build.directory}/native/">
+                      <arg value="/c"/>
+                      <arg value="${project.build.directory}/native/Release/test_native_mini_dfs"/>
                       <env key="CLASSPATH" value="${test_classpath}:${compile_classpath}"/>
+                      <env key="HADOOP_HOME" value="${hadoop.common.build.dir}"/>
+                      <env key="PATH" value="${env.PATH};${hadoop.common.build.dir}/bin;${java.home}/jre/bin/server;${java.home}/bin/server"/>
                       <env key="SKIPTESTS" value="${skipTests}"/>
                     </exec>
                   </target>

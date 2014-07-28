@@ -25,6 +25,7 @@
 
 #include "os/mutexes.h"
 
+#include <stdio.h>
 #include <windows.h>
 
 mutex hdfsHashMutex;
@@ -41,12 +42,13 @@ mutex jvmMutex;
  * http://msdn.microsoft.com/en-us/library/bb918180.aspx
  */
 static void __cdecl initializeMutexes(void) {
+  fprintf(stderr, "cn initializeMutexes\n");
   InitializeCriticalSection(&hdfsHashMutex);
   InitializeCriticalSection(&jvmMutex);
 }
 #pragma section(".CRT$XCU", read)
 __declspec(allocate(".CRT$XCU"))
-void (__cdecl *pInitialize)(void) = initializeMutexes;
+const void (__cdecl *pInitialize)(void) = initializeMutexes;
 
 int mutexLock(mutex *m) {
   EnterCriticalSection(m);

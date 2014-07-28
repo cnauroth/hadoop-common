@@ -25,11 +25,14 @@
 /** Key that allows us to retrieve thread-local storage */
 static DWORD gTlsIndex = TLS_OUT_OF_INDEXES;
 
-static void detachCurrentThreadFromJvm(JNIEnv *env)
+static void detachCurrentThreadFromJvm()
 {
+  JNIEnv *env = NULL;
   JavaVM *vm;
   jint ret;
-
+  if (threadLocalStorageGet(&env) || !env) {
+    return;
+  }
   ret = (*env)->GetJavaVM(env, &vm);
   if (ret) {
     fprintf(stderr,
@@ -52,21 +55,27 @@ static void detachCurrentThreadFromJvm(JNIEnv *env)
  */
 static void NTAPI tlsCallback(PVOID h, DWORD reason, PVOID pv)
 {
+  JNIEnv *env;
+  DWORD tlsIndex;
   switch (reason) {
-  case DLL_PROCESS_ATTACH:
-    fprintf(stderr, "tlsCallback: DLL_PROCESS_ATTACH\n");
-    break;
-  case DLL_THREAD_ATTACH:
-    fprintf(stderr, "tlsCallback: DLL_THREAD_ATTACH\n");
-    break;
   case DLL_THREAD_DETACH:
-    fprintf(stderr, "tlsCallback: DLL_THREAD_DETACH\n");
+    detachCurrentThreadFromJvm(env);
     break;
   case DLL_PROCESS_DETACH:
-    fprintf(stderr, "tlsCallback: DLL_PROCESS_DETACH\n");
+    detachCurrentThreadFromJvm(env);
+    tlsIndex = gTlsIndex;
+    gTlsIndex = TLS_OUT_OF_INDEXES;
+    if (!TlsFree(tlsIndex)) {
+      fprintf(stderr, "tlsCallback: TlsFree failed with error %d\n",
+        GetLastError());
+    }
+    break;
+  default:
     break;
   }
 }
+#pragma comment(linker, "/INCLUDE:_tls_used")
+#pragma comment(linker, "/INCLUDE:pTlsCallback")
 #pragma const_seg(".CRT$XLB")
 extern const PIMAGE_TLS_CALLBACK pTlsCallback;
 const PIMAGE_TLS_CALLBACK pTlsCallback = tlsCallback;
@@ -75,6 +84,7 @@ const PIMAGE_TLS_CALLBACK pTlsCallback = tlsCallback;
 int threadLocalStorageGet(JNIEnv **env)
 {
   LPVOID tls;
+  DWORD ret;
   if (TLS_OUT_OF_INDEXES == gTlsIndex) {
     gTlsIndex = TlsAlloc();
     if (TLS_OUT_OF_INDEXES == gTlsIndex) {
@@ -85,17 +95,26 @@ int threadLocalStorageGet(JNIEnv **env)
     }
   }
   tls = TlsGetValue(gTlsIndex);
-  /*
-   * According to documentation, TlsGetValue cannot fail as long as the index is
-   * a valid index from a successful TlsAlloc call.  This error handling is
-   * purely defensive.
-   */
-  if (!tls) {
-    fprintf(stderr, "threadLocalStorageGet: TlsGetValue failed\n");
-    return -1;
+  if (tls) {
+    *env = tls;
+    return 0;
+  } else {
+    ret = GetLastError();
+    if (ERROR_SUCCESS == ret) {
+      /* Thread-local storage contains NULL, because we haven't set it yet. */
+      *env = NULL;
+      return 0;
+    } else {
+      /*
+       * The API call failed.  According to documentation, TlsGetValue cannot
+       * fail as long as the index is a valid index from a successful TlsAlloc
+       * call.  This error handling is purely defensive.
+       */
+      fprintf(stderr,
+        "threadLocalStorageGet: TlsGetValue failed with error %d\n", ret);
+      return ret;
+    }
   }
-  *env = tls;
-  return 0;
 }
 
 int threadLocalStorageSet(JNIEnv *env)

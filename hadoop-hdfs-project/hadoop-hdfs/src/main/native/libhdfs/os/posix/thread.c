@@ -23,6 +23,10 @@
 #include <pthread.h>
 #include <stdio.h>
 
+/*
+ * Define a helper function that adapts function pointer provided by caller to
+ * the type required by pthread_create.
+ */
 static void* runThread(void *toRun) {
   const thread *t = toRun;
   t->start(t->arg);
