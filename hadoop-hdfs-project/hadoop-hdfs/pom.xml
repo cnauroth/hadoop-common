@@ -418,22 +418,22 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
                   <target>
                     <property name="compile_classpath" refid="maven.compile.classpath"/>
                     <property name="test_classpath" refid="maven.test.classpath"/>
-                    <exec executable="cmd" failonerror="true" dir="${project.build.directory}/native/">
-                      <arg value="/c"/>
-                      <arg value="${project.build.directory}/native/Release/test_libhdfs_threaded"/>
-                      <env key="CLASSPATH" value="${test_classpath}:${compile_classpath}"/>
-                      <env key="HADOOP_HOME" value="${hadoop.common.build.dir}"/>
-                      <env key="PATH" value="${env.PATH};${hadoop.common.build.dir}/bin;${java.home}/jre/bin/server;${java.home}/bin/server"/>
-                      <env key="SKIPTESTS" value="${skipTests}"/>
-                    </exec>
-                    <exec executable="cmd" failonerror="true" dir="${project.build.directory}/native/">
-                      <arg value="/c"/>
-                      <arg value="${project.build.directory}/native/Release/test_native_mini_dfs"/>
-                      <env key="CLASSPATH" value="${test_classpath}:${compile_classpath}"/>
-                      <env key="HADOOP_HOME" value="${hadoop.common.build.dir}"/>
-                      <env key="PATH" value="${env.PATH};${hadoop.common.build.dir}/bin;${java.home}/jre/bin/server;${java.home}/bin/server"/>
-                      <env key="SKIPTESTS" value="${skipTests}"/>
-                    </exec>
+                    <macrodef name="run-test">
+                      <attribute name="test"/>
+                      <sequential>
+                        <echo message="Running @{test}"/>
+                        <exec executable="${project.build.directory}/native/Release/@{test}" failonerror="true" dir="${project.build.directory}/native/">
+                          <env key="CLASSPATH" value="${test_classpath}:${compile_classpath}"/>
+                          <!-- HADOOP_HOME required to find winutils. -->
+                          <env key="HADOOP_HOME" value="${hadoop.common.build.dir}"/>
+                          <!-- Make sure hadoop.dll and jvm.dll are on PATH. -->
+                          <env key="PATH" value="${env.PATH};${hadoop.common.build.dir}/bin;${java.home}/jre/bin/server;${java.home}/bin/server"/>
+                        </exec>
+                        <echo message="Finished @{test}"/>
+                      </sequential>
+                    </macrodef>
+                    <run-test test="test_libhdfs_threaded"/>
+                    <run-test test="test_native_mini_dfs"/>
                   </target>
                 </configuration>
               </execution>
@@ -478,21 +478,24 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
                 <phase>test</phase>
                 <goals><goal>run</goal></goals>
                 <configuration>
+                  <skip>${skipTests}</skip>
                   <target>
                     <property name="compile_classpath" refid="maven.compile.classpath"/>
                     <property name="test_classpath" refid="maven.test.classpath"/>
-                    <exec executable="sh" failonerror="true" dir="${project.build.directory}/native/">
-                      <arg value="-c"/>
-                      <arg value="[ x$SKIPTESTS = xtrue ] || ${project.build.directory}/native/test_libhdfs_threaded"/>
-                      <env key="CLASSPATH" value="${test_classpath}:${compile_classpath}"/>
-                      <env key="SKIPTESTS" value="${skipTests}"/>
-                    </exec>
-                    <exec executable="sh" failonerror="true" dir="${project.build.directory}/native/">
-                        <arg value="-c"/>
-                        <arg value="[ x$SKIPTESTS = xtrue ] || ${project.build.directory}/native/test_native_mini_dfs"/>
-                      <env key="CLASSPATH" value="${test_classpath}:${compile_classpath}"/>
-                      <env key="SKIPTESTS" value="${skipTests}"/>
-                    </exec>
+                    <macrodef name="run-test">
+                      <attribute name="test"/>
+                      <sequential>
+                        <echo message="Running @{test}"/>
+                        <exec executable="${project.build.directory}/native/@{test}" failonerror="true" dir="${project.build.directory}/native/">
+                          <env key="CLASSPATH" value="${test_classpath}:${compile_classpath}"/>
+                          <env key="HADOOP_HOME" value="${hadoop.common.build.dir}"/>
+                          <env key="PATH" value="${env.PATH};${hadoop.common.build.dir}/bin;${java.home}/jre/bin/server;${java.home}/bin/server"/>
+                        </exec>
+                        <echo message="Finished @{test}"/>
+                      </sequential>
+                    </macrodef>
+                    <run-test test="test_libhdfs_threaded"/>
+                    <run-test test="test_native_mini_dfs"/>
                   </target>
                 </configuration>
               </execution>
