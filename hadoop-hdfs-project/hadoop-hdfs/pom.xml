@@ -489,6 +489,7 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
                         <echo message="Running @{test}"/>
                         <exec executable="${project.build.directory}/native/@{test}" failonerror="true" dir="${project.build.directory}/native/">
                           <env key="CLASSPATH" value="${test_classpath}:${compile_classpath}"/>
+                          <!-- Make sure libhadoop.so is on LD_LIBRARY_PATH. -->
                           <env key="LD_LIBRARY_PATH" value="${env.LD_LIBRARY_PATH}:${project.build.directory}/native/target/usr/local/lib:${hadoop.common.build.dir}/native/target/usr/local/lib"/>
                         </exec>
                         <echo message="Finished @{test}"/>
