@@ -47,13 +47,14 @@ import org.apache.hadoop.fs.shell.CommandFormat.UnknownOptionException;
 @InterfaceAudience.Private
 public final class Classpath {
   private static final String usage =
-    "classpath [--glob|--jar <path>|--help|-h] :\n"
-    + "  Prints the classpath required for Hadoop client applications.\n"
+    "classpath [--glob|--jar <path>|-h|--help] :\n"
+    + "  Prints the classpath needed to get the Hadoop jar and the required\n"
+    + "  libraries.\n"
     + "  Options:\n"
     + "\n"
-    + "  --glob       expand wildcards and environment variables\n"
+    + "  --glob       expand wildcards\n"
     + "  --jar <path> write classpath as manifest in jar named <path>\n"
-    + "  -h, --help   print this message\n";
+    + "  -h, --help   print help\n";
 
   /**
    * Main entry point.
