@@ -77,42 +77,33 @@ if (NOT GENERATED_JAVAH)
 endif (NOT GENERATED_JAVAH)
 
 if (WIN32)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -O2")
+    # Set warning level 4.
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4")
+
+    # Skip "unreferenced formal parameter".
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4100")
+
+    # Skip "conditional expression is constant".
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4127")
+
+    # Skip deprecated POSIX function warnings.
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CRT_NONSTDC_NO_DEPRECATE")
+
+    # Skip CRT non-secure function warnings.  If we can convert usage of
+    # strerror, getenv and ctime to their secure CRT equivalents, then we can
+    # re-enable the CRT non-secure function warnings.
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CRT_SECURE_NO_WARNINGS")
+
+    # Omit unneeded headers.
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DWIN32_LEAN_AND_MEAN")
+
+    set(OS_DIR main/native/libhdfs/os/windows)
 else (WIN32)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -Wall -O2")
-endif (WIN32)
-
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_REENTRANT -D_GNU_SOURCE")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64")
-
-if (WIN32)
-    set(OS_INCLUDE main/native/libhdfs/os/windows)
-    set(OS_SOURCES
-        main/native/libhdfs/os/windows/mutexes.c
-        main/native/libhdfs/os/windows/thread_local_storage.c
-    )
-    set(OS_TEST_SOURCES
-        main/native/libhdfs/os/windows/thread.c
-    )
-    add_definitions(
-      /W4                         # Set warning level 4,
-      /wd4100                     # but skip "unreferenced formal parameter",
-      /wd4127                     # and "conditional expression is constant",
-      -D_CRT_NONSTDC_NO_DEPRECATE # and deprecated POSIX function warnings,
-      -D_CRT_SECURE_NO_WARNINGS   # and CRT non-secure function warnings.
-      -DWIN32_LEAN_AND_MEAN       # Omit unneeded headers.
-    )
-    # If we can convert usage of strerror, getenv and ctime to their secure CRT
-    # equivalents, then we can re-enable the CRT non-secure function warnings.
-else (WIN32)
-    set(OS_INCLUDE main/native/libhdfs/os/posix)
-    set(OS_SOURCES
-        main/native/libhdfs/os/posix/mutexes.c
-        main/native/libhdfs/os/posix/thread_local_storage.c
-    )
-    set(OS_TEST_SOURCES
-        main/native/libhdfs/os/posix/thread.c
-    )
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_REENTRANT -D_GNU_SOURCE")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64")
+    set(OS_DIR main/native/libhdfs/os/posix)
+    set(OS_LINK_LIBRARIES pthread)
 endif (WIN32)
 
 include_directories(
@@ -122,7 +113,7 @@ include_directories(
     ${JNI_INCLUDE_DIRS}
     main/native
     main/native/libhdfs
-    ${OS_INCLUDE}
+    ${OS_DIR}
 )
 
 set(_FUSE_DFS_VERSION 0.1.0)
@@ -133,7 +124,8 @@ add_dual_library(hdfs
     main/native/libhdfs/jni_helper.c
     main/native/libhdfs/hdfs.c
     main/native/libhdfs/common/htable.c
-    ${OS_SOURCES}
+    ${OS_DIR}/mutexes.c
+    ${OS_DIR}/thread_local_storage.c
 )
 if (NEED_LINK_DL)
    set(LIB_DL dl)
@@ -142,12 +134,8 @@ endif(NEED_LINK_DL)
 target_link_dual_libraries(hdfs
     ${JAVA_JVM_LIBRARY}
     ${LIB_DL}
+    ${OS_LINK_LIBRARIES}
 )
-if (NOT WIN32)
-    target_link_dual_libraries(hdfs
-        pthread
-    )
-endif(NOT WIN32)
 
 dual_output_directory(hdfs target/usr/local/lib)
 set(LIBHDFS_VERSION "0.0.0")
@@ -195,17 +183,13 @@ target_link_libraries(test_native_mini_dfs
 add_executable(test_libhdfs_threaded
     main/native/libhdfs/expect.c
     main/native/libhdfs/test_libhdfs_threaded.c
-    ${OS_TEST_SOURCES}
+    ${OS_DIR}/thread.c
 )
 target_link_libraries(test_libhdfs_threaded
     hdfs
     native_mini_dfs
+    ${OS_LINK_LIBRARIES}
 )
-if (NOT WIN32)
-    target_link_libraries(test_libhdfs_threaded
-        pthread
-    )
-endif(NOT WIN32)
 
 add_executable(test_libhdfs_zerocopy
     main/native/libhdfs/expect.c
@@ -214,13 +198,11 @@ add_executable(test_libhdfs_zerocopy
 target_link_libraries(test_libhdfs_zerocopy
     hdfs
     native_mini_dfs
+    ${OS_LINK_LIBRARIES}
 )
-if (NOT WIN32)
-    target_link_libraries(test_libhdfs_zerocopy
-        pthread
-    )
-endif(NOT WIN32)
 
+# Skip vecsum on Windows.  This could be made to work in the future by
+# introducing an abstraction layer over the sys/mman.h functions.
 if (NOT WIN32)
     add_executable(test_libhdfs_vecsum
         main/native/libhdfs/test/vecsum.c
