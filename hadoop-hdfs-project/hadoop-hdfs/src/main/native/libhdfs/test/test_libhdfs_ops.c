@@ -276,11 +276,11 @@ int main(int argc, char **argv) {
         fprintf(stderr, "hdfsSetReplication: %s\n", ((result = hdfsSetReplication(fs, srcPath, 2)) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
 
-        fprintf(stderr, "hdfsGetWorkingDirectory: %s\n", ((resp = hdfsGetWorkingDirectory(fs, buffer2, sizeof(buffer2))) == 0 ? buffer2 : "Failed!"));
+        fprintf(stderr, "hdfsGetWorkingDirectory: %s\n", ((resp = hdfsGetWorkingDirectory(fs, buffer2, sizeof(buffer2))) != 0 ? buffer2 : "Failed!"));
         totalResult += (resp ? 0 : 1);
         fprintf(stderr, "hdfsSetWorkingDirectory: %s\n", ((result = hdfsSetWorkingDirectory(fs, slashTmp)) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
-        fprintf(stderr, "hdfsGetWorkingDirectory: %s\n", ((resp = hdfsGetWorkingDirectory(fs, buffer2, sizeof(buffer2))) == 0 ? buffer2 : "Failed!"));
+        fprintf(stderr, "hdfsGetWorkingDirectory: %s\n", ((resp = hdfsGetWorkingDirectory(fs, buffer2, sizeof(buffer2))) != 0 ? buffer2 : "Failed!"));
         totalResult += (resp ? 0 : 1);
 
         fprintf(stderr, "hdfsGetDefaultBlockSize: %ld\n", hdfsGetDefaultBlockSize(fs));
@@ -405,7 +405,7 @@ int main(int argc, char **argv) {
         totalResult += result;
         fprintf(stderr, "hdfsDelete: %s\n", ((result = hdfsDelete(lfs, dstPath, 1)) != 0 ? "Failed!" : "Success!"));
         totalResult += result;
-        fprintf(stderr, "hdfsExists: %s\n", ((result = hdfsExists(fs, newDirectory)) == 0 ? "Success!" : "Failed!"));
+        fprintf(stderr, "hdfsExists: %s\n", ((result = hdfsExists(fs, newDirectory)) != 0 ? "Success!" : "Failed!"));
         totalResult += (result ? 0 : 1);
     }
 
