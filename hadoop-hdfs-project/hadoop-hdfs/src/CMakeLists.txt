@@ -77,6 +77,8 @@ if (NOT GENERATED_JAVAH)
 endif (NOT GENERATED_JAVAH)
 
 if (WIN32)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /O2")
+
     # Set warning level 4.
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4")
 
