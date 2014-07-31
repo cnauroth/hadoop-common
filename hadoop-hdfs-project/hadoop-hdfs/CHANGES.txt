@@ -332,6 +332,12 @@ Release 2.6.0 - UNRELEASED
     HDFS-6778. The extended attributes javadoc should simply refer to the
     user docs. (clamb via wang)
 
+    HDFS-6570. add api that enables checking if a user has certain permissions on
+    a file. (Jitendra Pandey via cnauroth)
+
+    HDFS-6441. Add ability to exclude/include specific datanodes while
+    balancing. (Benoy Antony and Yu Li via Arpit Agarwal)
+
   OPTIMIZATIONS
 
     HDFS-6690. Deduplicate xattr names in memory. (wang)
@@ -952,6 +958,9 @@ Release 2.5.0 - UNRELEASED
 
     HDFS-6717. JIRA HDFS-5804 breaks default nfs-gateway behavior for unsecured config
     (brandonli)
+
+    HDFS-6768. Fix a few unit tests that use hard-coded port numbers. (Arpit
+    Agarwal)
 
   BREAKDOWN OF HDFS-2006 SUBTASKS AND RELATED JIRAS
 
