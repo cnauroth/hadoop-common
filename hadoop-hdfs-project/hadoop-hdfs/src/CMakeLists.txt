@@ -77,35 +77,37 @@ if (NOT GENERATED_JAVAH)
 endif (NOT GENERATED_JAVAH)
 
 if (WIN32)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /O2")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /O2")
 
     # Set warning level 4.
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4")
 
     # Skip "unreferenced formal parameter".
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4100")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4100")
 
     # Skip "conditional expression is constant".
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4127")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4127")
 
     # Skip deprecated POSIX function warnings.
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CRT_NONSTDC_NO_DEPRECATE")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CRT_NONSTDC_NO_DEPRECATE")
 
     # Skip CRT non-secure function warnings.  If we can convert usage of
     # strerror, getenv and ctime to their secure CRT equivalents, then we can
     # re-enable the CRT non-secure function warnings.
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CRT_SECURE_NO_WARNINGS")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CRT_SECURE_NO_WARNINGS")
 
     # Omit unneeded headers.
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DWIN32_LEAN_AND_MEAN")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DWIN32_LEAN_AND_MEAN")
 
     set(OS_DIR main/native/libhdfs/os/windows)
+    set(OUT_DIR target/bin)
 else (WIN32)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -Wall -O2")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_REENTRANT -D_GNU_SOURCE")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64")
     set(OS_DIR main/native/libhdfs/os/posix)
     set(OS_LINK_LIBRARIES pthread)
+    set(OUT_DIR target/usr/local/lib)
 endif (WIN32)
 
 include_directories(
@@ -139,7 +141,7 @@ target_link_dual_libraries(hdfs
     ${OS_LINK_LIBRARIES}
 )
 
-dual_output_directory(hdfs target/usr/local/lib)
+dual_output_directory(hdfs ${OUT_DIR})
 set(LIBHDFS_VERSION "0.0.0")
 set_target_properties(hdfs PROPERTIES
     SOVERSION ${LIBHDFS_VERSION})

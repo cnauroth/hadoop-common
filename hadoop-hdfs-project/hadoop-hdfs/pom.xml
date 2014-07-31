@@ -411,6 +411,10 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
                         failonerror="true">
                       <arg line="ALL_BUILD.vcxproj /nologo /p:Configuration=Release"/>
                     </exec>
+                    <!-- Copy for inclusion in distribution. -->
+                    <copy todir="${project.build.directory}/bin">
+                      <fileset dir="${project.build.directory}/native/target/bin/Release"/>
+                    </copy>
                   </target>
                 </configuration>
               </execution>
