@@ -130,6 +130,9 @@ Trunk (Unreleased)
     HDFS-6609. Use DirectorySnapshottableFeature to represent a snapshottable
     directory. (Jing Zhao via wheat9)
 
+    HDFS-6482. Use block ID-based block layout on datanodes (James Thomas via
+    Colin Patrick McCabe)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -183,9 +186,6 @@ Trunk (Unreleased)
     HDFS-3550. Fix raid javadoc warnings. (Jason Lowe via daryn)
 
     HDFS-3549. Fix dist tar build fails in hadoop-hdfs-raid project. (Jason Lowe via daryn)
-
-    HDFS-3482. hdfs balancer throws ArrayIndexOutOfBoundsException 
-    if option is specified without values. ( Madhukara Phatak via umamahesh) 
 
     HDFS-3614. Revert unused MiniDFSCluster constructor from HDFS-3049.
     (acmurthy via eli)
@@ -338,6 +338,23 @@ Release 2.6.0 - UNRELEASED
     HDFS-6441. Add ability to exclude/include specific datanodes while
     balancing. (Benoy Antony and Yu Li via Arpit Agarwal)
 
+    HDFS-6685. Balancer should preserve storage type of replicas.  (szetszwo)
+
+    HDFS-6798. Add test case for incorrect data node condition during
+    balancing. (Benoy Antony via Arpit Agarwal)
+
+    HDFS-6796. Improve the argument check during balancer command line parsing.
+    (Benoy Antony via szetszwo)
+
+    HDFS-6794. Update BlockManager methods to use DatanodeStorageInfo
+    where possible (Arpit Agarwal)
+
+    HDFS-6802. Some tests in TestDFSClientFailover are missing @Test
+    annotation. (Akira Ajisaka via wang)
+
+    HDFS-6788. Improve synchronization in BPOfferService with read write lock.
+    (Yongjun Zhang via wang)
+
   OPTIMIZATIONS
 
     HDFS-6690. Deduplicate xattr names in memory. (wang)
@@ -403,6 +420,12 @@ Release 2.6.0 - UNRELEASED
     HDFS-4629. Using com.sun.org.apache.xml.internal.serialize.* in
     XmlEditsVisitor.java is JVM vendor specific. Breaks IBM JAVA.
     (Amir Sanjar via stevel)
+
+    HDFS-3482. hdfs balancer throws ArrayIndexOutOfBoundsException 
+    if option is specified without values. ( Madhukara Phatak via umamahesh) 
+
+    HDFS-6797. DataNode logs wrong layoutversion during upgrade. (Benoy Antony
+    via Arpit Agarwal)
 
 Release 2.5.0 - UNRELEASED
 
