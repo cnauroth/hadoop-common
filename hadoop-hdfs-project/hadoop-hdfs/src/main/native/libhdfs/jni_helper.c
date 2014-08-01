@@ -275,7 +275,7 @@ jthrowable globalClassReference(const char *className, JNIEnv *env, jclass *out)
     jclass clazz = NULL;
     int ret;
 
-    mutex_lock(&hdfsHashMutex);
+    mutexLock(&hdfsHashMutex);
     if (!gClassRefHTable) {
         gClassRefHTable = htable_alloc(MAX_HASH_TABLE_ELEM, ht_hash_string,
             ht_compare_string);
@@ -308,7 +308,7 @@ jthrowable globalClassReference(const char *className, JNIEnv *env, jclass *out)
     *out = clazz;
     jthr = NULL;
 done:
-    mutex_unlock(&hdfsHashMutex);
+    mutexUnlock(&hdfsHashMutex);
     (*env)->DeleteLocalRef(env, local_clazz);
     if (jthr && clazz) {
         (*env)->DeleteGlobalRef(env, clazz);
