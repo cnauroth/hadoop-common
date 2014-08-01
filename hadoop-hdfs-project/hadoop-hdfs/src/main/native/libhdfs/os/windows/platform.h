@@ -50,6 +50,12 @@
 #endif
 
 /*
+ * gcc-style type-checked format arguments are not supported on Windows, so just
+ * stub this macro.
+ */
+#define TYPE_CHECKED_PRINTF_FORMAT(formatArg, varArgs)
+
+/*
  * Define macros for various string formatting functions not defined on Windows.
  * Where possible, we reroute to one of the secure CRT variants.  On Windows,
  * the preprocessor does support variadic macros, even though they weren't
