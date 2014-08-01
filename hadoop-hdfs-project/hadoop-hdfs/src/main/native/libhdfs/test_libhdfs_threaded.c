@@ -49,11 +49,12 @@ struct tlhThreadInfo {
 static int hdfsSingleNameNodeConnect(struct NativeMiniDfsCluster *cl, hdfsFS *fs,
                                      const char *username)
 {
-    int ret, port;
+    int ret;
+    tPort port;
     hdfsFS hdfs;
     struct hdfsBuilder *bld;
     
-    port = nmdGetNameNodePort(cl);
+    port = (tPort)nmdGetNameNodePort(cl);
     if (port < 0) {
         fprintf(stderr, "hdfsSingleNameNodeConnect: nmdGetNameNodePort "
                 "returned error %d\n", port);
@@ -64,7 +65,7 @@ static int hdfsSingleNameNodeConnect(struct NativeMiniDfsCluster *cl, hdfsFS *fs
         return -ENOMEM;
     hdfsBuilderSetForceNewInstance(bld);
     hdfsBuilderSetNameNode(bld, "localhost");
-    hdfsBuilderSetNameNodePort(bld, (tPort)port);
+    hdfsBuilderSetNameNodePort(bld, port);
     hdfsBuilderConfSetStr(bld, "dfs.block.size",
                           TO_STR(TLH_DEFAULT_BLOCK_SIZE));
     hdfsBuilderConfSetStr(bld, "dfs.blocksize",
