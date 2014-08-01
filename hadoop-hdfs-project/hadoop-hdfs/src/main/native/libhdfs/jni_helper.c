@@ -29,10 +29,6 @@
 
 static struct htable *gClassRefHTable = NULL;
 
-#define LOCK_HASH_TABLE() mutexLock(&hdfsHashMutex)
-#define UNLOCK_HASH_TABLE() mutexUnlock(&hdfsHashMutex)
-
-
 /** The Native return types that methods could return */
 #define JVOID         'V'
 #define JOBJECT       'L'
@@ -112,58 +108,16 @@ jthrowable newCStr(JNIEnv *env, jstring jstr, char **out)
 
 static int hashTableInit(void)
 {
+  if (!gClassRefHTable) {
+    gClassRefHTable = htable_alloc(MAX_HASH_TABLE_ELEM, ht_hash_string,
+      ht_compare_string);
     if (!gClassRefHTable) {
-        LOCK_HASH_TABLE();
-        if (!gClassRefHTable) {
-            gClassRefHTable = htable_alloc(MAX_HASH_TABLE_ELEM, ht_hash_string,
-              ht_compare_string);
-            if (!gClassRefHTable) {
-                fputs("error creating hashtable\n", stderr);
-                UNLOCK_HASH_TABLE();
-                return 0;
-            } 
-        }
-        UNLOCK_HASH_TABLE();
-    }
-    return 1;
+      fputs("error creating hashtable\n", stderr);
+      return 0;
+    } 
+  }
+  return 1;
 }
-
-
-static int insertEntryIntoTable(const char *key, void *data)
-{
-    int ret;
-    if (key == NULL || data == NULL) {
-        return 0;
-    }
-    if (! hashTableInit()) {
-      return -1;
-    }
-    LOCK_HASH_TABLE();
-    ret = htable_put(gClassRefHTable, (void*)key, data);
-    UNLOCK_HASH_TABLE();
-    if (ret) {
-        fprintf(stderr, "warn adding key (%s) to hash table, <%d>: %s\n",
-                key, ret, strerror(ret));
-    }  
-    return 0;
-}
-
-
-
-static void* searchEntryFromTable(const char *key)
-{
-    void *value;
-    if (key == NULL) {
-        return NULL;
-    }
-    hashTableInit();
-    LOCK_HASH_TABLE();
-    value = htable_get(gClassRefHTable, key);
-    UNLOCK_HASH_TABLE();
-    return value;
-}
-
-
 
 jthrowable invokeMethod(JNIEnv *env, jvalue *retval, MethType methType,
                  jobject instObj, const char *className,
@@ -316,25 +270,50 @@ jthrowable methodIdFromClass(const char *className, const char *methName,
 
 jthrowable globalClassReference(const char *className, JNIEnv *env, jclass *out)
 {
-    jclass clsLocalRef;
-    jclass cls = searchEntryFromTable(className);
-    if (cls) {
-        *out = cls;
-        return NULL;
+    jthrowable jthr = NULL;
+    jclass local_clazz = NULL;
+    jclass clazz = NULL;
+    int ret;
+
+    mutex_lock(&hdfsHashMutex);
+    if (!gClassRefHTable) {
+        gClassRefHTable = htable_alloc(MAX_HASH_TABLE_ELEM, ht_hash_string,
+            ht_compare_string);
+        if (!gClassRefHTable) {
+            jthr = newRuntimeError(env, "htable_alloc failed\n");
+            goto done;
+        }
     }
-    clsLocalRef = (*env)->FindClass(env,className);
-    if (clsLocalRef == NULL) {
-        return getPendingExceptionAndClear(env);
+    clazz = htable_get(gClassRefHTable, className);
+    if (clazz) {
+        *out = clazz;
+        goto done;
     }
-    cls = (*env)->NewGlobalRef(env, clsLocalRef);
-    if (cls == NULL) {
-        (*env)->DeleteLocalRef(env, clsLocalRef);
-        return getPendingExceptionAndClear(env);
+    local_clazz = (*env)->FindClass(env,className);
+    if (!local_clazz) {
+        jthr = getPendingExceptionAndClear(env);
+        goto done;
     }
-    (*env)->DeleteLocalRef(env, clsLocalRef);
-    insertEntryIntoTable(className, cls);
-    *out = cls;
-    return NULL;
+    clazz = (*env)->NewGlobalRef(env, local_clazz);
+    if (!clazz) {
+        jthr = getPendingExceptionAndClear(env);
+        goto done;
+    }
+    ret = htable_put(gClassRefHTable, (void*)className, clazz);
+    if (ret) {
+        jthr = newRuntimeError(env, "htable_put failed with error "
+                               "code %d\n", ret);
+        goto done;
+    }
+    *out = clazz;
+    jthr = NULL;
+done:
+    mutex_unlock(&hdfsHashMutex);
+    (*env)->DeleteLocalRef(env, local_clazz);
+    if (jthr && clazz) {
+        (*env)->DeleteGlobalRef(env, clazz);
+    }
+    return jthr;
 }
 
 jthrowable classNameOfObject(jobject jobj, JNIEnv *env, char **name)
