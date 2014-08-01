@@ -25,7 +25,7 @@
 
 int main(int argc, char **argv) {
     hdfsFS fs;
-    const char* writeFileName = argv[1];
+    const char *writeFileName = argv[1];
     off_t fileTotalSize = strtoul(argv[2], NULL, 10);
     long long tmpBufferSize = strtoul(argv[3], NULL, 10);
     tSize bufferSize;

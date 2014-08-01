@@ -23,7 +23,7 @@
 
 int main(int argc, char **argv) {
     hdfsFS fs;
-    const char* rfile = argv[1];
+    const char *rfile = argv[1];
     tSize bufferSize = strtoul(argv[3], NULL, 10);
     hdfsFile readFile;
     char* buffer;
