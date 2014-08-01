@@ -408,7 +408,7 @@ static JNIEnv* getGlobalJNIEnv(void)
     jint noVMs = 0;
     jthrowable jthr;
     char *hadoopClassPath;
-    char *hadoopClassPathVMArg = "-Djava.class.path=";
+    const char *hadoopClassPathVMArg = "-Djava.class.path=";
     size_t optHadoopClassPathLen;
     char *optHadoopClassPath;
     int noArgs = 1;
