@@ -443,7 +443,7 @@ void hdfsBuilderSetKerbTicketCachePath(struct hdfsBuilder *bld,
     bld->kerbTicketCachePath = kerbTicketCachePath;
 }
 
-hdfsFS hdfsConnect(const char* host, tPort port)
+hdfsFS hdfsConnect(const char *host, tPort port)
 {
     struct hdfsBuilder *bld = hdfsNewBuilder();
     if (!bld)
@@ -454,7 +454,7 @@ hdfsFS hdfsConnect(const char* host, tPort port)
 }
 
 /** Always return a new FileSystem handle */
-hdfsFS hdfsConnectNewInstance(const char* host, tPort port)
+hdfsFS hdfsConnectNewInstance(const char *host, tPort port)
 {
     struct hdfsBuilder *bld = hdfsNewBuilder();
     if (!bld)
@@ -465,7 +465,7 @@ hdfsFS hdfsConnectNewInstance(const char* host, tPort port)
     return hdfsBuilderConnect(bld);
 }
 
-hdfsFS hdfsConnectAsUser(const char* host, tPort port, const char *user)
+hdfsFS hdfsConnectAsUser(const char *host, tPort port, const char *user)
 {
     struct hdfsBuilder *bld = hdfsNewBuilder();
     if (!bld)
@@ -477,7 +477,7 @@ hdfsFS hdfsConnectAsUser(const char* host, tPort port, const char *user)
 }
 
 /** Always return a new FileSystem handle */
-hdfsFS hdfsConnectAsUserNewInstance(const char* host, tPort port,
+hdfsFS hdfsConnectAsUserNewInstance(const char *host, tPort port,
         const char *user)
 {
     struct hdfsBuilder *bld = hdfsNewBuilder();
@@ -796,7 +796,7 @@ static jthrowable getDefaultBlockSize(JNIEnv *env, jobject jFS,
     return NULL;
 }
 
-hdfsFile hdfsOpenFile(hdfsFS fs, const char* path, int flags, 
+hdfsFile hdfsOpenFile(hdfsFS fs, const char *path, int flags, 
                       int bufferSize, short replication, tSize blockSize)
 {
     /*
@@ -817,8 +817,8 @@ hdfsFile hdfsOpenFile(hdfsFS fs, const char* path, int flags,
     jshort jReplication = replication;
 
     /* The hadoop java api/signature */
-    const char* method = NULL;
-    const char* signature = NULL;
+    const char *method = NULL;
+    const char *signature = NULL;
 
     /* Get the JNIEnv* corresponding to current thread */
     JNIEnv* env = getJNIEnv();
@@ -1004,8 +1004,8 @@ int hdfsCloseFile(hdfsFS fs, hdfsFile file)
     //  file.close 
 
     //The interface whose 'close' method to be called
-    const char* interface;
-    const char* interfaceShortName;
+    const char *interface;
+    const char *interfaceShortName;
 
     //Caught exception
     jthrowable jthr;
@@ -1402,7 +1402,7 @@ tOffset hdfsTell(hdfsFS fs, hdfsFile f)
     //  pos = f.getPos();
 
     jobject jStream;
-    const char* interface;
+    const char *interface;
     jvalue jVal;
     jthrowable jthr;
 
@@ -1556,8 +1556,8 @@ int hdfsAvailable(hdfsFS fs, hdfsFile f)
     return jVal.i;
 }
 
-static int hdfsCopyImpl(hdfsFS srcFS, const char* src, hdfsFS dstFS,
-        const char* dst, jboolean deleteSource)
+static int hdfsCopyImpl(hdfsFS srcFS, const char *src, hdfsFS dstFS,
+        const char *dst, jboolean deleteSource)
 {
     //JAVA EQUIVALENT
     //  FileUtil#copy(srcFS, srcPath, dstFS, dstPath,
@@ -1632,17 +1632,17 @@ done:
     return 0;
 }
 
-int hdfsCopy(hdfsFS srcFS, const char* src, hdfsFS dstFS, const char* dst)
+int hdfsCopy(hdfsFS srcFS, const char *src, hdfsFS dstFS, const char *dst)
 {
     return hdfsCopyImpl(srcFS, src, dstFS, dst, 0);
 }
 
-int hdfsMove(hdfsFS srcFS, const char* src, hdfsFS dstFS, const char* dst)
+int hdfsMove(hdfsFS srcFS, const char *src, hdfsFS dstFS, const char *dst)
 {
     return hdfsCopyImpl(srcFS, src, dstFS, dst, 1);
 }
 
-int hdfsDelete(hdfsFS fs, const char* path, int recursive)
+int hdfsDelete(hdfsFS fs, const char *path, int recursive)
 {
     // JAVA EQUIVALENT:
     //  Path p = new Path(path);
@@ -1687,7 +1687,7 @@ int hdfsDelete(hdfsFS fs, const char* path, int recursive)
 
 
 
-int hdfsRename(hdfsFS fs, const char* oldPath, const char* newPath)
+int hdfsRename(hdfsFS fs, const char *oldPath, const char *newPath)
 {
     // JAVA EQUIVALENT:
     //  Path old = new Path(oldPath);
@@ -1824,7 +1824,7 @@ done:
 
 
 
-int hdfsSetWorkingDirectory(hdfsFS fs, const char* path)
+int hdfsSetWorkingDirectory(hdfsFS fs, const char *path)
 {
     // JAVA EQUIVALENT:
     //  fs.setWorkingDirectory(Path(path)); 
@@ -1865,7 +1865,7 @@ int hdfsSetWorkingDirectory(hdfsFS fs, const char* path)
 
 
 
-int hdfsCreateDirectory(hdfsFS fs, const char* path)
+int hdfsCreateDirectory(hdfsFS fs, const char *path)
 {
     // JAVA EQUIVALENT:
     //  fs.mkdirs(new Path(path));
@@ -1916,7 +1916,7 @@ int hdfsCreateDirectory(hdfsFS fs, const char* path)
 }
 
 
-int hdfsSetReplication(hdfsFS fs, const char* path, int16_t replication)
+int hdfsSetReplication(hdfsFS fs, const char *path, int16_t replication)
 {
     // JAVA EQUIVALENT:
     //  fs.setReplication(new Path(path), replication);
@@ -1962,7 +1962,7 @@ int hdfsSetReplication(hdfsFS fs, const char* path, int16_t replication)
     return 0;
 }
 
-int hdfsChown(hdfsFS fs, const char* path, const char *owner, const char *group)
+int hdfsChown(hdfsFS fs, const char *path, const char *owner, const char *group)
 {
     // JAVA EQUIVALENT:
     //  fs.setOwner(path, owner, group)
@@ -2031,7 +2031,7 @@ done:
     return 0;
 }
 
-int hdfsChmod(hdfsFS fs, const char* path, short mode)
+int hdfsChmod(hdfsFS fs, const char *path, short mode)
 {
     int ret;
     // JAVA EQUIVALENT:
@@ -2091,7 +2091,7 @@ done:
     return 0;
 }
 
-int hdfsUtime(hdfsFS fs, const char* path, tTime mtime, tTime atime)
+int hdfsUtime(hdfsFS fs, const char *path, tTime mtime, tTime atime)
 {
     // JAVA EQUIVALENT:
     //  fs.setTimes(src, mtime, atime)
@@ -2099,7 +2099,7 @@ int hdfsUtime(hdfsFS fs, const char* path, tTime mtime, tTime atime)
     jthrowable jthr;
     jobject jFS = (jobject)fs;
     jobject jPath;
-    const tTime NO_CHANGE = -1;
+    static const tTime NO_CHANGE = -1;
     jlong jmtime, jatime;
 
     //Get the JNIEnv* corresponding to current thread
@@ -2526,7 +2526,7 @@ void hadoopRzBufferFree(hdfsFile file, struct hadoopRzBuffer *buffer)
 }
 
 char***
-hdfsGetHosts(hdfsFS fs, const char* path, tOffset start, tOffset length)
+hdfsGetHosts(hdfsFS fs, const char *path, tOffset start, tOffset length)
 {
     // JAVA EQUIVALENT:
     //  fs.getFileBlockLoctions(new Path(path), start, length);
@@ -2850,8 +2850,8 @@ getFileInfoFromStat(JNIEnv *env, jobject jStat, hdfsFileInfo *fileInfo)
     jstring jGroupName = NULL;
     jobject jPermission = NULL;
     const char *cPathName;
-    const char* cUserName;
-    const char* cGroupName;
+    const char *cUserName;
+    const char *cGroupName;
 
     jthr = invokeMethod(env, &jVal, INSTANCE, jStat,
                      HADOOP_STAT, "isDir", "()Z");
@@ -3015,7 +3015,7 @@ getFileInfo(JNIEnv *env, jobject jFS, jobject jPath, hdfsFileInfo **fileInfo)
 
 
 
-hdfsFileInfo* hdfsListDirectory(hdfsFS fs, const char* path, int *numEntries)
+hdfsFileInfo* hdfsListDirectory(hdfsFS fs, const char *path, int *numEntries)
 {
     // JAVA EQUIVALENT:
     //  Path p(path);
@@ -3110,7 +3110,7 @@ done:
 
 
 
-hdfsFileInfo *hdfsGetPathInfo(hdfsFS fs, const char* path)
+hdfsFileInfo *hdfsGetPathInfo(hdfsFS fs, const char *path)
 {
     // JAVA EQUIVALENT:
     //  File f(path);
