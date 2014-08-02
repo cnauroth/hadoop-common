@@ -106,19 +106,6 @@ jthrowable newCStr(JNIEnv *env, jstring jstr, char **out)
     return NULL;
 }
 
-static int hashTableInit(void)
-{
-  if (!gClassRefHTable) {
-    gClassRefHTable = htable_alloc(MAX_HASH_TABLE_ELEM, ht_hash_string,
-      ht_compare_string);
-    if (!gClassRefHTable) {
-      fputs("error creating hashtable\n", stderr);
-      return 0;
-    } 
-  }
-  return 1;
-}
-
 jthrowable invokeMethod(JNIEnv *env, jvalue *retval, MethType methType,
                  jobject instObj, const char *className,
                  const char *methName, const char *methSignature, ...)
