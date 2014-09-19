@@ -394,10 +394,8 @@ public class Client {
     private IOException closeException; // close reason
     
     private final Object sendRpcRequestLock = new Object();
-    private final AtomicBoolean fallbackToSimpleAuth;
 
-    public Connection(ConnectionId remoteId, int serviceClass,
-        AtomicBoolean fallbackToSimpleAuth) throws IOException {
+    public Connection(ConnectionId remoteId, int serviceClass) throws IOException {
       this.remoteId = remoteId;
       this.server = remoteId.getAddress();
       if (server.isUnresolved()) {
@@ -425,7 +423,6 @@ public class Client {
       }
       this.pingInterval = remoteId.getPingInterval();
       this.serviceClass = serviceClass;
-      this.fallbackToSimpleAuth = fallbackToSimpleAuth;
       if (LOG.isDebugEnabled()) {
         LOG.debug("The ping interval is " + this.pingInterval + " ms.");
       }
@@ -690,7 +687,8 @@ public class Client {
      * a header to the server and starts
      * the connection thread that waits for responses.
      */
-    private synchronized void setupIOstreams() {
+    private synchronized void setupIOstreams(
+        AtomicBoolean fallbackToSimpleAuth) {
       if (socket != null || shouldCloseConnection.get()) {
         return;
       } 
@@ -1510,8 +1508,7 @@ public class Client {
       synchronized (connections) {
         connection = connections.get(remoteId);
         if (connection == null) {
-          connection = new Connection(remoteId, serviceClass,
-            fallbackToSimpleAuth);
+          connection = new Connection(remoteId, serviceClass);
           connections.put(remoteId, connection);
         }
       }
@@ -1521,7 +1518,7 @@ public class Client {
     //block above. The reason for that is if the server happens to be slow,
     //it will take longer to establish a connection and that will slow the
     //entire system down.
-    connection.setupIOstreams();
+    connection.setupIOstreams(fallbackToSimpleAuth);
     return connection;
   }
   
