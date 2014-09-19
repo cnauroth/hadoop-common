@@ -294,9 +294,8 @@ public class Client {
     }
   }
 
-  Call createCall(RPC.RpcKind rpcKind, Writable rpcRequest,
-      AtomicBoolean fallbackToSimpleAuth) {
-    return new Call(rpcKind, rpcRequest, fallbackToSimpleAuth);
+  Call createCall(RPC.RpcKind rpcKind, Writable rpcRequest) {
+    return new Call(rpcKind, rpcRequest);
   }
 
   /** 
@@ -310,13 +309,10 @@ public class Client {
     IOException error;          // exception, null if success
     final RPC.RpcKind rpcKind;      // Rpc EngineKind
     boolean done;               // true when call is done
-    final AtomicBoolean fallbackToSimpleAuth;
 
-    private Call(RPC.RpcKind rpcKind, Writable param,
-        AtomicBoolean fallbackToSimpleAuth) {
+    private Call(RPC.RpcKind rpcKind, Writable param) {
       this.rpcKind = rpcKind;
       this.rpcRequest = param;
-      this.fallbackToSimpleAuth = fallbackToSimpleAuth;
 
       final Integer id = callId.get();
       if (id == null) {
@@ -398,8 +394,10 @@ public class Client {
     private IOException closeException; // close reason
     
     private final Object sendRpcRequestLock = new Object();
+    private final AtomicBoolean fallbackToSimpleAuth;
 
-    public Connection(ConnectionId remoteId, int serviceClass) throws IOException {
+    public Connection(ConnectionId remoteId, int serviceClass,
+        AtomicBoolean fallbackToSimpleAuth) throws IOException {
       this.remoteId = remoteId;
       this.server = remoteId.getAddress();
       if (server.isUnresolved()) {
@@ -427,6 +425,7 @@ public class Client {
       }
       this.pingInterval = remoteId.getPingInterval();
       this.serviceClass = serviceClass;
+      this.fallbackToSimpleAuth = fallbackToSimpleAuth;
       if (LOG.isDebugEnabled()) {
         LOG.debug("The ping interval is " + this.pingInterval + " ms.");
       }
@@ -691,8 +690,7 @@ public class Client {
      * a header to the server and starts
      * the connection thread that waits for responses.
      */
-    private synchronized void setupIOstreams(AtomicBoolean
-        fallbackToSimpleAuth) {
+    private synchronized void setupIOstreams() {
       if (socket != null || shouldCloseConnection.get()) {
         return;
       } 
@@ -1438,8 +1436,9 @@ public class Client {
   public Writable call(RPC.RpcKind rpcKind, Writable rpcRequest,
       ConnectionId remoteId, int serviceClass,
       AtomicBoolean fallbackToSimpleAuth) throws IOException {
-    final Call call = createCall(rpcKind, rpcRequest, fallbackToSimpleAuth);
-    Connection connection = getConnection(remoteId, call, serviceClass);
+    final Call call = createCall(rpcKind, rpcRequest);
+    Connection connection = getConnection(remoteId, call, serviceClass,
+      fallbackToSimpleAuth);
     try {
       connection.sendRpcRequest(call);                 // send the rpc request
     } catch (RejectedExecutionException e) {
@@ -1496,7 +1495,8 @@ public class Client {
   /** Get a connection from the pool, or create a new one and add it to the
    * pool.  Connections to a given ConnectionId are reused. */
   private Connection getConnection(ConnectionId remoteId,
-      Call call, int serviceClass) throws IOException {
+      Call call, int serviceClass, AtomicBoolean fallbackToSimpleAuth)
+      throws IOException {
     if (!running.get()) {
       // the client is stopped
       throw new IOException("The client is stopped");
@@ -1510,7 +1510,8 @@ public class Client {
       synchronized (connections) {
         connection = connections.get(remoteId);
         if (connection == null) {
-          connection = new Connection(remoteId, serviceClass);
+          connection = new Connection(remoteId, serviceClass,
+            fallbackToSimpleAuth);
           connections.put(remoteId, connection);
         }
       }
@@ -1520,7 +1521,7 @@ public class Client {
     //block above. The reason for that is if the server happens to be slow,
     //it will take longer to establish a connection and that will slow the
     //entire system down.
-    connection.setupIOstreams(call.fallbackToSimpleAuth);
+    connection.setupIOstreams();
     return connection;
   }
   

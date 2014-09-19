@@ -180,7 +180,6 @@ public class NameNodeProxies {
     } else {
       // HA case
       Conf config = new Conf(conf);
-      // TODO
       T proxy = (T) RetryProxy.create(xface, failoverProxyProvider,
           RetryPolicies.failoverOnNetworkException(
               RetryPolicies.TRY_ONCE_THEN_FAIL, config.maxFailoverAttempts,
@@ -243,7 +242,6 @@ public class NameNodeProxies {
       int maxRetryAttempts = config.getInt(
           DFS_CLIENT_RETRY_MAX_ATTEMPTS_KEY,
           DFS_CLIENT_RETRY_MAX_ATTEMPTS_DEFAULT);
-      // TODO
       InvocationHandler dummyHandler = new LossyRetryInvocationHandler<T>(
               numResponseToDrop, failoverProxyProvider,
               RetryPolicies.failoverOnNetworkException(
