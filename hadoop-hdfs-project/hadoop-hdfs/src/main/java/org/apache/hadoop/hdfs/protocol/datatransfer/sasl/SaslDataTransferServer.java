@@ -129,6 +129,8 @@ public class SaslDataTransferServer {
     } else {
       // The error message here intentionally does not mention
       // ignore.secure.ports.for.testing.  That's intended for dev use only.
+      // This code path is not expected to execute ever, because DataNode startup
+      // checks for invalid configuration and aborts.
       throw new IOException(String.format("Cannot create a secured " +
         "connection if DataNode listens on unprivileged port (%d) and no " +
         "protection is defined in configuration property %s.",

@@ -153,7 +153,7 @@ public class NameNodeProxies {
    * Creates the namenode proxy with the passed protocol. This will handle
    * creation of either HA- or non-HA-enabled proxy objects, depending upon
    * if the provided URI is a configured logical URI.
-   * 
+   *
    * @param conf the configuration containing the required IPC
    *        properties, client failover configurations, etc.
    * @param nameNodeUri the URI pointing either to a specific NameNode
@@ -292,7 +292,7 @@ public class NameNodeProxies {
   /**
    * Creates an explicitly non-HA-enabled proxy object. Most of the time you
    * don't want to use this, and should instead use {@link NameNodeProxies#createProxy}.
-   * 
+   *
    * @param conf the configuration object
    * @param nnAddr address of the remote NN to connect to
    * @param xface the IPC interface which should be created
