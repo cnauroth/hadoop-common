@@ -987,8 +987,10 @@ public class TestIPC {
     // Override client to store the call info and check response
     final Client client = new Client(LongWritable.class, conf) {
       @Override
-      Call createCall(RpcKind rpcKind, Writable rpcRequest) {
-        final Call call = super.createCall(rpcKind, rpcRequest);
+      Call createCall(RpcKind rpcKind, Writable rpcRequest,
+          AtomicBoolean fallbackToSimpleAuth) {
+        final Call call = super.createCall(rpcKind, rpcRequest,
+          fallbackToSimpleAuth);
         info.id = call.id;
         info.retry = call.retry;
         return call;

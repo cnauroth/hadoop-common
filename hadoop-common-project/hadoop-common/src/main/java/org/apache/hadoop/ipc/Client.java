@@ -294,8 +294,9 @@ public class Client {
     }
   }
 
-  Call createCall(RPC.RpcKind rpcKind, Writable rpcRequest) {
-    return new Call(rpcKind, rpcRequest);
+  Call createCall(RPC.RpcKind rpcKind, Writable rpcRequest,
+      AtomicBoolean fallbackToSimpleAuth) {
+    return new Call(rpcKind, rpcRequest, fallbackToSimpleAuth);
   }
 
   /** 
@@ -309,10 +310,13 @@ public class Client {
     IOException error;          // exception, null if success
     final RPC.RpcKind rpcKind;      // Rpc EngineKind
     boolean done;               // true when call is done
+    final AtomicBoolean fallbackToSimpleAuth;
 
-    private Call(RPC.RpcKind rpcKind, Writable param) {
+    private Call(RPC.RpcKind rpcKind, Writable param,
+        AtomicBoolean fallbackToSimpleAuth) {
       this.rpcKind = rpcKind;
       this.rpcRequest = param;
+      this.fallbackToSimpleAuth = fallbackToSimpleAuth;
 
       final Integer id = callId.get();
       if (id == null) {
@@ -687,7 +691,8 @@ public class Client {
      * a header to the server and starts
      * the connection thread that waits for responses.
      */
-    private synchronized void setupIOstreams() {
+    private synchronized void setupIOstreams(AtomicBoolean
+        fallbackToSimpleAuth) {
       if (socket != null || shouldCloseConnection.get()) {
         return;
       } 
@@ -738,11 +743,18 @@ public class Client {
               remoteId.saslQop =
                   (String)saslRpcClient.getNegotiatedProperty(Sasl.QOP);
               LOG.debug("Negotiated QOP is :" + remoteId.saslQop);
-            } else if (UserGroupInformation.isSecurityEnabled() &&
-                       !fallbackAllowed) {
-              throw new IOException("Server asks us to fall back to SIMPLE " +
-                  "auth, but this client is configured to only allow secure " +
-                  "connections.");
+              if (fallbackToSimpleAuth != null) {
+                fallbackToSimpleAuth.set(false);
+              }
+            } else if (UserGroupInformation.isSecurityEnabled()) {
+              if (!fallbackAllowed) {
+                throw new IOException("Server asks us to fall back to SIMPLE " +
+                    "auth, but this client is configured to only allow secure " +
+                    "connections.");
+              }
+              if (fallbackToSimpleAuth != null) {
+                fallbackToSimpleAuth.set(true);
+              }
             }
           }
         
@@ -1375,6 +1387,26 @@ public class Client {
   /** 
    * Make a call, passing <code>rpcRequest</code>, to the IPC server defined by
    * <code>remoteId</code>, returning the rpc respond.
+   *
+   * @param rpcKind
+   * @param rpcRequest -  contains serialized method and method parameters
+   * @param remoteId - the target rpc server
+   * @param fallbackToSimpleAuth - set to true or false during this method to
+   *   indicate if a secure client falls back to simple auth
+   * @returns the rpc response
+   * Throws exceptions if there are network problems or if the remote code
+   * threw an exception.
+   */
+  public Writable call(RPC.RpcKind rpcKind, Writable rpcRequest,
+      ConnectionId remoteId, AtomicBoolean fallbackToSimpleAuth)
+      throws IOException {
+    return call(rpcKind, rpcRequest, remoteId, RPC.RPC_SERVICE_CLASS_DEFAULT,
+      fallbackToSimpleAuth);
+  }
+
+  /**
+   * Make a call, passing <code>rpcRequest</code>, to the IPC server defined by
+   * <code>remoteId</code>, returning the rpc response.
    * 
    * @param rpcKind
    * @param rpcRequest -  contains serialized method and method parameters
@@ -1386,7 +1418,27 @@ public class Client {
    */
   public Writable call(RPC.RpcKind rpcKind, Writable rpcRequest,
       ConnectionId remoteId, int serviceClass) throws IOException {
-    final Call call = createCall(rpcKind, rpcRequest);
+    return call(rpcKind, rpcRequest, remoteId, serviceClass, null);
+  }
+
+  /**
+   * Make a call, passing <code>rpcRequest</code>, to the IPC server defined by
+   * <code>remoteId</code>, returning the rpc response.
+   *
+   * @param rpcKind
+   * @param rpcRequest -  contains serialized method and method parameters
+   * @param remoteId - the target rpc server
+   * @param serviceClass - service class for RPC
+   * @param fallbackToSimpleAuth - set to true or false during this method to
+   *   indicate if a secure client falls back to simple auth
+   * @returns the rpc response
+   * Throws exceptions if there are network problems or if the remote code
+   * threw an exception.
+   */
+  public Writable call(RPC.RpcKind rpcKind, Writable rpcRequest,
+      ConnectionId remoteId, int serviceClass,
+      AtomicBoolean fallbackToSimpleAuth) throws IOException {
+    final Call call = createCall(rpcKind, rpcRequest, fallbackToSimpleAuth);
     Connection connection = getConnection(remoteId, call, serviceClass);
     try {
       connection.sendRpcRequest(call);                 // send the rpc request
@@ -1468,7 +1520,7 @@ public class Client {
     //block above. The reason for that is if the server happens to be slow,
     //it will take longer to establish a connection and that will slow the
     //entire system down.
-    connection.setupIOstreams();
+    connection.setupIOstreams(call.fallbackToSimpleAuth);
     return connection;
   }
   
