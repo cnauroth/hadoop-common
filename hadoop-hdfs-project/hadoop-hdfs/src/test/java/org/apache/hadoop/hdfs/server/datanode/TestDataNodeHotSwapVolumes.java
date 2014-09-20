@@ -385,7 +385,8 @@ public class TestDataNodeHotSwapVolumes {
     String newDirs = oldDirs.iterator().next();  // Keep the first volume.
     dn.reconfigurePropertyImpl(
         DFSConfigKeys.DFS_DATANODE_DATA_DIR_KEY, newDirs);
-    assertFileLocksReleased(new ArrayList(oldDirs).subList(1, oldDirs.size()));
+    assertFileLocksReleased(
+      new ArrayList<String>(oldDirs).subList(1, oldDirs.size()));
     dn.scheduleAllBlockReport(0);
 
     try {
@@ -424,7 +425,8 @@ public class TestDataNodeHotSwapVolumes {
     String newDirs = oldDirs.iterator().next();  // Keep the first volume.
     dn.reconfigurePropertyImpl(
         DFSConfigKeys.DFS_DATANODE_DATA_DIR_KEY, newDirs);
-    assertFileLocksReleased(new ArrayList(oldDirs).subList(1, oldDirs.size()));
+    assertFileLocksReleased(
+      new ArrayList<String>(oldDirs).subList(1, oldDirs.size()));
 
     // Force DataNode to report missing blocks.
     dn.scheduleAllBlockReport(0);
