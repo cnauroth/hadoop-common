@@ -461,14 +461,19 @@ public class TestDataNodeHotSwapVolumes {
         lock = channel.tryLock();
         assertNotNull("Lock file at " + lockFile.getAbsolutePath() +
           " appears to be held by a different process.", lock);
+        assertNotNull(String.format(
+          "Lock file at %s appears to be held by a different process.",
+          lockFile.getAbsolutePath()), lock);
       } catch (OverlappingFileLockException e) {
-        fail("Must release lock file at " + lockFile.getAbsolutePath() + ".");
+        fail(String.format("Must release lock file at %s.",
+          lockFile.getAbsolutePath()));
       } finally {
         if (lock != null) {
           try {
             lock.release();
           } catch (IOException e) {
-            LOG.warn("I/O error releasing file lock.", e);
+            LOG.warn(String.format("I/O error releasing file lock %s.",
+              lockFile.getAbsolutePath()), e);
           }
         }
         IOUtils.cleanup(null, channel, raf);

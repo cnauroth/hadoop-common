@@ -378,8 +378,9 @@ public class DataStorage extends Storage {
         try {
           sd.unlock();
         } catch (IOException e) {
-          LOG.warn("I/O error attempting to unlock storage directory " +
-            sd.getRoot(), e);
+          LOG.warn(String.format(
+            "I/O error attempting to unlock storage directory %s.",
+            sd.getRoot()), e);
         }
       }
     }
