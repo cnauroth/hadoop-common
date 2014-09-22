@@ -355,10 +355,8 @@ public class DataStorage extends Storage {
   /**
    * Remove volumes from DataStorage.
    * @param locations a collection of volumes.
-   * @throws IOException if unlocking fails
    */
-  synchronized void removeVolumes(Collection<StorageLocation> locations)
-      throws IOException {
+  synchronized void removeVolumes(Collection<StorageLocation> locations) {
     if (locations.isEmpty()) {
       return;
     }
@@ -377,7 +375,12 @@ public class DataStorage extends Storage {
       StorageDirectory sd = it.next();
       if (dataDirs.contains(sd.getRoot())) {
         it.remove();
-        sd.unlock();
+        try {
+          sd.unlock();
+        } catch (IOException e) {
+          LOG.warn("I/O error attempting to unlock storage directory " +
+            sd.getRoot(), e);
+        }
       }
     }
   }
