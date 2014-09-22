@@ -459,8 +459,6 @@ public class TestDataNodeHotSwapVolumes {
         raf = new RandomAccessFile(lockFile, "rws");
         channel = raf.getChannel();
         lock = channel.tryLock();
-        assertNotNull("Lock file at " + lockFile.getAbsolutePath() +
-          " appears to be held by a different process.", lock);
         assertNotNull(String.format(
           "Lock file at %s appears to be held by a different process.",
           lockFile.getAbsolutePath()), lock);
