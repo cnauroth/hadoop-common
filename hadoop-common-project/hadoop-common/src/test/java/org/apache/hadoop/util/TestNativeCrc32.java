@@ -76,13 +76,82 @@ public class TestNativeCrc32 {
     bytesPerChecksum = conf.getInt(IO_BYTES_PER_CHECKSUM_KEY,
       IO_BYTES_PER_CHECKSUM_DEFAULT);
     fileName = this.getClass().getSimpleName();
-    data = ByteBuffer.allocateDirect(bytesPerChecksum * NUM_CHUNKS);
-    checksums = ByteBuffer.allocateDirect(NUM_CHUNKS * checksumType.size);
     checksum = DataChecksum.newDataChecksum(checksumType, bytesPerChecksum);
   }
 
   @Test
+  public void testVerifyChunkedSumsSuccess() throws ChecksumException {
+    allocateDirectByteBuffers();
+    fillDataAndValidChecksums();
+    NativeCrc32.verifyChunkedSums(bytesPerChecksum, checksumType.id,
+      checksums, data, fileName, BASE_POSITION);
+  }
+
+  @Test
+  public void testVerifyChunkedSumsFail() throws ChecksumException {
+    allocateDirectByteBuffers();
+    fillDataAndInvalidChecksums();
+    exception.expect(ChecksumException.class);
+    NativeCrc32.verifyChunkedSums(bytesPerChecksum, checksumType.id,
+      checksums, data, fileName, BASE_POSITION);
+  }
+
+  @Test
+  public void testVerifyChunkedSumsByteArraySuccess() throws ChecksumException {
+    allocateArrayByteBuffers();
+    fillDataAndValidChecksums();
+    NativeCrc32.verifyChunkedSumsByteArray(bytesPerChecksum, checksumType.id,
+      checksums.array(), checksums.position(), data.array(), data.position(),
+      data.remaining(), fileName, BASE_POSITION);
+  }
+
+  @Test
+  public void testVerifyChunkedSumsByteArrayFail() throws ChecksumException {
+    allocateArrayByteBuffers();
+    fillDataAndInvalidChecksums();
+    exception.expect(ChecksumException.class);
+    NativeCrc32.verifyChunkedSumsByteArray(bytesPerChecksum, checksumType.id,
+      checksums.array(), checksums.position(), data.array(), data.position(),
+      data.remaining(), fileName, BASE_POSITION);
+  }
+
+  @Test
+  public void testCalculateChunkedSumsSuccess() throws ChecksumException {
+    allocateDirectByteBuffers();
+    fillDataAndValidChecksums();
+    NativeCrc32.calculateChunkedSums(bytesPerChecksum, checksumType.id,
+      checksums, data);
+  }
+
+  @Test
+  public void testCalculateChunkedSumsFail() throws ChecksumException {
+    allocateDirectByteBuffers();
+    fillDataAndInvalidChecksums();
+    NativeCrc32.calculateChunkedSums(bytesPerChecksum, checksumType.id,
+      checksums, data);
+  }
+
+  @Test
+  public void testCalculateChunkedSumsByteArraySuccess() throws ChecksumException {
+    allocateArrayByteBuffers();
+    fillDataAndValidChecksums();
+    NativeCrc32.calculateChunkedSumsByteArray(bytesPerChecksum, checksumType.id,
+      checksums.array(), checksums.position(), data.array(), data.position(),
+      data.remaining());
+  }
+
+  @Test
+  public void testCalculateChunkedSumsByteArrayFail() throws ChecksumException {
+    allocateArrayByteBuffers();
+    fillDataAndInvalidChecksums();
+    NativeCrc32.calculateChunkedSumsByteArray(bytesPerChecksum, checksumType.id,
+      checksums.array(), checksums.position(), data.array(), data.position(),
+      data.remaining());
+  }
+
+  @Test
   public void testNativeVerifyChunkedSumsSuccess() throws ChecksumException {
+    allocateDirectByteBuffers();
     fillDataAndValidChecksums();
     NativeCrc32.nativeVerifyChunkedSums(bytesPerChecksum, checksumType.id,
       checksums, checksums.position(), data, data.position(), data.remaining(),
@@ -91,11 +160,28 @@ public class TestNativeCrc32 {
 
   @Test
   public void testNativeVerifyChunkedSumsFail() throws ChecksumException {
+    allocateDirectByteBuffers();
     fillDataAndInvalidChecksums();
     exception.expect(ChecksumException.class);
     NativeCrc32.nativeVerifyChunkedSums(bytesPerChecksum, checksumType.id,
       checksums, checksums.position(), data, data.position(), data.remaining(),
       fileName, BASE_POSITION);
+  }
+
+  /**
+   * Allocates data buffer and checksums buffer as arrays on the heap.
+   */
+  private void allocateArrayByteBuffers() {
+    data = ByteBuffer.wrap(new byte[bytesPerChecksum * NUM_CHUNKS]);
+    checksums = ByteBuffer.wrap(new byte[NUM_CHUNKS * checksumType.size]);
+  }
+
+  /**
+   * Allocates data buffer and checksums buffer as direct byte buffers.
+   */
+  private void allocateDirectByteBuffers() {
+    data = ByteBuffer.allocateDirect(bytesPerChecksum * NUM_CHUNKS);
+    checksums = ByteBuffer.allocateDirect(NUM_CHUNKS * checksumType.size);
   }
 
   /**
