@@ -479,6 +479,11 @@ public class TestFileJournalManager {
     }
   }
 
+  /**
+   * Tests that internal renames are done using native code on platforms that
+   * have it.  The native rename includes more detailed information about the
+   * failure, which can be useful for troubleshooting.
+   */
   @Test
   public void testDoPreUpgradeIOError() throws IOException {
     File storageDir = new File(TestEditLog.TEST_DIR, "preupgradeioerror");
@@ -486,6 +491,7 @@ public class TestFileJournalManager {
     NNStorage storage = setupEdits(editUris, 5);
     StorageDirectory sd = storage.dirIterator(NameNodeDirType.EDITS).next();
     assertNotNull(sd);
+    // Change storage directory so that renaming current to previous.tmp fails.
     FileUtil.setWritable(storageDir, false);
     FileJournalManager jm = null;
     try {
@@ -497,6 +503,7 @@ public class TestFileJournalManager {
       jm.doPreUpgrade();
     } finally {
       IOUtils.cleanup(LOG, jm);
+      // Restore permissions on storage directory and make sure we can delete.
       FileUtil.setWritable(storageDir, true);
       FileUtil.fullyDelete(storageDir);
     }
