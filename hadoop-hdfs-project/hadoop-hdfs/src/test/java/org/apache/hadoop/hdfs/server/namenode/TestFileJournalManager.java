@@ -43,7 +43,6 @@ import org.apache.hadoop.hdfs.server.namenode.JournalManager.CorruptionException
 import org.apache.hadoop.hdfs.server.namenode.NNStorage.NameNodeDirType;
 import org.apache.hadoop.hdfs.server.namenode.TestEditLog.AbortSpec;
 import org.apache.hadoop.io.IOUtils;
-import org.apache.hadoop.io.nativeio.NativeIOException;
 import org.apache.hadoop.util.NativeCodeLoader;
 import org.junit.Before;
 import org.junit.Rule;
@@ -491,8 +490,10 @@ public class TestFileJournalManager {
     FileJournalManager jm = null;
     try {
       jm = new FileJournalManager(conf, sd, storage);
-      exception.expect(NativeCodeLoader.isNativeCodeLoaded() ?
-        NativeIOException.class : IOException.class);
+      exception.expect(IOException.class);
+      if (NativeCodeLoader.isNativeCodeLoaded()) {
+        exception.expectMessage("failure in native rename");
+      }
       jm.doPreUpgrade();
     } catch (IOException e) {
       LOG.warn("testing I/O error", e);
