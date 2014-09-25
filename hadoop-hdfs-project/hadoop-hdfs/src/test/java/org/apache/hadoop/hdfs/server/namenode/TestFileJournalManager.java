@@ -490,7 +490,8 @@ public class TestFileJournalManager {
     File currentDir = sd.getCurrentDir();
     assertNotNull(currentDir);
     String currentDirPath = currentDir.getAbsolutePath();
-    FileUtil.chmod(currentDirPath, "000", false);
+    //FileUtil.chmod(currentDirPath, "000", false);
+    FileUtil.setWritable(storageDir, false);
     FileJournalManager jm = null;
     try {
       jm = new FileJournalManager(conf, sd, storage);
@@ -502,7 +503,8 @@ public class TestFileJournalManager {
       throw e;
     } finally {
       IOUtils.cleanup(LOG, jm);
-      FileUtil.chmod(currentDirPath, "755", false);
+      //FileUtil.chmod(currentDirPath, "755", false);
+      FileUtil.setWritable(storageDir, true);
       FileUtil.fullyDelete(storageDir);
     }
   }
