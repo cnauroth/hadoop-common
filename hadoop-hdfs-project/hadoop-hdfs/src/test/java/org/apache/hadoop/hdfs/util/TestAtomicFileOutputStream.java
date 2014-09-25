@@ -136,7 +136,7 @@ public class TestAtomicFileOutputStream {
       fos.write(TEST_STRING.getBytes());
       FileUtil.setWritable(TEST_DIR, false);
       exception.expect(IOException.class);
-      exception.expectMessage("Could not rename");
+      exception.expectMessage("failure in native rename");
       try {
         fos.close();
       } finally {

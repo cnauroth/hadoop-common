@@ -26,6 +26,8 @@ import java.io.IOException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.io.IOUtils;
+import org.apache.hadoop.io.nativeio.NativeIO;
+import org.apache.hadoop.io.nativeio.NativeIOException;
 
 /**
  * A FileOutputStream that has the property that it will only show
@@ -79,6 +81,13 @@ public class AtomicFileOutputStream extends FilterOutputStream {
           if (!tmpFile.renameTo(origFile)) {
             throw new IOException("Could not rename temporary file " +
                 tmpFile + " to " + origFile);
+          }
+          try {
+            NativeIO.renameTo(tmpFile, origFile);
+          } catch (NativeIOException e) {
+            throw new IOException("Could not rename temporary file " + tmpFile
+              + " to " + origFile + " due to failure in native rename."
+              + e.toString());
           }
         }
       } else {
