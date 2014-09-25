@@ -134,9 +134,9 @@ public class TestAtomicFileOutputStream {
     OutputStream fos = null;
     try {
       assertTrue(DST_FILE.createNewFile());
-      FileUtil.chmod(testDirPath, "000");
       fos = new AtomicFileOutputStream(DST_FILE);
       fos.write(TEST_STRING.getBytes());
+      FileUtil.chmod(testDirPath, "000");
       exception.expect(IOException.class);
       exception.expectMessage("Could not delete");
       try {
