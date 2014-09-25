@@ -26,6 +26,7 @@ import java.io.IOException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.io.IOUtils;
+import org.apache.hadoop.util.Shell;
 
 /**
  * A FileOutputStream that has the property that it will only show
@@ -73,9 +74,15 @@ public class AtomicFileOutputStream extends FilterOutputStream {
         boolean renamed = tmpFile.renameTo(origFile);
         if (!renamed) {
           // On windows, renameTo does not replace.
+          LOG.info("cn dumping perms on file");
+          LOG.info(execCommand(origFile, Shell.getGetPermissionCommand()));
+          LOG.info("cn dumping perms on folder");
+          LOG.info(execCommand(origFile.getParentFile(), Shell.getGetPermissionCommand()));
+          LOG.info("cn attempting delete, origFile exists = " + origFile.exists());
           if (origFile.exists() && !origFile.delete()) {
             throw new IOException("Could not delete original file " + origFile);
           }
+          LOG.info("cn attempting rename");
           if (!tmpFile.renameTo(origFile)) {
             throw new IOException("Could not rename temporary file " +
                 tmpFile + " to " + origFile);
@@ -92,6 +99,14 @@ public class AtomicFileOutputStream extends FilterOutputStream {
         }
       }
     }
+  }
+
+  static String execCommand(File f, String... cmd) throws IOException {
+    String[] args = new String[cmd.length + 1];
+    System.arraycopy(cmd, 0, args, 0, cmd.length);
+    args[cmd.length] = f.getCanonicalPath();
+    String output = Shell.execCommand(args);
+    return output;
   }
 
   /**
