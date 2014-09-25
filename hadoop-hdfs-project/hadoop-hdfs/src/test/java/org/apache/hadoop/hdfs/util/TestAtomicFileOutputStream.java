@@ -132,9 +132,10 @@ public class TestAtomicFileOutputStream {
     assumeTrue(Shell.WINDOWS);
     OutputStream fos = null;
     try {
+      assertTrue(DST_FILE.createNewFile());
+      FileUtil.setWritable(DST_FILE, false);
       fos = new AtomicFileOutputStream(DST_FILE);
       fos.write(TEST_STRING.getBytes());
-      FileUtil.setWritable(DST_FILE, false);
       exception.expect(IOException.class);
       exception.expectMessage("Could not delete");
       try {
@@ -144,7 +145,7 @@ public class TestAtomicFileOutputStream {
       }
     } finally {
       IOUtils.cleanup(null, fos);
-      FileUtil.setWritable(TEST_DIR, true);
+      FileUtil.setWritable(DST_FILE, true);
     }
   }
 
