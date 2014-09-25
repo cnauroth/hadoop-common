@@ -128,29 +128,6 @@ public class TestAtomicFileOutputStream {
   }
 
   @Test
-  public void testFailToDelete() throws IOException, InterruptedException {
-    assumeTrue(Shell.WINDOWS);
-    String testDirPath = TEST_DIR.getAbsolutePath();
-    OutputStream fos = null;
-    try {
-      assertTrue(DST_FILE.createNewFile());
-      fos = new AtomicFileOutputStream(DST_FILE);
-      fos.write(TEST_STRING.getBytes());
-      FileUtil.chmod(testDirPath, "000");
-      exception.expect(IOException.class);
-      exception.expectMessage("Could not delete");
-      try {
-        fos.close();
-      } finally {
-        fos = null;
-      }
-    } finally {
-      IOUtils.cleanup(null, fos);
-      FileUtil.chmod(testDirPath, "700");
-    }
-  }
-
-  @Test
   public void testFailToRename() throws IOException {
     assumeTrue(Shell.WINDOWS);
     OutputStream fos = null;
