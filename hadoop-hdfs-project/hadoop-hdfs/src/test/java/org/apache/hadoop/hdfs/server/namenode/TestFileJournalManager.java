@@ -495,9 +495,6 @@ public class TestFileJournalManager {
         exception.expectMessage("failure in native rename");
       }
       jm.doPreUpgrade();
-    } catch (IOException e) {
-      LOG.warn("testing I/O error", e);
-      throw e;
     } finally {
       IOUtils.cleanup(LOG, jm);
       FileUtil.setWritable(storageDir, true);
