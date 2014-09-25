@@ -78,10 +78,6 @@ public class AtomicFileOutputStream extends FilterOutputStream {
           if (origFile.exists() && !origFile.delete()) {
             throw new IOException("Could not delete original file " + origFile);
           }
-          if (!tmpFile.renameTo(origFile)) {
-            throw new IOException("Could not rename temporary file " +
-                tmpFile + " to " + origFile);
-          }
           try {
             NativeIO.renameTo(tmpFile, origFile);
           } catch (NativeIOException e) {
