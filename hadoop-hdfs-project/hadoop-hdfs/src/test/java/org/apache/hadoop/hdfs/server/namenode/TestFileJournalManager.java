@@ -21,6 +21,7 @@ import static org.apache.hadoop.hdfs.server.namenode.TestEditLog.TXNS_PER_FAIL;
 import static org.apache.hadoop.hdfs.server.namenode.TestEditLog.TXNS_PER_ROLL;
 import static org.apache.hadoop.hdfs.server.namenode.TestEditLog.setupEdits;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
@@ -42,8 +43,12 @@ import org.apache.hadoop.hdfs.server.namenode.JournalManager.CorruptionException
 import org.apache.hadoop.hdfs.server.namenode.NNStorage.NameNodeDirType;
 import org.apache.hadoop.hdfs.server.namenode.TestEditLog.AbortSpec;
 import org.apache.hadoop.io.IOUtils;
+import org.apache.hadoop.io.nativeio.NativeIOException;
+import org.apache.hadoop.util.NativeCodeLoader;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -58,6 +63,9 @@ public class TestFileJournalManager {
     // the tests run much faster.
     EditLogFileOutputStream.setShouldSkipFsyncForTesting(true);
   }
+
+  @Rule
+  public ExpectedException exception = ExpectedException.none();
 
   @Before
   public void setUp() {
@@ -469,6 +477,33 @@ public class TestFileJournalManager {
       }
     } finally {
       IOUtils.cleanup(LOG, elis);
+    }
+  }
+
+  @Test
+  public void testDoPreUpgradeIOError() throws IOException {
+    File storageDir = new File(TestEditLog.TEST_DIR, "preupgradeioerror");
+    List<URI> editUris = Collections.singletonList(storageDir.toURI());
+    NNStorage storage = setupEdits(editUris, 5);
+    StorageDirectory sd = storage.dirIterator(NameNodeDirType.EDITS).next();
+    assertNotNull(sd);
+    File currentDir = sd.getCurrentDir();
+    assertNotNull(currentDir);
+    String currentDirPath = currentDir.getAbsolutePath();
+    FileUtil.chmod(currentDirPath, "000", false);
+    FileJournalManager jm = null;
+    try {
+      jm = new FileJournalManager(conf, sd, storage);
+      exception.expect(NativeCodeLoader.isNativeCodeLoaded() ?
+        NativeIOException.class : IOException.class);
+      jm.doPreUpgrade();
+    } catch (IOException e) {
+      LOG.warn("testing I/O error", e);
+      throw e;
+    } finally {
+      IOUtils.cleanup(LOG, jm);
+      FileUtil.chmod(currentDirPath, "755", false);
+      FileUtil.fullyDelete(storageDir);
     }
   }
 
