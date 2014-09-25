@@ -487,10 +487,6 @@ public class TestFileJournalManager {
     NNStorage storage = setupEdits(editUris, 5);
     StorageDirectory sd = storage.dirIterator(NameNodeDirType.EDITS).next();
     assertNotNull(sd);
-    File currentDir = sd.getCurrentDir();
-    assertNotNull(currentDir);
-    String currentDirPath = currentDir.getAbsolutePath();
-    //FileUtil.chmod(currentDirPath, "000", false);
     FileUtil.setWritable(storageDir, false);
     FileJournalManager jm = null;
     try {
@@ -503,7 +499,6 @@ public class TestFileJournalManager {
       throw e;
     } finally {
       IOUtils.cleanup(LOG, jm);
-      //FileUtil.chmod(currentDirPath, "755", false);
       FileUtil.setWritable(storageDir, true);
       FileUtil.fullyDelete(storageDir);
     }
