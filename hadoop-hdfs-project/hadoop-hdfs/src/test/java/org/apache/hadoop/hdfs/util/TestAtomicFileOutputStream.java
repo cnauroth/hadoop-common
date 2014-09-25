@@ -133,7 +133,7 @@ public class TestAtomicFileOutputStream {
     OutputStream fos = null;
     try {
       assertTrue(DST_FILE.createNewFile());
-      FileUtil.setExecutable(DST_FILE, false);
+      FileUtil.chmod(TEST_DIR, "000");
       fos = new AtomicFileOutputStream(DST_FILE);
       fos.write(TEST_STRING.getBytes());
       exception.expect(IOException.class);
@@ -145,7 +145,7 @@ public class TestAtomicFileOutputStream {
       }
     } finally {
       IOUtils.cleanup(null, fos);
-      FileUtil.setExecutable(DST_FILE, true);
+      FileUtil.chmod(TEST_DIR, "700");
     }
   }
 
