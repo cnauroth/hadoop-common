@@ -78,7 +78,7 @@ public class AtomicFileOutputStream extends FilterOutputStream {
           LOG.info(execCommand(origFile, Shell.getGetPermissionCommand()));
           LOG.info("cn dumping perms on folder");
           LOG.info(execCommand(origFile.getParentFile(), Shell.getGetPermissionCommand()));
-          LOG.info("cn attempting delete, origFile exists = " + origFile.exists());
+          LOG.info("cn attempting delete, origFile exists = " + origFile.exists() + ", rechecking " + new File(origFile.getAbsolutePath()).exists());
           if (origFile.exists() && !origFile.delete()) {
             throw new IOException("Could not delete original file " + origFile);
           }
