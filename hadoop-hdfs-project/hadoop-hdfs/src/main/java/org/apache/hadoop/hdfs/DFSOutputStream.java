@@ -42,6 +42,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.google.common.base.Preconditions;
+
+import org.apache.hadoop.HadoopIllegalArgumentException;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.fs.CanSetDropBehind;
 import org.apache.hadoop.fs.CreateFlag;
@@ -89,9 +91,9 @@ import org.apache.hadoop.security.AccessControlException;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.DataChecksum;
+import org.apache.hadoop.util.DataChecksum.Type;
 import org.apache.hadoop.util.Progressable;
 import org.apache.hadoop.util.Time;
-
 import org.htrace.Span;
 import org.htrace.Trace;
 import org.htrace.TraceScope;
@@ -149,7 +151,10 @@ public class DFSOutputStream extends FSOutputSummer
   private String src;
   private final long fileId;
   private final long blockSize;
-  private final DataChecksum checksum;
+  /** Only for DataTransferProtocol.writeBlock(..) */
+  private final DataChecksum checksum4WriteBlock;
+  private final int bytesPerChecksum; 
+
   // both dataQueue and ackQueue are protected by dataQueue lock
   private final LinkedList<Packet> dataQueue = new LinkedList<Packet>();
   private final LinkedList<Packet> ackQueue = new LinkedList<Packet>();
@@ -246,6 +251,9 @@ public class DFSOutputStream extends FSOutputSummer
     }
 
     void writeChecksum(byte[] inarray, int off, int len) {
+      if (len == 0) {
+        return;
+      }
       if (checksumPos + len > dataStart) {
         throw new BufferOverflowException();
       }
@@ -379,18 +387,11 @@ public class DFSOutputStream extends FSOutputSummer
     private final Span traceSpan;
 
     /**
-     * Default construction for file create
-     */
-    private DataStreamer(HdfsFileStatus stat) {
-      this(stat, null);
-    }
-
-    /**
      * construction with tracing info
      */
     private DataStreamer(HdfsFileStatus stat, Span span) {
       isAppend = false;
-      isLazyPersistFile = initLazyPersist(stat);
+      isLazyPersistFile = isLazyPersist(stat);
       stage = BlockConstructionStage.PIPELINE_SETUP_CREATE;
       traceSpan = span;
     }
@@ -410,7 +411,7 @@ public class DFSOutputStream extends FSOutputSummer
       block = lastBlock.getBlock();
       bytesSent = block.getNumBytes();
       accessToken = lastBlock.getBlockToken();
-      isLazyPersistFile = initLazyPersist(stat);
+      isLazyPersistFile = isLazyPersist(stat);
       long usedInLastBlock = stat.getLen() % blockSize;
       int freeInLastBlock = (int)(blockSize - usedInLastBlock);
 
@@ -452,13 +453,6 @@ public class DFSOutputStream extends FSOutputSummer
             "of file " + src);
 
       }
-    }
-    
-    private boolean initLazyPersist(HdfsFileStatus stat) {
-      final BlockStoragePolicy lpPolicy =
-          blockStoragePolicySuite.getPolicy("LAZY_PERSIST");
-      return lpPolicy != null &&
-             stat.getStoragePolicy() == lpPolicy.getId();
     }
 
     private void setPipeline(LocatedBlock lb) {
@@ -554,7 +548,7 @@ public class DFSOutputStream extends FSOutputSummer
             }
             // get packet to be sent.
             if (dataQueue.isEmpty()) {
-              one = new Packet(checksum.getChecksumSize());  // heartbeat packet
+              one = new Packet(getChecksumSize());  // heartbeat packet
             } else {
               one = dataQueue.getFirst(); // regular data packet
             }
@@ -1409,8 +1403,8 @@ public class DFSOutputStream extends FSOutputSummer
           // send the request
           new Sender(out).writeBlock(blockCopy, nodeStorageTypes[0], accessToken,
               dfsClient.clientName, nodes, nodeStorageTypes, null, bcs, 
-              nodes.length, block.getNumBytes(), bytesSent, newGS, checksum,
-              cachingStrategy.get(), isLazyPersistFile);
+              nodes.length, block.getNumBytes(), bytesSent, newGS,
+              checksum4WriteBlock, cachingStrategy.get(), isLazyPersistFile);
   
           // receive ack for connect
           BlockOpResponseProto resp = BlockOpResponseProto.parseFrom(
@@ -1619,9 +1613,21 @@ public class DFSOutputStream extends FSOutputSummer
     return value;
   }
 
+  /** 
+   * @return the object for computing checksum.
+   *         The type is NULL if checksum is not computed.
+   */
+  private static DataChecksum getChecksum4Compute(DataChecksum checksum, HdfsFileStatus stat) {
+    if (isLazyPersist(stat) && stat.getReplication() == 1) {
+      // do not compute checksum for writing to single replica to memory
+      return DataChecksum.newDataChecksum(Type.NULL, checksum.getBytesPerChecksum());
+    }
+    return checksum;
+  }
+ 
   private DFSOutputStream(DFSClient dfsClient, String src, Progressable progress,
       HdfsFileStatus stat, DataChecksum checksum) throws IOException {
-    super(checksum);
+    super(getChecksum4Compute(checksum, stat));
     this.dfsClient = dfsClient;
     this.src = src;
     this.fileId = stat.getFileId();
@@ -1636,15 +1642,18 @@ public class DFSOutputStream extends FSOutputSummer
           "Set non-null progress callback on DFSOutputStream " + src);
     }
     
-    final int bytesPerChecksum = checksum.getBytesPerChecksum();
-    if ( bytesPerChecksum < 1 || blockSize % bytesPerChecksum != 0) {
-      throw new IOException("io.bytes.per.checksum(" + bytesPerChecksum +
-                            ") and blockSize(" + blockSize + 
-                            ") do not match. " + "blockSize should be a " +
-                            "multiple of io.bytes.per.checksum");
-                            
+    this.bytesPerChecksum = checksum.getBytesPerChecksum();
+    if (bytesPerChecksum <= 0) {
+      throw new HadoopIllegalArgumentException(
+          "Invalid value: bytesPerChecksum = " + bytesPerChecksum + " <= 0");
     }
-    this.checksum = checksum;
+    if (blockSize % bytesPerChecksum != 0) {
+      throw new HadoopIllegalArgumentException("Invalid values: "
+          + DFSConfigKeys.DFS_BYTES_PER_CHECKSUM_KEY + " (=" + bytesPerChecksum
+          + ") must divide block size (=" + blockSize + ").");
+    }
+    this.checksum4WriteBlock = checksum;
+
     this.dfsclientSlowLogThresholdMs =
       dfsClient.getConf().dfsclientSlowIoWarningThresholdMs;
   }
@@ -1656,8 +1665,7 @@ public class DFSOutputStream extends FSOutputSummer
     this(dfsClient, src, progress, stat, checksum);
     this.shouldSyncBlock = flag.contains(CreateFlag.SYNC_BLOCK);
 
-    computePacketChunkSize(dfsClient.getConf().writePacketSize,
-        checksum.getBytesPerChecksum());
+    computePacketChunkSize(dfsClient.getConf().writePacketSize, bytesPerChecksum);
 
     Span traceSpan = null;
     if (Trace.isTracing()) {
@@ -1735,11 +1743,9 @@ public class DFSOutputStream extends FSOutputSummer
     if (lastBlock != null) {
       // indicate that we are appending to an existing block
       bytesCurBlock = lastBlock.getBlockSize();
-      streamer = new DataStreamer(lastBlock, stat,
-          checksum.getBytesPerChecksum(), traceSpan);
+      streamer = new DataStreamer(lastBlock, stat, bytesPerChecksum, traceSpan);
     } else {
-      computePacketChunkSize(dfsClient.getConf().writePacketSize,
-          checksum.getBytesPerChecksum());
+      computePacketChunkSize(dfsClient.getConf().writePacketSize, bytesPerChecksum);
       streamer = new DataStreamer(stat, traceSpan);
     }
     this.fileEncryptionInfo = stat.getFileEncryptionInfo();
@@ -1753,9 +1759,14 @@ public class DFSOutputStream extends FSOutputSummer
     out.start();
     return out;
   }
+  
+  private static boolean isLazyPersist(HdfsFileStatus stat) {
+    final BlockStoragePolicy p = blockStoragePolicySuite.getPolicy("LAZY_PERSIST");
+    return p != null && stat.getStoragePolicy() == p.getId();
+  }
 
   private void computePacketChunkSize(int psize, int csize) {
-    int chunkSize = csize + checksum.getChecksumSize();
+    final int chunkSize = csize + getChecksumSize();
     chunksPerPacket = Math.max(psize/chunkSize, 1);
     packetSize = chunkSize*chunksPerPacket;
     if (DFSClient.LOG.isDebugEnabled()) {
@@ -1812,21 +1823,19 @@ public class DFSOutputStream extends FSOutputSummer
     dfsClient.checkOpen();
     checkClosed();
 
-    int bytesPerChecksum = this.checksum.getBytesPerChecksum(); 
     if (len > bytesPerChecksum) {
       throw new IOException("writeChunk() buffer size is " + len +
                             " is larger than supported  bytesPerChecksum " +
                             bytesPerChecksum);
     }
-    if (cklen != this.checksum.getChecksumSize()) {
+    if (cklen != 0 && cklen != getChecksumSize()) {
       throw new IOException("writeChunk() checksum size is supposed to be " +
-                            this.checksum.getChecksumSize() + 
-                            " but found to be " + cklen);
+                            getChecksumSize() + " but found to be " + cklen);
     }
 
     if (currentPacket == null) {
       currentPacket = new Packet(packetSize, chunksPerPacket, 
-          bytesCurBlock, currentSeqno++, this.checksum.getChecksumSize());
+          bytesCurBlock, currentSeqno++, getChecksumSize());
       if (DFSClient.LOG.isDebugEnabled()) {
         DFSClient.LOG.debug("DFSClient writeChunk allocating new packet seqno=" + 
             currentPacket.seqno +
@@ -1874,7 +1883,7 @@ public class DFSOutputStream extends FSOutputSummer
       //
       if (bytesCurBlock == blockSize) {
         currentPacket = new Packet(0, 0, bytesCurBlock, 
-            currentSeqno++, this.checksum.getChecksumSize());
+            currentSeqno++, getChecksumSize());
         currentPacket.lastPacketInBlock = true;
         currentPacket.syncBlock = shouldSyncBlock;
         waitAndQueueCurrentPacket();
@@ -1962,7 +1971,7 @@ public class DFSOutputStream extends FSOutputSummer
             // but sync was requested.
             // Send an empty packet
             currentPacket = new Packet(packetSize, chunksPerPacket,
-                bytesCurBlock, currentSeqno++, this.checksum.getChecksumSize());
+                bytesCurBlock, currentSeqno++, getChecksumSize());
           }
         } else {
           if (isSync && bytesCurBlock > 0) {
@@ -1971,7 +1980,7 @@ public class DFSOutputStream extends FSOutputSummer
             // and sync was requested.
             // So send an empty sync packet.
             currentPacket = new Packet(packetSize, chunksPerPacket,
-                bytesCurBlock, currentSeqno++, this.checksum.getChecksumSize());
+                bytesCurBlock, currentSeqno++, getChecksumSize());
           } else {
             // just discard the current packet since it is already been sent.
             currentPacket = null;
@@ -2175,8 +2184,7 @@ public class DFSOutputStream extends FSOutputSummer
 
       if (bytesCurBlock != 0) {
         // send an empty packet to mark the end of the block
-        currentPacket = new Packet(0, 0, bytesCurBlock, 
-            currentSeqno++, this.checksum.getChecksumSize());
+        currentPacket = new Packet(0, 0, bytesCurBlock, currentSeqno++, getChecksumSize());
         currentPacket.lastPacketInBlock = true;
         currentPacket.syncBlock = shouldSyncBlock;
       }
@@ -2240,8 +2248,7 @@ public class DFSOutputStream extends FSOutputSummer
   @VisibleForTesting
   public synchronized void setChunksPerPacket(int value) {
     chunksPerPacket = Math.min(chunksPerPacket, value);
-    packetSize = (checksum.getBytesPerChecksum() + 
-                  checksum.getChecksumSize()) * chunksPerPacket;
+    packetSize = (bytesPerChecksum + getChecksumSize()) * chunksPerPacket;
   }
 
   synchronized void setTestFilename(String newname) {

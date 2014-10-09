@@ -543,7 +543,7 @@ class DataXceiver extends Receiver implements Runnable {
       final long minBytesRcvd,
       final long maxBytesRcvd,
       final long latestGenerationStamp,
-      DataChecksum requestedChecksum,
+      final DataChecksum requestedChecksum,
       CachingStrategy cachingStrategy,
       final boolean allowLazyPersist) throws IOException {
     previousOpClientName = clientname;
