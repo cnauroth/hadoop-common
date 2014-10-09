@@ -266,7 +266,7 @@ esac
 # This is the default:
 # export HADOOP_DATANODE_OPTS="-Dhadoop.security.logger=ERROR,RFAS"
 
-# On secure datanodes, user to run the datanode as after dropping privileges
+# On secure datanodes, user to run the datanode as after dropping privileges.
 # This **MUST** be uncommented to enable secure HDFS if using privileged ports
 # to provide authentication of data transfer protocol.  This **MUST NOT** be
 # defined if SASL is configured for authentication of data transfer protocol
