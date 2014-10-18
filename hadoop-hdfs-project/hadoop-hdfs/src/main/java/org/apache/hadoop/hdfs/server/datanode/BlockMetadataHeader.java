@@ -82,9 +82,14 @@ public class BlockMetadataHeader {
    * @return the data checksum obtained from the header.
    */
   public static DataChecksum readDataChecksum(File metaFile) throws IOException {
-    final DataInputStream in = new DataInputStream(new BufferedInputStream(
+    DataInputStream in = null;
+    try {
+      in = new DataInputStream(new BufferedInputStream(
         new FileInputStream(metaFile), HdfsConstants.IO_FILE_BUFFER_SIZE));
-    return readDataChecksum(in, metaFile);
+      return readDataChecksum(in, metaFile);
+    } finally {
+      IOUtils.closeStream(in);
+    }
   }
 
   /**
@@ -93,18 +98,14 @@ public class BlockMetadataHeader {
    */
   public static DataChecksum readDataChecksum(final DataInputStream metaIn,
       final Object name) throws IOException {
-    try {
-      // read and handle the common header here. For now just a version
-      final BlockMetadataHeader header = readHeader(metaIn);
-      if (header.getVersion() != VERSION) {
-        LOG.warn("Unexpected meta-file version for " + name
-            + ": version in file is " + header.getVersion()
-            + " but expected version is " + VERSION);
-      }
-      return header.getChecksum();
-    } finally {
-      IOUtils.closeStream(metaIn);
+    // read and handle the common header here. For now just a version
+    final BlockMetadataHeader header = readHeader(metaIn);
+    if (header.getVersion() != VERSION) {
+      LOG.warn("Unexpected meta-file version for " + name
+          + ": version in file is " + header.getVersion()
+          + " but expected version is " + VERSION);
     }
+    return header.getChecksum();
   }
 
   /**
