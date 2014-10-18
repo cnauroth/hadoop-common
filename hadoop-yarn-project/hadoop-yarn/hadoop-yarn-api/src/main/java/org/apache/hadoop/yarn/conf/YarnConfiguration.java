@@ -712,6 +712,13 @@ public class YarnConfiguration extends Configuration {
   public static final long DEFAULT_NM_LOG_RETAIN_SECONDS = 3 * 60 * 60;
 
   /**
+   * Define how often NMs wake up and upload log files
+   */
+  public static final String NM_LOG_AGGREGATION_ROLL_MONITORING_INTERVAL_SECONDS =
+      NM_PREFIX + "log-aggregation.roll-monitoring-interval-seconds";
+  public static final long
+      DEFAULT_NM_LOG_AGGREGATION_ROLL_MONITORING_INTERVAL_SECONDS = -1;
+  /**
    * Number of threads used in log cleanup. Only applicable if Log aggregation
    * is disabled
    */
@@ -833,10 +840,10 @@ public class YarnConfiguration extends Configuration {
   public static final String NM_MAX_PER_DISK_UTILIZATION_PERCENTAGE =
       NM_DISK_HEALTH_CHECK_PREFIX + "max-disk-utilization-per-disk-percentage";
   /**
-   * By default, 100% of the disk can be used before it is marked as offline.
+   * By default, 90% of the disk can be used before it is marked as offline.
    */
   public static final float DEFAULT_NM_MAX_PER_DISK_UTILIZATION_PERCENTAGE =
-      100.0F;
+      90.0F;
 
   /**
    * The minimum space that must be available on a local dir for it to be used.
@@ -1332,6 +1339,49 @@ public class YarnConfiguration extends Configuration {
       SHARED_CACHE_PREFIX + "nested-level";
   public static final int DEFAULT_SHARED_CACHE_NESTED_LEVEL = 3;
   
+  // Shared Cache Manager Configs
+
+  public static final String SCM_STORE_PREFIX = SHARED_CACHE_PREFIX + "store.";
+
+  public static final String SCM_STORE_CLASS = SCM_STORE_PREFIX + "class";
+  public static final String DEFAULT_SCM_STORE_CLASS =
+      "org.apache.hadoop.yarn.server.sharedcachemanager.store.InMemorySCMStore";
+
+  public static final String SCM_APP_CHECKER_CLASS = SHARED_CACHE_PREFIX
+      + "app-checker.class";
+  public static final String DEFAULT_SCM_APP_CHECKER_CLASS =
+      "org.apache.hadoop.yarn.server.sharedcachemanager.RemoteAppChecker";
+
+  // In-memory SCM store configuration
+  
+  public static final String IN_MEMORY_STORE_PREFIX =
+      SHARED_CACHE_PREFIX + "in-memory.";
+
+  /**
+   * A resource in the InMemorySCMStore is considered stale if the time since
+   * the last reference exceeds the staleness period. This value is specified in
+   * minutes.
+   */
+  public static final String IN_MEMORY_STALENESS_PERIOD =
+      IN_MEMORY_STORE_PREFIX + "staleness-period";
+  public static final int DEFAULT_IN_MEMORY_STALENESS_PERIOD = 7 * 24 * 60;
+
+  /**
+   * Initial delay before the in-memory store runs its first check to remove
+   * dead initial applications. Specified in minutes.
+   */
+  public static final String IN_MEMORY_INITIAL_DELAY =
+      IN_MEMORY_STORE_PREFIX + "initial-delay";
+  public static final int DEFAULT_IN_MEMORY_INITIAL_DELAY = 10;
+  
+  /**
+   * The frequency at which the in-memory store checks to remove dead initial
+   * applications. Specified in minutes.
+   */
+  public static final String IN_MEMORY_CHECK_PERIOD =
+      IN_MEMORY_STORE_PREFIX + "check-period";
+  public static final int DEFAULT_IN_MEMORY_CHECK_PERIOD = 12 * 60;
+
   ////////////////////////////////
   // Other Configs
   ////////////////////////////////
@@ -1404,6 +1454,17 @@ public class YarnConfiguration extends Configuration {
   public static final String YARN_HTTP_POLICY_KEY = YARN_PREFIX + "http.policy";
   public static final String YARN_HTTP_POLICY_DEFAULT = HttpConfig.Policy.HTTP_ONLY
       .name();
+  
+  public static final String NODE_LABELS_PREFIX = YARN_PREFIX + "node-labels.";
+
+  /** URI for NodeLabelManager */
+  public static final String FS_NODE_LABELS_STORE_URI = NODE_LABELS_PREFIX
+      + "fs-store.uri";
+  public static final String DEFAULT_FS_NODE_LABELS_STORE_URI = "file:///tmp/";
+  public static final String FS_NODE_LABELS_STORE_RETRY_POLICY_SPEC =
+      NODE_LABELS_PREFIX + "fs-store.retry-policy-spec";
+  public static final String DEFAULT_FS_NODE_LABELS_STORE_RETRY_POLICY_SPEC =
+      "2000, 500";
 
   public YarnConfiguration() {
     super();

@@ -31,7 +31,6 @@ import org.apache.hadoop.service.ServiceStateException;
 import org.apache.hadoop.util.ZKUtil;
 import org.apache.zookeeper.Environment;
 import org.apache.zookeeper.ZooDefs;
-import org.apache.zookeeper.client.ZooKeeperSaslClient;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Id;
 import org.apache.zookeeper.server.auth.DigestAuthenticationProvider;
@@ -597,6 +596,7 @@ public class RegistrySecurity extends AbstractService {
       + " %s required\n"
       // kerberos module
       + " keyTab=\"%s\"\n"
+      + " debug=true\n"
       + " principal=\"%s\"\n"
       + " useKeyTab=true\n"
       + " useTicketCache=false\n"
@@ -622,12 +622,15 @@ public class RegistrySecurity extends AbstractService {
         "invalid context");
     Preconditions.checkArgument(keytab != null && keytab.isFile(),
         "Keytab null or missing: ");
+    String keytabpath = keytab.getAbsolutePath();
+    // fix up for windows; no-op on unix
+    keytabpath =  keytabpath.replace('\\', '/');
     return String.format(
         Locale.ENGLISH,
         JAAS_ENTRY,
         context,
         getKerberosAuthModuleForJVM(),
-        keytab.getAbsolutePath(),
+        keytabpath,
         principal);
   }
 
@@ -758,7 +761,7 @@ public class RegistrySecurity extends AbstractService {
    * <b>Important:</b>This is JVM-wide
    */
   public static void disableZookeeperClientSASL() {
-    System.setProperty(ZooKeeperSaslClient.ENABLE_CLIENT_SASL_KEY, "false");
+    System.setProperty(ZookeeperConfigOptions.PROP_ZK_ENABLE_SASL_CLIENT, "false");
   }
 
   /**
@@ -766,7 +769,8 @@ public class RegistrySecurity extends AbstractService {
    * @return true if the SASL client system property is set.
    */
   public static boolean isClientSASLEnabled() {
-    return ZooKeeperSaslClient.isEnabled();
+    return Boolean.valueOf(System.getProperty(
+        ZookeeperConfigOptions.PROP_ZK_ENABLE_SASL_CLIENT, "true"));
   }
 
   /**
@@ -846,11 +850,11 @@ public class RegistrySecurity extends AbstractService {
     StringBuilder builder = new StringBuilder();
     builder.append(secureRegistry ? "secure registry; "
                           : "insecure registry; ");
-    builder.append("Access policy: ").append(access);
+    builder.append("Curator service access policy: ").append(access);
 
-    builder.append(", System ACLs: ").append(aclsToString(systemACLs));
-    builder.append(UgiInfo.fromCurrentUser());
-    builder.append(" Kerberos Realm: ").append(kerberosRealm).append(" ; ");
+    builder.append("; System ACLs: ").append(aclsToString(systemACLs));
+    builder.append("User: ").append(UgiInfo.fromCurrentUser());
+    builder.append("; Kerberos Realm: ").append(kerberosRealm);
     builder.append(describeProperty(Environment.JAAS_CONF_KEY));
     String sasl =
         System.getProperty(PROP_ZK_ENABLE_SASL_CLIENT,
@@ -859,7 +863,7 @@ public class RegistrySecurity extends AbstractService {
     builder.append(describeProperty(PROP_ZK_ENABLE_SASL_CLIENT,
         DEFAULT_ZK_ENABLE_SASL_CLIENT));
     if (saslEnabled) {
-      builder.append("JAAS Client Identity")
+      builder.append("; JAAS Client Identity")
              .append("=")
              .append(jaasClientIdentity)
              .append("; ");

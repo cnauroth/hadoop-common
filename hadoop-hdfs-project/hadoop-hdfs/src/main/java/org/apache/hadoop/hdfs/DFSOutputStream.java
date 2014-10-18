@@ -454,6 +454,13 @@ public class DFSOutputStream extends FSOutputSummer
 
       }
     }
+    
+    private boolean initLazyPersist(HdfsFileStatus stat) {
+      final BlockStoragePolicy lpPolicy = blockStoragePolicySuite
+          .getPolicy(HdfsConstants.MEMORY_STORAGE_POLICY_NAME);
+      return lpPolicy != null &&
+             stat.getStoragePolicy() == lpPolicy.getId();
+    }
 
     private void setPipeline(LocatedBlock lb) {
       setPipeline(lb.getLocations(), lb.getStorageTypes(), lb.getStorageIDs());

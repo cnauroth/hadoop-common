@@ -18,6 +18,8 @@
 
 package org.apache.hadoop.yarn.server.resourcemanager;
 
+import org.apache.hadoop.security.token.Token;
+import org.apache.hadoop.yarn.security.AMRMTokenIdentifier;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -292,7 +294,7 @@ public class TestWorkPreservingRMRestart {
       1e-8);
     // assert user consumed resources.
     assertEquals(usedResource, leafQueue.getUser(app.getUser())
-      .getConsumedResources());
+      .getTotalConsumedResources());
   }
 
   private void checkFifoQueue(SchedulerApplication schedulerApp,
@@ -336,6 +338,8 @@ public class TestWorkPreservingRMRestart {
   private static final String R = "Default";
   private static final String A = "QueueA";
   private static final String B = "QueueB";
+  //don't ever create the below queue ;-)
+  private static final String QUEUE_DOESNT_EXIST = "NoSuchQueue";
   private static final String USER_1 = "user1";
   private static final String USER_2 = "user2";
 
@@ -350,6 +354,18 @@ public class TestWorkPreservingRMRestart {
     conf.setCapacity(Q_B, 50);
     conf.setDouble(CapacitySchedulerConfiguration
       .MAXIMUM_APPLICATION_MASTERS_RESOURCE_PERCENT, 0.5f);
+  }
+  
+  private void setupQueueConfigurationOnlyA(
+      CapacitySchedulerConfiguration conf) {
+    conf.setQueues(CapacitySchedulerConfiguration.ROOT, new String[] { R });
+    final String Q_R = CapacitySchedulerConfiguration.ROOT + "." + R;
+    conf.setCapacity(Q_R, 100);
+    final String Q_A = Q_R + "." + A;
+    conf.setQueues(Q_R, new String[] {A});
+    conf.setCapacity(Q_A, 100);
+    conf.setDouble(CapacitySchedulerConfiguration
+      .MAXIMUM_APPLICATION_MASTERS_RESOURCE_PERCENT, 1.0f);
   }
 
   // Test CS recovery with multi-level queues and multi-users:
@@ -469,6 +485,70 @@ public class TestWorkPreservingRMRestart {
       totalAvailableResource.getMemory(),
       totalAvailableResource.getVirtualCores(), totalUsedResource.getMemory(),
       totalUsedResource.getVirtualCores());
+  }
+  
+  //Test that we receive a meaningful exit-causing exception if a queue
+  //is removed during recovery
+  //1. Add some apps to two queues, attempt to add an app to a non-existant
+  //   queue to verify that the new logic is not in effect during normal app
+  //   submission
+  //2. Remove one of the queues, restart the RM
+  //3. Verify that the expected exception was thrown
+  @Test (timeout = 30000)
+  public void testCapacitySchedulerQueueRemovedRecovery() throws Exception {
+    if (!schedulerClass.equals(CapacityScheduler.class)) {
+      return;
+    }
+    conf.setBoolean(CapacitySchedulerConfiguration.ENABLE_USER_METRICS, true);
+    conf.set(CapacitySchedulerConfiguration.RESOURCE_CALCULATOR_CLASS,
+      DominantResourceCalculator.class.getName());
+    CapacitySchedulerConfiguration csConf =
+        new CapacitySchedulerConfiguration(conf);
+    setupQueueConfiguration(csConf);
+    MemoryRMStateStore memStore = new MemoryRMStateStore();
+    memStore.init(csConf);
+    rm1 = new MockRM(csConf, memStore);
+    rm1.start();
+    MockNM nm1 =
+        new MockNM("127.0.0.1:1234", 8192, rm1.getResourceTrackerService());
+    MockNM nm2 =
+        new MockNM("127.1.1.1:4321", 8192, rm1.getResourceTrackerService());
+    nm1.registerNode();
+    nm2.registerNode();
+    RMApp app1_1 = rm1.submitApp(1024, "app1_1", USER_1, null, A);
+    MockAM am1_1 = MockRM.launchAndRegisterAM(app1_1, rm1, nm1);
+    RMApp app1_2 = rm1.submitApp(1024, "app1_2", USER_1, null, A);
+    MockAM am1_2 = MockRM.launchAndRegisterAM(app1_2, rm1, nm2);
+
+    RMApp app2 = rm1.submitApp(1024, "app2", USER_2, null, B);
+    MockAM am2 = MockRM.launchAndRegisterAM(app2, rm1, nm2);
+    
+    //Submit an app with a non existant queue to make sure it does not
+    //cause a fatal failure in the non-recovery case
+    RMApp appNA = rm1.submitApp(1024, "app1_2", USER_1, null,
+       QUEUE_DOESNT_EXIST, false);
+
+    // clear queue metrics
+    rm1.clearQueueMetrics(app1_1);
+    rm1.clearQueueMetrics(app1_2);
+    rm1.clearQueueMetrics(app2);
+
+    // Re-start RM
+    csConf =
+        new CapacitySchedulerConfiguration(conf);
+    setupQueueConfigurationOnlyA(csConf);
+    rm2 = new MockRM(csConf, memStore);
+    boolean runtimeThrown = false;
+    try {
+      rm2.start();
+    } catch (RuntimeException e) {
+      //we're catching it because we want to verify the message
+      //and we don't want to set it as an expected exception for the 
+      //test because we only want it to happen here
+      assertTrue(e.getMessage().contains(B + " missing"));
+      runtimeThrown = true;
+    }
+    assertTrue(runtimeThrown);
   }
 
   private void checkParentQueue(ParentQueue parentQueue, int numContainers,
@@ -590,6 +670,9 @@ public class TestWorkPreservingRMRestart {
     // create app and launch the AM
     RMApp app0 = rm1.submitApp(200);
     MockAM am0 = MockRM.launchAM(app0, rm1, nm1);
+    // Issuing registerAppAttempt() before and after RM restart to confirm
+    // registerApplicationMaster() is idempotent.
+    am0.registerAppAttempt();
 
     // start new RM
     rm2 = new MockRM(conf, memStore);
@@ -598,6 +681,7 @@ public class TestWorkPreservingRMRestart {
     rm2.waitForState(am0.getApplicationAttemptId(), RMAppAttemptState.LAUNCHED);
 
     am0.setAMRMProtocol(rm2.getApplicationMasterService(), rm2.getRMContext());
+    // retry registerApplicationMaster() after RM restart.
     am0.registerAppAttempt(true);
 
     rm2.waitForState(app0.getApplicationId(), RMAppState.RUNNING);
@@ -819,4 +903,44 @@ public class TestWorkPreservingRMRestart {
       Thread.sleep(500);
     }
   }
+
+  /**
+   * Testing to confirm that retried finishApplicationMaster() doesn't throw
+   * InvalidApplicationMasterRequest before and after RM restart.
+   */
+  @Test (timeout = 20000)
+  public void testRetriedFinishApplicationMasterRequest()
+      throws Exception {
+    conf.setInt(YarnConfiguration.RM_AM_MAX_ATTEMPTS, 1);
+    MemoryRMStateStore memStore = new MemoryRMStateStore();
+    memStore.init(conf);
+
+    // start RM
+    rm1 = new MockRM(conf, memStore);
+    rm1.start();
+    MockNM nm1 =
+        new MockNM("127.0.0.1:1234", 15120, rm1.getResourceTrackerService());
+    nm1.registerNode();
+
+    // create app and launch the AM
+    RMApp app0 = rm1.submitApp(200);
+    MockAM am0 = MockRM.launchAM(app0, rm1, nm1);
+
+    am0.registerAppAttempt();
+
+    // Emulating following a scenario:
+    // RM1 saves the app in RMStateStore and then crashes,
+    // FinishApplicationMasterResponse#isRegistered still return false,
+    // so AM still retry the 2nd RM
+    MockRM.finishAMAndVerifyAppState(app0, rm1, nm1, am0);
+
+
+    // start new RM
+    rm2 = new MockRM(conf, memStore);
+    rm2.start();
+
+    am0.setAMRMProtocol(rm2.getApplicationMasterService(), rm2.getRMContext());
+    am0.unregisterAppAttempt(false);
+  }
+
 }

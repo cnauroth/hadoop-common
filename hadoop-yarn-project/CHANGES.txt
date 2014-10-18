@@ -36,6 +36,9 @@ Release 2.7.0 - UNRELEASED
     YARN-2179. [YARN-1492] Initial cache manager structure and context. 
     (Chris Trezzo via kasha) 
 
+    YARN-2180. [YARN-1492] In-memory backing store for cache manager. 
+    (Chris Trezzo via kasha)
+
   IMPROVEMENTS
 
     YARN-1979. TestDirectoryCollection fails when the umask is unusual.
@@ -43,6 +46,13 @@ Release 2.7.0 - UNRELEASED
 
     YARN-2635. TestRM, TestRMRestart, TestClientToAMTokens should run 
     with both CS and FS. (Wei Yan and kasha via kasha)
+
+    YARN-2641. Decommission nodes on -refreshNodes instead of next 
+    NM-RM heartbeat. (Zhihai Xu via kasha)
+
+    YARN-2682. Updated WindowsSecureContainerExecutor to not use
+    DefaultContainerExecutor#getFirstApplicationDir and use getWorkingDir()
+    instead. (Zhihai Xu via jianhe)
 
   OPTIMIZATIONS
 
@@ -146,6 +156,24 @@ Release 2.6.0 - UNRELEASED
     (stevel)
 
     YARN-2493. Added user-APIs for using node-labels. (Wangda Tan via vinodkv)
+
+    YARN-2544. Added admin-API objects for using node-labels. (Wangda Tan via
+    vinodkv)
+
+    YARN-2494. Added NodeLabels Manager internal API and implementation. (Wangda
+    Tan via vinodkv)
+
+    YARN-2501. Enhanced AMRMClient library to support requests against node
+    labels. (Wangda Tan via vinodkv)
+
+    YARN-2656. Made RM web services authentication filter support proxy user.
+    (Varun Vasudev and Zhijie Shen via zjshen)
+
+    YARN-2496. Enhanced Capacity Scheduler to have basic support for allocating
+    resources based on node-labels. (Wangda Tan via vinodkv)
+
+    YARN-2500. Ehnaced ResourceManager to support schedulers allocating resources
+    based on node-labels. (Wangda Tan via vinodkv)
 
   IMPROVEMENTS
 
@@ -326,6 +354,18 @@ Release 2.6.0 - UNRELEASED
 
     YARN-2629. Made the distributed shell use the domain-based timeline ACLs.
     (zjshen)
+
+    YARN-2583. Modified AggregatedLogDeletionService to be able to delete rolling
+    aggregated logs. (Xuan Gong via zjshen)
+
+    YARN-2312. Deprecated old ContainerId#getId API and updated MapReduce to
+    use ContainerId#getContainerId instead. (Tsuyoshi OZAWA via jianhe)
+
+    YARN-2621. Simplify the output when the user doesn't have the access for
+    getDomain(s). (Zhijie Shen via jianhe)
+
+    YARN-1879. Marked Idempotent/AtMostOnce annotations to ApplicationMasterProtocol
+    for RM fail over. (Tsuyoshi OZAWA via jianhe)
 
   OPTIMIZATIONS
 
@@ -553,6 +593,13 @@ Release 2.6.0 - UNRELEASED
     YARN-2628. Capacity scheduler with DominantResourceCalculator carries out
     reservation even though slots are free. (Varun Vasudev via jianhe)
 
+    YARN-2685. Fixed a bug in CommonNodeLabelsManager that caused wrong resource
+    tracking per label when a host runs multiple node-managers. (Wangda Tan via
+    vinodkv)
+
+    YARN-2699. Fixed a bug in CommonNodeLabelsManager that caused tests to fail
+    when using ephemeral ports on NodeIDs. (Wangda Tan via vinodkv)
+
   BREAKDOWN OF YARN-1051 SUBTASKS AND RELATED JIRAS
 
     YARN-1707. Introduce APIs to add/remove/resize queues in the
@@ -598,12 +645,43 @@ Release 2.6.0 - UNRELEASED
 
     YARN-2649. Fixed TestAMRMRPCNodeUpdates test failure. (Ming Ma via jianhe)
 
+    YARN-2662. TestCgroupsLCEResourcesHandler leaks file descriptors. (cnauroth)
+
   BREAKDOWN OF YARN-913 SUBTASKS AND RELATED JIRAS
 
     YARN-2652 Add hadoop-yarn-registry package under hadoop-yarn. (stevel)
 
+    YARN-2668 yarn-registry JAR won't link against ZK 3.4.5. (stevel)
+    
+    YARN-2689 TestSecureRMRegistryOperations failing on windows:
+    secure ZK won't start (stevel)
+
+    ---
+
     YARN-2598 GHS should show N/A instead of null for the inaccessible information
     (Zhijie Shen via mayank)
+
+    YARN-2671. Fixed ApplicationSubmissionContext to still set resource for
+    backward compatibility. (Wangda Tan via zjshen)
+
+    YARN-2667. Fix the release audit warning caused by hadoop-yarn-registry
+    (Yi Liu via jlowe)
+
+    YARN-2651. Spun off LogRollingInterval from LogAggregationContext. (Xuan Gong
+    via zjshen)
+
+    YARN-2377. Localization exception stack traces are not passed as
+    diagnostic info (Gera Shegalov via jlowe)
+
+    YARN-2308. Changed CapacityScheduler to explicitly throw exception if the
+    queue to which the apps were submitted is changed across RM restart.
+    (Craig Welch & Chang Li via jianhe)
+
+    YARN-2566. DefaultContainerExecutor should pick a working directory randomly. 
+    (Zhihai Xu via kasha)
+
+    YARN-2588. Standby RM fails to transitionToActive if previous
+    transitionToActive failed with ZK exception. (Rohith Sharmaks via jianhe)
 
 Release 2.5.1 - 2014-09-05
 
