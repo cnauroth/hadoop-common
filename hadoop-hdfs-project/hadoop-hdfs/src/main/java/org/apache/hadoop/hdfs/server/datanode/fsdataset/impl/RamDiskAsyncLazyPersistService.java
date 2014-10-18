@@ -238,14 +238,11 @@ class RamDiskAsyncLazyPersistService {
     public void run() {
       boolean succeeded = false;
       try {
+        computeChecksumIfNeeded();
+
         // No FsDatasetImpl lock for the file copy
-        final File targetFiles[];
-        if (metaFile.length() <= BlockMetadataHeader.getHeaderSize()) {
-          targetFiles = copyBlockFileAndComputeChecksum();
-        } else {
-          targetFiles = FsDatasetImpl.copyBlockFiles(blockId, genStamp, metaFile,
-              blockFile, lazyPersistDir);
-        }
+        File targetFiles[] = FsDatasetImpl.copyBlockFiles(
+            blockId, genStamp, metaFile, blockFile, lazyPersistDir);
 
         // Lock FsDataSetImpl during onCompleteLazyPersist callback
         datanode.getFSDataset().onCompleteLazyPersist(bpId, blockId,
@@ -258,6 +255,43 @@ class RamDiskAsyncLazyPersistService {
       } finally {
         if (!succeeded) {
           datanode.getFSDataset().onFailLazyPersist(bpId, blockId);
+        }
+      }
+    }
+
+    private void computeChecksumIfNeeded() throws IOException {
+      // Calculate checksum if needed
+      if (metaFile.length() <= BlockMetadataHeader.getHeaderSize()) {
+        final DataChecksum checksum = BlockMetadataHeader.readDataChecksum(metaFile);
+        final InputStream dataIn = new FileInputStream(blockFile);
+
+        final byte[] data = new byte[1 << 16];
+        final byte[] crcs = new byte[checksum.getChecksumSize(data.length)];
+        OutputStream metaOut = null;
+        try {
+          metaOut = new FileOutputStream(metaFile);
+
+          int offset = 0;
+          for(int n; (n = dataIn.read(data, offset, data.length - offset)) != -1; ) {
+            if (n > 0) {
+              n += offset;
+              offset = n % checksum.getBytesPerChecksum();
+              final int length = n - offset;
+
+              if (length > 0) {
+                checksum.calculateChunkedSums(data, 0, length, crcs, 0);
+                metaOut.write(crcs, 0, checksum.getChecksumSize(length));
+
+                System.arraycopy(data, length, data, 0, offset);
+              }
+            }
+          }
+
+          // calculate and write the last crc
+          checksum.calculateChunkedSums(data, 0, offset, crcs, 0);
+          metaOut.write(crcs, 0, 4);
+        } finally {
+          IOUtils.cleanup(LOG, dataIn, metaOut);
         }
       }
     }
