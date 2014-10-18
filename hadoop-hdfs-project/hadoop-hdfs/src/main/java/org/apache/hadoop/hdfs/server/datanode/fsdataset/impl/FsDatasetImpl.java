@@ -92,6 +92,7 @@ import org.apache.hadoop.hdfs.server.protocol.BlockRecoveryCommand.RecoveringBlo
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
 import org.apache.hadoop.hdfs.server.protocol.ReplicaRecoveryInfo;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
+import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.MultipleIOException;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.metrics2.util.MBeans;
@@ -722,11 +723,8 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     final File destDir = DatanodeUtil.idToBlockDir(destRoot, blockId);
     final File dstFile = new File(destDir, srcFile.getName());
     final File dstMeta = FsDatasetUtil.getMetaFile(dstFile, genStamp);
-    try {
-      Storage.nativeCopyFileUnbuffered(srcMeta, dstMeta, true);
-    } catch (IOException e) {
-      throw new IOException("Failed to copy " + srcMeta + " to " + dstMeta, e);
-    }
+    copyOrComputeChecksum(srcMeta, dstMeta, srcFile);
+
     try {
       Storage.nativeCopyFileUnbuffered(srcFile, dstFile, true);
     } catch (IOException e) {
@@ -737,6 +735,56 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
       LOG.debug("Copied " + srcFile + " to " + dstFile);
     }
     return new File[] {dstMeta, dstFile};
+  }
+
+  private static void copyOrComputeChecksum(File srcMeta, File dstMeta,
+      File blockFile) throws IOException {
+    if (srcMeta.length() <= BlockMetadataHeader.getHeaderSize()) {
+      final DataChecksum checksum = BlockMetadataHeader.readDataChecksum(srcMeta);
+      final InputStream dataIn = new FileInputStream(blockFile);
+
+      final byte[] data = new byte[1 << 16];
+      final byte[] crcs = new byte[checksum.getChecksumSize(data.length)];
+      FileOutputStream metaOut = null;
+      try {
+        File parentFile = dstMeta.getParentFile();
+        if (parentFile != null) {
+          if (!parentFile.mkdirs() && !parentFile.isDirectory()) {
+            throw new IOException("Destination '" + parentFile
+                + "' directory cannot be created");
+          }
+        }
+        metaOut = new FileOutputStream(dstMeta);
+
+        int offset = 0;
+        for(int n; (n = dataIn.read(data, offset, data.length - offset)) != -1; ) {
+          if (n > 0) {
+            n += offset;
+            offset = n % checksum.getBytesPerChecksum();
+            final int length = n - offset;
+
+            if (length > 0) {
+              checksum.calculateChunkedSums(data, 0, length, crcs, 0);
+              metaOut.write(crcs, 0, checksum.getChecksumSize(length));
+
+              System.arraycopy(data, length, data, 0, offset);
+            }
+          }
+        }
+
+        // calculate and write the last crc
+        checksum.calculateChunkedSums(data, 0, offset, crcs, 0);
+        metaOut.write(crcs, 0, 4);
+      } finally {
+        IOUtils.cleanup(LOG, dataIn, metaOut);
+      }
+    } else {
+      try {
+        Storage.nativeCopyFileUnbuffered(srcMeta, dstMeta, true);
+      } catch (IOException e) {
+        throw new IOException("Failed to copy " + srcMeta + " to " + dstMeta, e);
+      }
+    }
   }
 
   static private void truncateBlock(File blockFile, File metaFile,

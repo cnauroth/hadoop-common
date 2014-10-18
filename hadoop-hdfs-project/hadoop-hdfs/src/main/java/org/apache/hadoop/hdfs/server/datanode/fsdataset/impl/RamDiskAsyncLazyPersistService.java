@@ -20,18 +20,10 @@ package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.hdfs.server.datanode.BlockMetadataHeader;
 import org.apache.hadoop.hdfs.server.datanode.DataNode;
-import org.apache.hadoop.hdfs.server.datanode.DatanodeUtil;
-import org.apache.hadoop.io.IOUtils;
-import org.apache.hadoop.util.DataChecksum;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -238,8 +230,6 @@ class RamDiskAsyncLazyPersistService {
     public void run() {
       boolean succeeded = false;
       try {
-        computeChecksumIfNeeded();
-
         // No FsDatasetImpl lock for the file copy
         File targetFiles[] = FsDatasetImpl.copyBlockFiles(
             blockId, genStamp, metaFile, blockFile, lazyPersistDir);
@@ -251,98 +241,12 @@ class RamDiskAsyncLazyPersistService {
       } catch (Exception e){
         FsDatasetImpl.LOG.warn(
             "LazyWriter failed to async persist RamDisk block pool id: "
-            + bpId + "block Id: " + blockId);
+            + bpId + "block Id: " + blockId, e);
       } finally {
         if (!succeeded) {
           datanode.getFSDataset().onFailLazyPersist(bpId, blockId);
         }
       }
-    }
-
-    private void computeChecksumIfNeeded() throws IOException {
-      // Calculate checksum if needed
-      if (metaFile.length() <= BlockMetadataHeader.getHeaderSize()) {
-        final DataChecksum checksum = BlockMetadataHeader.readDataChecksum(metaFile);
-        final InputStream dataIn = new FileInputStream(blockFile);
-
-        final byte[] data = new byte[1 << 16];
-        final byte[] crcs = new byte[checksum.getChecksumSize(data.length)];
-        OutputStream metaOut = null;
-        try {
-          metaOut = new FileOutputStream(metaFile);
-
-          int offset = 0;
-          for(int n; (n = dataIn.read(data, offset, data.length - offset)) != -1; ) {
-            if (n > 0) {
-              n += offset;
-              offset = n % checksum.getBytesPerChecksum();
-              final int length = n - offset;
-
-              if (length > 0) {
-                checksum.calculateChunkedSums(data, 0, length, crcs, 0);
-                metaOut.write(crcs, 0, checksum.getChecksumSize(length));
-
-                System.arraycopy(data, length, data, 0, offset);
-              }
-            }
-          }
-
-          // calculate and write the last crc
-          checksum.calculateChunkedSums(data, 0, offset, crcs, 0);
-          metaOut.write(crcs, 0, 4);
-        } finally {
-          IOUtils.cleanup(LOG, dataIn, metaOut);
-        }
-      }
-    }
-
-    /**
-     * Copy the block file and compute checksums.
-     * @return the new meta and block files.
-     */
-    private File[] copyBlockFileAndComputeChecksum() throws IOException {
-      final DataChecksum checksum = BlockMetadataHeader.readDataChecksum(metaFile);
-
-      final InputStream dataIn = new FileInputStream(blockFile);
-      final File destDir = DatanodeUtil.idToBlockDir(lazyPersistDir, blockId);
-      final File dstFile = new File(destDir, blockFile.getName());
-      final File dstMeta = FsDatasetUtil.getMetaFile(dstFile, genStamp);
-
-      final byte[] data = new byte[1 << 16];
-      final byte[] crcs = new byte[checksum.getChecksumSize(data.length)];
-
-      OutputStream dataOut = null;
-      OutputStream metaOut = null;
-      try {
-        dataOut = new FileOutputStream(dstFile);
-        metaOut = new FileOutputStream(dstMeta);
-
-        int offset = 0;
-        for(int n; (n = dataIn.read(data, offset, data.length - offset)) != -1; ) {
-          if (n > 0) {
-            n += offset;
-            offset = n % checksum.getBytesPerChecksum();
-            final int length = n - offset;
-
-            if (length > 0) {
-              checksum.calculateChunkedSums(data, 0, length, crcs, 0);
-              dataOut.write(data, 0, length);
-              metaOut.write(crcs, 0, checksum.getChecksumSize(length));
-
-              System.arraycopy(data, length, data, 0, offset);
-            }
-          }
-        }
-
-        // calculate and write the last crc
-        checksum.calculateChunkedSums(data, 0, offset, crcs, 0);
-        dataOut.write(data, 0, offset);
-        metaOut.write(crcs, 0, 4);
-      } finally {
-        IOUtils.cleanup(LOG, dataIn, dataOut, metaOut);
-      }
-
-      return new File[] {dstMeta, dstFile};
     }
   }
 }
