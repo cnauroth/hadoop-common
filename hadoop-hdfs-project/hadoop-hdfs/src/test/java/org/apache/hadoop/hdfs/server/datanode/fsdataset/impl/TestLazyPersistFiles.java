@@ -36,10 +36,13 @@ import org.apache.hadoop.hdfs.server.datanode.DatanodeUtil;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeSpi;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.tools.JMXGet;
+import org.apache.hadoop.net.unix.DomainSocket;
+import org.apache.hadoop.net.unix.TemporarySocketDirectory;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.*;
@@ -83,6 +86,14 @@ public class TestLazyPersistFiles {
   private static final int EVICTION_LOW_WATERMARK = 1;
   private static final String JMX_SERVICE_NAME = "DataNode";
   private static final String JMX_RAM_DISK_METRICS_PATTERN = "^RamDisk";
+
+  private static TemporarySocketDirectory sockDir;
+
+  @BeforeClass
+  public static void init() {
+    sockDir = new TemporarySocketDirectory();
+    DomainSocket.disableBindPathValidation();
+  }
 
   private MiniDFSCluster cluster;
   private DistributedFileSystem fs;
@@ -746,6 +757,19 @@ public class TestLazyPersistFiles {
     ensureFileReplicasOnStorageType(path1, RAM_DISK);
   }
 
+  @Test (timeout=300000)
+  public void testShortCircuitRead()
+      throws IOException, InterruptedException {
+    startUpCluster(true, 1, true);
+    final String METHOD_NAME = GenericTestUtils.getMethodName();
+    Path path = new Path("/" + METHOD_NAME + ".dat");
+    final int SEED = 0xFADED;
+
+    makeTestFile(path, BLOCK_SIZE, true);
+    ensureFileReplicasOnStorageType(path, RAM_DISK);
+    verifyReadRandomFile(path, BLOCK_SIZE, SEED);
+  }
+
   // ---- Utility functions for all test cases -------------------------------
 
   /**
@@ -769,7 +793,12 @@ public class TestLazyPersistFiles {
     conf.setInt(DFS_DATANODE_RAM_DISK_LOW_WATERMARK_REPLICAS,
                 EVICTION_LOW_WATERMARK);
 
-    conf.setBoolean(DFS_CLIENT_READ_SHORTCIRCUIT_KEY, useSCR);
+    if (useSCR) {
+      conf.setBoolean(DFS_CLIENT_READ_SHORTCIRCUIT_KEY, true);
+      conf.set(DFSConfigKeys.DFS_DOMAIN_SOCKET_PATH_KEY,
+        new File(sockDir.getDir(), "TestLazyPersistFiles._PORT.sock")
+          .getAbsolutePath());
+    }
 
     long[] capacities = null;
     if (hasTransientStorage && ramDiskReplicaCapacity >= 0) {
