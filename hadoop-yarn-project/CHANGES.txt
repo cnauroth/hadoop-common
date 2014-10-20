@@ -172,8 +172,11 @@ Release 2.6.0 - UNRELEASED
     YARN-2496. Enhanced Capacity Scheduler to have basic support for allocating
     resources based on node-labels. (Wangda Tan via vinodkv)
 
-    YARN-2500. Ehnaced ResourceManager to support schedulers allocating resources
+    YARN-2500. Enhaced ResourceManager to support schedulers allocating resources
     based on node-labels. (Wangda Tan via vinodkv)
+
+    YARN-2504. Enhanced RM Admin CLI to support management of node-labels.
+    (Wangda Tan via vinodkv)
 
   IMPROVEMENTS
 
@@ -366,6 +369,9 @@ Release 2.6.0 - UNRELEASED
 
     YARN-1879. Marked Idempotent/AtMostOnce annotations to ApplicationMasterProtocol
     for RM fail over. (Tsuyoshi OZAWA via jianhe)
+
+    YARN-2676. Enhanced Timeline auth-filter to support proxy users. (Zhijie Shen
+    via vinodkv)
 
   OPTIMIZATIONS
 
@@ -599,6 +605,10 @@ Release 2.6.0 - UNRELEASED
 
     YARN-2699. Fixed a bug in CommonNodeLabelsManager that caused tests to fail
     when using ephemeral ports on NodeIDs. (Wangda Tan via vinodkv)
+
+    YARN-2705. Fixed bugs in ResourceManager node-label manager that were causing
+    test-failures: added a dummy in-memory labels-manager. (Wangda Tan via
+    vinodkv)
 
   BREAKDOWN OF YARN-1051 SUBTASKS AND RELATED JIRAS
 

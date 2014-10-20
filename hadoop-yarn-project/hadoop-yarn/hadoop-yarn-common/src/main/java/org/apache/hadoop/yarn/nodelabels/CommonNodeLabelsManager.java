@@ -220,9 +220,11 @@ public class CommonNodeLabelsManager extends AbstractService {
     // service init, we don't want to trigger any event handling at that time.
     initDispatcher(getConfig());
 
-    dispatcher.register(NodeLabelsStoreEventType.class,
-        new ForwardingEventHandler());
-
+    if (null != dispatcher) {
+      dispatcher.register(NodeLabelsStoreEventType.class,
+          new ForwardingEventHandler());
+    }
+    
     startDispatcher();
   }
   
@@ -236,7 +238,11 @@ public class CommonNodeLabelsManager extends AbstractService {
   protected void serviceStop() throws Exception {
     // finalize store
     stopDispatcher();
-    store.close();
+    
+    // only close store when we enabled store persistent
+    if (null != store) {
+      store.close();
+    }
   }
 
   /**
