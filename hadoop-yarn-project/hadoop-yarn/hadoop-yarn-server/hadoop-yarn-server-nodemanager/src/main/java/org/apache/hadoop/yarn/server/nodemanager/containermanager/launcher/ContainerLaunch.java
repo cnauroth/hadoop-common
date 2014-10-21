@@ -240,7 +240,7 @@ public class ContainerLaunch implements Callable<Integer> {
       if (!dirsHandler.areDisksHealthy()) {
         ret = ContainerExitStatus.DISKS_FAILED;
         throw new IOException("Most of the disks failed. "
-            + dirsHandler.getDisksHealthReport());
+            + dirsHandler.getDisksHealthReport(false));
       }
 
       try {
@@ -764,11 +764,13 @@ public class ContainerLaunch implements Callable<Integer> {
           System.getenv());
         mergedEnv.putAll(environment);
 
-        String classPathJar = FileUtil.createJarWithClassPath(
+        String[] jarCp = FileUtil.createJarWithClassPath(
           newClassPath.toString(), pwd, mergedEnv);
+        String classPathJar = jarCp[0];
         // In a secure cluster the classpath jar must be localized to grant access
         this.exec.localizeClasspathJar(new Path(classPathJar), container.getUser());
-        environment.put(Environment.CLASSPATH.name(), classPathJar);
+        String replacementClassPath = classPathJar + jarCp[1];
+        environment.put(Environment.CLASSPATH.name(), replacementClassPath);
       }
     }
     // put AuxiliaryService data to environment
