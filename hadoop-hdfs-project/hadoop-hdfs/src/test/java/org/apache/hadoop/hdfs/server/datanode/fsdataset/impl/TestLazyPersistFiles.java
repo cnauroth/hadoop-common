@@ -764,14 +764,14 @@ public class TestLazyPersistFiles {
   public void testShortCircuitRead()
       throws IOException, InterruptedException {
     Assume.assumeThat(DomainSocket.getLoadingFailureReason(), equalTo(null));
-    startUpCluster(true, 5, true, false);
+    startUpCluster(true, 1 + EVICTION_LOW_WATERMARK, true, false);
     doShortCircuitReadTest();
   }
 
   @Test (timeout=300000)
   public void testLegacyShortCircuitRead()
       throws IOException, InterruptedException {
-    startUpCluster(true, 5, true, true);
+    startUpCluster(true, 1 + EVICTION_LOW_WATERMARK, true, true);
     doShortCircuitReadTest();
   }
 
