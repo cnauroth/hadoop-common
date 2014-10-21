@@ -69,6 +69,7 @@ class BlockReaderLocal implements BlockReader {
     private ShortCircuitReplica replica;
     private long dataPos;
     private ExtendedBlock block;
+    private StorageType storageType;
 
     public Builder(Conf conf) {
       this.maxReadahead = Integer.MAX_VALUE;
@@ -106,6 +107,12 @@ class BlockReaderLocal implements BlockReader {
 
     public Builder setBlock(ExtendedBlock block) {
       this.block = block;
+      return this;
+    }
+
+    public Builder setStorageType(StorageType storageType) {
+      this.storageType = storageType;
+      DFSClient.LOG.info("cn BlockReaderLocal.Builder storageType = " + storageType);
       return this;
     }
 
@@ -212,6 +219,11 @@ class BlockReaderLocal implements BlockReader {
    */
   private ByteBuffer checksumBuf;
 
+  /**
+   * StorageType of replica on DataNode.
+   */
+  private StorageType storageType;
+
   private BlockReaderLocal(Builder builder) {
     this.replica = builder.replica;
     this.dataIn = replica.getDataStream().getChannel();
@@ -240,6 +252,7 @@ class BlockReaderLocal implements BlockReader {
       this.zeroReadaheadRequested = false;
     }
     this.maxReadaheadLength = maxReadaheadChunks * bytesPerChecksum;
+    this.storageType = builder.storageType;
   }
 
   private synchronized void createDataBufIfNeeded() {
@@ -359,7 +372,13 @@ class BlockReaderLocal implements BlockReader {
 
   private boolean createNoChecksumContext() {
     if (verifyChecksum) {
-      return replica.addNoChecksumAnchor();
+      if (storageType != null && storageType.isTransient()) {
+        // Checksums are not stored for replicas on transient storage.  There is
+        // no need to anchor, because coordination with mlock is not relevant.
+        return true;
+      } else {
+        return replica.addNoChecksumAnchor();
+      }
     } else {
       return true;
     }
@@ -367,7 +386,9 @@ class BlockReaderLocal implements BlockReader {
 
   private void releaseNoChecksumContext() {
     if (verifyChecksum) {
-      replica.removeNoChecksumAnchor();
+      if (storageType == null || !storageType.isTransient()) {
+        replica.removeNoChecksumAnchor();
+      }
     }
   }
 

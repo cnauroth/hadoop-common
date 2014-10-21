@@ -186,6 +186,8 @@ public class LocatedBlock {
         + "; corrupt=" + corrupt
         + "; offset=" + offset
         + "; locs=" + java.util.Arrays.asList(locs)
+        + "; storageIDs=" + java.util.Arrays.asList(storageIDs)
+        + "; storageTypes=" + java.util.Arrays.asList(storageTypes)
         + "}";
   }
 }
