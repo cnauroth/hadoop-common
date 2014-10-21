@@ -373,6 +373,12 @@ Release 2.6.0 - UNRELEASED
     YARN-2676. Enhanced Timeline auth-filter to support proxy users. (Zhijie Shen
     via vinodkv)
 
+    YARN-2673. Made timeline client put APIs retry if ConnectException happens.
+    (Li Lu via zjshen)
+
+    YARN-2582. Fixed Log CLI and Web UI for showing aggregated logs of LRS. (Xuan
+    Gong via zjshen)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -692,6 +698,12 @@ Release 2.6.0 - UNRELEASED
 
     YARN-2588. Standby RM fails to transitionToActive if previous
     transitionToActive failed with ZK exception. (Rohith Sharmaks via jianhe)
+
+    YARN-2701. Potential race condition in startLocalizer when using
+    LinuxContainerExecutor. (Xuan Gong via jianhe)
+
+    YARN-2717. Avoided duplicate logging when container logs are not found. (Xuan
+    Gong via zjshen)
 
 Release 2.5.1 - 2014-09-05
 

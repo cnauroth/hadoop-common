@@ -381,6 +381,9 @@ Release 2.7.0 - UNRELEASED
 
     HDFS-6252. Phase out the old web UI in HDFS. (wheat9)
 
+    HDFS-7266. HDFS Peercache enabled check should not lock on object (awang
+    via cmccabe)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -1211,6 +1214,9 @@ Release 2.6.0 - UNRELEASED
     (jing9)
 
     HDFS-7167. NPE while running Mover if the given path is for a file. (jing9)
+
+    HDFS-7154. Fix returning value of starting reconfiguration task (Lei Xu via
+    Colin P. McCabe)
 
 Release 2.5.1 - 2014-09-05
 
