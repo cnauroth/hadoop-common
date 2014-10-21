@@ -38,6 +38,7 @@ import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.tools.JMXGet;
 import org.apache.hadoop.net.unix.DomainSocket;
 import org.apache.hadoop.net.unix.TemporarySocketDirectory;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.junit.After;
@@ -763,11 +764,21 @@ public class TestLazyPersistFiles {
   public void testShortCircuitRead()
       throws IOException, InterruptedException {
     Assume.assumeThat(DomainSocket.getLoadingFailureReason(), equalTo(null));
-    startUpCluster(true, 1, true);
+    startUpCluster(true, 5, true, false);
+    doShortCircuitReadTest();
+  }
+
+  @Test (timeout=300000)
+  public void testLegacyShortCircuitRead()
+      throws IOException, InterruptedException {
+    startUpCluster(true, 5, true, true);
+    doShortCircuitReadTest();
+  }
+
+  private void doShortCircuitReadTest() throws IOException {
     final String METHOD_NAME = GenericTestUtils.getMethodName();
     Path path = new Path("/" + METHOD_NAME + ".dat");
     final int SEED = 0xFADED;
-
     makeTestFile(path, BLOCK_SIZE, true);
     ensureFileReplicasOnStorageType(path, RAM_DISK);
     verifyReadRandomFile(path, BLOCK_SIZE, SEED);
@@ -781,7 +792,8 @@ public class TestLazyPersistFiles {
    */
   private void startUpCluster(boolean hasTransientStorage,
                               final int ramDiskReplicaCapacity,
-                              final boolean useSCR)
+                              final boolean useSCR,
+                              final boolean useLegacyBlockReaderLocal)
       throws IOException {
 
     conf = new Configuration();
@@ -798,9 +810,14 @@ public class TestLazyPersistFiles {
 
     if (useSCR) {
       conf.setBoolean(DFS_CLIENT_READ_SHORTCIRCUIT_KEY, true);
-      conf.set(DFSConfigKeys.DFS_DOMAIN_SOCKET_PATH_KEY,
-        new File(sockDir.getDir(), "TestLazyPersistFiles._PORT.sock")
-          .getAbsolutePath());
+      if (useLegacyBlockReaderLocal) {
+        conf.setBoolean(DFS_CLIENT_USE_LEGACY_BLOCKREADERLOCAL, true);
+        conf.set(DFS_BLOCK_LOCAL_PATH_ACCESS_USER_KEY,
+            UserGroupInformation.getCurrentUser().getShortUserName());
+      } else {
+        conf.set(DFS_DOMAIN_SOCKET_PATH_KEY, new File(sockDir.getDir(),
+            "TestLazyPersistFiles._PORT.sock").getAbsolutePath());
+      }
     }
 
     long[] capacities = null;
@@ -829,7 +846,7 @@ public class TestLazyPersistFiles {
   private void startUpCluster(boolean hasTransientStorage,
                               final int ramDiskReplicaCapacity)
     throws IOException {
-    startUpCluster(hasTransientStorage, ramDiskReplicaCapacity, false);
+    startUpCluster(hasTransientStorage, ramDiskReplicaCapacity, false, false);
   }
 
   private void makeTestFile(Path path, long length, final boolean isLazyPersist)
