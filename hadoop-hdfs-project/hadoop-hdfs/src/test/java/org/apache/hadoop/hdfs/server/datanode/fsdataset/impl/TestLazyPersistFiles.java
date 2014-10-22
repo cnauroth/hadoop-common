@@ -783,62 +783,6 @@ public class TestLazyPersistFiles {
     doShortCircuitReadTest();
   }
 
-  @Test (timeout=300000)
-  public void testBlockFileCorruptionAfterLazyPersist() throws IOException,
-      InterruptedException {
-    startUpCluster(true, 1 + EVICTION_LOW_WATERMARK, true, false);
-    final String METHOD_NAME = GenericTestUtils.getMethodName();
-    Path path1 = new Path("/" + METHOD_NAME + ".01.dat");
-    Path path2 = new Path("/" + METHOD_NAME + ".02.dat");
-
-    final int SEED = 0xFADED;
-    makeRandomTestFile(path1, BLOCK_SIZE, true, SEED);
-    ensureFileReplicasOnStorageType(path1, RAM_DISK);
-
-    // Create another file with a replica on RAM_DISK, which evicts the first.
-    makeRandomTestFile(path2, BLOCK_SIZE, true, SEED);
-
-    // Sleep for a short time to allow the lazy writer thread to do its job.
-    Thread.sleep(3 * LAZY_WRITER_INTERVAL_SEC * 1000);
-    triggerBlockReport();
-
-    // Corrupt the lazy-persisted block file, and verify that checksum
-    // verification catches it.
-    ensureFileReplicasOnStorageType(path1, DEFAULT);
-    MiniDFSCluster.corruptReplica(0, DFSTestUtil.getFirstBlock(fs, path1));
-    exception.expect(ChecksumException.class);
-    DFSTestUtil.readFileBuffer(fs, path1);
-  }
-
-  @Test (timeout=300000)
-  public void testMetaFileCorruptionAfterLazyPersist() throws IOException,
-      InterruptedException {
-    startUpCluster(true, 1 + EVICTION_LOW_WATERMARK, true, false);
-    final String METHOD_NAME = GenericTestUtils.getMethodName();
-    Path path1 = new Path("/" + METHOD_NAME + ".01.dat");
-    Path path2 = new Path("/" + METHOD_NAME + ".02.dat");
-
-    final int SEED = 0xFADED;
-    makeRandomTestFile(path1, BLOCK_SIZE, true, SEED);
-    ensureFileReplicasOnStorageType(path1, RAM_DISK);
-
-    // Create another file with a replica on RAM_DISK, which evicts the first.
-    makeRandomTestFile(path2, BLOCK_SIZE, true, SEED);
-
-    // Sleep for a short time to allow the lazy writer thread to do its job.
-    Thread.sleep(3 * LAZY_WRITER_INTERVAL_SEC * 1000);
-    triggerBlockReport();
-
-    // Corrupt the lazy-persisted checksum file, and verify that checksum
-    // verification catches it.
-    ensureFileReplicasOnStorageType(path1, DEFAULT);
-    File metaFile = MiniDFSCluster.getBlockMetadataFile(0,
-        DFSTestUtil.getFirstBlock(fs, path1));
-    MiniDFSCluster.corruptBlock(metaFile);
-    exception.expect(ChecksumException.class);
-    DFSTestUtil.readFileBuffer(fs, path1);
-  }
-
   private void doShortCircuitReadTest() throws IOException,
       InterruptedException {
     final String METHOD_NAME = GenericTestUtils.getMethodName();
@@ -877,6 +821,88 @@ public class TestLazyPersistFiles {
         DFSTestUtil.getFirstBlock(fs, path1));
     assertTrue(metaFile.length() > BlockMetadataHeader.getHeaderSize());
     Assert.assertTrue(verifyReadRandomFile(path1, BLOCK_SIZE, SEED));
+  }
+
+  @Test (timeout=300000)
+  public void testShortCircuitReadBlockFileCorruption() throws IOException,
+      InterruptedException {
+    Assume.assumeThat(DomainSocket.getLoadingFailureReason(), equalTo(null));
+    startUpCluster(true, 1 + EVICTION_LOW_WATERMARK, true, false);
+    doShortCircuitReadBlockFileCorruptionTest();
+  }
+
+  @Test (timeout=300000)
+  public void testLegacyShortCircuitReadBlockFileCorruption() throws IOException,
+      InterruptedException {
+    startUpCluster(true, 1 + EVICTION_LOW_WATERMARK, true, true);
+    doShortCircuitReadBlockFileCorruptionTest();
+  }
+
+  public void doShortCircuitReadBlockFileCorruptionTest() throws IOException,
+      InterruptedException {
+    final String METHOD_NAME = GenericTestUtils.getMethodName();
+    Path path1 = new Path("/" + METHOD_NAME + ".01.dat");
+    Path path2 = new Path("/" + METHOD_NAME + ".02.dat");
+
+    final int SEED = 0xFADED;
+    makeRandomTestFile(path1, BLOCK_SIZE, true, SEED);
+    ensureFileReplicasOnStorageType(path1, RAM_DISK);
+
+    // Create another file with a replica on RAM_DISK, which evicts the first.
+    makeRandomTestFile(path2, BLOCK_SIZE, true, SEED);
+
+    // Sleep for a short time to allow the lazy writer thread to do its job.
+    Thread.sleep(3 * LAZY_WRITER_INTERVAL_SEC * 1000);
+    triggerBlockReport();
+
+    // Corrupt the lazy-persisted block file, and verify that checksum
+    // verification catches it.
+    ensureFileReplicasOnStorageType(path1, DEFAULT);
+    MiniDFSCluster.corruptReplica(0, DFSTestUtil.getFirstBlock(fs, path1));
+    exception.expect(ChecksumException.class);
+    DFSTestUtil.readFileBuffer(fs, path1);
+  }
+
+  @Test (timeout=300000)
+  public void testShortCircuitReadMetaFileCorruption() throws IOException,
+      InterruptedException {
+    Assume.assumeThat(DomainSocket.getLoadingFailureReason(), equalTo(null));
+    startUpCluster(true, 1 + EVICTION_LOW_WATERMARK, true, false);
+    doShortCircuitReadMetaFileCorruptionTest();
+  }
+
+  @Test (timeout=300000)
+  public void testLegacyShortCircuitReadMetaFileCorruption() throws IOException,
+      InterruptedException {
+    startUpCluster(true, 1 + EVICTION_LOW_WATERMARK, true, true);
+    doShortCircuitReadMetaFileCorruptionTest();
+  }
+
+  public void doShortCircuitReadMetaFileCorruptionTest() throws IOException,
+      InterruptedException {
+    final String METHOD_NAME = GenericTestUtils.getMethodName();
+    Path path1 = new Path("/" + METHOD_NAME + ".01.dat");
+    Path path2 = new Path("/" + METHOD_NAME + ".02.dat");
+
+    final int SEED = 0xFADED;
+    makeRandomTestFile(path1, BLOCK_SIZE, true, SEED);
+    ensureFileReplicasOnStorageType(path1, RAM_DISK);
+
+    // Create another file with a replica on RAM_DISK, which evicts the first.
+    makeRandomTestFile(path2, BLOCK_SIZE, true, SEED);
+
+    // Sleep for a short time to allow the lazy writer thread to do its job.
+    Thread.sleep(3 * LAZY_WRITER_INTERVAL_SEC * 1000);
+    triggerBlockReport();
+
+    // Corrupt the lazy-persisted checksum file, and verify that checksum
+    // verification catches it.
+    ensureFileReplicasOnStorageType(path1, DEFAULT);
+    File metaFile = MiniDFSCluster.getBlockMetadataFile(0,
+        DFSTestUtil.getFirstBlock(fs, path1));
+    MiniDFSCluster.corruptBlock(metaFile);
+    exception.expect(ChecksumException.class);
+    DFSTestUtil.readFileBuffer(fs, path1);
   }
 
   // ---- Utility functions for all test cases -------------------------------
