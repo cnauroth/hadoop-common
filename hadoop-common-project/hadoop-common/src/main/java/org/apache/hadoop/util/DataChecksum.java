@@ -113,8 +113,8 @@ public class DataChecksum implements Checksum {
   }
   
   /**
-   * This constructucts a DataChecksum by reading HEADER_LEN bytes from
-   * input stream <i>in</i>
+   * This constructs a DataChecksum by reading HEADER_LEN bytes from input
+   * stream <i>in</i>
    */
   public static DataChecksum newDataChecksum( DataInputStream in )
                                  throws IOException {
