@@ -50,6 +50,7 @@ import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.junit.rules.Timeout;
 
 import java.io.*;
 import java.util.*;
@@ -135,7 +136,10 @@ public class TestLazyPersistFiles {
   @Rule
   public ExpectedException exception = ExpectedException.none();
 
-  @Test (timeout=300000)
+  @Rule
+  public Timeout timeout = new Timeout(300000);
+
+  @Test
   public void testPolicyNotSetByDefault() throws IOException {
     startUpCluster(false, -1);
     final String METHOD_NAME = GenericTestUtils.getMethodName();
@@ -148,7 +152,7 @@ public class TestLazyPersistFiles {
     assertThat(status.getStoragePolicy(), not(LAZY_PERSIST_POLICY_ID));
   }
 
-  @Test (timeout=300000)
+  @Test
   public void testPolicyPropagation() throws IOException {
     startUpCluster(false, -1);
     final String METHOD_NAME = GenericTestUtils.getMethodName();
@@ -160,7 +164,7 @@ public class TestLazyPersistFiles {
     assertThat(status.getStoragePolicy(), is(LAZY_PERSIST_POLICY_ID));
   }
 
-  @Test (timeout=300000)
+  @Test
   public void testPolicyPersistenceInEditLog() throws IOException {
     startUpCluster(false, -1);
     final String METHOD_NAME = GenericTestUtils.getMethodName();
@@ -174,7 +178,7 @@ public class TestLazyPersistFiles {
     assertThat(status.getStoragePolicy(), is(LAZY_PERSIST_POLICY_ID));
   }
 
-  @Test (timeout=300000)
+  @Test
   public void testPolicyPersistenceInFsImage() throws IOException {
     startUpCluster(false, -1);
     final String METHOD_NAME = GenericTestUtils.getMethodName();
@@ -192,7 +196,7 @@ public class TestLazyPersistFiles {
     assertThat(status.getStoragePolicy(), is(LAZY_PERSIST_POLICY_ID));
   }
 
-  @Test (timeout=300000)
+  @Test
   public void testPlacementOnRamDisk() throws IOException {
     startUpCluster(true, -1);
     final String METHOD_NAME = GenericTestUtils.getMethodName();
@@ -202,7 +206,7 @@ public class TestLazyPersistFiles {
     ensureFileReplicasOnStorageType(path, RAM_DISK);
   }
 
-  @Test (timeout=300000)
+  @Test
   public void testPlacementOnSizeLimitedRamDisk() throws IOException {
     startUpCluster(true, 3);
     final String METHOD_NAME = GenericTestUtils.getMethodName();
@@ -221,7 +225,7 @@ public class TestLazyPersistFiles {
    * Write should default to disk. No error.
    * @throws IOException
    */
-  @Test (timeout=300000)
+  @Test
   public void testFallbackToDisk() throws IOException {
     startUpCluster(false, -1);
     final String METHOD_NAME = GenericTestUtils.getMethodName();
@@ -235,7 +239,7 @@ public class TestLazyPersistFiles {
    * File can not fit in RamDisk even with eviction
    * @throws IOException
    */
-  @Test (timeout=300000)
+  @Test
   public void testFallbackToDiskFull() throws Exception {
     startUpCluster(false, 0);
     final String METHOD_NAME = GenericTestUtils.getMethodName();
@@ -253,7 +257,7 @@ public class TestLazyPersistFiles {
    * Expect 2 or less blocks are on RamDisk and 3 or more on disk.
    * @throws IOException
    */
-  @Test (timeout=300000)
+  @Test
   public void testFallbackToDiskPartial()
     throws IOException, InterruptedException {
     startUpCluster(true, 2);
@@ -293,7 +297,7 @@ public class TestLazyPersistFiles {
    *
    * @throws IOException
    */
-  @Test (timeout=300000)
+  @Test
   public void testRamDiskNotChosenByDefault() throws IOException {
     startUpCluster(true, -1);
     final String METHOD_NAME = GenericTestUtils.getMethodName();
@@ -311,7 +315,7 @@ public class TestLazyPersistFiles {
    * Append to lazy persist file is denied.
    * @throws IOException
    */
-  @Test (timeout=300000)
+  @Test
   public void testAppendIsDenied() throws IOException {
     startUpCluster(true, -1);
     final String METHOD_NAME = GenericTestUtils.getMethodName();
@@ -332,7 +336,7 @@ public class TestLazyPersistFiles {
    * must be discarded by the NN, instead of being kept around as a
    * 'corrupt' file.
    */
-  @Test (timeout=300000)
+  @Test
   public void testLazyPersistFilesAreDiscarded()
       throws IOException, InterruptedException {
     startUpCluster(true, 2);
@@ -366,7 +370,7 @@ public class TestLazyPersistFiles {
                is(0L));
   }
 
-  @Test (timeout=300000)
+  @Test
   public void testLazyPersistBlocksAreSaved()
       throws IOException, InterruptedException {
     startUpCluster(true, -1);
@@ -421,7 +425,7 @@ public class TestLazyPersistFiles {
    * RamDisk eviction after lazy persist to disk.
    * @throws Exception
    */
-  @Test (timeout=300000)
+  @Test
   public void testRamDiskEviction() throws Exception {
     startUpCluster(true, 1 + EVICTION_LOW_WATERMARK);
     final String METHOD_NAME = GenericTestUtils.getMethodName();
@@ -456,7 +460,7 @@ public class TestLazyPersistFiles {
    * @throws IOException
    * @throws InterruptedException
    */
-  @Test (timeout=300000)
+  @Test
   public void testRamDiskEvictionBeforePersist()
     throws IOException, InterruptedException {
     startUpCluster(true, 1);
@@ -489,7 +493,7 @@ public class TestLazyPersistFiles {
    * @throws IOException
    * @throws InterruptedException
    */
-  @Test (timeout=300000)
+  @Test
   public void testRamDiskEvictionIsLru()
     throws Exception {
     final int NUM_PATHS = 5;
@@ -551,7 +555,7 @@ public class TestLazyPersistFiles {
    * Memory is freed up and file is gone.
    * @throws IOException
    */
-  @Test // (timeout=300000)
+  @Test
   public void testDeleteBeforePersist()
     throws Exception {
     startUpCluster(true, -1);
@@ -578,7 +582,7 @@ public class TestLazyPersistFiles {
    * @throws IOException
    * @throws InterruptedException
    */
-  @Test (timeout=300000)
+  @Test
   public void testDeleteAfterPersist()
     throws Exception {
     startUpCluster(true, -1);
@@ -606,7 +610,7 @@ public class TestLazyPersistFiles {
    * @throws IOException
    * @throws InterruptedException
    */
-  @Test (timeout=300000)
+  @Test
   public void testDfsUsageCreateDelete()
     throws IOException, InterruptedException {
     startUpCluster(true, 4);
@@ -637,7 +641,7 @@ public class TestLazyPersistFiles {
   /**
    * Concurrent read from the same node and verify the contents.
    */
-  @Test (timeout=300000)
+  @Test
   public void testConcurrentRead()
     throws Exception {
     startUpCluster(true, 2);
@@ -688,7 +692,7 @@ public class TestLazyPersistFiles {
    * @throws IOException
    * @throws InterruptedException
    */
-  @Test (timeout=300000)
+  @Test
   public void testConcurrentWrites()
     throws IOException, InterruptedException {
     startUpCluster(true, 9);
@@ -724,7 +728,7 @@ public class TestLazyPersistFiles {
     assertThat(testFailed.get(), is(false));
   }
 
-  @Test (timeout=300000)
+  @Test
   public void testDnRestartWithSavedReplicas()
       throws IOException, InterruptedException {
 
@@ -748,7 +752,7 @@ public class TestLazyPersistFiles {
     ensureFileReplicasOnStorageType(path1, DEFAULT);
   }
 
-  @Test (timeout=300000)
+  @Test
   public void testDnRestartWithUnsavedReplicas()
       throws IOException, InterruptedException {
 
@@ -768,7 +772,7 @@ public class TestLazyPersistFiles {
     ensureFileReplicasOnStorageType(path1, RAM_DISK);
   }
 
-  @Test (timeout=300000)
+  @Test
   public void testShortCircuitRead()
       throws IOException, InterruptedException {
     Assume.assumeThat(DomainSocket.getLoadingFailureReason(), equalTo(null));
@@ -776,7 +780,7 @@ public class TestLazyPersistFiles {
     doShortCircuitReadTest();
   }
 
-  @Test (timeout=300000)
+  @Test
   public void testLegacyShortCircuitRead()
       throws IOException, InterruptedException {
     startUpCluster(true, 1 + EVICTION_LOW_WATERMARK, true, true);
@@ -823,7 +827,7 @@ public class TestLazyPersistFiles {
     Assert.assertTrue(verifyReadRandomFile(path1, BLOCK_SIZE, SEED));
   }
 
-  @Test (timeout=300000)
+  @Test
   public void testShortCircuitReadBlockFileCorruption() throws IOException,
       InterruptedException {
     Assume.assumeThat(DomainSocket.getLoadingFailureReason(), equalTo(null));
@@ -831,7 +835,7 @@ public class TestLazyPersistFiles {
     doShortCircuitReadBlockFileCorruptionTest();
   }
 
-  @Test (timeout=300000)
+  @Test
   public void testLegacyShortCircuitReadBlockFileCorruption() throws IOException,
       InterruptedException {
     startUpCluster(true, 1 + EVICTION_LOW_WATERMARK, true, true);
@@ -863,7 +867,7 @@ public class TestLazyPersistFiles {
     DFSTestUtil.readFileBuffer(fs, path1);
   }
 
-  @Test (timeout=300000)
+  @Test
   public void testShortCircuitReadMetaFileCorruption() throws IOException,
       InterruptedException {
     Assume.assumeThat(DomainSocket.getLoadingFailureReason(), equalTo(null));
@@ -871,7 +875,7 @@ public class TestLazyPersistFiles {
     doShortCircuitReadMetaFileCorruptionTest();
   }
 
-  @Test (timeout=300000)
+  @Test
   public void testLegacyShortCircuitReadMetaFileCorruption() throws IOException,
       InterruptedException {
     startUpCluster(true, 1 + EVICTION_LOW_WATERMARK, true, true);
