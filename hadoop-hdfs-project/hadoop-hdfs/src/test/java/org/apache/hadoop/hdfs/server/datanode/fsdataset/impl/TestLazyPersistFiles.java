@@ -22,6 +22,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.commons.logging.impl.Log4JLogger;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.ChecksumException;
 import org.apache.hadoop.fs.CreateFlag;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
@@ -46,7 +47,9 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 
 import java.io.*;
 import java.util.*;
@@ -128,6 +131,9 @@ public class TestLazyPersistFiles {
       jmx = null;
     }
   }
+
+  @Rule
+  public ExpectedException exception = ExpectedException.none();
 
   @Test (timeout=300000)
   public void testPolicyNotSetByDefault() throws IOException {
@@ -475,7 +481,7 @@ public class TestLazyPersistFiles {
 
     assert(fs.exists(path1));
     assert(fs.exists(path2));
-    verifyReadRandomFile(path1, BLOCK_SIZE, SEED);
+    Assert.assertTrue(verifyReadRandomFile(path1, BLOCK_SIZE, SEED));
   }
 
   /**
@@ -777,6 +783,62 @@ public class TestLazyPersistFiles {
     doShortCircuitReadTest();
   }
 
+  @Test (timeout=300000)
+  public void testBlockFileCorruptionAfterLazyPersist() throws IOException,
+      InterruptedException {
+    startUpCluster(true, 1 + EVICTION_LOW_WATERMARK, true, false);
+    final String METHOD_NAME = GenericTestUtils.getMethodName();
+    Path path1 = new Path("/" + METHOD_NAME + ".01.dat");
+    Path path2 = new Path("/" + METHOD_NAME + ".02.dat");
+
+    final int SEED = 0xFADED;
+    makeRandomTestFile(path1, BLOCK_SIZE, true, SEED);
+    ensureFileReplicasOnStorageType(path1, RAM_DISK);
+
+    // Create another file with a replica on RAM_DISK, which evicts the first.
+    makeRandomTestFile(path2, BLOCK_SIZE, true, SEED);
+
+    // Sleep for a short time to allow the lazy writer thread to do its job.
+    Thread.sleep(3 * LAZY_WRITER_INTERVAL_SEC * 1000);
+    triggerBlockReport();
+
+    // Corrupt the lazy-persisted block file, and verify that checksum
+    // verification catches it.
+    ensureFileReplicasOnStorageType(path1, DEFAULT);
+    MiniDFSCluster.corruptReplica(0, DFSTestUtil.getFirstBlock(fs, path1));
+    exception.expect(ChecksumException.class);
+    DFSTestUtil.readFileBuffer(fs, path1);
+  }
+
+  @Test (timeout=300000)
+  public void testMetaFileCorruptionAfterLazyPersist() throws IOException,
+      InterruptedException {
+    startUpCluster(true, 1 + EVICTION_LOW_WATERMARK, true, false);
+    final String METHOD_NAME = GenericTestUtils.getMethodName();
+    Path path1 = new Path("/" + METHOD_NAME + ".01.dat");
+    Path path2 = new Path("/" + METHOD_NAME + ".02.dat");
+
+    final int SEED = 0xFADED;
+    makeRandomTestFile(path1, BLOCK_SIZE, true, SEED);
+    ensureFileReplicasOnStorageType(path1, RAM_DISK);
+
+    // Create another file with a replica on RAM_DISK, which evicts the first.
+    makeRandomTestFile(path2, BLOCK_SIZE, true, SEED);
+
+    // Sleep for a short time to allow the lazy writer thread to do its job.
+    Thread.sleep(3 * LAZY_WRITER_INTERVAL_SEC * 1000);
+    triggerBlockReport();
+
+    // Corrupt the lazy-persisted checksum file, and verify that checksum
+    // verification catches it.
+    ensureFileReplicasOnStorageType(path1, DEFAULT);
+    File metaFile = MiniDFSCluster.getBlockMetadataFile(0,
+        DFSTestUtil.getFirstBlock(fs, path1));
+    MiniDFSCluster.corruptBlock(metaFile);
+    exception.expect(ChecksumException.class);
+    DFSTestUtil.readFileBuffer(fs, path1);
+  }
+
   private void doShortCircuitReadTest() throws IOException,
       InterruptedException {
     final String METHOD_NAME = GenericTestUtils.getMethodName();
@@ -791,7 +853,7 @@ public class TestLazyPersistFiles {
     File metaFile = MiniDFSCluster.getBlockMetadataFile(0,
         DFSTestUtil.getFirstBlock(fs, path1));
     assertTrue(metaFile.length() <= BlockMetadataHeader.getHeaderSize());
-    verifyReadRandomFile(path1, BLOCK_SIZE, SEED);
+    Assert.assertTrue(verifyReadRandomFile(path1, BLOCK_SIZE, SEED));
 
     // Sleep for a short time to allow the lazy writer thread to do its job.
     Thread.sleep(3 * LAZY_WRITER_INTERVAL_SEC * 1000);
@@ -801,7 +863,7 @@ public class TestLazyPersistFiles {
     metaFile = MiniDFSCluster.getBlockMetadataFile(0,
         DFSTestUtil.getFirstBlock(fs, path1));
     assertTrue(metaFile.length() <= BlockMetadataHeader.getHeaderSize());
-    verifyReadRandomFile(path1, BLOCK_SIZE, SEED);
+    Assert.assertTrue(verifyReadRandomFile(path1, BLOCK_SIZE, SEED));
 
     // Create another file with a replica on RAM_DISK, which evicts the first.
     makeRandomTestFile(path2, BLOCK_SIZE, true, SEED);
@@ -814,7 +876,7 @@ public class TestLazyPersistFiles {
     metaFile = MiniDFSCluster.getBlockMetadataFile(0,
         DFSTestUtil.getFirstBlock(fs, path1));
     assertTrue(metaFile.length() > BlockMetadataHeader.getHeaderSize());
-    verifyReadRandomFile(path1, BLOCK_SIZE, SEED);
+    Assert.assertTrue(verifyReadRandomFile(path1, BLOCK_SIZE, SEED));
   }
 
   // ---- Utility functions for all test cases -------------------------------

@@ -112,7 +112,6 @@ class BlockReaderLocal implements BlockReader {
 
     public Builder setStorageType(StorageType storageType) {
       this.storageType = storageType;
-      DFSClient.LOG.info("cn BlockReaderLocal.Builder storageType = " + storageType);
       return this;
     }
 
