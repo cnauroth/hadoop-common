@@ -345,8 +345,8 @@ class BlockReaderLocal implements BlockReader {
           int checksumsNeeded = (total + bytesPerChecksum - 1) / bytesPerChecksum;
           checksumBuf.clear();
           checksumBuf.limit(checksumsNeeded * checksumSize);
-          long checksumPos =
-              7 + ((startDataPos / bytesPerChecksum) * checksumSize);
+          long checksumPos = BlockMetadataHeader.getHeaderSize()
+              + ((startDataPos / bytesPerChecksum) * checksumSize);
           while (checksumBuf.hasRemaining()) {
             int nRead = checksumIn.read(checksumBuf, checksumPos);
             if (nRead < 0) {
