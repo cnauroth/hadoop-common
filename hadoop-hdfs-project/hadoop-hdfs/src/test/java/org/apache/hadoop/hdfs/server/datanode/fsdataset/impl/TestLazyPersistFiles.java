@@ -31,6 +31,7 @@ import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
 import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
+import org.apache.hadoop.hdfs.server.datanode.BlockMetadataHeader;
 import org.apache.hadoop.hdfs.server.datanode.DataNodeTestUtils;
 import org.apache.hadoop.hdfs.server.datanode.DatanodeUtil;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeSpi;
@@ -63,6 +64,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsNot.not;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
@@ -786,6 +788,9 @@ public class TestLazyPersistFiles {
 
     // Verify short-circuit read from RAM_DISK.
     ensureFileReplicasOnStorageType(path1, RAM_DISK);
+    File metaFile = MiniDFSCluster.getBlockMetadataFile(0,
+        DFSTestUtil.getFirstBlock(fs, path1));
+    assertTrue(metaFile.length() <= BlockMetadataHeader.getHeaderSize());
     verifyReadRandomFile(path1, BLOCK_SIZE, SEED);
 
     // Sleep for a short time to allow the lazy writer thread to do its job.
@@ -793,6 +798,9 @@ public class TestLazyPersistFiles {
 
     // Verify short-circuit read from RAM_DISK once again.
     ensureFileReplicasOnStorageType(path1, RAM_DISK);
+    metaFile = MiniDFSCluster.getBlockMetadataFile(0,
+        DFSTestUtil.getFirstBlock(fs, path1));
+    assertTrue(metaFile.length() <= BlockMetadataHeader.getHeaderSize());
     verifyReadRandomFile(path1, BLOCK_SIZE, SEED);
 
     // Create another file with a replica on RAM_DISK, which evicts the first.
@@ -800,7 +808,12 @@ public class TestLazyPersistFiles {
     Thread.sleep(3 * LAZY_WRITER_INTERVAL_SEC * 1000);
     triggerBlockReport();
 
+    // Verify short-circuit read still works from DEFAULT storage.  This time,
+    // we'll have a checksum written during lazy persistence.
     ensureFileReplicasOnStorageType(path1, DEFAULT);
+    metaFile = MiniDFSCluster.getBlockMetadataFile(0,
+        DFSTestUtil.getFirstBlock(fs, path1));
+    assertTrue(metaFile.length() > BlockMetadataHeader.getHeaderSize());
     verifyReadRandomFile(path1, BLOCK_SIZE, SEED);
   }
 
