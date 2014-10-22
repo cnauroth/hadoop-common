@@ -382,6 +382,9 @@ Release 2.6.0 - UNRELEASED
     YARN-90. NodeManager should identify failed disks becoming good again
     (Varun Vasudev via jlowe)
 
+    YARN-2709. Made timeline client getDelegationToken API retry if ConnectException
+    happens. (Li Lu via zjshen)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -619,6 +622,9 @@ Release 2.6.0 - UNRELEASED
     test-failures: added a dummy in-memory labels-manager. (Wangda Tan via
     vinodkv)
 
+    YARN-2715. Fixed ResourceManager to respect common configurations for proxy
+    users/groups beyond just the YARN level config. (Zhijie Shen via vinodkv)
+
   BREAKDOWN OF YARN-1051 SUBTASKS AND RELATED JIRAS
 
     YARN-1707. Introduce APIs to add/remove/resize queues in the
@@ -675,6 +681,8 @@ Release 2.6.0 - UNRELEASED
     YARN-2689 TestSecureRMRegistryOperations failing on windows:
     secure ZK won't start (stevel)
 
+    YARN-2692 ktutil test hanging on some machines/ktutil versions (stevel)
+
     ---
 
     YARN-2598 GHS should show N/A instead of null for the inaccessible information
@@ -710,6 +718,9 @@ Release 2.6.0 - UNRELEASED
 
     YARN-2720. Windows: Wildcard classpath variables not expanded against
     resources contained in archives. (Craig Welch via cnauroth)
+
+    YARN-2721. Suppress NodeExist exception thrown by ZKRMStateStore when it
+    retries creating znode. (Jian He via zjshen)
 
 Release 2.5.1 - 2014-09-05
 
