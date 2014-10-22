@@ -825,6 +825,15 @@ public class TestLazyPersistFiles {
         DFSTestUtil.getFirstBlock(fs, path1));
     assertTrue(metaFile.length() > BlockMetadataHeader.getHeaderSize());
     Assert.assertTrue(verifyReadRandomFile(path1, BLOCK_SIZE, SEED));
+
+    // In the implementation of legacy short-circuit reads, any failure is
+    // trapped silently, reverts back to a remote read, and also disables all
+    // subsequent legacy short-circuit reads in the ClientContext.  If the test
+    // uses legacy, then assert that it didn't get disabled.
+    ClientContext clientContext = fs.getClient().getClientContext();
+    if (clientContext.getUseLegacyBlockReaderLocal()) {
+      Assert.assertFalse(clientContext.getDisableLegacyBlockReaderLocal());
+    }
   }
 
   @Test

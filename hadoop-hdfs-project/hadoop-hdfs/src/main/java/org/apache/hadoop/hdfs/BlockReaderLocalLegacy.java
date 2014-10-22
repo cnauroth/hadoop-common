@@ -193,7 +193,7 @@ class BlockReaderLocalLegacy implements BlockReader {
       }
       pathinfo = getBlockPathInfo(userGroupInformation, blk, node,
           configuration, conf.socketTimeout, token,
-          conf.connectToDnViaHostname);
+          conf.connectToDnViaHostname, storageType);
     }
 
     // check to see if the file exists. It may so happen that the
@@ -265,8 +265,8 @@ class BlockReaderLocalLegacy implements BlockReader {
   
   private static BlockLocalPathInfo getBlockPathInfo(UserGroupInformation ugi,
       ExtendedBlock blk, DatanodeInfo node, Configuration conf, int timeout,
-      Token<BlockTokenIdentifier> token, boolean connectToDnViaHostname)
-      throws IOException {
+      Token<BlockTokenIdentifier> token, boolean connectToDnViaHostname,
+      StorageType storageType) throws IOException {
     LocalDatanodeInfo localDatanodeInfo = getLocalDatanodeInfo(node.getIpcPort());
     BlockLocalPathInfo pathinfo = null;
     ClientDatanodeProtocol proxy = localDatanodeInfo.getDatanodeProxy(ugi, node,
@@ -274,7 +274,15 @@ class BlockReaderLocalLegacy implements BlockReader {
     try {
       // make RPC to local datanode to find local pathnames of blocks
       pathinfo = proxy.getBlockLocalPathInfo(blk, token);
-      if (pathinfo != null) {
+      // We cannot cache the path information for a replica on transient storage.
+      // If the replica gets evicted, then it moves to a different path.  Then,
+      // our next attempt to read from the cached path would fail to find the
+      // file.  Additionally, the failure would cause us to disable legacy
+      // short-circuit read for all subsequent use in the ClientContext.  Unlike
+      // the newer short-circuit read implementation, we have no communication
+      // channel for the DataNode to notify the client that the path has been
+      // invalidated.  Therefore, our only option is to skip caching.
+      if (pathinfo != null && !storageType.isTransient()) {
         if (LOG.isDebugEnabled()) {
           LOG.debug("Cached location of block " + blk + " as " + pathinfo);
         }
