@@ -775,13 +775,33 @@ public class TestLazyPersistFiles {
     doShortCircuitReadTest();
   }
 
-  private void doShortCircuitReadTest() throws IOException {
+  private void doShortCircuitReadTest() throws IOException,
+      InterruptedException {
     final String METHOD_NAME = GenericTestUtils.getMethodName();
-    Path path = new Path("/" + METHOD_NAME + ".dat");
+    Path path1 = new Path("/" + METHOD_NAME + ".01.dat");
+    Path path2 = new Path("/" + METHOD_NAME + ".02.dat");
+
     final int SEED = 0xFADED;
-    makeTestFile(path, BLOCK_SIZE, true);
-    ensureFileReplicasOnStorageType(path, RAM_DISK);
-    verifyReadRandomFile(path, BLOCK_SIZE, SEED);
+    makeRandomTestFile(path1, BLOCK_SIZE, true, SEED);
+
+    // Verify short-circuit read from RAM_DISK.
+    ensureFileReplicasOnStorageType(path1, RAM_DISK);
+    verifyReadRandomFile(path1, BLOCK_SIZE, SEED);
+
+    // Sleep for a short time to allow the lazy writer thread to do its job.
+    Thread.sleep(3 * LAZY_WRITER_INTERVAL_SEC * 1000);
+
+    // Verify short-circuit read from RAM_DISK once again.
+    ensureFileReplicasOnStorageType(path1, RAM_DISK);
+    verifyReadRandomFile(path1, BLOCK_SIZE, SEED);
+
+    // Create another file with a replica on RAM_DISK, which evicts the first.
+    makeRandomTestFile(path2, BLOCK_SIZE, true, SEED);
+    Thread.sleep(3 * LAZY_WRITER_INTERVAL_SEC * 1000);
+    triggerBlockReport();
+
+    ensureFileReplicasOnStorageType(path1, DEFAULT);
+    verifyReadRandomFile(path1, BLOCK_SIZE, SEED);
   }
 
   // ---- Utility functions for all test cases -------------------------------

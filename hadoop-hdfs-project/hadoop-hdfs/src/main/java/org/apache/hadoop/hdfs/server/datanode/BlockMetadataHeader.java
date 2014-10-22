@@ -193,7 +193,7 @@ public class BlockMetadataHeader {
    * Writes all the fields till the beginning of checksum.
    * @throws IOException on error
    */
-  static void writeHeader(DataOutputStream out, DataChecksum checksum)
+  public static void writeHeader(DataOutputStream out, DataChecksum checksum)
                          throws IOException {
     writeHeader(out, new BlockMetadataHeader(VERSION, checksum));
   }

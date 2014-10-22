@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
@@ -635,7 +636,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
    * Get the meta info of a block stored in volumeMap. To find a block,
    * block pool Id, block Id and generation stamp must match.
    * @param b extended block
-   * @return the meta replica information; null if block was not found
+   * @return the meta replica information
    * @throws ReplicaNotFoundException if no entry is in the map or 
    *                        there is a generation stamp mismatch
    */
@@ -746,6 +747,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
       final byte[] data = new byte[1 << 16];
       final byte[] crcs = new byte[checksum.getChecksumSize(data.length)];
       FileOutputStream metaOut = null;
+      DataOutputStream metaDataOut = null;
       try {
         File parentFile = dstMeta.getParentFile();
         if (parentFile != null) {
@@ -755,6 +757,8 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
           }
         }
         metaOut = new FileOutputStream(dstMeta);
+        metaDataOut = new DataOutputStream(metaOut);
+        BlockMetadataHeader.writeHeader(metaDataOut, checksum);
 
         int offset = 0;
         for(int n; (n = dataIn.read(data, offset, data.length - offset)) != -1; ) {
@@ -776,7 +780,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
         checksum.calculateChunkedSums(data, 0, offset, crcs, 0);
         metaOut.write(crcs, 0, 4);
       } finally {
-        IOUtils.cleanup(LOG, dataIn, metaOut);
+        IOUtils.cleanup(LOG, dataIn, metaDataOut, metaOut);
       }
     } else {
       try {
@@ -1689,6 +1693,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     }
   }
 
+  @Override
   public boolean isCached(String bpid, long blockId) {
     return cacheManager.isCached(bpid, blockId);
   }
@@ -2607,8 +2612,14 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
         // Before deleting the files from transient storage we must notify the
         // NN that the files are on the new storage. Else a blockReport from
         // the transient storage might cause the NN to think the blocks are lost.
+        // Replicas must be evicted from client short-circuit caches, because the
+        // storage will no longer be transient, and thus will require validating
+        // checksum.  This also stops a client from holding file descriptors,
+        // which would prevent the OS from reclaiming the memory.
         ExtendedBlock extendedBlock =
             new ExtendedBlock(bpid, newReplicaInfo);
+        datanode.getShortCircuitRegistry().processBlockInvalidation(
+            ExtendedBlockId.fromExtendedBlock(extendedBlock));
         datanode.notifyNamenodeReceivedBlock(
             extendedBlock, null, newReplicaInfo.getStorageUuid());
 
