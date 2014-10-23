@@ -832,7 +832,7 @@ public class TestLazyPersistFiles {
     // trapped silently, reverts back to a remote read, and also disables all
     // subsequent legacy short-circuit reads in the ClientContext.  If the test
     // uses legacy, then assert that it didn't get disabled.
-    ClientContext clientContext = fs.getClient().getClientContext();
+    ClientContext clientContext = client.getClientContext();
     if (clientContext.getUseLegacyBlockReaderLocal()) {
       Assert.assertFalse(clientContext.getDisableLegacyBlockReaderLocal());
     }
