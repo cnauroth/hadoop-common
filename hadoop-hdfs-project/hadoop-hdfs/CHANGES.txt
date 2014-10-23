@@ -318,6 +318,8 @@ Release 2.7.0 - UNRELEASED
 
     HDFS-7226. Fix TestDNFencing.testQueueingWithAppend. (Yongjun Zhang via jing9)
 
+    HDFS-7277. Remove explicit dependency on netty 3.2 in BKJournal. (wheat9)
+
 Release 2.6.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -893,6 +895,8 @@ Release 2.6.0 - UNRELEASED
     (brandonli)
 
     HDFS-7215.Add JvmPauseMonitor to NFS gateway (brandonli)
+
+    HDFS-7180. NFSv3 gateway frequently gets stuck due to GC (brandonli)
 
     BREAKDOWN OF HDFS-6134 AND HADOOP-10150 SUBTASKS AND RELATED JIRAS
   
