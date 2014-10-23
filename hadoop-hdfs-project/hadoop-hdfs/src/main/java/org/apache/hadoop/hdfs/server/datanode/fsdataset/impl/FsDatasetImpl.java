@@ -724,7 +724,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     final File destDir = DatanodeUtil.idToBlockDir(destRoot, blockId);
     final File dstFile = new File(destDir, srcFile.getName());
     final File dstMeta = FsDatasetUtil.getMetaFile(dstFile, genStamp);
-    copyOrComputeChecksum(srcMeta, dstMeta, srcFile);
+    computeChecksum(srcMeta, dstMeta, srcFile);
 
     try {
       Storage.nativeCopyFileUnbuffered(srcFile, dstFile, true);
@@ -738,56 +738,59 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     return new File[] {dstMeta, dstFile};
   }
 
-  private static void copyOrComputeChecksum(File srcMeta, File dstMeta,
-      File blockFile) throws IOException {
-    if (srcMeta.length() <= BlockMetadataHeader.getHeaderSize()) {
-      final DataChecksum checksum = BlockMetadataHeader.readDataChecksum(srcMeta);
-      final InputStream dataIn = new FileInputStream(blockFile);
+  /**
+   * Compute and store the checksum for a block file that does not already have
+   * its checksum computed.
+   *
+   * @param srcMeta source meta file, containing only the checksum header, not a
+   *     calculated checksum
+   * @param dstMeta destination meta file, into which this method will write a
+   *     full computed checksum
+   * @param blockFile block file for which the checksum will be computed
+   * @throws IOException
+   */
+  private static void computeChecksum(File srcMeta, File dstMeta, File blockFile)
+      throws IOException {
+    final DataChecksum checksum = BlockMetadataHeader.readDataChecksum(srcMeta);
+    final InputStream dataIn = new FileInputStream(blockFile);
 
-      final byte[] data = new byte[1 << 16];
-      final byte[] crcs = new byte[checksum.getChecksumSize(data.length)];
-      FileOutputStream metaOut = null;
-      DataOutputStream metaDataOut = null;
-      try {
-        File parentFile = dstMeta.getParentFile();
-        if (parentFile != null) {
-          if (!parentFile.mkdirs() && !parentFile.isDirectory()) {
-            throw new IOException("Destination '" + parentFile
-                + "' directory cannot be created");
+    final byte[] data = new byte[1 << 16];
+    final byte[] crcs = new byte[checksum.getChecksumSize(data.length)];
+    FileOutputStream metaOut = null;
+    DataOutputStream metaDataOut = null;
+    try {
+      File parentFile = dstMeta.getParentFile();
+      if (parentFile != null) {
+        if (!parentFile.mkdirs() && !parentFile.isDirectory()) {
+          throw new IOException("Destination '" + parentFile
+              + "' directory cannot be created");
+        }
+      }
+      metaOut = new FileOutputStream(dstMeta);
+      metaDataOut = new DataOutputStream(metaOut);
+      BlockMetadataHeader.writeHeader(metaDataOut, checksum);
+
+      int offset = 0;
+      for(int n; (n = dataIn.read(data, offset, data.length - offset)) != -1; ) {
+        if (n > 0) {
+          n += offset;
+          offset = n % checksum.getBytesPerChecksum();
+          final int length = n - offset;
+
+          if (length > 0) {
+            checksum.calculateChunkedSums(data, 0, length, crcs, 0);
+            metaOut.write(crcs, 0, checksum.getChecksumSize(length));
+
+            System.arraycopy(data, length, data, 0, offset);
           }
         }
-        metaOut = new FileOutputStream(dstMeta);
-        metaDataOut = new DataOutputStream(metaOut);
-        BlockMetadataHeader.writeHeader(metaDataOut, checksum);
-
-        int offset = 0;
-        for(int n; (n = dataIn.read(data, offset, data.length - offset)) != -1; ) {
-          if (n > 0) {
-            n += offset;
-            offset = n % checksum.getBytesPerChecksum();
-            final int length = n - offset;
-
-            if (length > 0) {
-              checksum.calculateChunkedSums(data, 0, length, crcs, 0);
-              metaOut.write(crcs, 0, checksum.getChecksumSize(length));
-
-              System.arraycopy(data, length, data, 0, offset);
-            }
-          }
-        }
-
-        // calculate and write the last crc
-        checksum.calculateChunkedSums(data, 0, offset, crcs, 0);
-        metaOut.write(crcs, 0, 4);
-      } finally {
-        IOUtils.cleanup(LOG, dataIn, metaDataOut, metaOut);
       }
-    } else {
-      try {
-        Storage.nativeCopyFileUnbuffered(srcMeta, dstMeta, true);
-      } catch (IOException e) {
-        throw new IOException("Failed to copy " + srcMeta + " to " + dstMeta, e);
-      }
+
+      // calculate and write the last crc
+      checksum.calculateChunkedSums(data, 0, offset, crcs, 0);
+      metaOut.write(crcs, 0, 4);
+    } finally {
+      IOUtils.cleanup(LOG, dataIn, metaDataOut, metaOut);
     }
   }
 
