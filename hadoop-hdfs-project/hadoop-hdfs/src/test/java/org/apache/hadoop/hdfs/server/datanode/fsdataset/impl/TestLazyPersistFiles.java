@@ -58,6 +58,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.hadoop.fs.CreateFlag.CREATE;
 import static org.apache.hadoop.fs.CreateFlag.LAZY_PERSIST;
@@ -96,6 +97,7 @@ public class TestLazyPersistFiles {
   private static final String JMX_SERVICE_NAME = "DataNode";
   private static final String JMX_RAM_DISK_METRICS_PATTERN = "^RamDisk";
 
+  private static final AtomicInteger clientContextId = new AtomicInteger(0);
   private static TemporarySocketDirectory sockDir;
 
   @BeforeClass
@@ -944,6 +946,9 @@ public class TestLazyPersistFiles {
 
     if (useSCR) {
       conf.setBoolean(DFS_CLIENT_READ_SHORTCIRCUIT_KEY, true);
+      // Do not share a client context across tests.
+      conf.set(DFS_CLIENT_CONTEXT, this.getClass().getSimpleName() +
+          clientContextId.incrementAndGet());
       if (useLegacyBlockReaderLocal) {
         conf.setBoolean(DFS_CLIENT_USE_LEGACY_BLOCKREADERLOCAL, true);
         conf.set(DFS_BLOCK_LOCAL_PATH_ACCESS_USER_KEY,
