@@ -266,7 +266,8 @@ class BlockSender implements java.io.Closeable {
        */
       DataChecksum csum = null;
       if (verifyChecksum || sendChecksum) {
-        final LengthInputStream metaIn = datanode.data.getMetaDataInputStream(block);
+        final LengthInputStream metaIn = datanode.data.getMetaDataInputStream(
+            block);
         if (!corruptChecksumOk || metaIn != null) {
           if (metaIn == null) {
             //need checksum but meta-data not found

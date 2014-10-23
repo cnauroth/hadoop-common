@@ -937,7 +937,7 @@ implements ByteBufferReadable, CanSetDropBehind, CanSetReadahead,
   /**
    * Get the best node from which to stream the data.
    * @param block LocatedBlock, containing nodes in priority order.
-   * @param ignoredNodes Do not chose nodes in this array (may be null)
+   * @param ignoredNodes Do not choose nodes in this array (may be null)
    * @return The DNAddrPair of the best node.
    * @throws IOException
    */

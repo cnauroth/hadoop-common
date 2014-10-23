@@ -1623,10 +1623,12 @@ public class DFSOutputStream extends FSOutputSummer
    * @return the object for computing checksum.
    *         The type is NULL if checksum is not computed.
    */
-  private static DataChecksum getChecksum4Compute(DataChecksum checksum, HdfsFileStatus stat) {
+  private static DataChecksum getChecksum4Compute(DataChecksum checksum,
+      HdfsFileStatus stat) {
     if (isLazyPersist(stat) && stat.getReplication() == 1) {
       // do not compute checksum for writing to single replica to memory
-      return DataChecksum.newDataChecksum(Type.NULL, checksum.getBytesPerChecksum());
+      return DataChecksum.newDataChecksum(Type.NULL,
+          checksum.getBytesPerChecksum());
     }
     return checksum;
   }
@@ -1767,7 +1769,8 @@ public class DFSOutputStream extends FSOutputSummer
   }
   
   private static boolean isLazyPersist(HdfsFileStatus stat) {
-    final BlockStoragePolicy p = blockStoragePolicySuite.getPolicy("LAZY_PERSIST");
+    final BlockStoragePolicy p = blockStoragePolicySuite.getPolicy(
+        "LAZY_PERSIST");
     return p != null && stat.getStoragePolicy() == p.getId();
   }
 

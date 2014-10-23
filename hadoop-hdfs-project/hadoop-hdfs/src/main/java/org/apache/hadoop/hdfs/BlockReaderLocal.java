@@ -372,8 +372,9 @@ class BlockReaderLocal implements BlockReader {
   private boolean createNoChecksumContext() {
     if (verifyChecksum) {
       if (storageType != null && storageType.isTransient()) {
-        // Checksums are not stored for replicas on transient storage.  There is
-        // no need to anchor, because coordination with mlock is not relevant.
+        // Checksums are not stored for replicas on transient storage.  We do not
+        // anchor, because we do not intend for client activity to block eviction
+        // from transient storage on the DataNode side.
         return true;
       } else {
         return replica.addNoChecksumAnchor();

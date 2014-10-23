@@ -950,7 +950,7 @@ public class TestLazyPersistFiles {
             UserGroupInformation.getCurrentUser().getShortUserName());
       } else {
         conf.set(DFS_DOMAIN_SOCKET_PATH_KEY, new File(sockDir.getDir(),
-            "TestLazyPersistFiles._PORT.sock").getAbsolutePath());
+            this.getClass().getSimpleName() + "._PORT.sock").getAbsolutePath());
       }
     }
 

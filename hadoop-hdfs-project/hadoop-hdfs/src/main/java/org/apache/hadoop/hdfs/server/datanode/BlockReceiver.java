@@ -640,9 +640,11 @@ class BlockReceiver implements Closeable {
             partialCrc = null;
           } else {
             // write checksum
-            final int offset = checksumBuf.arrayOffset() + checksumBuf.position();
+            final int offset = checksumBuf.arrayOffset() +
+                checksumBuf.position();
             final int end = offset + checksumLen;
-            lastCrc = copyLastChunkChecksum(checksumBuf.array(), checksumSize, end);
+            lastCrc = copyLastChunkChecksum(checksumBuf.array(), checksumSize,
+                end);
             checksumOut.write(checksumBuf.array(), offset, checksumLen);
           }
 
@@ -928,7 +930,8 @@ class BlockReceiver implements Closeable {
    * reads in the partial crc chunk and computes checksum
    * of pre-existing data in partial chunk.
    */
-  private Checksum computePartialChunkCrc(long blkoff, long ckoff) throws IOException {
+  private Checksum computePartialChunkCrc(long blkoff, long ckoff)
+      throws IOException {
 
     // find offset of the beginning of partial chunk.
     //
