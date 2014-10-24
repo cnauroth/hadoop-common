@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
+import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileDescriptor;
@@ -60,6 +61,7 @@ import org.apache.hadoop.hdfs.protocol.BlockListAsLongs;
 import org.apache.hadoop.hdfs.protocol.BlockLocalPathInfo;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.protocol.HdfsBlocksMetadata;
+import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.protocol.RecoveryInProgressException;
 import org.apache.hadoop.hdfs.server.common.GenerationStamp;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState;
@@ -753,12 +755,11 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
   private static void computeChecksum(File srcMeta, File dstMeta, File blockFile)
       throws IOException {
     final DataChecksum checksum = BlockMetadataHeader.readDataChecksum(srcMeta);
-    final InputStream dataIn = new FileInputStream(blockFile);
-
     final byte[] data = new byte[1 << 16];
     final byte[] crcs = new byte[checksum.getChecksumSize(data.length)];
-    FileOutputStream metaOut = null;
-    DataOutputStream metaDataOut = null;
+
+    DataOutputStream metaOut = null;
+    InputStream dataIn = null;
     try {
       File parentFile = dstMeta.getParentFile();
       if (parentFile != null) {
@@ -767,9 +768,13 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
               + "' directory cannot be created");
         }
       }
-      metaOut = new FileOutputStream(dstMeta);
-      metaDataOut = new DataOutputStream(metaOut);
-      BlockMetadataHeader.writeHeader(metaDataOut, checksum);
+      metaOut = new DataOutputStream(new BufferedOutputStream(
+          new FileOutputStream(dstMeta), HdfsConstants.SMALL_BUFFER_SIZE));
+      BlockMetadataHeader.writeHeader(metaOut, checksum);
+
+      dataIn = isNativeIOAvailable ?
+          NativeIO.getShareDeleteFileInputStream(blockFile) :
+          new FileInputStream(blockFile);
 
       int offset = 0;
       for(int n; (n = dataIn.read(data, offset, data.length - offset)) != -1; ) {
@@ -791,7 +796,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
       checksum.calculateChunkedSums(data, 0, offset, crcs, 0);
       metaOut.write(crcs, 0, 4);
     } finally {
-      IOUtils.cleanup(LOG, dataIn, metaDataOut, metaOut);
+      IOUtils.cleanup(LOG, dataIn, metaOut);
     }
   }
 
