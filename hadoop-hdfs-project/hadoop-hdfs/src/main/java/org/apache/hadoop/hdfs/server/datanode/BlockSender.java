@@ -277,24 +277,18 @@ class BlockSender implements java.io.Closeable {
                   block);
             }
 
+            // The meta file will contain only the header if the NULL checksum
+            // type was used, or if the replica was written to transient storage.
             // Checksum verification is not performed for replicas on transient
-            // storage.  In this case, the meta file would exist, but it would
-            // contain only the header.  The header is important for determining
-            // the checksum type later when lazy persistence copies the block to
-            // non-transient storage and computes the checksum.
+            // storage.  The header is important for determining the checksum
+            // type later when lazy persistence copies the block to non-transient
+            // storage and computes the checksum.
             if (metaIn.getLength() > BlockMetadataHeader.getHeaderSize()) {
               checksumIn = new DataInputStream(new BufferedInputStream(
                   metaIn, HdfsConstants.IO_FILE_BUFFER_SIZE));
   
               csum = BlockMetadataHeader.readDataChecksum(checksumIn, block);
               keepMetaInOpen = true;
-            } else {
-              // Only replicas on transient storage should have a meta file with
-              // just the header and no checksums.
-              if (!replica.isOnTransientStorage()) {
-                throw new IOException("Meta-data contains only header for " +
-                    block);
-              }
             }
           } else {
             LOG.warn("Could not find metadata file for " + block);
