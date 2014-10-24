@@ -266,27 +266,43 @@ class BlockSender implements java.io.Closeable {
        */
       DataChecksum csum = null;
       if (verifyChecksum || sendChecksum) {
-        final LengthInputStream metaIn = datanode.data.getMetaDataInputStream(
-            block);
-        if (!corruptChecksumOk || metaIn != null) {
-          if (metaIn == null) {
-            //need checksum but meta-data not found
-            throw new FileNotFoundException("Meta-data not found for " + block);
-          }
+        LengthInputStream metaIn = null;
+        boolean keepMetaInOpen = false;
+        try {
+          metaIn = datanode.data.getMetaDataInputStream(block);
+          if (!corruptChecksumOk || metaIn != null) {
+            if (metaIn == null) {
+              //need checksum but meta-data not found
+              throw new FileNotFoundException("Meta-data not found for " +
+                  block);
+            }
 
-          // Checksum verification is not performed for replicas on transient
-          // storage.  In this case, the meta file would exist, but it would
-          // contain only the header.  The header is important for determining
-          // the checksum type later when lazy persistence copies the block to
-          // non-transient storage and computes the checksum.
-          if (metaIn.getLength() > BlockMetadataHeader.getHeaderSize()) {
-            checksumIn = new DataInputStream(new BufferedInputStream(
-                metaIn, HdfsConstants.IO_FILE_BUFFER_SIZE));
+            // Checksum verification is not performed for replicas on transient
+            // storage.  In this case, the meta file would exist, but it would
+            // contain only the header.  The header is important for determining
+            // the checksum type later when lazy persistence copies the block to
+            // non-transient storage and computes the checksum.
+            if (metaIn.getLength() > BlockMetadataHeader.getHeaderSize()) {
+              checksumIn = new DataInputStream(new BufferedInputStream(
+                  metaIn, HdfsConstants.IO_FILE_BUFFER_SIZE));
   
-            csum = BlockMetadataHeader.readDataChecksum(checksumIn, block);
+              csum = BlockMetadataHeader.readDataChecksum(checksumIn, block);
+              keepMetaInOpen = true;
+            } else {
+              // Only replicas on transient storage should have a meta file with
+              // just the header and no checksums.
+              if (!replica.isOnTransientStorage()) {
+                throw new IOException("Meta-data contains only header for " +
+                    block);
+              }
+            }
+          } else {
+            LOG.warn("Could not find metadata file for " + block);
           }
-        } else {
-          LOG.warn("Could not find metadata file for " + block);
+        } finally {
+          if (!keepMetaInOpen) {
+            IOUtils.closeStream(metaIn);
+          }
         }
       }
       if (csum == null) {
