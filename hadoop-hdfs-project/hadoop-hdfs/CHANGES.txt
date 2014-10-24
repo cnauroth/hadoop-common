@@ -292,6 +292,17 @@ Release 2.7.0 - UNRELEASED
 
     HDFS-6824. Additional user documentation for HDFS encryption. (wang)
 
+    HDFS-7165. Separate block metrics for files with replication count 1.
+    (Zhe Zhang via wang)
+
+    HDFS-7222. Expose DataNode network errors as a metric. (Charles Lamb via wang)
+
+    HDFS-7257. Add the time of last HA state transition to NN's /jmx page.
+    (Charles Lamb via wheat9)
+
+    HDFS-7223. Tracing span description of IPC client is too long (iwasakims
+    via cmccabe)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -319,6 +330,12 @@ Release 2.7.0 - UNRELEASED
     HDFS-7226. Fix TestDNFencing.testQueueingWithAppend. (Yongjun Zhang via jing9)
 
     HDFS-7277. Remove explicit dependency on netty 3.2 in BKJournal. (wheat9)
+
+    HDFS-7232. Populate hostname in httpfs audit log (Zoran Dimitrijevic 
+    via aw)
+
+    HDFS-7258. CacheReplicationMonitor rescan schedule log should use DEBUG
+    level instead of INFO level. (Xiaoyu Yao via wheat9)
 
 Release 2.6.0 - UNRELEASED
 
@@ -897,6 +914,9 @@ Release 2.6.0 - UNRELEASED
     HDFS-7215.Add JvmPauseMonitor to NFS gateway (brandonli)
 
     HDFS-7180. NFSv3 gateway frequently gets stuck due to GC (brandonli)
+
+    HDFS-7243. HDFS concat operation should not be allowed in Encryption Zone.
+    (clamb via yliu)
 
     BREAKDOWN OF HDFS-6134 AND HADOOP-10150 SUBTASKS AND RELATED JIRAS
   

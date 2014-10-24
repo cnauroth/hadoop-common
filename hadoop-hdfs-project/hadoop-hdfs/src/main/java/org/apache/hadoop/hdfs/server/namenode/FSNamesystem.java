@@ -2044,7 +2044,12 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     // replication and blocks sizes should be the same for ALL the blocks
 
     // check the target
-    final INodeFile trgInode = INodeFile.valueOf(dir.getINode4Write(target),
+    final INodesInPath trgIip = dir.getINodesInPath4Write(target);
+    if (dir.getEZForPath(trgIip) != null) {
+      throw new HadoopIllegalArgumentException(
+          "concat can not be called for files in an encryption zone.");
+    }
+    final INodeFile trgInode = INodeFile.valueOf(trgIip.getLastINode(),
         target);
     if(trgInode.isUnderConstruction()) {
       throw new HadoopIllegalArgumentException("concat: target file "
@@ -5298,6 +5303,13 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     // not locking
     return blockManager.getMissingBlocksCount();
   }
+
+  @Metric({"MissingReplOneBlocks", "Number of missing blocks " +
+      "with replication factor 1"})
+  public long getMissingReplOneBlocksCount() {
+    // not locking
+    return blockManager.getMissingReplOneBlocksCount();
+  }
   
   @Metric({"ExpiredHeartbeats", "Number of expired heartbeats"})
   public int getExpiredHeartbeats() {
@@ -5339,6 +5351,8 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     stats[ClientProtocol.GET_STATS_UNDER_REPLICATED_IDX] = getUnderReplicatedBlocks();
     stats[ClientProtocol.GET_STATS_CORRUPT_BLOCKS_IDX] = getCorruptReplicaBlocks();
     stats[ClientProtocol.GET_STATS_MISSING_BLOCKS_IDX] = getMissingBlocksCount();
+    stats[ClientProtocol.GET_STATS_MISSING_REPL_ONE_BLOCKS_IDX] =
+        getMissingReplOneBlocksCount();
     return stats;
   }
 
@@ -7605,6 +7619,11 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
     return getMissingBlocksCount();
   }
   
+  @Override // NameNodeMXBean
+  public long getNumberOfMissingBlocksWithReplicationFactorOne() {
+    return getMissingReplOneBlocksCount();
+  }
+
   @Override // NameNodeMXBean
   public int getThreads() {
     return ManagementFactory.getThreadMXBean().getThreadCount();

@@ -365,6 +365,12 @@ Release 2.7.0 - UNRELEASED
 
     HADOOP-11166. Remove ulimit from test-patch.sh. (wang)
 
+    HDFS-7227. Fix findbugs warning about NP_DEREFERENCE_OF_READLINE_VALUE in
+    SpanReceiverHost (cmccabe)
+
+    HADOOP-11170. ZKDelegationTokenSecretManager fails to renewToken created by 
+    a peer. (Arun Suresh and Gregory Chanan via kasha)
+
 Release 2.6.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
