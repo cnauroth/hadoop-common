@@ -62,7 +62,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 
-abstract class LazyPersistTestCase {
+public abstract class LazyPersistTestCase {
 
   static {
     ((Log4JLogger) NameNode.blockStateChangeLog).getLogger().setLevel(Level.ALL);
