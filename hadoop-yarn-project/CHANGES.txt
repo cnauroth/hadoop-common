@@ -57,6 +57,9 @@ Release 2.7.0 - UNRELEASED
     YARN-2254. TestRMWebServicesAppsModification should run against both 
     CS and FS. (Zhihai Xu via kasha)
 
+    YARN-2713. "RM Home" link in NM should point to one of the RMs in an 
+    HA setup. (kasha)
+
 Release 2.6.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -390,6 +393,9 @@ Release 2.6.0 - UNRELEASED
 
     YARN-2209. Replaced AM resync/shutdown command with corresponding exceptions and
     made related MR changes. (Jian He via zjshen)
+
+    YARN-2703. Added logUploadedTime into LogValue for better display. (Xuan Gong
+    via zjshen)
 
   OPTIMIZATIONS
 
@@ -735,6 +741,14 @@ Release 2.6.0 - UNRELEASED
 
     YARN-2724. Skipped uploading a local log file to HDFS if exception is raised
     when opening it. (Xuan Gong via zjshen)
+
+    YARN-1915. Fixed a race condition that client could use the ClientToAMToken
+    to contact with AM before AM actually receives the ClientToAMTokenMasterKey.
+    (Jason Lowe via jianhe)
+
+    YARN-2314. Disable ContainerManagementProtocolProxy cache by default to
+    prevent creating thousands of threads in a large cluster. (Jason Lowe via
+    jianhe)
 
 Release 2.5.1 - 2014-09-05
 
