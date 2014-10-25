@@ -17,16 +17,12 @@
  */
 package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 import com.google.common.util.concurrent.Uninterruptibles;
-import org.apache.hadoop.fs.ChecksumException;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.ClientContext;
 import org.apache.hadoop.hdfs.DFSTestUtil;
-import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
 import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
-import org.apache.hadoop.hdfs.server.datanode.BlockMetadataHeader;
 import org.apache.hadoop.hdfs.server.datanode.DatanodeUtil;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeSpi;
 import org.apache.hadoop.net.unix.DomainSocket;
@@ -34,10 +30,7 @@ import org.apache.hadoop.test.GenericTestUtils;
 import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.BeforeClass;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.Timeout;
 
 import java.io.File;
 import java.io.IOException;
@@ -70,9 +63,6 @@ public class TestLazyPersistFiles extends LazyPersistTestCase {
   public static void init() {
     DomainSocket.disableBindPathValidation();
   }
-
-  @Rule
-  public ExpectedException exception = ExpectedException.none();
 
   @Test
   public void testPolicyNotSetByDefault() throws IOException {
@@ -705,152 +695,6 @@ public class TestLazyPersistFiles extends LazyPersistTestCase {
 
     // Ensure that the replica is still on transient storage.
     ensureFileReplicasOnStorageType(path1, RAM_DISK);
-  }
-
-  @Test
-  public void testShortCircuitRead()
-      throws IOException, InterruptedException {
-    Assume.assumeThat(DomainSocket.getLoadingFailureReason(), equalTo(null));
-    startUpCluster(true, 1 + EVICTION_LOW_WATERMARK, true, false);
-    doShortCircuitReadTest();
-  }
-
-  @Test
-  public void testLegacyShortCircuitRead()
-      throws IOException, InterruptedException {
-    startUpCluster(true, 1 + EVICTION_LOW_WATERMARK, true, true);
-    doShortCircuitReadTest();
-  }
-
-  private void doShortCircuitReadTest() throws IOException,
-      InterruptedException {
-    final String METHOD_NAME = GenericTestUtils.getMethodName();
-    Path path1 = new Path("/" + METHOD_NAME + ".01.dat");
-    Path path2 = new Path("/" + METHOD_NAME + ".02.dat");
-
-    final int SEED = 0xFADED;
-    makeRandomTestFile(path1, BLOCK_SIZE, true, SEED);
-
-    // Verify short-circuit read from RAM_DISK.
-    ensureFileReplicasOnStorageType(path1, RAM_DISK);
-    File metaFile = MiniDFSCluster.getBlockMetadataFile(0,
-        DFSTestUtil.getFirstBlock(fs, path1));
-    assertTrue(metaFile.length() <= BlockMetadataHeader.getHeaderSize());
-    assertTrue(verifyReadRandomFile(path1, BLOCK_SIZE, SEED));
-
-    // Sleep for a short time to allow the lazy writer thread to do its job.
-    Thread.sleep(3 * LAZY_WRITER_INTERVAL_SEC * 1000);
-
-    // Verify short-circuit read from RAM_DISK once again.
-    ensureFileReplicasOnStorageType(path1, RAM_DISK);
-    metaFile = MiniDFSCluster.getBlockMetadataFile(0,
-        DFSTestUtil.getFirstBlock(fs, path1));
-    assertTrue(metaFile.length() <= BlockMetadataHeader.getHeaderSize());
-    assertTrue(verifyReadRandomFile(path1, BLOCK_SIZE, SEED));
-
-    // Create another file with a replica on RAM_DISK, which evicts the first.
-    makeRandomTestFile(path2, BLOCK_SIZE, true, SEED);
-    Thread.sleep(3 * LAZY_WRITER_INTERVAL_SEC * 1000);
-    triggerBlockReport();
-
-    // Verify short-circuit read still works from DEFAULT storage.  This time,
-    // we'll have a checksum written during lazy persistence.
-    ensureFileReplicasOnStorageType(path1, DEFAULT);
-    metaFile = MiniDFSCluster.getBlockMetadataFile(0,
-        DFSTestUtil.getFirstBlock(fs, path1));
-    assertTrue(metaFile.length() > BlockMetadataHeader.getHeaderSize());
-    assertTrue(verifyReadRandomFile(path1, BLOCK_SIZE, SEED));
-
-    // In the implementation of legacy short-circuit reads, any failure is
-    // trapped silently, reverts back to a remote read, and also disables all
-    // subsequent legacy short-circuit reads in the ClientContext.  If the test
-    // uses legacy, then assert that it didn't get disabled.
-    ClientContext clientContext = client.getClientContext();
-    if (clientContext.getUseLegacyBlockReaderLocal()) {
-      Assert.assertFalse(clientContext.getDisableLegacyBlockReaderLocal());
-    }
-  }
-
-  @Test
-  public void testShortCircuitReadBlockFileCorruption() throws IOException,
-      InterruptedException {
-    Assume.assumeThat(DomainSocket.getLoadingFailureReason(), equalTo(null));
-    startUpCluster(true, 1 + EVICTION_LOW_WATERMARK, true, false);
-    doShortCircuitReadBlockFileCorruptionTest();
-  }
-
-  @Test
-  public void testLegacyShortCircuitReadBlockFileCorruption() throws IOException,
-      InterruptedException {
-    startUpCluster(true, 1 + EVICTION_LOW_WATERMARK, true, true);
-    doShortCircuitReadBlockFileCorruptionTest();
-  }
-
-  public void doShortCircuitReadBlockFileCorruptionTest() throws IOException,
-      InterruptedException {
-    final String METHOD_NAME = GenericTestUtils.getMethodName();
-    Path path1 = new Path("/" + METHOD_NAME + ".01.dat");
-    Path path2 = new Path("/" + METHOD_NAME + ".02.dat");
-
-    final int SEED = 0xFADED;
-    makeRandomTestFile(path1, BLOCK_SIZE, true, SEED);
-    ensureFileReplicasOnStorageType(path1, RAM_DISK);
-
-    // Create another file with a replica on RAM_DISK, which evicts the first.
-    makeRandomTestFile(path2, BLOCK_SIZE, true, SEED);
-
-    // Sleep for a short time to allow the lazy writer thread to do its job.
-    Thread.sleep(3 * LAZY_WRITER_INTERVAL_SEC * 1000);
-    triggerBlockReport();
-
-    // Corrupt the lazy-persisted block file, and verify that checksum
-    // verification catches it.
-    ensureFileReplicasOnStorageType(path1, DEFAULT);
-    MiniDFSCluster.corruptReplica(0, DFSTestUtil.getFirstBlock(fs, path1));
-    exception.expect(ChecksumException.class);
-    DFSTestUtil.readFileBuffer(fs, path1);
-  }
-
-  @Test
-  public void testShortCircuitReadMetaFileCorruption() throws IOException,
-      InterruptedException {
-    Assume.assumeThat(DomainSocket.getLoadingFailureReason(), equalTo(null));
-    startUpCluster(true, 1 + EVICTION_LOW_WATERMARK, true, false);
-    doShortCircuitReadMetaFileCorruptionTest();
-  }
-
-  @Test
-  public void testLegacyShortCircuitReadMetaFileCorruption() throws IOException,
-      InterruptedException {
-    startUpCluster(true, 1 + EVICTION_LOW_WATERMARK, true, true);
-    doShortCircuitReadMetaFileCorruptionTest();
-  }
-
-  public void doShortCircuitReadMetaFileCorruptionTest() throws IOException,
-      InterruptedException {
-    final String METHOD_NAME = GenericTestUtils.getMethodName();
-    Path path1 = new Path("/" + METHOD_NAME + ".01.dat");
-    Path path2 = new Path("/" + METHOD_NAME + ".02.dat");
-
-    final int SEED = 0xFADED;
-    makeRandomTestFile(path1, BLOCK_SIZE, true, SEED);
-    ensureFileReplicasOnStorageType(path1, RAM_DISK);
-
-    // Create another file with a replica on RAM_DISK, which evicts the first.
-    makeRandomTestFile(path2, BLOCK_SIZE, true, SEED);
-
-    // Sleep for a short time to allow the lazy writer thread to do its job.
-    Thread.sleep(3 * LAZY_WRITER_INTERVAL_SEC * 1000);
-    triggerBlockReport();
-
-    // Corrupt the lazy-persisted checksum file, and verify that checksum
-    // verification catches it.
-    ensureFileReplicasOnStorageType(path1, DEFAULT);
-    File metaFile = MiniDFSCluster.getBlockMetadataFile(0,
-        DFSTestUtil.getFirstBlock(fs, path1));
-    MiniDFSCluster.corruptBlock(metaFile);
-    exception.expect(ChecksumException.class);
-    DFSTestUtil.readFileBuffer(fs, path1);
   }
 
   class WriterRunnable implements Runnable {
