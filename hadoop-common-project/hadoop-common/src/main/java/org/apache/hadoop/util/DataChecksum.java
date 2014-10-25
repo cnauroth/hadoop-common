@@ -236,7 +236,7 @@ public class DataChecksum implements Checksum {
   }
   /** @return the required checksum size given the data length. */
   public int getChecksumSize(int dataSize) {
-    return ((dataSize - 1)/getBytesPerChecksum() + 1)*getChecksumSize(); 
+    return ((dataSize - 1)/getBytesPerChecksum() + 1) * getChecksumSize(); 
   }
   public int getBytesPerChecksum() {
     return bytesPerChecksum;

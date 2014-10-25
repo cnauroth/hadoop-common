@@ -944,6 +944,7 @@ implements ByteBufferReadable, CanSetDropBehind, CanSetReadahead,
   private DNAddrPair getBestNodeDNAddrPair(LocatedBlock block,
       Collection<DatanodeInfo> ignoredNodes) throws IOException {
     DatanodeInfo[] nodes = block.getLocations();
+    StorageType[] storageTypes = block.getStorageTypes();
     DatanodeInfo chosenNode = null;
     StorageType storageType = null;
     if (nodes != null) {
@@ -951,7 +952,10 @@ implements ByteBufferReadable, CanSetDropBehind, CanSetReadahead,
         if (!deadNodes.containsKey(nodes[i])
             && (ignoredNodes == null || !ignoredNodes.contains(nodes[i]))) {
           chosenNode = nodes[i];
-          StorageType[] storageTypes = block.getStorageTypes();
+          // Storage types are ordered to correspond with nodes, so use the same
+          // index to get storage type.  Storage types might not be present.  For
+          // example, the client might be communicating with a cluster running a
+          // prior version before implementation of storage types.
           if (storageTypes != null && i < storageTypes.length) {
             storageType = storageTypes[i];
           }
