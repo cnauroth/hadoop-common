@@ -42,6 +42,7 @@ import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.hadoop.util.NativeCodeLoader;
 import org.apache.log4j.Level;
 import org.junit.*;
+import org.junit.rules.Timeout;
 
 import java.io.File;
 import java.io.IOException;
@@ -115,11 +116,14 @@ public class TestScrLazyPersistFiles {
     }
   }
 
+  @Rule
+  public Timeout timeout = new Timeout(300000);
+
   /**
    * Read in-memory block with Short Circuit Read
    * Note: the test uses faked RAM_DISK from physical disk.
    */
-  @Test (timeout=300000)
+  @Test
   public void testRamDiskShortCircuitRead()
     throws IOException, InterruptedException {
     startUpCluster(REPL_FACTOR,
@@ -160,7 +164,7 @@ public class TestScrLazyPersistFiles {
    * @throws IOException
    * @throws InterruptedException
    */
-  @Test (timeout=300000000)
+  @Test
   public void testRamDiskEvictionWithShortCircuitReadHandle()
     throws IOException, InterruptedException {
     startUpCluster(REPL_FACTOR, new StorageType[] { RAM_DISK, DEFAULT },
