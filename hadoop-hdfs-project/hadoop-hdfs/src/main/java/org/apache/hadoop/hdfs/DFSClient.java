@@ -530,7 +530,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
       if (dataChecksum == null) {
         throw new HadoopIllegalArgumentException("Invalid checksum type: userOpt="
             + userOpt + ", default=" + defaultChecksumOpt
-            + ", effective=" + dataChecksum);
+            + ", effective=null");
       }
       return dataChecksum;
     }
