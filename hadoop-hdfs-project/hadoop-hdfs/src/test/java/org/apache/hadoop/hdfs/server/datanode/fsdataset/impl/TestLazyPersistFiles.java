@@ -941,8 +941,8 @@ public class TestLazyPersistFiles {
                 HEARTBEAT_RECHECK_INTERVAL_MSEC);
     conf.setInt(DFS_DATANODE_LAZY_WRITER_INTERVAL_SEC,
                 LAZY_WRITER_INTERVAL_SEC);
-    conf.setInt(DFS_DATANODE_RAM_DISK_LOW_WATERMARK_REPLICAS,
-                EVICTION_LOW_WATERMARK);
+    conf.setInt(DFS_DATANODE_RAM_DISK_LOW_WATERMARK_BYTES,
+                EVICTION_LOW_WATERMARK * BLOCK_SIZE);
 
     if (useSCR) {
       conf.setBoolean(DFS_CLIENT_READ_SHORTCIRCUIT_KEY, true);
