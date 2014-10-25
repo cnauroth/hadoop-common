@@ -25,11 +25,8 @@ import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
 import org.apache.hadoop.hdfs.server.datanode.DatanodeUtil;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeSpi;
-import org.apache.hadoop.net.unix.DomainSocket;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.File;
@@ -47,7 +44,6 @@ import java.util.Set;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.*;
 import static org.apache.hadoop.hdfs.StorageType.DEFAULT;
 import static org.apache.hadoop.hdfs.StorageType.RAM_DISK;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsNot.not;
 import static org.junit.Assert.assertThat;
@@ -58,11 +54,6 @@ public class TestLazyPersistFiles extends LazyPersistTestCase {
   private static final byte LAZY_PERSIST_POLICY_ID = (byte) 15;
 
   private static final int THREADPOOL_SIZE = 10;
-
-  @BeforeClass
-  public static void init() {
-    DomainSocket.disableBindPathValidation();
-  }
 
   @Test
   public void testPolicyNotSetByDefault() throws IOException {
