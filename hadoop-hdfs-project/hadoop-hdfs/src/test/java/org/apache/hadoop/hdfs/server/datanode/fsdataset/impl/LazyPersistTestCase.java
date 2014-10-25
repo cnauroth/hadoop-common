@@ -255,9 +255,9 @@ public abstract class LazyPersistTestCase {
     {
       conf.setBoolean(DFS_CLIENT_READ_SHORTCIRCUIT_KEY,useSCR);
       conf.set(DFS_CLIENT_CONTEXT, UUID.randomUUID().toString());
-      conf.set(DFS_DOMAIN_SOCKET_PATH_KEY,
-        new File(sockDir.getDir(),
-          "TestShortCircuitLocalReadHandle._PORT.sock").getAbsolutePath());
+      sockDir = new TemporarySocketDirectory();
+      conf.set(DFS_DOMAIN_SOCKET_PATH_KEY, new File(sockDir.getDir(),
+          this.getClass().getSimpleName() + "._PORT.sock").getAbsolutePath());
       conf.set(DFS_BLOCK_LOCAL_PATH_ACCESS_USER_KEY,
         UserGroupInformation.getCurrentUser().getShortUserName());
     }
