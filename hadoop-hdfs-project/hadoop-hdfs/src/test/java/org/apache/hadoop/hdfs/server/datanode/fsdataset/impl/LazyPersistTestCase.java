@@ -210,8 +210,10 @@ public abstract class LazyPersistTestCase {
 
     long[] capacities = null;
     if (hasTransientStorage && ramDiskReplicaCapacity >= 0) {
-      // Convert replica count to byte count, add some delta for .meta and VERSION files.
-      long ramDiskStorageLimit = ((long) ramDiskReplicaCapacity * BLOCK_SIZE) + (BLOCK_SIZE - 1);
+      // Convert replica count to byte count, add some delta for .meta and
+      // VERSION files.
+      long ramDiskStorageLimit = ((long) ramDiskReplicaCapacity * BLOCK_SIZE) +
+          (BLOCK_SIZE - 1);
       capacities = new long[] { ramDiskStorageLimit, -1 };
     }
 
@@ -219,7 +221,8 @@ public abstract class LazyPersistTestCase {
         .Builder(conf)
         .numDataNodes(REPL_FACTOR)
         .storageCapacities(capacities)
-        .storageTypes(hasTransientStorage ? new StorageType[]{ RAM_DISK, DEFAULT } : null)
+        .storageTypes(hasTransientStorage ?
+            new StorageType[]{ RAM_DISK, DEFAULT } : null)
         .build();
     fs = cluster.getFileSystem();
     client = fs.getClient();
@@ -265,7 +268,8 @@ public abstract class LazyPersistTestCase {
     cluster = new MiniDFSCluster
       .Builder(conf)
       .numDataNodes(numDataNodes)
-      .storageTypes(storageTypes != null ? storageTypes : new StorageType[] { DEFAULT, DEFAULT })
+      .storageTypes(storageTypes != null ?
+          storageTypes : new StorageType[] { DEFAULT, DEFAULT })
       .build();
     fs = cluster.getFileSystem();
     client = fs.getClient();
