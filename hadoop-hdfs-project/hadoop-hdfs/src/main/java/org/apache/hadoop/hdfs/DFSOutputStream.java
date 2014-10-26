@@ -453,13 +453,6 @@ public class DFSOutputStream extends FSOutputSummer
 
       }
     }
-    
-    private boolean initLazyPersist(HdfsFileStatus stat) {
-      final BlockStoragePolicy lpPolicy = blockStoragePolicySuite
-          .getPolicy(HdfsConstants.MEMORY_STORAGE_POLICY_NAME);
-      return lpPolicy != null &&
-             stat.getStoragePolicy() == lpPolicy.getId();
-    }
 
     private void setPipeline(LocatedBlock lb) {
       setPipeline(lb.getLocations(), lb.getStorageTypes(), lb.getStorageIDs());
@@ -1770,7 +1763,7 @@ public class DFSOutputStream extends FSOutputSummer
   
   private static boolean isLazyPersist(HdfsFileStatus stat) {
     final BlockStoragePolicy p = blockStoragePolicySuite.getPolicy(
-        "LAZY_PERSIST");
+        HdfsConstants.MEMORY_STORAGE_POLICY_NAME);
     return p != null && stat.getStoragePolicy() == p.getId();
   }
 
