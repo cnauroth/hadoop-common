@@ -88,8 +88,11 @@ public class TestPendingInvalidateBlock {
     Thread.sleep(6000);
     Assert.assertEquals(0, cluster.getNamesystem().getBlocksTotal());
     Assert.assertEquals(0, cluster.getNamesystem().getPendingDeletionBlocks());
-    Assert.assertTrue(cluster.getNamesystem().getBlockDeletionStartTime() >
-      (Long)Whitebox.getInternalState(cluster.getNamesystem(), "startTime"));
+    long nnStarted = new SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy")
+        .parse(cluster.getNamesystem().getNNStarted());
+    long blockDeletionStartTime = cluster.getNamesystem()
+        .getBlockDeletionStartTime();
+    Assert.assertTrue(blockDeletionStartTime > nnStarted);
   }
 
   /**
