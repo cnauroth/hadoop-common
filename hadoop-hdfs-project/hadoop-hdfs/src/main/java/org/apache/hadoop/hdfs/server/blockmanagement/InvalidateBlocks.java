@@ -57,7 +57,6 @@ class InvalidateBlocks {
    * startup
    */
   private final long pendingPeriodInMs;
-
   /** the startup time */
   private final long startupTime = Time.monotonicNow();
 
