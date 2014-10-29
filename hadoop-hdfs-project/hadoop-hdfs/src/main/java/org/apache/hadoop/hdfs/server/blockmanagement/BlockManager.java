@@ -143,6 +143,10 @@ public class BlockManager {
     return invalidateBlocks.numBlocks();
   }
   /** Used by metrics */
+  public long getBlockDeletionStartTime() {
+    return invalidateBlocks.blockDeletionStartTime().getTime();
+  }
+  /** Used by metrics */
   public long getExcessBlocksCount() {
     return excessBlocksCount.get();
   }

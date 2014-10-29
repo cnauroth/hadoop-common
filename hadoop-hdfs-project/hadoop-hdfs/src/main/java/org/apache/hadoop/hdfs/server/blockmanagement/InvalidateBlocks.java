@@ -21,6 +21,7 @@ import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
@@ -71,15 +72,19 @@ class InvalidateBlocks {
     log.info(DFSConfigKeys.DFS_NAMENODE_STARTUP_DELAY_BLOCK_DELETION_SEC_KEY
         + " is set to " + DFSUtil.durationToString(pendingPeriodInMs));
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy MMM dd HH:mm:ss");
-    Calendar calendar = new GregorianCalendar();
-    calendar.add(Calendar.SECOND, (int) (this.pendingPeriodInMs / 1000));
     log.info("The block deletion will start around "
-        + sdf.format(calendar.getTime()));
+        + sdf.format(blockDeletionStartTime()));
   }
 
   /** @return the number of blocks to be invalidated . */
   synchronized long numBlocks() {
     return numBlocks;
+  }
+
+  Date blockDeletionStartTime() {
+    Calendar calendar = new GregorianCalendar();
+    calendar.add(Calendar.SECOND, (int) (this.pendingPeriodInMs / 1000));
+    return calendar.getTime();
   }
 
   /**
