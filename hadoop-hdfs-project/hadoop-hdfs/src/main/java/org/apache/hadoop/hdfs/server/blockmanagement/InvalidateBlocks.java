@@ -20,9 +20,7 @@ package org.apache.hadoop.hdfs.server.blockmanagement;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
-import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -59,6 +57,7 @@ class InvalidateBlocks {
    * startup
    */
   private final long pendingPeriodInMs;
+
   /** the startup time */
   private final long startupTime = Time.monotonicNow();
 
@@ -73,7 +72,7 @@ class InvalidateBlocks {
         + " is set to " + DFSUtil.durationToString(pendingPeriodInMs));
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy MMM dd HH:mm:ss");
     log.info("The block deletion will start around "
-        + sdf.format(blockDeletionStartTime()));
+        + sdf.format(new Date(blockDeletionStartTime())));
   }
 
   /** @return the number of blocks to be invalidated . */
@@ -81,10 +80,8 @@ class InvalidateBlocks {
     return numBlocks;
   }
 
-  Date blockDeletionStartTime() {
-    Calendar calendar = new GregorianCalendar();
-    calendar.add(Calendar.SECOND, (int) (this.pendingPeriodInMs / 1000));
-    return calendar.getTime();
+  long blockDeletionStartTime() {
+    return startupTime + pendingPeriodInMs;
   }
 
   /**
