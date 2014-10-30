@@ -252,7 +252,6 @@ Trunk (Unreleased)
 
     HDFS-7204. balancer doesn't run as a daemon (aw)
 
-
 Release 2.7.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -319,6 +318,9 @@ Release 2.7.0 - UNRELEASED
     (Eric Payne via kihwal)
 
     HDFS-7280. Use netty 4 in WebImageViewer. (wheat9)
+
+    HDFS-3342. SocketTimeoutException in BlockSender.sendChunks could
+    have a better error message. (Yongjun Zhang via wang)
 
   OPTIMIZATIONS
 
@@ -663,6 +665,8 @@ Release 2.6.0 - UNRELEASED
 
     HDFS-6988. Improve HDFS-6581 eviction configuration (Xiaoyu Yao via Colin
     P. McCabe)
+
+    HDFS-7230. Add rolling downgrade documentation. (szetszwo via jing9)
 
   OPTIMIZATIONS
 
