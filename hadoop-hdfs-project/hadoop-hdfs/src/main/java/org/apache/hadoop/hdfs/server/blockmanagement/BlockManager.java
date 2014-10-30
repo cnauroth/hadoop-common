@@ -121,6 +121,7 @@ public class BlockManager {
   private volatile long scheduledReplicationBlocksCount = 0L;
   private final AtomicLong excessBlocksCount = new AtomicLong(0L);
   private final AtomicLong postponedMisreplicatedBlocksCount = new AtomicLong(0L);
+  private final long startupDelayBlockDeletionInMs;
   
   /** Used by metrics */
   public long getPendingReplicationBlocksCount() {
@@ -143,8 +144,8 @@ public class BlockManager {
     return invalidateBlocks.numBlocks();
   }
   /** Used by metrics */
-  public long getBlockDeletionStartTime() {
-    return invalidateBlocks.blockDeletionStartTime();
+  public long getStartupDelayBlockDeletionInMs() {
+    return startupDelayBlockDeletionInMs;
   }
   /** Used by metrics */
   public long getExcessBlocksCount() {
@@ -270,11 +271,11 @@ public class BlockManager {
     datanodeManager = new DatanodeManager(this, namesystem, conf);
     heartbeatManager = datanodeManager.getHeartbeatManager();
 
-    final long pendingPeriod = conf.getLong(
+    startupDelayBlockDeletionInMs = conf.getLong(
         DFSConfigKeys.DFS_NAMENODE_STARTUP_DELAY_BLOCK_DELETION_SEC_KEY,
         DFSConfigKeys.DFS_NAMENODE_STARTUP_DELAY_BLOCK_DELETION_SEC_DEFAULT) * 1000L;
     invalidateBlocks = new InvalidateBlocks(
-        datanodeManager.blockInvalidateLimit, pendingPeriod);
+        datanodeManager.blockInvalidateLimit, startupDelayBlockDeletionInMs);
 
     // Compute the map capacity by allocating 2% of total memory
     blocksMap = new BlocksMap(

@@ -6583,7 +6583,7 @@ public class FSNamesystem implements Namesystem, FSClusterStats,
 
   @Override
   public long getBlockDeletionStartTime() {
-    return blockManager.getBlockDeletionStartTime();
+    return startTime + blockManager.getStartupDelayBlockDeletionInMs();
   }
 
   @Metric
