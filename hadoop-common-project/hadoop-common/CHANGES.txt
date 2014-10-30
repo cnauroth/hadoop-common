@@ -375,6 +375,11 @@ Release 2.7.0 - UNRELEASED
     HDFS-7227. Fix findbugs warning about NP_DEREFERENCE_OF_READLINE_VALUE in
     SpanReceiverHost (cmccabe)
 
+    HADOOP-11186. documentation should talk about
+    hadoop.htrace.spanreceiver.classes, not hadoop.trace.spanreceiver.classes (cmccabe)
+
+    HADOOP-11247. Fix a couple javac warnings in NFS. (Brandon Li via wheat9)
+
 Release 2.6.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -610,6 +615,8 @@ Release 2.6.0 - UNRELEASED
     HADOOP-11207. Enhanced common DelegationTokenAuthenticationHandler to support
     proxy-users on Delegation-token management operations. (Zhijie Shen via
     vinodkv)
+
+    HADOOP-11216. Improve Openssl library finding. (cmccabe via yliu)
 
   OPTIMIZATIONS
 
