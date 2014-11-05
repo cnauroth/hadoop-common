@@ -99,9 +99,13 @@ public class TestSecureNNWithQJM {
     String userName = UserGroupInformation.getLoginUser().getShortUserName();
     File keytabFile = new File(baseDir, userName + ".keytab");
     String keytab = keytabFile.getAbsolutePath();
-    kdc.createPrincipal(keytabFile, userName + "/localhost", "HTTP/localhost");
-    String hdfsPrincipal = userName + "/localhost@" + kdc.getRealm();
-    String spnegoPrincipal = "HTTP/localhost@" + kdc.getRealm();
+    // Windows will not reverse name lookup "127.0.0.1" to "localhost".
+    String krbInstance = Path.WINDOWS ? "127.0.0.1" : "localhost";
+    kdc.createPrincipal(keytabFile,
+      userName + "/" + krbInstance,
+      "HTTP/" + krbInstance);
+    String hdfsPrincipal = userName + "/" + krbInstance + "@" + kdc.getRealm();
+    String spnegoPrincipal = "HTTP/" + krbInstance + "@" + kdc.getRealm();
 
     baseConf.set(DFS_NAMENODE_KERBEROS_PRINCIPAL_KEY, hdfsPrincipal);
     baseConf.set(DFS_NAMENODE_KEYTAB_FILE_KEY, keytab);
