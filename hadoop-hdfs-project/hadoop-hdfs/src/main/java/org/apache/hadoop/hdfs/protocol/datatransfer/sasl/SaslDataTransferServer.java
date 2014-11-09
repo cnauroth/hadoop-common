@@ -114,7 +114,7 @@ public class SaslDataTransferServer {
       return new IOStreamPair(underlyingIn, underlyingOut);
     } else if (xferPort < 1024) {
       LOG.debug(
-        "SASL server skipping handshake in unsecured configuration for "
+        "SASL server skipping handshake in secured configuration for "
         + "peer = {}, datanodeId = {}", peer, datanodeId);
       return new IOStreamPair(underlyingIn, underlyingOut);
     } else if (dnConf.getSaslPropsResolver() != null) {
