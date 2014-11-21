@@ -40,9 +40,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.io.IOUtils;
-import org.apache.hadoop.io.nativeio.Errno;
 import org.apache.hadoop.io.nativeio.NativeIO;
-import org.apache.hadoop.io.nativeio.NativeIOException;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.Shell;
 import org.apache.hadoop.util.Shell.ShellCommandExecutor;
@@ -1320,36 +1318,5 @@ public class FileUtil {
     String[] jarCp = {classPathJar.getCanonicalPath(),
                         unexpandedWildcardClasspath.toString()};
     return jarCp;
-  }
-
-  /**
-   * Attempts to set permissions on a path in the given file system.  If access
-   * is denied, then this method is a no-op.  For any other type of I/O error,
-   * an exception is thrown.  This method is suitable when an operation changes
-   * permissions as a side effect, but does not strictly require changing
-   * permissions to succeed.  One specific example is creating files on a Windows
-   * SMB share.  The share may allow the user to create files, but then deny the
-   * WRITE_DAC right.  Rather than fail the entire file creation, we allow the
-   * operation to succeed without setting permissions.
-   *
-   * @param fs FileSystem containing path
-   * @param p Path to modify
-   * @param permission permissions to set on path
-   * @throws IOException if there is an I/O error other than access denied
-   */
-  public static void setPermissionIfAllowed(FileSystem fs, Path p,
-      FsPermission permission) throws IOException {
-    try {
-      fs.setPermission(p, permission);
-    } catch (NativeIOException nioe) {
-      if (nioe.getErrno() == Errno.EACCES) {
-        if (LOG.isDebugEnabled()) {
-          LOG.debug(String.format("setPermissionIfAllowed continuing after " +
-              "access denied on path %s", p));
-        }
-        return;
-      }
-      throw nioe;
-    }
   }
 }

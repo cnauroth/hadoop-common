@@ -295,7 +295,7 @@ public class RawLocalFileSystem extends FileSystem {
 
     FSDataOutputStream out = create(f,
         overwrite, bufferSize, replication, blockSize, progress);
-    FileUtil.setPermissionIfAllowed(this, f, permission);
+    setPermissionIfAllowed(f, permission);
     return out;
   }
 
@@ -306,7 +306,7 @@ public class RawLocalFileSystem extends FileSystem {
       Progressable progress) throws IOException {
     FSDataOutputStream out = create(f,
         overwrite, false, bufferSize, replication, blockSize, progress);
-    FileUtil.setPermissionIfAllowed(this, f, permission);
+    setPermissionIfAllowed(f, permission);
     return out;
   }
 
@@ -447,7 +447,7 @@ public class RawLocalFileSystem extends FileSystem {
   public boolean mkdirs(Path f, FsPermission permission) throws IOException {
     boolean b = mkdirs(f);
     if(b) {
-      FileUtil.setPermissionIfAllowed(this, f, permission);
+      setPermissionIfAllowed(f, permission);
     }
     return b;
   }
@@ -457,7 +457,7 @@ public class RawLocalFileSystem extends FileSystem {
   protected boolean primitiveMkdir(Path f, FsPermission absolutePermission)
     throws IOException {
     boolean b = mkdirs(f);
-    FileUtil.setPermissionIfAllowed(this, f, absolutePermission);
+    setPermissionIfAllowed(f, absolutePermission);
     return b;
   }
   
