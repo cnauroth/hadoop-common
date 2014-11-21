@@ -78,6 +78,9 @@ Release 2.7.0 - UNRELEASED
     YARN-2157. Added YARN metrics in the documentaion. (Akira AJISAKA via
     jianhe)
 
+    YARN-2802. ClusterMetrics to include AM launch and register delays.
+    (Zhihai Xu via kasha)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -111,6 +114,15 @@ Release 2.7.0 - UNRELEASED
 
     YARN-2870. Updated the command to run the timeline server in the document.
     (Masatake Iwasaki via zjshen)
+
+    YARN-2878. Fix DockerContainerExecutor.apt.vm formatting. (Abin Shahab via
+    jianhe)
+
+    YARN-2865. Fixed RM to always create a new RMContext when transtions from
+    StandBy to Active. (Rohith Sharmaks via jianhe)
+
+    YARN-2315. FairScheduler: Set current capacity in addition to capacity.
+    (Zhihai Xu via kasha)
 
 Release 2.6.0 - 2014-11-18
 
