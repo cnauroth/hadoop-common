@@ -71,6 +71,7 @@ import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.exceptions.YarnRuntimeException;
 import org.apache.hadoop.yarn.server.resourcemanager.ApplicationMasterService;
 import org.apache.hadoop.yarn.server.resourcemanager.MockNodes;
+import org.apache.hadoop.yarn.server.resourcemanager.MockRM;
 import org.apache.hadoop.yarn.server.resourcemanager.ResourceManager;
 import org.apache.hadoop.yarn.server.resourcemanager.resource.ResourceType;
 import org.apache.hadoop.yarn.server.resourcemanager.rmapp.MockRMApp;
@@ -912,6 +913,46 @@ public class TestFairScheduler extends FairSchedulerTestBase {
     // submission rejected
     assertEquals(1, scheduler.getQueueManager().getLeafQueues().size());
     assertNull(scheduler.getSchedulerApp(appAttemptId));
+    assertEquals(0, resourceManager.getRMContext().getRMApps().size());
+  }
+
+  @Test
+  public void testQueueuNameWithPeriods() throws Exception {
+    scheduler.init(conf);
+    scheduler.start();
+    scheduler.reinitialize(conf, resourceManager.getRMContext());
+
+    // only default queue
+    assertEquals(1, scheduler.getQueueManager().getLeafQueues().size());
+
+    // submit app with queue name (.A)
+    ApplicationAttemptId appAttemptId1 = createAppAttemptId(1, 1);
+    AppAddedSchedulerEvent appAddedEvent1 =
+        new AppAddedSchedulerEvent(appAttemptId1.getApplicationId(), ".A", "user1");
+    scheduler.handle(appAddedEvent1);
+    // submission rejected
+    assertEquals(1, scheduler.getQueueManager().getLeafQueues().size());
+    assertNull(scheduler.getSchedulerApp(appAttemptId1));
+    assertEquals(0, resourceManager.getRMContext().getRMApps().size());
+
+    // submit app with queue name (A.)
+    ApplicationAttemptId appAttemptId2 = createAppAttemptId(2, 1);
+    AppAddedSchedulerEvent appAddedEvent2 =
+        new AppAddedSchedulerEvent(appAttemptId2.getApplicationId(), "A.", "user1");
+    scheduler.handle(appAddedEvent2);
+    // submission rejected
+    assertEquals(1, scheduler.getQueueManager().getLeafQueues().size());
+    assertNull(scheduler.getSchedulerApp(appAttemptId2));
+    assertEquals(0, resourceManager.getRMContext().getRMApps().size());
+
+    // submit app with queue name (A.B)
+    ApplicationAttemptId appAttemptId3 = createAppAttemptId(3, 1);
+    AppAddedSchedulerEvent appAddedEvent3 =
+        new AppAddedSchedulerEvent(appAttemptId3.getApplicationId(), "A.B", "user1");
+    scheduler.handle(appAddedEvent3);
+    // submission accepted
+    assertEquals(2, scheduler.getQueueManager().getLeafQueues().size());
+    assertNull(scheduler.getSchedulerApp(appAttemptId3));
     assertEquals(0, resourceManager.getRMContext().getRMApps().size());
   }
 
@@ -2590,37 +2631,7 @@ public class TestFairScheduler extends FairSchedulerTestBase {
     }
     assertEquals(FinalApplicationStatus.FAILED, application.getFinalApplicationStatus());
   }
-  
-  @Test
-  public void testReservationThatDoesntFit() throws IOException {
-    scheduler.init(conf);
-    scheduler.start();
-    scheduler.reinitialize(conf, resourceManager.getRMContext());
 
-    RMNode node1 =
-        MockNodes
-            .newNodeInfo(1, Resources.createResource(1024), 1, "127.0.0.1");
-    NodeAddedSchedulerEvent nodeEvent1 = new NodeAddedSchedulerEvent(node1);
-    scheduler.handle(nodeEvent1);
-    
-    ApplicationAttemptId attId = createSchedulingRequest(2048, "queue1",
-        "user1", 1);
-    scheduler.update();
-    NodeUpdateSchedulerEvent updateEvent = new NodeUpdateSchedulerEvent(node1);
-    scheduler.handle(updateEvent);
-    
-    FSAppAttempt app = scheduler.getSchedulerApp(attId);
-    assertEquals(0, app.getLiveContainers().size());
-    assertEquals(0, app.getReservedContainers().size());
-    
-    createSchedulingRequestExistingApplication(1024, 2, attId);
-    scheduler.update();
-    scheduler.handle(updateEvent);
-    
-    assertEquals(1, app.getLiveContainers().size());
-    assertEquals(0, app.getReservedContainers().size());
-  }
-  
   @Test
   public void testRemoveNodeUpdatesRootQueueMetrics() throws IOException {
     scheduler.init(conf);
