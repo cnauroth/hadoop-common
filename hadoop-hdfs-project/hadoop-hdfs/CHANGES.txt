@@ -395,6 +395,15 @@ Release 2.7.0 - UNRELEASED
 
     HDFS-7436. Consolidate implementation of concat(). (wheat9)
 
+    HDFS-7440. Consolidate snapshot related operations in a single class.
+    (wheat9)
+
+    HDFS-6803 Document DFSClient#DFSInputStream expectations reading and preading
+    in concurrent context. (stack via stevel)
+
+    HDFS-7310. Mover can give first priority to local DN if it has target storage type 
+    available in local DN. (Vinayakumar B via umamahesh)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -485,6 +494,12 @@ Release 2.7.0 - UNRELEASED
 
     HDFS-7303. NN UI fails to distinguish datanodes on the same host.
     (Benoy Antony via wheat9)
+
+    HDFS-7097. Allow block reports to be processed during checkpointing on
+    standby name node. (kihwal via wang)
+
+    HDFS-7444. convertToBlockUnderConstruction should preserve BlockCollection.
+    (wheat9)
 
 Release 2.6.1 - UNRELEASED
 

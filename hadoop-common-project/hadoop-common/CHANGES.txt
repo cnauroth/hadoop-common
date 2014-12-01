@@ -394,6 +394,11 @@ Release 2.7.0 - UNRELEASED
     HADOOP-11291. Log the cause of SASL connection failures.
     (Stephen Chu via cnauroth)
 
+    HADOOP-11173. Improve error messages for some KeyShell commands. (wang)
+
+    HADOOP-11257: Update "hadoop jar" documentation to warn against using it
+    for launching yarn jars (iwasakims via cmccabe)
+
   OPTIMIZATIONS
 
     HADOOP-11323. WritableComparator#compare keeps reference to byte array.
@@ -464,6 +469,9 @@ Release 2.7.0 - UNRELEASED
 
     HADOOP-11322. key based ACL check in KMS always check KeyOpType.MANAGEMENT
     even actual KeyOpType is not MANAGEMENT. (Dian Fu via yliu)
+
+    HADOOP-11300. KMS startup scripts must not display the keystore /
+    truststore passwords. (Arun Suresh via wang)
 
 Release 2.6.0 - 2014-11-18
 

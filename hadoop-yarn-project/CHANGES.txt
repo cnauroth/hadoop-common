@@ -46,7 +46,10 @@ Release 2.7.0 - UNRELEASED
     (Chris Trezzo and Sangjin Lee via kasha)
 
     YARN-2236. [YARN-1492] Shared Cache uploader service on the Node 
-    Manager. (Chris Trezzo and Sanjin Lee via kasha)
+    Manager. (Chris Trezzo and Sangjin Lee via kasha)
+
+    YARN-2188. [YARN-1492] Client service for cache manager. 
+    (Chris Trezzo and Sangjin Lee via kasha)
 
 
   IMPROVEMENTS
@@ -91,6 +94,12 @@ Release 2.7.0 - UNRELEASED
 
     YARN-2669. FairScheduler: queue names shouldn't allow periods
     (Wei Yan via Sandy Ryza)
+
+    YARN-2404. Removed ApplicationAttemptState and ApplicationState class in
+    RMStateStore. (Tsuyoshi OZAWA via jianhe)
+
+    YARN-2165. Added the sanity check for the numeric configuration values of
+    the timeline service. (Vasanth kumar RJ via zjshen)
 
   OPTIMIZATIONS
 
@@ -139,6 +148,9 @@ Release 2.7.0 - UNRELEASED
     (Varun Saxena via jlowe)
 
     YARN-2697. Remove useless RMAuthenticationHandler. (Haosong Huang via zjshen)
+
+    YARN-2906. CapacitySchedulerPage shows HTML tags for a queue's Active Users.
+    (Jason Lowe via jianhe)
 
 Release 2.6.0 - 2014-11-18
 
