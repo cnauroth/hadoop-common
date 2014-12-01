@@ -235,9 +235,6 @@ public class NativeIO {
           if (nioe.getErrorCode() == 3) {
             throw new NativeIOException("No such file or directory",
                 Errno.ENOENT);
-          } else if (nioe.getErrorCode() == 5) {
-            throw new NativeIOException(String.format(
-                "Access denied for path %s", path), Errno.EACCES);
           } else {
             LOG.warn(String.format("NativeIO.chmod error (%d): %s",
                 nioe.getErrorCode(), nioe.getMessage()));

@@ -459,11 +459,7 @@ public abstract class ChecksumFileSystem extends FilterFileSystem {
       }
     }
     if (permission != null) {
-      if (fs instanceof RawLocalFileSystem) {
-        setPermissionIfAllowed(f, permission);
-      } else {
-        setPermission(f, permission);
-      }
+      setPermission(f, permission);
     }
     return out;
   }
