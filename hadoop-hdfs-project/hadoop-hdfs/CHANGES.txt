@@ -257,6 +257,9 @@ Trunk (Unreleased)
 
     HDFS-7407. Minor typo in privileged pid/out/log names (aw)
 
+    HDFS-7448 TestBookKeeperHACheckpoints fails in trunk build
+    (Akira Ajisaka via stevel)
+
 Release 2.7.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -403,6 +406,18 @@ Release 2.7.0 - UNRELEASED
 
     HDFS-7310. Mover can give first priority to local DN if it has target storage type 
     available in local DN. (Vinayakumar B via umamahesh)
+
+    HDFS-7210. Avoid two separate RPC's namenode.append() and namenode.getFileInfo() 
+    for an append call from DFSClient. (Vinayakumar B via umamahesh)
+
+    HDFS-7450. Consolidate the implementation of GetFileInfo(), GetListings() and
+    GetContentSummary() into a single class. (wheat9)
+
+    HDFS-7438. Consolidate the implementation of rename() into a single class.
+    (wheat9)
+
+    HDFS-7462. Consolidate implementation of mkdirs() into a single class.
+    (wheat9)
 
   OPTIMIZATIONS
 

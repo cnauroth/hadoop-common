@@ -15,14 +15,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.hadoop.hdfs.protocol;
 
-package org.apache.hadoop.yarn.server.resourcemanager.recovery;
+import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.classification.InterfaceStability;
 
-public enum RMStateStoreEventType {
-  STORE_APP_ATTEMPT,
-  STORE_APP,
-  UPDATE_APP,
-  UPDATE_APP_ATTEMPT,
-  REMOVE_APP,
-  FENCED
+/**
+ * Class to contain Lastblock and HdfsFileStatus for the Append operation
+ */
+@InterfaceAudience.Private
+@InterfaceStability.Evolving
+public class LastBlockWithStatus {
+
+  private final LocatedBlock lastBlock;
+
+  private final HdfsFileStatus fileStatus;
+
+  public LastBlockWithStatus(LocatedBlock lastBlock, HdfsFileStatus fileStatus) {
+    this.lastBlock = lastBlock;
+    this.fileStatus = fileStatus;
+  }
+
+  public LocatedBlock getLastBlock() {
+    return lastBlock;
+  }
+
+  public HdfsFileStatus getFileStatus() {
+    return fileStatus;
+  }
 }
