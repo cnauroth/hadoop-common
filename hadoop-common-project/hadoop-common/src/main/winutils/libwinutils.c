@@ -2384,7 +2384,7 @@ DWORD CreateDirectoryWithMode(
   }
 
   if (!SetSecurityDescriptorDacl(pSD, TRUE, pNewDACL, FALSE)) {
-    ret = GetLastError();
+    dwRtnCode = GetLastError();
     ReportErrorCode(L"SetSecurityDescriptorDacl", dwRtnCode);
     goto done;
   }
