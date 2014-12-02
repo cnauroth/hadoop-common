@@ -2323,14 +2323,12 @@ DWORD CreateDirectoryWithMode(
 
   if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hProcessToken)) {
     dwRtnCode = GetLastError();
-    ReportErrorCode(L"OpenProcessToken", dwRtnCode);
     goto done;
   }
 
   if (!GetTokenInformation(hProcessToken, TokenUser, NULL, 0, &dwSize)) {
     dwRtnCode = GetLastError();
     if (dwRtnCode != ERROR_INSUFFICIENT_BUFFER) {
-      ReportErrorCode(L"GetTokenInformation", dwRtnCode);
       goto done;
     }
   }
@@ -2338,13 +2336,11 @@ DWORD CreateDirectoryWithMode(
   pTokenUser = LocalAlloc(LPTR, dwSize);
   if (!pTokenUser) {
     dwRtnCode = GetLastError();
-    ReportErrorCode(L"LocalAlloc", dwRtnCode);
     goto done;
   }
 
   if (!GetTokenInformation(hProcessToken, TokenUser, pTokenUser, dwSize, &dwSize)) {
     dwRtnCode = GetLastError();
-    ReportErrorCode(L"GetTokenInformation", dwRtnCode);
     goto done;
   }
   pOwnerSid = pTokenUser->User.Sid;
@@ -2352,7 +2348,6 @@ DWORD CreateDirectoryWithMode(
   if (!GetTokenInformation(hProcessToken, TokenPrimaryGroup, NULL, 0, &dwSize)) {
     dwRtnCode = GetLastError();
     if (dwRtnCode != ERROR_INSUFFICIENT_BUFFER) {
-      ReportErrorCode(L"GetTokenInformation", dwRtnCode);
       goto done;
     }
   }
@@ -2360,39 +2355,33 @@ DWORD CreateDirectoryWithMode(
   pTokenPrimaryGroup = LocalAlloc(LPTR, dwSize);
   if (!pTokenPrimaryGroup) {
     dwRtnCode = GetLastError();
-    ReportErrorCode(L"LocalAlloc", dwRtnCode);
     goto done;
   }
 
   if (!GetTokenInformation(hProcessToken, TokenPrimaryGroup, pTokenPrimaryGroup, dwSize, &dwSize)) {
     dwRtnCode = GetLastError();
-    ReportErrorCode(L"GetTokenInformation", dwRtnCode);
     goto done;
   }
   pGroupSid = pTokenPrimaryGroup->PrimaryGroup;
 
   dwRtnCode = GetWindowsDACLs(mode, pOwnerSid, pGroupSid, &pNewDACL);
   if (dwRtnCode != ERROR_SUCCESS) {
-    ReportErrorCode(L"GetWindowsDACLs", dwRtnCode);
     goto done;
   }
 
   pSD = LocalAlloc(LPTR, SECURITY_DESCRIPTOR_MIN_LENGTH);
   if (!pSD) {
     dwRtnCode = GetLastError();
-    ReportErrorCode(L"LocalAlloc", dwRtnCode);
     goto done;
   }
 
   if (!InitializeSecurityDescriptor(pSD, SECURITY_DESCRIPTOR_REVISION)) {
     dwRtnCode = GetLastError();
-    ReportErrorCode(L"InitializeSecurityDescriptor", dwRtnCode);
     goto done;
   }
 
   if (!SetSecurityDescriptorDacl(pSD, TRUE, pNewDACL, FALSE)) {
     dwRtnCode = GetLastError();
-    ReportErrorCode(L"SetSecurityDescriptorDacl", dwRtnCode);
     goto done;
   }
 
@@ -2402,7 +2391,6 @@ DWORD CreateDirectoryWithMode(
 
   if (!CreateDirectory(pathName, &sa)) {
     dwRtnCode = GetLastError();
-    ReportErrorCode(L"CreateDirectory", dwRtnCode);
     goto done;
   }
 
