@@ -2306,7 +2306,109 @@ done:
   return dwError;
 }
 
+DWORD CreateDirectoryWithMode(
+  __in LPCWSTR pathName,
+  __in INT mode) {
 
+  DWORD dwRtnCode = ERROR_SUCCESS;
+  HANDLE hProcessToken = NULL;
+  DWORD dwSize = 0;
+  PTOKEN_USER pTokenUser = NULL;
+  PSID pOwnerSid = NULL;
+  PTOKEN_PRIMARY_GROUP pTokenPrimaryGroup = NULL;
+  PSID pGroupSid = NULL;
+  PACL pNewDACL = NULL;
+  PSECURITY_DESCRIPTOR pSD = NULL;
+  SECURITY_ATTRIBUTES sa;
+
+  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hProcessToken)) {
+    dwRtnCode = GetLastError();
+    ReportErrorCode(L"OpenProcessToken", dwRtnCode);
+    goto done;
+  }
+
+  if (!GetTokenInformation(hProcessToken, TokenUser, NULL, 0, &dwSize)) {
+    dwRtnCode = GetLastError();
+    if (dwRtnCode != ERROR_INSUFFICIENT_BUFFER) {
+      ReportErrorCode(L"GetTokenInformation", dwRtnCode);
+      goto done;
+    }
+  }
+
+  pTokenUser = LocalAlloc(LPTR, dwSize);
+  if (!pTokenUser) {
+    dwRtnCode = GetLastError();
+    ReportErrorCode(L"LocalAlloc", dwRtnCode);
+    goto done;
+  }
+
+  if (!GetTokenInformation(hProcessToken, TokenUser, pTokenUser, dwSize, &dwSize)) {
+    dwRtnCode = GetLastError();
+    ReportErrorCode(L"GetTokenInformation", dwRtnCode);
+    goto done;
+  }
+  pOwnerSid = pTokenUser->User.Sid;
+
+  if (!GetTokenInformation(hProcessToken, TokenPrimaryGroup, NULL, 0, &dwSize)) {
+    dwRtnCode = GetLastError();
+    if (dwRtnCode != ERROR_INSUFFICIENT_BUFFER) {
+      ReportErrorCode(L"GetTokenInformation", dwRtnCode);
+      goto done;
+    }
+  }
+
+  pTokenPrimaryGroup = LocalAlloc(LPTR, dwSize);
+  if (!pTokenPrimaryGroup) {
+    dwRtnCode = GetLastError();
+    ReportErrorCode(L"LocalAlloc", dwRtnCode);
+    goto done;
+  }
+
+  if (!GetTokenInformation(hProcessToken, TokenPrimaryGroup, pTokenPrimaryGroup, dwSize, &dwSize)) {
+    dwRtnCode = GetLastError();
+    ReportErrorCode(L"GetTokenInformation", dwRtnCode);
+    goto done;
+  }
+  pGroupSid = pTokenPrimaryGroup->PrimaryGroup;
+
+  dwRtnCode = GetWindowsDACLs(mode, pOwnerSid, pGroupSid, &pNewDACL);
+  if (dwRtnCode != ERROR_SUCCESS) {
+    ReportErrorCode(L"GetWindowsDACLs", dwRtnCode);
+    goto done;
+  }
+
+  if (!InitializeSecurityDescriptor(pSD, SECURITY_DESCRIPTOR_REVISION)) {
+    dwRtnCode = GetLastError();
+    ReportErrorCode(L"InitializeSecurityDescriptor", dwRtnCode);
+    goto done;
+  }
+
+  if (!SetSecurityDescriptorDacl(pSD, TRUE, pNewDACL, FALSE)) {
+    ret = GetLastError();
+    ReportErrorCode(L"SetSecurityDescriptorDacl", dwRtnCode);
+    goto done;
+  }
+
+  sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+  sa.lpSecurityDescriptor = pSD;
+  sa.bInheritHandle = FALSE;
+
+  if (!CreateDirectory(pathName, &sa)) {
+    dwRtnCode = GetLastError();
+    ReportErrorCode(L"CreateDirectory", dwRtnCode);
+    goto done;
+  }
+
+  dwRtnCode = ERROR_SUCCESS;
+done:
+  if (hProcessToken) {
+    CloseHandle(hProcessToken);
+  }
+  LocalFree(pTokenUser);
+  LocalFree(pTokenPrimaryGroup);
+  LocalFree(pNewDACL);
+  return dwRtnCode;
+}
 
 LPCWSTR GetSystemTimeString() {
   __declspec(thread) static WCHAR buffer[1024];

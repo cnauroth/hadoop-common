@@ -412,8 +412,21 @@ public class RawLocalFileSystem extends FileSystem {
     return Arrays.copyOf(results, j);
   }
   
-  protected boolean mkOneDir(File p2f) throws IOException {
-    return p2f.mkdir();
+  protected boolean mkOneDir(Path p, File p2f, FsPermission permission)
+      throws IOException {
+    if (permission == null) {
+      return p2f.mkdir();
+    } else {
+      if (Shell.WINDOWS && NativeIO.isAvailable()) {
+        return NativeIO.Windows.createDirectory(p2f, permission.toShort());
+      } else {
+        boolean b = p2f.mkdir();
+        if (b) {
+          setPermission(p, permission);
+        }
+        return b;
+      }
+    }
   }
 
   /**
@@ -422,6 +435,16 @@ public class RawLocalFileSystem extends FileSystem {
    */
   @Override
   public boolean mkdirs(Path f) throws IOException {
+    return mkdirsWithOptionalPermission(f, null);
+  }
+
+  @Override
+  public boolean mkdirs(Path f, FsPermission permission) throws IOException {
+    return mkdirsWithOptionalPermission(f, permission);
+  }
+
+  private boolean mkdirsWithOptionalPermission(Path f, FsPermission permission)
+      throws IOException {
     if(f == null) {
       throw new IllegalArgumentException("mkdirs path arg is null");
     }
@@ -440,18 +463,8 @@ public class RawLocalFileSystem extends FileSystem {
               " and is not a directory: " + p2f.getCanonicalPath());
     }
     return (parent == null || parent2f.exists() || mkdirs(parent)) &&
-      (mkOneDir(p2f) || p2f.isDirectory());
+        (mkOneDir(f, p2f, permission) || p2f.isDirectory());
   }
-
-  @Override
-  public boolean mkdirs(Path f, FsPermission permission) throws IOException {
-    boolean b = mkdirs(f);
-    if(b) {
-      setPermission(f, permission);
-    }
-    return b;
-  }
-  
 
   @Override
   protected boolean primitiveMkdir(Path f, FsPermission absolutePermission)

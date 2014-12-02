@@ -205,6 +205,9 @@ DWORD ChownImpl(
   __in_opt LPCWSTR groupName,
   __in LPCWSTR pathName);
 
+DWORD CreateDirectoryWithMode(__in LPCWSTR pathName,
+                              __in INT mode);
+
 LPCWSTR GetSystemTimeString();
 
 VOID LogDebugMessage(LPCWSTR format, ...);

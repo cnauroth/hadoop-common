@@ -514,6 +514,31 @@ cleanup:
 #endif
 }
 
+JNIEXPORT void JNICALL
+  Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windows_createDirectory0
+  (JNIEnv *env, jclass clazz, jstring j_path, jint mode)
+{
+#ifdef UNIX
+  THROW(env, "java/io/IOException",
+    "The function Windows.createDirectory0() is not supported on Unix");
+#endif
+
+#ifdef WINDOWS
+  DWORD dwRtnCode = ERROR_SUCCESS;
+
+  LPCWSTR path = (LPCWSTR) (*env)->GetStringChars(env, j_path, NULL);
+  if (!path) goto done;
+
+  dwRtnCode = CreateDirectoryWithMode(path, mode);
+  if (dwRtnCode != ERROR_SUCCESS) {
+    throw_ioe(env, dwRtnCode);
+  }
+done:
+  if (path) (*env)->ReleaseStringChars(env, j_path, (const jchar*) path);
+  return dwRtnCode;
+#endif
+}
+
 /*
  * Class:     org_apache_hadoop_io_nativeio_NativeIO_Windows
  * Method:    createFile

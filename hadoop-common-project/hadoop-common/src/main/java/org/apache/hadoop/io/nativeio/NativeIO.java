@@ -508,6 +508,19 @@ public class NativeIO {
     
     public static final long FILE_ATTRIBUTE_NORMAL = 0x00000080L;
 
+    public static boolean createDirectory(File path, int mode) {
+      try {
+        createDirectory0(path.getAbsolutePath(), mode);
+        return true;
+      } catch (IOException e) {
+        return false;
+      }
+    }
+
+    /** Wrapper around CreateDirectory() on Windows */
+    private static native void createDirectory0(String path, int mode)
+        throws IOException;
+
     /** Wrapper around CreateFile() on Windows */
     public static native FileDescriptor createFile(String path,
         long desiredAccess, long shareMode, long creationDisposition)
@@ -849,6 +862,9 @@ public class NativeIO {
       throws NativeIOException;
 
   private static native void link0(String src, String dst)
+      throws NativeIOException;
+
+  private static native boolean mkdir0(String f, short mode)
       throws NativeIOException;
 
   /**
