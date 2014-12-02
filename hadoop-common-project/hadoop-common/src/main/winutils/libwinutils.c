@@ -2377,6 +2377,13 @@ DWORD CreateDirectoryWithMode(
     goto done;
   }
 
+  pSD = LocalAlloc(LPTR, SECURITY_DESCRIPTOR_MIN_LENGTH);
+  if (!pSD) {
+    dwRtnCode = GetLastError();
+    ReportErrorCode(L"LocalAlloc", dwRtnCode);
+    goto done;
+  }
+
   if (!InitializeSecurityDescriptor(pSD, SECURITY_DESCRIPTOR_REVISION)) {
     dwRtnCode = GetLastError();
     ReportErrorCode(L"InitializeSecurityDescriptor", dwRtnCode);
@@ -2408,6 +2415,7 @@ done:
   LocalFree(pTokenUser);
   LocalFree(pTokenPrimaryGroup);
   LocalFree(pNewDACL);
+  LocalFree(pSD);
   return dwRtnCode;
 }
 
