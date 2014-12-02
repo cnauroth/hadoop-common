@@ -2400,6 +2400,7 @@ DWORD CreateDirectoryWithMode(
   }
 
   dwRtnCode = ERROR_SUCCESS;
+
 done:
   if (hProcessToken) {
     CloseHandle(hProcessToken);

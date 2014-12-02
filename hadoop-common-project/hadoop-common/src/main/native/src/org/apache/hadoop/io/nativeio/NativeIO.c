@@ -524,7 +524,7 @@ JNIEXPORT void JNICALL
 #endif
 
 #ifdef WINDOWS
-  DWORD dwRtnCode = ERROR_SUCCESS;
+  DWORD dwRtnCode;
 
   LPCWSTR path = (LPCWSTR) (*env)->GetStringChars(env, j_path, NULL);
   if (!path) goto done;
@@ -533,9 +533,9 @@ JNIEXPORT void JNICALL
   if (dwRtnCode != ERROR_SUCCESS) {
     throw_ioe(env, dwRtnCode);
   }
+
 done:
   if (path) (*env)->ReleaseStringChars(env, j_path, (const jchar*) path);
-  return dwRtnCode;
 #endif
 }
 
