@@ -514,6 +514,140 @@ cleanup:
 #endif
 }
 
+#ifdef WINDOWS
+static DWORD GetTokenInformationForCreate(__out PTOKEN_USER *pOutTokenUser,
+    __out PTOKEN_PRIMARY_GROUP *pOutTokenPrimaryGroup) {
+  DWORD dwRtnCode = ERROR_SUCCESS;
+  HANDLE hProcessToken = NULL;
+  DWORD dwSize = 0;
+  PTOKEN_USER pTokenUser = NULL;
+  PTOKEN_PRIMARY_GROUP pTokenPrimaryGroup = NULL;
+
+  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hProcessToken)) {
+    dwRtnCode = GetLastError();
+    goto done;
+  }
+
+  if (!GetTokenInformation(hProcessToken, TokenUser, NULL, 0, &dwSize)) {
+    dwRtnCode = GetLastError();
+    if (dwRtnCode != ERROR_INSUFFICIENT_BUFFER) {
+      goto done;
+    }
+  }
+
+  pTokenUser = LocalAlloc(LPTR, dwSize);
+  if (!pTokenUser) {
+    dwRtnCode = GetLastError();
+    goto done;
+  }
+
+  if (!GetTokenInformation(hProcessToken, TokenUser, pTokenUser, dwSize, &dwSize)) {
+    dwRtnCode = GetLastError();
+    goto done;
+  }
+
+  if (!GetTokenInformation(hProcessToken, TokenPrimaryGroup, NULL, 0, &dwSize)) {
+    dwRtnCode = GetLastError();
+    if (dwRtnCode != ERROR_INSUFFICIENT_BUFFER) {
+      goto done;
+    }
+  }
+
+  pTokenPrimaryGroup = LocalAlloc(LPTR, dwSize);
+  if (!pTokenPrimaryGroup) {
+    dwRtnCode = GetLastError();
+    goto done;
+  }
+
+  if (!GetTokenInformation(hProcessToken, TokenPrimaryGroup, pTokenPrimaryGroup, dwSize, &dwSize)) {
+    dwRtnCode = GetLastError();
+    goto done;
+  }
+
+  *pOutTokenUser = pTokenUser;
+  *pOutTokenPrimaryGroup = pTokenPrimaryGroup;
+  dwRtnCode = ERROR_SUCCESS;
+
+done:
+  if (hProcessToken) {
+    CloseHandle(hProcessToken);
+  }
+  return dwRtnCode;
+}
+
+static DWORD CreateSecurityDescriptorForCreate(__in PACL pDACL,
+    __out PSECURITY_DESCRIPTOR *pOutSD) {
+  DWORD dwRtnCode = ERROR_SUCCESS;
+  PSECURITY_DESCRIPTOR pSD = NULL;
+
+  pSD = LocalAlloc(LPTR, SECURITY_DESCRIPTOR_MIN_LENGTH);
+  if (!pSD) {
+    dwRtnCode = GetLastError();
+    goto done;
+  }
+
+  if (!InitializeSecurityDescriptor(pSD, SECURITY_DESCRIPTOR_REVISION)) {
+    dwRtnCode = GetLastError();
+    goto done;
+  }
+
+  if (!SetSecurityDescriptorDacl(pSD, TRUE, pDACL, FALSE)) {
+    dwRtnCode = GetLastError();
+    goto done;
+  }
+
+  *pOutSD = pSD;
+
+done:
+  return dwRtnCode;
+}
+
+static jobject CreateFileWithOptionalMode(__in JNIEnv *env, __in jstring j_path,
+    __in DWORD dwDesiredAccess, __in DWORD dwShareMode,
+    __in LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+    __in DWORD dwCreationDisposition) {
+  DWORD dwRtnCode = ERROR_SUCCESS;
+  BOOL isSymlink = FALSE;
+  BOOL isJunction = FALSE;
+  DWORD dwFlagsAndAttributes = FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS;
+  jobject ret = (jobject) NULL;
+  HANDLE hFile = INVALID_HANDLE_VALUE;
+  WCHAR *path = (WCHAR *) (*env)->GetStringChars(env, j_path, (jboolean*)NULL);
+  if (path == NULL) goto cleanup;
+
+  // Set the flag for a symbolic link or a junctions point only when it exists.
+  // According to MSDN if the call to CreateFile() function creates a file,
+  // there is no change in behavior. So we do not throw if no file is found.
+  //
+  dwRtnCode = SymbolicLinkCheck(path, &isSymlink);
+  if (dwRtnCode != ERROR_SUCCESS && dwRtnCode != ERROR_FILE_NOT_FOUND) {
+    throw_ioe(env, dwRtnCode);
+    goto cleanup;
+  }
+  dwRtnCode = JunctionPointCheck(path, &isJunction);
+  if (dwRtnCode != ERROR_SUCCESS && dwRtnCode != ERROR_FILE_NOT_FOUND) {
+    throw_ioe(env, dwRtnCode);
+    goto cleanup;
+  }
+  if (isSymlink || isJunction)
+    dwFlagsAndAttributes |= FILE_FLAG_OPEN_REPARSE_POINT;
+
+  hFile = CreateFile(path, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
+    dwCreationDisposition, dwFlagsAndAttributes, NULL);
+  if (hFile == INVALID_HANDLE_VALUE) {
+    throw_ioe(env, GetLastError());
+    goto cleanup;
+  }
+
+  ret = fd_create(env, (long) hFile);
+cleanup:
+  if (path != NULL) {
+    (*env)->ReleaseStringChars(env, j_path, (const jchar*)path);
+  }
+  return ret;
+}
+#endif
+
 JNIEXPORT void JNICALL
   Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windows_createDirectoryWithMode0
   (JNIEnv *env, jclass clazz, jstring j_path, jint mode)
@@ -665,140 +799,6 @@ JNIEXPORT jobject JNICALL Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windo
       NULL, creationDisposition);
 #endif
 }
-
-#ifdef WINDOWS
-static DWORD GetTokenInformationForCreate(__out PTOKEN_USER *pOutTokenUser,
-    __out PTOKEN_PRIMARY_GROUP *pOutTokenPrimaryGroup) {
-  DWORD dwRtnCode = ERROR_SUCCESS;
-  HANDLE hProcessToken = NULL;
-  DWORD dwSize = 0;
-  PTOKEN_USER pTokenUser = NULL;
-  PTOKEN_PRIMARY_GROUP pTokenPrimaryGroup = NULL;
-
-  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hProcessToken)) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  if (!GetTokenInformation(hProcessToken, TokenUser, NULL, 0, &dwSize)) {
-    dwRtnCode = GetLastError();
-    if (dwRtnCode != ERROR_INSUFFICIENT_BUFFER) {
-      goto done;
-    }
-  }
-
-  pTokenUser = LocalAlloc(LPTR, dwSize);
-  if (!pTokenUser) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  if (!GetTokenInformation(hProcessToken, TokenUser, pTokenUser, dwSize, &dwSize)) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  if (!GetTokenInformation(hProcessToken, TokenPrimaryGroup, NULL, 0, &dwSize)) {
-    dwRtnCode = GetLastError();
-    if (dwRtnCode != ERROR_INSUFFICIENT_BUFFER) {
-      goto done;
-    }
-  }
-
-  pTokenPrimaryGroup = LocalAlloc(LPTR, dwSize);
-  if (!pTokenPrimaryGroup) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  if (!GetTokenInformation(hProcessToken, TokenPrimaryGroup, pTokenPrimaryGroup, dwSize, &dwSize)) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  *pOutTokenUser = pTokenUser;
-  *pOutTokenPrimaryGroup = pTokenPrimaryGroup;
-  dwRtnCode = ERROR_SUCCESS;
-
-done:
-  if (hProcessToken) {
-    CloseHandle(hProcessToken);
-  }
-  return dwRtnCode;
-}
-
-static DWORD CreateSecurityDescriptorForCreate(__in PACL pDACL,
-    __out PSECURITY_DESCRIPTOR *pOutSD) {
-  DWORD dwRtnCode = ERROR_SUCCESS;
-  PSECURITY_DESCRIPTOR pSD = NULL;
-
-  pSD = LocalAlloc(LPTR, SECURITY_DESCRIPTOR_MIN_LENGTH);
-  if (!pSD) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  if (!InitializeSecurityDescriptor(pSD, SECURITY_DESCRIPTOR_REVISION)) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  if (!SetSecurityDescriptorDacl(pSD, TRUE, pDACL, FALSE)) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  *pOutSD = pSD;
-
-done:
-  return dwRtnCode;
-}
-
-static jobject CreateFileWithOptionalMode(__in JNIEnv *env, __in jstring j_path,
-    __in DWORD dwDesiredAccess, __in DWORD dwShareMode,
-    __in LPSECURITY_ATTRIBUTES lpSecurityAttributes,
-    __in DWORD dwCreationDisposition) {
-  DWORD dwRtnCode = ERROR_SUCCESS;
-  BOOL isSymlink = FALSE;
-  BOOL isJunction = FALSE;
-  DWORD dwFlagsAndAttributes = FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS;
-  jobject ret = (jobject) NULL;
-  HANDLE hFile = INVALID_HANDLE_VALUE;
-  WCHAR *path = (WCHAR *) (*env)->GetStringChars(env, j_path, (jboolean*)NULL);
-  if (path == NULL) goto cleanup;
-
-  // Set the flag for a symbolic link or a junctions point only when it exists.
-  // According to MSDN if the call to CreateFile() function creates a file,
-  // there is no change in behavior. So we do not throw if no file is found.
-  //
-  dwRtnCode = SymbolicLinkCheck(path, &isSymlink);
-  if (dwRtnCode != ERROR_SUCCESS && dwRtnCode != ERROR_FILE_NOT_FOUND) {
-    throw_ioe(env, dwRtnCode);
-    goto cleanup;
-  }
-  dwRtnCode = JunctionPointCheck(path, &isJunction);
-  if (dwRtnCode != ERROR_SUCCESS && dwRtnCode != ERROR_FILE_NOT_FOUND) {
-    throw_ioe(env, dwRtnCode);
-    goto cleanup;
-  }
-  if (isSymlink || isJunction)
-    dwFlagsAndAttributes |= FILE_FLAG_OPEN_REPARSE_POINT;
-
-  hFile = CreateFile(path, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
-    dwCreationDisposition, dwFlagsAndAttributes, NULL);
-  if (hFile == INVALID_HANDLE_VALUE) {
-    throw_ioe(env, GetLastError());
-    goto cleanup;
-  }
-
-  ret = fd_create(env, (long) hFile);
-cleanup:
-  if (path != NULL) {
-    (*env)->ReleaseStringChars(env, j_path, (const jchar*)path);
-  }
-  return ret;
-}
-#endif
 
 /*
  * Class:     org_apache_hadoop_io_nativeio_NativeIO_POSIX
