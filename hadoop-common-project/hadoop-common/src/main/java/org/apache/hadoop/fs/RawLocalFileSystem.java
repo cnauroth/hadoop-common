@@ -470,15 +470,6 @@ public class RawLocalFileSystem extends FileSystem {
     return (parent == null || parent2f.exists() || mkdirs(parent)) &&
         (mkOneDirWithMode(f, p2f, permission) || p2f.isDirectory());
   }
-
-  @Override
-  protected boolean primitiveMkdir(Path f, FsPermission absolutePermission)
-    throws IOException {
-    boolean b = mkdirs(f);
-    setPermission(f, absolutePermission);
-    return b;
-  }
-  
   
   @Override
   public Path getHomeDirectory() {
