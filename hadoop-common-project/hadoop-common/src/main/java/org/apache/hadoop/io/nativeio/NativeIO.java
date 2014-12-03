@@ -530,11 +530,12 @@ public class NativeIO {
     public static FileDescriptor createFileWithMode(File path,
         long desiredAccess, long shareMode, long creationDisposition, int mode)
         throws IOException {
-      throw new UnsupportedOperationException("not implemented");
+      return createFileWithMode0(path.getAbsolutePath(), desiredAccess,
+          shareMode, creationDisposition, mode);
     }
 
     /** Wrapper around CreateFile() on Windows */
-    private static native FileDescriptor createFileWithMode0(File path,
+    private static native FileDescriptor createFileWithMode0(String path,
         long desiredAccess, long shareMode, long creationDisposition, int mode)
         throws IOException;
 
