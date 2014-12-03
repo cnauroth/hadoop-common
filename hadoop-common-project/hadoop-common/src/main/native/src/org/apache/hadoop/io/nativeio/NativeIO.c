@@ -559,7 +559,7 @@ JNIEXPORT void JNICALL
   sa.lpSecurityDescriptor = pSD;
   sa.bInheritHandle = FALSE;
 
-  if (!CreateDirectory(pathName, &sa)) {
+  if (!CreateDirectory(path, &sa)) {
     dwRtnCode = GetLastError();
   }
 
