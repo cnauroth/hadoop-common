@@ -569,7 +569,7 @@ done:
   }
   LocalFree(pTokenUser);
   LocalFree(pTokenPrimaryGroup);
-  LocalFree(pNewDACL);
+  LocalFree(pDACL);
   LocalFree(pSD);
   if (dwRtnCode != ERROR_SUCCESS) {
     throw_ioe(env, dwRtnCode);
@@ -625,15 +625,15 @@ JNIEXPORT jobject JNICALL
   sa.lpSecurityDescriptor = pSD;
   sa.bInheritHandle = FALSE;
 
-  ret = CreateFileWithOptionalMode(j_path, desiredAccess, shareMode,
-      creationDisposition, &sa);
+  ret = CreateFileWithOptionalMode(env, j_path, desiredAccess, shareMode,
+      &sa, creationDisposition);
 done:
   if (path) {
     (*env)->ReleaseStringChars(env, j_path, (const jchar*) path);
   }
   LocalFree(pTokenUser);
   LocalFree(pTokenPrimaryGroup);
-  LocalFree(pNewDACL);
+  LocalFree(pDACL);
   LocalFree(pSD);
   if (dwRtnCode != ERROR_SUCCESS) {
     throw_ioe(env, dwRtnCode);
@@ -661,8 +661,8 @@ JNIEXPORT jobject JNICALL Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windo
 #endif
 
 #ifdef WINDOWS
-  return CreateFileWithOptionalMode(j_path, desiredAccess, shareMode,
-      creationDisposition, NULL);
+  return CreateFileWithOptionalMode(env, j_path, desiredAccess, shareMode,
+      NULL, creationDisposition);
 #endif
 }
 
@@ -754,10 +754,10 @@ done:
   return dwRtnCode;
 }
 
-static jobject CreateFileWithOptionalMode(__in jstring j_path,
+static jobject CreateFileWithOptionalMode(__in JNIEnv *env, __in jstring j_path,
     __in DWORD dwDesiredAccess, __in DWORD dwShareMode,
     __in LPSECURITY_ATTRIBUTES lpSecurityAttributes,
-    __in DWORD dwCreationDisposition, __in DWORD dwFlagsAndAttributes) {
+    __in DWORD dwCreationDisposition) {
   DWORD dwRtnCode = ERROR_SUCCESS;
   BOOL isSymlink = FALSE;
   BOOL isJunction = FALSE;
@@ -784,13 +784,8 @@ static jobject CreateFileWithOptionalMode(__in jstring j_path,
   if (isSymlink || isJunction)
     dwFlagsAndAttributes |= FILE_FLAG_OPEN_REPARSE_POINT;
 
-  hFile = CreateFile(path,
-    (DWORD) desiredAccess,
-    (DWORD) shareMode,
-    lpSecurityAttributes,
-    (DWORD) creationDisposition,
-    dwFlagsAndAttributes,
-    NULL);
+  hFile = CreateFile(path, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
+    dwCreationDisposition, dwFlagsAndAttributes, NULL);
   if (hFile == INVALID_HANDLE_VALUE) {
     throw_ioe(env, GetLastError());
     goto cleanup;
