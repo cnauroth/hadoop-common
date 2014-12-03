@@ -515,12 +515,12 @@ cleanup:
 }
 
 JNIEXPORT void JNICALL
-  Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windows_createDirectory0
+  Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windows_createDirectoryWithMode0
   (JNIEnv *env, jclass clazz, jstring j_path, jint mode)
 {
 #ifdef UNIX
   THROW(env, "java/io/IOException",
-    "The function Windows.createDirectory0() is not supported on Unix");
+    "The function Windows.createDirectoryWithMode0() is not supported on Unix");
 #endif
 
 #ifdef WINDOWS

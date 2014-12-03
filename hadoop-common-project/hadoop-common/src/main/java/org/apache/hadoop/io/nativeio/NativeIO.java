@@ -508,9 +508,9 @@ public class NativeIO {
     
     public static final long FILE_ATTRIBUTE_NORMAL = 0x00000080L;
 
-    public static boolean createDirectory(File path, int mode) {
+    public static boolean createDirectoryWithMode(File path, int mode) {
       try {
-        createDirectory0(path.getAbsolutePath(), mode);
+        createDirectoryWithMode0(path.getAbsolutePath(), mode);
         return true;
       } catch (IOException e) {
         return false;
@@ -518,7 +518,7 @@ public class NativeIO {
     }
 
     /** Wrapper around CreateDirectory() on Windows */
-    private static native void createDirectory0(String path, int mode)
+    private static native void createDirectoryWithMode0(String path, int mode)
         throws IOException;
 
     /** Wrapper around CreateFile() on Windows */

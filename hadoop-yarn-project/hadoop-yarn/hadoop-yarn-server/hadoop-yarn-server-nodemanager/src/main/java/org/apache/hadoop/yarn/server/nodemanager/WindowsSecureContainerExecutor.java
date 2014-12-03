@@ -313,10 +313,10 @@ public class WindowsSecureContainerExecutor extends DefaultContainerExecutor {
     private static class ElevatedRawLocalFilesystem extends RawLocalFileSystem {
       
       @Override
-      protected boolean mkOneDir(File p2f) throws IOException {
-        Path path = new Path(p2f.getAbsolutePath());
+      protected boolean mkOneDirWithMode(Path path, File p2f,
+          FsPermission permission) throws IOException {
         if (LOG.isDebugEnabled()) {
-          LOG.debug(String.format("EFS:mkOneDir: %s", path));
+          LOG.debug(String.format("EFS:mkOneDirWithMode: %s", path));
         }
         boolean ret = false;
 
@@ -327,9 +327,12 @@ public class WindowsSecureContainerExecutor extends DefaultContainerExecutor {
         }
         catch(Throwable e) {
           if (LOG.isDebugEnabled()) {
-            LOG.debug(String.format("EFS:mkOneDir: %s", 
+            LOG.debug(String.format("EFS:mkOneDirWithMode: %s", 
                 org.apache.hadoop.util.StringUtils.stringifyException(e)));
           }
+        }
+        if (ret) {
+          setPermission(path, permission);
         }
         return ret;
       }

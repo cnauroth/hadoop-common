@@ -412,13 +412,18 @@ public class RawLocalFileSystem extends FileSystem {
     return Arrays.copyOf(results, j);
   }
   
-  protected boolean mkOneDir(Path p, File p2f, FsPermission permission)
+  protected boolean mkOneDir(File p2f) throws IOException {
+    return mkOneDirWithMode(new Path(p2f.getAbsolutePath()), p2f, null);
+  }
+
+  protected boolean mkOneDirWithMode(Path p, File p2f, FsPermission permission)
       throws IOException {
     if (permission == null) {
       return p2f.mkdir();
     } else {
       if (Shell.WINDOWS && NativeIO.isAvailable()) {
-        return NativeIO.Windows.createDirectory(p2f, permission.toShort());
+        return NativeIO.Windows.createDirectoryWithMode(p2f,
+            permission.toShort());
       } else {
         boolean b = p2f.mkdir();
         if (b) {
@@ -463,7 +468,7 @@ public class RawLocalFileSystem extends FileSystem {
               " and is not a directory: " + p2f.getCanonicalPath());
     }
     return (parent == null || parent2f.exists() || mkdirs(parent)) &&
-        (mkOneDir(f, p2f, permission) || p2f.isDirectory());
+        (mkOneDirWithMode(f, p2f, permission) || p2f.isDirectory());
   }
 
   @Override
