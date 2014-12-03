@@ -205,8 +205,8 @@ DWORD ChownImpl(
   __in_opt LPCWSTR groupName,
   __in LPCWSTR pathName);
 
-DWORD CreateDirectoryWithMode(__in LPCWSTR pathName,
-                              __in INT mode);
+DWORD GetWindowsDACLs(__in INT unixMask, __in PSID pOwnerSid,
+  __in PSID pGroupSid, __out PACL *ppNewDACL);
 
 LPCWSTR GetSystemTimeString();
 

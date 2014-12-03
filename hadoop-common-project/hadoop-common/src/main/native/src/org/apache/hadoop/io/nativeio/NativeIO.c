@@ -524,20 +524,70 @@ JNIEXPORT void JNICALL
 #endif
 
 #ifdef WINDOWS
-  DWORD dwRtnCode;
+  DWORD dwRtnCode = ERROR_SUCCESS;
+  PTOKEN_USER pTokenUser = NULL;
+  PTOKEN_PRIMARY_GROUP pTokenPrimaryGroup = NULL;
+  PSID pOwnerSid = NULL;
+  PSID pGroupSid = NULL;
+  PACL pDACL = NULL;
+  PSECURITY_DESCRIPTOR pSD = NULL;
+  SECURITY_ATTRIBUTES sa;
 
   LPCWSTR path = (LPCWSTR) (*env)->GetStringChars(env, j_path, NULL);
-  if (!path) goto done;
+  if (!path) {
+    goto done;
+  }
 
-  dwRtnCode = CreateDirectoryWithMode(path, mode);
+  dwRtnCode = GetTokenInformationForCreate(&pTokenUser, &pTokenPrimaryGroup);
   if (dwRtnCode != ERROR_SUCCESS) {
-    throw_ioe(env, dwRtnCode);
+    goto done;
+  }
+  pOwnerSid = pTokenUser->User.Sid;
+  pGroupSid = pTokenPrimaryGroup->PrimaryGroup;
+
+  dwRtnCode = GetWindowsDACLs(mode, pOwnerSid, pGroupSid, &pDACL);
+  if (dwRtnCode != ERROR_SUCCESS) {
+    goto done;
+  }
+
+  dwRtnCode = CreateSecurityDescriptorForCreate(pDACL, &pSD);
+  if (dwRtnCode != ERROR_SUCCESS) {
+    goto done;
+  }
+
+  sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+  sa.lpSecurityDescriptor = pSD;
+  sa.bInheritHandle = FALSE;
+
+  if (!CreateDirectory(pathName, &sa)) {
+    dwRtnCode = GetLastError();
   }
 
 done:
-  if (path) (*env)->ReleaseStringChars(env, j_path, (const jchar*) path);
+  if (path) {
+    (*env)->ReleaseStringChars(env, j_path, (const jchar*) path);
+  }
+  if (dwRtnCode != ERROR_SUCCESS) {
+    throw_ioe(env, dwRtnCode);
+  }
 #endif
 }
+
+
+/* JNIEXPORT void JNICALL */
+/*   Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windows_createFileWithMode0 */
+/*   (JNIEnv *env, jclass clazz, jstring j_path, jboolean append, jint mode) */
+/* { */
+/* #ifdef UNIX */
+/*   THROW(env, "java/io/IOException", */
+/*     "The function Windows.createFileWithMode0() is not supported on Unix"); */
+/* #endif */
+
+/* #ifdef WINDOWS */
+/*   DWORD dwRtnCode; */
+/* done: */
+/* #endif */
+/* } */
 
 /*
  * Class:     org_apache_hadoop_io_nativeio_NativeIO_Windows
@@ -604,6 +654,95 @@ cleanup:
   return (jobject) ret;
 #endif
 }
+
+#ifdef WINDOWS
+static DWORD GetTokenInformationForCreate(__out PTOKEN_USER *pOutTokenUser,
+    __out PTOKEN_PRIMARY_GROUP *pOutTokenPrimaryGroup) {
+  DWORD dwRtnCode = ERROR_SUCCESS;
+  HANDLE hProcessToken = NULL;
+  DWORD dwSize = 0;
+  PTOKEN_USER pTokenUser = NULL;
+  PTOKEN_PRIMARY_GROUP pTokenPrimaryGroup = NULL;
+
+  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hProcessToken)) {
+    dwRtnCode = GetLastError();
+    goto done;
+  }
+
+  if (!GetTokenInformation(hProcessToken, TokenUser, NULL, 0, &dwSize)) {
+    dwRtnCode = GetLastError();
+    if (dwRtnCode != ERROR_INSUFFICIENT_BUFFER) {
+      goto done;
+    }
+  }
+
+  pTokenUser = LocalAlloc(LPTR, dwSize);
+  if (!pTokenUser) {
+    dwRtnCode = GetLastError();
+    goto done;
+  }
+
+  if (!GetTokenInformation(hProcessToken, TokenUser, pTokenUser, dwSize, &dwSize)) {
+    dwRtnCode = GetLastError();
+    goto done;
+  }
+
+  if (!GetTokenInformation(hProcessToken, TokenPrimaryGroup, NULL, 0, &dwSize)) {
+    dwRtnCode = GetLastError();
+    if (dwRtnCode != ERROR_INSUFFICIENT_BUFFER) {
+      goto done;
+    }
+  }
+
+  pTokenPrimaryGroup = LocalAlloc(LPTR, dwSize);
+  if (!pTokenPrimaryGroup) {
+    dwRtnCode = GetLastError();
+    goto done;
+  }
+
+  if (!GetTokenInformation(hProcessToken, TokenPrimaryGroup, pTokenPrimaryGroup, dwSize, &dwSize)) {
+    dwRtnCode = GetLastError();
+    goto done;
+  }
+
+  *pOutTokenUser = pTokenUser;
+  *pOutTokenPrimaryGroup = pTokenPrimaryGroup;
+  dwRtnCode = ERROR_SUCCESS;
+
+done:
+  if (hProcessToken) {
+    CloseHandle(hProcessToken);
+  }
+  return dwRtnCode;
+}
+
+static DWORD CreateSecurityDescriptorForCreate(__in PACL pDACL,
+    __out PSECURITY_DESCRIPTOR *pOutSD) {
+  DWORD dwRtnCode = ERROR_SUCCESS;
+  PSECURITY_DESCRIPTOR pSD = NULL;
+
+  pSD = LocalAlloc(LPTR, SECURITY_DESCRIPTOR_MIN_LENGTH);
+  if (!pSD) {
+    dwRtnCode = GetLastError();
+    goto done;
+  }
+
+  if (!InitializeSecurityDescriptor(pSD, SECURITY_DESCRIPTOR_REVISION)) {
+    dwRtnCode = GetLastError();
+    goto done;
+  }
+
+  if (!SetSecurityDescriptorDacl(pSD, TRUE, pDACL, FALSE)) {
+    dwRtnCode = GetLastError();
+    goto done;
+  }
+
+  *pOutSD = pSD;
+
+done:
+  return dwRtnCode;
+}
+#endif
 
 /*
  * Class:     org_apache_hadoop_io_nativeio_NativeIO_POSIX

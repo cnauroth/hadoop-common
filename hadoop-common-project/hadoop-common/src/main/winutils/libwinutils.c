@@ -1057,8 +1057,8 @@ static void GetWindowsAccessMask(INT unixMask,
 //    permission, i.e., the child file will have permission mode 700 for
 //    a user other than Administrator or SYSTEM.
 //
-static DWORD GetWindowsDACLs(__in INT unixMask,
-  __in PSID pOwnerSid, __in PSID pGroupSid, __out PACL *ppNewDACL)
+DWORD GetWindowsDACLs(__in INT unixMask, __in PSID pOwnerSid,
+  __in PSID pGroupSid, __out PACL *ppNewDACL)
 {
   DWORD winUserAccessDenyMask;
   DWORD winUserAccessAllowMask;
@@ -2304,107 +2304,6 @@ done:
   LocalFree(pNewGroupSid);
 
   return dwError;
-}
-
-DWORD CreateDirectoryWithMode(
-  __in LPCWSTR pathName,
-  __in INT mode) {
-
-  DWORD dwRtnCode = ERROR_SUCCESS;
-  HANDLE hProcessToken = NULL;
-  DWORD dwSize = 0;
-  PTOKEN_USER pTokenUser = NULL;
-  PSID pOwnerSid = NULL;
-  PTOKEN_PRIMARY_GROUP pTokenPrimaryGroup = NULL;
-  PSID pGroupSid = NULL;
-  PACL pNewDACL = NULL;
-  PSECURITY_DESCRIPTOR pSD = NULL;
-  SECURITY_ATTRIBUTES sa;
-
-  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hProcessToken)) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  if (!GetTokenInformation(hProcessToken, TokenUser, NULL, 0, &dwSize)) {
-    dwRtnCode = GetLastError();
-    if (dwRtnCode != ERROR_INSUFFICIENT_BUFFER) {
-      goto done;
-    }
-  }
-
-  pTokenUser = LocalAlloc(LPTR, dwSize);
-  if (!pTokenUser) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  if (!GetTokenInformation(hProcessToken, TokenUser, pTokenUser, dwSize, &dwSize)) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-  pOwnerSid = pTokenUser->User.Sid;
-
-  if (!GetTokenInformation(hProcessToken, TokenPrimaryGroup, NULL, 0, &dwSize)) {
-    dwRtnCode = GetLastError();
-    if (dwRtnCode != ERROR_INSUFFICIENT_BUFFER) {
-      goto done;
-    }
-  }
-
-  pTokenPrimaryGroup = LocalAlloc(LPTR, dwSize);
-  if (!pTokenPrimaryGroup) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  if (!GetTokenInformation(hProcessToken, TokenPrimaryGroup, pTokenPrimaryGroup, dwSize, &dwSize)) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-  pGroupSid = pTokenPrimaryGroup->PrimaryGroup;
-
-  dwRtnCode = GetWindowsDACLs(mode, pOwnerSid, pGroupSid, &pNewDACL);
-  if (dwRtnCode != ERROR_SUCCESS) {
-    goto done;
-  }
-
-  pSD = LocalAlloc(LPTR, SECURITY_DESCRIPTOR_MIN_LENGTH);
-  if (!pSD) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  if (!InitializeSecurityDescriptor(pSD, SECURITY_DESCRIPTOR_REVISION)) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  if (!SetSecurityDescriptorDacl(pSD, TRUE, pNewDACL, FALSE)) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-  sa.lpSecurityDescriptor = pSD;
-  sa.bInheritHandle = FALSE;
-
-  if (!CreateDirectory(pathName, &sa)) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  dwRtnCode = ERROR_SUCCESS;
-
-done:
-  if (hProcessToken) {
-    CloseHandle(hProcessToken);
-  }
-  LocalFree(pTokenUser);
-  LocalFree(pTokenPrimaryGroup);
-  LocalFree(pNewDACL);
-  LocalFree(pSD);
-  return dwRtnCode;
 }
 
 LPCWSTR GetSystemTimeString() {
