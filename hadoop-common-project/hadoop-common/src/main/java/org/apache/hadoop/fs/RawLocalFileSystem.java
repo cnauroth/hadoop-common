@@ -207,8 +207,20 @@ public class RawLocalFileSystem extends FileSystem {
   class LocalFSFileOutputStream extends OutputStream {
     private FileOutputStream fos;
     
-    private LocalFSFileOutputStream(Path f, boolean append) throws IOException {
-      this.fos = new FileOutputStream(pathToFile(f), append);
+    private LocalFSFileOutputStream(Path f, boolean append,
+        FsPermission permission) throws IOException {
+      File file = pathToFile(f);
+      if (permission == null) {
+        this.fos = new FileOutputStream(file, append);
+      } else {
+        if (Shell.WINDOWS && NativeIO.isAvailable()) {
+          this.fos = new FileOutputStream(NativeIO.Windows.createFileWithMode(
+              file, append, permission.toShort()));
+        } else {
+          this.fos = new FileOutputStream(file, append);
+          setPermission(f, permission);
+        }
+      }
     }
     
     /*
@@ -247,19 +259,20 @@ public class RawLocalFileSystem extends FileSystem {
       throw new IOException("Cannot append to a diretory (=" + f + " )");
     }
     return new FSDataOutputStream(new BufferedOutputStream(
-        new LocalFSFileOutputStream(f, true), bufferSize), statistics);
+        createOutputStreamWithMode(f, true, null), bufferSize), statistics);
   }
 
   @Override
   public FSDataOutputStream create(Path f, boolean overwrite, int bufferSize,
     short replication, long blockSize, Progressable progress)
     throws IOException {
-    return create(f, overwrite, true, bufferSize, replication, blockSize, progress);
+    return create(f, overwrite, true, bufferSize, replication, blockSize,
+        progress, null);
   }
 
   private FSDataOutputStream create(Path f, boolean overwrite,
       boolean createParent, int bufferSize, short replication, long blockSize,
-      Progressable progress) throws IOException {
+      Progressable progress, FsPermission permission) throws IOException {
     if (exists(f) && !overwrite) {
       throw new FileAlreadyExistsException("File already exists: " + f);
     }
@@ -268,12 +281,17 @@ public class RawLocalFileSystem extends FileSystem {
       throw new IOException("Mkdirs failed to create " + parent.toString());
     }
     return new FSDataOutputStream(new BufferedOutputStream(
-        createOutputStream(f, false), bufferSize), statistics);
+        createOutputStreamWithMode(f, false, permission), bufferSize), statistics);
   }
   
   protected OutputStream createOutputStream(Path f, boolean append) 
       throws IOException {
-    return new LocalFSFileOutputStream(f, append); 
+    return createOutputStreamWithMode(f, append, null);
+  }
+
+  protected OutputStream createOutputStreamWithMode(Path f, boolean append,
+      FsPermission permission) throws IOException {
+    return new LocalFSFileOutputStream(f, append, permission);
   }
   
   @Override
@@ -285,7 +303,8 @@ public class RawLocalFileSystem extends FileSystem {
       throw new FileAlreadyExistsException("File already exists: " + f);
     }
     return new FSDataOutputStream(new BufferedOutputStream(
-        new LocalFSFileOutputStream(f, false), bufferSize), statistics);
+        createOutputStreamWithMode(f, false, permission), bufferSize),
+            statistics);
   }
 
   @Override
@@ -293,9 +312,8 @@ public class RawLocalFileSystem extends FileSystem {
     boolean overwrite, int bufferSize, short replication, long blockSize,
     Progressable progress) throws IOException {
 
-    FSDataOutputStream out = create(f,
-        overwrite, bufferSize, replication, blockSize, progress);
-    setPermission(f, permission);
+    FSDataOutputStream out = create(f, overwrite, true, bufferSize, replication,
+        blockSize, progress, permission);
     return out;
   }
 
@@ -304,9 +322,8 @@ public class RawLocalFileSystem extends FileSystem {
       boolean overwrite,
       int bufferSize, short replication, long blockSize,
       Progressable progress) throws IOException {
-    FSDataOutputStream out = create(f,
-        overwrite, false, bufferSize, replication, blockSize, progress);
-    setPermission(f, permission);
+    FSDataOutputStream out = create(f, overwrite, false, bufferSize, replication,
+        blockSize, progress, permission);
     return out;
   }
 

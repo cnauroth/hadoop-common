@@ -45,6 +45,7 @@ import org.apache.hadoop.fs.FsConstants;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RawLocalFileSystem;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.nativeio.NativeIO.Windows;
 import org.apache.hadoop.io.nativeio.NativeIOException;
 import org.apache.hadoop.util.NativeCodeLoader;
@@ -323,6 +324,7 @@ public class WindowsSecureContainerExecutor extends DefaultContainerExecutor {
         // File.mkdir returns false, does not throw. Must mimic it.
         try {
           Native.Elevated.mkdir(path);
+          setPermission(path, permission);
           ret = true;
         }
         catch(Throwable e) {
@@ -330,9 +332,6 @@ public class WindowsSecureContainerExecutor extends DefaultContainerExecutor {
             LOG.debug(String.format("EFS:mkOneDirWithMode: %s", 
                 org.apache.hadoop.util.StringUtils.stringifyException(e)));
           }
-        }
-        if (ret) {
-          setPermission(path, permission);
         }
         return ret;
       }
@@ -357,12 +356,23 @@ public class WindowsSecureContainerExecutor extends DefaultContainerExecutor {
       }
       
       @Override
-      protected OutputStream createOutputStream(Path f, boolean append) 
-          throws IOException {
+      protected OutputStream createOutputStreamWithMode(Path f, boolean append,
+          FsPermission permission) throws IOException {
         if (LOG.isDebugEnabled()) {
-          LOG.debug(String.format("EFS:create: %s %b", f, append));
+          LOG.debug(String.format("EFS:createOutputStreamWithMode: %s %b", f,
+              append));
         }
-        return Native.Elevated.create(f, append); 
+        boolean success = false;
+        OutputStream os = Native.Elevated.create(f, append);
+        try {
+          setPermission(f, permission);
+          success = true;
+          return os;
+        } finally {
+          if (!success) {
+            IOUtils.cleanup(LOG, os);
+          }
+        }
       }
       
       @Override
