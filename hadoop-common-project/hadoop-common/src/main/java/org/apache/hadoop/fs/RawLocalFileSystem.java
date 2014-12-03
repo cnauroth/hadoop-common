@@ -215,7 +215,13 @@ public class RawLocalFileSystem extends FileSystem {
       } else {
         if (Shell.WINDOWS && NativeIO.isAvailable()) {
           this.fos = new FileOutputStream(NativeIO.Windows.createFileWithMode(
-              file, append, permission.toShort()));
+              file,
+              append ? NativeIO.Windows.FILE_APPEND_DATA :
+                  NativeIO.Windows.GENERIC_WRITE,
+              NativeIO.Windows.FILE_SHARE_READ,
+              append ? NativeIO.Windows.OPEN_ALWAYS :
+                  NativeIO.Windows.CREATE_ALWAYS,
+              permission.toShort()));
         } else {
           this.fos = new FileOutputStream(file, append);
           setPermission(f, permission);

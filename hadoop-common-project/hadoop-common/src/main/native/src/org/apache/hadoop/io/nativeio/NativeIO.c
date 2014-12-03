@@ -567,6 +567,10 @@ done:
   if (path) {
     (*env)->ReleaseStringChars(env, j_path, (const jchar*) path);
   }
+  LocalFree(pTokenUser);
+  LocalFree(pTokenPrimaryGroup);
+  LocalFree(pNewDACL);
+  LocalFree(pSD);
   if (dwRtnCode != ERROR_SUCCESS) {
     throw_ioe(env, dwRtnCode);
   }
@@ -574,20 +578,69 @@ done:
 }
 
 
-/* JNIEXPORT void JNICALL */
-/*   Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windows_createFileWithMode0 */
-/*   (JNIEnv *env, jclass clazz, jstring j_path, jboolean append, jint mode) */
-/* { */
-/* #ifdef UNIX */
-/*   THROW(env, "java/io/IOException", */
-/*     "The function Windows.createFileWithMode0() is not supported on Unix"); */
-/* #endif */
+JNIEXPORT jobject JNICALL
+  Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windows_createFileWithMode0
+  (JNIEnv *env, jclass clazz, jstring j_path,
+  jlong desiredAccess, jlong shareMode, jlong creationDisposition, jint mode)
+{
+#ifdef UNIX
+  THROW(env, "java/io/IOException",
+    "The function Windows.createFileWithMode0() is not supported on Unix");
+#endif
 
-/* #ifdef WINDOWS */
-/*   DWORD dwRtnCode; */
-/* done: */
-/* #endif */
-/* } */
+#ifdef WINDOWS
+  DWORD dwRtnCode;
+  PTOKEN_USER pTokenUser = NULL;
+  PTOKEN_PRIMARY_GROUP pTokenPrimaryGroup = NULL;
+  PSID pOwnerSid = NULL;
+  PSID pGroupSid = NULL;
+  PACL pDACL = NULL;
+  PSECURITY_DESCRIPTOR pSD = NULL;
+  SECURITY_ATTRIBUTES sa;
+  jobject ret = (jobject) NULL;
+
+  LPCWSTR path = (LPCWSTR) (*env)->GetStringChars(env, j_path, NULL);
+  if (!path) {
+    goto done;
+  }
+
+  dwRtnCode = GetTokenInformationForCreate(&pTokenUser, &pTokenPrimaryGroup);
+  if (dwRtnCode != ERROR_SUCCESS) {
+    goto done;
+  }
+  pOwnerSid = pTokenUser->User.Sid;
+  pGroupSid = pTokenPrimaryGroup->PrimaryGroup;
+
+  dwRtnCode = GetWindowsDACLs(mode, pOwnerSid, pGroupSid, &pDACL);
+  if (dwRtnCode != ERROR_SUCCESS) {
+    goto done;
+  }
+
+  dwRtnCode = CreateSecurityDescriptorForCreate(pDACL, &pSD);
+  if (dwRtnCode != ERROR_SUCCESS) {
+    goto done;
+  }
+
+  sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+  sa.lpSecurityDescriptor = pSD;
+  sa.bInheritHandle = FALSE;
+
+  ret = CreateFileWithOptionalMode(j_path, desiredAccess, shareMode,
+      creationDisposition, &sa);
+done:
+  if (path) {
+    (*env)->ReleaseStringChars(env, j_path, (const jchar*) path);
+  }
+  LocalFree(pTokenUser);
+  LocalFree(pTokenPrimaryGroup);
+  LocalFree(pNewDACL);
+  LocalFree(pSD);
+  if (dwRtnCode != ERROR_SUCCESS) {
+    throw_ioe(env, dwRtnCode);
+  }
+  return ret;
+#endif
+}
 
 /*
  * Class:     org_apache_hadoop_io_nativeio_NativeIO_Windows
@@ -608,50 +661,8 @@ JNIEXPORT jobject JNICALL Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windo
 #endif
 
 #ifdef WINDOWS
-  DWORD dwRtnCode = ERROR_SUCCESS;
-  BOOL isSymlink = FALSE;
-  BOOL isJunction = FALSE;
-  DWORD dwFlagsAndAttributes = FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS;
-  jobject ret = (jobject) NULL;
-  HANDLE hFile = INVALID_HANDLE_VALUE;
-  WCHAR *path = (WCHAR *) (*env)->GetStringChars(env, j_path, (jboolean*)NULL);
-  if (path == NULL) goto cleanup;
-
-  // Set the flag for a symbolic link or a junctions point only when it exists.
-  // According to MSDN if the call to CreateFile() function creates a file,
-  // there is no change in behavior. So we do not throw if no file is found.
-  //
-  dwRtnCode = SymbolicLinkCheck(path, &isSymlink);
-  if (dwRtnCode != ERROR_SUCCESS && dwRtnCode != ERROR_FILE_NOT_FOUND) {
-    throw_ioe(env, dwRtnCode);
-    goto cleanup;
-  }
-  dwRtnCode = JunctionPointCheck(path, &isJunction);
-  if (dwRtnCode != ERROR_SUCCESS && dwRtnCode != ERROR_FILE_NOT_FOUND) {
-    throw_ioe(env, dwRtnCode);
-    goto cleanup;
-  }
-  if (isSymlink || isJunction)
-    dwFlagsAndAttributes |= FILE_FLAG_OPEN_REPARSE_POINT;
-
-  hFile = CreateFile(path,
-    (DWORD) desiredAccess,
-    (DWORD) shareMode,
-    (LPSECURITY_ATTRIBUTES ) NULL,
-    (DWORD) creationDisposition,
-    dwFlagsAndAttributes,
-    NULL);
-  if (hFile == INVALID_HANDLE_VALUE) {
-    throw_ioe(env, GetLastError());
-    goto cleanup;
-  }
-
-  ret = fd_create(env, (long) hFile);
-cleanup:
-  if (path != NULL) {
-    (*env)->ReleaseStringChars(env, j_path, (const jchar*)path);
-  }
-  return (jobject) ret;
+  return CreateFileWithOptionalMode(j_path, desiredAccess, shareMode,
+      creationDisposition, NULL);
 #endif
 }
 
@@ -741,6 +752,56 @@ static DWORD CreateSecurityDescriptorForCreate(__in PACL pDACL,
 
 done:
   return dwRtnCode;
+}
+
+static jobject CreateFileWithOptionalMode(__in jstring j_path,
+    __in DWORD dwDesiredAccess, __in DWORD dwShareMode,
+    __in LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+    __in DWORD dwCreationDisposition, __in DWORD dwFlagsAndAttributes) {
+  DWORD dwRtnCode = ERROR_SUCCESS;
+  BOOL isSymlink = FALSE;
+  BOOL isJunction = FALSE;
+  DWORD dwFlagsAndAttributes = FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS;
+  jobject ret = (jobject) NULL;
+  HANDLE hFile = INVALID_HANDLE_VALUE;
+  WCHAR *path = (WCHAR *) (*env)->GetStringChars(env, j_path, (jboolean*)NULL);
+  if (path == NULL) goto cleanup;
+
+  // Set the flag for a symbolic link or a junctions point only when it exists.
+  // According to MSDN if the call to CreateFile() function creates a file,
+  // there is no change in behavior. So we do not throw if no file is found.
+  //
+  dwRtnCode = SymbolicLinkCheck(path, &isSymlink);
+  if (dwRtnCode != ERROR_SUCCESS && dwRtnCode != ERROR_FILE_NOT_FOUND) {
+    throw_ioe(env, dwRtnCode);
+    goto cleanup;
+  }
+  dwRtnCode = JunctionPointCheck(path, &isJunction);
+  if (dwRtnCode != ERROR_SUCCESS && dwRtnCode != ERROR_FILE_NOT_FOUND) {
+    throw_ioe(env, dwRtnCode);
+    goto cleanup;
+  }
+  if (isSymlink || isJunction)
+    dwFlagsAndAttributes |= FILE_FLAG_OPEN_REPARSE_POINT;
+
+  hFile = CreateFile(path,
+    (DWORD) desiredAccess,
+    (DWORD) shareMode,
+    lpSecurityAttributes,
+    (DWORD) creationDisposition,
+    dwFlagsAndAttributes,
+    NULL);
+  if (hFile == INVALID_HANDLE_VALUE) {
+    throw_ioe(env, GetLastError());
+    goto cleanup;
+  }
+
+  ret = fd_create(env, (long) hFile);
+cleanup:
+  if (path != NULL) {
+    (*env)->ReleaseStringChars(env, j_path, (const jchar*)path);
+  }
+  return ret;
 }
 #endif
 

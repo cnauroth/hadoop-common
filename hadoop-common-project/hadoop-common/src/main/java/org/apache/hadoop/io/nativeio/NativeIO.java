@@ -491,6 +491,7 @@ public class NativeIO {
     // Flags for CreateFile() call on Windows
     public static final long GENERIC_READ = 0x80000000L;
     public static final long GENERIC_WRITE = 0x40000000L;
+    public static final long FILE_APPEND_DATA = 0x00000100L;
 
     public static final long FILE_SHARE_READ = 0x00000001L;
     public static final long FILE_SHARE_WRITE = 0x00000002L;
@@ -521,18 +522,20 @@ public class NativeIO {
     private static native void createDirectoryWithMode0(String path, int mode)
         throws IOException;
 
-    public static FileDescriptor createFileWithMode(File path, boolean append,
-        int mode) throws IOException {
+    /** Wrapper around CreateFile() on Windows */
+    public static native FileDescriptor createFile(String path,
+        long desiredAccess, long shareMode, long creationDisposition)
+        throws IOException;
+
+    public static FileDescriptor createFileWithMode(File path,
+        long desiredAccess, long shareMode, long creationDisposition, int mode)
+        throws IOException {
       throw new UnsupportedOperationException("not implemented");
     }
 
     /** Wrapper around CreateFile() on Windows */
-    // private static native void createFileWithMode0(String path, boolean append,
-    //     int mode) throws IOException;
-
-    /** Wrapper around CreateFile() on Windows */
-    public static native FileDescriptor createFile(String path,
-        long desiredAccess, long shareMode, long creationDisposition)
+    private static native FileDescriptor createFileWithMode0(File path,
+        long desiredAccess, long shareMode, long creationDisposition, int mode)
         throws IOException;
 
     /** Wrapper around SetFilePointer() on Windows */
