@@ -515,8 +515,8 @@ cleanup:
 }
 
 #ifdef WINDOWS
-static DWORD GetTokenInformationForCreate(__out PTOKEN_USER *pOutTokenUser,
-    __out PTOKEN_PRIMARY_GROUP *pOutTokenPrimaryGroup) {
+static DWORD GetTokenInformationForCreate(__out PTOKEN_USER *ppTokenUser,
+    __out PTOKEN_PRIMARY_GROUP *ppTokenPrimaryGroup) {
   DWORD dwRtnCode = ERROR_SUCCESS;
   HANDLE hProcessToken = NULL;
   DWORD dwSize = 0;
@@ -541,7 +541,8 @@ static DWORD GetTokenInformationForCreate(__out PTOKEN_USER *pOutTokenUser,
     goto done;
   }
 
-  if (!GetTokenInformation(hProcessToken, TokenUser, pTokenUser, dwSize, &dwSize)) {
+  if (!GetTokenInformation(hProcessToken, TokenUser, pTokenUser, dwSize,
+      &dwSize)) {
     dwRtnCode = GetLastError();
     goto done;
   }
@@ -559,13 +560,14 @@ static DWORD GetTokenInformationForCreate(__out PTOKEN_USER *pOutTokenUser,
     goto done;
   }
 
-  if (!GetTokenInformation(hProcessToken, TokenPrimaryGroup, pTokenPrimaryGroup, dwSize, &dwSize)) {
+  if (!GetTokenInformation(hProcessToken, TokenPrimaryGroup, pTokenPrimaryGroup,
+      dwSize, &dwSize)) {
     dwRtnCode = GetLastError();
     goto done;
   }
 
-  *pOutTokenUser = pTokenUser;
-  *pOutTokenPrimaryGroup = pTokenPrimaryGroup;
+  *ppTokenUser = pTokenUser;
+  *ppTokenPrimaryGroup = pTokenPrimaryGroup;
   dwRtnCode = ERROR_SUCCESS;
 
 done:
@@ -576,7 +578,7 @@ done:
 }
 
 static DWORD CreateSecurityDescriptorForCreate(__in PACL pDACL,
-    __out PSECURITY_DESCRIPTOR *pOutSD) {
+    __out PSECURITY_DESCRIPTOR *ppSD) {
   DWORD dwRtnCode = ERROR_SUCCESS;
   PSECURITY_DESCRIPTOR pSD = NULL;
 
@@ -596,7 +598,7 @@ static DWORD CreateSecurityDescriptorForCreate(__in PACL pDACL,
     goto done;
   }
 
-  *pOutSD = pSD;
+  *ppSD = pSD;
 
 done:
   return dwRtnCode;
