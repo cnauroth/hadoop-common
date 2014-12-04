@@ -659,7 +659,7 @@ done:
  */
 static jobject CreateFileWithOptionalMode(__in JNIEnv *env, __in jstring j_path,
     __in DWORD dwDesiredAccess, __in DWORD dwShareMode,
-    __in LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+    __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes,
     __in DWORD dwCreationDisposition) {
   DWORD dwRtnCode = ERROR_SUCCESS;
   BOOL isSymlink = FALSE;
