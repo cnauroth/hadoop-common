@@ -877,9 +877,6 @@ public class NativeIO {
   private static native void link0(String src, String dst)
       throws NativeIOException;
 
-  private static native boolean mkdir0(String f, short mode)
-      throws NativeIOException;
-
   /**
    * Unbuffered file copy from src to dst without tainting OS buffer cache
    *

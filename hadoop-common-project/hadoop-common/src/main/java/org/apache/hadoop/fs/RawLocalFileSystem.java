@@ -287,7 +287,8 @@ public class RawLocalFileSystem extends FileSystem {
       throw new IOException("Mkdirs failed to create " + parent.toString());
     }
     return new FSDataOutputStream(new BufferedOutputStream(
-        createOutputStreamWithMode(f, false, permission), bufferSize), statistics);
+        createOutputStreamWithMode(f, false, permission), bufferSize),
+        statistics);
   }
   
   protected OutputStream createOutputStream(Path f, boolean append) 
@@ -491,7 +492,7 @@ public class RawLocalFileSystem extends FileSystem {
               " and is not a directory: " + p2f.getCanonicalPath());
     }
     return (parent == null || parent2f.exists() || mkdirs(parent)) &&
-        (mkOneDirWithMode(f, p2f, permission) || p2f.isDirectory());
+      (mkOneDirWithMode(f, p2f, permission) || p2f.isDirectory());
   }
   
   @Override

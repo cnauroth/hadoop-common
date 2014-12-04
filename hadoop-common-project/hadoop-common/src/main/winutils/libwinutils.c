@@ -2306,6 +2306,8 @@ done:
   return dwError;
 }
 
+
+
 LPCWSTR GetSystemTimeString() {
   __declspec(thread) static WCHAR buffer[1024];
   DWORD dwError;

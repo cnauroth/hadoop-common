@@ -317,7 +317,8 @@ public class WindowsSecureContainerExecutor extends DefaultContainerExecutor {
       protected boolean mkOneDirWithMode(Path path, File p2f,
           FsPermission permission) throws IOException {
         if (LOG.isDebugEnabled()) {
-          LOG.debug(String.format("EFS:mkOneDirWithMode: %s", path));
+          LOG.debug(String.format("EFS:mkOneDirWithMode: %s %s", path,
+              permission));
         }
         boolean ret = false;
 
@@ -359,8 +360,8 @@ public class WindowsSecureContainerExecutor extends DefaultContainerExecutor {
       protected OutputStream createOutputStreamWithMode(Path f, boolean append,
           FsPermission permission) throws IOException {
         if (LOG.isDebugEnabled()) {
-          LOG.debug(String.format("EFS:createOutputStreamWithMode: %s %b", f,
-              append));
+          LOG.debug(String.format("EFS:createOutputStreamWithMode: %s %b %s", f,
+              append, permission));
         }
         boolean success = false;
         OutputStream os = Native.Elevated.create(f, append);
