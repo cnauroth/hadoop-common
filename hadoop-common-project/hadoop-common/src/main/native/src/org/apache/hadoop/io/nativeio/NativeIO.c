@@ -515,12 +515,25 @@ cleanup:
 }
 
 #ifdef WINDOWS
+
+/**
+ * Gets a class of information from a token.  On success, this function has
+ * dynamically allocated memory and set the ppTokenInformation parameter to point
+ * to it.  The caller owns this memory and is reponsible for releasing it by
+ * calling LocalFree.
+ *
+ * @param hToken token handle
+ * @param class token information class requested
+ * @param ppTokenInformation pointer to location to write information
+ * @return DWORD ERROR_SUCCESS on success, or last error code
+ */
 static DWORD GetTokenInformationByClass(__in HANDLE hToken,
     __in TOKEN_INFORMATION_CLASS class, __out LPVOID *ppTokenInformation) {
   DWORD dwRtnCode = ERROR_SUCCESS;
   LPVOID pTokenInformation = NULL;
   DWORD dwSize = 0;
 
+  // Call GetTokenInformation first time to get the required buffer size.
   if (!GetTokenInformation(hToken, class, NULL, 0, &dwSize)) {
     dwRtnCode = GetLastError();
     if (dwRtnCode != ERROR_INSUFFICIENT_BUFFER) {
@@ -528,11 +541,13 @@ static DWORD GetTokenInformationByClass(__in HANDLE hToken,
     }
   }
 
+  // Allocate memory.
   pTokenInformation = LocalAlloc(LPTR, dwSize);
   if (!pTokenInformation) {
     return GetLastError();
   }
 
+  // Call GetTokenInformation second time to fill our buffer with data.
   if (!GetTokenInformation(hToken, class, pTokenInformation, dwSize, &dwSize)) {
     LocalFree(pTokenInformation);
     return GetLastError();
@@ -542,6 +557,17 @@ static DWORD GetTokenInformationByClass(__in HANDLE hToken,
   return ERROR_SUCCESS;
 }
 
+/**
+ * Gets all token information required for creation of a file or directory:
+ * current user and primary group.  On success, this function has dynamically
+ * allocated memory and set the ppTokenUser and ppTokenPrimaryGroup parameters to
+ * point to it.  The caller owns this memory and is reponsible for releasing it
+ * by calling LocalFree on both.
+ *
+ * @param ppTokenUser pointer to location to write user
+ * @param ppTokenPrimaryGroup pointer to location to write primary group
+ * @return DWORD ERROR_SUCCESS on success, or last error code
+ */
 static DWORD GetTokenInformationForCreate(__out PTOKEN_USER *ppTokenUser,
     __out PTOKEN_PRIMARY_GROUP *ppTokenPrimaryGroup) {
   DWORD dwRtnCode = ERROR_SUCCESS;
@@ -580,6 +606,16 @@ done:
   return dwRtnCode;
 }
 
+/**
+ * Creates a security descriptor with the given DACL.  On success, this function
+ * has dynamically allocated memory and set the ppSD paramter to point to it.
+ * The caller owns this memory and is reponsible for releasing it by calling
+ * LocalFree.
+ *
+ * @param pDACL discretionary access control list
+ * @param ppSD pointer to location to write security descriptor
+ * @return DWORD ERROR_SUCCESS on success, or last error code
+ */
 static DWORD CreateSecurityDescriptorForCreate(__in PACL pDACL,
     __out PSECURITY_DESCRIPTOR *ppSD) {
   DWORD dwRtnCode = ERROR_SUCCESS;
@@ -607,6 +643,20 @@ done:
   return dwRtnCode;
 }
 
+/**
+ * Opens a file and returns the file descriptor.  The caller owns the file
+ * descriptor and is responsible for closing it.  The function supports passing
+ * optional security attributes, typically to set a discretionary access control
+ * list corresponding to a mode parameter.
+ *
+ * @param env JNI environment
+ * @param j_path file path
+ * @param dwDesiredAccess requested access (i.e. read or write)
+ * @param dwShareMode requested sharing mode
+ * @param lpSecurityAttributes security attributes, possibly NULL
+ * @param dwCreationDisposition action to take depending on if file exists
+ * @return jobject open file descriptor
+ */
 static jobject CreateFileWithOptionalMode(__in JNIEnv *env, __in jstring j_path,
     __in DWORD dwDesiredAccess, __in DWORD dwShareMode,
     __in LPSECURITY_ATTRIBUTES lpSecurityAttributes,
@@ -653,6 +703,14 @@ cleanup:
 }
 #endif
 
+/*
+ * Class:     org_apache_hadoop_io_nativeio_NativeIO_Windows
+ * Method:    createDirectoryWithMode0
+ * Signature: (Ljava/lang/String;I)V
+ *
+ * The "00024" in the function name is an artifact of how JNI encodes
+ * special characters. U+0024 is '$'.
+ */
 JNIEXPORT void JNICALL
   Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windows_createDirectoryWithMode0
   (JNIEnv *env, jclass clazz, jstring j_path, jint mode)
@@ -716,7 +774,14 @@ done:
 #endif
 }
 
-
+/*
+ * Class:     org_apache_hadoop_io_nativeio_NativeIO_Windows
+ * Method:    createFileWithMode0
+ * Signature: (Ljava/lang/String;JJJI)Ljava/io/FileDescriptor;
+ *
+ * The "00024" in the function name is an artifact of how JNI encodes
+ * special characters. U+0024 is '$'.
+ */
 JNIEXPORT jobject JNICALL
   Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windows_createFileWithMode0
   (JNIEnv *env, jclass clazz, jstring j_path,
