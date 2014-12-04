@@ -608,7 +608,7 @@ done:
 
 /**
  * Creates a security descriptor with the given DACL.  On success, this function
- * has dynamically allocated memory and set the ppSD paramter to point to it.
+ * has dynamically allocated memory and set the ppSD parameter to point to it.
  * The caller owns this memory and is reponsible for releasing it by calling
  * LocalFree.
  *
@@ -640,6 +640,9 @@ static DWORD CreateSecurityDescriptorForCreate(__in PACL pDACL,
   *ppSD = pSD;
 
 done:
+  if (dwRtnCode != ERROR_SUCCESS) {
+    LocalFree(pSD);
+  }
   return dwRtnCode;
 }
 
