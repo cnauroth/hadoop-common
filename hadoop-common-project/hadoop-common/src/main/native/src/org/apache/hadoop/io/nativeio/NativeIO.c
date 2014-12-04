@@ -515,64 +515,67 @@ cleanup:
 }
 
 #ifdef WINDOWS
+static DWORD GetTokenInformationByClass(__in HANDLE hToken,
+    __in TOKEN_INFORMATION_CLASS class, __out LPVOID *ppTokenInformation) {
+  DWORD dwRtnCode = ERROR_SUCCESS;
+  LPVOID pTokenInformation = NULL;
+  DWORD dwSize = 0;
+
+  if (!GetTokenInformation(hToken, class, NULL, 0, &dwSize)) {
+    dwRtnCode = GetLastError();
+    if (dwRtnCode != ERROR_INSUFFICIENT_BUFFER) {
+      return dwRtnCode;
+    }
+  }
+
+  pTokenInformation = LocalAlloc(LPTR, dwSize);
+  if (!pTokenInformation) {
+    return GetLastError();
+  }
+
+  if (!GetTokenInformation(hToken, class, pTokenInformation, dwSize, &dwSize)) {
+    LocalFree(pTokenInformation);
+    return GetLastError();
+  }
+
+  *ppTokenInformation = pTokenInformation;
+  return ERROR_SUCCESS;
+}
+
 static DWORD GetTokenInformationForCreate(__out PTOKEN_USER *ppTokenUser,
     __out PTOKEN_PRIMARY_GROUP *ppTokenPrimaryGroup) {
   DWORD dwRtnCode = ERROR_SUCCESS;
-  HANDLE hProcessToken = NULL;
+  HANDLE hToken = NULL;
   DWORD dwSize = 0;
   PTOKEN_USER pTokenUser = NULL;
   PTOKEN_PRIMARY_GROUP pTokenPrimaryGroup = NULL;
 
-  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hProcessToken)) {
+  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken)) {
     dwRtnCode = GetLastError();
     goto done;
   }
 
-  if (!GetTokenInformation(hProcessToken, TokenUser, NULL, 0, &dwSize)) {
-    dwRtnCode = GetLastError();
-    if (dwRtnCode != ERROR_INSUFFICIENT_BUFFER) {
-      goto done;
-    }
-  }
-
-  pTokenUser = LocalAlloc(LPTR, dwSize);
-  if (!pTokenUser) {
-    dwRtnCode = GetLastError();
+  dwRtnCode = GetTokenInformationByClass(hToken, TokenUser, &pTokenUser));
+  if (dwRtnCode != ERROR_SUCCESS) {
     goto done;
   }
 
-  if (!GetTokenInformation(hProcessToken, TokenUser, pTokenUser, dwSize,
-      &dwSize)) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  if (!GetTokenInformation(hProcessToken, TokenPrimaryGroup, NULL, 0, &dwSize)) {
-    dwRtnCode = GetLastError();
-    if (dwRtnCode != ERROR_INSUFFICIENT_BUFFER) {
-      goto done;
-    }
-  }
-
-  pTokenPrimaryGroup = LocalAlloc(LPTR, dwSize);
-  if (!pTokenPrimaryGroup) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  if (!GetTokenInformation(hProcessToken, TokenPrimaryGroup, pTokenPrimaryGroup,
-      dwSize, &dwSize)) {
-    dwRtnCode = GetLastError();
+  dwRtnCode = GetTokenInformationByClass(hToken, TokenPrimaryGroup,
+      &pTokenPrimaryGroup));
+  if (dwRtnCode != ERROR_SUCCESS) {
     goto done;
   }
 
   *ppTokenUser = pTokenUser;
   *ppTokenPrimaryGroup = pTokenPrimaryGroup;
-  dwRtnCode = ERROR_SUCCESS;
 
 done:
-  if (hProcessToken) {
-    CloseHandle(hProcessToken);
+  if (hToken) {
+    CloseHandle(hToken);
+  }
+  if (dwRtnCode != ERROR_SUCCESS) {
+    LocalFree(pTokenUser);
+    LocalFree(pTokenPrimaryGroup);
   }
   return dwRtnCode;
 }
