@@ -555,13 +555,13 @@ static DWORD GetTokenInformationForCreate(__out PTOKEN_USER *ppTokenUser,
     goto done;
   }
 
-  dwRtnCode = GetTokenInformationByClass(hToken, TokenUser, &pTokenUser));
+  dwRtnCode = GetTokenInformationByClass(hToken, TokenUser, &pTokenUser);
   if (dwRtnCode != ERROR_SUCCESS) {
     goto done;
   }
 
   dwRtnCode = GetTokenInformationByClass(hToken, TokenPrimaryGroup,
-      &pTokenPrimaryGroup));
+      &pTokenPrimaryGroup);
   if (dwRtnCode != ERROR_SUCCESS) {
     goto done;
   }
