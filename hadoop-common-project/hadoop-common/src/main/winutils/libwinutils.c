@@ -1502,13 +1502,14 @@ static DWORD GetTokenInformationByClass(__in HANDLE hToken,
  * @param ppTokenPrimaryGroup pointer to location to write primary group
  * @return DWORD ERROR_SUCCESS on success, or last error code
  */
-static DWORD GetTokenInformationForCreate(__out PTOKEN_USER *ppTokenUser,
-    __out PTOKEN_PRIMARY_GROUP *ppTokenPrimaryGroup) {
+static DWORD GetWindowsDACLsForCreate(__in INT mode, __out PACL *ppDACL) {
   DWORD dwRtnCode = ERROR_SUCCESS;
   HANDLE hToken = NULL;
   DWORD dwSize = 0;
   PTOKEN_USER pTokenUser = NULL;
   PTOKEN_PRIMARY_GROUP pTokenPrimaryGroup = NULL;
+  PSID pOwnerSid = NULL, pGroupSid = NULL;
+  PACL pDACL = NULL;
 
   if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken)) {
     dwRtnCode = GetLastError();
@@ -1519,24 +1520,28 @@ static DWORD GetTokenInformationForCreate(__out PTOKEN_USER *ppTokenUser,
   if (dwRtnCode != ERROR_SUCCESS) {
     goto done;
   }
+  pOwnerSid = pTokenUser->User.Sid;
 
   dwRtnCode = GetTokenInformationByClass(hToken, TokenPrimaryGroup,
       &pTokenPrimaryGroup);
   if (dwRtnCode != ERROR_SUCCESS) {
     goto done;
   }
+  pGroupSid = pTokenPrimaryGroup->PrimaryGroup;
 
-  *ppTokenUser = pTokenUser;
-  *ppTokenPrimaryGroup = pTokenPrimaryGroup;
+  dwRtnCode = GetWindowsDACLs(mode, pOwnerSid, pGroupSid, &pDACL);
+  if (dwRtnCode != ERROR_SUCCESS) {
+    goto done;
+  }
+
+  *ppDACL = pDACL;
 
 done:
   if (hToken) {
     CloseHandle(hToken);
   }
-  if (dwRtnCode != ERROR_SUCCESS) {
-    LocalFree(pTokenUser);
-    LocalFree(pTokenPrimaryGroup);
-  }
+  LocalFree(pTokenUser);
+  LocalFree(pTokenPrimaryGroup);
   return dwRtnCode;
 }
 
@@ -1599,10 +1604,6 @@ done:
 DWORD CreateDirectoryWithMode(__in LPCWSTR lpPath, __in INT mode) {
   DWORD dwRtnCode = ERROR_SUCCESS;
   LPWSTR lpLongPath = NULL;
-  PTOKEN_USER pTokenUser = NULL;
-  PTOKEN_PRIMARY_GROUP pTokenPrimaryGroup = NULL;
-  PSID pOwnerSid = NULL;
-  PSID pGroupSid = NULL;
   PACL pDACL = NULL;
   PSECURITY_DESCRIPTOR pSD = NULL;
   SECURITY_ATTRIBUTES sa;
@@ -1612,14 +1613,7 @@ DWORD CreateDirectoryWithMode(__in LPCWSTR lpPath, __in INT mode) {
     goto done;
   }
 
-  dwRtnCode = GetTokenInformationForCreate(&pTokenUser, &pTokenPrimaryGroup);
-  if (dwRtnCode != ERROR_SUCCESS) {
-    goto done;
-  }
-  pOwnerSid = pTokenUser->User.Sid;
-  pGroupSid = pTokenPrimaryGroup->PrimaryGroup;
-
-  dwRtnCode = GetWindowsDACLs(mode, pOwnerSid, pGroupSid, &pDACL);
+  dwRtnCode = GetWindowsDACLsForCreate(mode, &pDACL);
   if (dwRtnCode != ERROR_SUCCESS) {
     goto done;
   }
@@ -1639,8 +1633,6 @@ DWORD CreateDirectoryWithMode(__in LPCWSTR lpPath, __in INT mode) {
 
 done:
   LocalFree(lpLongPath);
-  LocalFree(pTokenUser);
-  LocalFree(pTokenPrimaryGroup);
   LocalFree(pDACL);
   LocalFree(pSD);
   return dwRtnCode;
@@ -1678,10 +1670,6 @@ DWORD CreateFileWithMode(__in LPCWSTR lpPath, __in DWORD dwDesiredAccess,
     __out PHANDLE pHFile) {
   DWORD dwRtnCode = ERROR_SUCCESS;
   LPWSTR lpLongPath = NULL;
-  PTOKEN_USER pTokenUser = NULL;
-  PTOKEN_PRIMARY_GROUP pTokenPrimaryGroup = NULL;
-  PSID pOwnerSid = NULL;
-  PSID pGroupSid = NULL;
   PACL pDACL = NULL;
   PSECURITY_DESCRIPTOR pSD = NULL;
   SECURITY_ATTRIBUTES sa;
@@ -1693,14 +1681,7 @@ DWORD CreateFileWithMode(__in LPCWSTR lpPath, __in DWORD dwDesiredAccess,
     goto done;
   }
 
-  dwRtnCode = GetTokenInformationForCreate(&pTokenUser, &pTokenPrimaryGroup);
-  if (dwRtnCode != ERROR_SUCCESS) {
-    goto done;
-  }
-  pOwnerSid = pTokenUser->User.Sid;
-  pGroupSid = pTokenPrimaryGroup->PrimaryGroup;
-
-  dwRtnCode = GetWindowsDACLs(mode, pOwnerSid, pGroupSid, &pDACL);
+  dwRtnCode = GetWindowsDACLsForCreate(mode, &pDACL);
   if (dwRtnCode != ERROR_SUCCESS) {
     goto done;
   }
@@ -1722,8 +1703,6 @@ DWORD CreateFileWithMode(__in LPCWSTR lpPath, __in DWORD dwDesiredAccess,
 
 done:
   LocalFree(lpLongPath);
-  LocalFree(pTokenUser);
-  LocalFree(pTokenPrimaryGroup);
   LocalFree(pDACL);
   LocalFree(pSD);
   return dwRtnCode;
