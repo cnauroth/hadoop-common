@@ -430,6 +430,17 @@ Release 2.7.0 - UNRELEASED
     HDFS-7468. Moving verify* functions to corresponding classes.
     (Li Lu via wheat9)
 
+    HDFS-7478. Move org.apache.hadoop.hdfs.server.namenode.NNConf to
+    FSNamesystem. (Li Lu via wheat9)
+
+    HDFS-7474. Avoid resolving path in FSPermissionChecker. (jing9)
+
+    HDFS-7459. Consolidate cache-related implementation in FSNamesystem into
+    a single class. (wheat9)
+
+    HDFS-7476. Consolidate ACL-related operations to a single class.
+    (wheat9 via cnauroth)
+
   OPTIMIZATIONS
 
     HDFS-7454. Reduce memory footprint for AclEntries in NameNode.
@@ -532,6 +543,9 @@ Release 2.7.0 - UNRELEASED
 
     HDFS-7448 TestBookKeeperHACheckpoints fails in trunk build
     (Akira Ajisaka via stevel)
+
+    HDFS-7472. Fix typo in message of ReplicaNotFoundException.
+    (Masatake Iwasaki via wheat9)
 
 Release 2.6.1 - UNRELEASED
 
