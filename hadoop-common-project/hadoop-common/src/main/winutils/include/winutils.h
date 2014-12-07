@@ -165,6 +165,12 @@ DWORD JunctionPointCheck(__in LPCWSTR pathName, __out LPBOOL result);
 
 DWORD ChangeFileModeByMask(__in LPCWSTR path, INT mode);
 
+DWORD CreateDirectoryWithMode(__in LPCWSTR path, __in INT mode);
+
+DWORD CreateFileWithMode(__in LPCWSTR lpPath, __in DWORD dwDesiredAccess,
+    __in DWORD dwShareMode, __in DWORD dwCreationDisposition, __in INT mode,
+    __out PHANDLE pHFile);
+
 DWORD GetLocalGroupsForUser(__in LPCWSTR user,
   __out LPLOCALGROUP_USERS_INFO_0 *groups, __out LPDWORD entries);
 
@@ -204,9 +210,6 @@ DWORD ChownImpl(
   __in_opt LPCWSTR userName,
   __in_opt LPCWSTR groupName,
   __in LPCWSTR pathName);
-
-DWORD GetWindowsDACLs(__in INT unixMask, __in PSID pOwnerSid,
-  __in PSID pGroupSid, __out PACL *ppNewDACL);
 
 LPCWSTR GetSystemTimeString();
 

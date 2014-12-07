@@ -514,156 +514,109 @@ cleanup:
 #endif
 }
 
+/*
+ * Class:     org_apache_hadoop_io_nativeio_NativeIO_Windows
+ * Method:    createDirectoryWithMode0
+ * Signature: (Ljava/lang/String;I)V
+ *
+ * The "00024" in the function name is an artifact of how JNI encodes
+ * special characters. U+0024 is '$'.
+ */
+JNIEXPORT void JNICALL
+  Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windows_createDirectoryWithMode0
+  (JNIEnv *env, jclass clazz, jstring j_path, jint mode)
+{
+#ifdef UNIX
+  THROW(env, "java/io/IOException",
+    "The function Windows.createDirectoryWithMode0() is not supported on Unix");
+#endif
+
 #ifdef WINDOWS
-
-/**
- * Gets a class of information from a token.  On success, this function has
- * dynamically allocated memory and set the ppTokenInformation parameter to point
- * to it.  The caller owns this memory and is reponsible for releasing it by
- * calling LocalFree.
- *
- * @param hToken token handle
- * @param class token information class requested
- * @param ppTokenInformation pointer to location to write information
- * @return DWORD ERROR_SUCCESS on success, or last error code
- */
-static DWORD GetTokenInformationByClass(__in HANDLE hToken,
-    __in TOKEN_INFORMATION_CLASS class, __out LPVOID *ppTokenInformation) {
   DWORD dwRtnCode = ERROR_SUCCESS;
-  LPVOID pTokenInformation = NULL;
-  DWORD dwSize = 0;
 
-  // Call GetTokenInformation first time to get the required buffer size.
-  if (!GetTokenInformation(hToken, class, NULL, 0, &dwSize)) {
-    dwRtnCode = GetLastError();
-    if (dwRtnCode != ERROR_INSUFFICIENT_BUFFER) {
-      return dwRtnCode;
-    }
-  }
-
-  // Allocate memory.
-  pTokenInformation = LocalAlloc(LPTR, dwSize);
-  if (!pTokenInformation) {
-    return GetLastError();
-  }
-
-  // Call GetTokenInformation second time to fill our buffer with data.
-  if (!GetTokenInformation(hToken, class, pTokenInformation, dwSize, &dwSize)) {
-    LocalFree(pTokenInformation);
-    return GetLastError();
-  }
-
-  *ppTokenInformation = pTokenInformation;
-  return ERROR_SUCCESS;
-}
-
-/**
- * Gets all token information required for creation of a file or directory:
- * current user and primary group.  On success, this function has dynamically
- * allocated memory and set the ppTokenUser and ppTokenPrimaryGroup parameters to
- * point to it.  The caller owns this memory and is reponsible for releasing it
- * by calling LocalFree on both.
- *
- * @param ppTokenUser pointer to location to write user
- * @param ppTokenPrimaryGroup pointer to location to write primary group
- * @return DWORD ERROR_SUCCESS on success, or last error code
- */
-static DWORD GetTokenInformationForCreate(__out PTOKEN_USER *ppTokenUser,
-    __out PTOKEN_PRIMARY_GROUP *ppTokenPrimaryGroup) {
-  DWORD dwRtnCode = ERROR_SUCCESS;
-  HANDLE hToken = NULL;
-  DWORD dwSize = 0;
-  PTOKEN_USER pTokenUser = NULL;
-  PTOKEN_PRIMARY_GROUP pTokenPrimaryGroup = NULL;
-
-  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken)) {
-    dwRtnCode = GetLastError();
+  LPCWSTR path = (LPCWSTR) (*env)->GetStringChars(env, j_path, NULL);
+  if (!path) {
     goto done;
   }
 
-  dwRtnCode = GetTokenInformationByClass(hToken, TokenUser, &pTokenUser);
-  if (dwRtnCode != ERROR_SUCCESS) {
-    goto done;
-  }
-
-  dwRtnCode = GetTokenInformationByClass(hToken, TokenPrimaryGroup,
-      &pTokenPrimaryGroup);
-  if (dwRtnCode != ERROR_SUCCESS) {
-    goto done;
-  }
-
-  *ppTokenUser = pTokenUser;
-  *ppTokenPrimaryGroup = pTokenPrimaryGroup;
+  dwRtnCode = CreateDirectoryWithMode(path, mode);
 
 done:
-  if (hToken) {
-    CloseHandle(hToken);
+  if (path) {
+    (*env)->ReleaseStringChars(env, j_path, (const jchar*) path);
   }
   if (dwRtnCode != ERROR_SUCCESS) {
-    LocalFree(pTokenUser);
-    LocalFree(pTokenPrimaryGroup);
+    throw_ioe(env, dwRtnCode);
   }
-  return dwRtnCode;
+#endif
 }
 
-/**
- * Creates a security descriptor with the given DACL.  On success, this function
- * has dynamically allocated memory and set the ppSD parameter to point to it.
- * The caller owns this memory and is reponsible for releasing it by calling
- * LocalFree.
+/*
+ * Class:     org_apache_hadoop_io_nativeio_NativeIO_Windows
+ * Method:    createFileWithMode0
+ * Signature: (Ljava/lang/String;JJJI)Ljava/io/FileDescriptor;
  *
- * @param pDACL discretionary access control list
- * @param ppSD pointer to location to write security descriptor
- * @return DWORD ERROR_SUCCESS on success, or last error code
+ * The "00024" in the function name is an artifact of how JNI encodes
+ * special characters. U+0024 is '$'.
  */
-static DWORD CreateSecurityDescriptorForCreate(__in PACL pDACL,
-    __out PSECURITY_DESCRIPTOR *ppSD) {
+JNIEXPORT jobject JNICALL
+  Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windows_createFileWithMode0
+  (JNIEnv *env, jclass clazz, jstring j_path,
+  jlong desiredAccess, jlong shareMode, jlong creationDisposition, jint mode)
+{
+#ifdef UNIX
+  THROW(env, "java/io/IOException",
+    "The function Windows.createFileWithMode0() is not supported on Unix");
+#endif
+
+#ifdef WINDOWS
   DWORD dwRtnCode = ERROR_SUCCESS;
-  PSECURITY_DESCRIPTOR pSD = NULL;
+  PHANDLE pHFile = NULL;
+  jobject fd = NULL;
 
-  pSD = LocalAlloc(LPTR, SECURITY_DESCRIPTOR_MIN_LENGTH);
-  if (!pSD) {
-    dwRtnCode = GetLastError();
+  LPCWSTR path = (LPCWSTR) (*env)->GetStringChars(env, j_path, NULL);
+  if (!path) {
     goto done;
   }
 
-  if (!InitializeSecurityDescriptor(pSD, SECURITY_DESCRIPTOR_REVISION)) {
-    dwRtnCode = GetLastError();
+  dwRtnCode = CreateFileWithMode(path, desiredAccess, shareMode,
+      creationDisposition, mode, pHFile);
+  if (dwRtnCode != ERROR_SUCCESS) {
     goto done;
   }
 
-  if (!SetSecurityDescriptorDacl(pSD, TRUE, pDACL, FALSE)) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  *ppSD = pSD;
+  fd = fd_create(env, (long) *pHFile);
 
 done:
-  if (dwRtnCode != ERROR_SUCCESS) {
-    LocalFree(pSD);
+  if (path) {
+    (*env)->ReleaseStringChars(env, j_path, (const jchar*) path);
   }
-  return dwRtnCode;
+  if (dwRtnCode != ERROR_SUCCESS) {
+    throw_ioe(env, dwRtnCode);
+  }
+  return fd;
+#endif
 }
 
-/**
- * Opens a file and returns the file descriptor.  The caller owns the file
- * descriptor and is responsible for closing it.  The function supports passing
- * optional security attributes, typically to set a discretionary access control
- * list corresponding to a mode parameter.
+/*
+ * Class:     org_apache_hadoop_io_nativeio_NativeIO_Windows
+ * Method:    createFile
+ * Signature: (Ljava/lang/String;JJJ)Ljava/io/FileDescriptor;
  *
- * @param env JNI environment
- * @param j_path file path
- * @param dwDesiredAccess requested access (i.e. read or write)
- * @param dwShareMode requested sharing mode
- * @param lpSecurityAttributes security attributes, possibly NULL
- * @param dwCreationDisposition action to take depending on if file exists
- * @return jobject open file descriptor
+ * The "00024" in the function name is an artifact of how JNI encodes
+ * special characters. U+0024 is '$'.
  */
-static jobject CreateFileWithOptionalMode(__in JNIEnv *env, __in jstring j_path,
-    __in DWORD dwDesiredAccess, __in DWORD dwShareMode,
-    __in_opt LPSECURITY_ATTRIBUTES lpSecurityAttributes,
-    __in DWORD dwCreationDisposition) {
+JNIEXPORT jobject JNICALL Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windows_createFile
+  (JNIEnv *env, jclass clazz, jstring j_path,
+  jlong desiredAccess, jlong shareMode, jlong creationDisposition)
+{
+#ifdef UNIX
+  THROW(env, "java/io/IOException",
+    "The function Windows.createFile() is not supported on Unix");
+  return NULL;
+#endif
+
+#ifdef WINDOWS
   DWORD dwRtnCode = ERROR_SUCCESS;
   BOOL isSymlink = FALSE;
   BOOL isJunction = FALSE;
@@ -690,8 +643,13 @@ static jobject CreateFileWithOptionalMode(__in JNIEnv *env, __in jstring j_path,
   if (isSymlink || isJunction)
     dwFlagsAndAttributes |= FILE_FLAG_OPEN_REPARSE_POINT;
 
-  hFile = CreateFile(path, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
-    dwCreationDisposition, dwFlagsAndAttributes, NULL);
+  hFile = CreateFile(path,
+    (DWORD) desiredAccess,
+    (DWORD) shareMode,
+    (LPSECURITY_ATTRIBUTES ) NULL,
+    (DWORD) creationDisposition,
+    dwFlagsAndAttributes,
+    NULL);
   if (hFile == INVALID_HANDLE_VALUE) {
     throw_ioe(env, GetLastError());
     goto cleanup;
@@ -702,174 +660,7 @@ cleanup:
   if (path != NULL) {
     (*env)->ReleaseStringChars(env, j_path, (const jchar*)path);
   }
-  return ret;
-}
-#endif
-
-/*
- * Class:     org_apache_hadoop_io_nativeio_NativeIO_Windows
- * Method:    createDirectoryWithMode0
- * Signature: (Ljava/lang/String;I)V
- *
- * The "00024" in the function name is an artifact of how JNI encodes
- * special characters. U+0024 is '$'.
- */
-JNIEXPORT void JNICALL
-  Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windows_createDirectoryWithMode0
-  (JNIEnv *env, jclass clazz, jstring j_path, jint mode)
-{
-#ifdef UNIX
-  THROW(env, "java/io/IOException",
-    "The function Windows.createDirectoryWithMode0() is not supported on Unix");
-#endif
-
-#ifdef WINDOWS
-  DWORD dwRtnCode = ERROR_SUCCESS;
-  PTOKEN_USER pTokenUser = NULL;
-  PTOKEN_PRIMARY_GROUP pTokenPrimaryGroup = NULL;
-  PSID pOwnerSid = NULL;
-  PSID pGroupSid = NULL;
-  PACL pDACL = NULL;
-  PSECURITY_DESCRIPTOR pSD = NULL;
-  SECURITY_ATTRIBUTES sa;
-
-  LPCWSTR path = (LPCWSTR) (*env)->GetStringChars(env, j_path, NULL);
-  if (!path) {
-    goto done;
-  }
-
-  dwRtnCode = GetTokenInformationForCreate(&pTokenUser, &pTokenPrimaryGroup);
-  if (dwRtnCode != ERROR_SUCCESS) {
-    goto done;
-  }
-  pOwnerSid = pTokenUser->User.Sid;
-  pGroupSid = pTokenPrimaryGroup->PrimaryGroup;
-
-  dwRtnCode = GetWindowsDACLs(mode, pOwnerSid, pGroupSid, &pDACL);
-  if (dwRtnCode != ERROR_SUCCESS) {
-    goto done;
-  }
-
-  dwRtnCode = CreateSecurityDescriptorForCreate(pDACL, &pSD);
-  if (dwRtnCode != ERROR_SUCCESS) {
-    goto done;
-  }
-
-  sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-  sa.lpSecurityDescriptor = pSD;
-  sa.bInheritHandle = FALSE;
-
-  if (!CreateDirectory(path, &sa)) {
-    dwRtnCode = GetLastError();
-  }
-
-done:
-  if (path) {
-    (*env)->ReleaseStringChars(env, j_path, (const jchar*) path);
-  }
-  LocalFree(pTokenUser);
-  LocalFree(pTokenPrimaryGroup);
-  LocalFree(pDACL);
-  LocalFree(pSD);
-  if (dwRtnCode != ERROR_SUCCESS) {
-    throw_ioe(env, dwRtnCode);
-  }
-#endif
-}
-
-/*
- * Class:     org_apache_hadoop_io_nativeio_NativeIO_Windows
- * Method:    createFileWithMode0
- * Signature: (Ljava/lang/String;JJJI)Ljava/io/FileDescriptor;
- *
- * The "00024" in the function name is an artifact of how JNI encodes
- * special characters. U+0024 is '$'.
- */
-JNIEXPORT jobject JNICALL
-  Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windows_createFileWithMode0
-  (JNIEnv *env, jclass clazz, jstring j_path,
-  jlong desiredAccess, jlong shareMode, jlong creationDisposition, jint mode)
-{
-#ifdef UNIX
-  THROW(env, "java/io/IOException",
-    "The function Windows.createFileWithMode0() is not supported on Unix");
-#endif
-
-#ifdef WINDOWS
-  DWORD dwRtnCode;
-  PTOKEN_USER pTokenUser = NULL;
-  PTOKEN_PRIMARY_GROUP pTokenPrimaryGroup = NULL;
-  PSID pOwnerSid = NULL;
-  PSID pGroupSid = NULL;
-  PACL pDACL = NULL;
-  PSECURITY_DESCRIPTOR pSD = NULL;
-  SECURITY_ATTRIBUTES sa;
-  jobject ret = (jobject) NULL;
-
-  LPCWSTR path = (LPCWSTR) (*env)->GetStringChars(env, j_path, NULL);
-  if (!path) {
-    goto done;
-  }
-
-  dwRtnCode = GetTokenInformationForCreate(&pTokenUser, &pTokenPrimaryGroup);
-  if (dwRtnCode != ERROR_SUCCESS) {
-    goto done;
-  }
-  pOwnerSid = pTokenUser->User.Sid;
-  pGroupSid = pTokenPrimaryGroup->PrimaryGroup;
-
-  dwRtnCode = GetWindowsDACLs(mode, pOwnerSid, pGroupSid, &pDACL);
-  if (dwRtnCode != ERROR_SUCCESS) {
-    goto done;
-  }
-
-  dwRtnCode = CreateSecurityDescriptorForCreate(pDACL, &pSD);
-  if (dwRtnCode != ERROR_SUCCESS) {
-    goto done;
-  }
-
-  sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-  sa.lpSecurityDescriptor = pSD;
-  sa.bInheritHandle = FALSE;
-
-  ret = CreateFileWithOptionalMode(env, j_path, desiredAccess, shareMode,
-      &sa, creationDisposition);
-done:
-  if (path) {
-    (*env)->ReleaseStringChars(env, j_path, (const jchar*) path);
-  }
-  LocalFree(pTokenUser);
-  LocalFree(pTokenPrimaryGroup);
-  LocalFree(pDACL);
-  LocalFree(pSD);
-  if (dwRtnCode != ERROR_SUCCESS) {
-    throw_ioe(env, dwRtnCode);
-  }
-  return ret;
-#endif
-}
-
-/*
- * Class:     org_apache_hadoop_io_nativeio_NativeIO_Windows
- * Method:    createFile
- * Signature: (Ljava/lang/String;JJJ)Ljava/io/FileDescriptor;
- *
- * The "00024" in the function name is an artifact of how JNI encodes
- * special characters. U+0024 is '$'.
- */
-JNIEXPORT jobject JNICALL Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windows_createFile
-  (JNIEnv *env, jclass clazz, jstring j_path,
-  jlong desiredAccess, jlong shareMode, jlong creationDisposition)
-{
-#ifdef UNIX
-  THROW(env, "java/io/IOException",
-    "The function Windows.createFile() is not supported on Unix");
-  return NULL;
-#endif
-
-#ifdef WINDOWS
-  return CreateFileWithOptionalMode(env, j_path, desiredAccess, shareMode,
-      NULL, creationDisposition);
+  return (jobject) ret;
 #endif
 }
 
