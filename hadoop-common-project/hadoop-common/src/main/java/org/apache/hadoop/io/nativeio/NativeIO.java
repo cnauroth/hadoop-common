@@ -560,9 +560,11 @@ public class NativeIO {
      * @return FileDescriptor of opened file
      * @throws IOException if there is an I/O error
      */
-    public static FileDescriptor createFileWithMode(File path,
-        long desiredAccess, long shareMode, long creationDisposition, int mode)
-        throws IOException {
+    public static FileDescriptor createFileWithMode(File path, boolean append,
+        int mode) throws IOException {
+      long desiredAccess = GENERIC_WRITE;
+      long shareMode = FILE_SHARE_READ | FILE_SHARE_WRITE;
+      long creationDisposition = append ? OPEN_ALWAYS : CREATE_ALWAYS;
       return createFileWithMode0(path.getAbsolutePath(), desiredAccess,
           shareMode, creationDisposition, mode);
     }

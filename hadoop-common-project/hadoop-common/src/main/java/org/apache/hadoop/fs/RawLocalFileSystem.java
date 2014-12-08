@@ -19,12 +19,6 @@
 
 package org.apache.hadoop.fs;
 
-import static org.apache.hadoop.io.nativeio.NativeIO.Windows.CREATE_ALWAYS;
-import static org.apache.hadoop.io.nativeio.NativeIO.Windows.FILE_APPEND_DATA;
-import static org.apache.hadoop.io.nativeio.NativeIO.Windows.FILE_SHARE_READ;
-import static org.apache.hadoop.io.nativeio.NativeIO.Windows.GENERIC_WRITE;
-import static org.apache.hadoop.io.nativeio.NativeIO.Windows.OPEN_ALWAYS;
-
 import com.google.common.annotations.VisibleForTesting;
 
 import java.io.BufferedOutputStream;
@@ -221,11 +215,7 @@ public class RawLocalFileSystem extends FileSystem {
       } else {
         if (Shell.WINDOWS && NativeIO.isAvailable()) {
           this.fos = new FileOutputStream(NativeIO.Windows.createFileWithMode(
-              file,
-              append ? FILE_APPEND_DATA : GENERIC_WRITE,
-              FILE_SHARE_READ,
-              append ? OPEN_ALWAYS : CREATE_ALWAYS,
-              permission.toShort()));
+              file, append, permission.toShort()));
         } else {
           this.fos = new FileOutputStream(file, append);
           setPermission(f, permission);
