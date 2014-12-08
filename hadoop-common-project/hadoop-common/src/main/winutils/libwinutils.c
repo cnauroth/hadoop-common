@@ -1057,8 +1057,8 @@ static void GetWindowsAccessMask(INT unixMask,
 //    permission, i.e., the child file will have permission mode 700 for
 //    a user other than Administrator or SYSTEM.
 //
-static DWORD GetWindowsDACLs(__in INT unixMask, __in PSID pOwnerSid,
-  __in PSID pGroupSid, __out PACL *ppNewDACL)
+static DWORD GetWindowsDACLs(__in INT unixMask,
+  __in PSID pOwnerSid, __in PSID pGroupSid, __out PACL *ppNewDACL)
 {
   DWORD winUserAccessDenyMask;
   DWORD winUserAccessAllowMask;
