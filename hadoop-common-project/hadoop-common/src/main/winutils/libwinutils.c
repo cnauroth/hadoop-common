@@ -1450,19 +1450,22 @@ ChangeFileModeByMaskEnd:
 
   return ret;
 }
-/**
- * Gets a class of information from a token.  On success, this function has
- * dynamically allocated memory and set the ppTokenInformation parameter to point
- * to it.  The caller owns this memory and is reponsible for releasing it by
- * calling LocalFree.
- *
- * @param hToken token handle
- * @param class token information class requested
- * @param ppTokenInformation pointer to location to write information
- * @return DWORD ERROR_SUCCESS on success, or last error code
- */
+
+//----------------------------------------------------------------------------
+// Function: GetTokenInformationByClass
+//
+// Description:
+//  Gets a class of information from a token.  On success, this function has
+//  dynamically allocated memory and set the ppTokenInformation parameter to
+//  point to it.  The caller owns this memory and is reponsible for releasing it
+//  by calling LocalFree.
+//
+// Returns:
+//  ERROR_SUCCESS: on success
+//  Error code: otherwise
+//
 static DWORD GetTokenInformationByClass(__in HANDLE hToken,
-    __in TOKEN_INFORMATION_CLASS class, __out LPVOID *ppTokenInformation) {
+    __in TOKEN_INFORMATION_CLASS class, __out_opt LPVOID *ppTokenInformation) {
   DWORD dwRtnCode = ERROR_SUCCESS;
   LPVOID pTokenInformation = NULL;
   DWORD dwSize = 0;
@@ -1491,17 +1494,21 @@ static DWORD GetTokenInformationByClass(__in HANDLE hToken,
   return ERROR_SUCCESS;
 }
 
-/**
- * Gets all token information required for creation of a file or directory:
- * current user and primary group.  On success, this function has dynamically
- * allocated memory and set the ppTokenUser and ppTokenPrimaryGroup parameters to
- * point to it.  The caller owns this memory and is reponsible for releasing it
- * by calling LocalFree on both.
- *
- * @param ppTokenUser pointer to location to write user
- * @param ppTokenPrimaryGroup pointer to location to write primary group
- * @return DWORD ERROR_SUCCESS on success, or last error code
- */
+//----------------------------------------------------------------------------
+// Function: GetWindowsDACLsForCreate
+//
+// Description:
+//  Get the Windows discretionary access control list equivalent to the given
+//  mode, suitable for creating a new file or directory.  Ownership is assumed
+//  to be the current process owner and primary group.  On success, this function
+//  has dynamically allocated memory and set the ppDACL parameter to point to it.
+//  The caller owns this memory and is reponsible for releasing it by calling
+//  LocalFree.
+//
+// Returns:
+//  ERROR_SUCCESS: on success
+//  Error code: otherwise
+//
 static DWORD GetWindowsDACLsForCreate(__in INT mode, __out PACL *ppDACL) {
   DWORD dwRtnCode = ERROR_SUCCESS;
   HANDLE hToken = NULL;
@@ -1545,16 +1552,19 @@ done:
   return dwRtnCode;
 }
 
-/**
- * Creates a security descriptor with the given DACL.  On success, this function
- * has dynamically allocated memory and set the ppSD parameter to point to it.
- * The caller owns this memory and is reponsible for releasing it by calling
- * LocalFree.
- *
- * @param pDACL discretionary access control list
- * @param ppSD pointer to location to write security descriptor
- * @return DWORD ERROR_SUCCESS on success, or last error code
- */
+//----------------------------------------------------------------------------
+// Function: CreateSecurityDescriptorForCreate
+//
+// Description:
+//  Creates a security descriptor with the given DACL, suitable for creating a
+//  new file or directory.  On success, this function has dynamically allocated
+//  memory and set the ppSD parameter to point to it.  The caller owns this
+//  memory and is reponsible for releasing it by calling LocalFree.
+//
+// Returns:
+//  ERROR_SUCCESS: on success
+//  Error code: otherwise
+//
 static DWORD CreateSecurityDescriptorForCreate(__in PACL pDACL,
     __out PSECURITY_DESCRIPTOR *ppSD) {
   DWORD dwRtnCode = ERROR_SUCCESS;
@@ -1638,17 +1648,6 @@ done:
   return dwRtnCode;
 }
 
-/**
- * Opens a file and returns the file descriptor.  The caller owns the file
- * descriptor and is responsible for closing it.  The function supports passing
- * optional security attributes, typically to set a discretionary access control
- * list corresponding to a mode parameter.
- *
- * @param j_path file path
- * @param dwDesiredAccess requested access (i.e. read or write)
- * @param dwShareMode requested sharing mode
- * @param dwCreationDisposition action to take depending on if file exists
- */
 //----------------------------------------------------------------------------
 // Function: CreateFileWithMode
 //
@@ -1673,7 +1672,7 @@ DWORD CreateFileWithMode(__in LPCWSTR lpPath, __in DWORD dwDesiredAccess,
   PACL pDACL = NULL;
   PSECURITY_DESCRIPTOR pSD = NULL;
   SECURITY_ATTRIBUTES sa;
-  DWORD dwFlagsAndAttributes = FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS;
+  DWORD dwFlagsAndAttributes = FILE_ATTRIBUTE_NORMAL;
   HANDLE hFile = INVALID_HANDLE_VALUE;
 
   dwRtnCode = ConvertToLongPath(lpPath, &lpLongPath);
