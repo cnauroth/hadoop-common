@@ -552,9 +552,7 @@ public class NativeIO {
      * rights, and therefore WRITE_DAC is denied.
      *
      * @param path file to create
-     * @param desiredAccess requested access (i.e. read or write)
-     * @param shareMode requested sharing mode
-     * @param creationDisposition action to take depending on if file exists
+     * @param append if true, then open file for append
      * @param mode permissions of new directory
      * @return FileDescriptor of opened file
      * @throws IOException if there is an I/O error
