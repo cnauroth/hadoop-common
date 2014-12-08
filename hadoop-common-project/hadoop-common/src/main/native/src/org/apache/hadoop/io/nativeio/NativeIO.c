@@ -571,7 +571,7 @@ JNIEXPORT jobject JNICALL
 
 #ifdef WINDOWS
   DWORD dwRtnCode = ERROR_SUCCESS;
-  PHANDLE pHFile = NULL;
+  HANDLE hFile = INVALID_HANDLE_VALUE;
   jobject fd = NULL;
 
   LPCWSTR path = (LPCWSTR) (*env)->GetStringChars(env, j_path, NULL);
@@ -580,12 +580,12 @@ JNIEXPORT jobject JNICALL
   }
 
   dwRtnCode = CreateFileWithMode(path, desiredAccess, shareMode,
-      creationDisposition, mode, pHFile);
+      creationDisposition, mode, &hFile);
   if (dwRtnCode != ERROR_SUCCESS) {
     goto done;
   }
 
-  fd = fd_create(env, (long) *pHFile);
+  fd = fd_create(env, (long) hFile);
 
 done:
   if (path) {
