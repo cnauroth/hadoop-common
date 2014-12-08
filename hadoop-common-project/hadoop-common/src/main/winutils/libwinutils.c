@@ -1694,7 +1694,7 @@ DWORD CreateFileWithMode(__in LPCWSTR lpPath, __in DWORD dwDesiredAccess,
   sa.lpSecurityDescriptor = pSD;
   sa.bInheritHandle = FALSE;
 
-  hFile = CreateFile(lpPath, dwDesiredAccess, dwShareMode, &sa,
+  hFile = CreateFileW(lpPath, dwDesiredAccess, dwShareMode, &sa,
     dwCreationDisposition, dwFlagsAndAttributes, NULL);
   if (hFile != INVALID_HANDLE_VALUE) {
     *pHFile = hFile;
