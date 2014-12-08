@@ -545,25 +545,30 @@ public class NativeIO {
         throws IOException;
 
     /**
-     * Create a file with permissions set to the specified mode.  By setting
-     * permissions at creation time, we avoid issues related to the user lacking
-     * WRITE_DAC rights on subsequent chmod calls.  One example where this can
-     * occur is writing to an SMB share where the user does not have Full Control
-     * rights, and therefore WRITE_DAC is denied.
+     * Create a file for write with permissions set to the specified mode.  By
+     * setting permissions at creation time, we avoid issues related to the user
+     * lacking WRITE_DAC rights on subsequent chmod calls.  One example where
+     * this can occur is writing to an SMB share where the user does not have
+     * Full Control rights, and therefore WRITE_DAC is denied.
+     *
+     * This method mimics the semantics implemented by the JDK in
+     * {@link java.io.FileOutputStream}.  The file is opened for truncate or
+     * append, the sharing mode allows other readers and writers, and paths
+     * longer than MAX_PATH are supported.  (See io_util_md.c in the JDK.)
      *
      * @param path file to create
      * @param append if true, then open file for append
      * @param mode permissions of new directory
-     * @return FileDescriptor of opened file
+     * @return FileOutputStream of opened file
      * @throws IOException if there is an I/O error
      */
-    public static FileDescriptor createFileWithMode(File path, boolean append,
-        int mode) throws IOException {
+    public static FileOutputStream createFileOutputStreamWithMode(File path,
+        boolean append, int mode) throws IOException {
       long desiredAccess = GENERIC_WRITE;
       long shareMode = FILE_SHARE_READ | FILE_SHARE_WRITE;
       long creationDisposition = append ? OPEN_ALWAYS : CREATE_ALWAYS;
-      return createFileWithMode0(path.getAbsolutePath(), desiredAccess,
-          shareMode, creationDisposition, mode);
+      return new FileOutputStream(createFileWithMode0(path.getAbsolutePath(),
+          desiredAccess, shareMode, creationDisposition, mode));
     }
 
     /** Wrapper around CreateFile() with security descriptor on Windows */
