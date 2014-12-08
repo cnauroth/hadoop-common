@@ -491,7 +491,6 @@ public class NativeIO {
     // Flags for CreateFile() call on Windows
     public static final long GENERIC_READ = 0x80000000L;
     public static final long GENERIC_WRITE = 0x40000000L;
-    public static final long FILE_APPEND_DATA = 0x00000100L;
 
     public static final long FILE_SHARE_READ = 0x00000001L;
     public static final long FILE_SHARE_WRITE = 0x00000002L;
