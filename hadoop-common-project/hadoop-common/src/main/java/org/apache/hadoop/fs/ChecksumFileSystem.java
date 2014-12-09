@@ -461,6 +461,9 @@ public abstract class ChecksumFileSystem extends FilterFileSystem {
         fs.delete(checkFile, true);
       }
     }
+    // A local file system implementation may choose to create the file and set
+    // permissions immediately in a single syscall.  If so, then skip setting
+    // permissions here.
     if (permission != null && !(fs instanceof RawLocalFileSystem &&
         Path.WINDOWS && NativeIO.isAvailable())) {
       setPermission(f, permission);
