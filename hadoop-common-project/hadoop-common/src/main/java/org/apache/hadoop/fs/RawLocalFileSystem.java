@@ -41,6 +41,7 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.util.Progressable;
 import org.apache.hadoop.util.Shell;
@@ -218,7 +219,15 @@ public class RawLocalFileSystem extends FileSystem {
               append, permission.toShort());
         } else {
           this.fos = new FileOutputStream(file, append);
-          setPermission(f, permission);
+          boolean success = false;
+          try {
+            setPermission(f, permission);
+            success = true;
+          } finally {
+            if (!success) {
+              IOUtils.cleanup(LOG, this.fos);
+            }
+          }
         }
       }
     }
