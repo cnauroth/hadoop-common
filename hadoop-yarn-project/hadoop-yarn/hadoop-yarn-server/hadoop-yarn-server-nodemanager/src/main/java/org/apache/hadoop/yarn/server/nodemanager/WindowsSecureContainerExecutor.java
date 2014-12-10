@@ -330,7 +330,7 @@ public class WindowsSecureContainerExecutor extends DefaultContainerExecutor {
         }
         catch(Throwable e) {
           if (LOG.isDebugEnabled()) {
-            LOG.debug(String.format("EFS:mkOneDirWithMode: %s", 
+            LOG.debug(String.format("EFS:mkOneDirWithMode: %s",
                 org.apache.hadoop.util.StringUtils.stringifyException(e)));
           }
         }
