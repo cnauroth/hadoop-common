@@ -15,20 +15,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.fs.http.client;
 
-/**
- * <p>HttpFSServer implementation of the FileSystemAccess FileSystem for SSL.
- * </p>
- * <p>This implementation allows a user to access HDFS over HTTPS via a
- * HttpFSServer server.</p>
- */
-public class HttpsFSFileSystem extends HttpFSFileSystem {
+package org.apache.hadoop.yarn.webapp;
 
-  public static final String SCHEME = "swebhdfs";
+import org.junit.Before;
+import com.sun.jersey.test.framework.JerseyTest;
+import com.sun.jersey.test.framework.WebAppDescriptor;
 
-  @Override
-  public String getScheme() {
-    return SCHEME;
+public abstract class JerseyTestBase extends JerseyTest {
+  public JerseyTestBase(WebAppDescriptor appDescriptor) {
+    super(appDescriptor);
+  }
+
+  @Before
+  public void initializeJerseyPort() {
+    int jerseyPort = 9998;
+    String port = System.getProperty("jersey.test.port");
+    if(null != port) {
+      jerseyPort = Integer.parseInt(port) + 10;
+      if(jerseyPort > 65535) {
+        jerseyPort = 9998;
+      }
+    }
+    System.setProperty("jersey.test.port", Integer.toString(jerseyPort));
   }
 }
