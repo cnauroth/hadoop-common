@@ -1696,9 +1696,12 @@ DWORD CreateFileWithMode(__in LPCWSTR lpPath, __in DWORD dwDesiredAccess,
 
   hFile = CreateFileW(lpLongPath, dwDesiredAccess, dwShareMode, &sa,
     dwCreationDisposition, dwFlagsAndAttributes, NULL);
-  if (hFile != INVALID_HANDLE_VALUE) {
-    *pHFile = hFile;
+  if (hFile == INVALID_HANDLE_VALUE) {
+    dwRtnCode = GetLastError();
+    goto done;
   }
+
+  *pHFile = hFile;
 
 done:
   LocalFree(lpLongPath);
