@@ -138,15 +138,17 @@ DWORD GetFileInformationByName(
 // Function: IsLongWindowsPath
 //
 // Description:
-//  Checks if the path is longer than MAX_PATH in which case it needs to be
-//  prepended with \\?\ for Windows OS to understand it.
+//  Checks if the path is longer than (MAX_PATH - 12) in which case it needs to
+//  be prepended with \\?\ for Windows OS to understand it.  The -12 is to
+//  account for an additional constraint for directories that it must be possible
+//  to append an 8.3 file name.
 //
 // Returns:
 //  TRUE long path
 //  FALSE otherwise
 static BOOL IsLongWindowsPath(__in PCWSTR path)
 {
-  return (wcslen(path) + 1) > MAX_PATH;
+  return (wcslen(path) + 1) > (MAX_PATH - 12);
 }
 
 //----------------------------------------------------------------------------
