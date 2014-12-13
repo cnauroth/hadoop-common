@@ -590,7 +590,7 @@ done:
   return fd;
 #else
   THROW(env, "java/io/IOException",
-    "The function Windows.createFileWithMode0() is not supported on Unix");
+    "The function Windows.createFileWithMode0() is not supported on this platform");
 #endif
 }
 
