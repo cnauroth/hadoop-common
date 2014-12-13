@@ -43,6 +43,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.nativeio.NativeIO;
+import org.apache.hadoop.io.nativeio.NativeIOException;
 import org.apache.hadoop.util.Progressable;
 import org.apache.hadoop.util.Shell;
 import org.apache.hadoop.util.StringUtils;
@@ -449,8 +450,17 @@ public class RawLocalFileSystem extends FileSystem {
       return p2f.mkdir();
     } else {
       if (Shell.WINDOWS && NativeIO.isAvailable()) {
-        return NativeIO.Windows.createDirectoryWithMode(p2f,
-            permission.toShort());
+        try {
+          NativeIO.Windows.createDirectoryWithMode(p2f, permission.toShort());
+          return true;
+        } catch (IOException e) {
+          if (LOG.isDebugEnabled()) {
+            LOG.debug(String.format(
+                "NativeIO.createDirectoryWithMode error, path = %s, mode = %o",
+                p2f, permission.toShort()), e);
+          }
+          return false;
+        }
       } else {
         boolean b = p2f.mkdir();
         if (b) {

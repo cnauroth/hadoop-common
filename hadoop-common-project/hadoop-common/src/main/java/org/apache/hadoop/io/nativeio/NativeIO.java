@@ -513,26 +513,15 @@ public class NativeIO {
      * permissions at creation time, we avoid issues related to the user lacking
      * WRITE_DAC rights on subsequent chmod calls.  One example where this can
      * occur is writing to an SMB share where the user does not have Full Control
-     * rights, and therefore WRITE_DAC is denied.  This method mimics the
-     * contract of {@link java.io.File#mkdir()}.  All exceptions are caught and
-     * reported by returning {@code false} to the caller.
+     * rights, and therefore WRITE_DAC is denied.
      *
      * @param path directory to create
      * @param mode permissions of new directory
-     * @return boolean true if directory creation succeeded
+     * @throws IOException if there is an I/O error
      */
-    public static boolean createDirectoryWithMode(File path, int mode) {
-      try {
-        createDirectoryWithMode0(path.getAbsolutePath(), mode);
-        return true;
-      } catch (NativeIOException nioe) {
-        if (LOG.isDebugEnabled()) {
-          LOG.debug(String.format(
-              "NativeIO.createDirectoryWithMode error, path = %s, mode = %o",
-              path, mode), nioe);
-        }
-        return false;
-      }
+    public static void createDirectoryWithMode(File path, int mode)
+        throws IOException {
+      createDirectoryWithMode0(path.getAbsolutePath(), mode);
     }
 
     /** Wrapper around CreateDirectory() on Windows */

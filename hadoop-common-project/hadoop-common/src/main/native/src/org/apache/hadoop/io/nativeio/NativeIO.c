@@ -526,11 +526,6 @@ JNIEXPORT void JNICALL
   Java_org_apache_hadoop_io_nativeio_NativeIO_00024Windows_createDirectoryWithMode0
   (JNIEnv *env, jclass clazz, jstring j_path, jint mode)
 {
-#ifdef UNIX
-  THROW(env, "java/io/IOException",
-    "The function Windows.createDirectoryWithMode0() is not supported on Unix");
-#endif
-
 #ifdef WINDOWS
   DWORD dwRtnCode = ERROR_SUCCESS;
 
@@ -548,6 +543,9 @@ done:
   if (dwRtnCode != ERROR_SUCCESS) {
     throw_ioe(env, dwRtnCode);
   }
+#else
+  THROW(env, "java/io/IOException",
+    "The function Windows.createDirectoryWithMode0() is not supported on this platform");
 #endif
 }
 
@@ -564,11 +562,6 @@ JNIEXPORT jobject JNICALL
   (JNIEnv *env, jclass clazz, jstring j_path,
   jlong desiredAccess, jlong shareMode, jlong creationDisposition, jint mode)
 {
-#ifdef UNIX
-  THROW(env, "java/io/IOException",
-    "The function Windows.createFileWithMode0() is not supported on Unix");
-#endif
-
 #ifdef WINDOWS
   DWORD dwRtnCode = ERROR_SUCCESS;
   HANDLE hFile = INVALID_HANDLE_VALUE;
@@ -595,6 +588,9 @@ done:
     throw_ioe(env, dwRtnCode);
   }
   return fd;
+#else
+  THROW(env, "java/io/IOException",
+    "The function Windows.createFileWithMode0() is not supported on Unix");
 #endif
 }
 

@@ -29,7 +29,6 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.permission.FsPermission;
-import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.util.DataChecksum;
 import org.apache.hadoop.util.Progressable;
 
@@ -460,13 +459,6 @@ public abstract class ChecksumFileSystem extends FilterFileSystem {
       if (fs.exists(checkFile)) {
         fs.delete(checkFile, true);
       }
-    }
-    // A local file system implementation may choose to create the file and set
-    // permissions immediately in a single syscall.  If so, then skip setting
-    // permissions here.
-    if (permission != null && !(fs instanceof RawLocalFileSystem &&
-        Path.WINDOWS && NativeIO.isAvailable())) {
-      setPermission(f, permission);
     }
     return out;
   }
