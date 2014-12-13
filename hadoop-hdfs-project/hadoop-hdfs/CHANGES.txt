@@ -453,6 +453,10 @@ Release 2.7.0 - UNRELEASED
 
     HDFS-7463. Simplify FSNamesystem#getBlockLocationsUpdateTimes. (wheat9)
 
+    HDFS-7509. Avoid resolving path multiple times. (jing9)
+
+    HDFS-7426. Change nntop JMX format to be a JSON blob. (wang)
+
   OPTIMIZATIONS
 
     HDFS-7454. Reduce memory footprint for AclEntries in NameNode.
@@ -581,6 +585,8 @@ Release 2.7.0 - UNRELEASED
 
     HDFS-7517. Remove redundant non-null checks in FSNamesystem#
     getBlockLocations. (wheat9)
+
+    HDFS-7514. TestTextCommand fails on Windows. (Arpit Agarwal)
 
 Release 2.6.1 - UNRELEASED
 
