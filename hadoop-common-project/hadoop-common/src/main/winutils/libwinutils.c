@@ -1515,7 +1515,7 @@ static DWORD GetWindowsDACLsForCreate(__in INT mode, __out PACL *ppDACL) {
   DWORD dwRtnCode = ERROR_SUCCESS;
   HANDLE hToken = NULL;
   DWORD dwSize = 0;
-  PTOKEN_USER pTokenUser = NULL;
+  PTOKEN_OWNER pTokenOwner = NULL;
   PTOKEN_PRIMARY_GROUP pTokenPrimaryGroup = NULL;
   PSID pOwnerSid = NULL, pGroupSid = NULL;
   PACL pDACL = NULL;
@@ -1525,11 +1525,11 @@ static DWORD GetWindowsDACLsForCreate(__in INT mode, __out PACL *ppDACL) {
     goto done;
   }
 
-  dwRtnCode = GetTokenInformationByClass(hToken, TokenUser, &pTokenUser);
+  dwRtnCode = GetTokenInformationByClass(hToken, TokenOwner, &pTokenOwner);
   if (dwRtnCode != ERROR_SUCCESS) {
     goto done;
   }
-  pOwnerSid = pTokenUser->User.Sid;
+  pOwnerSid = pTokenOwner->Owner;
 
   dwRtnCode = GetTokenInformationByClass(hToken, TokenPrimaryGroup,
       &pTokenPrimaryGroup);
@@ -1549,7 +1549,7 @@ done:
   if (hToken) {
     CloseHandle(hToken);
   }
-  LocalFree(pTokenUser);
+  LocalFree(pTokenOwner);
   LocalFree(pTokenPrimaryGroup);
   return dwRtnCode;
 }
