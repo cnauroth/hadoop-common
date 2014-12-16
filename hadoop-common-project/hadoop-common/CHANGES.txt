@@ -367,6 +367,8 @@ Trunk (Unreleased)
     HADOOP-11296. hadoop-daemons.sh throws 'host1: bash: host3: 
     command not found...' (vinayakumarb)
 
+    HADOOP-11380. Restore Rack Awareness documenation (aw)
+
   OPTIMIZATIONS
 
     HADOOP-7761. Improve the performance of raw comparisons. (todd)
@@ -431,6 +433,8 @@ Release 2.7.0 - UNRELEASED
     (Li Lu via wheat9)
 
     HADOOP-10476) Bumping the findbugs version to 3.0.0. (wheat9)
+
+    HADOOP-11410. Make the rpath of libhadoop.so configurable (cmccabe)
 
   OPTIMIZATIONS
 
@@ -580,7 +584,15 @@ Release 2.7.0 - UNRELEASED
 
     HADOOP-11389. Clean up byte to string encoding issues in hadoop-common.
     (wheat9)
-    
+
+    HADOOP-11394. hadoop-aws documentation missing. (cnauroth)
+
+    HADOOP-11396. Provide navigation in the site documentation linking to the
+    Hadoop Compatible File Systems. (cnauroth)
+
+    HADOOP-11412 POMs mention "The Apache Software License" rather than
+    "Apache License". (Herve Boutemy via stevel)
+
 Release 2.6.0 - 2014-11-18
 
   INCOMPATIBLE CHANGES
