@@ -1514,11 +1514,10 @@ static DWORD GetTokenInformationByClass(__in HANDLE hToken,
 static DWORD GetWindowsDACLsForCreate(__in INT mode, __out PACL *ppDACL) {
   DWORD dwRtnCode = ERROR_SUCCESS;
   HANDLE hToken = NULL;
-  DWORD dwSize = 0, dwAdministratorsSidSize = SECURITY_MAX_SID_SIZE;
-  BOOL isAdmin = FALSE;
+  DWORD dwSize = 0;
   PTOKEN_USER pTokenUser = NULL;
   PTOKEN_PRIMARY_GROUP pTokenPrimaryGroup = NULL;
-  PSID pAdministratorsSid = NULL, pOwnerSid = NULL, pGroupSid = NULL;
+  PSID pOwnerSid = NULL, pGroupSid = NULL;
   PACL pDACL = NULL;
 
   if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken)) {
@@ -1526,32 +1525,11 @@ static DWORD GetWindowsDACLsForCreate(__in INT mode, __out PACL *ppDACL) {
     goto done;
   }
 
-  pAdministratorsSid = LocalAlloc(LPTR, dwAdministratorsSidSize);
-  if (!pAdministratorsSid) {
-    dwRtnCode = GetLastError();
+  dwRtnCode = GetTokenInformationByClass(hToken, TokenUser, &pTokenUser);
+  if (dwRtnCode != ERROR_SUCCESS) {
     goto done;
   }
-
-  if (!CreateWellKnownSid(WinBuiltinAdministratorsSid, NULL, pAdministratorsSid,
-      &dwAdministratorsSidSize)) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  if (!CheckTokenMembership(NULL, pAdministratorsSid, &isAdmin)) {
-    dwRtnCode = GetLastError();
-    goto done;
-  }
-
-  if (isAdmin) {
-    pOwnerSid = pAdministratorsSid;
-  } else {
-    dwRtnCode = GetTokenInformationByClass(hToken, TokenUser, &pTokenUser);
-    if (dwRtnCode != ERROR_SUCCESS) {
-      goto done;
-    }
-    pOwnerSid = pTokenUser->User.Sid;
-  }
+  pOwnerSid = pTokenUser->User.Sid;
 
   dwRtnCode = GetTokenInformationByClass(hToken, TokenPrimaryGroup,
       &pTokenPrimaryGroup);
@@ -1571,7 +1549,6 @@ done:
   if (hToken) {
     CloseHandle(hToken);
   }
-  LocalFree(pAdministratorsSid);
   LocalFree(pTokenUser);
   LocalFree(pTokenPrimaryGroup);
   return dwRtnCode;
