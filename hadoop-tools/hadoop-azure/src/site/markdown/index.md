@@ -18,11 +18,11 @@
 * [Features](#Features)
 * [Limitations](#Limitations)
 * [Usage](#Usage)
-  * [Concepts](#Concepts)
-  * [Configuring Credentials](#Configuring_Credentials)
-  * [Page Blob Support and Configuration](#Page_Blob_Support_and_Configuration)
-  * [Atomic Folder Rename](#Atomic_Folder_Rename)
-  * [Accessing wasb URLs](#Accessing_wasb_URLs)
+    * [Concepts](#Concepts)
+    * [Configuring Credentials](#Configuring_Credentials)
+    * [Page Blob Support and Configuration](#Page_Blob_Support_and_Configuration)
+    * [Atomic Folder Rename](#Atomic_Folder_Rename)
+    * [Accessing wasb URLs](#Accessing_wasb_URLs)
 * [Testing the hadoop-azure Module](#Testing_the_hadoop-azure_Module)
 
 ## <a name="Introduction" />Introduction
@@ -37,13 +37,14 @@ on the additional artifacts it requires, notably the
 
 * Read and write data stored in an Azure Blob Storage account.
 * Present a hierarchical file system view by implementing the standard Hadoop
-  `FileSystem` interface.
+  [`FileSystem`](../api/org/apache/hadoop/fs/FileSystem.html) interface.
 * Supports configuration of multiple Azure Blob Storage accounts.
 * Supports both page blobs (suitable for most use cases, such as MapReduce) and
-  block blobs (suitable for append-heavy use cases, such as an HBase write-ahead
-  log).
-* Reference file system paths via URLs using the `wasb` scheme.
-* File system URLs with the `wasbs` scheme use SSL encrypted access.
+  block blobs (suitable for continuous write use cases, such as an HBase
+  write-ahead log).
+* Reference file system paths using URLs using the `wasb` scheme.
+* Also reference file system paths using URLs with the `wasbs` scheme for SSL
+  encrypted access.
 * Can act as a source of data in a MapReduce job, or a sink.
 * Tested on both Linux and Windows.
 * Tested at scale.
@@ -60,15 +61,16 @@ on the additional artifacts it requires, notably the
 ### <a name="Concepts" />Concepts
 
 The Azure Blob Storage data model presents 3 core concepts:
-* *Storage Account*: All access is done through a storage account.
-* *Container*: A container is a grouping of multiple blobs.  A storage account
+
+* **Storage Account**: All access is done through a storage account.
+* **Container**: A container is a grouping of multiple blobs.  A storage account
   may have multiple containers.  In Hadoop, an entire file system hierarchy is
   stored in a single container.  It is also possible to configure multiple
   containers, effectively presenting multiple file systems that can be referenced
-  via distinct URLs.
-* *Blob*: A file of any type and size.  In Hadoop, files are stored in blobs.
+  using distinct URLs.
+* **Blob**: A file of any type and size.  In Hadoop, files are stored in blobs.
   The internal implementation also uses blobs to persist the file system
-  hierarchy and other metadta.
+  hierarchy and other metadata.
 
 ### <a name="Configuring_Credentials" />Configuring Credentials
 
@@ -90,8 +92,8 @@ In many Hadoop clusters, the core-site.xml file is world-readable.  If it's
 undesirable for the access key to be visible in core-site.xml, then it's also
 possible to configure it in encrypted form.  An additional configuration property
 specifies an external program to be invoked by Hadoop processes to decrypt the
-the key.  The encrypted key value is passed to this external program as a
-command-line argument:
+key.  The encrypted key value is passed to this external program as a command
+line argument:
 
     <property>
       <name>fs.azure.account.keyprovider.youraccount</name>
@@ -108,23 +110,21 @@ command-line argument:
       <value>PATH TO DECRYPTION PROGRAM</value>
     </property>
 
-
-If it's undesirable to put the
-
 ### <a name="Page_Blob_Support_and_Configuration" />Page Blob Support and Configuration
 
-The Azure Blob Storage interface for Hadoop supports two kinds of blobs, block
-blobs and page blobs.  Block blobs are the default kind of blob and are good for
-most big-data use cases, like input data for Hive, Pig, analytical map-reduce
-jobs etc.  Page blob handling in hadoop-azure was introduced to support HBase log
-files.  Page blobs can be written any number of times, whereas block blobs can
-only be appended to 50,000 times before you run out of blocks and your writes
-will fail.  That won't work for HBase logs, so page blob support was introduced
-to overcome this limitation.
+The Azure Blob Storage interface for Hadoop supports two kinds of blobs,
+[block blobs and page blobs](http://msdn.microsoft.com/en-us/library/azure/ee691964.aspx).
+Block blobs are the default kind of blob and are good for most big-data use
+cases, like input data for Hive, Pig, analytical map-reduce jobs etc.  Page blob
+handling in hadoop-azure was introduced to support HBase log files.  Page blobs
+can be written any number of times, whereas block blobs can only be appended to
+50,000 times before you run out of blocks and your writes will fail.  That won't
+work for HBase logs, so page blob support was introduced to overcome this
+limitation.
 
 Page blobs can be used for other purposes beyond just HBase log files though.
-They support the Hadoop FileSystem interface. Page blobs can be up to 1TB in
-size, larger than the maximum 200GB size for block blobs.
+Page blobs can be up to 1TB in size, larger than the maximum 200GB size for block
+blobs.
 
 In order to have the files you create be page blobs, you must set the
 configuration variable `fs.azure.page.blob.dir` to a comma-separated list of
@@ -190,10 +190,14 @@ container named `yourcontainer`.
 
     > hadoop fs -mkdir wasb://yourcontainer@youraccount.blob.core.windows.net/testDir
 
-    > hadoop fs -put hello wasb://yourcontainer@youraccount.blob.core.windows.net/testDir/testFile
+    > hadoop fs -put testFile wasb://yourcontainer@youraccount.blob.core.windows.net/testDir/testFile
 
     > hadoop fs -cat wasbs://yourcontainer@youraccount.blob.core.windows.net/testDir/testFile
-    hello
+    test file content
+
+It's also possible to configure `fs.defaultFS` to use a `wasb` or `wasbs` URL.
+This causes all bare paths, such as `/testDir/testFile` to resolve automatically
+to that file system.
 
 ## <a name="Testing_the_hadoop-azure_Module" />Testing the hadoop-azure Module
 
@@ -223,7 +227,7 @@ following failure message:
 To resolve this, restart the Azure Emulator.  Ensure it v3.2 or later.
 
 It's also possible to run tests against a live Azure Storage account by adding
-credentials to src/test/resources/azure-test.xml and setting
+credentials to `src/test/resources/azure-test.xml` and setting
 `fs.azure.test.account.name` to the name of the storage account.
 
 For example:
