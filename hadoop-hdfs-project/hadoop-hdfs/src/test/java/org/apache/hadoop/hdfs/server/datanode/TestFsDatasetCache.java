@@ -162,7 +162,7 @@ public class TestFsDatasetCache {
     doReturn(response).when(spyNN).sendHeartbeat(
         (DatanodeRegistration) any(),
         (StorageReport[]) any(), anyLong(), anyLong(),
-        anyInt(), anyInt(), anyInt());
+        anyInt(), anyInt(), anyInt(), (String[]) any());
   }
 
   private static DatanodeCommand[] cacheBlock(HdfsBlockLocation loc) {

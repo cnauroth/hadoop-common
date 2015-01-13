@@ -26,8 +26,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.Sets;
 import org.apache.commons.logging.Log;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.ha.HAServiceProtocol.HAServiceState;
@@ -42,6 +44,7 @@ import org.apache.hadoop.hdfs.protocol.RollingUpgradeStatus;
 import org.apache.hadoop.hdfs.protocol.UnregisteredNodeException;
 import org.apache.hadoop.hdfs.protocolPB.DatanodeProtocolClientSideTranslatorPB;
 import org.apache.hadoop.hdfs.server.common.IncorrectVersionException;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeSpi;
 import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeCommand;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeRegistration;
@@ -592,9 +595,18 @@ class BPServiceActor implements Runnable {
   HeartbeatResponse sendHeartBeat() throws IOException {
     StorageReport[] reports =
         dn.getFSDataset().getStorageReports(bpos.getBlockPoolId());
+    List<StorageLocation> locations = DataNode.getStorageLocations(dn.getConf());
+    Set<String> failedLocations = Sets.newTreeSet();
+    for (StorageLocation location: locations) {
+      failedLocations.add(location.getFile().getPath());
+    }
+    for (FsVolumeSpi vol: dn.getFSDataset().getVolumes()) {
+      failedLocations.remove(vol.getBasePath());
+    }
     if (LOG.isDebugEnabled()) {
       LOG.debug("Sending heartbeat with " + reports.length +
                 " storage reports from service actor: " + this);
+      LOG.debug("failedLocations = " + failedLocations);
     }
 
     return bpNamenode.sendHeartbeat(bpRegistration,
@@ -603,7 +615,8 @@ class BPServiceActor implements Runnable {
         dn.getFSDataset().getCacheUsed(),
         dn.getXmitsInProgress(),
         dn.getXceiverCount(),
-        dn.getFSDataset().getNumFailedVolumes());
+        dn.getFSDataset().getNumFailedVolumes(),
+        failedLocations.toArray(new String[failedLocations.size()]));
   }
   
   //This must be called only by BPOfferService

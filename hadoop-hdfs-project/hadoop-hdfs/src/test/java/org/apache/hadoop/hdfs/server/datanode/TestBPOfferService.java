@@ -132,7 +132,8 @@ public class TestBPOfferService {
           Mockito.anyLong(),
           Mockito.anyInt(),
           Mockito.anyInt(),
-          Mockito.anyInt());
+          Mockito.anyInt(),
+          Mockito.any(String[].class));
     mockHaStatuses[nnIdx] = new NNHAStatusHeartbeat(HAServiceState.STANDBY, 0);
     return mock;
   }

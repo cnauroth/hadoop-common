@@ -171,6 +171,7 @@
   <tr><th title="Excludes missing blocks.">Number of Under-Replicated Blocks</th><td>{UnderReplicatedBlocks}</td></tr>
   <tr><th>Number of Blocks Pending Deletion</th><td>{PendingDeletionBlocks}</td></tr>
   <tr><th>Block Deletion Start Time</th><td>{BlockDeletionStartTime|date_tostring}</td></tr>
+  <tr><th><a href="#tab-datanode">Total Failed Volumes</a></th><td>{VolumeFailuresTotal}</td></tr>
 {/fs}
 </table>
 
@@ -253,7 +254,7 @@
 <div class="page-header"><h1>Datanode Information</h1></div>
 <div class="page-header"><h1><small>In operation</small></h1></div>
 <small>
-<table class="table">
+<table class="table" id="datanodes">
   <thead>
     <tr>
       <th>Node</th>
@@ -266,9 +267,11 @@
       <th>Blocks</th>
       <th>Block pool used</th>
       <th>Failed Volumes</th>
+      <th>Failed Storage Locations</th>
       <th>Version</th>
     </tr>
   </thead>
+  <tbody>
   {#LiveNodes}
   <tr>
     <td>{name} ({xferaddr})</td>
@@ -281,6 +284,7 @@
     <td>{numBlocks}</td>
     <td>{blockPoolUsed|fmt_bytes} ({blockPoolUsedPercent|fmt_percentage})</td>
     <td>{volfails}</td>
+    <td>{#failedStorageLocations}{.}{@sep}<br />{/sep}{/failedStorageLocations}</td>
     <td>{version}</td>
   </tr>
   {/LiveNodes}
@@ -299,6 +303,7 @@
     <td>-</td>
   </tr>
   {/DeadNodes}
+  </tbody>
 </table>
 </small>
 
@@ -358,6 +363,7 @@
 </script>
 
 <script type="text/javascript" src="/static/jquery-1.10.2.min.js">
+</script><script type="text/javascript" src="/static/jquery.tablesorter.min.js">
 </script><script type="text/javascript" src="/static/bootstrap-3.0.2/js/bootstrap.min.js">
 </script><script type="text/javascript" src="/static/dust-full-2.0.0.min.js">
 </script><script type="text/javascript" src="/static/dust-helpers-1.1.1.min.js">

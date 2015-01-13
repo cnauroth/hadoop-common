@@ -448,7 +448,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
 
     @Override
     public String getBasePath() {
-      return null;
+      return "/dfs/data";
     }
 
     @Override
@@ -1193,7 +1193,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
 
   @Override
   public List<FsVolumeSpi> getVolumes() {
-    throw new UnsupportedOperationException();
+    return Collections.<FsVolumeSpi>singletonList(this.volume);
   }
 
   @Override

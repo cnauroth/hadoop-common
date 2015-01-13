@@ -171,6 +171,7 @@ message RegisterDatanodeResponseProto {
  * failedVolumes - number of failed volumes
  * cacheCapacity - total cache capacity available at the datanode
  * cacheUsed - amount of cache used
+ * failedStorageLocations - each storage location that has failed
  */
 message HeartbeatRequestProto {
   required DatanodeRegistrationProto registration = 1; // Datanode info
@@ -180,6 +181,7 @@ message HeartbeatRequestProto {
   optional uint32 failedVolumes = 5 [ default = 0 ];
   optional uint64 cacheCapacity = 6 [ default = 0 ];
   optional uint64 cacheUsed = 7 [default = 0 ];
+  repeated string failedStorageLocations = 8;
 }
 
 /**

@@ -192,7 +192,8 @@ class HeartbeatManager implements DatanodeStatistics {
       addDatanode(d);
 
       //update its timestamp
-      d.updateHeartbeatState(StorageReport.EMPTY_ARRAY, 0L, 0L, 0, 0);
+      d.updateHeartbeatState(StorageReport.EMPTY_ARRAY, 0L, 0L, 0, 0,
+          new String[] { });
     }
   }
 
@@ -217,10 +218,10 @@ class HeartbeatManager implements DatanodeStatistics {
 
   synchronized void updateHeartbeat(final DatanodeDescriptor node,
       StorageReport[] reports, long cacheCapacity, long cacheUsed,
-      int xceiverCount, int failedVolumes) {
+      int xceiverCount, int failedVolumes, String[] failedStorageLocations) {
     stats.subtract(node);
     node.updateHeartbeat(reports, cacheCapacity, cacheUsed,
-      xceiverCount, failedVolumes);
+      xceiverCount, failedVolumes, failedStorageLocations);
     stats.add(node);
   }
 

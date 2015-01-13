@@ -214,6 +214,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
   private long lastBlocksScheduledRollTime = 0;
   private static final int BLOCKS_SCHEDULED_ROLL_INTERVAL = 600*1000; //10min
   private int volumeFailures = 0;
+  private String[] failedStorageLocations;
   
   /** 
    * When set to true, the node is not in include list and is not allowed
@@ -233,7 +234,8 @@ public class DatanodeDescriptor extends DatanodeInfo {
    */
   public DatanodeDescriptor(DatanodeID nodeID) {
     super(nodeID);
-    updateHeartbeatState(StorageReport.EMPTY_ARRAY, 0L, 0L, 0, 0);
+    updateHeartbeatState(StorageReport.EMPTY_ARRAY, 0L, 0L, 0, 0,
+        new String[] { });
   }
 
   /**
@@ -244,7 +246,8 @@ public class DatanodeDescriptor extends DatanodeInfo {
   public DatanodeDescriptor(DatanodeID nodeID, 
                             String networkLocation) {
     super(nodeID, networkLocation);
-    updateHeartbeatState(StorageReport.EMPTY_ARRAY, 0L, 0L, 0, 0);
+    updateHeartbeatState(StorageReport.EMPTY_ARRAY, 0L, 0L, 0, 0,
+        new String[] { });
   }
 
   @VisibleForTesting
@@ -345,9 +348,10 @@ public class DatanodeDescriptor extends DatanodeInfo {
    * Updates stats from datanode heartbeat.
    */
   public void updateHeartbeat(StorageReport[] reports, long cacheCapacity,
-      long cacheUsed, int xceiverCount, int volFailures) {
+      long cacheUsed, int xceiverCount, int volFailures,
+      String[] failedStorageLocations) {
     updateHeartbeatState(reports, cacheCapacity, cacheUsed, xceiverCount,
-        volFailures);
+        volFailures, failedStorageLocations);
     heartbeatedSinceRegistration = true;
   }
 
@@ -355,7 +359,8 @@ public class DatanodeDescriptor extends DatanodeInfo {
    * process datanode heartbeat or stats initialization.
    */
   public void updateHeartbeatState(StorageReport[] reports, long cacheCapacity,
-      long cacheUsed, int xceiverCount, int volFailures) {
+      long cacheUsed, int xceiverCount, int volFailures,
+      String[] failedStorageLocations) {
     long totalCapacity = 0;
     long totalRemaining = 0;
     long totalBlockPoolUsed = 0;
@@ -394,6 +399,8 @@ public class DatanodeDescriptor extends DatanodeInfo {
     setXceiverCount(xceiverCount);
     setLastUpdate(Time.now());    
     this.volumeFailures = volFailures;
+    this.failedStorageLocations = failedStorageLocations != null ?
+        failedStorageLocations : new String[] { };
     for (StorageReport report : reports) {
       DatanodeStorageInfo storage = updateStorage(report.getStorage());
       if (checkFailedStorages) {
@@ -726,6 +733,10 @@ public class DatanodeDescriptor extends DatanodeInfo {
    */
   public int getVolumeFailures() {
     return volumeFailures;
+  }
+
+  public String[] getFailedStorageLocations() {
+    return failedStorageLocations;
   }
 
   /**

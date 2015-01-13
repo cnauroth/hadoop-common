@@ -104,10 +104,13 @@ public class DatanodeProtocolServerSideTranslatorPB implements
     try {
       final StorageReport[] report = PBHelper.convertStorageReports(
           request.getReportsList());
+      List<String> failedStoragesList = request.getFailedStorageLocationsList();
+      String[] failedStorages = failedStoragesList.toArray(
+          new String[failedStoragesList.size()]);
       response = impl.sendHeartbeat(PBHelper.convert(request.getRegistration()),
           report, request.getCacheCapacity(), request.getCacheUsed(),
           request.getXmitsInProgress(),
-          request.getXceiverCount(), request.getFailedVolumes());
+          request.getXceiverCount(), request.getFailedVolumes(), failedStorages);
     } catch (IOException e) {
       throw new ServiceException(e);
     }

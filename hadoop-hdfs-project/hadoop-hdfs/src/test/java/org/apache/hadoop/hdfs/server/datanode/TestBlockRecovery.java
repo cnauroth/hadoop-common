@@ -160,7 +160,8 @@ public class TestBlockRecovery {
             Mockito.anyLong(),
             Mockito.anyInt(),
             Mockito.anyInt(),
-            Mockito.anyInt()))
+            Mockito.anyInt(),
+            Mockito.any(String[].class)))
         .thenReturn(new HeartbeatResponse(
             new DatanodeCommand[0],
             new NNHAStatusHeartbeat(HAServiceState.ACTIVE, 1),

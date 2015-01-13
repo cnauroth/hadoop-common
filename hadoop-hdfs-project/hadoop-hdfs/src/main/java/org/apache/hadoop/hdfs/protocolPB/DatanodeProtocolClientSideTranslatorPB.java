@@ -21,6 +21,7 @@ package org.apache.hadoop.hdfs.protocolPB;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -121,8 +122,8 @@ public class DatanodeProtocolClientSideTranslatorPB implements
   @Override
   public HeartbeatResponse sendHeartbeat(DatanodeRegistration registration,
       StorageReport[] reports, long cacheCapacity, long cacheUsed,
-          int xmitsInProgress, int xceiverCount, int failedVolumes)
-              throws IOException {
+      int xmitsInProgress, int xceiverCount, int failedVolumes,
+      String[] failedStorageLocations) throws IOException {
     HeartbeatRequestProto.Builder builder = HeartbeatRequestProto.newBuilder()
         .setRegistration(PBHelper.convert(registration))
         .setXmitsInProgress(xmitsInProgress).setXceiverCount(xceiverCount)
@@ -134,6 +135,7 @@ public class DatanodeProtocolClientSideTranslatorPB implements
     if (cacheUsed != 0) {
       builder.setCacheUsed(cacheUsed);
     }
+    builder.addAllFailedStorageLocations(Arrays.asList(failedStorageLocations));
     HeartbeatResponseProto resp;
     try {
       resp = rpcProxy.sendHeartbeat(NULL_CONTROLLER, builder.build());

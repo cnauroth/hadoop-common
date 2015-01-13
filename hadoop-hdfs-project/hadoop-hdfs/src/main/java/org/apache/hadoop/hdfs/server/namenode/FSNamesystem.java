@@ -4467,8 +4467,8 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    */
   HeartbeatResponse handleHeartbeat(DatanodeRegistration nodeReg,
       StorageReport[] reports, long cacheCapacity, long cacheUsed,
-      int xceiverCount, int xmitsInProgress, int failedVolumes)
-        throws IOException {
+      int xceiverCount, int xmitsInProgress, int failedVolumes,
+      String[] failedStorageLocations) throws IOException {
     readLock();
     try {
       //get datanode commands
@@ -4476,7 +4476,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
           - xmitsInProgress;
       DatanodeCommand[] cmds = blockManager.getDatanodeManager().handleHeartbeat(
           nodeReg, reports, blockPoolId, cacheCapacity, cacheUsed,
-          xceiverCount, maxTransfer, failedVolumes);
+          xceiverCount, maxTransfer, failedVolumes, failedStorageLocations);
       
       //create ha status
       final NNHAStatusHeartbeat haState = new NNHAStatusHeartbeat(
@@ -5996,6 +5996,17 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   }
 
   @Override // FSNamesystemMBean
+  public int getVolumeFailuresTotal() {
+    final List<DatanodeDescriptor> live = new ArrayList<DatanodeDescriptor>();
+    getBlockManager().getDatanodeManager().fetchDatanodes(live, null, true);
+    int volumeFailuresTotal = 0;
+    for (DatanodeDescriptor node: live) {
+      volumeFailuresTotal += node.getVolumeFailures();
+    }
+    return volumeFailuresTotal;
+  }
+
+  @Override // FSNamesystemMBean
   public int getNumDecommissioningDataNodes() {
     return getBlockManager().getDatanodeManager().getDecommissioningNodes()
         .size();
@@ -6846,6 +6857,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
           .put("blockPoolUsed", node.getBlockPoolUsed())
           .put("blockPoolUsedPercent", node.getBlockPoolUsedPercent())
           .put("volfails", node.getVolumeFailures())
+          .put("failedStorageLocations", node.getFailedStorageLocations())
           .build();
       info.put(node.getHostName() + ":" + node.getXferPort(), innerinfo);
     }
