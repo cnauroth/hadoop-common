@@ -368,7 +368,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     }
     
     int getNumFailedVolumes() {
-      return 0;
+      return getFailedStorageLocations().length;
     }
 
     String[] getFailedStorageLocations() {
