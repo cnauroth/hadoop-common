@@ -135,7 +135,7 @@ public interface FSNamesystemMBean {
    * Number of failed data volumes across all live data nodes.
    * @return number of failed data volumes across all live data nodes
    */
-  public int getVolumeFailuresTotal();
+  int getVolumeFailuresTotal();
 
   /**
    * Number of data nodes that are in the decommissioning state
