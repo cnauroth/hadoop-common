@@ -31,6 +31,7 @@ import java.util.Set;
 
 import com.google.common.annotations.VisibleForTesting;
 
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -235,7 +236,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
   public DatanodeDescriptor(DatanodeID nodeID) {
     super(nodeID);
     updateHeartbeatState(StorageReport.EMPTY_ARRAY, 0L, 0L, 0, 0,
-        new String[] { });
+        ArrayUtils.EMPTY_STRING_ARRAY);
   }
 
   /**
@@ -247,7 +248,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
                             String networkLocation) {
     super(nodeID, networkLocation);
     updateHeartbeatState(StorageReport.EMPTY_ARRAY, 0L, 0L, 0, 0,
-        new String[] { });
+        ArrayUtils.EMPTY_STRING_ARRAY);
   }
 
   @VisibleForTesting
@@ -400,7 +401,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
     setLastUpdate(Time.now());    
     this.volumeFailures = volFailures;
     this.failedStorageLocations = failedStorageLocations != null ?
-        failedStorageLocations : new String[] { };
+        failedStorageLocations : ArrayUtils.EMPTY_STRING_ARRAY;
     for (StorageReport report : reports) {
       DatanodeStorageInfo storage = updateStorage(report.getStorage());
       if (checkFailedStorages) {

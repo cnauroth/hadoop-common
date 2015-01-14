@@ -34,6 +34,7 @@ import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 import javax.management.StandardMBean;
 
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.StorageType;
@@ -371,7 +372,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     }
 
     String[] getFailedStorageLocations() {
-      return new String[] { };
+      return ArrayUtils.EMPTY_STRING_ARRAY;
     }
 
     synchronized boolean alloc(String bpid, long amount) throws IOException {
