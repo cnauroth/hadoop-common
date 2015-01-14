@@ -31,6 +31,7 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -47,6 +48,7 @@ import javax.management.StandardMBean;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -277,7 +279,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
             DFSConfigKeys.DFS_DATANODE_FSDATASET_VOLUME_CHOOSING_POLICY_KEY,
             RoundRobinVolumeChoosingPolicy.class,
             VolumeChoosingPolicy.class), conf);
-    volumes = new FsVolumeList(volsFailed, blockChooserImpl);
+    volumes = new FsVolumeList(blockChooserImpl);
     asyncDiskService = new FsDatasetAsyncDiskService(datanode);
     asyncLazyPersistService = new RamDiskAsyncLazyPersistService(datanode);
 
@@ -478,9 +480,29 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
   /**
    * Return the number of failed volumes in the FSDataset.
    */
-  @Override
+  @Override // FSDatasetMBean
   public int getNumFailedVolumes() {
-    return volumes.numberOfFailedVolumes();
+    return getFailedStorageLocations().length;
+  }
+
+  @Override // FSDatasetMBean
+  public String[] getFailedStorageLocations() {
+    List<StorageLocation> confLocationList = datanode.getStorageLocations();
+    Set<String> failedLocationSet = Sets.newHashSetWithExpectedSize(
+        confLocationList.size());
+    for (StorageLocation location: confLocationList) {
+      failedLocationSet.add(location.getFile().getPath());
+    }
+    for (FsVolumeSpi vol: getVolumes()) {
+      failedLocationSet.remove(vol.getBasePath());
+    }
+    String[] failedLocations =  failedLocationSet.toArray(
+        new String[failedLocationSet.size()]);
+    Arrays.sort(failedLocations);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("failedLocations + " + Arrays.toString(failedLocations));
+    }
+    return failedLocations;
   }
 
   @Override // FSDatasetMBean

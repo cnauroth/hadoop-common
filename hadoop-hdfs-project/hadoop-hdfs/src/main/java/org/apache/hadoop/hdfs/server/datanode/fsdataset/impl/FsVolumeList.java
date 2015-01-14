@@ -39,16 +39,9 @@ class FsVolumeList {
   private Object checkDirsMutex = new Object();
 
   private final VolumeChoosingPolicy<FsVolumeImpl> blockChooser;
-  private volatile int numFailedVolumes;
 
-  FsVolumeList(int failedVols,
-      VolumeChoosingPolicy<FsVolumeImpl> blockChooser) {
+  FsVolumeList(VolumeChoosingPolicy<FsVolumeImpl> blockChooser) {
     this.blockChooser = blockChooser;
-    this.numFailedVolumes = failedVols;
-  }
-  
-  int numberOfFailedVolumes() {
-    return numFailedVolumes;
   }
 
   /**
@@ -198,7 +191,6 @@ class FsVolumeList {
           }
           removedVols.add(fsv);
           removeVolume(fsv);
-          numFailedVolumes++;
         }
       }
       

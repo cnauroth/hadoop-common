@@ -3178,7 +3178,7 @@ public class DataNode extends ReconfigurableBase
    *
    * @return every currently configured storage location
    */
-  synchronized List<StorageLocation> getStorageLocations() {
+  public synchronized List<StorageLocation> getStorageLocations() {
     return Lists.newArrayList(dataDirs.iterator());
   }
 }

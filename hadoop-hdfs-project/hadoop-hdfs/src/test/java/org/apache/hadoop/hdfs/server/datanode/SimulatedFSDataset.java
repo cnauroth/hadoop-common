@@ -370,6 +370,10 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
       return 0;
     }
 
+    String[] getFailedStorageLocations() {
+      return new String[] { };
+    }
+
     synchronized boolean alloc(String bpid, long amount) throws IOException {
       if (getFree() >= amount) {
         getBPStorage(bpid).alloc(amount);
@@ -603,6 +607,11 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
   @Override // FSDatasetMBean
   public int getNumFailedVolumes() {
     return storage.getNumFailedVolumes();
+  }
+
+  @Override // FSDatasetMBean
+  public String[] getFailedStorageLocations() {
+    return storage.getFailedStorageLocations();
   }
 
   @Override // FSDatasetMBean

@@ -211,7 +211,7 @@ public class TestFsDatasetImpl {
   public void testChangeVolumeWithRunningCheckDirs() throws IOException {
     RoundRobinVolumeChoosingPolicy<FsVolumeImpl> blockChooser =
         new RoundRobinVolumeChoosingPolicy<>();
-    final FsVolumeList volumeList = new FsVolumeList(0, blockChooser);
+    final FsVolumeList volumeList = new FsVolumeList(blockChooser);
     final List<FsVolumeImpl> oldVolumes = new ArrayList<>();
 
     // Initialize FsVolumeList with 5 mock volumes.

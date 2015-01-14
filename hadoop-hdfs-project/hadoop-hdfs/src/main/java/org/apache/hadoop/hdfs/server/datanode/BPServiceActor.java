@@ -23,14 +23,11 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.Sets;
 import org.apache.commons.logging.Log;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.ha.HAServiceProtocol.HAServiceState;
@@ -600,42 +597,16 @@ class BPServiceActor implements Runnable {
       LOG.debug("Sending heartbeat with " + reports.length +
                 " storage reports from service actor: " + this);
     }
-
+    String[] failedStorageLocations = dn.getFSDataset()
+        .getFailedStorageLocations();
     return bpNamenode.sendHeartbeat(bpRegistration,
         reports,
         dn.getFSDataset().getCacheCapacity(),
         dn.getFSDataset().getCacheUsed(),
         dn.getXmitsInProgress(),
         dn.getXceiverCount(),
-        dn.getFSDataset().getNumFailedVolumes(),
-        getFailedStorageLocations());
-  }
-
-  /**
-   * Returns each storage location that has failed.  The method works by
-   * determining the set difference between all configured storage locations and
-   * the storage locations currently in use by volumes.  The returned array is
-   * sorted.
-   *
-   * @return each storage location that has failed, sorted
-   */
-  private String[] getFailedStorageLocations() {
-    List<StorageLocation> confLocationList = dn.getStorageLocations();
-    Set<String> failedLocationSet = Sets.newHashSetWithExpectedSize(
-        confLocationList.size());
-    for (StorageLocation location: confLocationList) {
-      failedLocationSet.add(location.getFile().getPath());
-    }
-    for (FsVolumeSpi vol: dn.getFSDataset().getVolumes()) {
-      failedLocationSet.remove(vol.getBasePath());
-    }
-    String[] failedLocations =  failedLocationSet.toArray(
-        new String[failedLocationSet.size()]);
-    Arrays.sort(failedLocations);
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("failedLocations + " + Arrays.toString(failedLocations));
-    }
-    return failedLocations;
+        failedStorageLocations.length,
+        failedStorageLocations);
   }
   
   //This must be called only by BPOfferService

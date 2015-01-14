@@ -79,6 +79,16 @@ public interface FSDatasetMBean {
   public int getNumFailedVolumes();
 
   /**
+   * Returns each storage location that has failed.  The method works by
+   * determining the set difference between all configured storage locations and
+   * the storage locations currently in use by volumes.  The returned array is
+   * sorted.
+   *
+   * @return each storage location that has failed, sorted
+   */
+  String[] getFailedStorageLocations();
+
+  /**
    * Returns the amount of cache used by the datanode (in bytes).
    */
   public long getCacheUsed();
