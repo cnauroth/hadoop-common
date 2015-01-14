@@ -5998,7 +5998,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
 
   @Override // FSNamesystemMBean
   public int getVolumeFailuresTotal() {
-    final List<DatanodeDescriptor> live = new ArrayList<DatanodeDescriptor>();
+    List<DatanodeDescriptor> live = new ArrayList<DatanodeDescriptor>();
     getBlockManager().getDatanodeManager().fetchDatanodes(live, null, true);
     int volumeFailuresTotal = 0;
     for (DatanodeDescriptor node: live) {
