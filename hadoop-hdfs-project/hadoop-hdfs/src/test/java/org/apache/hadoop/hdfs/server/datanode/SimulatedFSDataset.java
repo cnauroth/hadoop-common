@@ -448,7 +448,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
 
     @Override
     public String getBasePath() {
-      return "/dfs/data";
+      return null;
     }
 
     @Override

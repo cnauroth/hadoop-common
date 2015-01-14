@@ -735,6 +735,11 @@ public class DatanodeDescriptor extends DatanodeInfo {
     return volumeFailures;
   }
 
+  /**
+   * Returns each storage location that has failed.
+   *
+   * @return each storage location that has failed
+   */
   public String[] getFailedStorageLocations() {
     return failedStorageLocations;
   }
