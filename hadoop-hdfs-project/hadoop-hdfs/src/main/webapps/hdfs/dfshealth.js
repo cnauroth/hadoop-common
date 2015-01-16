@@ -190,9 +190,6 @@
           $('#tab-datanode').html(out);
           $('#ui-tabs a[href="#tab-datanode"]').tab('show');
         });
-        $('#datanodes').tablesorter({
-          cancelSelection: false
-        });
       })).error(ajax_error_handler);
   }
 

@@ -254,7 +254,7 @@
 <div class="page-header"><h1>Datanode Information</h1></div>
 <div class="page-header"><h1><small>In operation</small></h1></div>
 <small>
-<table class="table" id="datanodes">
+<table class="table">
   <thead>
     <tr>
       <th>Node</th>
@@ -271,7 +271,6 @@
       <th>Version</th>
     </tr>
   </thead>
-  <tbody>
   {#LiveNodes}
   <tr>
     <td>{name} ({xferaddr})</td>
@@ -301,9 +300,9 @@
     <td>-</td>
     <td>-</td>
     <td>-</td>
+    <td>-</td>
   </tr>
   {/DeadNodes}
-  </tbody>
 </table>
 </small>
 
@@ -363,7 +362,6 @@
 </script>
 
 <script type="text/javascript" src="/static/jquery-1.10.2.min.js">
-</script><script type="text/javascript" src="/static/jquery.tablesorter.min.js">
 </script><script type="text/javascript" src="/static/bootstrap-3.0.2/js/bootstrap.min.js">
 </script><script type="text/javascript" src="/static/dust-full-2.0.0.min.js">
 </script><script type="text/javascript" src="/static/dust-helpers-1.1.1.min.js">
