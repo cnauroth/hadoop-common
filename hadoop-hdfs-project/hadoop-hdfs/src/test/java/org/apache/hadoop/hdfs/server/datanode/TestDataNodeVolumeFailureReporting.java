@@ -40,6 +40,7 @@ import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeDescriptor;
 import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeManager;
+import org.apache.hadoop.io.IOUtils;
 import org.apache.log4j.Level;
 import org.junit.After;
 import org.junit.Before;
@@ -70,29 +71,29 @@ public class TestDataNodeVolumeFailureReporting {
 
   @Before
   public void setUp() throws Exception {
-    conf = new HdfsConfiguration();
-    conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, 512L);
-    /*
-     * Lower the DN heartbeat, DF rate, and recheck interval to one second
-     * so state about failures and datanode death propagates faster.
-     */
-    conf.setInt(DFSConfigKeys.DFS_HEARTBEAT_INTERVAL_KEY, 1);
-    conf.setInt(DFSConfigKeys.DFS_DF_INTERVAL_KEY, 1000);
-    conf.setInt(DFSConfigKeys.DFS_NAMENODE_HEARTBEAT_RECHECK_INTERVAL_KEY, 1000);
+    // These tests simulate volume failures by denying execute permission on the
+    // volume's path.  On Windows, the owner of an object is always allowed
+    // access, so we can't run these tests on Windows.
+    assumeTrue(!Path.WINDOWS);
     // Allow a single volume failure (there are two volumes)
-    conf.setInt(DFSConfigKeys.DFS_DATANODE_FAILED_VOLUMES_TOLERATED_KEY, 1);
-    cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
-    cluster.waitActive();
-    fs = cluster.getFileSystem();
-    dataDir = cluster.getDataDirectory();
+    initCluster(1, 2, 1);
   }
 
   @After
   public void tearDown() throws Exception {
-    for (int i = 0; i < 3; i++) {
-      FileUtil.setExecutable(new File(dataDir, "data"+(2*i+1)), true);
-      FileUtil.setExecutable(new File(dataDir, "data"+(2*i+2)), true);
+    // Restore executable permission on all directories where a failure may have
+    // been simulated by denying execute access.  This is based on the maximum
+    // number of datanodes and the maximum number of storages per data node used
+    // throughout the tests in this suite.
+    int maxDataNodes = 3;
+    int maxStoragesPerDataNode = 4;
+    for (int i = 0; i < maxDataNodes; i++) {
+      for (int j = 1; j <= maxStoragesPerDataNode; j++) {
+        String subDir = "data" + ((i * maxStoragesPerDataNode) + j);
+        FileUtil.setExecutable(new File(dataDir, subDir), true);
+      }
     }
+    IOUtils.cleanup(LOG, fs);
     cluster.shutdown();
   }
 
@@ -103,8 +104,6 @@ public class TestDataNodeVolumeFailureReporting {
    */
   @Test
   public void testSuccessiveVolumeFailures() throws Exception {
-    assumeTrue(!System.getProperty("os.name").startsWith("Windows"));
-
     // Bring up two more datanodes
     cluster.startDataNodes(conf, 2, true, null, null);
     cluster.waitActive();
@@ -154,15 +153,18 @@ public class TestDataNodeVolumeFailureReporting {
      */
     assertCounter("VolumeFailures", 1L, 
         getMetrics(dns.get(0).getMetrics().name()));
-    assertEquals(new String[] { dn1Vol1.getAbsolutePath() },
+    assertEquals(
+        new String[] { dn1Vol1.getAbsolutePath() },
         dns.get(0).getFSDataset().getFailedStorageLocations());
     assertCounter("VolumeFailures", 1L, 
         getMetrics(dns.get(1).getMetrics().name()));
-    assertEquals(new String[] { dn2Vol1.getAbsolutePath() },
+    assertEquals(
+        new String[] { dn2Vol1.getAbsolutePath() },
         dns.get(1).getFSDataset().getFailedStorageLocations());
     assertCounter("VolumeFailures", 0L, 
         getMetrics(dns.get(2).getMetrics().name()));
-    assertEquals(ArrayUtils.EMPTY_STRING_ARRAY,
+    assertEquals(
+        ArrayUtils.EMPTY_STRING_ARRAY,
         dns.get(2).getFSDataset().getFailedStorageLocations());
 
     // Ensure we wait a sufficient amount of time
@@ -172,9 +174,11 @@ public class TestDataNodeVolumeFailureReporting {
     DFSTestUtil.waitForDatanodeStatus(dm, 3, 0, 2, 
         origCapacity - (1*dnCapacity), WAIT_FOR_HEARTBEATS);
     assertEquals(2, cluster.getNamesystem().getVolumeFailuresTotal());
-    assertEquals(new String[] { dn1Vol1.getAbsolutePath() },
+    assertEquals(
+        new String[] { dn1Vol1.getAbsolutePath() },
         getDatanodeDescriptor(dm, dns.get(0)).getFailedStorageLocations());
-    assertEquals(new String[] { dn2Vol1.getAbsolutePath() },
+    assertEquals(
+        new String[] { dn2Vol1.getAbsolutePath() },
         getDatanodeDescriptor(dm, dns.get(1)).getFailedStorageLocations());
     assertEquals(ArrayUtils.EMPTY_STRING_ARRAY,
         getDatanodeDescriptor(dm, dns.get(2)).getFailedStorageLocations());
@@ -190,13 +194,15 @@ public class TestDataNodeVolumeFailureReporting {
     assertTrue("DN3 should still be up", dns.get(2).isDatanodeUp());
     assertCounter("VolumeFailures", 1L, 
         getMetrics(dns.get(2).getMetrics().name()));
-    assertEquals(new String[] { dn3Vol1.getAbsolutePath() },
+    assertEquals(
+        new String[] { dn3Vol1.getAbsolutePath() },
         dns.get(2).getFSDataset().getFailedStorageLocations());
 
     DataNodeTestUtils.triggerHeartbeat(dns.get(2));
     assertEquals("DN3 should have 1 failed volume",
         1, getDatanodeDescriptor(dm, dns.get(2)).getVolumeFailures());
-    assertEquals(new String[] { dn3Vol1.getAbsolutePath() },
+    assertEquals(
+        new String[] { dn3Vol1.getAbsolutePath() },
         getDatanodeDescriptor(dm, dns.get(2)).getFailedStorageLocations());
 
     /*
@@ -208,11 +214,14 @@ public class TestDataNodeVolumeFailureReporting {
     DFSTestUtil.waitForDatanodeStatus(dm, 3, 0, 3, 
         origCapacity - (3*dnCapacity), WAIT_FOR_HEARTBEATS);
     assertEquals(3, cluster.getNamesystem().getVolumeFailuresTotal());
-    assertEquals(new String[] { dn1Vol1.getAbsolutePath() },
+    assertEquals(
+        new String[] { dn1Vol1.getAbsolutePath() },
         getDatanodeDescriptor(dm, dns.get(0)).getFailedStorageLocations());
-    assertEquals(new String[] { dn2Vol1.getAbsolutePath() },
+    assertEquals(
+        new String[] { dn2Vol1.getAbsolutePath() },
         getDatanodeDescriptor(dm, dns.get(1)).getFailedStorageLocations());
-    assertEquals(new String[] { dn3Vol1.getAbsolutePath() },
+    assertEquals(
+        new String[] { dn3Vol1.getAbsolutePath() },
         getDatanodeDescriptor(dm, dns.get(2)).getFailedStorageLocations());
 
     /*
@@ -240,9 +249,11 @@ public class TestDataNodeVolumeFailureReporting {
     DFSTestUtil.waitForDatanodeStatus(dm, 2, 1, 2, 
         origCapacity - (4*dnCapacity), WAIT_FOR_HEARTBEATS);
     assertEquals(2, cluster.getNamesystem().getVolumeFailuresTotal());
-    assertEquals(new String[] { dn1Vol1.getAbsolutePath() },
+    assertEquals(
+        new String[] { dn1Vol1.getAbsolutePath() },
         getDatanodeDescriptor(dm, dns.get(0)).getFailedStorageLocations());
-    assertEquals(new String[] { dn2Vol1.getAbsolutePath() },
+    assertEquals(
+        new String[] { dn2Vol1.getAbsolutePath() },
         getDatanodeDescriptor(dm, dns.get(1)).getFailedStorageLocations());
 
     /*
@@ -283,8 +294,6 @@ public class TestDataNodeVolumeFailureReporting {
    */
   @Test
   public void testVolFailureStatsPreservedOnNNRestart() throws Exception {
-    assumeTrue(!System.getProperty("os.name").startsWith("Windows"));
-
     // Bring up two more datanodes that can tolerate 1 failure
     cluster.startDataNodes(conf, 2, true, null, null);
     cluster.waitActive();
@@ -304,11 +313,18 @@ public class TestDataNodeVolumeFailureReporting {
     Path file1 = new Path("/test1");
     DFSTestUtil.createFile(fs, file1, 1024, (short)2, 1L);
     DFSTestUtil.waitReplication(fs, file1, (short)2);
+    ArrayList<DataNode> dns = cluster.getDataNodes();
 
     // The NN reports two volumes failures
     DFSTestUtil.waitForDatanodeStatus(dm, 3, 0, 2, 
         origCapacity - (1*dnCapacity), WAIT_FOR_HEARTBEATS);
     assertEquals(2, cluster.getNamesystem().getVolumeFailuresTotal());
+    assertEquals(
+        new String[] { dn1Vol1.getAbsolutePath() },
+        getDatanodeDescriptor(dm, dns.get(0)).getFailedStorageLocations());
+    assertEquals(
+        new String[] { dn2Vol1.getAbsolutePath() },
+        getDatanodeDescriptor(dm, dns.get(1)).getFailedStorageLocations());
 
     // After restarting the NN it still see the two failures
     cluster.restartNameNode(0);
@@ -316,9 +332,85 @@ public class TestDataNodeVolumeFailureReporting {
     DFSTestUtil.waitForDatanodeStatus(dm, 3, 0, 2,
         origCapacity - (1*dnCapacity), WAIT_FOR_HEARTBEATS);
     assertEquals(2, cluster.getNamesystem().getVolumeFailuresTotal());
+    assertEquals(
+        new String[] { dn1Vol1.getAbsolutePath() },
+        getDatanodeDescriptor(dm, dns.get(0)).getFailedStorageLocations());
+    assertEquals(
+        new String[] { dn2Vol1.getAbsolutePath() },
+        getDatanodeDescriptor(dm, dns.get(1)).getFailedStorageLocations());
   }
 
-  // TODO: test for multiple volume failures on a single DN
+  @Test
+  public void testMultipleVolFailuresOnNode() throws Exception {
+    // Reinitialize the cluster, configured with 4 storage locations per DataNode
+    // and tolerating up to 2 failures.
+    tearDown();
+    initCluster(3, 4, 2);
+
+    // Calculate the total capacity of all the datanodes. Sleep for three seconds
+    // to be sure the datanodes have had a chance to heartbeat their capacities.
+    Thread.sleep(WAIT_FOR_HEARTBEATS);
+    DatanodeManager dm = cluster.getNamesystem().getBlockManager()
+        .getDatanodeManager();
+
+    long origCapacity = DFSTestUtil.getLiveDatanodeCapacity(dm);
+    long dnCapacity = DFSTestUtil.getDatanodeCapacity(dm, 0);
+
+    File dn1Vol1 = new File(dataDir, "data"+(4*0+1));
+    File dn1Vol2 = new File(dataDir, "data"+(4*0+2));
+    File dn2Vol1 = new File(dataDir, "data"+(4*1+1));
+    File dn2Vol2 = new File(dataDir, "data"+(4*1+2));
+
+    // Make the first two volume directories on the first two datanodes
+    // non-accessible.
+    assertTrue("Couldn't chmod local vol", FileUtil.setExecutable(dn1Vol1,
+        false));
+    assertTrue("Couldn't chmod local vol", FileUtil.setExecutable(dn1Vol2,
+        false));
+    assertTrue("Couldn't chmod local vol", FileUtil.setExecutable(dn2Vol1,
+        false));
+    assertTrue("Couldn't chmod local vol", FileUtil.setExecutable(dn2Vol2,
+        false));
+
+    // Create file1 and wait for 3 replicas (ie all DNs can still store a block).
+    // Then assert that all DNs are up, despite the volume failures.
+    Path file1 = new Path("/test1");
+    DFSTestUtil.createFile(fs, file1, 1024, (short)3, 1L);
+    DFSTestUtil.waitReplication(fs, file1, (short)3);
+
+    ArrayList<DataNode> dns = cluster.getDataNodes();
+    assertTrue("DN1 should be up", dns.get(0).isDatanodeUp());
+    assertTrue("DN2 should be up", dns.get(1).isDatanodeUp());
+    assertTrue("DN3 should be up", dns.get(2).isDatanodeUp());
+
+    assertEquals(2, dns.get(0).getFSDataset().getNumFailedVolumes());
+    assertEquals(
+        new String[] { dn1Vol1.getAbsolutePath(), dn1Vol2.getAbsolutePath() },
+        dns.get(0).getFSDataset().getFailedStorageLocations());
+    assertEquals(2, dns.get(1).getFSDataset().getNumFailedVolumes());
+    assertEquals(
+        new String[] { dn2Vol1.getAbsolutePath(), dn2Vol2.getAbsolutePath() },
+        dns.get(1).getFSDataset().getFailedStorageLocations());
+    assertEquals(0, dns.get(2).getFSDataset().getNumFailedVolumes());
+    assertEquals(ArrayUtils.EMPTY_STRING_ARRAY,
+        dns.get(2).getFSDataset().getFailedStorageLocations());
+
+    // Ensure we wait a sufficient amount of time
+    assert (WAIT_FOR_HEARTBEATS * 10) > WAIT_FOR_DEATH;
+
+    // Eventually the NN should report four volume failures
+    DFSTestUtil.waitForDatanodeStatus(dm, 3, 0, 4,
+        origCapacity - (1*dnCapacity), WAIT_FOR_HEARTBEATS);
+    assertEquals(4, cluster.getNamesystem().getVolumeFailuresTotal());
+    assertEquals(
+        new String[] { dn1Vol1.getAbsolutePath(), dn1Vol2.getAbsolutePath() },
+        getDatanodeDescriptor(dm, dns.get(0)).getFailedStorageLocations());
+    assertEquals(
+        new String[] { dn2Vol1.getAbsolutePath(), dn2Vol2.getAbsolutePath() },
+        getDatanodeDescriptor(dm, dns.get(1)).getFailedStorageLocations());
+    assertEquals(ArrayUtils.EMPTY_STRING_ARRAY,
+        getDatanodeDescriptor(dm, dns.get(2)).getFailedStorageLocations());
+  }
 
   /**
    * Returns the DatanodeDescriptor tracked by the NameNode for the specified
@@ -332,5 +424,33 @@ public class TestDataNodeVolumeFailureReporting {
       DataNode dn) throws Exception {
     return cluster.getNamesystem().getBlockManager().getDatanodeManager()
         .getDatanode(dn.getDatanodeId());
+  }
+
+  /**
+   * Initializes the cluster.
+   *
+   * @param numDataNodes number of datanodes
+   * @param storagesPerDatanode number of storage locations on each datanode
+   * @param failedVolumesTolerated number of acceptable volume failures
+   * @throws Exception if there is any failure
+   */
+  private void initCluster(int numDataNodes, int storagesPerDatanode,
+      int failedVolumesTolerated) throws Exception {
+    conf = new HdfsConfiguration();
+    conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, 512L);
+    /*
+     * Lower the DN heartbeat, DF rate, and recheck interval to one second
+     * so state about failures and datanode death propagates faster.
+     */
+    conf.setInt(DFSConfigKeys.DFS_HEARTBEAT_INTERVAL_KEY, 1);
+    conf.setInt(DFSConfigKeys.DFS_DF_INTERVAL_KEY, 1000);
+    conf.setInt(DFSConfigKeys.DFS_NAMENODE_HEARTBEAT_RECHECK_INTERVAL_KEY, 1000);
+    conf.setInt(DFSConfigKeys.DFS_DATANODE_FAILED_VOLUMES_TOLERATED_KEY,
+        failedVolumesTolerated);
+    cluster = new MiniDFSCluster.Builder(conf).numDataNodes(numDataNodes)
+        .storagesPerDatanode(storagesPerDatanode).build();
+    cluster.waitActive();
+    fs = cluster.getFileSystem();
+    dataDir = cluster.getDataDirectory();
   }
 }
