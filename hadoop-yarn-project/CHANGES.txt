@@ -75,7 +75,13 @@ Release 2.7.0 - UNRELEASED
     YARN-2427. Added the API of moving apps between queues in RM web services.
     (Varun Vasudev via zjshen)
 
+    YARN-2217. [YARN-1492] Shared cache client side changes. 
+    (Chris Trezzo via kasha)
+
   IMPROVEMENTS
+
+    YARN-3005. [JDK7] Use switch statement for String instead of if-else
+    statement in RegistrySecurity.java (Kengo Seki via aajisaka)
 
     YARN-2950. Change message to mandate, not suggest JS requirement on UI.
     (Dustin Cote via harsh)
@@ -185,6 +191,9 @@ Release 2.7.0 - UNRELEASED
 
     YARN-3019. Make work-preserving-recovery the default mechanism for RM 
     recovery. (Jian He via junping_du)
+
+    YARN-2807. Option "--forceactive" not works as described in usage of
+    "yarn rmadmin -transitionToActive". (Masatake Iwasaki via xgong)
 
   OPTIMIZATIONS
 
@@ -361,6 +370,9 @@ Release 2.7.0 - UNRELEASED
 
     YARN-2637. Fixed max-am-resource-percent calculation in CapacityScheduler
     when activating applications. (Craig Welch via jianhe)
+
+    YARN-2861. Fixed Timeline DT secret manager to not reuse RM's configs.
+    (Zhijie Shen via jianhe)
 
 Release 2.6.0 - 2014-11-18
 

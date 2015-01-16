@@ -385,6 +385,8 @@ Release 2.7.0 - UNRELEASED
 
   IMPROVEMENTS
 
+    HADOOP-11483. HardLink.java should use the jdk7 createLink method (aajisaka)
+
     HADOOP-11156. DelegateToFileSystem should implement
     getFsStatus(final Path f). (Zhihai Xu via wang)
 
@@ -478,6 +480,12 @@ Release 2.7.0 - UNRELEASED
     HADOOP-11465. Fix findbugs warnings in hadoop-gridmix. (Varun Saxena via
     Arpit Agarwal)
 
+    HADOOP-11481. ClassCastException while using a key created by keytool to
+    create encryption zone. (Charles Lamb via Colin P. Mccabe)
+
+    HADOOP-8757. Metrics should disallow names with invalid characters
+    (rchiang via rkanter)
+
   OPTIMIZATIONS
 
     HADOOP-11323. WritableComparator#compare keeps reference to byte array.
@@ -493,6 +501,8 @@ Release 2.7.0 - UNRELEASED
     full. (Eric Hanson via cnauroth)
 
   BUG FIXES
+
+    HADOOP-11318. Update the document for hadoop fs -stat (aajisaka)
 
     HADOOP 11400. GraphiteSink does not reconnect to Graphite after 'broken pipe' 
     (Kamil Gorlo via raviprak)
@@ -700,6 +710,9 @@ Release 2.7.0 - UNRELEASED
 
     HADOOP-11462. TestSocketIOWithTimeout needs change for PowerPC platform.
     (Ayappan via cnauroth)
+
+    HADOOP-11350. The size of header buffer of HttpServer is too small when
+    HTTPS is enabled. (Benoy Antony via wheat9)
 
 Release 2.6.0 - 2014-11-18
 

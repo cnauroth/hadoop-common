@@ -129,6 +129,13 @@ Trunk (Unreleased)
     HDFS-6609. Use DirectorySnapshottableFeature to represent a snapshottable
     directory. (Jing Zhao via wheat9)
 
+    HDFS-5782. Change BlockListAsLongs constructor to take Replica as parameter
+    type instead of concrete classes Block and ReplicaInfo.  (David Powell
+    and Joe Pallas via szetszwo)
+
+    HDFS-7591. hdfs classpath command should support same options as hadoop
+    classpath (Varun Saxena via Arpit Agarwal)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -260,6 +267,8 @@ Trunk (Unreleased)
     (Masatake Iwasaki via wheat9)
 
     HDFS-7407. Minor typo in privileged pid/out/log names (aw)
+
+    HDFS-7581. HDFS documentation needs updating post-shell rewrite (aw)
 
 Release 2.7.0 - UNRELEASED
 
@@ -502,10 +511,18 @@ Release 2.7.0 - UNRELEASED
 
     HDFS-7600. Refine hdfs admin classes to reuse common code. (jing9)
 
+    HDFS-2219. Change fsck to support fully qualified paths so that a 
+    particular namenode in a federated cluster with multiple namenodes
+    can be specified in the path parameter.  (szetszwo)
+
+    HDFS-7457. DatanodeID generates excessive garbage. (daryn via kihwal)
+
   OPTIMIZATIONS
 
     HDFS-7454. Reduce memory footprint for AclEntries in NameNode.
     (Vinayakumar B via wheat9)
+
+    HDFS-7615. Remove longReadLock (kihwal)
 
   BUG FIXES
 
@@ -690,6 +707,9 @@ Release 2.7.0 - UNRELEASED
 
     HDFS-7470. SecondaryNameNode need twice memory when calling
     reloadFromImageFile. (zhaoyunjiong via cnauroth)
+
+    HDFS-7585. Get TestEnhancedByteBufferAccess working on CPU architectures
+    with page sizes other than 4096 (Sam Liu via Colin P. McCabe)
 
 Release 2.6.1 - UNRELEASED
 
