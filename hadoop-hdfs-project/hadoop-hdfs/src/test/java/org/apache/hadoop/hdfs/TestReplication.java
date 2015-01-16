@@ -349,7 +349,6 @@ public class TestReplication {
           0, Long.MAX_VALUE).get(0).getBlock();
       
       cluster.shutdown();
-      cluster = null;
       
       for (int i=0; i<25; i++) {
         buffer[i] = '0';
