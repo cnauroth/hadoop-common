@@ -822,6 +822,20 @@ public class YarnConfiguration extends Configuration {
       "container-monitor.procfs-tree.smaps-based-rss.enabled";
   public static final boolean DEFAULT_PROCFS_USE_SMAPS_BASED_RSS_ENABLED =
       false;
+
+  /** Enable/disable container metrics. */
+  @Private
+  public static final String NM_CONTAINER_METRICS_ENABLE =
+      NM_PREFIX + "container-metrics.enable";
+  @Private
+  public static final boolean DEFAULT_NM_CONTAINER_METRICS_ENABLE = true;
+
+  /** Container metrics flush period. -1 for flush on completion. */
+  @Private
+  public static final String NM_CONTAINER_METRICS_PERIOD_MS =
+      NM_PREFIX + "container-metrics.period-ms";
+  @Private
+  public static final int DEFAULT_NM_CONTAINER_METRICS_PERIOD_MS = -1;
   
   /** Prefix for all node manager disk health checker configs. */
   private static final String NM_DISK_HEALTH_CHECK_PREFIX =
@@ -1190,6 +1204,11 @@ public class YarnConfiguration extends Configuration {
       YARN_MC_PREFIX + "control-resource-monitoring";
   public static final boolean
       DEFAULT_YARN_MINICLUSTER_CONTROL_RESOURCE_MONITORING = false;
+
+  /** Allow changing the memory for the NodeManager in the MiniYARNCluster */
+  public static final String YARN_MINICLUSTER_NM_PMEM_MB =
+      YARN_MC_PREFIX + YarnConfiguration.NM_PMEM_MB;
+  public static final int DEFAULT_YARN_MINICLUSTER_NM_PMEM_MB = 4 * 1024;
 
   /** The log directory for the containers */
   public static final String YARN_APP_CONTAINER_LOG_DIR =
@@ -1634,14 +1653,10 @@ public class YarnConfiguration extends Configuration {
   public static final String YARN_HTTP_POLICY_DEFAULT = HttpConfig.Policy.HTTP_ONLY
       .name();
   
-  public static final String NODE_LABELS_PREFIX = YARN_PREFIX + "node-labels.";
-
   /**
-   * Class for RMNodeLabelsManager Please note this value should be consistent
-   * in client nodes and RM node(s)
+   * Node-labels configurations
    */
-  public static final String RM_NODE_LABELS_MANAGER_CLASS = NODE_LABELS_PREFIX
-      + "manager-class";
+  public static final String NODE_LABELS_PREFIX = YARN_PREFIX + "node-labels.";
   
   /** URI for NodeLabelManager */
   public static final String FS_NODE_LABELS_STORE_ROOT_DIR = NODE_LABELS_PREFIX
@@ -1650,6 +1665,14 @@ public class YarnConfiguration extends Configuration {
       NODE_LABELS_PREFIX + "fs-store.retry-policy-spec";
   public static final String DEFAULT_FS_NODE_LABELS_STORE_RETRY_POLICY_SPEC =
       "2000, 500";
+  
+  /**
+   * Flag to indicate if the node labels feature enabled, by default it's
+   * disabled
+   */
+  public static final String NODE_LABELS_ENABLED = NODE_LABELS_PREFIX
+      + "enabled";
+  public static final boolean DEFAULT_NODE_LABELS_ENABLED = false;
 
   public YarnConfiguration() {
     super();

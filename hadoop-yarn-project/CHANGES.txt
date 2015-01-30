@@ -34,6 +34,9 @@ Trunk - Unreleased
 
     YARN-3002. YARN documentation needs updating post-shell rewrite (aw)
 
+    YARN-2428. LCE default banned user list should have yarn (Varun
+    Saxena via aw)
+
 Release 2.7.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -195,9 +198,39 @@ Release 2.7.0 - UNRELEASED
     YARN-2807. Option "--forceactive" not works as described in usage of
     "yarn rmadmin -transitionToActive". (Masatake Iwasaki via xgong)
 
+    YARN-2984. Metrics for container's actual memory usage. (kasha)
+
+    YARN-2800. Remove MemoryNodeLabelsStore and add a way to enable/disable
+    node labels feature. (Wangda Tan via ozawa)
+
+    YARN-3024. LocalizerRunner should give DIE action when all resources are
+    localized. (Chengbing Liu via xgong)
+
+    YARN-3092. Created a common ResourceUsage class to track labeled resource
+    usages in Capacity Scheduler. (Wangda Tan via jianhe)
+
+    YARN-3086. Make NodeManager memory configurable in MiniYARNCluster.
+    (Robert Metzger via ozawa)
+
+    YARN-2897. CrossOriginFilter needs more log statements (Mit Desai via
+    jeagles)
+
+    YARN-3028. Better syntax for replaceLabelsOnNode in RMAdmin CLI
+    (Rohith Sharmaks via wangda)
+
+    YARN-2932. Add entry for "preemptable" status (enabled/disabled) to 
+    scheduler web UI and queue initialize/refresh logging. 
+    (Eric Payne via wangda)
+
+    YARN-3108. ApplicationHistoryServer doesn't process -D arguments (Chang Li
+    via jeagles)
+
   OPTIMIZATIONS
 
   BUG FIXES
+
+    YARN-3071. Remove invalid char from sample conf in doc of FairScheduler.
+    (Masatake Iwasaki via aajisaka)
 
     YARN-2254. TestRMWebServicesAppsModification should run against both 
     CS and FS. (Zhihai Xu via kasha)
@@ -376,6 +409,42 @@ Release 2.7.0 - UNRELEASED
 
     YARN-3064. TestRMRestart/TestContainerResourceUsage/TestNodeManagerResync 
     failure with allocation timeout. (Jian He via junping_du)
+
+    YARN-2815. Excluded transitive dependency of JLine in hadoop-yarn-server-common.
+    (Ferdinand Xu via zjshen)
+
+    YARN-3070. TestRMAdminCLI#testHelp fails for transitionToActive command. 
+    (Contributed by Junping Du)
+
+    YARN-3015. yarn classpath command should support same options as hadoop
+    classpath. (Contributed by Varun Saxena)
+
+    YARN-2933. Capacity Scheduler preemption policy should only consider capacity 
+    without labels temporarily. (Mayank Bansal via wangda)
+
+    YARN-2731. Fixed RegisterApplicationMasterResponsePBImpl to properly invoke 
+    maybeInitBuilder. (Carlo Curino via wangda)
+
+    YARN-3078. LogCLIHelpers lacks of a blank space before string 'does not exist'.
+    (Sam Liu via ozawa)
+
+    YARN-3082. Non thread safe access to systemCredentials in NodeHeartbeatResponse
+    processing. (Anubhav Dhoot via ozawa)
+
+    YARN-3088. LinuxContainerExecutor.deleteAsUser can throw NPE if native
+    executor returns an error (Eric Payne via jlowe)
+
+    YARN-3011. Possible IllegalArgumentException in ResourceLocalizationService
+    might lead NM to crash. (Varun Saxena via jianhe)
+
+    YARN-3103. AMRMClientImpl does not update AMRM token properly. (Jason Lowe
+    via jianhe)
+
+    YARN-3079. Scheduler should also update maximumAllocation when updateNodeResource.
+    (Zhihai Xu via wangda)
+
+    YARN-3029. FSDownload.unpack() uses local locale for FS case conversion, may not
+    work everywhere. (Varun Saxena via ozawa)
 
 Release 2.6.0 - 2014-11-18
 

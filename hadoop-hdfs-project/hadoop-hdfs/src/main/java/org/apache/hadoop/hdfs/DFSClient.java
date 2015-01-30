@@ -275,7 +275,6 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
   private static ThreadPoolExecutor HEDGED_READ_THREAD_POOL;
   @VisibleForTesting
   KeyProvider provider;
-  private final SpanReceiverHost spanReceiverHost;
   private final Sampler<?> traceSampler;
 
   /**
@@ -620,7 +619,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
   public DFSClient(URI nameNodeUri, ClientProtocol rpcNamenode,
       Configuration conf, FileSystem.Statistics stats)
     throws IOException {
-    spanReceiverHost = SpanReceiverHost.getInstance(conf);
+    SpanReceiverHost.getInstance(conf);
     traceSampler = TraceSamplerFactory.createSampler(conf);
     // Copy only the required DFSClient configuration
     this.dfsClientConf = new Conf(conf);
@@ -1656,9 +1655,8 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
    * @param checksumOpt checksum options
    * 
    * @return output stream
-   * 
-   * @see ClientProtocol#create(String, FsPermission, String, EnumSetWritable,
-   * boolean, short, long) for detailed description of exceptions thrown
+   *
+   * @see ClientProtocol#create for detailed description of exceptions thrown
    */
   public DFSOutputStream create(String src, 
                              FsPermission permission,
@@ -1732,7 +1730,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
         }
         return null;
       }
-      return callAppend(src, buffersize, progress);
+      return callAppend(src, buffersize, flag, progress);
     }
     return null;
   }
@@ -1810,11 +1808,16 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
   }
 
   /** Method to get stream returned by append call */
-  private DFSOutputStream callAppend(String src,
-      int buffersize, Progressable progress) throws IOException {
-    LastBlockWithStatus lastBlockWithStatus = null;
+  private DFSOutputStream callAppend(String src, int buffersize,
+      EnumSet<CreateFlag> flag, Progressable progress) throws IOException {
+    CreateFlag.validateForAppend(flag);
     try {
-      lastBlockWithStatus = namenode.append(src, clientName);
+      LastBlockWithStatus blkWithStatus = namenode.append(src, clientName,
+          new EnumSetWritable<>(flag, CreateFlag.class));
+      return DFSOutputStream.newStreamForAppend(this, src,
+          flag.contains(CreateFlag.NEW_BLOCK),
+          buffersize, progress, blkWithStatus.getLastBlock(),
+          blkWithStatus.getFileStatus(), dfsClientConf.createChecksum());
     } catch(RemoteException re) {
       throw re.unwrapRemoteException(AccessControlException.class,
                                      FileNotFoundException.class,
@@ -1824,10 +1827,6 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
                                      UnresolvedPathException.class,
                                      SnapshotAccessControlException.class);
     }
-    HdfsFileStatus newStat = lastBlockWithStatus.getFileStatus();
-    return DFSOutputStream.newStreamForAppend(this, src, buffersize, progress,
-        lastBlockWithStatus.getLastBlock(), newStat,
-        dfsClientConf.createChecksum());
   }
   
   /**
@@ -1835,23 +1834,25 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
    * 
    * @param src file name
    * @param buffersize buffer size
+   * @param flag indicates whether to append data to a new block instead of
+   *             the last block
    * @param progress for reporting write-progress; null is acceptable.
    * @param statistics file system statistics; null is acceptable.
    * @return an output stream for writing into the file
    * 
-   * @see ClientProtocol#append(String, String) 
+   * @see ClientProtocol#append(String, String, EnumSetWritable)
    */
   public HdfsDataOutputStream append(final String src, final int buffersize,
-      final Progressable progress, final FileSystem.Statistics statistics
-      ) throws IOException {
-    final DFSOutputStream out = append(src, buffersize, progress);
+      EnumSet<CreateFlag> flag, final Progressable progress,
+      final FileSystem.Statistics statistics) throws IOException {
+    final DFSOutputStream out = append(src, buffersize, flag, progress);
     return createWrappedOutputStream(out, statistics, out.getInitialLen());
   }
 
-  private DFSOutputStream append(String src, int buffersize, Progressable progress) 
-      throws IOException {
+  private DFSOutputStream append(String src, int buffersize,
+      EnumSet<CreateFlag> flag, Progressable progress) throws IOException {
     checkOpen();
-    final DFSOutputStream result = callAppend(src, buffersize, progress);
+    final DFSOutputStream result = callAppend(src, buffersize, flag, progress);
     beginFileLease(result.getFileId(), result);
     return result;
   }
@@ -1938,7 +1939,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
 
   /**
    * Move blocks from src to trg and delete src
-   * See {@link ClientProtocol#concat(String, String [])}. 
+   * See {@link ClientProtocol#concat}.
    */
   public void concat(String trg, String [] srcs) throws IOException {
     checkOpen();
@@ -1980,10 +1981,14 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
 
   /**
    * Truncate a file to an indicated size
-   * See {@link ClientProtocol#truncate(String, long)}. 
+   * See {@link ClientProtocol#truncate}.
    */
   public boolean truncate(String src, long newLength) throws IOException {
     checkOpen();
+    if (newLength < 0) {
+      throw new HadoopIllegalArgumentException(
+          "Cannot truncate to a negative file size: " + newLength + ".");
+    }
     TraceScope scope = getPathTraceScope("truncate", src);
     try {
       return namenode.truncate(src, newLength, clientName);
@@ -3001,7 +3006,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
   
   /**
    * Get {@link ContentSummary} rooted at the specified directory.
-   * @param path The string representation of the path
+   * @param src The string representation of the path
    * 
    * @see ClientProtocol#getContentSummary(String)
    */

@@ -412,7 +412,7 @@ public class INodeFile extends INodeWithAdditionalFields
   }
 
   /** @return the diskspace required for a full block. */
-  final long getBlockDiskspace() {
+  final long getPreferredBlockDiskspace() {
     return getPreferredBlockSize() * getBlockReplication();
   }
 
@@ -432,7 +432,7 @@ public class INodeFile extends INodeWithAdditionalFields
       return snapshotBlocks;
     // Blocks are not in the current snapshot
     // Find next snapshot with blocks present or return current file blocks
-    snapshotBlocks = getDiffs().findLaterSnapshotBlocks(diff.getSnapshotId());
+    snapshotBlocks = getDiffs().findLaterSnapshotBlocks(snapshot);
     return (snapshotBlocks == null) ? getBlocks() : snapshotBlocks;
   }
 

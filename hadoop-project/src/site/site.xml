@@ -60,7 +60,7 @@
     <menu name="Common" inherit="top">
       <item name="CLI Mini Cluster" href="hadoop-project-dist/hadoop-common/CLIMiniCluster.html"/>
       <item name="Native Libraries" href="hadoop-project-dist/hadoop-common/NativeLibraries.html"/>
-      <item name="Superusers" href="hadoop-project-dist/hadoop-common/Superusers.html"/>
+      <item name="Proxy User" href="hadoop-project-dist/hadoop-common/Superusers.html"/>
       <item name="Secure Mode" href="hadoop-project-dist/hadoop-common/SecureMode.html"/>
       <item name="Service Level Authorization" href="hadoop-project-dist/hadoop-common/ServiceLevelAuth.html"/>
       <item name="HTTP Authentication" href="hadoop-project-dist/hadoop-common/HttpAuthentication.html"/>
@@ -105,6 +105,8 @@
       <item name="Hadoop Streaming" href="hadoop-mapreduce-client/hadoop-mapreduce-client-core/HadoopStreaming.html"/>
       <item name="Hadoop Archives" href="hadoop-mapreduce-client/hadoop-mapreduce-client-core/HadoopArchives.html"/>
       <item name="DistCp" href="hadoop-mapreduce-client/hadoop-mapreduce-client-core/DistCp.html"/>
+      <item name="GridMix" href="hadoop-gridmix/GridMix.html"/>
+      <item name="Rumen" href="hadoop-rumen/Rumen.html"/>
     </menu>
 
     <menu name="MapReduce REST APIs" inherit="top">

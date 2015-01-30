@@ -314,13 +314,19 @@ public class DistributedFileSystem extends FileSystem {
   @Override
   public FSDataOutputStream append(Path f, final int bufferSize,
       final Progressable progress) throws IOException {
+    return append(f, EnumSet.of(CreateFlag.APPEND), bufferSize, progress);
+  }
+
+  public FSDataOutputStream append(Path f, final EnumSet<CreateFlag> flag,
+      final int bufferSize, final Progressable progress) throws IOException {
     statistics.incrementWriteOps(1);
     Path absF = fixRelativePart(f);
     return new FileSystemLinkResolver<FSDataOutputStream>() {
       @Override
       public FSDataOutputStream doCall(final Path p)
-          throws IOException, UnresolvedLinkException {
-        return dfs.append(getPathName(p), bufferSize, progress, statistics);
+          throws IOException {
+        return dfs.append(getPathName(p), bufferSize, flag, progress,
+            statistics);
       }
       @Override
       public FSDataOutputStream next(final FileSystem fs, final Path p)
@@ -627,17 +633,22 @@ public class DistributedFileSystem extends FileSystem {
     }
   }
 
-  /**
-   * Truncate the file in the indicated path to the indicated size.
-   * @param f The path to the file to be truncated
-   * @param newLength The size the file is to be truncated to
-   *
-   * @return true if and client does not need to wait for block recovery,
-   * false if client needs to wait for block recovery.
-   */
+  @Override
   public boolean truncate(Path f, final long newLength) throws IOException {
     statistics.incrementWriteOps(1);
-    return dfs.truncate(getPathName(f), newLength);
+    Path absF = fixRelativePart(f);
+    return new FileSystemLinkResolver<Boolean>() {
+      @Override
+      public Boolean doCall(final Path p)
+          throws IOException, UnresolvedLinkException {
+        return dfs.truncate(getPathName(p), newLength);
+      }
+      @Override
+      public Boolean next(final FileSystem fs, final Path p)
+          throws IOException {
+        return fs.truncate(p, newLength);
+      }
+    }.resolve(this, absF);
   }
 
   @Override

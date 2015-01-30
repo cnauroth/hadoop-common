@@ -34,10 +34,12 @@ import java.io.IOException;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.HadoopIllegalArgumentException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FsShell;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.AppendTestUtil;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
@@ -55,6 +57,7 @@ import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.StartupOption;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.hadoop.util.Time;
+import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Level;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -441,6 +444,14 @@ public class TestFileTruncate {
     } catch(IOException expected) {}
     out.close();
 
+    try {
+      fs.truncate(p, -1);
+      fail("Truncate must fail for a negative new length.");
+    } catch (HadoopIllegalArgumentException expected) {
+      GenericTestUtils.assertExceptionContains(
+          "Cannot truncate to a negative file size", expected);
+    }
+
     cluster.shutdownDataNodes();
     NameNodeAdapter.getLeaseManager(cluster.getNamesystem())
         .setLeasePeriod(LOW_SOFTLIMIT, LOW_HARDLIMIT);
@@ -485,6 +496,11 @@ public class TestFileTruncate {
    */
   @Test
   public void testTruncateEditLogLoad() throws IOException {
+    // purge previously accumulated edits
+    fs.setSafeMode(SafeModeAction.SAFEMODE_ENTER);
+    fs.saveNamespace();
+    fs.setSafeMode(SafeModeAction.SAFEMODE_LEAVE);
+
     int startingFileSize = 2 * BLOCK_SIZE + BLOCK_SIZE / 2;
     int toTruncate = 1;
     final String s = "/testTruncateEditLogLoad";
@@ -673,6 +689,103 @@ public class TestFileTruncate {
     }
     checkBlockRecovery(srcPath);
     fs.deleteSnapshot(parent, "ss0");
+    fs.delete(parent, true);
+  }
+
+  @Test
+  public void testTruncateShellCommand() throws Exception {
+    final Path parent = new Path("/test");
+    final Path src = new Path("/test/testTruncateShellCommand");
+    final int oldLength = 2*BLOCK_SIZE + 1;
+    final int newLength = BLOCK_SIZE + 1;
+
+    String[] argv =
+        new String[]{"-truncate", String.valueOf(newLength), src.toString()};
+    runTruncateShellCommand(src, oldLength, argv);
+
+    // wait for block recovery
+    checkBlockRecovery(src);
+    assertThat(fs.getFileStatus(src).getLen(), is((long) newLength));
+    fs.delete(parent, true);
+  }
+
+  @Test
+  public void testTruncateShellCommandOnBlockBoundary() throws Exception {
+    final Path parent = new Path("/test");
+    final Path src = new Path("/test/testTruncateShellCommandOnBoundary");
+    final int oldLength = 2 * BLOCK_SIZE;
+    final int newLength = BLOCK_SIZE;
+
+    String[] argv =
+        new String[]{"-truncate", String.valueOf(newLength), src.toString()};
+    runTruncateShellCommand(src, oldLength, argv);
+
+    // shouldn't need to wait for block recovery
+    assertThat(fs.getFileStatus(src).getLen(), is((long) newLength));
+    fs.delete(parent, true);
+  }
+
+  @Test
+  public void testTruncateShellCommandWithWaitOption() throws Exception {
+    final Path parent = new Path("/test");
+    final Path src = new Path("/test/testTruncateShellCommandWithWaitOption");
+    final int oldLength = 2 * BLOCK_SIZE + 1;
+    final int newLength = BLOCK_SIZE + 1;
+
+    String[] argv = new String[]{"-truncate", "-w", String.valueOf(newLength),
+        src.toString()};
+    runTruncateShellCommand(src, oldLength, argv);
+
+    // shouldn't need to wait for block recovery
+    assertThat(fs.getFileStatus(src).getLen(), is((long) newLength));
+    fs.delete(parent, true);
+  }
+
+  private void runTruncateShellCommand(Path src, int oldLength,
+                                       String[] shellOpts) throws Exception {
+    // create file and write data
+    writeContents(AppendTestUtil.initBuffer(oldLength), oldLength, src);
+    assertThat(fs.getFileStatus(src).getLen(), is((long)oldLength));
+
+    // truncate file using shell
+    FsShell shell = null;
+    try {
+      shell = new FsShell(conf);
+      assertThat(ToolRunner.run(shell, shellOpts), is(0));
+    } finally {
+      if(shell != null) {
+        shell.close();
+      }
+    }
+  }
+
+  @Test
+  public void testTruncate4Symlink() throws IOException {
+    final int fileLength = 3 * BLOCK_SIZE;
+
+    final Path parent = new Path("/test");
+    fs.mkdirs(parent);
+    final byte[] contents = AppendTestUtil.initBuffer(fileLength);
+    final Path file = new Path(parent, "testTruncate4Symlink");
+    writeContents(contents, fileLength, file);
+
+    final Path link = new Path(parent, "link");
+    fs.createSymlink(file, link, false);
+
+    final int newLength = fileLength/3;
+    boolean isReady = fs.truncate(link, newLength);
+
+    assertTrue("Recovery is not expected.", isReady);
+
+    FileStatus fileStatus = fs.getFileStatus(file);
+    assertThat(fileStatus.getLen(), is((long) newLength));
+
+    ContentSummary cs = fs.getContentSummary(parent);
+    assertEquals("Bad disk space usage",
+        cs.getSpaceConsumed(), newLength * REPLICATION);
+    // validate the file content
+    checkFullFile(file, newLength, contents);
+
     fs.delete(parent, true);
   }
 

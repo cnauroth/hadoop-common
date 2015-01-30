@@ -58,9 +58,7 @@ import org.apache.hadoop.hdfs.server.blockmanagement.BlockManager;
 import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeStorageInfo;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.BlockUCState;
 import org.apache.hadoop.hdfs.server.namenode.INode.BlocksMapUpdateInfo;
-import org.apache.hadoop.hdfs.server.namenode.snapshot.Snapshot;
 import org.apache.hadoop.hdfs.util.ByteArray;
-import org.apache.hadoop.util.ChunkedArrayList;
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.slf4j.Logger;
@@ -454,7 +452,7 @@ public class FSDirectory implements Closeable {
       Preconditions.checkState(fileINode.isUnderConstruction());
 
       // check quota limits and updated space consumed
-      updateCount(inodesInPath, 0, fileINode.getBlockDiskspace(), true);
+      updateCount(inodesInPath, 0, fileINode.getPreferredBlockDiskspace(), true);
 
       // associate new last block for the file
       BlockInfoUnderConstruction blockInfo =
@@ -510,7 +508,7 @@ public class FSDirectory implements Closeable {
     }
 
     // update space consumed
-    updateCount(iip, 0, -fileNode.getBlockDiskspace(), true);
+    updateCount(iip, 0, -fileNode.getPreferredBlockDiskspace(), true);
     return true;
   }
 
@@ -538,54 +536,6 @@ public class FSDirectory implements Closeable {
   }
 
   /**
-   * Delete the target directory and collect the blocks under it
-   *
-   * @param iip the INodesInPath instance containing all the INodes for the path
-   * @param collectedBlocks Blocks under the deleted directory
-   * @param removedINodes INodes that should be removed from {@link #inodeMap}
-   * @return the number of files that have been removed
-   */
-  long delete(INodesInPath iip, BlocksMapUpdateInfo collectedBlocks,
-              List<INode> removedINodes, long mtime) throws IOException {
-    if (NameNode.stateChangeLog.isDebugEnabled()) {
-      NameNode.stateChangeLog.debug("DIR* FSDirectory.delete: " + iip.getPath());
-    }
-    final long filesRemoved;
-    writeLock();
-    try {
-      if (!deleteAllowed(iip, iip.getPath()) ) {
-        filesRemoved = -1;
-      } else {
-        List<INodeDirectory> snapshottableDirs = new ArrayList<INodeDirectory>();
-        FSDirSnapshotOp.checkSnapshot(iip.getLastINode(), snapshottableDirs);
-        filesRemoved = unprotectedDelete(iip, collectedBlocks,
-            removedINodes, mtime);
-        namesystem.removeSnapshottableDirs(snapshottableDirs);
-      }
-    } finally {
-      writeUnlock();
-    }
-    return filesRemoved;
-  }
-  
-  private static boolean deleteAllowed(final INodesInPath iip,
-      final String src) {
-    if (iip.length() < 1 || iip.getLastINode() == null) {
-      if(NameNode.stateChangeLog.isDebugEnabled()) {
-        NameNode.stateChangeLog.debug("DIR* FSDirectory.unprotectedDelete: "
-            + "failed to remove " + src + " because it does not exist");
-      }
-      return false;
-    } else if (iip.length() == 1) { // src is the root
-      NameNode.stateChangeLog.warn("DIR* FSDirectory.unprotectedDelete: "
-          + "failed to remove " + src
-          + " because the root is not allowed to be deleted");
-      return false;
-    }
-    return true;
-  }
-  
-  /**
    * @return true if the path is a non-empty directory; otherwise, return false.
    */
   boolean isNonEmptyDirectory(INodesInPath inodesInPath) {
@@ -604,92 +554,6 @@ public class FSDirectory implements Closeable {
   }
 
   /**
-   * Delete a path from the name space
-   * Update the count at each ancestor directory with quota
-   * <br>
-   * Note: This is to be used by {@link FSEditLog} only.
-   * <br>
-   * @param src a string representation of a path to an inode
-   * @param mtime the time the inode is removed
-   * @throws SnapshotAccessControlException if path is in RO snapshot
-   */
-  void unprotectedDelete(String src, long mtime) throws UnresolvedLinkException,
-      QuotaExceededException, SnapshotAccessControlException, IOException {
-    assert hasWriteLock();
-    BlocksMapUpdateInfo collectedBlocks = new BlocksMapUpdateInfo();
-    List<INode> removedINodes = new ChunkedArrayList<INode>();
-
-    final INodesInPath inodesInPath = getINodesInPath4Write(
-        normalizePath(src), false);
-    long filesRemoved = -1;
-    if (deleteAllowed(inodesInPath, src)) {
-      List<INodeDirectory> snapshottableDirs = new ArrayList<INodeDirectory>();
-      FSDirSnapshotOp.checkSnapshot(inodesInPath.getLastINode(), snapshottableDirs);
-      filesRemoved = unprotectedDelete(inodesInPath, collectedBlocks,
-          removedINodes, mtime);
-      namesystem.removeSnapshottableDirs(snapshottableDirs); 
-    }
-
-    if (filesRemoved >= 0) {
-      getFSNamesystem().removePathAndBlocks(src, collectedBlocks, 
-          removedINodes, false);
-    }
-  }
-  
-  /**
-   * Delete a path from the name space
-   * Update the count at each ancestor directory with quota
-   * @param iip the inodes resolved from the path
-   * @param collectedBlocks blocks collected from the deleted path
-   * @param removedINodes inodes that should be removed from {@link #inodeMap}
-   * @param mtime the time the inode is removed
-   * @return the number of inodes deleted; 0 if no inodes are deleted.
-   */ 
-  long unprotectedDelete(INodesInPath iip, BlocksMapUpdateInfo collectedBlocks,
-      List<INode> removedINodes, long mtime) throws QuotaExceededException {
-    assert hasWriteLock();
-
-    // check if target node exists
-    INode targetNode = iip.getLastINode();
-    if (targetNode == null) {
-      return -1;
-    }
-
-    // record modification
-    final int latestSnapshot = iip.getLatestSnapshotId();
-    targetNode.recordModification(latestSnapshot);
-
-    // Remove the node from the namespace
-    long removed = removeLastINode(iip);
-    if (removed == -1) {
-      return -1;
-    }
-
-    // set the parent's modification time
-    final INodeDirectory parent = targetNode.getParent();
-    parent.updateModificationTime(mtime, latestSnapshot);
-    if (removed == 0) {
-      return 0;
-    }
-    
-    // collect block
-    if (!targetNode.isInLatestSnapshot(latestSnapshot)) {
-      targetNode.destroyAndCollectBlocks(collectedBlocks, removedINodes);
-    } else {
-      Quota.Counts counts = targetNode.cleanSubtree(CURRENT_STATE_ID,
-          latestSnapshot, collectedBlocks, removedINodes, true);
-      parent.addSpaceConsumed(-counts.get(Quota.NAMESPACE),
-          -counts.get(Quota.DISKSPACE), true);
-      removed = counts.get(Quota.NAMESPACE);
-    }
-    if (NameNode.stateChangeLog.isDebugEnabled()) {
-      NameNode.stateChangeLog.debug("DIR* FSDirectory.unprotectedDelete: "
-          + iip.getPath() + " is removed");
-    }
-    return removed;
-  }
-
-  /** 
    * Check whether the filepath could be created
    * @throws SnapshotAccessControlException if path is in RO snapshot
    */
@@ -737,7 +601,22 @@ public class FSDirectory implements Closeable {
       writeUnlock();
     }
   }
-  
+
+  /**
+   * Update the quota usage after deletion. The quota update is only necessary
+   * when image/edits have been loaded and the file/dir to be deleted is not
+   * contained in snapshots.
+   */
+  void updateCountForDelete(final INode inode, final INodesInPath iip)
+      throws QuotaExceededException {
+    if (getFSNamesystem().isImageLoaded() &&
+        !inode.isInLatestSnapshot(iip.getLatestSnapshotId())) {
+      Quota.Counts counts = inode.computeQuotaUsage();
+      updateCount(iip, -counts.get(Quota.NAMESPACE),
+          -counts.get(Quota.DISKSPACE), false);
+    }
+  }
+
   void updateCount(INodesInPath iip, long nsDelta, long dsDelta,
       boolean checkQuota) throws QuotaExceededException {
     updateCount(iip, iip.length() - 1, nsDelta, dsDelta, checkQuota);
@@ -1040,11 +919,12 @@ public class FSDirectory implements Closeable {
 
   /**
    * Remove the last inode in the path from the namespace.
-   * Count of each ancestor with quota is also updated.
+   * Note: the caller needs to update the ancestors' quota count.
+   *
    * @return -1 for failing to remove;
    *          0 for removing a reference whose referred inode has other 
    *            reference nodes;
-   *         >0 otherwise. 
+   *          1 otherwise.
    */
   long removeLastINode(final INodesInPath iip) throws QuotaExceededException {
     final int latestSnapshot = iip.getLatestSnapshotId();
@@ -1053,19 +933,9 @@ public class FSDirectory implements Closeable {
     if (!parent.removeChild(last, latestSnapshot)) {
       return -1;
     }
-    
-    if (!last.isInLatestSnapshot(latestSnapshot)) {
-      final Quota.Counts counts = last.computeQuotaUsage();
-      updateCountNoQuotaCheck(iip, iip.length() - 1,
-          -counts.get(Quota.NAMESPACE), -counts.get(Quota.DISKSPACE));
 
-      if (INodeReference.tryRemoveReference(last) > 0) {
-        return 0;
-      } else {
-        return counts.get(Quota.NAMESPACE);
-      }
-    }
-    return 1;
+    return (!last.isInLatestSnapshot(latestSnapshot)
+        && INodeReference.tryRemoveReference(last) > 0) ? 0 : 1;
   }
 
   static String normalizePath(String src) {
@@ -1447,7 +1317,7 @@ public class FSDirectory implements Closeable {
 
   /** Check if a given path is reserved */
   public static boolean isReservedName(String src) {
-    return src.startsWith(DOT_RESERVED_PATH_PREFIX);
+    return src.startsWith(DOT_RESERVED_PATH_PREFIX + Path.SEPARATOR);
   }
 
   static boolean isReservedRawName(String src) {
