@@ -209,10 +209,10 @@
     var hash = window.location.hash;
     switch(hash) {
       case "#tab-datanode":
-        load_datanode_info('datanode-info', '#tab-datanode');
+        load_datanode_info('datanode-info', hash);
         break;
       case "#tab-datanode-volumes":
-        load_datanode_info('datanode-volumes', '#tab-datanode-volumes');
+        load_datanode_info('datanode-volumes', hash);
         break;
       case "#tab-snapshot":
         load_snapshot_info();
