@@ -519,6 +519,11 @@ Release 2.7.0 - UNRELEASED
     HADOOP-11441. Hadoop-azure: Change few methods scope to public.
     (Shashank Khandelwal via cnauroth)
 
+    HADOOP-9137. Support connection limiting in IPC server (kihwal)
+
+    HADOOP-11498. Bump the version of HTrace to 3.1.0-incubating (Masatake
+    Iwasaki via Colin P. McCabe)
+
   OPTIMIZATIONS
 
     HADOOP-11323. WritableComparator#compare keeps reference to byte array.
@@ -534,6 +539,9 @@ Release 2.7.0 - UNRELEASED
     full. (Eric Hanson via cnauroth)
 
   BUG FIXES
+
+    HADOOP-11488. Difference in default connection timeout for S3A FS
+    (Daisuke Kobayashi via harsh)
 
     HADOOP-11256. Some site docs have inconsistent appearance (Masatake 
     Iwasaki via aw)
@@ -799,6 +807,12 @@ Release 2.7.0 - UNRELEASED
 
     HADOOP-11523. StorageException complaining " no lease ID" when updating
     FolderLastModifiedTime in WASB. (Duo Xu via cnauroth)
+
+    HADOOP-11432. Fix SymlinkBaseTest#testCreateLinkUsingPartQualPath2.
+    (Liang Xie via gera)
+
+    HADOOP-10181. GangliaContext does not work with multicast ganglia setup.
+    (Andrew Johnson via cnauroth)
 
 Release 2.6.1 - UNRELEASED
 
