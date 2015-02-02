@@ -187,9 +187,6 @@
       guard_with_startup_progress(function (resp) {
         var data = workaround(resp.beans[0]);
         var base = dust.makeBase(HELPERS);
-        // dust.render('datanode-info', base.push(data), function(err, out) {
-        //   $('#tab-datanode').html(out);
-        //   $('#ui-tabs a[href="#tab-datanode"]').tab('show');
         dust.render(template, base.push(data), function(err, out) {
           $(tab).html(out);
           $('#ui-tabs a[href="' + tab + '"]').tab('show');
