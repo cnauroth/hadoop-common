@@ -34,6 +34,7 @@
   <ul class="nav navbar-nav" id="ui-tabs">
     <li><a href="#tab-overview">Overview</a></li>
     <li><a href="#tab-datanode">Datanodes</a></li>
+    <li><a href="#tab-datanode-volumes">Datanode Volumes</a></li>
     <li><a href="#tab-snapshot">Snapshot</a></li>
     <li><a href="#tab-startup-progress">Startup Progress</a></li>
     <li class="dropdown">
@@ -59,6 +60,7 @@
 <div class="tab-content">
   <div class="tab-pane" id="tab-overview"></div>
   <div class="tab-pane" id="tab-datanode"></div>
+  <div class="tab-pane" id="tab-datanode-volumes"></div>
   <div class="tab-pane" id="tab-snapshot"></div>
   <div class="tab-pane" id="tab-startup-progress"></div>
 </div>
@@ -168,7 +170,7 @@
   <tr><th title="Excludes missing blocks.">Number of Under-Replicated Blocks</th><td>{UnderReplicatedBlocks}</td></tr>
   <tr><th>Number of Blocks Pending Deletion</th><td>{PendingDeletionBlocks}</td></tr>
   <tr><th>Block Deletion Start Time</th><td>{BlockDeletionStartTime|date_tostring}</td></tr>
-  <tr><th><a href="#tab-datanode">Total Failed Volumes</a></th><td>{VolumeFailuresTotal}</td></tr>
+  <tr><th><a href="#tab-datanode-volumes">Total Failed Volumes</a></th><td>{VolumeFailuresTotal}</td></tr>
 {/fs}
 </table>
 
@@ -264,7 +266,6 @@
       <th>Blocks</th>
       <th>Block pool used</th>
       <th>Failed Volumes</th>
-      <th>Failed Storage Locations</th>
       <th>Version</th>
     </tr>
   </thead>
@@ -280,7 +281,6 @@
     <td>{numBlocks}</td>
     <td>{blockPoolUsed|fmt_bytes} ({blockPoolUsedPercent|fmt_percentage})</td>
     <td>{volfails}</td>
-    <td>{#failedStorageLocations}{.}{@sep}<br />{/sep}{/failedStorageLocations}</td>
     <td>{version}</td>
   </tr>
   {/LiveNodes}
@@ -289,7 +289,6 @@
     <td>{name} ({xferaddr})</td>
     <td>{#helper_lastcontact_tostring value="{lastContact}"/}</td>
     <td>Dead{?decommissioned}, Decommissioned{/decommissioned}</td>
-    <td>-</td>
     <td>-</td>
     <td>-</td>
     <td>-</td>
@@ -324,6 +323,34 @@
     <td>{underReplicateInOpenFiles}</td>
   </tr>
   {/DecomNodes}
+</table>
+</small>
+</script>
+
+<script type="text/x-dust-template" id="tmpl-datanode-volumes">
+<div class="page-header"><h1>Datanode Volumes</h1></div>
+<small>
+<table class="table">
+  <thead>
+    <tr>
+      <th>Node</th>
+      <th>Last Contact</th>
+      <th>Last Failure Time</th>
+      <th>Failed Volumes</th>
+      <th>Estimated Capacity Lost</th>
+      <th>Failed Storage Locations</th>
+    </tr>
+  </thead>
+  {#LiveNodes}
+  <tr>
+    <td>{name} ({xferaddr})</td>
+    <td>{lastContact}</td>
+    <td>TODO</td>
+    <td>{volfails}</td>
+    <td>TODO</td>
+    <td>{#failedStorageLocations}{.}{@sep}<br />{/sep}{/failedStorageLocations}</td>
+  </tr>
+  {/LiveNodes}
 </table>
 </small>
 </script>

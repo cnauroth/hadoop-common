@@ -21,6 +21,7 @@
   dust.loadSource(dust.compile($('#tmpl-dfshealth').html(), 'dfshealth'));
   dust.loadSource(dust.compile($('#tmpl-startup-progress').html(), 'startup-progress'));
   dust.loadSource(dust.compile($('#tmpl-datanode').html(), 'datanode-info'));
+  dust.loadSource(dust.compile($('#tmpl-datanode-volumes').html(), 'datanode-volumes'));
   dust.loadSource(dust.compile($('#tmpl-snapshot').html(), 'snapshot-info'));
 
   function load_overview() {
@@ -155,7 +156,7 @@
     }).error(ajax_error_handler);
   }
 
-  function load_datanode_info() {
+  function load_datanode_info(template, tab) {
 
     var HELPERS = {
       'helper_lastcontact_tostring' : function (chunk, ctx, bodies, params) {
@@ -186,9 +187,12 @@
       guard_with_startup_progress(function (resp) {
         var data = workaround(resp.beans[0]);
         var base = dust.makeBase(HELPERS);
-        dust.render('datanode-info', base.push(data), function(err, out) {
-          $('#tab-datanode').html(out);
-          $('#ui-tabs a[href="#tab-datanode"]').tab('show');
+        // dust.render('datanode-info', base.push(data), function(err, out) {
+        //   $('#tab-datanode').html(out);
+        //   $('#ui-tabs a[href="#tab-datanode"]').tab('show');
+        dust.render(template, base.push(data), function(err, out) {
+          $(tab).html(out);
+          $('#ui-tabs a[href="' + tab + '"]').tab('show');
         });
       })).error(ajax_error_handler);
   }
@@ -208,7 +212,10 @@
     var hash = window.location.hash;
     switch(hash) {
       case "#tab-datanode":
-        load_datanode_info();
+        load_datanode_info('datanode-info', '#tab-datanode');
+        break;
+      case "#tab-datanode-volumes":
+        load_datanode_info('datanode-volumes', '#tab-datanode-volumes');
         break;
       case "#tab-snapshot":
         load_snapshot_info();
