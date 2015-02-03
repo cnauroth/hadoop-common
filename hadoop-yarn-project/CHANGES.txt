@@ -25,9 +25,6 @@ Trunk - Unreleased
     YARN-1471. The SLS simulator is not running the preemption policy 
     for CapacityScheduler (Carlo Curino via cdouglas)
 
-    YARN-2216 TestRMApplicationHistoryWriter sometimes fails in trunk.
-    (Zhijie Shen via xgong)
-
     YARN-2436. [post-HADOOP-9902] yarn application help doesn't work (aw)
 
     YARN-2525. yarn logs command gives error on trunk (Akira AJISAKA via aw)
@@ -224,6 +221,23 @@ Release 2.7.0 - UNRELEASED
 
     YARN-3108. ApplicationHistoryServer doesn't process -D arguments (Chang Li
     via jeagles)
+
+    YARN-2808. Made YARN CLI list attempt’s finished containers of a running
+    application. (Naganarasimha G R via zjshen)
+
+    YARN-3085. Application summary should include the application type (Rohith
+    via jlowe)
+
+    YARN-3022. Expose Container resource information from NodeManager for
+    monitoring (adhoot via ranter)
+
+    YARN-3098. Created common QueueCapacities class in Capacity Scheduler to
+    track capacities-by-labels of queues. (Wangda Tan via jianhe)
+
+    YARN-3075. NodeLabelsManager implementation to retrieve label to node 
+    mapping (Varun Saxena via wangda)
+
+    YARN-1393. SLS: Add how-to-use instructions. (Wei Yan via kasha)
 
   OPTIMIZATIONS
 
@@ -1699,6 +1713,9 @@ Release 2.5.0 - 2014-08-11
 
     YARN-1726. ResourceSchedulerWrapper broken due to AbstractYarnScheduler. 
     (Wei Yan via kasha)
+
+    YARN-2216. TestRMApplicationHistoryWriter sometimes fails in trunk.
+    (Zhijie Shen via xgong)
 
 Release 2.4.1 - 2014-06-23 
 

@@ -127,22 +127,11 @@ Trunk (Unreleased)
     HDFS-6609. Use DirectorySnapshottableFeature to represent a snapshottable
     directory. (Jing Zhao via wheat9)
 
-    HDFS-5782. Change BlockListAsLongs constructor to take Replica as parameter
-    type instead of concrete classes Block and ReplicaInfo.  (David Powell
-    and Joe Pallas via szetszwo)
-
     HDFS-7591. hdfs classpath command should support same options as hadoop
     classpath (Varun Saxena via Arpit Agarwal)
 
-    HDFS-5631. Change BlockMetadataHeader.readHeader(..), ChunkChecksum
-    class and constructor to public; and fix FsDatasetSpi to use generic type
-    instead of FsVolumeImpl.  (David Powell and Joe Pallas via szetszwo)
-
     HDFS-7430. Rewrite the BlockScanner to use O(1) memory and use multiple
     threads (cmccabe)
-
-    HDFS-7681. Change ReplicaInputStreams constructor to take InputStream(s)
-    instead of FileDescriptor(s).  (Joe Pallas via szetszwo)
 
   OPTIMIZATIONS
 
@@ -288,6 +277,9 @@ Trunk (Unreleased)
 
     HDFS-7320. The appearance of hadoop-hdfs-httpfs site docs is inconsistent 
     (Masatake Iwasaki via aw)
+
+    HDFS-7721. The HDFS BlockScanner may run fast during the first hour
+    (cmccabe)
 
 Release 2.7.0 - UNRELEASED
 
@@ -566,6 +558,17 @@ Release 2.7.0 - UNRELEASED
 
     HDFS-7706. Switch BlockManager logging to use slf4j. (wang)
 
+    HDFS-5631. Change BlockMetadataHeader.readHeader(..), ChunkChecksum
+    class and constructor to public; and fix FsDatasetSpi to use generic type
+    instead of FsVolumeImpl.  (David Powell and Joe Pallas via szetszwo)
+
+    HDFS-5782. Change BlockListAsLongs constructor to take Replica as parameter
+    type instead of concrete classes Block and ReplicaInfo.  (David Powell
+    and Joe Pallas via szetszwo)
+
+    HDFS-7681. Change ReplicaInputStreams constructor to take InputStream(s)
+    instead of FileDescriptor(s).  (Joe Pallas via szetszwo)
+
   OPTIMIZATIONS
 
     HDFS-7454. Reduce memory footprint for AclEntries in NameNode.
@@ -820,6 +823,15 @@ Release 2.7.0 - UNRELEASED
 
     HDFS-7423. various typos and message formatting fixes in nfs daemon and
     doc. (Charles Lamb via yliu)
+
+    HDFS-7696. In FsDatasetImpl, the getBlockInputStream(..) and
+    getTmpInputStreams(..) methods may leak file descriptors.  (szetszwo)
+
+    HDFS-6651. Deletion failure can leak inodes permanently.
+    (Jing Zhao via wheat9)
+
+    HDFS-7707. Edit log corruption due to delayed block removal again.
+    (Yongjun Zhang via kihwal)
 
 Release 2.6.1 - UNRELEASED
 
