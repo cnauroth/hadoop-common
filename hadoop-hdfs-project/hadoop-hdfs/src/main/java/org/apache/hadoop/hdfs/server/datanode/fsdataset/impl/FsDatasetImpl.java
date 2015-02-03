@@ -492,6 +492,39 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     return getVolumeFailureInfos().length;
   }
 
+  @Override // FSDatasetMBean
+  public String[] getFailedStorageLocations() {
+    VolumeFailureInfo[] infos = getVolumeFailureInfos();
+    List<String> failedStorageLocations = Lists.newArrayListWithCapacity(
+        infos.length);
+    for (VolumeFailureInfo info: infos) {
+      failedStorageLocations.add(info.getFailedStorageLocation());
+    }
+    return failedStorageLocations.toArray(
+        new String[failedStorageLocations.size()]);
+  }
+
+  @Override // FSDatasetMBean
+  public long getLastVolumeFailureDate() {
+    long lastVolumeFailureDate = 0;
+    for (VolumeFailureInfo info: getVolumeFailureInfos()) {
+      long failureDate = info.getFailureDate();
+      if (failureDate > lastVolumeFailureDate) {
+        lastVolumeFailureDate = failureDate;
+      }
+    }
+    return lastVolumeFailureDate;
+  }
+
+  @Override // FSDatasetMBean
+  public long getEstimatedCapacityLostTotal() {
+    long total = 0;
+    for (VolumeFailureInfo info: getVolumeFailureInfos()) {
+      total += info.getEstimatedCapacityLost();
+    }
+    return total;
+  }
+
   @Override // FsDatasetSpi
   public VolumeFailureInfo[] getVolumeFailureInfos() {
     return volumes.getVolumeFailureInfos();
