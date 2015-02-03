@@ -598,6 +598,7 @@ public class DataNode extends ReconfigurableBase
         }
       }
 
+      // TOOD: possible opportunity to remove from failure map here?
       if (!changedVolumes.deactivateLocations.isEmpty()) {
         LOG.info("Deactivating volumes: " +
             Joiner.on(",").join(changedVolumes.deactivateLocations));

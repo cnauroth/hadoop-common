@@ -20,7 +20,6 @@ package org.apache.hadoop.hdfs.server.blockmanagement;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -29,6 +28,7 @@ import org.apache.hadoop.hdfs.DFSUtil;
 import org.apache.hadoop.hdfs.protocol.DatanodeID;
 import org.apache.hadoop.hdfs.server.namenode.Namesystem;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
+import org.apache.hadoop.hdfs.server.protocol.VolumeFailureInfo;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 
@@ -194,7 +194,7 @@ class HeartbeatManager implements DatanodeStatistics {
 
       //update its timestamp
       d.updateHeartbeatState(StorageReport.EMPTY_ARRAY, 0L, 0L, 0, 0,
-          ArrayUtils.EMPTY_STRING_ARRAY);
+          VolumeFailureInfo.EMPTY_ARRAY);
     }
   }
 
@@ -219,10 +219,11 @@ class HeartbeatManager implements DatanodeStatistics {
 
   synchronized void updateHeartbeat(final DatanodeDescriptor node,
       StorageReport[] reports, long cacheCapacity, long cacheUsed,
-      int xceiverCount, int failedVolumes, String[] failedStorageLocations) {
+      int xceiverCount, int failedVolumes,
+      VolumeFailureInfo[] volumeFailureInfos) {
     stats.subtract(node);
     node.updateHeartbeat(reports, cacheCapacity, cacheUsed,
-      xceiverCount, failedVolumes, failedStorageLocations);
+      xceiverCount, failedVolumes, volumeFailureInfos);
     stats.add(node);
   }
 

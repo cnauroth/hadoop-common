@@ -35,7 +35,6 @@ import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 import javax.management.StandardMBean;
 
-import org.apache.commons.lang.ArrayUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.StorageType;
@@ -58,6 +57,7 @@ import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
 import org.apache.hadoop.hdfs.server.protocol.NamespaceInfo;
 import org.apache.hadoop.hdfs.server.protocol.ReplicaRecoveryInfo;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
+import org.apache.hadoop.hdfs.server.protocol.VolumeFailureInfo;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.metrics2.util.MBeans;
 import org.apache.hadoop.util.DataChecksum;
@@ -368,11 +368,11 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     }
     
     int getNumFailedVolumes() {
-      return getFailedStorageLocations().length;
+      return getVolumeFailureInfos().length;
     }
 
-    String[] getFailedStorageLocations() {
-      return ArrayUtils.EMPTY_STRING_ARRAY;
+    VolumeFailureInfo[] getVolumeFailureInfos() {
+      return VolumeFailureInfo.EMPTY_ARRAY;
     }
 
     synchronized boolean alloc(String bpid, long amount) throws IOException {
@@ -631,9 +631,9 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     return storage.getNumFailedVolumes();
   }
 
-  @Override // FSDatasetMBean
-  public String[] getFailedStorageLocations() {
-    return storage.getFailedStorageLocations();
+  @Override // FsDatasetSpi
+  public VolumeFailureInfo[] getVolumeFailureInfos() {
+    return storage.getVolumeFailureInfos();
   }
 
   @Override // FSDatasetMBean

@@ -21,7 +21,6 @@ package org.apache.hadoop.hdfs.server.datanode.extdataset;
 import java.io.*;
 import java.util.*;
 
-import org.apache.commons.lang.ArrayUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.StorageType;
 import org.apache.hadoop.hdfs.protocol.Block;
@@ -41,6 +40,7 @@ import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
 import org.apache.hadoop.hdfs.server.protocol.NamespaceInfo;
 import org.apache.hadoop.hdfs.server.protocol.ReplicaRecoveryInfo;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
+import org.apache.hadoop.hdfs.server.protocol.VolumeFailureInfo;
 import org.apache.hadoop.util.DiskChecker;
 import org.apache.hadoop.util.DiskChecker.DiskErrorException;
 
@@ -373,11 +373,11 @@ public class ExternalDatasetImpl implements FsDatasetSpi<ExternalVolumeImpl> {
 
   @Override
   public int getNumFailedVolumes() {
-    return getFailedStorageLocations().length;
+    return getVolumeFailureInfos().length;
   }
 
-  public String[] getFailedStorageLocations() {
-    return ArrayUtils.EMPTY_STRING_ARRAY;
+  public VolumeFailureInfo[] getVolumeFailureInfos() {
+    return VolumeFailureInfo.EMPTY_ARRAY;
   }
 
   @Override

@@ -161,6 +161,17 @@ message RegisterDatanodeResponseProto {
 }
 
 /**
+ * failedStorageLocation - storage location that has failed
+ * failureDate - date/time of failure in milliseconds since epoch
+ * estimatedCapacityLost - estimate of capacity lost due to this failure in bytes
+ */
+message VolumeFailureInfoProto {
+  required string failedStorageLocation = 1;
+  required uint64 failureDate = 2;
+  required uint64 estimatedCapacityLost = 3;
+}
+
+/**
  * registration - datanode registration information
  * capacity - total storage capacity available at the datanode
  * dfsUsed - storage used by HDFS
@@ -171,7 +182,7 @@ message RegisterDatanodeResponseProto {
  * failedVolumes - number of failed volumes
  * cacheCapacity - total cache capacity available at the datanode
  * cacheUsed - amount of cache used
- * failedStorageLocations - each storage location that has failed
+ * volumeFailureInfos - each storage location that has failed
  */
 message HeartbeatRequestProto {
   required DatanodeRegistrationProto registration = 1; // Datanode info
@@ -181,7 +192,7 @@ message HeartbeatRequestProto {
   optional uint32 failedVolumes = 5 [ default = 0 ];
   optional uint64 cacheCapacity = 6 [ default = 0 ];
   optional uint64 cacheUsed = 7 [default = 0 ];
-  repeated string failedStorageLocations = 8;
+  repeated VolumeFailureInfoProto volumeFailureInfos = 8;
 }
 
 /**

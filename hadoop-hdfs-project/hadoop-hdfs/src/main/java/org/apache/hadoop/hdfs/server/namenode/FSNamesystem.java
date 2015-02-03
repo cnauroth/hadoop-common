@@ -250,6 +250,7 @@ import org.apache.hadoop.hdfs.server.protocol.NamenodeRegistration;
 import org.apache.hadoop.hdfs.server.protocol.NamespaceInfo;
 import org.apache.hadoop.hdfs.server.protocol.StorageReceivedDeletedBlocks;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
+import org.apache.hadoop.hdfs.server.protocol.VolumeFailureInfo;
 import org.apache.hadoop.io.EnumSetWritable;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.Text;
@@ -4398,7 +4399,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   HeartbeatResponse handleHeartbeat(DatanodeRegistration nodeReg,
       StorageReport[] reports, long cacheCapacity, long cacheUsed,
       int xceiverCount, int xmitsInProgress, int failedVolumes,
-      String[] failedStorageLocations) throws IOException {
+      VolumeFailureInfo[] volumeFailureInfos) throws IOException {
     readLock();
     try {
       //get datanode commands
@@ -4406,7 +4407,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
           - xmitsInProgress;
       DatanodeCommand[] cmds = blockManager.getDatanodeManager().handleHeartbeat(
           nodeReg, reports, blockPoolId, cacheCapacity, cacheUsed,
-          xceiverCount, maxTransfer, failedVolumes, failedStorageLocations);
+          xceiverCount, maxTransfer, failedVolumes, volumeFailureInfos);
       
       //create ha status
       final NNHAStatusHeartbeat haState = new NNHAStatusHeartbeat(
@@ -6789,7 +6790,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
           .put("blockPoolUsed", node.getBlockPoolUsed())
           .put("blockPoolUsedPercent", node.getBlockPoolUsedPercent())
           .put("volfails", node.getVolumeFailures())
-          .put("failedStorageLocations", node.getFailedStorageLocations())
+          .put("volumeFailureInfos", node.getVolumeFailureInfos())
           .build();
       info.put(node.getHostName() + ":" + node.getXferPort(), innerinfo);
     }

@@ -56,6 +56,7 @@ import org.apache.hadoop.hdfs.server.protocol.ReceivedDeletedBlockInfo;
 import org.apache.hadoop.hdfs.server.protocol.StorageBlockReport;
 import org.apache.hadoop.hdfs.server.protocol.StorageReceivedDeletedBlocks;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
+import org.apache.hadoop.hdfs.server.protocol.VolumeFailureInfo;
 
 import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
@@ -104,13 +105,13 @@ public class DatanodeProtocolServerSideTranslatorPB implements
     try {
       final StorageReport[] report = PBHelper.convertStorageReports(
           request.getReportsList());
-      List<String> failedStoragesList = request.getFailedStorageLocationsList();
-      String[] failedStorages = failedStoragesList.toArray(
-          new String[failedStoragesList.size()]);
+      VolumeFailureInfo[] volumeFailureInfos = PBHelper
+          .convertVolumeFailureInfos(request.getVolumeFailureInfosList());
       response = impl.sendHeartbeat(PBHelper.convert(request.getRegistration()),
           report, request.getCacheCapacity(), request.getCacheUsed(),
           request.getXmitsInProgress(),
-          request.getXceiverCount(), request.getFailedVolumes(), failedStorages);
+          request.getXceiverCount(), request.getFailedVolumes(),
+          volumeFailureInfos);
     } catch (IOException e) {
       throw new ServiceException(e);
     }

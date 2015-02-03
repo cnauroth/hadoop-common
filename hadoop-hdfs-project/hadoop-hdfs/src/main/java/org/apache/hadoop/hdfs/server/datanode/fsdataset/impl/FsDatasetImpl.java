@@ -100,6 +100,7 @@ import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
 import org.apache.hadoop.hdfs.server.protocol.NamespaceInfo;
 import org.apache.hadoop.hdfs.server.protocol.ReplicaRecoveryInfo;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
+import org.apache.hadoop.hdfs.server.protocol.VolumeFailureInfo;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.MultipleIOException;
 import org.apache.hadoop.io.nativeio.NativeIO;
@@ -489,27 +490,12 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
    */
   @Override // FSDatasetMBean
   public int getNumFailedVolumes() {
-    return getFailedStorageLocations().length;
+    return getVolumeFailureInfos().length;
   }
 
-  @Override // FSDatasetMBean
-  public String[] getFailedStorageLocations() {
-    List<StorageLocation> confLocationList = datanode.getStorageLocations();
-    Set<String> failedLocationSet = Sets.newHashSetWithExpectedSize(
-        confLocationList.size());
-    for (StorageLocation location: confLocationList) {
-      failedLocationSet.add(location.getFile().getPath());
-    }
-    for (FsVolumeSpi vol: getVolumes()) {
-      failedLocationSet.remove(vol.getBasePath());
-    }
-    String[] failedLocations =  failedLocationSet.toArray(
-        new String[failedLocationSet.size()]);
-    Arrays.sort(failedLocations);
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("failedLocations + " + Arrays.toString(failedLocations));
-    }
-    return failedLocations;
+  @Override // FsDatasetSpi
+  public VolumeFailureInfo[] getVolumeFailureInfos() {
+    return volumes.getVolumeFailureInfos();
   }
 
   @Override // FSDatasetMBean

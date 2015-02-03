@@ -53,6 +53,7 @@ import org.apache.hadoop.hdfs.server.protocol.ReceivedDeletedBlockInfo;
 import org.apache.hadoop.hdfs.server.protocol.StorageBlockReport;
 import org.apache.hadoop.hdfs.server.protocol.StorageReceivedDeletedBlocks;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
+import org.apache.hadoop.hdfs.server.protocol.VolumeFailureInfo;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.ipc.RemoteException;
 import org.apache.hadoop.util.Time;
@@ -596,16 +597,17 @@ class BPServiceActor implements Runnable {
       LOG.debug("Sending heartbeat with " + reports.length +
                 " storage reports from service actor: " + this);
     }
-    String[] failedStorageLocations = dn.getFSDataset()
-        .getFailedStorageLocations();
+    
+    VolumeFailureInfo[] volumeFailureInfos = dn.getFSDataset()
+        .getVolumeFailureInfos();
     return bpNamenode.sendHeartbeat(bpRegistration,
         reports,
         dn.getFSDataset().getCacheCapacity(),
         dn.getFSDataset().getCacheUsed(),
         dn.getXmitsInProgress(),
         dn.getXceiverCount(),
-        failedStorageLocations.length,
-        failedStorageLocations);
+        volumeFailureInfos.length,
+        volumeFailureInfos);
   }
   
   //This must be called only by BPOfferService

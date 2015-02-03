@@ -28,7 +28,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.apache.commons.lang.ArrayUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
@@ -42,6 +41,7 @@ import org.apache.hadoop.hdfs.server.common.StorageInfo;
 import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeRegistration;
+import org.apache.hadoop.hdfs.server.protocol.VolumeFailureInfo;
 import org.apache.hadoop.test.PathUtils;
 import org.apache.hadoop.util.VersionInfo;
 import org.junit.AfterClass;
@@ -98,7 +98,7 @@ public class TestReplicationPolicyConsiderLoad {
           2*HdfsConstants.MIN_BLOCKS_FOR_WRITE*blockSize, 0L);
       dataNodes[i].updateHeartbeat(
           BlockManagerTestUtil.getStorageReportsForDatanode(dataNodes[i]),
-          0L, 0L, 0, 0, ArrayUtils.EMPTY_STRING_ARRAY);
+          0L, 0L, 0, 0, VolumeFailureInfo.EMPTY_ARRAY);
     }
   }
 
@@ -116,17 +116,17 @@ public class TestReplicationPolicyConsiderLoad {
           BlockManagerTestUtil.getStorageReportsForDatanode(dataNodes[3]),
           blockPoolId, dataNodes[3].getCacheCapacity(),
           dataNodes[3].getCacheRemaining(),
-          2, 0, 0, ArrayUtils.EMPTY_STRING_ARRAY);
+          2, 0, 0, VolumeFailureInfo.EMPTY_ARRAY);
       dnManager.handleHeartbeat(dnrList.get(4),
           BlockManagerTestUtil.getStorageReportsForDatanode(dataNodes[4]),
           blockPoolId, dataNodes[4].getCacheCapacity(),
           dataNodes[4].getCacheRemaining(),
-          4, 0, 0, ArrayUtils.EMPTY_STRING_ARRAY);
+          4, 0, 0, VolumeFailureInfo.EMPTY_ARRAY);
       dnManager.handleHeartbeat(dnrList.get(5),
           BlockManagerTestUtil.getStorageReportsForDatanode(dataNodes[5]),
           blockPoolId, dataNodes[5].getCacheCapacity(),
           dataNodes[5].getCacheRemaining(),
-          4, 0, 0, ArrayUtils.EMPTY_STRING_ARRAY);
+          4, 0, 0, VolumeFailureInfo.EMPTY_ARRAY);
       // value in the above heartbeats
       final int load = 2 + 4 + 4;
       

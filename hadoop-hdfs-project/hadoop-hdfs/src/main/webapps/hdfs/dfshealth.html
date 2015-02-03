@@ -345,9 +345,9 @@
   <tr>
     <td>{name} ({xferaddr})</td>
     <td>{lastContact}</td>
-    <td>TODO</td>
+    <td>{#helper_lastcontact_tostring value="{lastVolumeFailure}"/}</td>
     <td>{volfails}</td>
-    <td>TODO</td>
+    <td>{estimatedCapacityLost|fmt_bytes}</td>
     <td>{#failedStorageLocations}{.}{@sep}<br />{/sep}{/failedStorageLocations}</td>
   </tr>
   {/LiveNodes}

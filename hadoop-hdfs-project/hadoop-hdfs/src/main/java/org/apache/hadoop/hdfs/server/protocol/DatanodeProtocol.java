@@ -102,7 +102,7 @@ public interface DatanodeProtocol {
    * @param xmitsInProgress number of transfers from this datanode to others
    * @param xceiverCount number of active transceiver threads
    * @param failedVolumes number of failed volumes
-   * @param failedStorageLocations each storage location that has failed
+   * @param volumeFailureInfos each storage location that has failed
    * @throws IOException on error
    */
   @Idempotent
@@ -113,7 +113,7 @@ public interface DatanodeProtocol {
                                        int xmitsInProgress,
                                        int xceiverCount,
                                        int failedVolumes,
-                                       String[] failedStorageLocations)
+                                       VolumeFailureInfo[] volumeFailureInfos)
       throws IOException;
 
   /**
