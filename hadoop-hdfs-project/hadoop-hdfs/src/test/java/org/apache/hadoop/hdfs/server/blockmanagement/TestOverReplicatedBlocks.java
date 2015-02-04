@@ -42,7 +42,6 @@ import org.apache.hadoop.hdfs.server.datanode.DataNodeTestUtils;
 import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
 import org.apache.hadoop.hdfs.server.namenode.NameNodeAdapter;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeRegistration;
-import org.apache.hadoop.hdfs.server.protocol.VolumeFailureInfo;
 import org.junit.Test;
 
 public class TestOverReplicatedBlocks {
@@ -108,7 +107,7 @@ public class TestOverReplicatedBlocks {
               datanode.getStorageInfos()[0].setUtilizationForTesting(100L, 100L, 0, 100L);
               datanode.updateHeartbeat(
                   BlockManagerTestUtil.getStorageReportsForDatanode(datanode),
-                  0L, 0L, 0, 0, VolumeFailureInfo.EMPTY_ARRAY);
+                  0L, 0L, 0, 0, null);
             }
           }
 

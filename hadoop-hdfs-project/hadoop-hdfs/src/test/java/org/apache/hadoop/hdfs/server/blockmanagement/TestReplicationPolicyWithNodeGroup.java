@@ -40,7 +40,6 @@ import org.apache.hadoop.hdfs.StorageType;
 import org.apache.hadoop.hdfs.TestBlockStoragePolicy;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
-import org.apache.hadoop.hdfs.server.protocol.VolumeFailureInfo;
 import org.apache.hadoop.net.NetworkTopology;
 import org.apache.hadoop.net.NetworkTopologyWithNodeGroup;
 import org.apache.hadoop.net.Node;
@@ -186,8 +185,7 @@ public class TestReplicationPolicyWithNodeGroup {
         capacity, dfsUsed, remaining, blockPoolUsed);
     dn.updateHeartbeat(
         BlockManagerTestUtil.getStorageReportsForDatanode(dn),
-        dnCacheCapacity, dnCacheUsed, xceiverCount, volFailures,
-        VolumeFailureInfo.EMPTY_ARRAY);
+        dnCacheCapacity, dnCacheUsed, xceiverCount, volFailures, null);
   }
 
   private static void setupDataNodeCapacity() {

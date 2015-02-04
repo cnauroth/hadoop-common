@@ -57,7 +57,7 @@ import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
 import org.apache.hadoop.hdfs.server.protocol.NamespaceInfo;
 import org.apache.hadoop.hdfs.server.protocol.ReplicaRecoveryInfo;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
-import org.apache.hadoop.hdfs.server.protocol.VolumeFailureInfo;
+import org.apache.hadoop.hdfs.server.protocol.VolumeFailureSummary;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.metrics2.util.MBeans;
 import org.apache.hadoop.util.DataChecksum;
@@ -368,11 +368,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     }
     
     int getNumFailedVolumes() {
-      return getVolumeFailureInfos().length;
-    }
-
-    VolumeFailureInfo[] getVolumeFailureInfos() {
-      return VolumeFailureInfo.EMPTY_ARRAY;
+      return 0;
     }
 
     synchronized boolean alloc(String bpid, long amount) throws IOException {
@@ -631,9 +627,24 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     return storage.getNumFailedVolumes();
   }
 
+  @Override // FSDatasetMBean
+  public String[] getFailedStorageLocations() {
+    return null;
+  }
+
+  @Override // FSDatasetMBean
+  public long getLastVolumeFailureDate() {
+    return 0;
+  }
+
+  @Override // FSDatasetMBean
+  public long getEstimatedCapacityLostTotal() {
+    return 0;
+  }
+
   @Override // FsDatasetSpi
-  public VolumeFailureInfo[] getVolumeFailureInfos() {
-    return storage.getVolumeFailureInfos();
+  public VolumeFailureSummary getVolumeFailureSummary() {
+    return null;
   }
 
   @Override // FSDatasetMBean
