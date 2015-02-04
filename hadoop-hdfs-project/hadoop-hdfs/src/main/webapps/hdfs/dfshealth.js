@@ -21,7 +21,7 @@
   dust.loadSource(dust.compile($('#tmpl-dfshealth').html(), 'dfshealth'));
   dust.loadSource(dust.compile($('#tmpl-startup-progress').html(), 'startup-progress'));
   dust.loadSource(dust.compile($('#tmpl-datanode').html(), 'datanode-info'));
-  dust.loadSource(dust.compile($('#tmpl-datanode-volumes').html(), 'datanode-volumes'));
+  dust.loadSource(dust.compile($('#tmpl-datanode-volume-failures').html(), 'datanode-volume-failures'));
   dust.loadSource(dust.compile($('#tmpl-snapshot').html(), 'snapshot-info'));
 
   function load_overview() {
@@ -211,8 +211,8 @@
       case "#tab-datanode":
         load_datanode_info('datanode-info', hash);
         break;
-      case "#tab-datanode-volumes":
-        load_datanode_info('datanode-volumes', hash);
+      case "#tab-datanode-volume-failures":
+        load_datanode_info('datanode-volume-failures', hash);
         break;
       case "#tab-snapshot":
         load_snapshot_info();
