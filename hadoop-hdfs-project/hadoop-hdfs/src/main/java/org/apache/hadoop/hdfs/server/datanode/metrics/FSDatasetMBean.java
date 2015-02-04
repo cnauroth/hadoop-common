@@ -89,7 +89,7 @@ public interface FSDatasetMBean {
    * Returns the date/time of the last volume failure in milliseconds since
    * epoch.
    *
-   * @return date/time of the last volume failure
+   * @return date/time of last volume failure
    */
   long getLastVolumeFailureDate();
 

@@ -53,7 +53,7 @@ import org.apache.hadoop.hdfs.server.protocol.ReceivedDeletedBlockInfo;
 import org.apache.hadoop.hdfs.server.protocol.StorageBlockReport;
 import org.apache.hadoop.hdfs.server.protocol.StorageReceivedDeletedBlocks;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
-import org.apache.hadoop.hdfs.server.protocol.VolumeFailureInfo;
+import org.apache.hadoop.hdfs.server.protocol.VolumeFailureSummary;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.ipc.RemoteException;
 import org.apache.hadoop.util.Time;
@@ -598,16 +598,16 @@ class BPServiceActor implements Runnable {
                 " storage reports from service actor: " + this);
     }
     
-    VolumeFailureInfo[] volumeFailureInfos = dn.getFSDataset()
-        .getVolumeFailureInfos();
+    VolumeFailureSummary volumeFailureSummary = dn.getFSDataset()
+        .getVolumeFailureSummary();
     return bpNamenode.sendHeartbeat(bpRegistration,
         reports,
         dn.getFSDataset().getCacheCapacity(),
         dn.getFSDataset().getCacheUsed(),
         dn.getXmitsInProgress(),
         dn.getXceiverCount(),
-        volumeFailureInfos.length,
-        volumeFailureInfos);
+        volumeFailureSummary.getFailedStorageLocations().length,
+        volumeFailureSummary);
   }
   
   //This must be called only by BPOfferService

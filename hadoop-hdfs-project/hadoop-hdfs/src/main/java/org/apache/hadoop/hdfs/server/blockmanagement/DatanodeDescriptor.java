@@ -42,7 +42,7 @@ import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
 import org.apache.hadoop.hdfs.server.namenode.CachedBlock;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
-import org.apache.hadoop.hdfs.server.protocol.VolumeFailureInfo;
+import org.apache.hadoop.hdfs.server.protocol.VolumeFailureSummary;
 import org.apache.hadoop.hdfs.util.EnumCounters;
 import org.apache.hadoop.hdfs.util.LightWeightHashSet;
 import org.apache.hadoop.util.IntrusiveCollection;
@@ -215,7 +215,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
   private long lastBlocksScheduledRollTime = 0;
   private static final int BLOCKS_SCHEDULED_ROLL_INTERVAL = 600*1000; //10min
   private int volumeFailures = 0;
-  private VolumeFailureInfo[] volumeFailureInfos;
+  private VolumeFailureSummary volumeFailureSummary = null;
   
   /** 
    * When set to true, the node is not in include list and is not allowed
@@ -235,8 +235,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
    */
   public DatanodeDescriptor(DatanodeID nodeID) {
     super(nodeID);
-    updateHeartbeatState(StorageReport.EMPTY_ARRAY, 0L, 0L, 0, 0,
-        VolumeFailureInfo.EMPTY_ARRAY);
+    updateHeartbeatState(StorageReport.EMPTY_ARRAY, 0L, 0L, 0, 0, null);
   }
 
   /**
@@ -247,8 +246,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
   public DatanodeDescriptor(DatanodeID nodeID, 
                             String networkLocation) {
     super(nodeID, networkLocation);
-    updateHeartbeatState(StorageReport.EMPTY_ARRAY, 0L, 0L, 0, 0,
-        VolumeFailureInfo.EMPTY_ARRAY);
+    updateHeartbeatState(StorageReport.EMPTY_ARRAY, 0L, 0L, 0, 0, null);
   }
 
   @VisibleForTesting
@@ -350,9 +348,9 @@ public class DatanodeDescriptor extends DatanodeInfo {
    */
   public void updateHeartbeat(StorageReport[] reports, long cacheCapacity,
       long cacheUsed, int xceiverCount, int volFailures,
-      VolumeFailureInfo[] volumeFailureInfos) {
+      VolumeFailureSummary volumeFailureSummary) {
     updateHeartbeatState(reports, cacheCapacity, cacheUsed, xceiverCount,
-        volFailures, volumeFailureInfos);
+        volFailures, volumeFailureSummary);
     heartbeatedSinceRegistration = true;
   }
 
@@ -361,7 +359,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
    */
   public void updateHeartbeatState(StorageReport[] reports, long cacheCapacity,
       long cacheUsed, int xceiverCount, int volFailures,
-      VolumeFailureInfo[] volumeFailureInfos) {
+      VolumeFailureSummary volumeFailureSummary) {
     long totalCapacity = 0;
     long totalRemaining = 0;
     long totalBlockPoolUsed = 0;
@@ -400,8 +398,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
     setXceiverCount(xceiverCount);
     setLastUpdate(Time.now());    
     this.volumeFailures = volFailures;
-    this.volumeFailureInfos = volumeFailureInfos != null ? volumeFailureInfos :
-        VolumeFailureInfo.EMPTY_ARRAY;
+    this.volumeFailureSummary = volumeFailureSummary;
     for (StorageReport report : reports) {
       DatanodeStorageInfo storage = updateStorage(report.getStorage());
       if (checkFailedStorages) {
@@ -737,12 +734,12 @@ public class DatanodeDescriptor extends DatanodeInfo {
   }
 
   /**
-   * Returns each storage location that has failed.
+   * Returns info about volume failures.
    *
-   * @return each storage location that has failed
+   * @return info about volume failures
    */
-  public VolumeFailureInfo[] getVolumeFailureInfos() {
-    return volumeFailureInfos;
+  public VolumeFailureSummary getVolumeFailureSummary() {
+    return volumeFailureSummary;
   }
 
   /**

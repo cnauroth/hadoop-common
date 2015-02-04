@@ -15,14 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdfs.server.protocol;
+package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
-public class VolumeFailureInfo {
+final class VolumeFailureInfo {
   private final String failedStorageLocation;
   private final long failureDate;
   private final long estimatedCapacityLost;
-
-  public static final VolumeFailureInfo[] EMPTY_ARRAY = {};
 
   public VolumeFailureInfo(String failedStorageLocation, long failureDate,
       long estimatedCapacityLost) {

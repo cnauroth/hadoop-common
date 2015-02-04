@@ -96,7 +96,7 @@ import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
 import org.apache.hadoop.hdfs.server.protocol.NamespaceInfo;
 import org.apache.hadoop.hdfs.server.protocol.ReplicaRecoveryInfo;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
-import org.apache.hadoop.hdfs.server.protocol.VolumeFailureInfo;
+import org.apache.hadoop.hdfs.server.protocol.VolumeFailureSummary;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.MultipleIOException;
 import org.apache.hadoop.io.nativeio.NativeIO;
@@ -489,12 +489,12 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
    */
   @Override // FSDatasetMBean
   public int getNumFailedVolumes() {
-    return getVolumeFailureInfos().length;
+    return volumes.getVolumeFailureInfos().length;
   }
 
   @Override // FSDatasetMBean
   public String[] getFailedStorageLocations() {
-    VolumeFailureInfo[] infos = getVolumeFailureInfos();
+    VolumeFailureInfo[] infos = volumes.getVolumeFailureInfos();
     List<String> failedStorageLocations = Lists.newArrayListWithCapacity(
         infos.length);
     for (VolumeFailureInfo info: infos) {
@@ -507,7 +507,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
   @Override // FSDatasetMBean
   public long getLastVolumeFailureDate() {
     long lastVolumeFailureDate = 0;
-    for (VolumeFailureInfo info: getVolumeFailureInfos()) {
+    for (VolumeFailureInfo info: volumes.getVolumeFailureInfos()) {
       long failureDate = info.getFailureDate();
       if (failureDate > lastVolumeFailureDate) {
         lastVolumeFailureDate = failureDate;
@@ -518,16 +518,31 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
 
   @Override // FSDatasetMBean
   public long getEstimatedCapacityLostTotal() {
-    long total = 0;
-    for (VolumeFailureInfo info: getVolumeFailureInfos()) {
-      total += info.getEstimatedCapacityLost();
+    long estimatedCapacityLostTotal = 0;
+    for (VolumeFailureInfo info: volumes.getVolumeFailureInfos()) {
+      estimatedCapacityLostTotal += info.getEstimatedCapacityLost();
     }
-    return total;
+    return estimatedCapacityLostTotal;
   }
 
   @Override // FsDatasetSpi
-  public VolumeFailureInfo[] getVolumeFailureInfos() {
-    return volumes.getVolumeFailureInfos();
+  public VolumeFailureSummary getVolumeFailureSummary() {
+    VolumeFailureInfo[] infos = volumes.getVolumeFailureInfos();
+    List<String> failedStorageLocations = Lists.newArrayListWithCapacity(
+        infos.length);
+    long lastVolumeFailureDate = 0;
+    long estimatedCapacityLostTotal = 0;
+    for (VolumeFailureInfo info: infos) {
+      failedStorageLocations.add(info.getFailedStorageLocation());
+      long failureDate = info.getFailureDate();
+      if (failureDate > lastVolumeFailureDate) {
+        lastVolumeFailureDate = failureDate;
+      }
+      estimatedCapacityLostTotal += info.getEstimatedCapacityLost();
+    }
+    return new VolumeFailureSummary(
+        failedStorageLocations.toArray(new String[failedStorageLocations.size()]),
+        lastVolumeFailureDate, estimatedCapacityLostTotal);
   }
 
   @Override // FSDatasetMBean

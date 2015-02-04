@@ -122,7 +122,7 @@ import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.KeyUpdateCom
 import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.NNHAStatusHeartbeatProto;
 import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.ReceivedDeletedBlockInfoProto;
 import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.RegisterCommandProto;
-import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.VolumeFailureInfoProto;
+import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.VolumeFailureSummaryProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockKeyProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockProto;
@@ -216,7 +216,7 @@ import org.apache.hadoop.hdfs.server.protocol.RegisterCommand;
 import org.apache.hadoop.hdfs.server.protocol.RemoteEditLog;
 import org.apache.hadoop.hdfs.server.protocol.RemoteEditLogManifest;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
-import org.apache.hadoop.hdfs.server.protocol.VolumeFailureInfo;
+import org.apache.hadoop.hdfs.server.protocol.VolumeFailureSummary;
 import org.apache.hadoop.hdfs.shortcircuit.ShortCircuitShm.ShmId;
 import org.apache.hadoop.hdfs.shortcircuit.ShortCircuitShm.SlotId;
 import org.apache.hadoop.hdfs.util.ExactSizeInputStream;
@@ -1903,31 +1903,27 @@ public class PBHelper {
     return protos;
   }
 
-  public static VolumeFailureInfo[] convertVolumeFailureInfos(
-      List<VolumeFailureInfoProto> protos) {
-    VolumeFailureInfo[] volumeFailureInfos =
-        new VolumeFailureInfo[protos.size()];
-    for (int i = 0; i < volumeFailureInfos.length; i++) {
-      VolumeFailureInfoProto proto = protos.get(i);
-      volumeFailureInfos[i] = new VolumeFailureInfo(
-          proto.getFailedStorageLocation(), proto.getFailureDate(),
-          proto.getEstimatedCapacityLost());
-    }
-    return volumeFailureInfos;
+  public static VolumeFailureSummary convertVolumeFailureSummary(
+      VolumeFailureSummaryProto proto) {
+    List<String> failedStorageLocations = proto.getFailedStorageLocationsList();
+    return new VolumeFailureSummary(
+        failedStorageLocations.toArray(new String[failedStorageLocations.size()]),
+        proto.getLastVolumeFailureDate(), proto.getEstimatedCapacityLostTotal());
   }
 
-  public static List<VolumeFailureInfoProto> convertVolumeFailureInfos(
-      VolumeFailureInfo[] volumeFailureInfos) {
-    List<VolumeFailureInfoProto> protos = Lists.newArrayListWithCapacity(
-        volumeFailureInfos.length);
-    for (VolumeFailureInfo volumeFailureInfo: volumeFailureInfos) {
-      protos.add(VolumeFailureInfoProto.newBuilder()
-          .setFailedStorageLocation(volumeFailureInfo.getFailedStorageLocation())
-          .setFailureDate(volumeFailureInfo.getFailureDate())
-          .setEstimatedCapacityLost(volumeFailureInfo.getEstimatedCapacityLost())
-          .build());
+  public static VolumeFailureSummaryProto convertVolumeFailureSummary(
+      VolumeFailureSummary volumeFailureSummary) {
+    VolumeFailureSummaryProto.Builder builder =
+        VolumeFailureSummaryProto.newBuilder();
+    for (String failedStorageLocation:
+        volumeFailureSummary.getFailedStorageLocations()) {
+      builder.addFailedStorageLocations(failedStorageLocation);
     }
-    return protos;
+    builder.setLastVolumeFailureDate(
+        volumeFailureSummary.getLastVolumeFailureDate());
+    builder.setEstimatedCapacityLostTotal(
+        volumeFailureSummary.getEstimatedCapacityLostTotal());
+    return builder.build();
   }
 
   public static JournalInfo convert(JournalInfoProto info) {

@@ -56,7 +56,7 @@ import org.apache.hadoop.hdfs.server.protocol.ReceivedDeletedBlockInfo;
 import org.apache.hadoop.hdfs.server.protocol.StorageBlockReport;
 import org.apache.hadoop.hdfs.server.protocol.StorageReceivedDeletedBlocks;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
-import org.apache.hadoop.hdfs.server.protocol.VolumeFailureInfo;
+import org.apache.hadoop.hdfs.server.protocol.VolumeFailureSummary;
 import org.apache.hadoop.ipc.ProtobufHelper;
 import org.apache.hadoop.ipc.ProtobufRpcEngine;
 import org.apache.hadoop.ipc.ProtocolMetaInterface;
@@ -124,7 +124,7 @@ public class DatanodeProtocolClientSideTranslatorPB implements
   public HeartbeatResponse sendHeartbeat(DatanodeRegistration registration,
       StorageReport[] reports, long cacheCapacity, long cacheUsed,
       int xmitsInProgress, int xceiverCount, int failedVolumes,
-      VolumeFailureInfo[] volumeFailureInfos) throws IOException {
+      VolumeFailureSummary volumeFailureSummary) throws IOException {
     HeartbeatRequestProto.Builder builder = HeartbeatRequestProto.newBuilder()
         .setRegistration(PBHelper.convert(registration))
         .setXmitsInProgress(xmitsInProgress).setXceiverCount(xceiverCount)
@@ -136,8 +136,8 @@ public class DatanodeProtocolClientSideTranslatorPB implements
     if (cacheUsed != 0) {
       builder.setCacheUsed(cacheUsed);
     }
-    builder.addAllVolumeFailureInfos(PBHelper.convertVolumeFailureInfos(
-        volumeFailureInfos));
+    builder.setVolumeFailureSummary(PBHelper.convertVolumeFailureSummary(
+        volumeFailureSummary));
     HeartbeatResponseProto resp;
     try {
       resp = rpcProxy.sendHeartbeat(NULL_CONTROLLER, builder.build());
