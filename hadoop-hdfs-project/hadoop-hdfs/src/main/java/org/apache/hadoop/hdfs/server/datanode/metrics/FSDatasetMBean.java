@@ -80,7 +80,6 @@ public interface FSDatasetMBean {
 
   /**
    * Returns each storage location that has failed, sorted.
-   *
    * @return each storage location that has failed, sorted
    */
   String[] getFailedStorageLocations();
@@ -88,14 +87,12 @@ public interface FSDatasetMBean {
   /**
    * Returns the date/time of the last volume failure in milliseconds since
    * epoch.
-   *
    * @return date/time of last volume failure
    */
   long getLastVolumeFailureDate();
 
   /**
    * Returns an estimate of total capacity lost due to volume failures in bytes.
-   *
    * @return estimate of total capacity lost
    */
   long getEstimatedCapacityLostTotal();

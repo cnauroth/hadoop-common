@@ -271,6 +271,8 @@ public class TestDataNodeVolumeFailureToleration {
       assertEquals(true, cluster.getDataNodes().get(0)
           .isBPServiceAlive(cluster.getNamesystem().getBlockPoolId()));
       // but there has been a single volume failure
+      // TODO: This test fails, because we are not pulling startup volume failure
+      // information out of DataStorage#addStorageLocations.
       DFSTestUtil.waitForDatanodeStatus(dm, 1, 0, 1,
           origCapacity / 2, WAIT_FOR_HEARTBEATS);
     } finally {

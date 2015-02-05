@@ -35,6 +35,7 @@ import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 import javax.management.StandardMBean;
 
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.StorageType;
@@ -644,7 +645,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
 
   @Override // FsDatasetSpi
   public VolumeFailureSummary getVolumeFailureSummary() {
-    return null;
+    return new VolumeFailureSummary(ArrayUtils.EMPTY_STRING_ARRAY, 0, 0);
   }
 
   @Override // FSDatasetMBean
@@ -1236,7 +1237,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
 
   @Override
   public List<FsVolumeSpi> getVolumes() {
-    return Collections.<FsVolumeSpi>singletonList(this.volume);
+    throw new UnsupportedOperationException();
   }
 
   @Override

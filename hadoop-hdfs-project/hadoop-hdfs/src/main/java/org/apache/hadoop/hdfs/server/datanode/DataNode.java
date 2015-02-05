@@ -617,7 +617,6 @@ public class DataNode extends ReconfigurableBase
         }
       }
 
-      // TOOD: possible opportunity to remove from failure map here?
       if (!changedVolumes.deactivateLocations.isEmpty()) {
         LOG.info("Deactivating volumes: " +
             Joiner.on(",").join(changedVolumes.deactivateLocations));
@@ -3144,16 +3143,5 @@ public class DataNode extends ReconfigurableBase
   public void removeSpanReceiver(long id) throws IOException {
     checkSuperuserPrivilege();
     spanReceiverHost.removeSpanReceiver(id);
-  }
-
-  /**
-   * Returns every currently configured storage location.  This method always
-   * returns a new copy of the list, so that callers do not need to coordinate
-   * on the DataNode lock for shared access to the private copy.
-   *
-   * @return every currently configured storage location
-   */
-  public synchronized List<StorageLocation> getStorageLocations() {
-    return Lists.newArrayList(dataDirs.iterator());
   }
 }

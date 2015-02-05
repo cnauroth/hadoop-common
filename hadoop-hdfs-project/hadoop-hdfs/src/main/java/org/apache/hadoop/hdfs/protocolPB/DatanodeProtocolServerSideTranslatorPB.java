@@ -105,8 +105,9 @@ public class DatanodeProtocolServerSideTranslatorPB implements
     try {
       final StorageReport[] report = PBHelper.convertStorageReports(
           request.getReportsList());
-      VolumeFailureSummary volumeFailureSummary = PBHelper
-          .convertVolumeFailureSummary(request.getVolumeFailureSummary());
+      VolumeFailureSummary volumeFailureSummary =
+          request.hasVolumeFailureSummary() ? PBHelper.convertVolumeFailureSummary(
+              request.getVolumeFailureSummary()) : null;
       response = impl.sendHeartbeat(PBHelper.convert(request.getRegistration()),
           report, request.getCacheCapacity(), request.getCacheUsed(),
           request.getXmitsInProgress(),

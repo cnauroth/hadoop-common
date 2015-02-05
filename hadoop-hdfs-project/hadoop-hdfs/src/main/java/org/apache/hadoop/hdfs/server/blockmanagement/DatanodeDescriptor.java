@@ -736,7 +736,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
   /**
    * Returns info about volume failures.
    *
-   * @return info about volume failures
+   * @return info about volume failures, possibly null
    */
   public VolumeFailureSummary getVolumeFailureSummary() {
     return volumeFailureSummary;
