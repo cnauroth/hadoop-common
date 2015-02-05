@@ -138,6 +138,13 @@ public interface FSNamesystemMBean {
   int getVolumeFailuresTotal();
 
   /**
+   * Returns an estimate of total capacity lost due to volume failures in bytes
+   * across all live data nodes.
+   * @return estimate of total capacity lost
+   */
+  long getEstimatedCapacityLostTotal();
+
+  /**
    * Number of data nodes that are in the decommissioning state
    */
   public int getNumDecommissioningDataNodes();

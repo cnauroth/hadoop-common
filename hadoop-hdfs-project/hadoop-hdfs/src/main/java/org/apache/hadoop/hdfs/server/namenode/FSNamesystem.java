@@ -5941,6 +5941,21 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   }
 
   @Override // FSNamesystemMBean
+  public long getEstimatedCapacityLostTotal() {
+    List<DatanodeDescriptor> live = new ArrayList<DatanodeDescriptor>();
+    getBlockManager().getDatanodeManager().fetchDatanodes(live, null, true);
+    long estimatedCapacityLostTotal = 0;
+    for (DatanodeDescriptor node: live) {
+      VolumeFailureSummary volumeFailureSummary = node.getVolumeFailureSummary();
+      if (volumeFailureSummary != null) {
+        estimatedCapacityLostTotal +=
+            volumeFailureSummary.getEstimatedCapacityLostTotal();
+      }
+    }
+    return estimatedCapacityLostTotal;
+  }
+
+  @Override // FSNamesystemMBean
   public int getNumDecommissioningDataNodes() {
     return getBlockManager().getDatanodeManager().getDecommissioningNodes()
         .size();
@@ -6783,8 +6798,9 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     final List<DatanodeDescriptor> live = new ArrayList<DatanodeDescriptor>();
     blockManager.getDatanodeManager().fetchDatanodes(live, null, true);
     for (DatanodeDescriptor node : live) {
-      VolumeFailureSummary volumeFailureSummary = node.getVolumeFailureSummary();
-      Map<String, Object> innerinfo = ImmutableMap.<String, Object>builder()
+      ImmutableMap.Builder<String, Object> innerinfo =
+          ImmutableMap.<String,Object>builder();
+      innerinfo
           .put("infoAddr", node.getInfoAddr())
           .put("infoSecureAddr", node.getInfoSecureAddr())
           .put("xferaddr", node.getXferAddr())
@@ -6800,15 +6816,18 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
           .put("blockScheduled", node.getBlocksScheduled())
           .put("blockPoolUsed", node.getBlockPoolUsed())
           .put("blockPoolUsedPercent", node.getBlockPoolUsedPercent())
-          .put("volfails", node.getVolumeFailures())
-          .put("failedStorageLocations",
-              volumeFailureSummary.getFailedStorageLocations())
-          .put("lastVolumeFailureDate",
-              volumeFailureSummary.getLastVolumeFailureDate())
-          .put("estimatedCapacityLostTotal",
-               volumeFailureSummary.getEstimatedCapacityLostTotal())
-          .build();
-      info.put(node.getHostName() + ":" + node.getXferPort(), innerinfo);
+          .put("volfails", node.getVolumeFailures());
+      VolumeFailureSummary volumeFailureSummary = node.getVolumeFailureSummary();
+      if (volumeFailureSummary != null) {
+        innerinfo
+            .put("failedStorageLocations",
+                volumeFailureSummary.getFailedStorageLocations())
+            .put("lastVolumeFailureDate",
+                volumeFailureSummary.getLastVolumeFailureDate())
+            .put("estimatedCapacityLostTotal",
+                volumeFailureSummary.getEstimatedCapacityLostTotal());
+      }
+      info.put(node.getHostName() + ":" + node.getXferPort(), innerinfo.build());
     }
     return JSON.toString(info);
   }

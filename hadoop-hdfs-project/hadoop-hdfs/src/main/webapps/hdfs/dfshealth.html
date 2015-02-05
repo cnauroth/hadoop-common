@@ -167,10 +167,10 @@
   <tr><th><a href="#tab-datanode">Live Nodes</a></th><td>{NumLiveDataNodes} (Decommissioned: {NumDecomLiveDataNodes})</td></tr>
   <tr><th><a href="#tab-datanode">Dead Nodes</a></th><td>{NumDeadDataNodes} (Decommissioned: {NumDecomDeadDataNodes})</td></tr>
   <tr><th><a href="#tab-datanode">Decommissioning Nodes</a></th><td>{NumDecommissioningDataNodes}</td></tr>
+  <tr><th><a href="#tab-datanode-volume-failures">Total Datanode Volume Failures</a></th><td>{VolumeFailuresTotal} ({EstimatedCapacityLostTotal|fmt_bytes})</td></tr>
   <tr><th title="Excludes missing blocks.">Number of Under-Replicated Blocks</th><td>{UnderReplicatedBlocks}</td></tr>
   <tr><th>Number of Blocks Pending Deletion</th><td>{PendingDeletionBlocks}</td></tr>
   <tr><th>Block Deletion Start Time</th><td>{BlockDeletionStartTime|date_tostring}</td></tr>
-  <tr><th><a href="#tab-datanode-volume-failures">Total Failed Volumes</a></th><td>{VolumeFailuresTotal}</td></tr>
 {/fs}
 </table>
 
@@ -330,6 +330,7 @@
 <script type="text/x-dust-template" id="tmpl-datanode-volume-failures">
 <div class="page-header"><h1>Datanode Volume Failures</h1></div>
 <small>
+{?LiveNodes}
 <table class="table">
   <thead>
     <tr>
@@ -343,13 +344,16 @@
   {#LiveNodes}
   <tr>
     <td>{name} ({xferaddr})</td>
-    <td>{#helper_lastcontact_tostring value="{lastVolumeFailureDate}"/}</td>
+    <td>{#helper_date_tostring value="{lastVolumeFailureDate}"/}</td>
     <td>{volfails}</td>
     <td>{estimatedCapacityLostTotal|fmt_bytes}</td>
     <td>{#failedStorageLocations}{.}{@sep}<br />{/sep}{/failedStorageLocations}</td>
   </tr>
   {/LiveNodes}
 </table>
+{:else}
+There are no reported volume failures.
+{/LiveNodes}
 </small>
 </script>
 
