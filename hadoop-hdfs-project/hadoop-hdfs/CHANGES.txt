@@ -571,6 +571,9 @@ Release 2.7.0 - UNRELEASED
 
     HDFS-7712. Switch blockStateChangeLog to use slf4j. (wang)
 
+    HDFS-7270. Add congestion signaling capability to DataNode write protocol.
+    (wheat9)
+
   OPTIMIZATIONS
 
     HDFS-7454. Reduce memory footprint for AclEntries in NameNode.
@@ -840,6 +843,8 @@ Release 2.7.0 - UNRELEASED
     HDFS-7719. BlockPoolSliceStorage#removeVolumes fails to remove some
     in-memory state associated with volumes. (Lei (Eddy) Xu via Colin P.
     McCabe)
+
+    HDFS-7709. Fix findbug warnings in httpfs. (Rakesh R via ozawa)
 
 Release 2.6.1 - UNRELEASED
 
