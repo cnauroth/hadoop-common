@@ -209,6 +209,31 @@ public class TestConfiguration extends TestCase {
     assertNull("my var is not final", conf2.get("my.var"));
   }
 
+  public void testCompactFormat() throws IOException {
+    out=new BufferedWriter(new FileWriter(CONFIG));
+    startConfig();
+    appendCompactFormatProperty("a", "b");
+    appendCompactFormatProperty("c", "d", true);
+    appendCompactFormatProperty("e", "f", false, "g");
+    endConfig();
+    Path fileResource = new Path(CONFIG);
+    Configuration conf = new Configuration(false);
+    conf.addResource(fileResource);
+
+    assertEquals("b", conf.get("a"));
+
+    assertEquals("d", conf.get("c"));
+    Set<String> s = conf.getFinalParameters();
+    assertEquals(1, s.size());
+    assertTrue(s.contains("c"));
+
+    assertEquals("f", conf.get("e"));
+    String[] sources = conf.getPropertySources("e");
+    assertEquals(2, sources.length);
+    assertEquals("g", sources[0]);
+    assertEquals(fileResource.toString(), sources[1]);
+  }
+
   public static void assertEq(Object a, Object b) {
     System.out.println("assertEq: " + a + ", " + b);
     assertEquals(a, b);
@@ -264,6 +289,36 @@ public class TestConfiguration extends TestCase {
     out.write("</property>\n");
   }
   
+  void appendCompactFormatProperty(String name, String val) throws IOException {
+    appendCompactFormatProperty(name, val, false);
+  }
+
+  void appendCompactFormatProperty(String name, String val, boolean isFinal)
+    throws IOException {
+    appendCompactFormatProperty(name, val, isFinal, null);
+  }
+
+  void appendCompactFormatProperty(String name, String val, boolean isFinal,
+      String source)
+    throws IOException {
+    out.write("<property ");
+    out.write("name=\"");
+    out.write(name);
+    out.write("\" ");
+    out.write("value=\"");
+    out.write(val);
+    out.write("\" ");
+    if (isFinal) {
+      out.write("final=\"true\" ");
+    }
+    if (source != null) {
+      out.write("source=\"");
+      out.write(source);
+      out.write("\" ");
+    }
+    out.write("/>\n");
+  }
+
   public void testOverlay() throws IOException{
     out=new BufferedWriter(new FileWriter(CONFIG));
     startConfig();
@@ -1216,12 +1271,56 @@ public class TestConfiguration extends TestCase {
   }
 
   public void testInvalidSubstitutation() {
+    final Configuration configuration = new Configuration(false);
+
+    // 2-var loops
+    //
+    final String key = "test.random.key";
+    for (String keyExpression : Arrays.asList(
+        "${" + key + "}",
+        "foo${" + key + "}",
+        "foo${" + key + "}bar",
+        "${" + key + "}bar")) {
+      configuration.set(key, keyExpression);
+      assertEquals("Unexpected value", keyExpression, configuration.get(key));
+    }
+
+    //
+    // 3-variable loops
+    //
+
+    final String expVal1 = "${test.var2}";
+    String testVar1 = "test.var1";
+    configuration.set(testVar1, expVal1);
+    configuration.set("test.var2", "${test.var3}");
+    configuration.set("test.var3", "${test.var1}");
+    assertEquals("Unexpected value", expVal1, configuration.get(testVar1));
+
+    // 3-variable loop with non-empty value prefix/suffix
+    //
+    final String expVal2 = "foo2${test.var2}bar2";
+    configuration.set(testVar1, expVal2);
+    configuration.set("test.var2", "foo3${test.var3}bar3");
+    configuration.set("test.var3", "foo1${test.var1}bar1");
+    assertEquals("Unexpected value", expVal2, configuration.get(testVar1));
+  }
+
+  public void testIncompleteSubbing() {
+    Configuration configuration = new Configuration(false);
     String key = "test.random.key";
-    String keyExpression = "${" + key + "}";
-    Configuration configuration = new Configuration();
-    configuration.set(key, keyExpression);
-    String value = configuration.get(key);
-    assertTrue("Unexpected value " + value, value.equals(keyExpression));
+    for (String keyExpression : Arrays.asList(
+        "{}",
+        "${}",
+        "{" + key,
+        "${" + key,
+        "foo${" + key,
+        "foo${" + key + "bar",
+        "foo{" + key + "}bar",
+        "${" + key + "bar")) {
+      configuration.set(key, keyExpression);
+      String value = configuration.get(key);
+      assertTrue("Unexpected value " + value, value.equals(keyExpression));
+    }
   }
 
   public void testBoolean() {

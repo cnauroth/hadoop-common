@@ -248,6 +248,13 @@ Release 2.7.0 - UNRELEASED
     YARN-1582. Capacity Scheduler: add a maximum-allocation-mb setting per
     queue (Thomas Graves via jlowe)
 
+    YARN-1904. Ensure exceptions thrown in ClientRMService &
+    ApplicationHistoryClientService are uniform when application-attempt is
+    not found. (zjshen via acmurthy)
+
+    YARN-3144. Configuration for making delegation token failures to timeline
+    server not-fatal (Jonathan Eagles via jlowe)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -487,6 +494,24 @@ Release 2.7.0 - UNRELEASED
 
     YARN-3101. In Fair Scheduler, fix canceling of reservations for exceeding
     max share (Anubhav Dhoot via Sandy Ryza)
+
+    YARN-3149. Fix typo in message for invalid application id.
+    (Bibin A Chundatt via xgong)
+
+    YARN-3145. Fixed ConcurrentModificationException on CapacityScheduler
+    ParentQueue#getQueueUserAclInfo. (Tsuyoshi OZAWA via jianhe)
+
+    YARN-1537. Fix race condition in
+    TestLocalResourcesTrackerImpl.testLocalResourceCache. (xgong via acmurthy)
+
+    YARN-2694. Ensure only single node label specified in ResourceRequest.
+    (Wangda Tan via jianhe)
+
+    YARN-3089. LinuxContainerExecutor does not handle file arguments to
+    deleteAsUser (Eric Payne via jlowe)
+
+    YARN-3143. RM Apps REST API can return NPE or entries missing id and other
+    fields (jlowe)
 
 Release 2.6.0 - 2014-11-18
 
