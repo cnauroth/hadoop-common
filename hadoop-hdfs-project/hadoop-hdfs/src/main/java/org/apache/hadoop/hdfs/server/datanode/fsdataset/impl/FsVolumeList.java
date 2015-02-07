@@ -51,10 +51,15 @@ class FsVolumeList {
   private final VolumeChoosingPolicy<FsVolumeImpl> blockChooser;
   private final BlockScanner blockScanner;
 
-  FsVolumeList(BlockScanner blockScanner,
+  FsVolumeList(List<VolumeFailureInfo> initialVolumeFailureInfos,
+      BlockScanner blockScanner,
       VolumeChoosingPolicy<FsVolumeImpl> blockChooser) {
     this.blockChooser = blockChooser;
     this.blockScanner = blockScanner;
+    for (VolumeFailureInfo volumeFailureInfo: initialVolumeFailureInfos) {
+      volumeFailureInfos.put(volumeFailureInfo.getFailedStorageLocation(),
+          volumeFailureInfo);
+    }
   }
 
   /**

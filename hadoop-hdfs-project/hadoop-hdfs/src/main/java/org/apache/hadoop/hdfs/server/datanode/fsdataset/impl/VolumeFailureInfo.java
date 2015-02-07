@@ -22,6 +22,10 @@ final class VolumeFailureInfo {
   private final long failureDate;
   private final long estimatedCapacityLost;
 
+  public VolumeFailureInfo(String failedStorageLocation, long failureDate) {
+    this(failedStorageLocation, failureDate, 0);
+  }
+
   public VolumeFailureInfo(String failedStorageLocation, long failureDate,
       long estimatedCapacityLost) {
     this.failedStorageLocation = failedStorageLocation;

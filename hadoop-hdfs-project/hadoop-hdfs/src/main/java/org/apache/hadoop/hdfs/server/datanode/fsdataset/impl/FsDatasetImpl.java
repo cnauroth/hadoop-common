@@ -109,6 +109,7 @@ import org.apache.hadoop.util.Time;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 /**************************************************
  * FSDataset manages a set of data blocks.  Each block
@@ -257,9 +258,11 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
 
     String[] dataDirs = conf.getTrimmedStrings(DFSConfigKeys.DFS_DATANODE_DATA_DIR_KEY);
     Collection<StorageLocation> dataLocations = DataNode.getStorageLocations(conf);
+    List<VolumeFailureInfo> volumeFailureInfos = getInitialVolumeFailureInfos(
+        dataLocations, storage);
 
     int volsConfigured = (dataDirs == null) ? 0 : dataDirs.length;
-    int volsFailed = volsConfigured - storage.getNumStorageDirs();
+    int volsFailed = volumeFailureInfos.size();
     this.validVolsRequired = volsConfigured - volFailuresTolerated;
 
     if (volFailuresTolerated < 0 || volFailuresTolerated >= volsConfigured) {
@@ -284,7 +287,8 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
             DFSConfigKeys.DFS_DATANODE_FSDATASET_VOLUME_CHOOSING_POLICY_KEY,
             RoundRobinVolumeChoosingPolicy.class,
             VolumeChoosingPolicy.class), conf);
-    volumes = new FsVolumeList(datanode.getBlockScanner(), blockChooserImpl);
+    volumes = new FsVolumeList(volumeFailureInfos, datanode.getBlockScanner(),
+        blockChooserImpl);
     asyncDiskService = new FsDatasetAsyncDiskService(datanode);
     asyncLazyPersistService = new RamDiskAsyncLazyPersistService(datanode);
 
@@ -299,6 +303,28 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     lazyWriter = new Daemon(new LazyWriter(conf));
     lazyWriter.start();
     registerMBean(datanode.getDatanodeUuid());
+  }
+
+  private static List<VolumeFailureInfo> getInitialVolumeFailureInfos(
+      Collection<StorageLocation> dataLocations, DataStorage storage) {
+    Set<String> failedLocationSet = Sets.newHashSetWithExpectedSize(
+        dataLocations.size());
+    for (StorageLocation sl: dataLocations) {
+      failedLocationSet.add(sl.getFile().getAbsolutePath());
+    }
+    for (Iterator<Storage.StorageDirectory> it = storage.dirIterator();
+         it.hasNext(); ) {
+      Storage.StorageDirectory sd = it.next();
+      failedLocationSet.remove(sd.getRoot().getAbsolutePath());
+    }
+    List<VolumeFailureInfo> volumeFailureInfos = Lists.newArrayListWithCapacity(
+        failedLocationSet.size());
+    long failureDate = Time.now();
+    for (String failedStorageLocation: failedLocationSet) {
+      volumeFailureInfos.add(new VolumeFailureInfo(failedStorageLocation,
+          failureDate));
+    }
+    return volumeFailureInfos;
   }
 
   private void addVolume(Collection<StorageLocation> dataLocations,
