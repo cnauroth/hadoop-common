@@ -140,7 +140,7 @@ public interface FSNamesystemMBean {
   /**
    * Returns an estimate of total capacity lost due to volume failures in bytes
    * across all live data nodes.
-   * @return estimate of total capacity lost
+   * @return estimate of total capacity lost in bytes
    */
   long getEstimatedCapacityLostTotal();
 

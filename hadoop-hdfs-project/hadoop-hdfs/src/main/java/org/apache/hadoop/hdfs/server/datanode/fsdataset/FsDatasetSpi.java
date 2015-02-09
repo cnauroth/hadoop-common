@@ -130,6 +130,11 @@ public interface FsDatasetSpi<V extends FsVolumeSpi> extends FSDatasetMBean {
   /** @return a volume information map (name => info). */
   public Map<String, Object> getVolumeInfoMap();
 
+  /**
+   * Returns info about volume failures.
+   *
+   * @return info about volume failures, possibly null
+   */
   VolumeFailureSummary getVolumeFailureSummary();
 
   /** @return a list of finalized blocks for the given block pool. */

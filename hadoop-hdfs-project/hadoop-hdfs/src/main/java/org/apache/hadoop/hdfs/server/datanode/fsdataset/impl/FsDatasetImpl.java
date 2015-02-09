@@ -305,6 +305,14 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     registerMBean(datanode.getDatanodeUuid());
   }
 
+  /**
+   * Gets initial volume failure information for all volumes that failed
+   * immediately at startup.  The method works by determining the set difference
+   * between all configured storage locations and the actual storage locations in
+   * use after attempting to put all of them into service.
+   *
+   * @return each storage location that has failed
+   */
   private static List<VolumeFailureInfo> getInitialVolumeFailureInfos(
       Collection<StorageLocation> dataLocations, DataStorage storage) {
     Set<String> failedLocationSet = Sets.newHashSetWithExpectedSize(
