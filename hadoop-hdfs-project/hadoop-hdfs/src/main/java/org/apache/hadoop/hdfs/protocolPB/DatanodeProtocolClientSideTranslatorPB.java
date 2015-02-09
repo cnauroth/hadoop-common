@@ -135,8 +135,10 @@ public class DatanodeProtocolClientSideTranslatorPB implements
     if (cacheUsed != 0) {
       builder.setCacheUsed(cacheUsed);
     }
-    builder.setVolumeFailureSummary(PBHelper.convertVolumeFailureSummary(
-        volumeFailureSummary));
+    if (volumeFailureSummary != null) {
+      builder.setVolumeFailureSummary(PBHelper.convertVolumeFailureSummary(
+          volumeFailureSummary));
+    }
     HeartbeatResponseProto resp;
     try {
       resp = rpcProxy.sendHeartbeat(NULL_CONTROLLER, builder.build());

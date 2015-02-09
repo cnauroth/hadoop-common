@@ -600,13 +600,15 @@ class BPServiceActor implements Runnable {
     
     VolumeFailureSummary volumeFailureSummary = dn.getFSDataset()
         .getVolumeFailureSummary();
+    int numFailedVolumes = volumeFailureSummary != null ?
+        volumeFailureSummary.getFailedStorageLocations().length : 0;
     return bpNamenode.sendHeartbeat(bpRegistration,
         reports,
         dn.getFSDataset().getCacheCapacity(),
         dn.getFSDataset().getCacheUsed(),
         dn.getXmitsInProgress(),
         dn.getXceiverCount(),
-        volumeFailureSummary.getFailedStorageLocations().length,
+        numFailedVolumes,
         volumeFailureSummary);
   }
   

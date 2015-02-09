@@ -553,6 +553,9 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
   @Override // FsDatasetSpi
   public VolumeFailureSummary getVolumeFailureSummary() {
     VolumeFailureInfo[] infos = volumes.getVolumeFailureInfos();
+    if (infos.length == 0) {
+      return null;
+    }
     List<String> failedStorageLocations = Lists.newArrayListWithCapacity(
         infos.length);
     long lastVolumeFailureDate = 0;
