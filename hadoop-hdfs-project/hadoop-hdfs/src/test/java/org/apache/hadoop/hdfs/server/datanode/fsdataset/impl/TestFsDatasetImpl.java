@@ -103,6 +103,7 @@ public class TestFsDatasetImpl {
 
     String dataDir = StringUtils.join(",", dirStrings);
     conf.set(DFSConfigKeys.DFS_DATANODE_DATA_DIR_KEY, dataDir);
+    when(storage.dirIterator()).thenReturn(dirs.iterator());
     when(storage.getNumStorageDirs()).thenReturn(numDirs);
   }
 
