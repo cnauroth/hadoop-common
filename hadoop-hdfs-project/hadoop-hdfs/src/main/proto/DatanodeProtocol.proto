@@ -179,7 +179,9 @@ message VolumeFailureSummaryProto {
  * blockPoolUsed - storage used by the block pool
  * xmitsInProgress - number of transfers from this datanode to others
  * xceiverCount - number of active transceiver threads
- * failedVolumes - number of failed volumes
+ * failedVolumes - number of failed volumes.  This is redundant with the
+ *     information included in volumeFailureSummary, but the field is retained
+ *     for backwards compatibility.
  * cacheCapacity - total cache capacity available at the datanode
  * cacheUsed - amount of cache used
  * volumeFailureSummary - info about volume failures
