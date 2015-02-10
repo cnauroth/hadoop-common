@@ -370,8 +370,14 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     final File dir = location.getFile();
 
     // Prepare volume in DataStorage
-    DataStorage.VolumeBuilder builder =
-        dataStorage.prepareVolume(datanode, location.getFile(), nsInfos);
+    final DataStorage.VolumeBuilder builder;
+    try {
+      builder = dataStorage.prepareVolume(datanode, location.getFile(), nsInfos);
+    } catch (IOException e) {
+      volumes.addVolumeFailureInfo(new VolumeFailureInfo(
+          location.getFile().getAbsolutePath(), Time.now()));
+      throw e;
+    }
 
     final Storage.StorageDirectory sd = builder.getStorageDirectory();
 

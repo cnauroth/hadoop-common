@@ -360,10 +360,14 @@ class FsVolumeList {
     return infos.toArray(new VolumeFailureInfo[infos.size()]);
   }
 
+  void addVolumeFailureInfo(VolumeFailureInfo volumeFailureInfo) {
+    volumeFailureInfos.put(volumeFailureInfo.getFailedStorageLocation(),
+        volumeFailureInfo);
+  }
+
   private void addVolumeFailureInfo(FsVolumeImpl vol) {
-    String failedStorageLocation = vol.getBasePath();
-    volumeFailureInfos.put(failedStorageLocation, new VolumeFailureInfo(
-        failedStorageLocation, Time.now(), vol.getCapacity()));
+    addVolumeFailureInfo(new VolumeFailureInfo(vol.getBasePath(), Time.now(),
+        vol.getCapacity()));
   }
 
   private void removeVolumeFailureInfo(File vol) {
