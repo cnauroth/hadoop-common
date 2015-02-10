@@ -31,7 +31,7 @@ public class VolumeFailureSummary {
    * @param failedStorageLocations storage locations that have failed
    * @param lastVolumeFailureDate date/time of last volume failure in
    *     milliseconds since epoch
-   * @param estimatedCapacityLost estimate of capacity lost in bytes
+   * @param estimatedCapacityLostTotal estimate of capacity lost in bytes
    */
   public VolumeFailureSummary(String[] failedStorageLocations,
       long lastVolumeFailureDate, long estimatedCapacityLostTotal) {

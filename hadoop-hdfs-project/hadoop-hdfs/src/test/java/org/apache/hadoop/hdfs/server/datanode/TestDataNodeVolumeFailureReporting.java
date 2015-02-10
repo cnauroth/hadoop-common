@@ -19,6 +19,7 @@ package org.apache.hadoop.hdfs.server.datanode;
 
 import static org.apache.hadoop.test.MetricsAsserts.assertCounter;
 import static org.apache.hadoop.test.MetricsAsserts.getMetrics;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -501,7 +502,7 @@ public class TestDataNodeVolumeFailureReporting {
         getMetrics(dn.getMetrics().name()));
     FsDatasetSpi<?> fsd = dn.getFSDataset();
     assertEquals(expectedFailedVolumes.length, fsd.getNumFailedVolumes());
-    assertEquals(expectedFailedVolumes, fsd.getFailedStorageLocations());
+    assertArrayEquals(expectedFailedVolumes, fsd.getFailedStorageLocations());
     if (expectedFailedVolumes.length > 0) {
       assertTrue(fsd.getLastVolumeFailureDate() > 0);
       long expectedCapacityLost = getExpectedCapacityLost(expectCapacityKnown,
@@ -533,7 +534,7 @@ public class TestDataNodeVolumeFailureReporting {
     assertEquals(expectedFailedVolumes.length, dd.getVolumeFailures());
     VolumeFailureSummary volumeFailureSummary = dd.getVolumeFailureSummary();
     if (expectedFailedVolumes.length > 0) {
-      assertEquals(expectedFailedVolumes, volumeFailureSummary
+      assertArrayEquals(expectedFailedVolumes, volumeFailureSummary
           .getFailedStorageLocations());
       assertTrue(volumeFailureSummary.getLastVolumeFailureDate() > 0);
       long expectedCapacityLost = getExpectedCapacityLost(expectCapacityKnown,
