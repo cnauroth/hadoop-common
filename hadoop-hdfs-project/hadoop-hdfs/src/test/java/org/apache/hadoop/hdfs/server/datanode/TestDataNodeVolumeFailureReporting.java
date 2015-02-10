@@ -358,6 +358,66 @@ public class TestDataNodeVolumeFailureReporting {
     checkFailuresAtNameNode(dm, dns.get(2));
   }
 
+  @Test
+  public void testRemoveVolumeFailureAfterReconfigure() throws Exception {
+    // Bring up two more datanodes
+    cluster.startDataNodes(conf, 2, true, null, null);
+    cluster.waitActive();
+
+    final DatanodeManager dm = cluster.getNamesystem().getBlockManager(
+        ).getDatanodeManager();
+    long origCapacity = DFSTestUtil.getLiveDatanodeCapacity(dm);
+    long dnCapacity = DFSTestUtil.getDatanodeCapacity(dm, 0);
+
+    // Fail the first volume on both datanodes (we have to keep the
+    // third healthy so one node in the pipeline will not fail).
+    File dn1Vol1 = new File(dataDir, "data"+(2*0+1));
+    File dn2Vol1 = new File(dataDir, "data"+(2*1+1));
+    assertTrue("Couldn't chmod local vol", FileUtil.setExecutable(dn1Vol1, false));
+    assertTrue("Couldn't chmod local vol", FileUtil.setExecutable(dn2Vol1, false));
+
+    Path file1 = new Path("/test1");
+    DFSTestUtil.createFile(fs, file1, 1024, (short)2, 1L);
+    DFSTestUtil.waitReplication(fs, file1, (short)2);
+
+    ArrayList<DataNode> dns = cluster.getDataNodes();
+    assertTrue("DN1 should be up", dns.get(0).isDatanodeUp());
+    assertTrue("DN2 should be up", dns.get(1).isDatanodeUp());
+    assertTrue("DN3 should be up", dns.get(2).isDatanodeUp());
+
+    checkFailuresAtDataNode(dns.get(0), 1, dn1Vol1.getAbsolutePath());
+    checkFailuresAtDataNode(dns.get(1), 1, dn2Vol1.getAbsolutePath());
+    checkFailuresAtDataNode(dns.get(2), 0);
+
+    // Ensure we wait a sufficient amount of time
+    assert (WAIT_FOR_HEARTBEATS * 10) > WAIT_FOR_DEATH;
+
+    // The NN reports two volumes failures
+    DFSTestUtil.waitForDatanodeStatus(dm, 3, 0, 2,
+        origCapacity - (1*dnCapacity), WAIT_FOR_HEARTBEATS);
+    checkAggregateFailuresAtNameNode(2);
+    checkFailuresAtNameNode(dm, dns.get(0), dn1Vol1.getAbsolutePath());
+    checkFailuresAtNameNode(dm, dns.get(1), dn2Vol1.getAbsolutePath());
+
+    // Reconfigure each DataNode to remove its failed volumes.
+    reconfigureDataNode(dns.get(0), dn1Vol1);
+    reconfigureDataNode(dns.get(1), dn2Vol1);
+
+    DataNodeTestUtils.triggerHeartbeat(dns.get(0));
+    DataNodeTestUtils.triggerHeartbeat(dns.get(1));
+
+    checkFailuresAtDataNode(dns.get(0), 1);
+    checkFailuresAtDataNode(dns.get(1), 1);
+    checkFailuresAtDataNode(dns.get(2), 0);
+
+    // NN sees reduced capacity, but no volume failures.
+    DFSTestUtil.waitForDatanodeStatus(dm, 3, 0, 0,
+        origCapacity - (1*dnCapacity), WAIT_FOR_HEARTBEATS);
+    checkAggregateFailuresAtNameNode(0);
+    checkFailuresAtNameNode(dm, dns.get(0));
+    checkFailuresAtNameNode(dm, dns.get(1));
+  }
+
   /**
    * Checks the NameNode for correct values of aggregate counters tracking failed
    * volumes across all DataNodes.
@@ -457,5 +517,31 @@ public class TestDataNodeVolumeFailureReporting {
     long dnCapacity = DFSTestUtil.getDatanodeCapacity(
         cluster.getNamesystem().getBlockManager().getDatanodeManager(), 0);
     volumeCapacity = dnCapacity / cluster.getStoragesPerDatanode();
+  }
+
+  /**
+   * Reconfigure a DataNode by removing a previously configured volume.
+   *
+   * @param dn DataNode to reconfigure
+   * @param volToRemove volume to remove
+   * @throws Exception if there is any failure
+   */
+  private static void reconfigureDataNode(DataNode dn, File volToRemove)
+      throws Exception {
+    String dnOldDataDirs = dn.getConf().get(
+        DFSConfigKeys.DFS_DATANODE_DATA_DIR_KEY);
+    StringBuilder dnNewDataDirs = new StringBuilder();
+    for (String dnOldDataDir: dnOldDataDirs.split(",")) {
+      StorageLocation sl = StorageLocation.parse(dnOldDataDir);
+      if (!(sl.getFile().getAbsolutePath().equals(
+          volToRemove.getAbsolutePath()))) {
+        if (dnNewDataDirs.length() > 0) {
+          dnNewDataDirs.append(',');
+        }
+        dnNewDataDirs.append(dnOldDataDir);
+      }
+    }
+    dn.reconfigurePropertyImpl(DFSConfigKeys.DFS_DATANODE_DATA_DIR_KEY,
+        dnNewDataDirs.toString());
   }
 }
