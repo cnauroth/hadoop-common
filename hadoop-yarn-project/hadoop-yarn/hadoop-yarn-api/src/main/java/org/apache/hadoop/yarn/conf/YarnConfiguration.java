@@ -435,6 +435,8 @@ public class YarnConfiguration extends Configuration {
   public static final String DEFAULT_RM_CONFIGURATION_PROVIDER_CLASS =
       "org.apache.hadoop.yarn.LocalConfigurationProvider";
 
+  public static final String YARN_AUTHORIZATION_PROVIDER = YARN_PREFIX
+      + "authorization-provider";
   private static final List<String> RM_SERVICES_ADDRESS_CONF_KEYS_HTTP =
       Collections.unmodifiableList(Arrays.asList(
           RM_ADDRESS,
@@ -1000,7 +1002,16 @@ public class YarnConfiguration extends Configuration {
 
   public static final long DEFAULT_NM_LINUX_CONTAINER_CGROUPS_DELETE_TIMEOUT =
       1000;
-  
+
+  /**
+   * Delay between attempts to remove linux cgroup.
+   */
+  public static final String NM_LINUX_CONTAINER_CGROUPS_DELETE_DELAY =
+      NM_PREFIX + "linux-container-executor.cgroups.delete-delay-ms";
+
+  public static final long DEFAULT_NM_LINUX_CONTAINER_CGROUPS_DELETE_DELAY =
+      20;
+
   /** 
   /* The Windows group that the windows-secure-container-executor should run as.
   */

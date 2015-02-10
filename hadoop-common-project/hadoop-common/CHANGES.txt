@@ -411,6 +411,8 @@ Release 2.7.0 - UNRELEASED
     HADOOP-11045. Introducing a tool to detect flaky tests of hadoop jenkins testing
     job. (Yongjun Zhang and Todd Lipcon via ozawa)
 
+    HADOOP-11510. Expose truncate API via FileContext. (yliu)
+
   IMPROVEMENTS
 
     HADOOP-11483. HardLink.java should use the jdk7 createLink method (aajisaka)
@@ -585,6 +587,9 @@ Release 2.7.0 - UNRELEASED
     values. (Gera Shegalov via gera)
 
   BUG FIXES
+
+    HADOOP-11512. Use getTrimmedStrings when reading serialization keys
+    (Ryan P via harsh)
 
     HADOOP-11488. Difference in default connection timeout for S3A FS
     (Daisuke Kobayashi via harsh)

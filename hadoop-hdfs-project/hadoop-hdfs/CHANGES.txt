@@ -136,6 +136,9 @@ Trunk (Unreleased)
     HDFS-7430. Rewrite the BlockScanner to use O(1) memory and use multiple
     threads (cmccabe)
 
+    HDFS-7546. Document, and set an accepting default for
+    dfs.namenode.kerberos.principal.pattern (Harsh J via aw)
+
   OPTIMIZATIONS
 
   BUG FIXES
@@ -603,6 +606,8 @@ Release 2.7.0 - UNRELEASED
     HDFS-7743. Code cleanup of BlockInfo and rename BlockInfo to
     BlockInfoContiguous. (jing9)
 
+    HDFS-7058. Tests for truncate CLI. (Dasha Boudnik via shv)
+
   OPTIMIZATIONS
 
     HDFS-7454. Reduce memory footprint for AclEntries in NameNode.
@@ -883,6 +888,18 @@ Release 2.7.0 - UNRELEASED
 
     HDFS-7647. DatanodeManager.sortLocatedBlocks sorts DatanodeInfos
     but not StorageIDs. (Milan Desai via Arpit Agarwal)
+
+    HDFS-7756. Restore method signature for LocatedBlock#getLocations(). (Ted
+    Yu via yliu)
+
+    HDFS-7744. Fix potential NPE in DFSInputStream after setDropBehind or
+    setReadahead is called (cmccabe)
+
+    HDFS-7718. Store KeyProvider in ClientContext to avoid leaking key provider
+    threads when using FileContext (Arun Suresh via Colin P. McCabe)
+
+    HDFS-7714. Simultaneous restart of HA NameNodes and DataNode can cause
+    DataNode to register successfully with only one NameNode.(vinayakumarb)
 
 Release 2.6.1 - UNRELEASED
 
