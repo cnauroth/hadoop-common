@@ -214,6 +214,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
       = new EnumCounters<StorageType>(StorageType.class);
   private long lastBlocksScheduledRollTime = 0;
   private static final int BLOCKS_SCHEDULED_ROLL_INTERVAL = 600*1000; //10min
+  private int volumeFailures = 0;
   private VolumeFailureSummary volumeFailureSummary = null;
   
   /** 
@@ -313,6 +314,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
     setDfsUsed(0);
     setXceiverCount(0);
     this.invalidateBlocks.clear();
+    this.volumeFailures = 0;
     // pendingCached, cached, and pendingUncached are protected by the
     // FSN lock.
     this.pendingCached.clear();
@@ -370,9 +372,12 @@ public class DatanodeDescriptor extends DatanodeInfo {
     //    implementation doesn't add recovered storage back to its storage list
     //    until DN restart, we can assume volFailures won't decrease
     //    during the current DN registration session.
-    //    When new volumeFailures == old volumeFailures, it implies there is no
+    //    When volumeFailures == this.volumeFailures, it implies there is no
     //    state change. No need to check for failed storage. This is an
-    //    optimization.
+    //    optimization.  Recent versions of the DataNode report a
+    //    VolumeFailureSummary containing the date/time of the last volume
+    //    failure.  If that's available, then we check that instead for greater
+    //    accuracy.
     // 2. After DN restarts, volFailures might not increase and it is possible
     //    we still have new failed storage. For example, admins reduce
     //    available storages in configuration. Another corner case
@@ -381,9 +386,14 @@ public class DatanodeDescriptor extends DatanodeInfo {
     //    one element in storageReports and that is A. b) A failed. c) Before
     //    DN sends HB to NN to indicate A has failed, DN restarts. d) After DN
     //    restarts, storageReports has one element which is B.
-    int volumeFailures = getVolumeFailures();
-    boolean checkFailedStorages = (volFailures > volumeFailures) ||
-        !heartbeatedSinceRegistration;
+    final boolean checkFailedStorages;
+    if (volumeFailureSummary != null && this.volumeFailureSummary != null) {
+      checkFailedStorages = volumeFailureSummary.getLastVolumeFailureDate() >
+          this.volumeFailureSummary.getLastVolumeFailureDate();
+    } else {
+      checkFailedStorages = (volFailures > this.volumeFailures) ||
+          !heartbeatedSinceRegistration;
+    }
 
     if (checkFailedStorages) {
       LOG.info("Number of failed storage changes from "
@@ -396,6 +406,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
     setCacheUsed(cacheUsed);
     setXceiverCount(xceiverCount);
     setLastUpdate(Time.now());    
+    this.volumeFailures = volFailures;
     this.volumeFailureSummary = volumeFailureSummary;
     for (StorageReport report : reports) {
       DatanodeStorageInfo storage = updateStorage(report.getStorage());
@@ -728,8 +739,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
    * @return number of failed volumes in the datanode.
    */
   public int getVolumeFailures() {
-    return volumeFailureSummary != null ?
-        volumeFailureSummary.getFailedStorageLocations().length : 0;
+    return volumeFailures;
   }
 
   /**
