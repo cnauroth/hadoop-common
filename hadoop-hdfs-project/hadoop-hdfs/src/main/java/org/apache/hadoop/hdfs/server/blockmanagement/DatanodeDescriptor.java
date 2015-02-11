@@ -397,7 +397,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
 
     if (checkFailedStorages) {
       LOG.info("Number of failed storage changes from "
-          + volumeFailures + " to " + volFailures);
+          + this.volumeFailures + " to " + volFailures);
       failedStorageInfos = new HashSet<DatanodeStorageInfo>(
           storageMap.values());
     }
