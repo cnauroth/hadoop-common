@@ -187,16 +187,16 @@ public class DatanodeManager {
     this.fsClusterStats = newFSClusterStats();
 
     this.defaultXferPort = NetUtils.createSocketAddr(
-          conf.get(DFSConfigKeys.DFS_DATANODE_ADDRESS_KEY,
+          conf.getTrimmed(DFSConfigKeys.DFS_DATANODE_ADDRESS_KEY,
               DFSConfigKeys.DFS_DATANODE_ADDRESS_DEFAULT)).getPort();
     this.defaultInfoPort = NetUtils.createSocketAddr(
-          conf.get(DFSConfigKeys.DFS_DATANODE_HTTP_ADDRESS_KEY,
+          conf.getTrimmed(DFSConfigKeys.DFS_DATANODE_HTTP_ADDRESS_KEY,
               DFSConfigKeys.DFS_DATANODE_HTTP_ADDRESS_DEFAULT)).getPort();
     this.defaultInfoSecurePort = NetUtils.createSocketAddr(
-        conf.get(DFSConfigKeys.DFS_DATANODE_HTTPS_ADDRESS_KEY,
+        conf.getTrimmed(DFSConfigKeys.DFS_DATANODE_HTTPS_ADDRESS_KEY,
             DFSConfigKeys.DFS_DATANODE_HTTPS_ADDRESS_DEFAULT)).getPort();
     this.defaultIpcPort = NetUtils.createSocketAddr(
-          conf.get(DFSConfigKeys.DFS_DATANODE_IPC_ADDRESS_KEY,
+          conf.getTrimmed(DFSConfigKeys.DFS_DATANODE_IPC_ADDRESS_KEY,
               DFSConfigKeys.DFS_DATANODE_IPC_ADDRESS_DEFAULT)).getPort();
     try {
       this.hostFileManager.refresh(conf.get(DFSConfigKeys.DFS_HOSTS, ""),
@@ -391,8 +391,8 @@ public class DatanodeManager {
       }
       int activeLen = lastActiveIndex + 1;      
       networktopology.sortByDistance(client, b.getLocations(), activeLen);
-      // must invalidate cache since we modified locations array
-      b.invalidateCachedStorageInfo();
+      // must update cache since we modified locations array
+      b.updateCachedStorageInfo();
     }
   }
   

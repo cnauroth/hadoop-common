@@ -20,9 +20,6 @@ Trunk (Unreleased)
 
     HDFS-3689. Add support for variable length block. (jing9)
 
-    HDFS-7720. Quota by Storage Type API, tools and ClientNameNode Protocol
-    changes. (Xiaoyu Yao via Arpit Agarwal)
-
   IMPROVEMENTS
 
     HDFS-4665. Move TestNetworkTopologyWithNodeGroup to common.
@@ -138,6 +135,14 @@ Trunk (Unreleased)
 
     HDFS-7546. Document, and set an accepting default for
     dfs.namenode.kerberos.principal.pattern (Harsh J via aw)
+
+    HDFS-316. Balancer should run for a configurable # of iterations (Xiaoyu
+    Yao via aw)
+
+    HDFS-7322. deprecate sbin/hadoop-daemon.sh (aw)
+
+    HDFS-7668. Convert site documentation from apt to markdown (Masatake
+    Iwasaki via aw)
 
   OPTIMIZATIONS
 
@@ -299,6 +304,12 @@ Trunk (Unreleased)
     HDFS-7755. httpfs shell code has hardcoded path to bash (Dmitry
     Sivachenko via aw)
 
+    HDFS-7711. Fix various typos in ClusterSetup.md.
+    (Brahma Reddy Battula via wheat9)
+
+    HDFS-7791. dfs count -v should be added to quota documentation (Akira
+    AJISAKA via aw)
+
 Release 2.7.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -325,6 +336,12 @@ Release 2.7.0 - UNRELEASED
     HDFS-6673. Add delimited format support to PB OIV tool. (Eddy Xu via wang)
 
     HDFS-7655. Expose truncate API for Web HDFS. (yliu)
+
+    HDFS-6133. Add a feature for replica pinning so that a pinned replica
+    will not be moved by Balancer/Mover.  (zhaoyunjiong via szetszwo)
+
+    HDFS-7584. Enable Quota Support for Storage Types. (Xiaoyu Yao via
+    Arpit Agarwal)
 
   IMPROVEMENTS
 
@@ -607,6 +624,21 @@ Release 2.7.0 - UNRELEASED
     BlockInfoContiguous. (jing9)
 
     HDFS-7058. Tests for truncate CLI. (Dasha Boudnik via shv)
+
+    HDFS-7760. Document truncate for WebHDFS. (shv)
+
+    HDFS-7761. cleanup unnecssary code logic in LocatedBlock. (yliu)
+
+    HDFS-7703. Support favouredNodes for the append for new blocks
+    (vinayakumarb)
+
+    HDFS-7694. FSDataInputStream should support "unbuffer" (cmccabe)
+
+    HDFS-7684. The host:port settings of the daemons should be trimmed before
+    use. (Anu Engineer via aajisaka)
+
+    HDFS-7790. Do not create optional fields in DFSInputStream unless they are
+    needed (cmccabe)
 
   OPTIMIZATIONS
 
@@ -900,6 +932,21 @@ Release 2.7.0 - UNRELEASED
 
     HDFS-7714. Simultaneous restart of HA NameNodes and DataNode can cause
     DataNode to register successfully with only one NameNode.(vinayakumarb)
+
+    HDFS-7769. TestHDFSCLI should not create files in hdfs project root dir.
+    (szetszwo)
+
+    HDFS-7753. Fix Multithreaded correctness Warnings in BackupImage.
+    (Rakesh R and shv)
+
+    HDFS-7736. Fix typos in dfsadmin/fsck/snapshotDiff usage messages.
+    (Brahma Reddy Battula via wheat9)
+
+    HDFS-7771. fuse_dfs should permit FILE: on the front of KRB5CCNAME
+    (cmccabe)
+
+    HDFS-7704. DN heartbeat to Active NN may be blocked and expire if
+    connection to Standby NN continues to time out (Rushabh Shah via kihwal)
 
 Release 2.6.1 - UNRELEASED
 

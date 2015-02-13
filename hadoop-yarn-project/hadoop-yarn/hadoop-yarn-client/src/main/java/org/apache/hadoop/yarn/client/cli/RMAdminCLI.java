@@ -19,6 +19,7 @@
 package org.apache.hadoop.yarn.client.cli;
 
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -127,13 +128,17 @@ public class RMAdminCLI extends HAAdmin {
     super(conf);
   }
 
+  protected void setErrOut(PrintStream errOut) {
+    this.errOut = errOut;
+  }
+
   private static void appendHAUsage(final StringBuilder usageBuilder) {
-    for (String cmdKey : USAGE.keySet()) {
-      if (cmdKey.equals("-help")) {
+    for (Map.Entry<String,UsageInfo> cmdEntry : USAGE.entrySet()) {
+      if (cmdEntry.getKey().equals("-help")) {
         continue;
       }
-      UsageInfo usageInfo = USAGE.get(cmdKey);
-      usageBuilder.append(" [" + cmdKey + " " + usageInfo.args + "]");
+      UsageInfo usageInfo = cmdEntry.getValue();
+      usageBuilder.append(" [" + cmdEntry.getKey() + " " + usageInfo.args + "]");
     }
   }
 
@@ -173,14 +178,15 @@ public class RMAdminCLI extends HAAdmin {
   private static void buildUsageMsg(StringBuilder builder,
       boolean isHAEnabled) {
     builder.append("Usage: yarn rmadmin\n");
-    for (String cmdKey : ADMIN_USAGE.keySet()) {
-      UsageInfo usageInfo = ADMIN_USAGE.get(cmdKey);
-      builder.append("   " + cmdKey + " " + usageInfo.args + "\n");
+    for (Map.Entry<String,UsageInfo> cmdEntry : ADMIN_USAGE.entrySet()) {
+      UsageInfo usageInfo = cmdEntry.getValue();
+      builder.append("   " + cmdEntry.getKey() + " " + usageInfo.args + "\n");
     }
     if (isHAEnabled) {
-      for (String cmdKey : USAGE.keySet()) {
+      for (Map.Entry<String,UsageInfo> cmdEntry : USAGE.entrySet()) {
+        String cmdKey = cmdEntry.getKey();
         if (!cmdKey.equals("-help")) {
-          UsageInfo usageInfo = USAGE.get(cmdKey);
+          UsageInfo usageInfo = cmdEntry.getValue();
           builder.append("   " + cmdKey + " " + usageInfo.args + "\n");
         }
       }
@@ -637,6 +643,11 @@ public class RMAdminCLI extends HAAdmin {
       throw new YarnRuntimeException(
           "Could not connect to RM HA Admin for node " + rmId);
     }
+  }
+  
+  @Override
+  protected String getUsageString() {
+    return "Usage: rmadmin";
   }
 
   public static void main(String[] args) throws Exception {
