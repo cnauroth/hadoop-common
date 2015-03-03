@@ -27,7 +27,15 @@ include(../../../hadoop-common-project/hadoop-common/src/JNIFlags.cmake NO_POLIC
 function(add_dual_library LIBNAME)
     add_library(${LIBNAME} SHARED ${ARGN})
     add_library(${LIBNAME}_static STATIC ${ARGN})
-    set_target_properties(${LIBNAME}_static PROPERTIES OUTPUT_NAME ${LIBNAME})
+    # Linux builds traditionally ship a libhdfs.a (static linking) and libhdfs.so
+    # (dynamic linking).  On Windows, we cannot use the same base name for both
+    # static and dynamic, because Windows does not use distinct file extensions
+    # for a statically linked library vs. a DLL import library.  Both use the
+    # .lib extension.  On Windows, we'll build the static library as
+    # hdfs_static.lib.
+    if (NOT WIN32)
+        set_target_properties(${LIBNAME}_static PROPERTIES OUTPUT_NAME ${LIBNAME})
+    endif (NOT WIN32)
 endfunction(add_dual_library)
 
 # Link both a static and a dynamic target against some libraries
@@ -101,6 +109,8 @@ if (WIN32)
 
     set(OS_DIR main/native/libhdfs/os/windows)
     set(OUT_DIR target/bin)
+
+    add_definitions(-DLIBHDFS_DLL_EXPORT)
 else (WIN32)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -Wall -O2")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_REENTRANT -D_GNU_SOURCE")
@@ -150,7 +160,7 @@ add_executable(test_libhdfs_ops
     main/native/libhdfs/test/test_libhdfs_ops.c
 )
 target_link_libraries(test_libhdfs_ops
-    hdfs
+    hdfs_static
     ${JAVA_JVM_LIBRARY}
 )
 
@@ -158,7 +168,7 @@ add_executable(test_libhdfs_read
     main/native/libhdfs/test/test_libhdfs_read.c
 )
 target_link_libraries(test_libhdfs_read
-    hdfs
+    hdfs_static
     ${JAVA_JVM_LIBRARY}
 )
 
@@ -166,7 +176,7 @@ add_executable(test_libhdfs_write
     main/native/libhdfs/test/test_libhdfs_write.c
 )
 target_link_libraries(test_libhdfs_write
-    hdfs
+    hdfs_static
     ${JAVA_JVM_LIBRARY}
 )
 
@@ -196,7 +206,7 @@ add_executable(test_libhdfs_threaded
     ${OS_DIR}/thread.c
 )
 target_link_libraries(test_libhdfs_threaded
-    hdfs
+    hdfs_static
     native_mini_dfs
     ${OS_LINK_LIBRARIES}
 )
@@ -206,7 +216,7 @@ add_executable(test_libhdfs_zerocopy
     main/native/libhdfs/test/test_libhdfs_zerocopy.c
 )
 target_link_libraries(test_libhdfs_zerocopy
-    hdfs
+    hdfs_static
     native_mini_dfs
     ${OS_LINK_LIBRARIES}
 )
