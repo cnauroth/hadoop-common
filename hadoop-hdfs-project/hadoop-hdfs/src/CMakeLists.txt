@@ -109,8 +109,6 @@ if (WIN32)
 
     set(OS_DIR main/native/libhdfs/os/windows)
     set(OUT_DIR target/bin)
-
-    add_definitions(-DLIBHDFS_DLL_EXPORT)
 else (WIN32)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -Wall -O2")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_REENTRANT -D_GNU_SOURCE")
@@ -119,8 +117,9 @@ else (WIN32)
     set(OS_DIR main/native/libhdfs/os/posix)
     set(OS_LINK_LIBRARIES pthread)
     set(OUT_DIR target/usr/local/lib)
-    add_definitions(-DLIBHDFS_DLL_EXPORT)
 endif (WIN32)
+
+add_definitions(-DLIBHDFS_DLL_EXPORT)
 
 include_directories(
     ${GENERATED_JAVAH}
