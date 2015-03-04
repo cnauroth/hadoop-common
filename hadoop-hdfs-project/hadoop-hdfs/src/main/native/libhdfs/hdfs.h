@@ -39,7 +39,13 @@
         #define LIBHDFS_EXTERNAL
     #endif
 #else
-    #define LIBHDFS_EXTERNAL
+    #ifdef LIBHDFS_DLL_EXPORT
+        #define LIBHDFS_EXTERNAL __attribute__((visibility("default")))
+    #elif LIBHDFS_DLL_IMPORT
+        #define LIBHDFS_EXTERNAL __attribute__((visibility("default")))
+    #else
+        #define LIBHDFS_EXTERNAL
+    #endif
 #endif
 
 #ifndef O_RDONLY

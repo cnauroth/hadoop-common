@@ -115,9 +115,11 @@ else (WIN32)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -Wall -O2")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_REENTRANT -D_GNU_SOURCE")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
     set(OS_DIR main/native/libhdfs/os/posix)
     set(OS_LINK_LIBRARIES pthread)
     set(OUT_DIR target/usr/local/lib)
+    add_definitions(-DLIBHDFS_DLL_EXPORT)
 endif (WIN32)
 
 include_directories(
