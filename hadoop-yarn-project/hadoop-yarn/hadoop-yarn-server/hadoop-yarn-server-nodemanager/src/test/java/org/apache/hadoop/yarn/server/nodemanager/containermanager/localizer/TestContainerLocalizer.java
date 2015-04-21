@@ -36,6 +36,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -235,6 +236,33 @@ public class TestContainerLocalizer {
         any(UserGroupInformation.class));
     localizer.runLocalization(nmAddr);
     verify(localizer).closeFileSystems(any(UserGroupInformation.class));
+  }
+
+  @Test
+  public void testLocalizerDiskCheckDoesNotUriEncodePath() throws Exception {
+    FileContext fs = FileContext.getLocalFSFileContext();
+    spylfs = spy(fs.getDefaultFileSystem());
+    ContainerLocalizer localizer = setupContainerLocalizerForTest();
+
+    // Use a resource path containing a character that would require encoding in
+    // URI form.
+    ResourceLocalizationSpec rsrc = getMockRsrc(random,
+        LocalResourceVisibility.PRIVATE, new Path("/my\\File"));
+
+    when(nmProxy.heartbeat(isA(LocalizerStatus.class)))
+        .thenReturn(new MockLocalizerHeartbeatResponse(LocalizerAction.LIVE,
+            Collections.singletonList(rsrc)))
+        .thenReturn(new MockLocalizerHeartbeatResponse(LocalizerAction.DIE,
+            null));
+    LocalResource tRsrc = rsrc.getResource();
+    doReturn(new FakeDownload(rsrc.getResource().getResource().getFile(), true))
+        .when(localizer).download(isA(Path.class), eq(tRsrc),
+            isA(UserGroupInformation.class));
+
+    // Localize and verify that the disk check was performed on the original
+    // provided path, not a URI-encoded version of the path.
+    assertEquals(0, localizer.runLocalization(nmAddr));
+    verify(localizer).checkDir(new File("/my\\File"));
   }
 
   @SuppressWarnings("unchecked") // mocked generics

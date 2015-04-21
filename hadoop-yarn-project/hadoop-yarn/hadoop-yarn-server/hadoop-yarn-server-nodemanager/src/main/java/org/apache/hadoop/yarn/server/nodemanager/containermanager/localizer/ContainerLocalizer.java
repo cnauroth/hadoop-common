@@ -69,6 +69,7 @@ import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.secu
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.FSDownload;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 public class ContainerLocalizer {
@@ -196,8 +197,12 @@ public class ContainerLocalizer {
 
   Callable<Path> download(Path path, LocalResource rsrc,
       UserGroupInformation ugi) throws IOException {
-    DiskChecker.checkDir(new File(path.toUri().getRawPath()));
     return new FSDownload(lfs, ugi, conf, path, rsrc);
+  }
+
+  @VisibleForTesting
+  void checkDir(File path) throws IOException {
+    DiskChecker.checkDir(path);
   }
 
   static long getEstimatedSize(LocalResource rsrc) {
@@ -238,9 +243,10 @@ public class ContainerLocalizer {
           List<ResourceLocalizationSpec> newRsrcs = response.getResourceSpecs();
           for (ResourceLocalizationSpec newRsrc : newRsrcs) {
             if (!pendingResources.containsKey(newRsrc.getResource())) {
+              Path path = new Path(newRsrc.getDestinationDirectory().getFile());
+              this.checkDir(new File(path.toUri().getRawPath()));
               pendingResources.put(newRsrc.getResource(), cs.submit(download(
-                new Path(newRsrc.getDestinationDirectory().getFile()),
-                newRsrc.getResource(), ugi)));
+                path, newRsrc.getResource(), ugi)));
             }
           }
           break;
