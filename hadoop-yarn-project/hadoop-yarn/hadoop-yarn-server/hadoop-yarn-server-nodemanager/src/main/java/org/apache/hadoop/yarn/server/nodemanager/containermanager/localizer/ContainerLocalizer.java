@@ -244,7 +244,7 @@ public class ContainerLocalizer {
           for (ResourceLocalizationSpec newRsrc : newRsrcs) {
             if (!pendingResources.containsKey(newRsrc.getResource())) {
               Path path = new Path(newRsrc.getDestinationDirectory().getFile());
-              this.checkDir(new File(path.toUri().getRawPath()));
+              this.checkDir(new File(path.toUri().getPath()));
               pendingResources.put(newRsrc.getResource(), cs.submit(download(
                 path, newRsrc.getResource(), ugi)));
             }
