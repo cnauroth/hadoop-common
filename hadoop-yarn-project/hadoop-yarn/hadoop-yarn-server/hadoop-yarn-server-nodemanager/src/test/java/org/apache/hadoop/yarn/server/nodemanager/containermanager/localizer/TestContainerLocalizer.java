@@ -246,8 +246,9 @@ public class TestContainerLocalizer {
 
     // Use a resource path containing a character that would require encoding in
     // URI form.
+    String rsrcPath = "/my\\File";
     ResourceLocalizationSpec rsrc = getMockRsrc(random,
-        LocalResourceVisibility.PRIVATE, new Path("/my\\File"));
+        LocalResourceVisibility.PRIVATE, new Path(rsrcPath));
 
     when(nmProxy.heartbeat(isA(LocalizerStatus.class)))
         .thenReturn(new MockLocalizerHeartbeatResponse(LocalizerAction.LIVE,
@@ -262,7 +263,7 @@ public class TestContainerLocalizer {
     // Localize and verify that the disk check was performed on the original
     // provided path, not a URI-encoded version of the path.
     assertEquals(0, localizer.runLocalization(nmAddr));
-    verify(localizer).checkDir(new File("/my\\File"));
+    verify(localizer).checkDir(new File(rsrcPath));
   }
 
   @SuppressWarnings("unchecked") // mocked generics
