@@ -246,10 +246,26 @@ public class TestContainerLocalizer {
 
     // Use a resource path containing a character that would require encoding in
     // URI form.
+    doDiskCheckTest(localizer, "my\\Resource");
+  }
+
+  @Test
+  public void testLocalizerDiskCheckDoesNotUriDecodePath() throws Exception {
+    FileContext fs = FileContext.getLocalFSFileContext();
+    spylfs = spy(fs.getDefaultFileSystem());
+    ContainerLocalizer localizer = setupContainerLocalizerForTest();
+
+    // Use a resource path containing something that looks like it's URI-encoded
+    // and verify that the same path is checked (no decoding).
+    doDiskCheckTest(localizer, "my%5CResource");
+  }
+
+  private void doDiskCheckTest(ContainerLocalizer localizer, String testPath)
+      throws Exception {
     Path base = new Path(new Path(
         localDirs.get(0), ContainerLocalizer.USERCACHE), appUser);
     Path privcache = new Path(base, ContainerLocalizer.FILECACHE);
-    String rsrcPath = new Path(privcache, "my\\Resource").toUri().getPath();
+    String rsrcPath = new Path(privcache, testPath).toUri().getPath();
     ResourceLocalizationSpec rsrc = getMockRsrc(random,
         LocalResourceVisibility.PRIVATE, new Path(rsrcPath));
 
