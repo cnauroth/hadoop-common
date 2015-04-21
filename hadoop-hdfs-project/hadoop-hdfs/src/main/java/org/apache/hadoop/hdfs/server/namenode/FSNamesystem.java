@@ -186,7 +186,6 @@ import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
 import org.apache.hadoop.hdfs.protocol.DirectoryListing;
 import org.apache.hadoop.hdfs.protocol.EncryptionZone;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
-import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.protocol.LastBlockWithStatus;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants.DatanodeReportType;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants.SafeModeAction;
@@ -985,8 +984,6 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       if (needToSave) {
         fsImage.saveNamespace(this);
       } else {
-        updateStorageVersionForRollingUpgrade(fsImage.getLayoutVersion(),
-            startOpt);
         // No need to save, so mark the phase done.
         StartupProgress prog = NameNode.getStartupProgress();
         prog.beginPhase(Phase.SAVING_CHECKPOINT);
@@ -996,7 +993,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       // we shouldn't do it when coming up in standby state
       if (!haEnabled || (haEnabled && startOpt == StartupOption.UPGRADE)
           || (haEnabled && startOpt == StartupOption.UPGRADEONLY)) {
-        fsImage.openEditLogForWrite();
+        fsImage.openEditLogForWrite(getCurrentLayoutVersion());
       }
       success = true;
     } finally {
@@ -1006,18 +1003,6 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       writeUnlock();
     }
     imageLoadComplete();
-  }
-
-  private void updateStorageVersionForRollingUpgrade(final long layoutVersion,
-      StartupOption startOpt) throws IOException {
-    boolean rollingStarted = RollingUpgradeStartupOption.STARTED
-        .matches(startOpt) && layoutVersion > HdfsConstants
-        .NAMENODE_LAYOUT_VERSION;
-    boolean rollingRollback = RollingUpgradeStartupOption.ROLLBACK
-        .matches(startOpt);
-    if (rollingRollback || rollingStarted) {
-      fsImage.updateStorageVersion();
-    }
   }
 
   private void startSecretManager() {
@@ -1137,7 +1122,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
             nextTxId);
         editLog.setNextTxId(nextTxId);
 
-        getFSImage().editLog.openForWrite();
+        getFSImage().editLog.openForWrite(getCurrentLayoutVersion());
       }
 
       // Enable quota checks.
@@ -5823,7 +5808,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       if (Server.isRpcInvocation()) {
         LOG.info("Roll Edit Log from " + Server.getRemoteAddress());
       }
-      return getFSImage().rollEditLog();
+      return getFSImage().rollEditLog(getCurrentLayoutVersion());
     } finally {
       writeUnlock();
     }
@@ -5839,7 +5824,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       
       LOG.info("Start checkpoint for " + backupNode.getAddress());
       NamenodeCommand cmd = getFSImage().startCheckpoint(backupNode,
-          activeNamenode);
+          activeNamenode, getCurrentLayoutVersion());
       getEditLog().logSync();
       return cmd;
     } finally {
@@ -7511,7 +7496,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       getEditLog().logStartRollingUpgrade(rollingUpgradeInfo.getStartTime());
       if (haEnabled) {
         // roll the edit log to make sure the standby NameNode can tail
-        getFSImage().rollEditLog();
+        getFSImage().rollEditLog(getCurrentLayoutVersion());
       }
     } finally {
       writeUnlock();
@@ -7595,6 +7580,11 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     return rollingUpgradeInfo != null;
   }
 
+  public int getCurrentLayoutVersion() {
+    return isRollingUpgrade() ? fsImage.getStorage().getLayoutVersion() :
+        NameNodeLayoutVersion.CURRENT_LAYOUT_VERSION;
+  }
+
   void checkRollingUpgrade(String action) throws RollingUpgradeException {
     if (isRollingUpgrade()) {
       throw new RollingUpgradeException("Failed to " + action
@@ -7619,7 +7609,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       getEditLog().logFinalizeRollingUpgrade(returnInfo.getFinalizeTime());
       if (haEnabled) {
         // roll the edit log to make sure the standby NameNode can tail
-        getFSImage().rollEditLog();
+        getFSImage().rollEditLog(getCurrentLayoutVersion());
       }
       getFSImage().updateStorageVersion();
       getFSImage().renameCheckpoint(NameNodeFile.IMAGE_ROLLBACK,
