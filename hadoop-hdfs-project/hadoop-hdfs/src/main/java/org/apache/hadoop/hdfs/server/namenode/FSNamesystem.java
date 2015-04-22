@@ -7593,11 +7593,37 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     return rollingUpgradeInfo != null;
   }
 
+  /**
+   * Returns the current layout version in effect.  Under normal operation, this
+   * is the same as the software's current layout version, defined in
+   * {@link NameNodeLayoutVersion#CURRENT_LAYOUT_VERSION}.  During a rolling
+   * upgrade, this retains the layout version that was persisted to metadata
+   * prior to starting the rolling upgrade.  New fsimage files and edit log
+   * segments will continue to be written with this older layout version, so that
+   * the files are still readable by the old software version if the admin
+   * chooses to downgrade.
+   *
+   * @return current layout version in effect
+   */
   public int getCurrentLayoutVersion() {
     return isRollingUpgrade() ? fsImage.getStorage().getLayoutVersion() :
         NameNodeLayoutVersion.CURRENT_LAYOUT_VERSION;
   }
 
+  /**
+   * Performs a pre-condition check that the current layout version in effect is
+   * sufficient to support the requested {@link Feature}.  If not, then the
+   * method throws {@link HadoopIllegalArgumentException} to deny the operation.
+   * This exception class is registered as a terse exception, so it prevents
+   * verbose stack traces in the NameNode log.  During a rolling upgrade, this
+   * method is used to restrict usage of new features.  This prevents writing new
+   * edit log operations that would be unreadable by the old software version if
+   * the admin chooses to downgrade.
+   *
+   * @param f feature to check
+   * @throws HadoopIllegalArgumentException if the current layout version in
+   *     effect is insufficient to support the feature
+   */
   private void requireCurrentLayoutVersionForFeature(Feature f) {
     int lv = getCurrentLayoutVersion();
     if (!NameNodeLayoutVersion.supports(f, lv)) {
