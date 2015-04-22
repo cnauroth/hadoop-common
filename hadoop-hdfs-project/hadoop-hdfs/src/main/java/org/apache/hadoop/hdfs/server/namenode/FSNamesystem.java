@@ -228,6 +228,7 @@ import org.apache.hadoop.hdfs.server.namenode.JournalSet.JournalAndStream;
 import org.apache.hadoop.hdfs.server.namenode.LeaseManager.Lease;
 import org.apache.hadoop.hdfs.server.namenode.NNStorage.NameNodeFile;
 import org.apache.hadoop.hdfs.server.namenode.NameNode.OperationCategory;
+import org.apache.hadoop.hdfs.server.namenode.NameNodeLayoutVersion.Feature;
 import org.apache.hadoop.hdfs.server.namenode.ha.EditLogTailer;
 import org.apache.hadoop.hdfs.server.namenode.ha.HAContext;
 import org.apache.hadoop.hdfs.server.namenode.ha.StandbyCheckpointer;
@@ -1953,6 +1954,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
                    String clientName, String clientMachine,
                    long mtime)
       throws IOException, UnresolvedLinkException {
+    requireCurrentLayoutVersionForFeature(Feature.TRUNCATE);
     boolean ret;
     try {
       ret = truncateInt(src, newLength, clientName, clientMachine, mtime);
@@ -2713,7 +2715,12 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     }
 
     if (writeToEditLog) {
-      getEditLog().logAppendFile(src, file, newBlock, logRetryCache);
+      if (NameNodeLayoutVersion.supports(Feature.APPEND_NEW_BLOCK,
+          getCurrentLayoutVersion())) {
+        getEditLog().logAppendFile(src, file, newBlock, logRetryCache);
+      } else {
+        getEditLog().logOpenFile(src, file, false, logRetryCache);
+      }
     }
     return ret;
   }
@@ -2908,9 +2915,12 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   LastBlockWithStatus appendFile(String src, String holder,
       String clientMachine, EnumSet<CreateFlag> flag, boolean logRetryCache)
       throws IOException {
+    boolean newBlock = flag.contains(CreateFlag.NEW_BLOCK);
+    if (newBlock) {
+      requireCurrentLayoutVersionForFeature(Feature.APPEND_NEW_BLOCK);
+    }
     try {
-      return appendFileInt(src, holder, clientMachine,
-          flag.contains(CreateFlag.NEW_BLOCK), logRetryCache);
+      return appendFileInt(src, holder, clientMachine, newBlock, logRetryCache);
     } catch (AccessControlException e) {
       logAuditEvent(false, "append", src);
       throw e;
@@ -3919,6 +3929,9 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    */
   void setQuota(String src, long nsQuota, long ssQuota, StorageType type)
       throws IOException {
+    if (type != null) {
+      requireCurrentLayoutVersionForFeature(Feature.QUOTA_BY_STORAGE_TYPE);
+    }
     checkOperation(OperationCategory.WRITE);
     writeLock();
     boolean success = false;
@@ -7583,6 +7596,16 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   public int getCurrentLayoutVersion() {
     return isRollingUpgrade() ? fsImage.getStorage().getLayoutVersion() :
         NameNodeLayoutVersion.CURRENT_LAYOUT_VERSION;
+  }
+
+  private void requireCurrentLayoutVersionForFeature(Feature f) {
+    int lv = getCurrentLayoutVersion();
+    if (!NameNodeLayoutVersion.supports(f, lv)) {
+      throw new HadoopIllegalArgumentException(String.format(
+          "Feature %s unsupported at NameNode layout version %d.  If a " +
+          "rolling upgrade is in progress, then it must be finalized before " +
+          "using this feature.", f, lv));
+    }
   }
 
   void checkRollingUpgrade(String action) throws RollingUpgradeException {
