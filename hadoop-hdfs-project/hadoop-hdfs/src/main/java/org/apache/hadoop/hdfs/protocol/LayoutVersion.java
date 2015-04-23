@@ -240,7 +240,13 @@ public class LayoutVersion {
       LayoutFeature[] features) {
     // Go through all the enum constants and build a map of
     // LayoutVersion <-> Set of all supported features in that LayoutVersion
-    LayoutFeature prevF = null;
+    SortedSet<LayoutFeature> existingFeatures = new TreeSet<LayoutFeature>(
+        new LayoutFeatureComparator());
+    for (SortedSet<LayoutFeature> s : map.values()) {
+      existingFeatures.addAll(s);
+    }
+    LayoutFeature prevF = existingFeatures.isEmpty() ? null :
+        existingFeatures.last();
     for (LayoutFeature f : features) {
       final FeatureInfo info = f.getInfo();
       int minCompatLV = info.getMinimumCompatibleLayoutVersion();
