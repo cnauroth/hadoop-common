@@ -1483,6 +1483,14 @@ public class NameNode implements NameNodeStatusMXBean {
         terminate(0);
         return null;
       }
+      case ROLLINGUPGRADE: {
+        if (conf.getBoolean("dfs.allow.truncate", false)) {
+          LOG.error("{} not supported if dfs.allow.truncate is true.", startOpt);
+          terminate(1);
+          return null;
+        }
+        // intentional fall-through
+      }
       default: {
         DefaultMetricsSystem.initialize("NameNode");
         return new NameNode(conf);
