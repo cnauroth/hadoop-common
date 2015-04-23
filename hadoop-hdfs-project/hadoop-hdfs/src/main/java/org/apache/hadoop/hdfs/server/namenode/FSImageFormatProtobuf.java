@@ -454,7 +454,7 @@ public final class FSImageFormatProtobuf {
       FileSummary.Builder b = FileSummary.newBuilder()
           .setOndiskVersion(FSImageUtil.FILE_VERSION)
           .setLayoutVersion(
-              context.getSourceNamesystem().getCurrentLayoutVersion());
+              context.getSourceNamesystem().getEffectiveLayoutVersion());
 
       codec = compression.getImageCodec();
       if (codec != null) {

@@ -1111,7 +1111,7 @@ public class FSImage implements Closeable {
       } finally {
         if (editLogWasOpen) {
           editLog.startLogSegment(imageTxId + 1, true,
-              source.getCurrentLayoutVersion());
+              source.getEffectiveLayoutVersion());
           // Take this opportunity to note the current transaction.
           // Even if the namespace save was cancelled, this marker
           // is only used to determine what transaction ID is required

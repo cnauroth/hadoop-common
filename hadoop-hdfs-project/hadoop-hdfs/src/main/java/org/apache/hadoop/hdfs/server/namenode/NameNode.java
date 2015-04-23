@@ -1159,7 +1159,7 @@ public class NameNode implements NameNodeStatusMXBean {
           }
           if (!segmentOpen) {
             newSharedEditLog.startLogSegment(op.txid, false,
-                fsns.getCurrentLayoutVersion());
+                fsns.getEffectiveLayoutVersion());
             segmentOpen = true;
           }
 

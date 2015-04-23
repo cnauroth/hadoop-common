@@ -994,7 +994,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       // we shouldn't do it when coming up in standby state
       if (!haEnabled || (haEnabled && startOpt == StartupOption.UPGRADE)
           || (haEnabled && startOpt == StartupOption.UPGRADEONLY)) {
-        fsImage.openEditLogForWrite(getCurrentLayoutVersion());
+        fsImage.openEditLogForWrite(getEffectiveLayoutVersion());
       }
       success = true;
     } finally {
@@ -1123,7 +1123,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
             nextTxId);
         editLog.setNextTxId(nextTxId);
 
-        getFSImage().editLog.openForWrite(getCurrentLayoutVersion());
+        getFSImage().editLog.openForWrite(getEffectiveLayoutVersion());
       }
 
       // Enable quota checks.
@@ -1954,7 +1954,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
                    String clientName, String clientMachine,
                    long mtime)
       throws IOException, UnresolvedLinkException {
-    requireCurrentLayoutVersionForFeature(Feature.TRUNCATE);
+    requireEffectiveLayoutVersionForFeature(Feature.TRUNCATE);
     boolean ret;
     try {
       ret = truncateInt(src, newLength, clientName, clientMachine, mtime);
@@ -2716,7 +2716,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
 
     if (writeToEditLog) {
       if (NameNodeLayoutVersion.supports(Feature.APPEND_NEW_BLOCK,
-          getCurrentLayoutVersion())) {
+          getEffectiveLayoutVersion())) {
         getEditLog().logAppendFile(src, file, newBlock, logRetryCache);
       } else {
         getEditLog().logOpenFile(src, file, false, logRetryCache);
@@ -2917,7 +2917,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       throws IOException {
     boolean newBlock = flag.contains(CreateFlag.NEW_BLOCK);
     if (newBlock) {
-      requireCurrentLayoutVersionForFeature(Feature.APPEND_NEW_BLOCK);
+      requireEffectiveLayoutVersionForFeature(Feature.APPEND_NEW_BLOCK);
     }
     try {
       return appendFileInt(src, holder, clientMachine, newBlock, logRetryCache);
@@ -3930,7 +3930,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   void setQuota(String src, long nsQuota, long ssQuota, StorageType type)
       throws IOException {
     if (type != null) {
-      requireCurrentLayoutVersionForFeature(Feature.QUOTA_BY_STORAGE_TYPE);
+      requireEffectiveLayoutVersionForFeature(Feature.QUOTA_BY_STORAGE_TYPE);
     }
     checkOperation(OperationCategory.WRITE);
     writeLock();
@@ -5821,7 +5821,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       if (Server.isRpcInvocation()) {
         LOG.info("Roll Edit Log from " + Server.getRemoteAddress());
       }
-      return getFSImage().rollEditLog(getCurrentLayoutVersion());
+      return getFSImage().rollEditLog(getEffectiveLayoutVersion());
     } finally {
       writeUnlock();
     }
@@ -5837,7 +5837,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       
       LOG.info("Start checkpoint for " + backupNode.getAddress());
       NamenodeCommand cmd = getFSImage().startCheckpoint(backupNode,
-          activeNamenode, getCurrentLayoutVersion());
+          activeNamenode, getEffectiveLayoutVersion());
       getEditLog().logSync();
       return cmd;
     } finally {
@@ -7509,7 +7509,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       getEditLog().logStartRollingUpgrade(rollingUpgradeInfo.getStartTime());
       if (haEnabled) {
         // roll the edit log to make sure the standby NameNode can tail
-        getFSImage().rollEditLog(getCurrentLayoutVersion());
+        getFSImage().rollEditLog(getEffectiveLayoutVersion());
       }
     } finally {
       writeUnlock();
@@ -7594,8 +7594,8 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   }
 
   /**
-   * Returns the current layout version in effect.  Under normal operation, this
-   * is the same as the software's current layout version, defined in
+   * Returns the layout version in effect.  Under normal operation, this is the
+   * same as the software's current layout version, defined in
    * {@link NameNodeLayoutVersion#CURRENT_LAYOUT_VERSION}.  During a rolling
    * upgrade, this can retain the layout version that was persisted to metadata
    * prior to starting the rolling upgrade, back to a lower bound defined in
@@ -7604,9 +7604,9 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    * older layout version, so that the files are still readable by the old
    * software version if the admin chooses to downgrade.
    *
-   * @return current layout version in effect
+   * @return layout version in effect
    */
-  public int getCurrentLayoutVersion() {
+  public int getEffectiveLayoutVersion() {
     if (isRollingUpgrade()) {
       int storageLV = fsImage.getStorage().getLayoutVersion();
       if (storageLV >= NameNodeLayoutVersion.MINIMUM_COMPATIBLE_LAYOUT_VERSION) {
@@ -7617,7 +7617,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   }
 
   /**
-   * Performs a pre-condition check that the current layout version in effect is
+   * Performs a pre-condition check that the layout version in effect is
    * sufficient to support the requested {@link Feature}.  If not, then the
    * method throws {@link HadoopIllegalArgumentException} to deny the operation.
    * This exception class is registered as a terse exception, so it prevents
@@ -7630,8 +7630,9 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    * @throws HadoopIllegalArgumentException if the current layout version in
    *     effect is insufficient to support the feature
    */
-  private void requireCurrentLayoutVersionForFeature(Feature f) {
-    int lv = getCurrentLayoutVersion();
+  private void requireEffectiveLayoutVersionForFeature(Feature f)
+      throws HadoopIllegalArgumentException {
+    int lv = getEffectiveLayoutVersion();
     if (!NameNodeLayoutVersion.supports(f, lv)) {
       throw new HadoopIllegalArgumentException(String.format(
           "Feature %s unsupported at NameNode layout version %d.  If a " +
@@ -7664,7 +7665,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       getEditLog().logFinalizeRollingUpgrade(returnInfo.getFinalizeTime());
       if (haEnabled) {
         // roll the edit log to make sure the standby NameNode can tail
-        getFSImage().rollEditLog(getCurrentLayoutVersion());
+        getFSImage().rollEditLog(getEffectiveLayoutVersion());
       }
       getFSImage().updateStorageVersion();
       getFSImage().renameCheckpoint(NameNodeFile.IMAGE_ROLLBACK,
