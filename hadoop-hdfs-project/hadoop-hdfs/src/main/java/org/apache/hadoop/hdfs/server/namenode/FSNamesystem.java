@@ -7597,17 +7597,23 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    * Returns the current layout version in effect.  Under normal operation, this
    * is the same as the software's current layout version, defined in
    * {@link NameNodeLayoutVersion#CURRENT_LAYOUT_VERSION}.  During a rolling
-   * upgrade, this retains the layout version that was persisted to metadata
-   * prior to starting the rolling upgrade.  New fsimage files and edit log
-   * segments will continue to be written with this older layout version, so that
-   * the files are still readable by the old software version if the admin
-   * chooses to downgrade.
+   * upgrade, this can retain the layout version that was persisted to metadata
+   * prior to starting the rolling upgrade, back to a lower bound defined in
+   * {@link NameNodeLayoutVersion#MINIMUM_COMPATIBLE_LAYOUT_VERSION}.  New
+   * fsimage files and edit log segments will continue to be written with this
+   * older layout version, so that the files are still readable by the old
+   * software version if the admin chooses to downgrade.
    *
    * @return current layout version in effect
    */
   public int getCurrentLayoutVersion() {
-    return isRollingUpgrade() ? fsImage.getStorage().getLayoutVersion() :
-        NameNodeLayoutVersion.CURRENT_LAYOUT_VERSION;
+    if (isRollingUpgrade()) {
+      int storageLV = fsImage.getStorage().getLayoutVersion();
+      if (storageLV >= NameNodeLayoutVersion.MINIMUM_COMPATIBLE_LAYOUT_VERSION) {
+        return storageLV;
+      }
+    }
+    return NameNodeLayoutVersion.CURRENT_LAYOUT_VERSION;
   }
 
   /**
