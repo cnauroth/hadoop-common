@@ -92,6 +92,7 @@ import org.apache.hadoop.yarn.server.resourcemanager.scheduler.TestSchedulerUtil
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.AppAddedSchedulerEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.AppAttemptAddedSchedulerEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.AppAttemptRemovedSchedulerEvent;
+import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.ContainerExpiredSchedulerEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.NodeAddedSchedulerEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.NodeRemovedSchedulerEvent;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.event.NodeUpdateSchedulerEvent;
@@ -117,8 +118,7 @@ public class TestFairScheduler extends FairSchedulerTestBase {
   public void setUp() throws IOException {
     scheduler = new FairScheduler();
     conf = createConfiguration();
-    resourceManager = new ResourceManager();
-    resourceManager.init(conf);
+    resourceManager = new MockRM(conf);
 
     // TODO: This test should really be using MockRM. For now starting stuff
     // that is needed at a bare minimum.
@@ -3549,8 +3549,8 @@ public class TestFairScheduler extends FairSchedulerTestBase {
     FSAppAttempt app3 = scheduler.getSchedulerApp(attId3);
     scheduler.update();
     scheduler.handle(updateEvent);
-    assertEquals("Application3's AM requests 1024 MB memory",
-        1024, app3.getAMResource().getMemory());
+    assertEquals("Application3's AM resource shouldn't be updated",
+        0, app3.getAMResource().getMemory());
     assertEquals("Application3's AM should not be running",
         0, app3.getLiveContainers().size());
     assertEquals("Queue1's AM resource usage should be 2048 MB memory",
@@ -3575,6 +3575,8 @@ public class TestFairScheduler extends FairSchedulerTestBase {
         0, app1.getLiveContainers().size());
     assertEquals("Application3's AM should be running",
         1, app3.getLiveContainers().size());
+    assertEquals("Application3's AM requests 1024 MB memory",
+        1024, app3.getAMResource().getMemory());
     assertEquals("Queue1's AM resource usage should be 2048 MB memory",
         2048, queue1.getAmResourceUsage().getMemory());
 
@@ -3585,8 +3587,8 @@ public class TestFairScheduler extends FairSchedulerTestBase {
     FSAppAttempt app4 = scheduler.getSchedulerApp(attId4);
     scheduler.update();
     scheduler.handle(updateEvent);
-    assertEquals("Application4's AM requests 2048 MB memory",
-        2048, app4.getAMResource().getMemory());
+    assertEquals("Application4's AM resource shouldn't be updated",
+        0, app4.getAMResource().getMemory());
     assertEquals("Application4's AM should not be running",
         0, app4.getLiveContainers().size());
     assertEquals("Queue1's AM resource usage should be 2048 MB memory",
@@ -3599,8 +3601,8 @@ public class TestFairScheduler extends FairSchedulerTestBase {
     FSAppAttempt app5 = scheduler.getSchedulerApp(attId5);
     scheduler.update();
     scheduler.handle(updateEvent);
-    assertEquals("Application5's AM requests 2048 MB memory",
-        2048, app5.getAMResource().getMemory());
+    assertEquals("Application5's AM resource shouldn't be updated",
+        0, app5.getAMResource().getMemory());
     assertEquals("Application5's AM should not be running",
         0, app5.getLiveContainers().size());
     assertEquals("Queue1's AM resource usage should be 2048 MB memory",
@@ -3632,6 +3634,33 @@ public class TestFairScheduler extends FairSchedulerTestBase {
         0, app3.getLiveContainers().size());
     assertEquals("Application5's AM should be running",
         1, app5.getLiveContainers().size());
+    assertEquals("Application5's AM requests 2048 MB memory",
+        2048, app5.getAMResource().getMemory());
+    assertEquals("Queue1's AM resource usage should be 2048 MB memory",
+        2048, queue1.getAmResourceUsage().getMemory());
+
+    // request non-AM container for app5
+    createSchedulingRequestExistingApplication(1024, 1, attId5);
+    assertEquals("Application5's AM should have 1 container",
+        1, app5.getLiveContainers().size());
+    // complete AM container before non-AM container is allocated.
+    // spark application hit this situation.
+    RMContainer amContainer5 = (RMContainer)app5.getLiveContainers().toArray()[0];
+    ContainerExpiredSchedulerEvent containerExpired =
+        new ContainerExpiredSchedulerEvent(amContainer5.getContainerId());
+    scheduler.handle(containerExpired);
+    assertEquals("Application5's AM should have 0 container",
+        0, app5.getLiveContainers().size());
+    assertEquals("Queue1's AM resource usage should be 2048 MB memory",
+        2048, queue1.getAmResourceUsage().getMemory());
+    scheduler.update();
+    scheduler.handle(updateEvent);
+    // non-AM container should be allocated
+    // check non-AM container allocation is not rejected
+    // due to queue MaxAMShare limitation.
+    assertEquals("Application5 should have 1 container",
+        1, app5.getLiveContainers().size());
+    // check non-AM container allocation won't affect queue AmResourceUsage
     assertEquals("Queue1's AM resource usage should be 2048 MB memory",
         2048, queue1.getAmResourceUsage().getMemory());
 
@@ -3644,8 +3673,8 @@ public class TestFairScheduler extends FairSchedulerTestBase {
     scheduler.handle(updateEvent);
     assertEquals("Application6's AM should not be running",
         0, app6.getLiveContainers().size());
-    assertEquals("Application6's AM requests 2048 MB memory",
-        2048, app6.getAMResource().getMemory());
+    assertEquals("Application6's AM resource shouldn't be updated",
+        0, app6.getAMResource().getMemory());
     assertEquals("Queue1's AM resource usage should be 2048 MB memory",
         2048, queue1.getAmResourceUsage().getMemory());
 
@@ -3749,8 +3778,8 @@ public class TestFairScheduler extends FairSchedulerTestBase {
     FSAppAttempt app2 = scheduler.getSchedulerApp(attId2);
     scheduler.update();
     scheduler.handle(updateEvent);
-    assertEquals("Application2's AM requests 1024 MB memory",
-        1024, app2.getAMResource().getMemory());
+    assertEquals("Application2's AM resource shouldn't be updated",
+        0, app2.getAMResource().getMemory());
     assertEquals("Application2's AM should not be running",
         0, app2.getLiveContainers().size());
     assertEquals("Queue2's AM resource usage should be 0 MB memory",
@@ -3893,12 +3922,9 @@ public class TestFairScheduler extends FairSchedulerTestBase {
             createResourceRequest(1024, 1, ResourceRequest.ANY, 2, 1, true);
     ask.clear();
     ask.add(request);
+    scheduler.stop();
     scheduler.allocate(appAttemptId, ask, new ArrayList<ContainerId>(), null, null);
-
-    // Wait until app gets resources
-    while (app.getCurrentConsumption()
-            .equals(Resources.createResource(1024, 1))) { }
-
+    scheduler.continuousSchedulingAttempt();
     Assert.assertEquals(2048, app.getCurrentConsumption().getMemory());
     Assert.assertEquals(2, app.getCurrentConsumption().getVirtualCores());
 
@@ -4443,5 +4469,83 @@ public class TestFairScheduler extends FairSchedulerTestBase {
     scheduler.fsOpDurations.getMetrics(collector, true);
     assertEquals("Incorrect number of perf metrics", 1,
         collector.getRecords().size());
+  }
+
+  @Test
+  public void testQueueNameWithTrailingSpace() throws Exception {
+    scheduler.init(conf);
+    scheduler.start();
+    scheduler.reinitialize(conf, resourceManager.getRMContext());
+
+    // only default queue
+    assertEquals(1, scheduler.getQueueManager().getLeafQueues().size());
+
+    // submit app with queue name "A"
+    ApplicationAttemptId appAttemptId1 = createAppAttemptId(1, 1);
+    AppAddedSchedulerEvent appAddedEvent1 = new AppAddedSchedulerEvent(
+        appAttemptId1.getApplicationId(), "A", "user1");
+    scheduler.handle(appAddedEvent1);
+    // submission accepted
+    assertEquals(2, scheduler.getQueueManager().getLeafQueues().size());
+    assertNotNull(scheduler.getSchedulerApplications().get(appAttemptId1.
+        getApplicationId()));
+
+    AppAttemptAddedSchedulerEvent attempAddedEvent =
+        new AppAttemptAddedSchedulerEvent(appAttemptId1, false);
+    scheduler.handle(attempAddedEvent);
+    // That queue should have one app
+    assertEquals(1, scheduler.getQueueManager().getLeafQueue("A", true)
+        .getNumRunnableApps());
+    assertNotNull(scheduler.getSchedulerApp(appAttemptId1));
+
+    // submit app with queue name "A "
+    ApplicationAttemptId appAttemptId2 = createAppAttemptId(2, 1);
+    AppAddedSchedulerEvent appAddedEvent2 = new AppAddedSchedulerEvent(
+        appAttemptId2.getApplicationId(), "A ", "user1");
+    scheduler.handle(appAddedEvent2);
+    // submission rejected
+    assertEquals(2, scheduler.getQueueManager().getLeafQueues().size());
+    assertNull(scheduler.getSchedulerApplications().get(appAttemptId2.
+        getApplicationId()));
+    assertNull(scheduler.getSchedulerApp(appAttemptId2));
+
+    // submit app with queue name "B.C"
+    ApplicationAttemptId appAttemptId3 = createAppAttemptId(3, 1);
+    AppAddedSchedulerEvent appAddedEvent3 = new AppAddedSchedulerEvent(
+        appAttemptId3.getApplicationId(), "B.C", "user1");
+    scheduler.handle(appAddedEvent3);
+    // submission accepted
+    assertEquals(3, scheduler.getQueueManager().getLeafQueues().size());
+    assertNotNull(scheduler.getSchedulerApplications().get(appAttemptId3.
+        getApplicationId()));
+
+    attempAddedEvent =
+        new AppAttemptAddedSchedulerEvent(appAttemptId3, false);
+    scheduler.handle(attempAddedEvent);
+    // That queue should have one app
+    assertEquals(1, scheduler.getQueueManager().getLeafQueue("B.C", true)
+        .getNumRunnableApps());
+    assertNotNull(scheduler.getSchedulerApp(appAttemptId3));
+  }
+
+  @Test
+  public void testEmptyQueueNameInConfigFile() throws IOException {
+    conf.set(FairSchedulerConfiguration.ALLOCATION_FILE, ALLOC_FILE);
+    // set empty queue name
+    PrintWriter out = new PrintWriter(new FileWriter(ALLOC_FILE));
+    out.println("<?xml version=\"1.0\"?>");
+    out.println("<allocations>");
+    out.println("<queue name=\"\">");
+    out.println("</queue>");
+    out.println("</allocations>");
+    out.close();
+    try {
+      scheduler.init(conf);
+      Assert.fail("scheduler init should fail because" +
+          " empty queue name.");
+    } catch (Exception e) {
+      Assert.assertTrue(e.getMessage().contains(
+          "Failed to initialize FairScheduler"));
+    }
   }
 }

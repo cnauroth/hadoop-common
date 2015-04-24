@@ -19,11 +19,13 @@
 package org.apache.hadoop.yarn.nodelabels;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -40,6 +42,7 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.service.AbstractService;
 import org.apache.hadoop.yarn.api.records.NodeId;
+import org.apache.hadoop.yarn.api.records.NodeLabel;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.event.AsyncDispatcher;
@@ -83,8 +86,8 @@ public class CommonNodeLabelsManager extends AbstractService {
 
   protected Dispatcher dispatcher;
 
-  protected ConcurrentMap<String, NodeLabel> labelCollections =
-      new ConcurrentHashMap<String, NodeLabel>();
+  protected ConcurrentMap<String, RMNodeLabel> labelCollections =
+      new ConcurrentHashMap<String, RMNodeLabel>();
   protected ConcurrentMap<String, Host> nodeCollections =
       new ConcurrentHashMap<String, Host>();
 
@@ -214,7 +217,7 @@ public class CommonNodeLabelsManager extends AbstractService {
       initNodeLabelStore(conf);
     }
     
-    labelCollections.put(NO_LABEL, new NodeLabel(NO_LABEL));
+    labelCollections.put(NO_LABEL, new RMNodeLabel(NO_LABEL));
   }
 
   protected void initNodeLabelStore(Configuration conf) throws Exception {
@@ -247,7 +250,9 @@ public class CommonNodeLabelsManager extends AbstractService {
   // for UT purpose
   protected void stopDispatcher() {
     AsyncDispatcher asyncDispatcher = (AsyncDispatcher) dispatcher;
-    asyncDispatcher.stop();
+    if (null != asyncDispatcher) {
+      asyncDispatcher.stop();
+    }
   }
   
   @Override
@@ -261,14 +266,9 @@ public class CommonNodeLabelsManager extends AbstractService {
     }
   }
 
-  /**
-   * Add multiple node labels to repository
-   * 
-   * @param labels
-   *          new node labels added
-   */
   @SuppressWarnings("unchecked")
-  public void addToCluserNodeLabels(Set<String> labels) throws IOException {
+  public void addToCluserNodeLabels(Collection<NodeLabel> labels)
+      throws IOException {
     if (!nodeLabelsEnabled) {
       LOG.error(NODE_LABELS_NOT_ENABLED_ERR);
       throw new IOException(NODE_LABELS_NOT_ENABLED_ERR);
@@ -276,19 +276,19 @@ public class CommonNodeLabelsManager extends AbstractService {
     if (null == labels || labels.isEmpty()) {
       return;
     }
-    Set<String> newLabels = new HashSet<String>();
-    labels = normalizeLabels(labels);
+    List<NodeLabel> newLabels = new ArrayList<NodeLabel>();
+    normalizeNodeLabels(labels);
 
     // do a check before actual adding them, will throw exception if any of them
     // doesn't meet label name requirement
-    for (String label : labels) {
-      checkAndThrowLabelName(label);
+    for (NodeLabel label : labels) {
+      checkAndThrowLabelName(label.getName());
     }
 
-    for (String label : labels) {
+    for (NodeLabel label : labels) {
       // shouldn't overwrite it to avoid changing the Label.resource
-      if (this.labelCollections.get(label) == null) {
-        this.labelCollections.put(label, new NodeLabel(label));
+      if (this.labelCollections.get(label.getName()) == null) {
+        this.labelCollections.put(label.getName(), new RMNodeLabel(label));
         newLabels.add(label);
       }
     }
@@ -298,6 +298,22 @@ public class CommonNodeLabelsManager extends AbstractService {
     }
 
     LOG.info("Add labels: [" + StringUtils.join(labels.iterator(), ",") + "]");
+  }
+
+  /**
+   * Add multiple node labels to repository
+   *
+   * @param labels
+   *          new node labels added
+   */
+  @VisibleForTesting
+  public void addToCluserNodeLabelsWithDefaultExclusivity(Set<String> labels)
+      throws IOException {
+    Set<NodeLabel> nodeLabels = new HashSet<NodeLabel>();
+    for (String label : labels) {
+      nodeLabels.add(NodeLabel.newInstance(label));
+    }
+    addToCluserNodeLabels(nodeLabels);
   }
   
   protected void checkAddLabelsToNode(
@@ -746,7 +762,7 @@ public class CommonNodeLabelsManager extends AbstractService {
         if(label.equals(NO_LABEL)) {
           continue;
         }
-        NodeLabel nodeLabelInfo = labelCollections.get(label);
+        RMNodeLabel nodeLabelInfo = labelCollections.get(label);
         if(nodeLabelInfo != null) {
           Set<NodeId> nodeIds = nodeLabelInfo.getAssociatedNodeIds();
           if (!nodeIds.isEmpty()) {
@@ -767,7 +783,7 @@ public class CommonNodeLabelsManager extends AbstractService {
    * 
    * @return existing valid labels in repository
    */
-  public Set<String> getClusterNodeLabels() {
+  public Set<String> getClusterNodeLabelNames() {
     try {
       readLock.lock();
       Set<String> labels = new HashSet<String>(labelCollections.keySet());
@@ -777,6 +793,38 @@ public class CommonNodeLabelsManager extends AbstractService {
       readLock.unlock();
     }
   }
+  
+  public List<NodeLabel> getClusterNodeLabels() {
+    try {
+      readLock.lock();
+      List<NodeLabel> nodeLabels = new ArrayList<>();
+      for (RMNodeLabel label : labelCollections.values()) {
+        nodeLabels.add(NodeLabel.newInstance(label.getLabelName(),
+            label.getIsExclusive()));
+      }
+      return nodeLabels;
+    } finally {
+      readLock.unlock();
+    }
+  }
+
+  public boolean isExclusiveNodeLabel(String nodeLabel) throws IOException {
+    try {
+      readLock.lock();
+      RMNodeLabel label = labelCollections.get(nodeLabel);
+      if (label == null) {
+        String message =
+          "Getting is-exclusive-node-label, node-label = " + nodeLabel
+            + ", is not existed.";
+        LOG.error(message);
+        throw new IOException(message);
+      }
+      return label.getIsExclusive();
+    } finally {
+      readLock.unlock();
+    }
+  }
+  
 
   private void checkAndThrowLabelName(String label) throws IOException {
     if (label == null || label.isEmpty() || label.length() > MAX_LABEL_LENGTH) {
@@ -809,6 +857,12 @@ public class CommonNodeLabelsManager extends AbstractService {
     return newLabels;
   }
   
+  private void normalizeNodeLabels(Collection<NodeLabel> labels) {
+    for (NodeLabel label : labels) {
+      label.setName(normalizeLabel(label.getName()));
+    }
+  }
+
   protected Node getNMInNodeSet(NodeId nodeId) {
     return getNMInNodeSet(nodeId, nodeCollections);
   }

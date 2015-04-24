@@ -1984,14 +1984,21 @@ public class TestRMRestart extends ParameterizedSchedulerTestBase {
       }
     }
   }
-
+  
   public static NMContainerStatus createNMContainerStatus(
       ApplicationAttemptId appAttemptId, int id, ContainerState containerState) {
+    return createNMContainerStatus(appAttemptId, id, containerState,
+        RMNodeLabelsManager.NO_LABEL);
+  }
+
+  public static NMContainerStatus createNMContainerStatus(
+      ApplicationAttemptId appAttemptId, int id, ContainerState containerState,
+      String nodeLabelExpression) {
     ContainerId containerId = ContainerId.newContainerId(appAttemptId, id);
     NMContainerStatus containerReport =
         NMContainerStatus.newInstance(containerId, containerState,
-          Resource.newInstance(1024, 1), "recover container", 0,
-          Priority.newInstance(0), 0);
+            Resource.newInstance(1024, 1), "recover container", 0,
+            Priority.newInstance(0), 0, nodeLabelExpression);
     return containerReport;
   }
 
@@ -2097,7 +2104,7 @@ public class TestRMRestart extends ParameterizedSchedulerTestBase {
     clusterNodeLabels.add("y");
     clusterNodeLabels.add("z");
     // Add node label x,y,z
-    nodeLabelManager.addToCluserNodeLabels(clusterNodeLabels);
+    nodeLabelManager.addToCluserNodeLabelsWithDefaultExclusivity(clusterNodeLabels);
 
     // Add node Label to Node h1->x
     NodeId n1 = NodeId.newInstance("h1", 0);
@@ -2122,7 +2129,7 @@ public class TestRMRestart extends ParameterizedSchedulerTestBase {
     }
 
     Assert.assertEquals(clusterNodeLabels.size(), nodeLabelManager
-        .getClusterNodeLabels().size());
+        .getClusterNodeLabelNames().size());
 
     Map<NodeId, Set<String>> nodeLabels = nodeLabelManager.getNodeLabels();
     Assert.assertEquals(1, nodeLabelManager.getNodeLabels().size());
@@ -2141,7 +2148,7 @@ public class TestRMRestart extends ParameterizedSchedulerTestBase {
 
     nodeLabelManager = rm2.getRMContext().getNodeLabelManager();
     Assert.assertEquals(clusterNodeLabels.size(), nodeLabelManager
-        .getClusterNodeLabels().size());
+        .getClusterNodeLabelNames().size());
 
     nodeLabels = nodeLabelManager.getNodeLabels();
     Assert.assertEquals(1, nodeLabelManager.getNodeLabels().size());

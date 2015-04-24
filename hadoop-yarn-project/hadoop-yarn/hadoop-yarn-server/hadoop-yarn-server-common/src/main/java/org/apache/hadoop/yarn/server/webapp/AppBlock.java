@@ -21,8 +21,10 @@ package org.apache.hadoop.yarn.server.webapp;
 import static org.apache.hadoop.yarn.util.StringHelper.join;
 import static org.apache.hadoop.yarn.webapp.YarnWebParams.APPLICATION_ID;
 import static org.apache.hadoop.yarn.webapp.YarnWebParams.WEB_UI_TYPE;
+
 import java.security.PrivilegedExceptionAction;
 import java.util.Collection;
+
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -47,10 +49,12 @@ import org.apache.hadoop.yarn.server.webapp.dao.AppInfo;
 import org.apache.hadoop.yarn.server.webapp.dao.ContainerInfo;
 import org.apache.hadoop.yarn.util.Apps;
 import org.apache.hadoop.yarn.util.Times;
+import org.apache.hadoop.yarn.webapp.ResponseInfo;
 import org.apache.hadoop.yarn.webapp.YarnWebParams;
 import org.apache.hadoop.yarn.webapp.hamlet.Hamlet;
 import org.apache.hadoop.yarn.webapp.hamlet.Hamlet.TABLE;
 import org.apache.hadoop.yarn.webapp.hamlet.Hamlet.TBODY;
+import org.apache.hadoop.yarn.webapp.util.WebAppUtils;
 import org.apache.hadoop.yarn.webapp.view.HtmlBlock;
 import org.apache.hadoop.yarn.webapp.view.InfoBlock;
 
@@ -88,7 +92,7 @@ public class AppBlock extends HtmlBlock {
     }
 
     UserGroupInformation callerUGI = getCallerUGI();
-    ApplicationReport appReport = null;
+    ApplicationReport appReport;
     try {
       final GetApplicationReportRequest request =
           GetApplicationReportRequest.newInstance(appID);
@@ -154,15 +158,20 @@ public class AppBlock extends HtmlBlock {
       html.script().$type("text/javascript")._(script.toString())._();
     }
 
-    info("Application Overview")
-      ._("User:", app.getUser())
+    String schedulerPath = WebAppUtils.getResolvedRMWebAppURLWithScheme(conf) +
+        "/cluster/scheduler?openQueues=" + app.getQueue();
+
+    ResponseInfo overviewTable = info("Application Overview")
+      ._("User:", schedulerPath, app.getUser())
       ._("Name:", app.getName())
       ._("Application Type:", app.getType())
       ._("Application Tags:",
         app.getApplicationTags() == null ? "" : app.getApplicationTags())
-      ._("YarnApplicationState:",
+      ._(
+        "YarnApplicationState:",
         app.getAppState() == null ? UNAVAILABLE : clarifyAppState(app
           .getAppState()))
+      ._("Queue:", schedulerPath, app.getQueue())
       ._("FinalStatus Reported by AM:",
         clairfyAppFinalStatus(app.getFinalAppStatus()))
       ._("Started:", Times.format(app.getStartedTime()))
@@ -170,16 +179,24 @@ public class AppBlock extends HtmlBlock {
         "Elapsed:",
         StringUtils.formatTime(Times.elapsed(app.getStartedTime(),
           app.getFinishedTime())))
-      ._("Tracking URL:",
-        app.getTrackingUrl() == null || app.getTrackingUrl() == UNAVAILABLE
-            ? null : root_url(app.getTrackingUrl()),
-        app.getTrackingUrl() == null || app.getTrackingUrl() == UNAVAILABLE
-            ? "Unassigned" : app.getAppState() == YarnApplicationState.FINISHED
-                || app.getAppState() == YarnApplicationState.FAILED
-                || app.getAppState() == YarnApplicationState.KILLED ? "History"
-                : "ApplicationMaster")
-      ._("Diagnostics:",
-          app.getDiagnosticsInfo() == null ? "" : app.getDiagnosticsInfo());
+      ._(
+        "Tracking URL:",
+        app.getTrackingUrl() == null
+            || app.getTrackingUrl().equals(UNAVAILABLE) ? null : root_url(app
+          .getTrackingUrl()),
+        app.getTrackingUrl() == null
+            || app.getTrackingUrl().equals(UNAVAILABLE) ? "Unassigned" : app
+          .getAppState() == YarnApplicationState.FINISHED
+            || app.getAppState() == YarnApplicationState.FAILED
+            || app.getAppState() == YarnApplicationState.KILLED ? "History"
+            : "ApplicationMaster");
+    if (webUiType != null
+        && webUiType.equals(YarnWebParams.RM_WEB_UI)) {
+      overviewTable._("Log Aggregation Status",
+        root_url("logaggregationstatus", app.getAppId()), "Status");
+    }
+    overviewTable._("Diagnostics:",
+        app.getDiagnosticsInfo() == null ? "" : app.getDiagnosticsInfo());
 
     Collection<ApplicationAttemptReport> attempts;
     try {
@@ -210,6 +227,13 @@ public class AppBlock extends HtmlBlock {
 
     html._(InfoBlock.class);
 
+    generateApplicationTable(html, callerUGI, attempts);
+
+  }
+
+  protected void generateApplicationTable(Block html,
+      UserGroupInformation callerUGI,
+      Collection<ApplicationAttemptReport> attempts) {
     // Application Attempt Table
     TBODY<TABLE<Hamlet>> tbody =
         html.table("#attempts").thead().tr().th(".id", "Attempt ID")
@@ -219,7 +243,7 @@ public class AppBlock extends HtmlBlock {
     StringBuilder attemptsTableData = new StringBuilder("[\n");
     for (final ApplicationAttemptReport appAttemptReport : attempts) {
       AppAttemptInfo appAttempt = new AppAttemptInfo(appAttemptReport);
-      ContainerReport containerReport = null;
+      ContainerReport containerReport;
       try {
         // AM container is always the first container of the attempt
         final GetContainerReportRequest request =
@@ -230,7 +254,7 @@ public class AppBlock extends HtmlBlock {
               appBaseProt.getContainerReport(request).getContainerReport();
         } else {
           containerReport = callerUGI.doAs(
-              new PrivilegedExceptionAction<ContainerReport> () {
+              new PrivilegedExceptionAction<ContainerReport>() {
             @Override
             public ContainerReport run() throws Exception {
               ContainerReport report = null;

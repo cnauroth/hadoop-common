@@ -18,7 +18,9 @@
 
 package org.apache.hadoop.yarn.client.cli;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.argThat;
@@ -31,14 +33,15 @@ import static org.mockito.Mockito.when;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.HashSet;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ha.HAServiceProtocol;
 import org.apache.hadoop.ha.HAServiceStatus;
 import org.apache.hadoop.ha.HAServiceTarget;
 import org.apache.hadoop.service.Service.STATE;
+import org.apache.hadoop.yarn.api.records.DecommissionType;
 import org.apache.hadoop.yarn.api.records.NodeId;
-import org.apache.hadoop.yarn.client.cli.RMAdminCLI;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.nodelabels.CommonNodeLabelsManager;
@@ -46,12 +49,15 @@ import org.apache.hadoop.yarn.nodelabels.DummyCommonNodeLabelsManager;
 import org.apache.hadoop.yarn.server.api.ResourceManagerAdministrationProtocol;
 import org.apache.hadoop.yarn.server.api.protocolrecords.AddToClusterNodeLabelsRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.AddToClusterNodeLabelsResponse;
+import org.apache.hadoop.yarn.server.api.protocolrecords.CheckForDecommissioningNodesRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.CheckForDecommissioningNodesResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshAdminAclsRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshNodesRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshQueuesRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshServiceAclsRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshSuperUserGroupsConfigurationRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshUserToGroupsMappingsRequest;
+import org.apache.hadoop.yarn.util.Records;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentMatcher;
@@ -175,7 +181,47 @@ public class TestRMAdminCLI {
     assertEquals(0, rmAdminCLI.run(args));
     verify(admin).refreshNodes(any(RefreshNodesRequest.class));
   }
-  
+
+  @Test
+  public void testRefreshNodesWithGracefulTimeout() throws Exception {
+    // graceful decommission before timeout
+    String[] args = { "-refreshNodes", "-g", "1" };
+    CheckForDecommissioningNodesResponse response = Records
+        .newRecord(CheckForDecommissioningNodesResponse.class);
+    HashSet<NodeId> decomNodes = new HashSet<NodeId>();
+    response.setDecommissioningNodes(decomNodes);
+    when(admin.checkForDecommissioningNodes(any(
+        CheckForDecommissioningNodesRequest.class))).thenReturn(response);
+    assertEquals(0, rmAdminCLI.run(args));
+//    verify(admin).refreshNodes(any(RefreshNodesRequest.class));
+    verify(admin).refreshNodes(
+        RefreshNodesRequest.newInstance(DecommissionType.GRACEFUL));
+
+    // Forceful decommission when timeout occurs
+    String[] focefulDecomArgs = { "-refreshNodes", "-g", "1" };
+    decomNodes = new HashSet<NodeId>();
+    response.setDecommissioningNodes(decomNodes);
+    decomNodes.add(NodeId.newInstance("node1", 100));
+    response.setDecommissioningNodes(decomNodes);
+    when(admin.checkForDecommissioningNodes(any(
+        CheckForDecommissioningNodesRequest.class))).thenReturn(response);
+    assertEquals(0, rmAdminCLI.run(focefulDecomArgs));
+    verify(admin).refreshNodes(
+        RefreshNodesRequest.newInstance(DecommissionType.FORCEFUL));
+
+    // invalid graceful timeout parameter
+    String[] invalidArgs = { "-refreshNodes", "-ginvalid", "invalid" };
+    assertEquals(-1, rmAdminCLI.run(invalidArgs));
+
+    // invalid timeout
+    String[] invalidTimeoutArgs = { "-refreshNodes", "-g", "invalid" };
+    assertEquals(-1, rmAdminCLI.run(invalidTimeoutArgs));
+
+    // negative timeout
+    String[] negativeTimeoutArgs = { "-refreshNodes", "-g", "-1000" };
+    assertEquals(-1, rmAdminCLI.run(negativeTimeoutArgs));
+  }
+
   @Test(timeout=500)
   public void testGetGroups() throws Exception {
     when(admin.getGroupsForUser(eq("admin"))).thenReturn(
@@ -284,7 +330,7 @@ public class TestRMAdminCLI {
       assertTrue(dataOut
           .toString()
           .contains(
-              "yarn rmadmin [-refreshQueues] [-refreshNodes] [-refreshSuper" +
+              "yarn rmadmin [-refreshQueues] [-refreshNodes [-g [timeout in seconds]]] [-refreshSuper" +
               "UserGroupsConfiguration] [-refreshUserToGroupsMappings] " +
               "[-refreshAdminAcls] [-refreshServiceAcl] [-getGroup" +
               " [username]] [[-addToClusterNodeLabels [label1,label2,label3]]" +
@@ -299,7 +345,7 @@ public class TestRMAdminCLI {
       assertTrue(dataOut
           .toString()
           .contains(
-              "-refreshNodes: Refresh the hosts information at the " +
+              "-refreshNodes [-g [timeout in seconds]]: Refresh the hosts information at the " +
               "ResourceManager."));
       assertTrue(dataOut.toString().contains(
           "-refreshUserToGroupsMappings: Refresh user-to-groups mappings"));
@@ -327,7 +373,7 @@ public class TestRMAdminCLI {
       testError(new String[] { "-help", "-refreshQueues" },
           "Usage: yarn rmadmin [-refreshQueues]", dataErr, 0);
       testError(new String[] { "-help", "-refreshNodes" },
-          "Usage: yarn rmadmin [-refreshNodes]", dataErr, 0);
+          "Usage: yarn rmadmin [-refreshNodes [-g [timeout in seconds]]]", dataErr, 0);
       testError(new String[] { "-help", "-refreshUserToGroupsMappings" },
           "Usage: yarn rmadmin [-refreshUserToGroupsMappings]", dataErr, 0);
       testError(
@@ -364,16 +410,15 @@ public class TestRMAdminCLI {
       assertEquals(0, rmAdminCLIWithHAEnabled.run(args));
       oldOutPrintStream.println(dataOut);
       String expectedHelpMsg = 
-          "yarn rmadmin [-refreshQueues] [-refreshNodes] [-refreshSuper" +
-              "UserGroupsConfiguration] [-refreshUserToGroupsMappings] " +
-              "[-refreshAdminAcls] [-refreshServiceAcl] [-getGroup" +
-              " [username]] [[-addToClusterNodeLabels [label1,label2,label3]]" +
-              " [-removeFromClusterNodeLabels [label1,label2,label3]] [-replaceLabelsOnNode " +
-              "[node1[:port]=label1,label2 node2[:port]=label1] [-directlyAccessNodeLabelStore]] " +
-              "[-transitionToActive [--forceactive] <serviceId>] " + 
-              "[-transitionToStandby <serviceId>] [-failover" +
-              " [--forcefence] [--forceactive] <serviceId> <serviceId>] " +
-              "[-getServiceState <serviceId>] [-checkHealth <serviceId>] [-help [cmd]]";
+          "yarn rmadmin [-refreshQueues] [-refreshNodes [-g [timeout in seconds]]] [-refreshSuper"
+              + "UserGroupsConfiguration] [-refreshUserToGroupsMappings] "
+              + "[-refreshAdminAcls] [-refreshServiceAcl] [-getGroup"
+              + " [username]] [[-addToClusterNodeLabels [label1,label2,label3]]"
+              + " [-removeFromClusterNodeLabels [label1,label2,label3]] [-replaceLabelsOnNode "
+              + "[node1[:port]=label1,label2 node2[:port]=label1] [-directlyAccessNodeLabelStore]] "
+              + "[-transitionToActive [--forceactive] <serviceId>] "
+              + "[-transitionToStandby <serviceId>] "
+              + "[-getServiceState <serviceId>] [-checkHealth <serviceId>] [-help [cmd]]";
       String actualHelpMsg = dataOut.toString();
       assertTrue(String.format("Help messages: %n " + actualHelpMsg + " %n doesn't include expected " +
           "messages: %n" + expectedHelpMsg), actualHelpMsg.contains(expectedHelpMsg
@@ -409,7 +454,7 @@ public class TestRMAdminCLI {
     String[] args =
         { "-addToClusterNodeLabels", "x,y", "-directlyAccessNodeLabelStore" };
     assertEquals(0, rmAdminCLI.run(args));
-    assertTrue(dummyNodeLabelsManager.getClusterNodeLabels().containsAll(
+    assertTrue(dummyNodeLabelsManager.getClusterNodeLabelNames().containsAll(
         ImmutableSet.of("x", "y")));
     
     // reset localNodeLabelsManager
@@ -421,7 +466,7 @@ public class TestRMAdminCLI {
         new String[] { "-addToClusterNodeLabels",
             "-directlyAccessNodeLabelStore", "x,y" };
     assertEquals(0, rmAdminCLI.run(args));
-    assertTrue(dummyNodeLabelsManager.getClusterNodeLabels().containsAll(
+    assertTrue(dummyNodeLabelsManager.getClusterNodeLabelNames().containsAll(
         ImmutableSet.of("x", "y")));
     
     // local node labels manager will be close after running
@@ -435,7 +480,7 @@ public class TestRMAdminCLI {
     assertEquals(0, rmAdminCLI.run(args));
     
     // localNodeLabelsManager shouldn't accessed
-    assertTrue(dummyNodeLabelsManager.getClusterNodeLabels().isEmpty());
+    assertTrue(dummyNodeLabelsManager.getClusterNodeLabelNames().isEmpty());
     
     // remote node labels manager accessed
     assertTrue(remoteAdminServiceAccessed);
@@ -447,7 +492,7 @@ public class TestRMAdminCLI {
     String[] args =
         { "-addToClusterNodeLabels", "x", "-directlyAccessNodeLabelStore" };
     assertEquals(0, rmAdminCLI.run(args));
-    assertTrue(dummyNodeLabelsManager.getClusterNodeLabels().containsAll(
+    assertTrue(dummyNodeLabelsManager.getClusterNodeLabelNames().containsAll(
         ImmutableSet.of("x")));
     
     // no labels, should fail
@@ -473,19 +518,61 @@ public class TestRMAdminCLI {
         new String[] { "-addToClusterNodeLabels", ",x,,",
             "-directlyAccessNodeLabelStore" };
     assertEquals(0, rmAdminCLI.run(args));
-    assertTrue(dummyNodeLabelsManager.getClusterNodeLabels().containsAll(
+    assertTrue(dummyNodeLabelsManager.getClusterNodeLabelNames().containsAll(
         ImmutableSet.of("x")));
   }
   
   @Test
+  public void testAddToClusterNodeLabelsWithExclusivitySetting()
+      throws Exception {
+    // Parenthese not match
+    String[] args = new String[] { "-addToClusterNodeLabels", "x(" };
+    assertTrue(0 != rmAdminCLI.run(args));
+
+    args = new String[] { "-addToClusterNodeLabels", "x)" };
+    assertTrue(0 != rmAdminCLI.run(args));
+
+    // Not expected key=value specifying inner parentese
+    args = new String[] { "-addToClusterNodeLabels", "x(key=value)" };
+    assertTrue(0 != rmAdminCLI.run(args));
+
+    // Not key is expected, but value not
+    args = new String[] { "-addToClusterNodeLabels", "x(exclusive=)" };
+    assertTrue(0 != rmAdminCLI.run(args));
+
+    // key=value both set
+    args =
+        new String[] { "-addToClusterNodeLabels",
+            "w,x(exclusive=true), y(exclusive=false),z()",
+            "-directlyAccessNodeLabelStore" };
+    assertTrue(0 == rmAdminCLI.run(args));
+
+    assertTrue(dummyNodeLabelsManager.isExclusiveNodeLabel("w"));
+    assertTrue(dummyNodeLabelsManager.isExclusiveNodeLabel("x"));
+    assertFalse(dummyNodeLabelsManager.isExclusiveNodeLabel("y"));
+    assertTrue(dummyNodeLabelsManager.isExclusiveNodeLabel("z"));
+
+    // key=value both set, and some spaces need to be handled
+    args =
+        new String[] { "-addToClusterNodeLabels",
+            "a (exclusive= true) , b( exclusive =false),c  ",
+            "-directlyAccessNodeLabelStore" };
+    assertTrue(0 == rmAdminCLI.run(args));
+
+    assertTrue(dummyNodeLabelsManager.isExclusiveNodeLabel("a"));
+    assertFalse(dummyNodeLabelsManager.isExclusiveNodeLabel("b"));
+    assertTrue(dummyNodeLabelsManager.isExclusiveNodeLabel("c"));
+  }
+
+  @Test
   public void testRemoveFromClusterNodeLabels() throws Exception {
     // Successfully remove labels
-    dummyNodeLabelsManager.addToCluserNodeLabels(ImmutableSet.of("x", "y"));
+    dummyNodeLabelsManager.addToCluserNodeLabelsWithDefaultExclusivity(ImmutableSet.of("x", "y"));
     String[] args =
         { "-removeFromClusterNodeLabels", "x,,y",
             "-directlyAccessNodeLabelStore" };
     assertEquals(0, rmAdminCLI.run(args));
-    assertTrue(dummyNodeLabelsManager.getClusterNodeLabels().isEmpty());
+    assertTrue(dummyNodeLabelsManager.getClusterNodeLabelNames().isEmpty());
     
     // no labels, should fail
     args = new String[] { "-removeFromClusterNodeLabels" };
@@ -510,7 +597,7 @@ public class TestRMAdminCLI {
   public void testReplaceLabelsOnNode() throws Exception {
     // Successfully replace labels
     dummyNodeLabelsManager
-        .addToCluserNodeLabels(ImmutableSet.of("x", "y", "Y"));
+        .addToCluserNodeLabelsWithDefaultExclusivity(ImmutableSet.of("x", "y", "Y"));
     String[] args =
         { "-replaceLabelsOnNode",
             "node1:8000,x node2:8000=y node3,x node4=Y",
@@ -545,7 +632,7 @@ public class TestRMAdminCLI {
   @Test
   public void testReplaceMultipleLabelsOnSingleNode() throws Exception {
     // Successfully replace labels
-    dummyNodeLabelsManager.addToCluserNodeLabels(ImmutableSet.of("x", "y"));
+    dummyNodeLabelsManager.addToCluserNodeLabelsWithDefaultExclusivity(ImmutableSet.of("x", "y"));
     String[] args =
         { "-replaceLabelsOnNode", "node1,x,y",
             "-directlyAccessNodeLabelStore" };
