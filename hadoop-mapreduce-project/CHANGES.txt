@@ -79,10 +79,6 @@ Release 2.8.0 - UNRELEASED
     MAPREDUCE-6199. AbstractCounters are not reset completely on
     deserialization (adhoot via rkanter)
 
-    MAPREDUCE-6286. A typo in HistoryViewer makes some code useless, which
-    causes counter limits are not reset correctly.
-    (Zhihai Xu via harsh)
-
     MAPREDUCE-4844. Counters / AbstractCounters have constant references not
     declared final. (Brahma Reddy Battula via gera)
 
