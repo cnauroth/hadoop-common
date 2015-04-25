@@ -516,6 +516,7 @@ Release 2.6.0 - 2014-11-18
     MAPREDUCE-6123. TestCombineFileInputFormat incorrectly starts 2
     MiniDFSCluster instances. (cnauroth)
 
+<<<<<<< HEAD
     MAPREDUCE-6125. TestContainerLauncherImpl sometimes fails (Mit Desai via
     jlowe)
 
@@ -562,6 +563,8 @@ Release 2.5.2 - 2014-11-19
   BUG FIXES
 
 
+=======
+>>>>>>> parent of 7bfd9e0... MAPREDUCE-5875. Make Counter limits consistent across JobClient, MRAppMaster, and YarnChild. (Gera Shegalov via kasha)
 Release 2.5.1 - 2014-09-05
 
   INCOMPATIBLE CHANGES
