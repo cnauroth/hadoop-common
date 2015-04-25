@@ -49,6 +49,11 @@ public interface MRJobConfig {
 
   public static final String TASK_CLEANUP_NEEDED = "mapreduce.job.committer.task.cleanup.needed";
 
+  public static final String TASK_PROGRESS_REPORT_INTERVAL =
+      "mapreduce.task.progress-report.interval";
+  /** The number of milliseconds between progress reports. */
+  public static final int DEFAULT_TASK_PROGRESS_REPORT_INTERVAL = 3000;
+
   public static final String JAR = "mapreduce.job.jar";
 
   public static final String ID = "mapreduce.job.id";
@@ -300,6 +305,7 @@ public interface MRJobConfig {
     = "mapreduce.reduce.shuffle.memory.limit.percent";
 
   public static final String SHUFFLE_MERGE_PERCENT = "mapreduce.reduce.shuffle.merge.percent";
+  public static final float DEFAULT_SHUFFLE_MERGE_PERCENT = 0.66f;
 
   public static final String REDUCE_FAILURES_MAXPERCENT = "mapreduce.reduce.failures.maxpercent";
 
@@ -355,6 +361,8 @@ public interface MRJobConfig {
   public static final String COMBINE_RECORDS_BEFORE_PROGRESS = "mapreduce.task.combine.progress.records";
 
   public static final String JOB_NAMENODES = "mapreduce.job.hdfs-servers";
+
+  public static final String JOB_NAMENODES_TOKEN_RENEWAL_EXCLUDE = "mapreduce.job.hdfs-servers.token-renewal.exclude";
 
   public static final String JOB_JOBTRACKER_ID = "mapreduce.job.kerberos.jtprinicipal";
 

@@ -54,6 +54,7 @@ import org.apache.hadoop.mapreduce.OutputFormat;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.TaskAttemptID;
 import org.apache.hadoop.mapreduce.TypeConverter;
+import org.apache.hadoop.mapreduce.counters.Limits;
 import org.apache.hadoop.mapreduce.jobhistory.AMStartedEvent;
 import org.apache.hadoop.mapreduce.jobhistory.EventReader;
 import org.apache.hadoop.mapreduce.jobhistory.EventType;
@@ -869,7 +870,7 @@ public class MRAppMaster extends CompositeService {
     protected void serviceStart() throws Exception {
       if (job.isUber()) {
         this.containerLauncher = new LocalContainerLauncher(context,
-            (TaskUmbilicalProtocol) taskAttemptListener);
+            (TaskUmbilicalProtocol) taskAttemptListener, jobClassLoader);
       } else {
         this.containerLauncher = new ContainerLauncherImpl(context);
       }
@@ -1089,6 +1090,8 @@ public class MRAppMaster extends CompositeService {
 
     // finally set the job classloader
     MRApps.setClassLoader(jobClassLoader, getConfig());
+    // set job classloader if configured
+    Limits.init(getConfig());
 
     if (initFailed) {
       JobEvent initFailedEvent = new JobEvent(job.getID(), JobEventType.JOB_INIT_FAILED);
