@@ -21,6 +21,7 @@ package org.apache.hadoop.yarn.nodelabels;
 import java.io.EOFException;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -34,7 +35,9 @@ import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.yarn.api.records.NodeId;
+import org.apache.hadoop.yarn.api.records.NodeLabel;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.proto.YarnServerResourceManagerServiceProtos.AddToClusterNodeLabelsRequestProto;
 import org.apache.hadoop.yarn.proto.YarnServerResourceManagerServiceProtos.RemoveFromClusterNodeLabelsRequestProto;
 import org.apache.hadoop.yarn.proto.YarnServerResourceManagerServiceProtos.ReplaceLabelsOnNodeRequestProto;
@@ -132,12 +135,12 @@ public class FileSystemNodeLabelsStore extends NodeLabelsStore {
   }
 
   @Override
-  public void storeNewClusterNodeLabels(Set<String> labels)
+  public void storeNewClusterNodeLabels(List<NodeLabel> labels)
       throws IOException {
     ensureAppendEditlogFile();
     editlogOs.writeInt(SerializedLogType.ADD_LABELS.ordinal());
-    ((AddToClusterNodeLabelsRequestPBImpl) AddToClusterNodeLabelsRequest.newInstance(labels)).getProto()
-        .writeDelimitedTo(editlogOs);
+    ((AddToClusterNodeLabelsRequestPBImpl) AddToClusterNodeLabelsRequest
+        .newInstance(labels)).getProto().writeDelimitedTo(editlogOs);
     ensureCloseEditlogFile();
   }
 
@@ -152,7 +155,7 @@ public class FileSystemNodeLabelsStore extends NodeLabelsStore {
   }
 
   @Override
-  public void recover() throws IOException {
+  public void recover() throws YarnException, IOException {
     /*
      * Steps of recover
      * 1) Read from last mirror (from mirror or mirror.old)
@@ -176,7 +179,7 @@ public class FileSystemNodeLabelsStore extends NodeLabelsStore {
     }
 
     if (null != is) {
-      Set<String> labels =
+      List<NodeLabel> labels =
           new AddToClusterNodeLabelsRequestPBImpl(
               AddToClusterNodeLabelsRequestProto.parseDelimitedFrom(is)).getNodeLabels();
       Map<NodeId, Set<String>> nodeToLabels =
@@ -200,10 +203,11 @@ public class FileSystemNodeLabelsStore extends NodeLabelsStore {
           
           switch (type) {
           case ADD_LABELS: {
-            Collection<String> labels =
-                AddToClusterNodeLabelsRequestProto.parseDelimitedFrom(is)
-                    .getNodeLabelsList();
-            mgr.addToCluserNodeLabels(Sets.newHashSet(labels.iterator()));
+            List<NodeLabel> labels =
+                new AddToClusterNodeLabelsRequestPBImpl(
+                    AddToClusterNodeLabelsRequestProto.parseDelimitedFrom(is))
+                    .getNodeLabels();
+            mgr.addToCluserNodeLabels(labels);
             break;
           }
           case REMOVE_LABELS: {

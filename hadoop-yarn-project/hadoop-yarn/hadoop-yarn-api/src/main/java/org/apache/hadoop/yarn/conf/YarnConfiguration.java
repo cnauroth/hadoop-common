@@ -742,6 +742,17 @@ public class YarnConfiguration extends Configuration {
   public static final long DEFAULT_LOG_AGGREGATION_RETAIN_CHECK_INTERVAL_SECONDS = -1;
 
   /**
+   * How long for ResourceManager to wait for NodeManager to report its
+   * log aggregation status. If waiting time of which the log aggregation status
+   * is reported from NodeManager exceeds the configured value, RM will report
+   * log aggregation status for this NodeManager as TIME_OUT
+   */
+  public static final String LOG_AGGREGATION_STATUS_TIME_OUT_MS =
+      YARN_PREFIX + "log-aggregation-status.time-out.ms";
+  public static final long DEFAULT_LOG_AGGREGATION_STATUS_TIME_OUT_MS
+      = 10 * 60 * 1000;
+
+  /**
    * Number of seconds to retain logs on the NodeManager. Only applicable if Log
    * aggregation is disabled
    */
@@ -811,7 +822,43 @@ public class YarnConfiguration extends Configuration {
       NM_PREFIX + "resource.percentage-physical-cpu-limit";
   public static final int DEFAULT_NM_RESOURCE_PERCENTAGE_PHYSICAL_CPU_LIMIT =
       100;
-  
+
+
+  public static final String NM_NETWORK_RESOURCE_PREFIX = NM_PREFIX + "resource.network.";
+
+  /** This setting controls if resource handling for network bandwidth is enabled **/
+  /* Work in progress: This configuration parameter may be changed/removed in the future */
+  @Private
+  public static final String NM_NETWORK_RESOURCE_ENABLED =
+      NM_NETWORK_RESOURCE_PREFIX + "enabled";
+  /** Network as a resource is disabled by default **/
+  @Private
+  public static final boolean DEFAULT_NM_NETWORK_RESOURCE_ENABLED = false;
+
+  /** Specifies the interface to be used for applying network throttling rules **/
+  /* Work in progress: This configuration parameter may be changed/removed in the future */
+  @Private
+  public static final String NM_NETWORK_RESOURCE_INTERFACE =
+      NM_NETWORK_RESOURCE_PREFIX + "interface";
+  @Private
+  public static final String DEFAULT_NM_NETWORK_RESOURCE_INTERFACE = "eth0";
+
+  /** Specifies the total available outbound bandwidth on the node **/
+  /* Work in progress: This configuration parameter may be changed/removed in the future */
+  @Private
+  public static final String NM_NETWORK_RESOURCE_OUTBOUND_BANDWIDTH_MBIT =
+      NM_NETWORK_RESOURCE_PREFIX + "outbound-bandwidth-mbit";
+  @Private
+  public static final int DEFAULT_NM_NETWORK_RESOURCE_OUTBOUND_BANDWIDTH_MBIT = 1000;
+
+  /** Specifies the total outbound bandwidth available to YARN containers. defaults to
+   * NM_NETWORK_RESOURCE_OUTBOUND_BANDWIDTH_MBIT if not specified.
+   */
+  /* Work in progress: This configuration parameter may be changed/removed in the future */
+  @Private
+  public static final String NM_NETWORK_RESOURCE_OUTBOUND_BANDWIDTH_YARN_MBIT =
+      NM_NETWORK_RESOURCE_PREFIX + "outbound-bandwidth-yarn-mbit";
+
   /** NM Webapp address.**/
   public static final String NM_WEBAPP_ADDRESS = NM_PREFIX + "webapp.address";
   public static final int DEFAULT_NM_WEBAPP_PORT = 8042;
@@ -1719,6 +1766,18 @@ public class YarnConfiguration extends Configuration {
   public static final String NODE_LABELS_ENABLED = NODE_LABELS_PREFIX
       + "enabled";
   public static final boolean DEFAULT_NODE_LABELS_ENABLED = false;
+  
+  public static final String NODELABEL_CONFIGURATION_TYPE =
+      NODE_LABELS_PREFIX + "configuration-type";
+  
+  public static final String CENTALIZED_NODELABEL_CONFIGURATION_TYPE =
+      "centralized";
+  
+  public static final String DISTRIBUTED_NODELABEL_CONFIGURATION_TYPE =
+      "distributed";
+  
+  public static final String DEFAULT_NODELABEL_CONFIGURATION_TYPE =
+      CENTALIZED_NODELABEL_CONFIGURATION_TYPE;
 
   public YarnConfiguration() {
     super();
@@ -1807,5 +1866,10 @@ public class YarnConfiguration extends Configuration {
           YarnConfiguration.RM_CLUSTER_ID);
     }
     return clusterId;
+  }
+
+  /* For debugging. mp configurations to system output as XML format. */
+  public static void main(String[] args) throws Exception {
+    new YarnConfiguration(new Configuration()).writeXml(System.out);
   }
 }

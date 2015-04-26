@@ -48,6 +48,9 @@ import org.apache.hadoop.yarn.util.resource.DefaultResourceCalculator;
 import org.apache.hadoop.yarn.util.resource.ResourceCalculator;
 import org.apache.hadoop.yarn.util.resource.Resources;
 
+import org.apache.hadoop.yarn.server.resourcemanager.scheduler.policy.*;
+
+
 import com.google.common.collect.ImmutableSet;
 
 public class CapacitySchedulerConfiguration extends ReservationSchedulerConfiguration {
@@ -116,7 +119,15 @@ public class CapacitySchedulerConfiguration extends ReservationSchedulerConfigur
   @Private
   public static final String MAXIMUM_ALLOCATION_VCORES =
       "maximum-allocation-vcores";
+  
+  public static final String ORDERING_POLICY = "ordering-policy";
+  
+  public static final String FIFO_ORDERING_POLICY = "fifo";
 
+  public static final String FAIR_ORDERING_POLICY = "fair";
+
+  public static final String DEFAULT_ORDERING_POLICY = FIFO_ORDERING_POLICY;
+  
   @Private
   public static final int DEFAULT_MAXIMUM_SYSTEM_APPLICATIIONS = 10000;
   
@@ -319,6 +330,11 @@ public class CapacitySchedulerConfiguration extends ReservationSchedulerConfigur
     		getMaximumApplicationMasterResourcePercent());
   }
   
+  public void setMaximumApplicationMasterResourcePerQueuePercent(String queue,
+      float percent) {
+    setFloat(getQueuePrefix(queue) + MAXIMUM_AM_RESOURCE_SUFFIX, percent);
+  }
+  
   public float getNonLabeledQueueCapacity(String queue) {
     float capacity = queue.equals("root") ? 100.0f : getFloat(
         getQueuePrefix(queue) + CAPACITY, UNDEFINED);
@@ -372,6 +388,40 @@ public class CapacitySchedulerConfiguration extends ReservationSchedulerConfigur
     int userLimit = getInt(getQueuePrefix(queue) + USER_LIMIT,
         DEFAULT_USER_LIMIT);
     return userLimit;
+  }
+  
+  @SuppressWarnings("unchecked")
+  public <S extends SchedulableEntity> OrderingPolicy<S> getOrderingPolicy(
+      String queue) {
+  
+    String policyType = get(getQueuePrefix(queue) + ORDERING_POLICY, 
+      DEFAULT_ORDERING_POLICY);
+    
+    OrderingPolicy<S> orderingPolicy;
+    
+    if (policyType.trim().equals(FIFO_ORDERING_POLICY)) {
+       policyType = FifoOrderingPolicy.class.getName();
+    }
+    if (policyType.trim().equals(FAIR_ORDERING_POLICY)) {
+       policyType = FairOrderingPolicy.class.getName();
+    }
+    try {
+      orderingPolicy = (OrderingPolicy<S>)
+        Class.forName(policyType).newInstance();
+    } catch (Exception e) {
+      String message = "Unable to construct ordering policy for: " + policyType + ", " + e.getMessage();
+      throw new RuntimeException(message, e);
+    }
+
+    Map<String, String> config = new HashMap<String, String>();
+    String confPrefix = getQueuePrefix(queue) + ORDERING_POLICY + ".";
+    for (Map.Entry<String, String> kv : this) {
+      if (kv.getKey().startsWith(confPrefix)) {
+         config.put(kv.getKey().substring(confPrefix.length()), kv.getValue());
+      }
+    }
+    orderingPolicy.configure(config);
+    return orderingPolicy;
   }
 
   public void setUserLimit(String queue, int userLimit) {

@@ -146,7 +146,7 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
   private ConcurrentMap<NodeId, List<ContainerStatus>>
       finishedContainersSentToAM =
       new ConcurrentHashMap<NodeId, List<ContainerStatus>>();
-  private Container masterContainer;
+  private volatile Container masterContainer;
 
   private float progress = 0;
   private String host = "N/A";
@@ -762,13 +762,7 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
 
   @Override
   public Container getMasterContainer() {
-    this.readLock.lock();
-
-    try {
-      return this.masterContainer;
-    } finally {
-      this.readLock.unlock();
-    }
+    return this.masterContainer;
   }
 
   @InterfaceAudience.Private
@@ -851,7 +845,7 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
         attemptState.getMemorySeconds(),attemptState.getVcoreSeconds());
   }
 
-  public void transferStateFromPreviousAttempt(RMAppAttempt attempt) {
+  public void transferStateFromAttempt(RMAppAttempt attempt) {
     this.justFinishedContainers = attempt.getJustFinishedContainersReference();
     this.finishedContainersSentToAM =
         attempt.getFinishedContainersSentToAMReference();
@@ -946,7 +940,6 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
         appAttempt.amReq.setResourceName(ResourceRequest.ANY);
         appAttempt.amReq.setRelaxLocality(true);
         
-        // SchedulerUtils.validateResourceRequests is not necessary because
         // AM resource has been checked when submission
         Allocation amContainerAllocation =
             appAttempt.scheduler.allocate(appAttempt.applicationAttemptId,
@@ -1051,6 +1044,13 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
         appAttempt.progress = 1.0f;
         RMApp rmApp =appAttempt.rmContext.getRMApps().get(
             appAttempt.getAppAttemptId().getApplicationId());
+
+        if (appAttempt.submissionContext
+            .getKeepContainersAcrossApplicationAttempts()
+            && !appAttempt.submissionContext.getUnmanagedAM()
+            && rmApp.getCurrentAppAttempt() != appAttempt) {
+          appAttempt.transferStateFromAttempt(rmApp.getCurrentAppAttempt());
+        }
         // We will replay the final attempt only if last attempt is in final
         // state but application is not in final state.
         if (rmApp.getCurrentAppAttempt() == appAttempt
@@ -1912,7 +1912,8 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
       attemptReport = ApplicationAttemptReport.newInstance(this
           .getAppAttemptId(), this.getHost(), this.getRpcPort(), this
           .getTrackingUrl(), this.getOriginalTrackingUrl(), this.getDiagnostics(),
-          YarnApplicationAttemptState .valueOf(this.getState().toString()), amId);
+              YarnApplicationAttemptState.valueOf(this.getState().toString()),
+              amId, this.startTime, this.finishTime);
     } finally {
       this.readLock.unlock();
     }

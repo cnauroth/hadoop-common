@@ -26,22 +26,6 @@ if "%HADOOP_BIN_PATH:~`%" == "\" (
   set HADOOP_BIN_PATH=%HADOOP_BIN_PATH:~0,-1%
 )
 
-@rem Determine log file name.
-@rem If we're being called by --service we need to use %2.
-@rem If we're being called with --config and --service we need to use %4.
-@rem Otherwise use %1
-if "%1" == "--service" (
-  set HADOOP_LOGFILE=mapred-%2-%computername%.log
-) else if "%1" == "--config" (
-  if "%3" == "--service" (
-    set HADOOP_LOGFILE=mapred-%4-%computername%.log
-  )
-)
-
-if not defined HADOOP_ROOT_LOGGER (
-    set HADOOP_ROOT_LOGGER=INFO,DRFA
-  )
-)
 set DEFAULT_LIBEXEC_DIR=%HADOOP_BIN_PATH%\..\libexec
 if not defined HADOOP_LIBEXEC_DIR (
   set HADOOP_LIBEXEC_DIR=%DEFAULT_LIBEXEC_DIR%
@@ -54,12 +38,6 @@ if "%1" == "--config" (
 )
 if "%1" == "--loglevel" (
   shift
-  shift
-)
-
-if "%1" == "--service" (
-  set service_entry=true
-  set HADOOP_ROOT_LOGGER=INFO,DRFA
   shift
 )
 
@@ -126,11 +104,7 @@ if "%1" == "--service" (
 
   call :%mapred-command% %mapred-command-arguments%
   set java_arguments=%JAVA_HEAP_MAX% %HADOOP_OPTS% -classpath %CLASSPATH% %CLASS% %mapred-command-arguments%
-  if defined service_entry (
-    call :makeServiceXml %java_arguments%
-  ) else (
-    call %JAVA% %java_arguments%
-  )
+  call %JAVA% %java_arguments%
 
 goto :eof
 
@@ -156,9 +130,6 @@ goto :eof
 
 :historyserver
   set CLASS=org.apache.hadoop.mapreduce.v2.hs.JobHistoryServer
-  if not defined HADOOP_JHS_LOGGER (
-    set HADOOP_JHS_LOGGER=INFO,console
-  )
   set HADOOP_OPTS=%HADOOP_OPTS% -Dmapred.jobsummary.logger=%HADOOP_JHS_LOGGER% %HADOOP_JOB_HISTORYSERVER_OPTS%
   if defined HADOOP_JOB_HISTORYSERVER_HEAPSIZE (
     set JAVA_HEAP_MAX=-Xmx%HADOOP_JOB_HISTORYSERVER_HEAPSIZE%m
@@ -207,9 +178,6 @@ goto :eof
     shift
     shift
   )
-  if "%1" == "--service" (
-    shift
-  )
   shift
   set _mapredarguments=
   :MakeCmdArgsLoop 
@@ -224,17 +192,6 @@ goto :eof
   goto :MakeCmdArgsLoop 
   :EndLoop 
   set mapred-command-arguments=%_mapredarguments%
-  goto :eof
-
-:makeServiceXml
-  set arguments=%*
-  @echo ^<service^>
-  @echo   ^<id^>%mapred-command%^</id^>
-  @echo   ^<name^>%mapred-command%^</name^>
-  @echo   ^<description^>This service runs Hadoop %mapred-command%^</description^>
-  @echo   ^<executable^>%JAVA%^</executable^>
-  @echo   ^<arguments^>%arguments%^</arguments^>
-  @echo ^</service^>
   goto :eof
 
 :not_supported

@@ -58,6 +58,7 @@ import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerReport;
 import org.apache.hadoop.yarn.api.records.NodeId;
+import org.apache.hadoop.yarn.api.records.NodeLabel;
 import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.NodeState;
 import org.apache.hadoop.yarn.api.records.QueueUserACLInfo;
@@ -337,6 +338,15 @@ public class ResourceMgrDelegate extends YarnClient {
   }
 
   @Override
+  public List<ApplicationReport> getApplications(Set<String> queues,
+      Set<String> users, Set<String> applicationTypes,
+      EnumSet<YarnApplicationState> applicationStates) throws YarnException,
+      IOException {
+    return client.getApplications(queues, users, applicationTypes,
+      applicationStates);
+  }
+
+  @Override
   public YarnClusterMetrics getYarnClusterMetrics() throws YarnException,
       IOException {
     return client.getYarnClusterMetrics();
@@ -452,7 +462,7 @@ public class ResourceMgrDelegate extends YarnClient {
   }
 
   @Override
-  public Set<String> getClusterNodeLabels()
+  public List<NodeLabel> getClusterNodeLabels()
       throws YarnException, IOException {
     return client.getClusterNodeLabels();
   }

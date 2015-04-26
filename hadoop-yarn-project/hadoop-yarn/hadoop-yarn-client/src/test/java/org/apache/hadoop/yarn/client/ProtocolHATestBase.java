@@ -685,7 +685,7 @@ public abstract class ProtocolHATestBase extends ClientBaseWithFixes {
 
     public QueueInfo createFakeQueueInfo() {
       return QueueInfo.newInstance("root", 100f, 100f, 50f, null,
-          createFakeAppReports(), QueueState.RUNNING, null, null);
+          createFakeAppReports(), QueueState.RUNNING, null, null, null);
     }
 
     public List<QueueUserACLInfo> createFakeQueueUserACLInfoList() {
@@ -700,7 +700,8 @@ public abstract class ProtocolHATestBase extends ClientBaseWithFixes {
     public ApplicationAttemptReport createFakeApplicationAttemptReport() {
       return ApplicationAttemptReport.newInstance(
           createFakeApplicationAttemptId(), "localhost", 0, "", "", "",
-          YarnApplicationAttemptState.RUNNING, createFakeContainerId());
+          YarnApplicationAttemptState.RUNNING, createFakeContainerId(), 1000l,
+          1200l);
     }
 
     public List<ApplicationAttemptReport>

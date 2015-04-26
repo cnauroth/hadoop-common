@@ -1192,6 +1192,20 @@ public class DataNode extends ReconfigurableBase
     if (!UserGroupInformation.isSecurityEnabled()) {
       return;
     }
+
+    // Abort out of inconsistent state if Kerberos is enabled
+    // but block access tokens are not enabled.
+    boolean isEnabled = conf.getBoolean(
+        DFSConfigKeys.DFS_BLOCK_ACCESS_TOKEN_ENABLE_KEY,
+        DFSConfigKeys.DFS_BLOCK_ACCESS_TOKEN_ENABLE_DEFAULT);
+    if (!isEnabled) {
+      String errMessage = "Security is enabled but block access tokens " +
+          "(via " + DFSConfigKeys.DFS_BLOCK_ACCESS_TOKEN_ENABLE_KEY + ") " +
+          "aren't enabled. This may cause issues " +
+          "when clients attempt to connect to a DataNode. Aborting DataNode";
+      throw new RuntimeException(errMessage);
+    }
+
     SaslPropertiesResolver saslPropsResolver = dnConf.getSaslPropsResolver();
     if (resources != null && saslPropsResolver == null) {
       return;
@@ -1220,7 +1234,7 @@ public class DataNode extends ReconfigurableBase
    *
    * @throws IOException
    */
-  private synchronized void checkDatanodeUuid() throws IOException {
+  synchronized void checkDatanodeUuid() throws IOException {
     if (storage.getDatanodeUuid() == null) {
       storage.setDatanodeUuid(generateUuid());
       storage.writeAll();
@@ -3147,7 +3161,7 @@ public class DataNode extends ReconfigurableBase
   }
 
   public String getDatanodeUuid() {
-    return id == null ? null : id.getDatanodeUuid();
+    return storage == null ? null : storage.getDatanodeUuid();
   }
 
   boolean shouldRun() {

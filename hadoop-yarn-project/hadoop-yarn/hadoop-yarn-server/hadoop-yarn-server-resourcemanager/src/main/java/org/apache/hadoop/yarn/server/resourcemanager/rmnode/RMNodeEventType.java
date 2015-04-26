@@ -24,6 +24,8 @@ public enum RMNodeEventType {
   
   // Source: AdminService
   DECOMMISSION,
+  DECOMMISSION_WITH_TIMEOUT,
+  RECOMMISSION,
   
   // Source: AdminService, ResourceTrackerService
   RESOURCE_UPDATE,

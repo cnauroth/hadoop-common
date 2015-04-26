@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -52,11 +53,13 @@ import org.apache.hadoop.yarn.event.Dispatcher;
 import org.apache.hadoop.yarn.event.EventHandler;
 import org.apache.hadoop.yarn.exceptions.YarnRuntimeException;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
+import org.apache.hadoop.yarn.server.api.protocolrecords.LogAggregationReport;
 import org.apache.hadoop.yarn.server.api.records.NodeHealthStatus;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.ContainerManagerImpl;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.application.Application;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.container.Container;
 import org.apache.hadoop.yarn.server.nodemanager.metrics.NodeManagerMetrics;
+import org.apache.hadoop.yarn.server.nodemanager.nodelabels.NodeLabelsProvider;
 import org.apache.hadoop.yarn.server.nodemanager.recovery.NMLeveldbStateStoreService;
 import org.apache.hadoop.yarn.server.nodemanager.recovery.NMNullStateStoreService;
 import org.apache.hadoop.yarn.server.nodemanager.recovery.NMStateStoreService;
@@ -79,6 +82,7 @@ public class NodeManager extends CompositeService
   protected final NodeManagerMetrics metrics = NodeManagerMetrics.create();
   private ApplicationACLsManager aclsManager;
   private NodeHealthCheckerService nodeHealthChecker;
+  private NodeLabelsProvider nodeLabelsProvider;
   private LocalDirsHandlerService dirsHandler;
   private Context context;
   private AsyncDispatcher dispatcher;
@@ -97,7 +101,22 @@ public class NodeManager extends CompositeService
   protected NodeStatusUpdater createNodeStatusUpdater(Context context,
       Dispatcher dispatcher, NodeHealthCheckerService healthChecker) {
     return new NodeStatusUpdaterImpl(context, dispatcher, healthChecker,
-      metrics);
+        metrics, nodeLabelsProvider);
+  }
+
+  protected NodeStatusUpdater createNodeStatusUpdater(Context context,
+      Dispatcher dispatcher, NodeHealthCheckerService healthChecker,
+      NodeLabelsProvider nodeLabelsProvider) {
+    return new NodeStatusUpdaterImpl(context, dispatcher, healthChecker,
+        metrics, nodeLabelsProvider);
+  }
+
+  @VisibleForTesting
+  protected NodeLabelsProvider createNodeLabelsProvider(
+      Configuration conf) throws IOException {
+    // TODO as part of YARN-2729
+    // Need to get the implementation of provider service and return
+    return null;
   }
 
   protected NodeResourceMonitor createNodeResourceMonitor() {
@@ -158,17 +177,21 @@ public class NodeManager extends CompositeService
   }
 
   private void stopRecoveryStore() throws IOException {
-    nmStore.stop();
-    if (context.getDecommissioned() && nmStore.canRecover()) {
-      LOG.info("Removing state store due to decommission");
-      Configuration conf = getConfig();
-      Path recoveryRoot = new Path(
-          conf.get(YarnConfiguration.NM_RECOVERY_DIR));
-      LOG.info("Removing state store at " + recoveryRoot
-          + " due to decommission");
-      FileSystem recoveryFs = FileSystem.getLocal(conf);
-      if (!recoveryFs.delete(recoveryRoot, true)) {
-        LOG.warn("Unable to delete " + recoveryRoot);
+    if (null != nmStore) {
+      nmStore.stop();
+      if (null != context) {
+        if (context.getDecommissioned() && nmStore.canRecover()) {
+          LOG.info("Removing state store due to decommission");
+          Configuration conf = getConfig();
+          Path recoveryRoot =
+              new Path(conf.get(YarnConfiguration.NM_RECOVERY_DIR));
+          LOG.info("Removing state store at " + recoveryRoot
+              + " due to decommission");
+          FileSystem recoveryFs = FileSystem.getLocal(conf);
+          if (!recoveryFs.delete(recoveryRoot, true)) {
+            LOG.warn("Unable to delete " + recoveryRoot);
+          }
+        }
       }
     }
   }
@@ -218,14 +241,25 @@ public class NodeManager extends CompositeService
     this.dispatcher = new AsyncDispatcher();
 
     nodeHealthChecker = new NodeHealthCheckerService();
+    dirsHandler = new LocalDirsHandlerService(metrics);
+
     addService(nodeHealthChecker);
     dirsHandler = nodeHealthChecker.getDiskHandler();
 
     this.context = createNMContext(containerTokenSecretManager,
         nmTokenSecretManager, nmStore);
-    
-    nodeStatusUpdater =
-        createNodeStatusUpdater(context, dispatcher, nodeHealthChecker);
+
+    nodeLabelsProvider = createNodeLabelsProvider(conf);
+
+    if (null == nodeLabelsProvider) {
+      nodeStatusUpdater =
+          createNodeStatusUpdater(context, dispatcher, nodeHealthChecker);
+    } else {
+      addService(nodeLabelsProvider);
+      nodeStatusUpdater =
+          createNodeStatusUpdater(context, dispatcher, nodeHealthChecker,
+              nodeLabelsProvider);
+    }
 
     NodeResourceMonitor nodeResourceMonitor = createNodeResourceMonitor();
     addService(nodeResourceMonitor);
@@ -334,6 +368,8 @@ public class NodeManager extends CompositeService
         .getRecordFactory(null).newRecordInstance(NodeHealthStatus.class);
     private final NMStateStoreService stateStore;
     private boolean isDecommissioned = false;
+    private final ConcurrentLinkedQueue<LogAggregationReport>
+        logAggregationReportForApps;
 
     public NMContext(NMContainerTokenSecretManager containerTokenSecretManager,
         NMTokenSecretManagerInNM nmTokenSecretManager,
@@ -347,6 +383,8 @@ public class NodeManager extends CompositeService
       this.nodeHealthStatus.setHealthReport("Healthy");
       this.nodeHealthStatus.setLastHealthReportTime(System.currentTimeMillis());
       this.stateStore = stateStore;
+      this.logAggregationReportForApps = new ConcurrentLinkedQueue<
+          LogAggregationReport>();
     }
 
     /**
@@ -437,6 +475,12 @@ public class NodeManager extends CompositeService
     public void setSystemCrendentialsForApps(
         Map<ApplicationId, Credentials> systemCredentials) {
       this.systemCredentials = systemCredentials;
+    }
+
+    @Override
+    public ConcurrentLinkedQueue<LogAggregationReport>
+        getLogAggregationStatusForApps() {
+      return this.logAggregationReportForApps;
     }
   }
 

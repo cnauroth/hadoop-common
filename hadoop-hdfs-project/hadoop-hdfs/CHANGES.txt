@@ -15,6 +15,15 @@ Release 2.8.0 - UNRELEASED
     HDFS-7701. Support reporting per storage type quota and usage
     with hadoop/hdfs shell. (Peter Shi via Arpit Agarwal)
 
+    HDFS-8055. NullPointerException when topology script is missing.
+    (Anu Engineer via cnauroth)
+
+    HDFS-7645. Rolling upgrade is restoring blocks from trash multiple times.
+    (Vinayakumar B and Keisuke Ogiwara via Arpit Agarwal)
+
+    HDFS-8211. DataNode UUID is always null in the JMX counter. (Anu Engineer
+    via Arpit Agarwal)
+
 Release 2.7.1 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -27,6 +36,11 @@ Release 2.7.1 - UNRELEASED
 
     HDFS-7931. DistributedFileSystem should not look for keyProvider in
     cache if Encryption is disabled (asuresh)
+
+    HDFS-7933. fsck should also report decommissioning replicas.
+    (Xiaoyu Yao via cnauroth)
+
+    HDFS-7990. IBR delete ack should not be delayed. (daryn via kihwal)
 
   OPTIMIZATIONS
 
@@ -59,8 +73,30 @@ Release 2.7.1 - UNRELEASED
     HDFS-8147. StorageGroup in Dispatcher should override equals nad hashCode.
     (surendra singh lilhore via szetszwo)
 
-Release 2.7.0 - 2015-04-20
+    HDFS-6666. Abort NameNode and DataNode startup if security is enabled but
+    block access token is not enabled. (Vijay Bhat via cnauroth)
 
+    HDFS-8070. Pre-HDFS-7915 DFSClient cannot use short circuit on
+    post-HDFS-7915 DataNode (cmccabe)
+
+  INCOMPATIBLE CHANGES
+
+  NEW FEATURES
+
+  IMPROVEMENTS
+
+    HDFS-8081. Split getAdditionalBlock() into two methods. (shv)
+
+    HDFS-7931. DistributedFileSystem should not look for keyProvider in
+    cache if Encryption is disabled (asuresh)
+
+  OPTIMIZATIONS
+
+  BUG FIXES
+
+Release 2.7.0 - UNRELEASED
+
+>>>>>>> c7ebecf... HDFS-8055. NullPointerException when topology script is missing. Contributed by Anu Engineer.
   INCOMPATIBLE CHANGES
 
   NEW FEATURES

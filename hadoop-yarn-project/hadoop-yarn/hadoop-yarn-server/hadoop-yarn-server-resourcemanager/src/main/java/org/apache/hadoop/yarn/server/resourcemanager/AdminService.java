@@ -47,6 +47,7 @@ import org.apache.hadoop.security.authorize.AccessControlList;
 import org.apache.hadoop.security.authorize.PolicyProvider;
 import org.apache.hadoop.security.authorize.ProxyUsers;
 import org.apache.hadoop.service.CompositeService;
+import org.apache.hadoop.yarn.api.records.DecommissionType;
 import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.api.records.ResourceOption;
 import org.apache.hadoop.yarn.conf.HAUtil;
@@ -61,6 +62,8 @@ import org.apache.hadoop.yarn.security.YarnAuthorizationProvider;
 import org.apache.hadoop.yarn.server.api.ResourceManagerAdministrationProtocol;
 import org.apache.hadoop.yarn.server.api.protocolrecords.AddToClusterNodeLabelsRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.AddToClusterNodeLabelsResponse;
+import org.apache.hadoop.yarn.server.api.protocolrecords.CheckForDecommissioningNodesRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.CheckForDecommissioningNodesResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshAdminAclsRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshAdminAclsResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshNodesRequest;
@@ -381,7 +384,17 @@ public class AdminService extends CompositeService implements
       Configuration conf =
           getConfiguration(new Configuration(false),
               YarnConfiguration.YARN_SITE_CONFIGURATION_FILE);
-      rmContext.getNodesListManager().refreshNodes(conf);
+      switch (request.getDecommissionType()) {
+      case NORMAL:
+        rmContext.getNodesListManager().refreshNodes(conf);
+        break;
+      case GRACEFUL:
+        rmContext.getNodesListManager().refreshNodesGracefully(conf);
+        break;
+      case FORCEFUL:
+        rmContext.getNodesListManager().refreshNodesForcefully();
+        break;
+      }
       RMAuditLogger.logSuccess(user.getShortUserName(), argName,
           "AdminService");
       return recordFactory.newRecordInstance(RefreshNodesResponse.class);
@@ -574,7 +587,7 @@ public class AdminService extends CompositeService implements
   private void refreshAll() throws ServiceFailedException {
     try {
       refreshQueues(RefreshQueuesRequest.newInstance());
-      refreshNodes(RefreshNodesRequest.newInstance());
+      refreshNodes(RefreshNodesRequest.newInstance(DecommissionType.NORMAL));
       refreshSuperUserGroupsConfiguration(
           RefreshSuperUserGroupsConfigurationRequest.newInstance());
       refreshUserToGroupsMappings(
@@ -673,11 +686,30 @@ public class AdminService extends CompositeService implements
     }
   }
 
-  private YarnException logAndWrapException(IOException ioe, String user,
+  private YarnException logAndWrapException(Exception exception, String user,
       String argName, String msg) throws YarnException {
-    LOG.info("Exception " + msg, ioe);
+    LOG.warn("Exception " + msg, exception);
     RMAuditLogger.logFailure(user, argName, "", 
         "AdminService", "Exception " + msg);
-    return RPCUtil.getRemoteException(ioe);
+    return RPCUtil.getRemoteException(exception);
+  }
+
+  @Override
+  public CheckForDecommissioningNodesResponse checkForDecommissioningNodes(
+      CheckForDecommissioningNodesRequest checkForDecommissioningNodesRequest)
+      throws IOException, YarnException {
+    String argName = "checkForDecommissioningNodes";
+    final String msg = "check for decommissioning nodes.";
+    UserGroupInformation user = checkAcls("checkForDecommissioningNodes");
+
+    checkRMStatus(user.getShortUserName(), argName, msg);
+
+    Set<NodeId> decommissioningNodes = rmContext.getNodesListManager()
+        .checkForDecommissioningNodes();
+    RMAuditLogger.logSuccess(user.getShortUserName(), argName, "AdminService");
+    CheckForDecommissioningNodesResponse response = recordFactory
+        .newRecordInstance(CheckForDecommissioningNodesResponse.class);
+    response.setDecommissioningNodes(decommissioningNodes);
+    return response;
   }
 }

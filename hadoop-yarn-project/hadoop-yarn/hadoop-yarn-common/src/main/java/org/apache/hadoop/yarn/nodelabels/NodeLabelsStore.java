@@ -21,11 +21,14 @@ package org.apache.hadoop.yarn.nodelabels;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.yarn.api.records.NodeId;
+import org.apache.hadoop.yarn.api.records.NodeLabel;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 
 public abstract class NodeLabelsStore implements Closeable {
   protected final CommonNodeLabelsManager mgr;
@@ -43,7 +46,7 @@ public abstract class NodeLabelsStore implements Closeable {
   /**
    * Store new labels
    */
-  public abstract void storeNewClusterNodeLabels(Set<String> label)
+  public abstract void storeNewClusterNodeLabels(List<NodeLabel> label)
       throws IOException;
 
   /**
@@ -51,11 +54,11 @@ public abstract class NodeLabelsStore implements Closeable {
    */
   public abstract void removeClusterNodeLabels(Collection<String> labels)
       throws IOException;
-  
+
   /**
    * Recover labels and node to labels mappings from store
    */
-  public abstract void recover() throws IOException;
+  public abstract void recover() throws IOException, YarnException;
   
   public void init(Configuration conf) throws Exception {}
   

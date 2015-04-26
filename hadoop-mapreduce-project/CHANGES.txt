@@ -8,9 +8,91 @@ Release 2.8.0 - UNRELEASED
 
   IMPROVEMENTS
 
+    MAPREDUCE-6291. Correct mapred queue usage command.
+    (Brahma Reddu Battula via harsh)
+
+    MAPREDUCE-579. Streaming "slowmatch" documentation. (harsh)
+
+    MAPREDUCE-6287. Deprecated methods in org.apache.hadoop.examples.Sort
+    (Chao Zhang via harsh)
+
+    MAPREDUCE-5190. Unnecessary condition test in RandomSampler.
+    (Jingguo Yao via harsh)
+
+    MAPREDUCE-6239. Consolidate TestJobConf classes in
+    hadoop-mapreduce-client-jobclient and hadoop-mapreduce-client-core
+    (Varun Saxena via harsh)
+
+    MAPREDUCE-5807. Print usage by TeraSort job. (Rohith via harsh)
+
+    MAPREDUCE-4653. TestRandomAlgorithm has an unused "import" statement.
+    (Amir Sanjar via harsh)
+
+    MAPREDUCE-6100. replace "mapreduce.job.credentials.binary" with
+    MRJobConfig.MAPREDUCE_JOB_CREDENTIALS_BINARY for better readability.
+    (Zhihai Xu via harsh)
+
+    MAPREDUCE-6105. Inconsistent configuration in property
+    mapreduce.reduce.shuffle.merge.percent. (Ray Chiang via harsh)
+
+    MAPREDUCE-4414. Add main methods to JobConf and YarnConfiguration,
+    for debug purposes. (Plamen Jeliazkov via harsh)
+
+    MAPREDUCE-5755. MapTask.MapOutputBuffer#compare/swap should have
+    @Override annotation. (ozawa)
+
+    MAPREDUCE-6282. Reuse historyFileAbsolute.getFileSystem in
+    CompletedJob#loadFullHistoryData for code optimization.
+    (zxu via rkanter)
+
+    MAPREDUCE-5762. Port MAPREDUCE-3223 (Remove MRv1 config from
+    mapred-default.xml) to branch-2. (aajisaka)
+
+    MAPREDUCE-6307. Remove property
+    mapreduce.tasktracker.taskmemorymanager.monitoringinterval.
+    (J.Andreina via aajisaka)
+
   OPTIMIZATIONS
 
   BUG FIXES
+
+    MAPREDUCE-6314. TestPipeApplication fails on trunk.
+    (Varun Vasudev via harsh)
+
+    MAPREDUCE-5448. MapFileOutputFormat#getReaders bug with hidden
+    files/folders. (Maysam Yabandeh via harsh)
+
+    MAPREDUCE-6213. NullPointerException caused by job history server addr not
+    resolvable. (Peng Zhang via harsh)
+
+    MAPREDUCE-6281. Fix javadoc in Terasort. (Albert Chu via ozawa)
+
+    MAPREDUCE-6242. Progress report log is incredibly excessive in 
+    application master. (Varun Saxena via devaraj)
+
+    MAPREDUCE-6294. Remove an extra parameter described in Javadoc of
+    TockenCache. (Brahma Reddy Battula via ozawa)
+
+    MAPREDUCE-5875. Make Counter limits consistent across JobClient, 
+    MRAppMaster, and YarnChild. (Gera Shegalov via kasha)
+
+    MAPREDUCE-4844. Counters / AbstractCounters have constant references not
+    declared final. (Brahma Reddy Battula via gera)
+
+    MAPREDUCE-6266. Job#getTrackingURL should consistently return a proper URL
+    (rchiang via rkanter)
+
+    MAPREDUCE-6293. Set job classloader on uber-job's LocalContainerLauncher
+    event thread. (Sangjin Lee via gera)
+
+    MAPREDUCE-6297. Task Id of the failed task in diagnostics should link to
+    the task page. (Siqi Li via gera)
+
+    MAPREDUCE-6330. Fix typo in Task Attempt API's URL in documentations.
+    (Ryu Kobayashi via ozawa)
+
+    MAPREDUCE-6333. TestEvents,TestAMWebServicesTasks,TestAppController are
+    broken due to MAPREDUCE-6297. (Siqi Li via gera)
 
 Release 2.7.1 - UNRELEASED
 
@@ -25,6 +107,9 @@ Release 2.7.1 - UNRELEASED
   BUG FIXES
 
     MAPREDUCE-6300. Task list sort by task id broken. (Siqi Li via aajisaka)
+
+    MAPREDUCE-6238. MR2 can't run local jobs with -libjars command options
+    which is a regression from MR1 (zxu via rkanter)
 
 Release 2.7.0 - 2015-04-20
 
@@ -434,6 +519,7 @@ Release 2.6.0 - 2014-11-18
     MAPREDUCE-6123. TestCombineFileInputFormat incorrectly starts 2
     MiniDFSCluster instances. (cnauroth)
 
+<<<<<<< HEAD
     MAPREDUCE-6125. TestContainerLauncherImpl sometimes fails (Mit Desai via
     jlowe)
 
@@ -479,6 +565,9 @@ Release 2.5.2 - 2014-11-19
 
   BUG FIXES
 
+
+=======
+>>>>>>> parent of 7bfd9e0... MAPREDUCE-5875. Make Counter limits consistent across JobClient, MRAppMaster, and YarnChild. (Gera Shegalov via kasha)
 Release 2.5.1 - 2014-09-05
 
   INCOMPATIBLE CHANGES
