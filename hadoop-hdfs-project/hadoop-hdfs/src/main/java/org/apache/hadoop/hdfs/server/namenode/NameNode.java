@@ -1484,6 +1484,9 @@ public class NameNode implements NameNodeStatusMXBean {
         return null;
       }
       case ROLLINGUPGRADE: {
+        // Truncate was backported to HDP 2.2, gated by an optional configuration
+        // property, without bumping the layout version.  Because of this,
+        // downgrade cannot be supported.
         if (conf.getBoolean("dfs.allow.truncate", false)) {
           LOG.error("{} not supported if dfs.allow.truncate is true.", startOpt);
           terminate(1);

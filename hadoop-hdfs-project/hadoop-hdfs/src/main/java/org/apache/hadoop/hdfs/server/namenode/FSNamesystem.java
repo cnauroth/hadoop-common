@@ -7610,9 +7610,14 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     if (isRollingUpgrade()) {
       int storageLV = fsImage.getStorage().getLayoutVersion();
       if (storageLV >= NameNodeLayoutVersion.MINIMUM_COMPATIBLE_LAYOUT_VERSION) {
+        // The prior layout version satisfies the minimum compatible layout
+        // version of the current software.  Keep reporting the prior layout
+        // as the effective one.  Downgrade is possible.
         return storageLV;
       }
     }
+    // The current software cannot satisfy the layout version of the prior
+    // software.  Proceed with using the current layout version.
     return NameNodeLayoutVersion.CURRENT_LAYOUT_VERSION;
   }
 
