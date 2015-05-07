@@ -642,6 +642,9 @@ Release 2.8.0 - UNRELEASED
     required, based on configured failed volumes tolerated.
     (Lei (Eddy) Xu via cnauroth)
 
+    HDFS-8325. Misspelling of threshold in log4j.properties for tests.
+    (Brahma Reddy Battula via aajisaka)
+
 Release 2.7.1 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -706,6 +709,9 @@ Release 2.7.1 - UNRELEASED
 
     HDFS-8305: HDFS INotify: the destination field of RenameOp should always
     end with the file name (cmccabe)
+
+    HDFS-7980. Incremental BlockReport will dramatically slow down namenode
+    startup.  (Walter Su via szetszwo)
 
 Release 2.7.0 - 2015-04-20
 
