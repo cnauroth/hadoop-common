@@ -2079,7 +2079,7 @@ function check_unittests
     add_jira_footer "${module_suffix} test log" "@@BASE@@/testrun_${module_suffix}.txt"
 
     # shellcheck disable=2016
-    module_test_timeouts=$(${AWK} '/^Running / { if (last) { print last } last=$2 } /^Tests run: / { last="" }' "${test_logfile}")
+    module_test_timeouts=$(${AWK} '/^Running / { array[$NF] = 1 } /^Tests run: .* in / { delete array[$NF] } END { for (x in array) { print x } }' "${test_logfile}")
     if [[ -n "${module_test_timeouts}" ]] ; then
       test_timeouts="${test_timeouts} ${module_test_timeouts}"
       result=1
