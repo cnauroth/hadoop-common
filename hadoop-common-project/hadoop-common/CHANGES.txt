@@ -486,6 +486,8 @@ Release 2.8.0 - UNRELEASED
     HADOOP-11843. Make setting up the build environment easier.
     (Niels Basjes via cnauroth)
 
+    HADOOP-11949. Add user-provided plugins to test-patch (Sean Busbey via aw)
+
   IMPROVEMENTS
 
     HADOOP-6842. "hadoop fs -text" does not give a useful text representation
@@ -571,6 +573,15 @@ Release 2.8.0 - UNRELEASED
 
     HADOOP-11960. Enable Azure-Storage Client Side logging.
     (Dushyanth via cnauroth)
+
+    HADOOP-11939. Deprecate DistCpV1 and Logalyzer.
+    (Brahma Reddy Battula via aajisaka)
+
+    HADOOP-11884. test-patch.sh should pull the real findbugs version
+    (Kengo Seki via aw)
+
+    HADOOP-11944. add option to test-patch to avoid relocating patch process
+    directory (Sean Busbey via aw)
 
   OPTIMIZATIONS
 
@@ -688,6 +699,12 @@ Release 2.8.0 - UNRELEASED
 
     HADOOP-8174. Remove confusing comment in Path#isAbsolute()
     (Suresh Srinivas via vinayakumarb)
+
+    HADOOP-11988. Fix typo in the document for hadoop fs -find.
+    (Kengo Seki via aajisaka)
+
+    HADOOP-10582. Fix the test case for copying to non-existent dir in
+    TestFsShellCopy. (Kousuke Saruta via aajisaka)
 
 Release 2.7.1 - UNRELEASED
 

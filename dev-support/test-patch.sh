@@ -38,6 +38,10 @@ function setup_defaults
   HOW_TO_CONTRIBUTE="https://wiki.apache.org/hadoop/HowToContribute"
   JENKINS=false
   BASEDIR=$(pwd)
+  RELOCATE_PATCH_DIR=false
+
+  USER_PLUGIN_DIR=""
+  LOAD_SYSTEM_PLUGINS=true
 
   FINDBUGS_HOME=${FINDBUGS_HOME:-}
   ECLIPSE_HOME=${ECLIPSE_HOME:-}
@@ -585,9 +589,11 @@ function hadoop_usage
   echo "--modulelist=<list>    Specify additional modules to test (comma delimited)"
   echo "--offline              Avoid connecting to the Internet"
   echo "--patch-dir=<dir>      The directory for working and output files (default '/tmp/${PROJECT_NAME}-test-patch/pid')"
+  echo "--plugins=<dir>        A directory of user provided plugins. see test-patch.d for examples (default empty)"
   echo "--project=<name>       The short name for project currently using test-patch (default 'hadoop')"
   echo "--resetrepo            Forcibly clean the repo"
   echo "--run-tests            Run all relevant tests below the base directory"
+  echo "--skip-system-plugins  Do not load plugins from ${BINDIR}/test-patch.d"
   echo "--testlist=<list>      Specify which subsystem tests to use (comma delimited)"
 
   echo "Shell binary overrides:"
@@ -607,6 +613,7 @@ function hadoop_usage
   echo "--eclipse-home=<path>  Eclipse home directory (default ECLIPSE_HOME environment variable)"
   echo "--jira-cmd=<cmd>       The 'jira' command to use (default 'jira')"
   echo "--jira-password=<pw>   The password for the 'jira' command"
+  echo "--mv-patch-dir         Move the patch-dir into the basedir during cleanup."
   echo "--wget-cmd=<cmd>       The 'wget' command to use (default 'wget')"
 }
 
@@ -692,6 +699,9 @@ function parse_args
       --mvn-cmd=*)
         MVN=${i#*=}
       ;;
+      --mv-patch-dir)
+        RELOCATE_PATCH_DIR=true;
+      ;;
       --offline)
         OFFLINE=true
       ;;
@@ -700,6 +710,9 @@ function parse_args
       ;;
       --patch-dir=*)
         USER_PATCH_DIR=${i#*=}
+      ;;
+      --plugins=*)
+        USER_PLUGIN_DIR=${i#*=}
       ;;
       --project=*)
         PROJECT_NAME=${i#*=}
@@ -717,6 +730,9 @@ function parse_args
       ;;
       --run-tests)
         RUN_TESTS=true
+      ;;
+      --skip-system-plugins)
+        LOAD_SYSTEM_PLUGINS=false
       ;;
       --testlist=*)
         testlist=${i#*=}
@@ -1859,8 +1875,6 @@ function check_findbugs
     return 1
   fi
 
-  findbugs_version=$("${FINDBUGS_HOME}/bin/findbugs" -version)
-
   for module in ${modules}
   do
     pushd "${module}" >/dev/null
@@ -1871,6 +1885,9 @@ function check_findbugs
     (( rc = rc + $? ))
     popd >/dev/null
   done
+
+  #shellcheck disable=SC2016
+  findbugs_version=$(${AWK} 'match($0, /findbugs-maven-plugin:[^:]*:findbugs/) { print substr($0, RSTART + 22, RLENGTH - 31); exit }' "${PATCH_DIR}/patchFindBugsOutput${module_suffix}.txt")
 
   if [[ ${rc} -ne 0 ]]; then
     add_jira_table -1 findbugs "The patch appears to cause Findbugs (version ${findbugs_version}) to fail."
@@ -2322,19 +2339,16 @@ function cleanup_and_exit
 {
   local result=$1
 
-  if [[ ${JENKINS} == "true" ]] ; then
-    if [[ -e "${PATCH_DIR}" ]] ; then
-      if [[ -d "${PATCH_DIR}" ]]; then
-        # if PATCH_DIR is already inside BASEDIR, then
-        # there is no need to move it since we assume that
-        # Jenkins or whatever already knows where it is at
-        # since it told us to put it there!
-        relative_patchdir >/dev/null
-        if [[ $? == 1 ]]; then
-          hadoop_debug "mv ${PATCH_DIR} ${BASEDIR}"
-          mv "${PATCH_DIR}" "${BASEDIR}"
-        fi
-      fi
+  if [[ ${JENKINS} == "true" && ${RELOCATE_PATCH_DIR} == "true" && \
+      -e ${PATCH_DIR} && -d ${PATCH_DIR} ]] ; then
+    # if PATCH_DIR is already inside BASEDIR, then
+    # there is no need to move it since we assume that
+    # Jenkins or whatever already knows where it is at
+    # since it told us to put it there!
+    relative_patchdir >/dev/null
+    if [[ $? == 1 ]]; then
+      hadoop_debug "mv ${PATCH_DIR} ${BASEDIR}"
+      mv "${PATCH_DIR}" "${BASEDIR}"
     fi
   fi
   big_console_header "Finished build."
@@ -2520,17 +2534,25 @@ function runtests
   done
 }
 
-## @description  Import content from test-patch.d
+## @description  Import content from test-patch.d and optionally
+## @description  from user provided plugin directory
 ## @audience     private
 ## @stability    evolving
 ## @replaceable  no
 function importplugins
 {
   local i
-  local files
+  local files=()
 
-  if [[ -d "${BINDIR}/test-patch.d" ]]; then
-    files=(${BINDIR}/test-patch.d/*.sh)
+  if [[ ${LOAD_SYSTEM_PLUGINS} == "true" ]]; then
+    if [[ -d "${BINDIR}/test-patch.d" ]]; then
+      files=(${BINDIR}/test-patch.d/*.sh)
+    fi
+  fi
+
+  if [[ -n "${USER_PLUGIN_DIR}" && -d "${USER_PLUGIN_DIR}" ]]; then
+    hadoop_debug "Loading user provided plugins from ${USER_PLUGIN_DIR}"
+    files=("${files[@]}" ${USER_PLUGIN_DIR}/*.sh)
   fi
 
   for i in "${files[@]}"; do
