@@ -16,48 +16,11 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.yarn.server.applicationhistoryservice.webapp;
 
-import org.apache.hadoop.yarn.webapp.Controller;
-
-import com.google.inject.Inject;
-
-public class AHSController extends Controller {
-
-  @Inject
-  AHSController(RequestContext ctx) {
-    super(ctx);
-  }
-
-  @Override
-  public void index() {
-    setTitle("Application History");
-  }
-
-  public void about() {
-    render(AboutPage.class);
-  }
-
-  public void app() {
-    render(AppPage.class);
-  }
-
-  public void appattempt() {
-    render(AppAttemptPage.class);
-  }
-
-  public void container() {
-    render(ContainerPage.class);
-  }
-
-  /**
-   * Render the logs page.
-   */
-  public void logs() {
-    render(AHSLogsPage.class);
-  }
-
-  public void errorsAndWarnings() {
-    render(AHSErrorsAndWarningsPage.class);
-  }
-}
+/**
+ * DistCp is a tool for replicating data using MapReduce jobs for concurrent
+ * copy operations.
+ *
+ * @version 2
+ */
+package org.apache.hadoop.tools;

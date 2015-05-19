@@ -114,6 +114,9 @@ Release 2.8.0 - UNRELEASED
     YARN-3505. Node's Log Aggregation Report with SUCCEED should not cached in 
     RMApps. (Xuan Gong via junping_du)
 
+    YARN-3541. Add version info on timeline service / generic history web UI
+    and REST API. (Zhijie Shen via xgong)
+
   IMPROVEMENTS
 
     YARN-644. Basic null check is not performed on passed in arguments before
@@ -414,6 +417,9 @@ Release 2.8.0 - UNRELEASED
     YARN-2421. RM still allocates containers to an app in the FINISHING
     state (Chang Li via jlowe)
 
+    YARN-3302. TestDockerContainerExecutor should run automatically if it can
+    detect docker in the usual place (Ravindra Kumar Naik via raviprak)
+
 Release 2.7.1 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -505,6 +511,8 @@ Release 2.7.1 - UNRELEASED
 
     YARN-3526. ApplicationMaster tracking URL is incorrectly redirected
     on a QJM cluster. (Weiwei Yang via xgong)
+
+    YARN-3601. Fix UT TestRMFailover.testRMWebAppRedirect. (Weiwei Yang via xgong)
 
 Release 2.7.0 - 2015-04-20
 

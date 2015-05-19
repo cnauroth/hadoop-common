@@ -1,4 +1,4 @@
-Hadoop HDFS Change Log
+ Hadoop HDFS Change Log
 
 Trunk (Unreleased)
 
@@ -344,6 +344,9 @@ Release 2.8.0 - UNRELEASED
 
     HDFS-7891. A block placement policy with best rack failure tolerance.
     (Walter Su via szetszwo)
+
+    HDFS-8131. Implement a space balanced block placement policy (Liu Shaohui
+    via kihwal)
 
   IMPROVEMENTS
 
@@ -788,6 +791,9 @@ Release 2.8.0 - UNRELEASED
     HDFS-8403. Eliminate retries in TestFileCreation
     #testOverwriteOpenForWrite. (Arpit Agarwal via wheat9)
 
+    HDFS-6348. SecondaryNameNode not terminating properly on runtime exceptions
+    (Rakesh R via vinayakumarb)
+
 Release 2.7.1 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -871,6 +877,9 @@ Release 2.7.1 - UNRELEASED
     (Rakesh R via vinayakumarb)
 
     HDFS-8405. Fix a typo in NamenodeFsck.  (Takanobu Asanuma via szetszwo)
+
+    HDFS-8404. Pending block replication can get stuck using older genstamp
+    (Nathan Roberts via kihwal)
 
 Release 2.7.0 - 2015-04-20
 

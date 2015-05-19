@@ -38,9 +38,6 @@ Trunk (Unreleased)
 
     HADOOP-11485. Pluggable shell integration (aw)
 
-    HADOOP-8934. Shell command ls should include sort options (Jonathan Allen
-    via aw)
-
     HADOOP-11554. Expose HadoopKerberosName as a hadoop subcommand (aw)
 
     HADOOP-11565. Add --slaves shell option (aw)
@@ -427,9 +424,6 @@ Trunk (Unreleased)
     HADOOP-11559. Add links to RackAwareness and InterfaceClassification
     to site index (Masatake Iwasaki via aw)
 
-    HADOOP-11581. Multithreaded correctness Warnings
-    #org.apache.hadoop.fs.shell.Ls (Brahma Reddy Battula via aw)
-
     HADOOP-11580. Remove SingleNodeSetup.md from trunk (aajisaka)
 
     HADOOP-11583. Fix syntax error in SecureMode.md (Masatake Iwasaki via aw)
@@ -487,6 +481,12 @@ Release 2.8.0 - UNRELEASED
     (Niels Basjes via cnauroth)
 
     HADOOP-11949. Add user-provided plugins to test-patch (Sean Busbey via aw)
+
+    HADOOP-8934. Shell command ls should include sort options (Jonathan Allen
+    via aw)
+
+    HADOOP-10971. Add -C flag to make `hadoop fs -ls` print filenames only.
+    (Kengo Seki via aajisaka)
 
   IMPROVEMENTS
 
@@ -583,6 +583,10 @@ Release 2.8.0 - UNRELEASED
     HADOOP-11944. add option to test-patch to avoid relocating patch process
     directory (Sean Busbey via aw)
 
+    HADOOP-1540. Support file exclusion list in distcp. (Rich Haase via jing9)
+
+    HADOOP-11103. Clean up RemoteException (Sean Busbey via vinayakumarb)
+
   OPTIMIZATIONS
 
     HADOOP-11785. Reduce the number of listStatus operation in distcp
@@ -590,6 +594,9 @@ Release 2.8.0 - UNRELEASED
 
     HADOOP-11812. Implement listLocatedStatus for ViewFileSystem to speed up
     split calculation (gera)
+
+    HADOOP-11970. Replace uses of ThreadLocal<Random> with JDK7
+    ThreadLocalRandom.  (Sean Busbey via Colin P. McCabe)
 
   BUG FIXES
     HADOOP-11802: DomainSocketWatcher thread terminates sometimes after there
@@ -706,6 +713,12 @@ Release 2.8.0 - UNRELEASED
     HADOOP-10582. Fix the test case for copying to non-existent dir in
     TestFsShellCopy. (Kousuke Saruta via aajisaka)
 
+    HADOOP-11581. Multithreaded correctness Warnings
+    #org.apache.hadoop.fs.shell.Ls (Brahma Reddy Battula via aw)
+
+    HADOOP-11963. Metrics documentation for FSNamesystem misspells
+    PendingDataNodeMessageCount. (Anu Engineer via cnauroth)
+
 Release 2.7.1 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -737,6 +750,9 @@ Release 2.7.1 - UNRELEASED
 
     HADOOP-11966. Variable cygwin is undefined in hadoop-config.sh when executed
     through hadoop-daemon.sh. (cnauroth)
+
+    HADOOP-11973. Ensure ZkDelegationTokenSecretManager namespace znodes get
+    created with ACLs. (Gregory Chanan via asuresh)
 
 Release 2.7.0 - 2015-04-20
 

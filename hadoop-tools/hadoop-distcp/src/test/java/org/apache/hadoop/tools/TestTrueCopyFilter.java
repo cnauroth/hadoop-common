@@ -16,48 +16,21 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.yarn.server.applicationhistoryservice.webapp;
+package org.apache.hadoop.tools;
 
-import org.apache.hadoop.yarn.webapp.Controller;
+import org.apache.hadoop.fs.Path;
+import org.junit.Assert;
+import org.junit.Test;
 
-import com.google.inject.Inject;
+public class TestTrueCopyFilter {
 
-public class AHSController extends Controller {
-
-  @Inject
-  AHSController(RequestContext ctx) {
-    super(ctx);
+  @Test
+  public void testShouldCopy() {
+    Assert.assertTrue(new TrueCopyFilter().shouldCopy(new Path("fake")));
   }
 
-  @Override
-  public void index() {
-    setTitle("Application History");
-  }
-
-  public void about() {
-    render(AboutPage.class);
-  }
-
-  public void app() {
-    render(AppPage.class);
-  }
-
-  public void appattempt() {
-    render(AppAttemptPage.class);
-  }
-
-  public void container() {
-    render(ContainerPage.class);
-  }
-
-  /**
-   * Render the logs page.
-   */
-  public void logs() {
-    render(AHSLogsPage.class);
-  }
-
-  public void errorsAndWarnings() {
-    render(AHSErrorsAndWarningsPage.class);
+  @Test
+  public void testShouldCopyWithNull() {
+    Assert.assertTrue(new TrueCopyFilter().shouldCopy(new Path("fake")));
   }
 }
