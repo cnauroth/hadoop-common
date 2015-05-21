@@ -26,6 +26,9 @@ Trunk (Unreleased)
     HADOOP-11627. Remove io.native.lib.available.
     (Brahma Reddy Battula via aajisaka)
 
+    HADOOP-11698. Remove DistCpV1 and Logalyzer.
+    (Brahma Reddy Battula via aajisaka)
+
   NEW FEATURES
 
     HADOOP-6590. Add a username check for hadoop sub-commands (John Smith via
@@ -587,6 +590,9 @@ Release 2.8.0 - UNRELEASED
 
     HADOOP-11103. Clean up RemoteException (Sean Busbey via vinayakumarb)
 
+    HADOOP-11995. Make jetty version configurable from the maven command line.
+    (Sriharsha Devineni via wheat9)
+
   OPTIMIZATIONS
 
     HADOOP-11785. Reduce the number of listStatus operation in distcp
@@ -718,6 +724,8 @@ Release 2.8.0 - UNRELEASED
 
     HADOOP-11963. Metrics documentation for FSNamesystem misspells
     PendingDataNodeMessageCount. (Anu Engineer via cnauroth)
+
+    HADOOP-12000. cannot use --java-home in test-patch (aw)
 
 Release 2.7.1 - UNRELEASED
 

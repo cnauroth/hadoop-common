@@ -247,6 +247,12 @@ Release 2.8.0 - UNRELEASED
     YARN-3362. Add node label usage in RM CapacityScheduler web UI.
     (Naganarasimha G R via wangda)
 
+    YARN-3565. NodeHeartbeatRequest/RegisterNodeManagerRequest should use 
+    NodeLabel object instead of String. (Naganarasimha G R via wangda)
+
+    YARN-3583. Support of NodeLabel object instead of plain String 
+    in YarnClient side. (Sunil G via wangda)
+
   OPTIMIZATIONS
 
     YARN-3339. TestDockerContainerExecutor should pull a single image and not
@@ -378,9 +384,6 @@ Release 2.8.0 - UNRELEASED
 
     YARN-3584. Fixed attempt diagnostics format shown on the UI. (nijel via
     jianhe)
-
-    YARN-2918. RM should not fail on startup if queue's configured labels do
-    not exist in cluster-node-labels. (Wangda Tan via jianhe)
 
     YARN-1832. Fix wrong MockLocalizerStatus#equals implementation.
     (Hong Zhiguo via aajisaka)
@@ -516,6 +519,18 @@ Release 2.7.1 - UNRELEASED
     on a QJM cluster. (Weiwei Yang via xgong)
 
     YARN-3601. Fix UT TestRMFailover.testRMWebAppRedirect. (Weiwei Yang via xgong)
+
+    YARN-3677. Fix findbugs warnings in yarn-server-resourcemanager.
+    (Vinod Kumar Vavilapalli via ozawa)
+
+    YARN-2918. RM should not fail on startup if queue's configured labels do
+    not exist in cluster-node-labels. (Wangda Tan via jianhe)
+
+    YARN-3681. yarn cmd says "could not find main class 'queue'" in windows.
+    (Craig Welch and Varun Saxena via xgong)
+
+    YARN-3609. Load node labels from storage inside RM serviceStart. (Wangda
+    Tan via jianhe)
 
 Release 2.7.0 - 2015-04-20
 
