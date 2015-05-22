@@ -30,6 +30,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
 import java.math.BigInteger;
+import java.net.URL;
 import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.KeyPair;
@@ -55,17 +56,13 @@ import org.bouncycastle.x509.X509V1CertificateGenerator;
 
 public class KeyStoreTestUtil {
 
-  /**
-   * Returns a directory that is on the classpath.  A caller may write files into
-   * this directory that are required to be on the classpath during a test.  In
-   * the past, this directory was determined relative to the class file of the
-   * specified class.  Now, this directory is test.build.data, which is added to
-   * the classpath by the build.  The klass parameter will be removed eventually.
-   *
-   * @param klass the class
-   */
   public static String getClasspathDir(Class klass) throws Exception {
-    return System.getProperty("test.build.data");
+    String file = klass.getName();
+    file = file.replace('.', '/') + ".class";
+    URL url = Thread.currentThread().getContextClassLoader().getResource(file);
+    String baseDir = url.toURI().getPath();
+    baseDir = baseDir.substring(0, baseDir.length() - file.length() - 1);
+    return baseDir;
   }
 
   @SuppressWarnings("deprecation")
@@ -236,8 +233,8 @@ public class KeyStoreTestUtil {
     String trustKS = null;
     String trustPassword = "trustP";
 
-    File sslClientConfFile = new File(sslConfDir + "/ssl-client.xml");
-    File sslServerConfFile = new File(sslConfDir + "/ssl-server.xml");
+    File sslClientConfFile = new File(sslConfDir, getClientSSLConfigFileName());
+    File sslServerConfFile = new File(sslConfDir, getServerSSLConfigFileName());
 
     Map<String, X509Certificate> certs = new HashMap<String, X509Certificate>();
 
@@ -312,6 +309,42 @@ public class KeyStoreTestUtil {
     Configuration serverSSLConf = createSSLConfig(SSLFactory.Mode.SERVER,
       serverKS, password, keyPassword, trustKS);
     return serverSSLConf;
+  }
+
+  /**
+   * Returns the client SSL configuration file name.  Under parallel test
+   * execution, this file name is parameterized by a unique ID to ensure that
+   * concurrent tests don't collide on an SSL configuration file.
+   *
+   * @return client SSL configuration file name
+   */
+  public static String getClientSSLConfigFileName() {
+    return getSSLConfigFileName("ssl-client");
+  }
+
+  /**
+   * Returns the server SSL configuration file name.  Under parallel test
+   * execution, this file name is parameterized by a unique ID to ensure that
+   * concurrent tests don't collide on an SSL configuration file.
+   *
+   * @return client SSL configuration file name
+   */
+  public static String getServerSSLConfigFileName() {
+    return getSSLConfigFileName("ssl-server");
+  }
+
+  /**
+   * Returns an SSL configuration file name.  Under parallel test
+   * execution, this file name is parameterized by a unique ID to ensure that
+   * concurrent tests don't collide on an SSL configuration file.
+   *
+   * @param base the base of the file name
+   * @return SSL configuration file name for base
+   */
+  private static String getSSLConfigFileName(String base) {
+    String testUniqueForkId = System.getProperty("test.unique.fork.id");
+    String fileSuffix = testUniqueForkId != null ? "-" + testUniqueForkId : "";
+    return base + fileSuffix + ".xml";
   }
 
   /**

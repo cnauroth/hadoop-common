@@ -1125,9 +1125,6 @@
             <java.security.egd>${java.security.egd}</java.security.egd>
             <require.test.libhadoop>${require.test.libhadoop}</require.test.libhadoop>
           </systemPropertyVariables>
-          <additionalClasspathElements>
-            <additionalClasspathElement>${test.build.data}</additionalClasspathElement>
-          </additionalClasspathElements>
           <includes>
             <include>**/Test*.java</include>
           </includes>
@@ -1282,6 +1279,11 @@
                 <test.build.data>${test.build.data}/${surefire.forkNumber}</test.build.data>
                 <test.build.dir>${test.build.dir}/${surefire.forkNumber}</test.build.dir>
                 <hadoop.tmp.dir>${hadoop.tmp.dir}/${surefire.forkNumber}</hadoop.tmp.dir>
+                <!-- Due to a Maven quirk, setting this to just -->
+                <!-- surefire.forkNumber won't do the parameter substitution. -->
+                <!-- Putting a prefix in front of it like "fork-" makes it -->
+                <!-- work. -->
+                <test.unique.fork.id>fork-${surefire.forkNumber}</test.unique.fork.id>
               </systemPropertyVariables>
             </configuration>
           </plugin>
