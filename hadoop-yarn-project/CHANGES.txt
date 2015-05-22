@@ -256,6 +256,9 @@ Release 2.8.0 - UNRELEASED
     YARN-3684. Changed ContainerExecutor's primary lifecycle methods to use a more
     extensible mechanism of context objects. (Sidharta Seethana via vinodkv)
 
+    YARN-3594. WintuilsProcessStubExecutor.startStreamReader leaks streams.
+    (Lars Francke via junping_du)
+
   OPTIMIZATIONS
 
     YARN-3339. TestDockerContainerExecutor should pull a single image and not
@@ -432,6 +435,8 @@ Release 2.8.0 - UNRELEASED
     YARN-3654. ContainerLogsPage web UI should not have meta-refresh. (Xuan Gong
     via jianhe)
 
+    YARN-3707. RM Web UI queue filter doesn't work. (Wangda Tan via jianhe)
+
 Release 2.7.1 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -546,6 +551,9 @@ Release 2.7.1 - UNRELEASED
 
     YARN-3675. FairScheduler: RM quits when node removal races with 
     continuous-scheduling on the same node. (Anubhav Dhoot via kasha)
+
+    YARN-3701. Isolating the error of generating a single app report when 
+    getting all apps from generic history service. (Zhijie Shen via xgong)
 
 Release 2.7.0 - 2015-04-20
 
