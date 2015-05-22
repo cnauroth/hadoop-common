@@ -1258,7 +1258,7 @@
                   <target>
                     <exec executable="sh">
                       <arg value="-c"/>
-                      <arg value="for i in {1..${testsThreadCount}}; do mkdir -p ${test.build.data}/$i; mkdir -p ${hadoop.tmp.dir}/$i; done"/>
+                      <arg value="for i in {1..${testsThreadCount}}; do mkdir -p ${test.build.data}/$i; mkdir -p ${test.build.dir}/$i; mkdir -p ${hadoop.tmp.dir}/$i; done"/>
                     </exec>
                   </target>
                 </configuration>
@@ -1277,6 +1277,7 @@
               <argLine>${maven-surefire-plugin.argLine} -DminiClusterDedicatedDirs=true</argLine>
               <systemPropertyVariables>
                 <test.build.data>${test.build.data}/${surefire.forkNumber}</test.build.data>
+                <test.build.dir>${test.build.dir}/${surefire.forkNumber}</test.build.dir>
                 <hadoop.tmp.dir>${hadoop.tmp.dir}/${surefire.forkNumber}</hadoop.tmp.dir>
               </systemPropertyVariables>
             </configuration>
