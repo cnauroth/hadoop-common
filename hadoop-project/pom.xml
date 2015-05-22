@@ -1125,6 +1125,9 @@
             <java.security.egd>${java.security.egd}</java.security.egd>
             <require.test.libhadoop>${require.test.libhadoop}</require.test.libhadoop>
           </systemPropertyVariables>
+          <additionalClasspathElements>
+            <additionalClasspathElement>${test.build.data}</additionalClasspathElement>
+          </additionalClasspathElements>
           <includes>
             <include>**/Test*.java</include>
           </includes>

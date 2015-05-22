@@ -30,7 +30,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
 import java.math.BigInteger;
-import java.net.URL;
 import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.KeyPair;
@@ -56,13 +55,17 @@ import org.bouncycastle.x509.X509V1CertificateGenerator;
 
 public class KeyStoreTestUtil {
 
+  /**
+   * Returns a directory that is on the classpath.  A caller may write files into
+   * this directory that are required to be on the classpath during a test.  In
+   * the past, this directory was determined relative to the class file of the
+   * specified class.  Now, this directory is test.build.data, which is added to
+   * the classpath by the build.  The klass parameter will be removed eventually.
+   *
+   * @param klass the class
+   */
   public static String getClasspathDir(Class klass) throws Exception {
-    String file = klass.getName();
-    file = file.replace('.', '/') + ".class";
-    URL url = Thread.currentThread().getContextClassLoader().getResource(file);
-    String baseDir = url.toURI().getPath();
-    baseDir = baseDir.substring(0, baseDir.length() - file.length() - 1);
-    return baseDir;
+    return System.getProperty("test.build.data");
   }
 
   @SuppressWarnings("deprecation")
