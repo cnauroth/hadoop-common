@@ -253,6 +253,9 @@ Release 2.8.0 - UNRELEASED
     YARN-3583. Support of NodeLabel object instead of plain String 
     in YarnClient side. (Sunil G via wangda)
 
+    YARN-3684. Changed ContainerExecutor's primary lifecycle methods to use a more
+    extensible mechanism of context objects. (Sidharta Seethana via vinodkv)
+
   OPTIMIZATIONS
 
     YARN-3339. TestDockerContainerExecutor should pull a single image and not
@@ -426,6 +429,9 @@ Release 2.8.0 - UNRELEASED
     YARN-2821. Fixed a problem that DistributedShell AM may hang if restarted.
     (Varun Vasudev via jianhe)
 
+    YARN-3654. ContainerLogsPage web UI should not have meta-refresh. (Xuan Gong
+    via jianhe)
+
 Release 2.7.1 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -531,6 +537,15 @@ Release 2.7.1 - UNRELEASED
 
     YARN-3609. Load node labels from storage inside RM serviceStart. (Wangda
     Tan via jianhe)
+
+    YARN-3694. Fix dead link for TimelineServer REST API.
+    (Jagadesh Kiran N via aajisaka)
+
+    YARN-3646. Applications are getting stuck some times in case of retry
+    policy forever. (Raju Bairishetti via devaraj)
+
+    YARN-3675. FairScheduler: RM quits when node removal races with 
+    continuous-scheduling on the same node. (Anubhav Dhoot via kasha)
 
 Release 2.7.0 - 2015-04-20
 

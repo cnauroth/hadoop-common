@@ -218,6 +218,9 @@ Trunk (Unreleased)
     HADOOP-10993. Dump java command line to *.out file
     (Kengo Seki via vinayakumarb)
 
+    HADOOP-12016. Typo in FileSystem::listStatusIterator 
+    (Arthur Vigil via jghoman)
+
   BUG FIXES
 
     HADOOP-11473. test-patch says "-1 overall" even when all checks are +1
@@ -593,6 +596,10 @@ Release 2.8.0 - UNRELEASED
     HADOOP-11995. Make jetty version configurable from the maven command line.
     (Sriharsha Devineni via wheat9)
 
+    HADOOP-10366. Add whitespaces between classes for values in
+    core-default.xml to fit better in browser.
+    (kanaka kumar avvaru via aajisaka)
+
   OPTIMIZATIONS
 
     HADOOP-11785. Reduce the number of listStatus operation in distcp
@@ -603,6 +610,9 @@ Release 2.8.0 - UNRELEASED
 
     HADOOP-11970. Replace uses of ThreadLocal<Random> with JDK7
     ThreadLocalRandom.  (Sean Busbey via Colin P. McCabe)
+
+    HADOOP-11772. RPC Invoker relies on static ClientCache which has
+    synchronized(this) blocks. (wheat9)
 
   BUG FIXES
     HADOOP-11802: DomainSocketWatcher thread terminates sometimes after there
@@ -726,6 +736,9 @@ Release 2.8.0 - UNRELEASED
     PendingDataNodeMessageCount. (Anu Engineer via cnauroth)
 
     HADOOP-12000. cannot use --java-home in test-patch (aw)
+
+    HADOOP-12014. hadoop-config.cmd displays a wrong error message.
+    (Kengo Seki via aajisaka)
 
 Release 2.7.1 - UNRELEASED
 
