@@ -1279,6 +1279,13 @@
                 <test.build.data>${test.build.data}/${surefire.forkNumber}</test.build.data>
                 <test.build.dir>${test.build.dir}/${surefire.forkNumber}</test.build.dir>
                 <hadoop.tmp.dir>${hadoop.tmp.dir}/${surefire.forkNumber}</hadoop.tmp.dir>
+
+                <!-- This is intentionally the same directory for all JUnit -->
+                <!-- forks, for use in the very rare situation that -->
+                <!-- concurrent tests need to coordinate, such as using lock -->
+                <!-- files. -->
+                <test.build.shared.data>${test.build.data}</test.build.shared.data>
+
                 <!-- Due to a Maven quirk, setting this to just -->
                 <!-- surefire.forkNumber won't do the parameter substitution. -->
                 <!-- Putting a prefix in front of it like "fork-" makes it -->

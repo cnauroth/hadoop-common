@@ -67,6 +67,8 @@ public abstract class ClientBaseWithFixes extends ZKTestCase {
     public static int CONNECTION_TIMEOUT = 30000;
     static final File BASETEST =
         new File(System.getProperty("test.build.data", "build"));
+    private static final File LOCKDIR =
+        new File(System.getProperty("test.build.shared.data", "build"));
 
     protected final String hostPort = initHostPort();
     protected int maxCnxns = 0;
@@ -412,7 +414,7 @@ public abstract class ClientBaseWithFixes extends ZKTestCase {
     }
 
     private String initHostPort() {
-        BASETEST.mkdirs();
+        LOCKDIR.mkdirs();
         int port;
         for (;;) {
             port = PortAssignment.unique();
@@ -420,7 +422,7 @@ public abstract class ClientBaseWithFixes extends ZKTestCase {
             portNumLockFile = null;
             try {
                 try {
-                    portNumFile = new File(BASETEST, port + ".lock");
+                    portNumFile = new File(LOCKDIR, port + ".lock");
                     portNumLockFile = new RandomAccessFile(portNumFile, "rw");
                     try {
                         lock = portNumLockFile.getChannel().tryLock();
