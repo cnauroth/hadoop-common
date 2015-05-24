@@ -56,12 +56,7 @@ public class TestCredentials {
     
   @Before
   public void setUp() {
-    if (tmpDir.mkdir()) {
-      LOG.info("setUp succeeded running mkdir: {}", tmpDir);
-    } else {
-      LOG.info("setUp failed running mkdir: {}. exists? {}, parent exists? {}",
-          tmpDir, tmpDir.exists(), tmpDir.getParentFile().exists());
-    }
+    tmpDir.mkdirs();
   }
   
   @After
