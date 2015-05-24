@@ -43,16 +43,25 @@ import org.apache.hadoop.security.token.TokenIdentifier;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import static org.junit.Assert.*;
 
 public class TestCredentials {
   private static final String DEFAULT_HMAC_ALGORITHM = "HmacSHA1";
   private static final File tmpDir =
     new File(System.getProperty("test.build.data", "/tmp"), "mapred");  
+  private static final Logger LOG =
+      LoggerFactory.getLogger(TestCredentials.class);
     
   @Before
   public void setUp() {
-    tmpDir.mkdir();
+    if (tmpDir.mkdir()) {
+      LOG.info("setUp succeeded running mkdir: {}", tmpDir);
+    } else {
+      LOG.info("setUp failed running mkdir: {}. exists? {}, parent exists? {}",
+          tmpDir, tmpDir.exists(), tmpDir.getParentFile().exists());
+    }
   }
   
   @After
