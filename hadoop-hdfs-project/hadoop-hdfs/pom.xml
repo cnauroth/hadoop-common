@@ -678,7 +678,7 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
                   <target>
                     <exec executable="sh" failonerror="true">
                       <arg value="-c"/>
-                      <arg value="for i in {1..${testsThreadCount}}; do mkdir -p ${test.build.data}/$i; mkdir -p ${test.build.dir}/$i; mkdir -p ${hadoop.tmp.dir}/$i; done"/>
+                      <arg value="for i in $(seq 1 ${testsThreadCount}); do mkdir -p ${test.build.data}/$i; mkdir -p ${test.build.dir}/$i; mkdir -p ${hadoop.tmp.dir}/$i; done"/>
                     </exec>
                   </target>
                 </configuration>
