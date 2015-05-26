@@ -120,6 +120,9 @@ Release 2.8.0 - UNRELEASED
     YARN-3541. Add version info on timeline service / generic history web UI
     and REST API. (Zhijie Shen via xgong)
 
+    YARN-160. Enhanced NodeManager to automatically obtain cpu/memory values from
+    underlying OS when configured to do so. (Varun Vasudev via vinodkv)
+
   IMPROVEMENTS
 
     YARN-644. Basic null check is not performed on passed in arguments before
@@ -439,6 +442,9 @@ Release 2.8.0 - UNRELEASED
     via jianhe)
 
     YARN-3707. RM Web UI queue filter doesn't work. (Wangda Tan via jianhe)
+
+    YARN-3632. Ordering policy should be allowed to reorder an application when
+    demand changes. (Craig Welch via jianhe)
 
 Release 2.7.1 - UNRELEASED
 
