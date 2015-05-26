@@ -901,7 +901,7 @@
                   <target>
                     <exec executable="sh" failonerror="true">
                       <arg value="-c"/>
-                      <arg value="for i in {1..${testsThreadCount}}; do mkdir -p ${test.build.data}/$i; mkdir -p ${test.build.dir}/$i; mkdir -p ${hadoop.tmp.dir}/$i; done"/>
+                      <arg value="for i in {1..${testsThreadCount}}; do echo Running mkdir test.build.data: ${test.build.data}/$i test.build.dir: ${test.build.dir}/$i hadoop.tmp.dir: ${hadoop.tmp.dir}/$i; mkdir -p ${test.build.data}/$i; mkdir -p ${test.build.dir}/$i; mkdir -p ${hadoop.tmp.dir}/$i; done"/>
                     </exec>
                   </target>
                 </configuration>
