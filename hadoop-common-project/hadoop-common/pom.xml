@@ -934,6 +934,9 @@
                 <!-- Putting a prefix in front of it like "fork-" makes it -->
                 <!-- work. -->
                 <test.unique.fork.id>fork-${surefire.forkNumber}</test.unique.fork.id>
+                <includes>
+                  <include>**/TestCredentials.java</include>
+                </includes>
               </systemPropertyVariables>
             </configuration>
           </plugin>
