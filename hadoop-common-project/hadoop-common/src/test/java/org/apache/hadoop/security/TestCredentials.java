@@ -35,7 +35,6 @@ import java.util.Collection;
 
 import javax.crypto.KeyGenerator;
 
-import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.WritableComparator;
 import org.apache.hadoop.security.Credentials;
@@ -44,43 +43,16 @@ import org.apache.hadoop.security.token.TokenIdentifier;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import static org.junit.Assert.*;
 
 public class TestCredentials {
   private static final String DEFAULT_HMAC_ALGORITHM = "HmacSHA1";
   private static final File tmpDir =
     new File(System.getProperty("test.build.data", "/tmp"), "mapred");  
-  private static final Logger LOG =
-      LoggerFactory.getLogger(TestCredentials.class);
     
   @Before
   public void setUp() {
-    LOG.info("tmpDir diagnosis: {}", diagnosePath(tmpDir));
-    tmpDir.mkdirs();
-  }
-
-  private static String diagnosePath(File path) {
-    StringBuilder sb = new StringBuilder();
-    while (path != null) {
-      sb.append("path '" + path + "': ").append("\n");
-      boolean exists = path.exists();
-      sb.append("\texists:").append(exists).append("\n");
-      if (exists) {
-        sb.append("\tabsolute:").append(path.getAbsolutePath()).append("\n");
-        sb.append("\tpermissions: ");
-        sb.append(path.isDirectory() ? "d": "-");
-        sb.append(FileUtil.canRead(path) ? "r" : "-");
-        sb.append(FileUtil.canWrite(path) ? "w" : "-");
-        sb.append(FileUtil.canExecute(path) ? "x" : "-");
-        sb.append("\n");
-      }
-      path = path.getParentFile();
-    }
-    return sb.toString();
+    tmpDir.mkdir();
   }
   
   @After
