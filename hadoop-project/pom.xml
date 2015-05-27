@@ -1132,7 +1132,7 @@
             <require.test.libhadoop>${require.test.libhadoop}</require.test.libhadoop>
           </systemPropertyVariables>
           <includes>
-            <include>**/TestCredentials.java</include>
+            <include>**/Test*.java</include>
           </includes>
           <excludes>
             <exclude>**/${test.exclude}.java</exclude>
