@@ -595,6 +595,8 @@ function hadoop_usage
   echo "--run-tests            Run all relevant tests below the base directory"
   echo "--skip-system-plugins  Do not load plugins from ${BINDIR}/test-patch.d"
   echo "--testlist=<list>      Specify which subsystem tests to use (comma delimited)"
+  echo "--test-parallel=<bool> Run multiple tests in parallel (default false in developer mode, true in Jenkins mode)"
+  echo "--test-threads=<int>   Number of tests to run in parallel (default defined in Hadoop build)"
 
   echo "Shell binary overrides:"
   echo "--awk-cmd=<cmd>        The 'awk' command to use (default 'awk')"
@@ -684,6 +686,7 @@ function parse_args
       ;;
       --jenkins)
         JENKINS=true
+        TEST_PARALLEL=${TEST_PARALLEL:-true}
       ;;
       --jira-cmd=*)
         JIRACLI=${i#*=}
@@ -742,6 +745,12 @@ function parse_args
           add_test "${j}"
         done
       ;;
+      --test-parallel=*)
+        TEST_PARALLEL=${i#*=}
+      ;;
+      --test-threads=*)
+        TEST_THREADS=${i#*=}
+      ;;
       --wget-cmd=*)
         WGET=${i#*=}
       ;;
@@ -799,6 +808,13 @@ function parse_args
   PATCH_DIR=$(cd -P -- "${PATCH_DIR}" >/dev/null && pwd -P)
 
   GITDIFFLINES=${PATCH_DIR}/gitdifflines.txt
+
+  if [[ ${TEST_PARALLEL} == "true" ]] ; then
+    PARALLEL_TESTS_PROFILE=-Pparallel-tests
+    if [[ -z ${TEST_THREADS:-} ]]; then
+      TESTS_THREAD_COUNT=$TEST_THREADS
+    fi
+  fi
 }
 
 ## @description  Locate the pom.xml file for a given directory
@@ -2073,7 +2089,8 @@ function check_unittests
 
     test_logfile=${PATCH_DIR}/testrun_${module_suffix}.txt
     echo "  Running tests in ${module_suffix}"
-    echo_and_redirect "${test_logfile}" "${MVN}" clean install -fae -Pparallel-tests ${NATIVE_PROFILE} ${REQUIRE_TEST_LIB_HADOOP} -D${PROJECT_NAME}PatchProcess
+    # shellcheck disable=2086
+    echo_and_redirect "${test_logfile}" "${MVN}" clean install -fae ${NATIVE_PROFILE} ${REQUIRE_TEST_LIB_HADOOP} ${PARALLEL_TESTS_PROFILE} ${TESTS_THREAD_COUNT} -D${PROJECT_NAME}PatchProcess
     test_build_result=$?
 
     add_jira_footer "${module_suffix} test log" "@@BASE@@/testrun_${module_suffix}.txt"
