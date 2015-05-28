@@ -474,6 +474,9 @@ Trunk (Unreleased)
 
     HADOOP-11406. xargs -P is not portable (Kengo Seki via aw)
 
+    HADOOP-11983. HADOOP_USER_CLASSPATH_FIRST works the opposite of what it is
+    supposed to do (Sangjin Lee via aw)
+
   OPTIMIZATIONS
 
     HADOOP-7761. Improve the performance of raw comparisons. (todd)
@@ -616,6 +619,9 @@ Release 2.8.0 - UNRELEASED
 
     HADOOP-12030. test-patch should only report on newly introduced
     findbugs warnings. (Sean Busbey via aw)
+
+    HADOOP-11894. Bump the version of Apache HTrace to 3.2.0-incubating
+    (Masatake Iwasaki via Colin P. McCabe)
 
   OPTIMIZATIONS
 
@@ -778,6 +784,12 @@ Release 2.8.0 - UNRELEASED
 
     HADOOP-12035. shellcheck plugin displays a wrong version potentially
     (Kengo Seki via aw)
+
+    HDFS-8429. Avoid stuck threads if there is an error in DomainSocketWatcher
+    that stops the thread.  (zhouyingchao via cmccabe)
+
+    HADOOP-11930. test-patch in offline mode should tell maven to be in
+    offline mode (Sean Busbey via aw)
 
 Release 2.7.1 - UNRELEASED
 
