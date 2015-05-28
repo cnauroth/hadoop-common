@@ -349,7 +349,7 @@ public class KeyStoreTestUtil {
 
   /**
    * Creates SSL configuration.
-   * 
+   *
    * @param mode SSLFactory.Mode mode to configure
    * @param keystore String keystore file
    * @param password String store password, or null to avoid setting store
