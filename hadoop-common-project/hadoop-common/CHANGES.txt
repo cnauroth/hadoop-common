@@ -626,6 +626,9 @@ Release 2.8.0 - UNRELEASED
     HADOOP-11894. Bump the version of Apache HTrace to 3.2.0-incubating
     (Masatake Iwasaki via Colin P. McCabe)
 
+    HADOOP-12043. Display warning if defaultFs is not set when running fs
+    commands. (Lei Xu via wang)
+
   OPTIMIZATIONS
 
     HADOOP-11785. Reduce the number of listStatus operation in distcp
@@ -642,6 +645,9 @@ Release 2.8.0 - UNRELEASED
 
     HADOOP-11242. Record the time of calling in tracing span of
     IPC server. (Masatake Iwasaki via aajisaka)
+
+    HADOOP-11885. hadoop-dist dist-layout-stitching.sh does not work with dash.
+    (wang)
 
   BUG FIXES
 
@@ -797,6 +803,9 @@ Release 2.8.0 - UNRELEASED
     HADOOP-11959. WASB should configure client side socket timeout in storage
     client blob request options. (Ivan Mitic via cnauroth)
 
+    HADOOP-12042. Users may see TrashPolicy if hdfs dfs -rm is run
+    (Andreina J via vinayakumarb)
+
 Release 2.7.1 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -831,6 +840,9 @@ Release 2.7.1 - UNRELEASED
 
     HADOOP-11973. Ensure ZkDelegationTokenSecretManager namespace znodes get
     created with ACLs. (Gregory Chanan via asuresh)
+
+    HADOOP-11934. Use of JavaKeyStoreProvider in LdapGroupsMapping causes
+    infinite loop. (Larry McCay via cnauroth)
 
 Release 2.7.0 - 2015-04-20
 

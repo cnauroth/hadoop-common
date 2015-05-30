@@ -585,6 +585,9 @@ Release 2.8.0 - UNRELEASED
 
     HDFS-8482. Rename BlockInfoContiguous to BlockInfo. (Zhe Zhang via wang)
 
+    HDFS-8443. Document dfs.namenode.service.handler.count in hdfs-site.xml.
+    (J.Andreina via aajisaka)
+
   OPTIMIZATIONS
 
     HDFS-8026. Trace FSOutputSummer#writeChecksumChunks rather than
@@ -815,6 +818,12 @@ Release 2.8.0 - UNRELEASED
 
     HDFS-8407. hdfsListDirectory must set errno to 0 on success (Masatake
     Iwasaki via Colin P. McCabe)
+
+    HDFS-7401. Add block info to DFSInputStream' WARN message when it adds
+    node to deadNodes (Arshad Mohammad via vinayakumarb)
+
+    HDFS-7609. Avoid retry cache collision when Standby NameNode loading edits.
+    (Ming Ma via jing9)
 
 Release 2.7.1 - UNRELEASED
 

@@ -280,6 +280,9 @@ Release 2.8.0 - UNRELEASED
     YARN-3722. Merge multiple TestWebAppUtils into o.a.h.yarn.webapp.util.TestWebAppUtils.
     (Masatake Iwasaki via devaraj)
 
+    YARN-3713. Remove duplicate function call storeContainerDiagnostics in
+    ContainerDiagnosticsUpdateTransition (zxu via rkanter)
+
   OPTIMIZATIONS
 
     YARN-3339. TestDockerContainerExecutor should pull a single image and not
@@ -290,6 +293,9 @@ Release 2.8.0 - UNRELEASED
 
     YARN-3006. Improve the error message when attempting manual failover with 
     auto-failover enabled. (Akira AJISAKA via wangda)
+
+    YARN-3547. FairScheduler: Apps that have no resource demand should not participate 
+    scheduling. (Xianyin Xin via kasha)
 
   BUG FIXES
 
@@ -460,6 +466,12 @@ Release 2.8.0 - UNRELEASED
 
     YARN-3632. Ordering policy should be allowed to reorder an application when
     demand changes. (Craig Welch via jianhe)
+
+    YARN-3716. Node-label-expression should be included by 
+    ResourceRequestPBImpl.toString. (Xianyin Xin via wangda)
+
+    YARN-3740. Fixed the typo in the configuration name:
+    APPLICATION_HISTORY_PREFIX_MAX_APPS. (Xuan Gong via zjshen)
 
 Release 2.7.1 - UNRELEASED
 
