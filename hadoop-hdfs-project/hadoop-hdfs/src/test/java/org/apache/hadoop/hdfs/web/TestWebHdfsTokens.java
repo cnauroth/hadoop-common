@@ -218,7 +218,7 @@ public class TestWebHdfsTokens {
           KeyStoreTestUtil.getClientSSLConfigFileName());
       clusterConf.set(DFSConfigKeys.DFS_SERVER_HTTPS_KEYSTORE_RESOURCE_KEY,
           KeyStoreTestUtil.getServerSSLConfigFileName());
-	  
+
       // trick the NN into thinking security is enabled w/o it trying
       // to login from a keytab
       UserGroupInformation.setConfiguration(clusterConf);
