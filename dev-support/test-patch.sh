@@ -600,7 +600,7 @@ function hadoop_usage
   echo "--skip-system-plugins  Do not load plugins from ${BINDIR}/test-patch.d"
   echo "--testlist=<list>      Specify which subsystem tests to use (comma delimited)"
   echo "--test-parallel=<bool> Run multiple tests in parallel (default false in developer mode, true in Jenkins mode)"
-  echo "--test-threads=<int>   Number of tests to run in parallel (default defined in Hadoop build)"
+  echo "--test-threads=<int>   Number of tests to run in parallel (default defined in ${PROJECT_NAME} build)"
 
   echo "Shell binary overrides:"
   echo "--awk-cmd=<cmd>        The 'awk' command to use (default 'awk')"
@@ -824,7 +824,7 @@ function parse_args
   if [[ ${TEST_PARALLEL} == "true" ]] ; then
     PARALLEL_TESTS_PROFILE=-Pparallel-tests
     if [[ -z ${TEST_THREADS:-} ]]; then
-      TESTS_THREAD_COUNT=$TEST_THREADS
+      TESTS_THREAD_COUNT="-DtestsThreadCount=$TEST_THREADS"
     fi
   fi
 }
