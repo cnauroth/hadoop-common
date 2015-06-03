@@ -202,8 +202,9 @@ public class LayoutVersion {
     /**
      * Accessor method for feature minimum compatible layout version.  If the
      * feature does not define a minimum compatible layout version, then this
-     * method returns the feature's own layout version.  This would indicate that
-     * the feature cannot provide compatibility with any prior layout version.
+     * method returns the feature's own layout version.  This would indicate
+     * that the feature cannot provide compatibility with any prior layout
+     * version.
      *
      * @return int minimum compatible LV value
      */
@@ -211,7 +212,7 @@ public class LayoutVersion {
       return minCompatLV != null ? minCompatLV : lv;
     }
 
-    /** 
+    /**
      * Accessor method for feature description 
      * @return String feature description 
      */
@@ -323,7 +324,8 @@ public class LayoutVersion {
    * @param features all features to check
    * @return minimum compatible layout version
    */
-  public static int getMinimumCompatibleLayoutVersion(LayoutFeature[] features) {
+  public static int getMinimumCompatibleLayoutVersion(
+      LayoutFeature[] features) {
     return getLastNonReservedFeature(features).getInfo()
         .getMinimumCompatibleLayoutVersion();
   }

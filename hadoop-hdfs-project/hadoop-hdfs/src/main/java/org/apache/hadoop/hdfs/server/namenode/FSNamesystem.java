@@ -210,7 +210,6 @@ import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeDescriptor;
 import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeManager;
 import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeStatistics;
 import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeStorageInfo;
-import org.apache.hadoop.hdfs.server.common.HdfsServerConstants;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.BlockUCState;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.NamenodeRole;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.RollingUpgradeStartupOption;
@@ -7010,7 +7009,8 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   public int getEffectiveLayoutVersion() {
     if (isRollingUpgrade()) {
       int storageLV = fsImage.getStorage().getLayoutVersion();
-      if (storageLV >= NameNodeLayoutVersion.MINIMUM_COMPATIBLE_LAYOUT_VERSION) {
+      if (storageLV >=
+          NameNodeLayoutVersion.MINIMUM_COMPATIBLE_LAYOUT_VERSION) {
         // The prior layout version satisfies the minimum compatible layout
         // version of the current software.  Keep reporting the prior layout
         // as the effective one.  Downgrade is possible.
@@ -7028,9 +7028,9 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    * method throws {@link HadoopIllegalArgumentException} to deny the operation.
    * This exception class is registered as a terse exception, so it prevents
    * verbose stack traces in the NameNode log.  During a rolling upgrade, this
-   * method is used to restrict usage of new features.  This prevents writing new
-   * edit log operations that would be unreadable by the old software version if
-   * the admin chooses to downgrade.
+   * method is used to restrict usage of new features.  This prevents writing
+   * new edit log operations that would be unreadable by the old software
+   * version if the admin chooses to downgrade.
    *
    * @param f feature to check
    * @throws HadoopIllegalArgumentException if the current layout version in
