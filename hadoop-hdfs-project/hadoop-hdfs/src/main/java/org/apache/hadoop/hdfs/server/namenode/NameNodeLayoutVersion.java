@@ -84,9 +84,9 @@ public class NameNodeLayoutVersion {
       "creating file with overwrite"),
     XATTRS_NAMESPACE_EXT(-59, -59, "Increase number of xattr namespaces"),
     BLOCK_STORAGE_POLICY(-60, -60, "Block Storage policy"),
-    TRUNCATE(-61, -60, "Truncate"),
-    APPEND_NEW_BLOCK(-62, -60, "Support appending to new block"),
-    QUOTA_BY_STORAGE_TYPE(-63, -60, "Support quota for specific storage types");
+    TRUNCATE(-61, -61, "Truncate"),
+    APPEND_NEW_BLOCK(-62, -61, "Support appending to new block"),
+    QUOTA_BY_STORAGE_TYPE(-63, -61, "Support quota for specific storage types");
 
     private final FeatureInfo info;
 
