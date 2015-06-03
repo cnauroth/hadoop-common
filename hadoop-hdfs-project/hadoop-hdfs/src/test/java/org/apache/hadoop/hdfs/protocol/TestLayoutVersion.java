@@ -112,15 +112,16 @@ public class TestLayoutVersion {
 
   /**
    * Tests expected values for minimum compatible layout version in NameNode
-   * features.  We expect TRUNCATE, APPEND_NEW_BLOCK and QUOTA_BY_STORAGE_TYPE
-   * all to have the same minimum compatible layout version.  All features older
-   * than that existed prior to the concept of a minimum compatible layout
-   * version, so for each one, the minimum compatible layout version must be
-   * equal to itself.
+   * features.  TRUNCATE, APPEND_NEW_BLOCK and QUOTA_BY_STORAGE_TYPE are all
+   * features that launched in the same release.  TRUNCATE was added first, so
+   * we expect all 3 features to have a minimum compatible layout version equal
+   * to TRUNCATE's layout version.  All features older than that existed prior
+   * to the concept of a minimum compatible layout version, so for each one, the
+   * minimum compatible layout version must be equal to itself.
    */
   @Test
   public void testNameNodeFeatureMinimumCompatibleLayoutVersions() {
-    int priorLV = NameNodeLayoutVersion.Feature.BLOCK_STORAGE_POLICY.getInfo()
+    int baseLV = NameNodeLayoutVersion.Feature.TRUNCATE.getInfo()
         .getLayoutVersion();
     EnumSet<NameNodeLayoutVersion.Feature> compatibleFeatures = EnumSet.of(
         NameNodeLayoutVersion.Feature.TRUNCATE,
@@ -128,7 +129,7 @@ public class TestLayoutVersion {
         NameNodeLayoutVersion.Feature.QUOTA_BY_STORAGE_TYPE);
     for (LayoutFeature f : compatibleFeatures) {
       assertEquals(String.format("Expected minimum compatible layout version " +
-          "%d for feature %s.", priorLV, f), priorLV,
+          "%d for feature %s.", baseLV, f), baseLV,
           f.getInfo().getMinimumCompatibleLayoutVersion());
     }
     List<LayoutFeature> features = new ArrayList<>();
@@ -192,8 +193,8 @@ public class TestLayoutVersion {
    */
   @Test
   public void testCurrentMinimumCompatibleLayoutVersion() {
-    int expectedMinCompatLV = NameNodeLayoutVersion.Feature.BLOCK_STORAGE_POLICY
-        .getInfo().getLayoutVersion();
+    int expectedMinCompatLV = NameNodeLayoutVersion.Feature.TRUNCATE.getInfo()
+        .getLayoutVersion();
     int actualMinCompatLV = LayoutVersion.getMinimumCompatibleLayoutVersion(
         NameNodeLayoutVersion.Feature.values());
     assertEquals("The minimum compatible layout version has changed.  " +
