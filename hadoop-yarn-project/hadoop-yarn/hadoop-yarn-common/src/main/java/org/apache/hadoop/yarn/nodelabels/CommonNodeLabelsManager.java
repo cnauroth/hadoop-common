@@ -39,6 +39,7 @@ import java.util.regex.Pattern;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.classification.InterfaceAudience.Private;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.service.AbstractService;
 import org.apache.hadoop.yarn.api.records.NodeId;
@@ -59,6 +60,7 @@ import org.apache.hadoop.yarn.util.resource.Resources;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 
+@Private
 public class CommonNodeLabelsManager extends AbstractService {
   protected static final Log LOG = LogFactory.getLog(CommonNodeLabelsManager.class);
   private static final int MAX_LABEL_LENGTH = 255;
@@ -220,10 +222,6 @@ public class CommonNodeLabelsManager extends AbstractService {
 
     isDistributedNodeLabelConfiguration  =
         YarnConfiguration.isDistributedNodeLabelConfiguration(conf);
-
-    if (nodeLabelsEnabled) {
-      initNodeLabelStore(conf);
-    }
     
     labelCollections.put(NO_LABEL, new RMNodeLabel(NO_LABEL));
   }
@@ -243,6 +241,10 @@ public class CommonNodeLabelsManager extends AbstractService {
 
   @Override
   protected void serviceStart() throws Exception {
+    if (nodeLabelsEnabled) {
+      initNodeLabelStore(getConfig());
+    }
+    
     // init dispatcher only when service start, because recover will happen in
     // service init, we don't want to trigger any event handling at that time.
     initDispatcher(getConfig());
@@ -991,13 +993,18 @@ public class CommonNodeLabelsManager extends AbstractService {
     }
   }
   
-  private Set<NodeLabel> getLabelsInfoByNode(NodeId nodeId) {
-    Set<String> labels = getLabelsByNode(nodeId, nodeCollections);
-    if (labels.isEmpty()) {
-      return EMPTY_NODELABEL_SET;
+  public Set<NodeLabel> getLabelsInfoByNode(NodeId nodeId) {
+    try {
+      readLock.lock();
+      Set<String> labels = getLabelsByNode(nodeId, nodeCollections);
+      if (labels.isEmpty()) {
+        return EMPTY_NODELABEL_SET;
+      }
+      Set<NodeLabel> nodeLabels = createNodeLabelFromLabelNames(labels);
+      return nodeLabels;
+    } finally {
+      readLock.unlock();
     }
-    Set<NodeLabel> nodeLabels = createNodeLabelFromLabelNames(labels);
-    return nodeLabels;
   }
 
   private Set<NodeLabel> createNodeLabelFromLabelNames(Set<String> labels) {

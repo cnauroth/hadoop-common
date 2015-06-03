@@ -98,7 +98,7 @@ public class ApplicationHistoryManagerImpl extends AbstractService implements
   }
 
   @Override
-  public Map<ApplicationId, ApplicationReport> getAllApplications()
+  public Map<ApplicationId, ApplicationReport> getApplications(long appsNum)
       throws IOException {
     Map<ApplicationId, ApplicationHistoryData> histData =
         historyStore.getAllApplications();
@@ -139,7 +139,7 @@ public class ApplicationHistoryManagerImpl extends AbstractService implements
       appHistory.getYarnApplicationState(), appHistory.getDiagnosticsInfo(),
       trackingUrl, appHistory.getStartTime(), appHistory.getFinishTime(),
       appHistory.getFinalApplicationStatus(), null, "", 100,
-      appHistory.getApplicationType(), null);
+      appHistory.getApplicationType(), null, null);
   }
 
   private ApplicationAttemptHistoryData getLastAttempt(ApplicationId appId)

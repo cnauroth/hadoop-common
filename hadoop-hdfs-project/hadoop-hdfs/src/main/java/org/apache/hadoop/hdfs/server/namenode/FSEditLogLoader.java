@@ -43,6 +43,7 @@ import org.apache.hadoop.hdfs.protocol.CacheDirectiveInfo;
 import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
 import org.apache.hadoop.hdfs.protocol.LastBlockWithStatus;
 import org.apache.hadoop.hdfs.protocol.LayoutVersion;
+import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoContiguous;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoContiguousUnderConstruction;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants;
@@ -364,15 +365,12 @@ public class FSEditLogLoader {
 
         // add to the file tree
         inodeId = getAndUpdateLastInodeId(addCloseOp.inodeId, logVersion, lastInodeId);
-        newFile = fsDir.addFileForEditLog(inodeId, iip.getExistingINodes(),
-            iip.getLastLocalName(),
-            addCloseOp.permissions,
-            addCloseOp.aclEntries,
-            addCloseOp.xAttrs, replication,
-            addCloseOp.mtime, addCloseOp.atime,
-            addCloseOp.blockSize, true,
-            addCloseOp.clientName,
-            addCloseOp.clientMachine,
+        newFile = FSDirWriteFileOp.addFileForEditLog(fsDir, inodeId,
+            iip.getExistingINodes(), iip.getLastLocalName(),
+            addCloseOp.permissions, addCloseOp.aclEntries,
+            addCloseOp.xAttrs, replication, addCloseOp.mtime,
+            addCloseOp.atime, addCloseOp.blockSize, true,
+            addCloseOp.clientName, addCloseOp.clientMachine,
             addCloseOp.storagePolicyId);
         iip = INodesInPath.replace(iip, iip.length() - 1, newFile);
         fsNamesys.leaseManager.addLease(addCloseOp.clientName, newFile.getId());
@@ -945,7 +943,7 @@ public class FSEditLogLoader {
    */
   private void addNewBlock(FSDirectory fsDir, AddBlockOp op, INodeFile file)
       throws IOException {
-    BlockInfoContiguous[] oldBlocks = file.getBlocks();
+    BlockInfo[] oldBlocks = file.getBlocks();
     Block pBlock = op.getPenultimateBlock();
     Block newBlock= op.getLastBlock();
     
@@ -971,7 +969,7 @@ public class FSEditLogLoader {
       Preconditions.checkState(oldBlocks == null || oldBlocks.length == 0);
     }
     // add the new block
-    BlockInfoContiguous newBI = new BlockInfoContiguousUnderConstruction(
+    BlockInfo newBI = new BlockInfoContiguousUnderConstruction(
           newBlock, file.getPreferredBlockReplication());
     fsNamesys.getBlockManager().addBlockCollection(newBI, file);
     file.addBlock(newBI);
@@ -985,7 +983,7 @@ public class FSEditLogLoader {
   private void updateBlocks(FSDirectory fsDir, BlockListUpdatingOp op,
       INodesInPath iip, INodeFile file) throws IOException {
     // Update its block list
-    BlockInfoContiguous[] oldBlocks = file.getBlocks();
+    BlockInfo[] oldBlocks = file.getBlocks();
     Block[] newBlocks = op.getBlocks();
     String path = op.getPath();
     
@@ -994,7 +992,7 @@ public class FSEditLogLoader {
     
     // First, update blocks in common
     for (int i = 0; i < oldBlocks.length && i < newBlocks.length; i++) {
-      BlockInfoContiguous oldBlock = oldBlocks[i];
+      BlockInfo oldBlock = oldBlocks[i];
       Block newBlock = newBlocks[i];
       
       boolean isLastBlock = i == newBlocks.length - 1;
@@ -1046,7 +1044,7 @@ public class FSEditLogLoader {
       // We're adding blocks
       for (int i = oldBlocks.length; i < newBlocks.length; i++) {
         Block newBlock = newBlocks[i];
-        BlockInfoContiguous newBI;
+        BlockInfo newBI;
         if (!op.shouldCompleteLastBlock()) {
           // TODO: shouldn't this only be true for the last block?
           // what about an old-version fsync() where fsync isn't called

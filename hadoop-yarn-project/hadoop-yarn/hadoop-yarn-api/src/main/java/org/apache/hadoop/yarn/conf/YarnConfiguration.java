@@ -268,6 +268,18 @@ public class YarnConfiguration extends Configuration {
   /** ACL used in case none is found. Allows nothing. */
   public static final String DEFAULT_YARN_APP_ACL = " ";
 
+  /**
+   * Enable/disable intermediate-data encryption at YARN level. For now, this
+   * only is used by the FileSystemRMStateStore to setup right file-system
+   * security attributes.
+   */
+  @Private
+  public static final String YARN_INTERMEDIATE_DATA_ENCRYPTION = YARN_PREFIX
+      + "intermediate-data-encryption.enable";
+
+  @Private
+  public static final Boolean DEFAULT_YARN_INTERMEDIATE_DATA_ENCRYPTION = false;
+
   /** The address of the RM admin interface.*/
   public static final String RM_ADMIN_ADDRESS = 
     RM_PREFIX + "admin.address";
@@ -611,6 +623,7 @@ public class YarnConfiguration extends Configuration {
       ApplicationConstants.Environment.HADOOP_COMMON_HOME.key(),
       ApplicationConstants.Environment.HADOOP_HDFS_HOME.key(),
       ApplicationConstants.Environment.HADOOP_CONF_DIR.key(),
+      ApplicationConstants.Environment.CLASSPATH_PREPEND_DISTCACHE.key(),
       ApplicationConstants.Environment.HADOOP_YARN_HOME.key()));
   
   /** address of node manager IPC.*/
@@ -804,9 +817,13 @@ public class YarnConfiguration extends Configuration {
   public static final String YARN_TRACKING_URL_GENERATOR = 
       YARN_PREFIX + "tracking.url.generator";
 
-  /** Amount of memory in GB that can be allocated for containers.*/
+  /** Amount of memory in MB that can be allocated for containers.*/
   public static final String NM_PMEM_MB = NM_PREFIX + "resource.memory-mb";
   public static final int DEFAULT_NM_PMEM_MB = 8 * 1024;
+
+  /** Amount of memory in MB that has been reserved for non-yarn use. */
+  public static final String NM_SYSTEM_RESERVED_PMEM_MB = NM_PREFIX
+      + "resource.system-reserved-memory-mb";
 
   /** Specifies whether physical memory check is enabled. */
   public static final String NM_PMEM_CHECK_ENABLED = NM_PREFIX
@@ -827,11 +844,28 @@ public class YarnConfiguration extends Configuration {
   public static final String NM_VCORES = NM_PREFIX + "resource.cpu-vcores";
   public static final int DEFAULT_NM_VCORES = 8;
 
+  /** Count logical processors(like hyperthreads) as cores. */
+  public static final String NM_COUNT_LOGICAL_PROCESSORS_AS_CORES = NM_PREFIX
+      + "resource.count-logical-processors-as-cores";
+  public static final boolean DEFAULT_NM_COUNT_LOGICAL_PROCESSORS_AS_CORES =
+      false;
+
+  /** Multiplier to convert physical cores to vcores. */
+  public static final String NM_PCORES_VCORES_MULTIPLIER = NM_PREFIX
+      + "resource.pcores-vcores-multiplier";
+  public static final float DEFAULT_NM_PCORES_VCORES_MULTIPLIER = 1.0f;
+
   /** Percentage of overall CPU which can be allocated for containers. */
   public static final String NM_RESOURCE_PERCENTAGE_PHYSICAL_CPU_LIMIT =
       NM_PREFIX + "resource.percentage-physical-cpu-limit";
   public static final int DEFAULT_NM_RESOURCE_PERCENTAGE_PHYSICAL_CPU_LIMIT =
       100;
+
+  /** Enable or disable node hardware capability detection. */
+  public static final String NM_ENABLE_HARDWARE_CAPABILITY_DETECTION =
+      NM_PREFIX + "resource.detect-hardware-capabilities";
+  public static final boolean DEFAULT_NM_ENABLE_HARDWARE_CAPABILITY_DETECTION =
+      false;
 
   /**
    * Prefix for disk configurations. Work in progress: This configuration
@@ -1259,16 +1293,6 @@ public class YarnConfiguration extends Configuration {
       + "application.classpath";
 
   /**
-   * Whether or not entries from the distributed cache should be preferred over
-   * the rest of the YARN CLASSPATH
-   */
-  public static final String YARN_APPLICATION_CLASSPATH_PREPEND_DISTCACHE =
-    YARN_PREFIX + "application.classpath.prepend.distcache";
-
-  public static final boolean
-    DEFAULT_YARN_APPLICATION_CLASSPATH_PREPEND_DISTCACHE = false;
-
-  /**
    * Default platform-agnostic CLASSPATH for YARN applications. A
    * comma-separated list of CLASSPATH entries. The parameter expansion marker
    * will be replaced with real parameter expansion marker ('%' for Windows and
@@ -1446,6 +1470,15 @@ public class YarnConfiguration extends Configuration {
   public static final int DEFAULT_TIMELINE_SERVICE_WEBAPP_HTTPS_PORT = 8190;
   public static final String DEFAULT_TIMELINE_SERVICE_WEBAPP_HTTPS_ADDRESS =
       "0.0.0.0:" + DEFAULT_TIMELINE_SERVICE_WEBAPP_HTTPS_PORT;
+
+  /**
+   * Defines the max number of applications could be fetched using
+   * REST API or application history protocol and shown in timeline
+   * server web ui.
+   */
+  public static final String APPLICATION_HISTORY_MAX_APPS =
+      APPLICATION_HISTORY_PREFIX + "max-applications";
+  public static final long DEFAULT_APPLICATION_HISTORY_MAX_APPS = 10000;
 
   /** Timeline service store class */
   public static final String TIMELINE_SERVICE_STORE =

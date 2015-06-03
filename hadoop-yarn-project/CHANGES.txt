@@ -48,9 +48,15 @@ Trunk - Unreleased
     YARN-2428. LCE default banned user list should have yarn (Varun
     Saxena via aw)
 
+    YARN-2355. MAX_APP_ATTEMPTS_ENV may no longer be a useful env var
+    for a container (Darrell Taylor via aw)
+
 Release 2.8.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
+
+    YARN-2336. Fair scheduler's REST API returns a missing '[' bracket JSON for
+    deep queue tree. (Kenji Kikushima and Akira Ajisaka via ozawa)
 
   NEW FEATURES
 
@@ -116,6 +122,9 @@ Release 2.8.0 - UNRELEASED
 
     YARN-3541. Add version info on timeline service / generic history web UI
     and REST API. (Zhijie Shen via xgong)
+
+    YARN-160. Enhanced NodeManager to automatically obtain cpu/memory values from
+    underlying OS when configured to do so. (Varun Vasudev via vinodkv)
 
   IMPROVEMENTS
 
@@ -247,6 +256,39 @@ Release 2.8.0 - UNRELEASED
     YARN-3362. Add node label usage in RM CapacityScheduler web UI.
     (Naganarasimha G R via wangda)
 
+    YARN-3565. NodeHeartbeatRequest/RegisterNodeManagerRequest should use 
+    NodeLabel object instead of String. (Naganarasimha G R via wangda)
+
+    YARN-3583. Support of NodeLabel object instead of plain String 
+    in YarnClient side. (Sunil G via wangda)
+
+    YARN-3684. Changed ContainerExecutor's primary lifecycle methods to use a more
+    extensible mechanism of context objects. (Sidharta Seethana via vinodkv)
+
+    YARN-3594. WintuilsProcessStubExecutor.startStreamReader leaks streams.
+    (Lars Francke via junping_du)
+
+    YARN-3647. RMWebServices api's should use updated api from CommonNodeLabelsManager 
+    to get NodeLabel object. (Sunil G via wangda)
+
+    YARN-3581. Deprecate -directlyAccessNodeLabelStore in RMAdminCLI. 
+    (Naganarasimha G R via wangda)
+
+    YARN-3700. Made generic history service load a number of latest applications
+    according to the parameter or the configuration. (Xuan Gong via zjshen)
+
+    YARN-3722. Merge multiple TestWebAppUtils into o.a.h.yarn.webapp.util.TestWebAppUtils.
+    (Masatake Iwasaki via devaraj)
+
+    YARN-3713. Remove duplicate function call storeContainerDiagnostics in
+    ContainerDiagnosticsUpdateTransition (zxu via rkanter)
+
+    YARN-3467. Expose allocatedMB, allocatedVCores, and runningContainers metrics on 
+    running Applications in RM Web UI. (Anubhav Dhoot via kasha)
+
+    YARN-1462. Made RM write application tags to timeline server and exposed them
+    to users via generic history web UI and REST API. (Xuan Gong via zjshen)
+
   OPTIMIZATIONS
 
     YARN-3339. TestDockerContainerExecutor should pull a single image and not
@@ -257,6 +299,9 @@ Release 2.8.0 - UNRELEASED
 
     YARN-3006. Improve the error message when attempting manual failover with 
     auto-failover enabled. (Akira AJISAKA via wangda)
+
+    YARN-3547. FairScheduler: Apps that have no resource demand should not participate 
+    scheduling. (Xianyin Xin via kasha)
 
   BUG FIXES
 
@@ -379,9 +424,6 @@ Release 2.8.0 - UNRELEASED
     YARN-3584. Fixed attempt diagnostics format shown on the UI. (nijel via
     jianhe)
 
-    YARN-2918. RM should not fail on startup if queue's configured labels do
-    not exist in cluster-node-labels. (Wangda Tan via jianhe)
-
     YARN-1832. Fix wrong MockLocalizerStatus#equals implementation.
     (Hong Zhiguo via aajisaka)
 
@@ -423,6 +465,25 @@ Release 2.8.0 - UNRELEASED
     YARN-2821. Fixed a problem that DistributedShell AM may hang if restarted.
     (Varun Vasudev via jianhe)
 
+    YARN-3654. ContainerLogsPage web UI should not have meta-refresh. (Xuan Gong
+    via jianhe)
+
+    YARN-3707. RM Web UI queue filter doesn't work. (Wangda Tan via jianhe)
+
+    YARN-3632. Ordering policy should be allowed to reorder an application when
+    demand changes. (Craig Welch via jianhe)
+
+    YARN-3716. Node-label-expression should be included by 
+    ResourceRequestPBImpl.toString. (Xianyin Xin via wangda)
+
+    YARN-3740. Fixed the typo in the configuration name:
+    APPLICATION_HISTORY_PREFIX_MAX_APPS. (Xuan Gong via zjshen)
+
+    YARN-3751. Fixed AppInfo to check if used resources are null. (Sunil G via
+    zjshen)
+
+    YARN-3762. FairScheduler: CME on FSParentQueue#getQueueUserAclInfo. (kasha)
+
 Release 2.7.1 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -439,6 +500,9 @@ Release 2.7.1 - UNRELEASED
 
     YARN-3539. Updated timeline server documentation and marked REST APIs evolving.
     (Steve Loughran via zjshen)
+
+    YARN-3723. Need to clearly document primaryFilter and otherInfo value type.
+    (Zhijie Shen via xgong)
 
   OPTIMIZATIONS
 
@@ -516,6 +580,45 @@ Release 2.7.1 - UNRELEASED
     on a QJM cluster. (Weiwei Yang via xgong)
 
     YARN-3601. Fix UT TestRMFailover.testRMWebAppRedirect. (Weiwei Yang via xgong)
+
+    YARN-3677. Fix findbugs warnings in yarn-server-resourcemanager.
+    (Vinod Kumar Vavilapalli via ozawa)
+
+    YARN-2918. RM should not fail on startup if queue's configured labels do
+    not exist in cluster-node-labels. (Wangda Tan via jianhe)
+
+    YARN-3681. yarn cmd says "could not find main class 'queue'" in windows.
+    (Craig Welch and Varun Saxena via xgong)
+
+    YARN-3609. Load node labels from storage inside RM serviceStart. (Wangda
+    Tan via jianhe)
+
+    YARN-3694. Fix dead link for TimelineServer REST API.
+    (Jagadesh Kiran N via aajisaka)
+
+    YARN-3646. Applications are getting stuck some times in case of retry
+    policy forever. (Raju Bairishetti via devaraj)
+
+    YARN-3675. FairScheduler: RM quits when node removal races with 
+    continuous-scheduling on the same node. (Anubhav Dhoot via kasha)
+
+    YARN-3701. Isolating the error of generating a single app report when 
+    getting all apps from generic history service. (Zhijie Shen via xgong)
+
+    YARN-2238. filtering on UI sticks even if I move away from the page.
+    (Jian He via xgong)
+
+    YARN-3686. CapacityScheduler should trim default_node_label_expression. 
+    (Sunil G via wangda)
+
+    YARN-2900. Application (Attempt and Container) Not Found in AHS results
+    in Internal Server Error (500). (Zhijie Shen and Mit Desai via xgong)
+
+    YARN-3725. App submission via REST API is broken in secure mode due to 
+    Timeline DT service address is empty. (Zhijie Shen via wangda)
+
+    YARN-3585. NodeManager cannot exit on SHUTDOWN event triggered and NM
+    recovery is enabled (Rohith Sharmaks via jlowe)
 
 Release 2.7.0 - 2015-04-20
 

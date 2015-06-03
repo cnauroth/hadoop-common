@@ -165,7 +165,8 @@ public class BlockInfoContiguousUnderConstruction extends BlockInfoContiguous {
   /**
    * Create a block that is currently being constructed.
    */
-  public BlockInfoContiguousUnderConstruction(Block blk, short replication, BlockUCState state, DatanodeStorageInfo[] targets) {
+  public BlockInfoContiguousUnderConstruction(Block blk, short replication,
+      BlockUCState state, DatanodeStorageInfo[] targets) {
     super(blk, replication);
     assert getBlockUCState() != BlockUCState.COMPLETE :
       "BlockInfoUnderConstruction cannot be in COMPLETE state";
@@ -182,7 +183,7 @@ public class BlockInfoContiguousUnderConstruction extends BlockInfoContiguous {
    * the client or it does not have at least a minimal number of replicas 
    * reported from data-nodes. 
    */
-  BlockInfoContiguous convertToCompleteBlock() throws IOException {
+  BlockInfo convertToCompleteBlock() throws IOException {
     assert getBlockUCState() != BlockUCState.COMPLETE :
       "Trying to convert a COMPLETE block";
     return new BlockInfoContiguous(this);

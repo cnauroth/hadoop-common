@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -43,6 +42,7 @@ import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockProto;
 import org.apache.hadoop.hdfs.protocolPB.PBHelper;
+import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoContiguous;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoContiguousUnderConstruction;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockManager;
@@ -58,6 +58,10 @@ import org.apache.hadoop.hdfs.server.namenode.FsImageProto.INodeSection.XAttrFea
 import org.apache.hadoop.hdfs.server.namenode.FsImageProto.INodeSection.QuotaByStorageTypeEntryProto;
 import org.apache.hadoop.hdfs.server.namenode.FsImageProto.INodeSection.QuotaByStorageTypeFeatureProto;
 import org.apache.hadoop.hdfs.server.namenode.snapshot.Snapshot;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.Phase;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgress;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgress.Counter;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.Step;
 import org.apache.hadoop.hdfs.util.EnumCounters;
 import org.apache.hadoop.hdfs.util.ReadOnlyList;
 
@@ -211,7 +215,7 @@ public final class FSImageFormatPBINode {
 
     public static void updateBlocksMap(INodeFile file, BlockManager bm) {
       // Add file->block mapping
-      final BlockInfoContiguous[] blocks = file.getBlocks();
+      final BlockInfo[] blocks = file.getBlocks();
       if (blocks != null) {
         for (int i = 0; i < blocks.length; i++) {
           file.setBlock(i, bm.addBlockCollection(blocks[i], file));
@@ -251,11 +255,15 @@ public final class FSImageFormatPBINode {
       }
     }
 
-    void loadINodeSection(InputStream in) throws IOException {
+    void loadINodeSection(InputStream in, StartupProgress prog,
+        Step currentStep) throws IOException {
       INodeSection s = INodeSection.parseDelimitedFrom(in);
       fsn.dir.resetLastInodeId(s.getLastInodeId());
-      LOG.info("Loading " + s.getNumInodes() + " INodes.");
-      for (int i = 0; i < s.getNumInodes(); ++i) {
+      long numInodes = s.getNumInodes();
+      LOG.info("Loading " + numInodes + " INodes.");
+      prog.setTotal(Phase.LOADING_FSIMAGE, currentStep, numInodes);
+      Counter counter = prog.getCounter(Phase.LOADING_FSIMAGE, currentStep);
+      for (int i = 0; i < numInodes; ++i) {
         INodeSection.INode p = INodeSection.INode.parseDelimitedFrom(in);
         if (p.getId() == INodeId.ROOT_INODE_ID) {
           loadRootINode(p);
@@ -263,6 +271,7 @@ public final class FSImageFormatPBINode {
           INode n = loadINode(p);
           dir.addToInodeMap(n);
         }
+        counter.increment();
       }
     }
 
@@ -324,9 +333,10 @@ public final class FSImageFormatPBINode {
       short replication = (short) f.getReplication();
       LoaderContext state = parent.getLoaderContext();
 
-      BlockInfoContiguous[] blocks = new BlockInfoContiguous[bp.size()];
+      BlockInfo[] blocks = new BlockInfo[bp.size()];
       for (int i = 0, e = bp.size(); i < e; ++i) {
-        blocks[i] = new BlockInfoContiguous(PBHelper.convert(bp.get(i)), replication);
+        blocks[i] =
+            new BlockInfoContiguous(PBHelper.convert(bp.get(i)), replication);
       }
       final PermissionStatus permissions = loadPermission(f.getPermission(),
           parent.getLoaderContext().getStringTable());
@@ -352,7 +362,7 @@ public final class FSImageFormatPBINode {
         INodeSection.FileUnderConstructionFeature uc = f.getFileUC();
         file.toUnderConstruction(uc.getClientName(), uc.getClientMachine());
         if (blocks.length > 0) {
-          BlockInfoContiguous lastBlk = file.getLastBlock();
+          BlockInfo lastBlk = file.getLastBlock();
           // replace the last block of file
           file.setBlock(file.numBlocks() - 1, new BlockInfoContiguousUnderConstruction(
               lastBlk, replication));

@@ -67,6 +67,8 @@ import org.apache.hadoop.yarn.api.protocolrecords.GetContainersRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.GetContainersResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.GetLabelsToNodesRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.GetLabelsToNodesResponse;
+import org.apache.hadoop.yarn.api.protocolrecords.GetNodesToLabelsRequest;
+import org.apache.hadoop.yarn.api.protocolrecords.GetNodesToLabelsResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.KillApplicationRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.KillApplicationResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.ReservationDeleteRequest;
@@ -87,6 +89,7 @@ import org.apache.hadoop.yarn.api.records.ContainerReport;
 import org.apache.hadoop.yarn.api.records.ContainerState;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.NodeId;
+import org.apache.hadoop.yarn.api.records.NodeLabel;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.ReservationDefinition;
 import org.apache.hadoop.yarn.api.records.ReservationId;
@@ -458,9 +461,9 @@ public class TestYarnClient {
     client.start();
 
     // Get labels to nodes mapping
-    Map<String, Set<NodeId>> expectedLabelsToNodes =
+    Map<NodeLabel, Set<NodeId>> expectedLabelsToNodes =
         ((MockYarnClient)client).getLabelsToNodesMap();
-    Map<String, Set<NodeId>> labelsToNodes = client.getLabelsToNodes();
+    Map<NodeLabel, Set<NodeId>> labelsToNodes = client.getLabelsToNodes();
     Assert.assertEquals(labelsToNodes, expectedLabelsToNodes);
     Assert.assertEquals(labelsToNodes.size(), 3);
 
@@ -476,7 +479,32 @@ public class TestYarnClient {
     client.close();
   }
 
+  @Test (timeout = 10000)
+  public void testGetNodesToLabels() throws YarnException, IOException {
+    Configuration conf = new Configuration();
+    final YarnClient client = new MockYarnClient();
+    client.init(conf);
+    client.start();
+
+    // Get labels to nodes mapping
+    Map<NodeId, Set<NodeLabel>> expectedNodesToLabels = ((MockYarnClient) client)
+        .getNodeToLabelsMap();
+    Map<NodeId, Set<NodeLabel>> nodesToLabels = client.getNodeToLabels();
+    Assert.assertEquals(nodesToLabels, expectedNodesToLabels);
+    Assert.assertEquals(nodesToLabels.size(), 1);
+
+    // Verify exclusivity
+    Set<NodeLabel> labels = nodesToLabels.get(NodeId.newInstance("host", 0));
+    for (NodeLabel label : labels) {
+      Assert.assertFalse(label.isExclusive());
+    }
+
+    client.stop();
+    client.close();
+  }
+
   private static class MockYarnClient extends YarnClientImpl {
+
     private ApplicationReport mockReport;
     private List<ApplicationReport> reports;
     private HashMap<ApplicationId, List<ApplicationAttemptReport>> attempts = 
@@ -498,6 +526,8 @@ public class TestYarnClient {
       mock(GetContainerReportResponse.class);
     GetLabelsToNodesResponse mockLabelsToNodesResponse =
       mock(GetLabelsToNodesResponse.class);
+    GetNodesToLabelsResponse mockNodeToLabelsResponse =
+        mock(GetNodesToLabelsResponse.class);
 
     public MockYarnClient() {
       super();
@@ -537,6 +567,9 @@ public class TestYarnClient {
         when(rmClient.getLabelsToNodes(any(GetLabelsToNodesRequest.class)))
             .thenReturn(mockLabelsToNodesResponse);
         
+        when(rmClient.getNodeToLabels(any(GetNodesToLabelsRequest.class)))
+            .thenReturn(mockNodeToLabelsResponse);
+
         historyClient = mock(AHSClient.class);
         
       } catch (YarnException e) {
@@ -580,7 +613,8 @@ public class TestYarnClient {
           applicationId, ApplicationAttemptId.newInstance(applicationId, 1),
           "user", "queue", "appname", "host", 124, null,
           YarnApplicationState.RUNNING, "diagnostics", "url", 0, 0,
-          FinalApplicationStatus.SUCCEEDED, null, "N/A", 0.53789f, "YARN", null);
+          FinalApplicationStatus.SUCCEEDED, null, "N/A", 0.53789f, "YARN", null,
+          null);
       List<ApplicationReport> applicationReports = new ArrayList<ApplicationReport>();
       applicationReports.add(newApplicationReport);
       List<ApplicationAttemptReport> appAttempts = new ArrayList<ApplicationAttemptReport>();
@@ -656,7 +690,7 @@ public class TestYarnClient {
           "user2", "queue2", "appname2", "host2", 125, null,
           YarnApplicationState.FINISHED, "diagnostics2", "url2", 2, 2,
           FinalApplicationStatus.SUCCEEDED, null, "N/A", 0.63789f, "NON-YARN", 
-        null);
+          null, null);
       applicationReports.add(newApplicationReport2);
 
       ApplicationId applicationId3 = ApplicationId.newInstance(1234, 7);
@@ -665,7 +699,7 @@ public class TestYarnClient {
           "user3", "queue3", "appname3", "host3", 126, null,
           YarnApplicationState.RUNNING, "diagnostics3", "url3", 3, 3,
           FinalApplicationStatus.SUCCEEDED, null, "N/A", 0.73789f, "MAPREDUCE",
-        null);
+          null, null);
       applicationReports.add(newApplicationReport3);
 
       ApplicationId applicationId4 = ApplicationId.newInstance(1234, 8);
@@ -676,7 +710,7 @@ public class TestYarnClient {
               "user4", "queue4", "appname4", "host4", 127, null,
               YarnApplicationState.FAILED, "diagnostics4", "url4", 4, 4,
               FinalApplicationStatus.SUCCEEDED, null, "N/A", 0.83789f,
-              "NON-MAPREDUCE", null);
+              "NON-MAPREDUCE", null, null);
       applicationReports.add(newApplicationReport4);
       return applicationReports;
     }
@@ -704,7 +738,7 @@ public class TestYarnClient {
     }
 
     @Override
-    public Map<String, Set<NodeId>> getLabelsToNodes()
+    public Map<NodeLabel, Set<NodeId>> getLabelsToNodes()
         throws YarnException, IOException {
       when(mockLabelsToNodesResponse.getLabelsToNodes()).thenReturn(
           getLabelsToNodesMap());
@@ -712,32 +746,49 @@ public class TestYarnClient {
     }
 
     @Override
-    public Map<String, Set<NodeId>> getLabelsToNodes(Set<String> labels)
+    public Map<NodeLabel, Set<NodeId>> getLabelsToNodes(Set<String> labels)
         throws YarnException, IOException {
       when(mockLabelsToNodesResponse.getLabelsToNodes()).thenReturn(
           getLabelsToNodesMap(labels));
       return super.getLabelsToNodes(labels);
     }
 
-    public Map<String, Set<NodeId>> getLabelsToNodesMap() {
-      Map<String, Set<NodeId>> map = new HashMap<String, Set<NodeId>>();
+    public Map<NodeLabel, Set<NodeId>> getLabelsToNodesMap() {
+      Map<NodeLabel, Set<NodeId>> map = new HashMap<NodeLabel, Set<NodeId>>();
       Set<NodeId> setNodeIds =
           new HashSet<NodeId>(Arrays.asList(
           NodeId.newInstance("host1", 0), NodeId.newInstance("host2", 0)));
-      map.put("x", setNodeIds);
-      map.put("y", setNodeIds);
-      map.put("z", setNodeIds);
+      map.put(NodeLabel.newInstance("x"), setNodeIds);
+      map.put(NodeLabel.newInstance("y"), setNodeIds);
+      map.put(NodeLabel.newInstance("z"), setNodeIds);
       return map;
     }
 
-    public Map<String, Set<NodeId>> getLabelsToNodesMap(Set<String> labels) {
-      Map<String, Set<NodeId>> map = new HashMap<String, Set<NodeId>>();
+    public Map<NodeLabel, Set<NodeId>> getLabelsToNodesMap(Set<String> labels) {
+      Map<NodeLabel, Set<NodeId>> map = new HashMap<NodeLabel, Set<NodeId>>();
       Set<NodeId> setNodeIds =
           new HashSet<NodeId>(Arrays.asList(
           NodeId.newInstance("host1", 0), NodeId.newInstance("host2", 0)));
       for(String label : labels) {
-        map.put(label, setNodeIds);
+        map.put(NodeLabel.newInstance(label), setNodeIds);
       }
+      return map;
+    }
+
+    @Override
+    public Map<NodeId, Set<NodeLabel>> getNodeToLabels() throws YarnException,
+        IOException {
+      when(mockNodeToLabelsResponse.getNodeToLabels()).thenReturn(
+          getNodeToLabelsMap());
+      return super.getNodeToLabels();
+    }
+
+    public Map<NodeId, Set<NodeLabel>> getNodeToLabelsMap() {
+      Map<NodeId, Set<NodeLabel>> map = new HashMap<NodeId, Set<NodeLabel>>();
+      Set<NodeLabel> setNodeLabels = new HashSet<NodeLabel>(Arrays.asList(
+          NodeLabel.newInstance("x", false),
+          NodeLabel.newInstance("y", false)));
+      map.put(NodeId.newInstance("host", 0), setNodeLabels);
       return map;
     }
 
@@ -1214,5 +1265,37 @@ public class TestYarnClient {
         ReservationSubmissionRequest.newInstance(rDef,
             ReservationSystemTestUtil.reservationQ);
     return request;
+  }
+
+  @Test(timeout = 30000, expected = ApplicationNotFoundException.class)
+  public void testShouldNotRetryForeverForNonNetworkExceptions() throws Exception {
+    YarnConfiguration conf = new YarnConfiguration();
+    conf.setInt(YarnConfiguration.RESOURCEMANAGER_CONNECT_MAX_WAIT_MS, -1);
+
+    ResourceManager rm = null;
+    YarnClient yarnClient = null;
+    try {
+      // start rm
+      rm = new ResourceManager();
+      rm.init(conf);
+      rm.start();
+
+      yarnClient = YarnClient.createYarnClient();
+      yarnClient.init(conf);
+      yarnClient.start();
+
+      // create invalid application id
+      ApplicationId appId = ApplicationId.newInstance(1430126768L, 10645);
+
+      // RM should throw ApplicationNotFoundException exception
+      yarnClient.getApplicationReport(appId);
+    } finally {
+      if (yarnClient != null) {
+        yarnClient.stop();
+      }
+      if (rm != null) {
+        rm.stop();
+      }
+    }
   }
 }

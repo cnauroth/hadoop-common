@@ -196,7 +196,7 @@ public class TestYARNRunner extends TestCase {
             ApplicationReport.newInstance(appId, null, "tmp", "tmp", "tmp",
                 "tmp", 0, null, YarnApplicationState.FINISHED, "tmp", "tmp",
                 0l, 0l, FinalApplicationStatus.SUCCEEDED, null, null, 0f,
-                "tmp", null));
+                "tmp", null, null));
     yarnRunner.killJob(jobId);
     verify(clientDelegate).killJob(jobId);
   }
@@ -544,6 +544,22 @@ public class TestYARNRunner extends TestCase {
       }
     }
     throw new IllegalStateException("Profiler opts not found!");
+  }
+
+  @Test
+  public void testNodeLabelExp() throws Exception {
+    JobConf jobConf = new JobConf();
+
+    jobConf.set(MRJobConfig.JOB_NODE_LABEL_EXP, "GPU");
+    jobConf.set(MRJobConfig.AM_NODE_LABEL_EXP, "highMem");
+
+    YARNRunner yarnRunner = new YARNRunner(jobConf);
+    ApplicationSubmissionContext appSubCtx =
+        buildSubmitContext(yarnRunner, jobConf);
+
+    assertEquals(appSubCtx.getNodeLabelExpression(), "GPU");
+    assertEquals(appSubCtx.getAMContainerResourceRequest()
+        .getNodeLabelExpression(), "highMem");
   }
 
   @Test
