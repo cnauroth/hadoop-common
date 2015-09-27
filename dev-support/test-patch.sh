@@ -2803,7 +2803,7 @@ postcheckout
 
 find_changed_modules
 
-preapply
+#preapply
 
 apply_patch_file
 
