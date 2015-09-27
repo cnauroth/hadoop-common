@@ -2265,7 +2265,7 @@ function check_unittests
     # Temporary hack to run the parallel tests profile only for hadoop-common.
     # This code will be removed once hadoop-hdfs is ready for parallel test
     # execution.
-    if [[ ${module} == "hadoop-common" ]] ; then
+    if [[ ${module} == "hadoop-common-project/hadoop-common" ]] ; then
       OPTIONAL_PARALLEL_TESTS_PROFILE=${PARALLEL_TESTS_PROFILE}
     else
       unset OPTIONAL_PARALLEL_TESTS_PROFILE
