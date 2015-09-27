@@ -2807,11 +2807,11 @@ preapply
 
 apply_patch_file
 
-postapply
+#postapply
 
 check_mvn_install
 
-postinstall
+#postinstall
 
 runtests
 
