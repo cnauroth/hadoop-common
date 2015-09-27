@@ -827,6 +827,7 @@ function parse_args
       TESTS_THREAD_COUNT="-DtestsThreadCount=$TEST_THREADS"
     fi
   fi
+  echo PARALLEL_TESTS_PROFILE=${PARALLEL_TESTS_PROFILE}
 }
 
 ## @description  Locate the pom.xml file for a given directory
