@@ -827,7 +827,6 @@ function parse_args
       TESTS_THREAD_COUNT="-DtestsThreadCount=$TEST_THREADS"
     fi
   fi
-  echo PARALLEL_TESTS_PROFILE=${PARALLEL_TESTS_PROFILE}
 }
 
 ## @description  Locate the pom.xml file for a given directory
@@ -2270,7 +2269,6 @@ function check_unittests
     else
       unset OPTIONAL_PARALLEL_TESTS_PROFILE
     fi
-    echo module "${module}" OPTIONAL_PARALLEL_TESTS_PROFILE="${OPTIONAL_PARALLEL_TESTS_PROFILE}"
     # shellcheck disable=2086
     echo_and_redirect "${test_logfile}" "${MVN}" "${MAVEN_ARGS[@]}" clean install -fae ${NATIVE_PROFILE} ${REQUIRE_TEST_LIB_HADOOP} ${OPTIONAL_PARALLEL_TESTS_PROFILE} ${TESTS_THREAD_COUNT} -D${PROJECT_NAME}PatchProcess
     test_build_result=$?
@@ -2803,15 +2801,15 @@ postcheckout
 
 find_changed_modules
 
-#preapply
+preapply
 
 apply_patch_file
 
-#postapply
+postapply
 
 check_mvn_install
 
-#postinstall
+postinstall
 
 runtests
 
