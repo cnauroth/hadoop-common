@@ -2267,7 +2267,10 @@ function check_unittests
     # execution.
     if [[ ${module} == "hadoop-common" ]] ; then
       OPTIONAL_PARALLEL_TESTS_PROFILE=${PARALLEL_TESTS_PROFILE}
+    else
+      unset OPTIONAL_PARALLEL_TESTS_PROFILE
     fi
+    echo module "${module}" OPTIONAL_PARALLEL_TESTS_PROFILE="${OPTIONAL_PARALLEL_TESTS_PROFILE}"
     # shellcheck disable=2086
     echo_and_redirect "${test_logfile}" "${MVN}" "${MAVEN_ARGS[@]}" clean install -fae ${NATIVE_PROFILE} ${REQUIRE_TEST_LIB_HADOOP} ${OPTIONAL_PARALLEL_TESTS_PROFILE} ${TESTS_THREAD_COUNT} -D${PROJECT_NAME}PatchProcess
     test_build_result=$?
