@@ -18,28 +18,23 @@
 
 package org.apache.hadoop.hdfs.server.protocol;
 
-import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.ha.HAServiceProtocol;
-import org.apache.hadoop.hdfs.protocol.ClientProtocol;
-import org.apache.hadoop.security.authorize.RefreshAuthorizationPolicyProtocol;
-import org.apache.hadoop.security.RefreshUserMappingsProtocol;
-import org.apache.hadoop.ipc.RefreshCallQueueProtocol;
-import org.apache.hadoop.ipc.GenericRefreshProtocol;
-import org.apache.hadoop.tools.GetUserMappingsProtocol;
-import org.apache.hadoop.tracing.TraceAdminProtocol;
+import java.io.IOException;
 
-/** The full set of RPC methods implemented by the Namenode.  */
+import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.hdfs.DFSConfigKeys;
+import org.apache.hadoop.io.retry.Idempotent;
+import org.apache.hadoop.security.KerberosInfo;
+
+@KerberosInfo(
+    serverPrincipal = DFSConfigKeys.DFS_NAMENODE_KERBEROS_PRINCIPAL_KEY, 
+    clientPrincipal = DFSConfigKeys.DFS_DATANODE_KERBEROS_PRINCIPAL_KEY)
 @InterfaceAudience.Private
-public interface NamenodeProtocols
-  extends ClientProtocol,
-          DatanodeProtocol,
-          DatanodeLifelineProtocol,
-          NamenodeProtocol,
-          RefreshAuthorizationPolicyProtocol,
-          RefreshUserMappingsProtocol,
-          RefreshCallQueueProtocol,
-          GenericRefreshProtocol,
-          GetUserMappingsProtocol,
-          HAServiceProtocol,
-          TraceAdminProtocol {
+public interface DatanodeLifelineProtocol {
+
+  @Idempotent
+  public void sendLifeline(DatanodeRegistration registration,
+      StorageReport[] reports, long dnCacheCapacity, long dnCacheUsed,
+      int xmitsInProgress, int xceiverCount, int failedVolumes,
+      VolumeFailureSummary volumeFailureSummary,
+      boolean requestFullBlockReportLease) throws IOException;
 }

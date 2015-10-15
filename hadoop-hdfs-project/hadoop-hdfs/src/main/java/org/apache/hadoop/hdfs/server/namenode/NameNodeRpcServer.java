@@ -1393,6 +1393,19 @@ class NameNodeRpcServer implements NamenodeProtocols {
     return namesystem.getNamespaceInfo();
   }
 
+  @Override // DatanodeLifelineProtocol
+  public void sendLifeline(DatanodeRegistration nodeReg, StorageReport[] report,
+      long dnCacheCapacity, long dnCacheUsed, int xmitsInProgress,
+      int xceiverCount, int failedVolumes,
+      VolumeFailureSummary volumeFailureSummary, boolean requestFullBlockReportLease)
+      throws IOException {
+    checkNNStartup();
+    verifyRequest(nodeReg);
+    // return namesystem.handleHeartbeat(nodeReg, report,
+    //     dnCacheCapacity, dnCacheUsed, xceiverCount, xmitsInProgress,
+    //     failedVolumes, volumeFailureSummary, requestFullBlockReportLease);
+  }
+
   /** 
    * Verifies the given registration.
    * 
