@@ -849,6 +849,9 @@ Release 2.8.0 - UNRELEASED
 
   IMPROVEMENTS
 
+    HDFS-9257. improve error message for "Absolute path required" in INode.java
+    to contain the rejected path (Marcell Szabo via harsh)
+
     HDFS-2390. dfsadmin -setBalancerBandwidth does not validate -ve value
     (Gautam Gopalakrishnan via harsh)
 
@@ -1527,6 +1530,12 @@ Release 2.8.0 - UNRELEASED
     HDFS-9238. Update TestFileCreation.testLeaseExpireHardLimit() to avoid using
     DataNodeTestUtils.getFile(). (Tony Wu via lei)
 
+    HDFS-9223. Code cleanup for DatanodeDescriptor and HeartbeatManager. (jing9)
+
+    HDFS-9188. Make block corruption related tests FsDataset-agnostic. (lei)
+
+    HDFS-9205. Do not schedule corrupt blocks for replication.  (szetszwo)
+
   OPTIMIZATIONS
 
     HDFS-8026. Trace FSOutputSummer#writeChecksumChunks rather than
@@ -1558,6 +1567,8 @@ Release 2.8.0 - UNRELEASED
 
     HDFS-9167. Update pom.xml in other modules to depend on hdfs-client instead
     of hdfs. (Mingliang Liu via wheat9)
+
+    HDFS-9253. Refactor tests of libhdfs into a directory. (wheat9)
 
   BUG FIXES
 
@@ -2060,6 +2071,9 @@ Release 2.8.0 - UNRELEASED
     HDFS-9187. Fix null pointer error in Globber when FS was not constructed
     via FileSystem#createFileSystem (cmccabe)
 
+    HDFS-9157. [OEV and OIV] : Unnecessary parsing for mandatory arguements if
+    '-h' option is specified as the only option (nijel via vinayakumarb)
+
 Release 2.7.2 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -2119,6 +2133,9 @@ Release 2.7.2 - UNRELEASED
 
     HDFS-8676. Delayed rolling upgrade finalization can cause heartbeat
     expiration. (Walter Su via kihwal)
+
+    HDFS-9220. Reading small file (< 512 bytes) that is open for append fails
+    due to incorrect checksum (Jing Zhao via kihwal)
 
 Release 2.7.1 - 2015-07-06
 

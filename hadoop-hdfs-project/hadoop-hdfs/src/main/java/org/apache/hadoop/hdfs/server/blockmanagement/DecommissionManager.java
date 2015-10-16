@@ -216,7 +216,7 @@ public class DecommissionManager {
       hbManager.stopDecommission(node);
       // Over-replicated blocks will be detected and processed when
       // the dead node comes back and send in its full block report.
-      if (node.isAlive) {
+      if (node.isAlive()) {
         blockManager.processOverReplicatedBlocksOnReCommission(node);
       }
       // Remove from tracking in DecommissionManager
@@ -545,7 +545,7 @@ public class DecommissionManager {
               blockManager.isPopulatingReplQueues()) {
             // Process these blocks only when active NN is out of safe mode.
             blockManager.neededReplications.add(block,
-                liveReplicas,
+                liveReplicas, num.readOnlyReplicas(),
                 num.decommissionedAndDecommissioning(),
                 blockManager.getExpectedReplicaNum(block));
           }

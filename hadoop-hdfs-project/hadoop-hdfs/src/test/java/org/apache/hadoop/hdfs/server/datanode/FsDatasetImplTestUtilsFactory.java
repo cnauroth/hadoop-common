@@ -16,16 +16,17 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.event;
+package org.apache.hadoop.hdfs.server.datanode;
 
-import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
-import org.apache.hadoop.yarn.api.records.Container;
-import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptEvent;
-import org.apache.hadoop.yarn.server.resourcemanager.rmapp.attempt.RMAppAttemptEventType;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetImplTestUtils;
 
-public class RMAppAttemptContainerAllocatedEvent extends RMAppAttemptEvent {
-
-  public RMAppAttemptContainerAllocatedEvent(ApplicationAttemptId appAttemptId) {
-    super(appAttemptId, RMAppAttemptEventType.CONTAINER_ALLOCATED);
+/**
+ * A factory for creating {@link FsDatasetImplTestUtils} objects.
+ */
+public final class FsDatasetImplTestUtilsFactory
+    extends FsDatasetTestUtils.Factory<FsDatasetTestUtils> {
+  @Override
+  public FsDatasetTestUtils newInstance(DataNode datanode) {
+    return new FsDatasetImplTestUtils(datanode);
   }
 }
