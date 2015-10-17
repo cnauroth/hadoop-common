@@ -19,6 +19,9 @@ package org.apache.hadoop.hdfs.server.namenode;
 
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_HANDLER_COUNT_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_HANDLER_COUNT_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_LIFELINE_HANDLER_COUNT_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_LIFELINE_HANDLER_RATIO_DEFAULT;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_LIFELINE_HANDLER_RATIO_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_SERVICE_HANDLER_COUNT_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_SERVICE_HANDLER_COUNT_KEY;
 import static org.apache.hadoop.hdfs.server.common.HdfsServerConstants.MAX_PATH_DEPTH;
@@ -105,10 +108,13 @@ import org.apache.hadoop.hdfs.protocol.SnapshottableDirectoryStatus;
 import org.apache.hadoop.hdfs.protocol.UnregisteredNodeException;
 import org.apache.hadoop.hdfs.protocol.UnresolvedPathException;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.ClientNamenodeProtocol;
+import org.apache.hadoop.hdfs.protocol.proto.DatanodeLifelineProtocolProtos.DatanodeLifelineProtocolService;
 import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.DatanodeProtocolService;
 import org.apache.hadoop.hdfs.protocol.proto.NamenodeProtocolProtos.NamenodeProtocolService;
 import org.apache.hadoop.hdfs.protocolPB.ClientNamenodeProtocolPB;
 import org.apache.hadoop.hdfs.protocolPB.ClientNamenodeProtocolServerSideTranslatorPB;
+import org.apache.hadoop.hdfs.protocolPB.DatanodeLifelineProtocolPB;
+import org.apache.hadoop.hdfs.protocolPB.DatanodeLifelineProtocolServerSideTranslatorPB;
 import org.apache.hadoop.hdfs.protocolPB.DatanodeProtocolPB;
 import org.apache.hadoop.hdfs.protocolPB.DatanodeProtocolServerSideTranslatorPB;
 import org.apache.hadoop.hdfs.protocolPB.NamenodeProtocolPB;
@@ -211,6 +217,10 @@ class NameNodeRpcServer implements NamenodeProtocols {
   /** The RPC server that listens to requests from DataNodes */
   private final RPC.Server serviceRpcServer;
   private final InetSocketAddress serviceRPCAddress;
+
+  /** The RPC server that listens to lifeline requests from DataNodes */
+  private final RPC.Server lifelineRpcServer;
+  private final InetSocketAddress lifelineRPCAddress;
   
   /** The RPC server that listens to requests from clients */
   protected final RPC.Server clientRpcServer;
@@ -242,6 +252,11 @@ class NameNodeRpcServer implements NamenodeProtocols {
         new DatanodeProtocolServerSideTranslatorPB(this);
     BlockingService dnProtoPbService = DatanodeProtocolService
         .newReflectiveBlockingService(dnProtoPbTranslator);
+
+    DatanodeLifelineProtocolServerSideTranslatorPB lifelineProtoPbTranslator =
+        new DatanodeLifelineProtocolServerSideTranslatorPB(this);
+    BlockingService lifelineProtoPbService = DatanodeLifelineProtocolService
+        .newReflectiveBlockingService(lifelineProtoPbTranslator);
 
     NamenodeProtocolServerSideTranslatorPB namenodeProtocolXlator = 
         new NamenodeProtocolServerSideTranslatorPB(this);
@@ -339,6 +354,48 @@ class NameNodeRpcServer implements NamenodeProtocols {
       serviceRPCAddress = null;
     }
 
+    InetSocketAddress lifelineRpcAddr = nn.getLifelineRpcServerAddress(conf);
+    if (lifelineRpcAddr != null) {
+      String bindHost = nn.getLifelineRpcServerBindHost(conf);
+      if (bindHost == null) {
+        bindHost = lifelineRpcAddr.getHostName();
+      }
+      LOG.info("Lifeline RPC server is binding to {}:{}", bindHost,
+          lifelineRpcAddr.getPort());
+
+      int lifelineHandlerCount = conf.getInt(
+          DFS_NAMENODE_LIFELINE_HANDLER_COUNT_KEY, 0);
+      if (lifelineHandlerCount <= 0) {
+        float lifelineHandlerRatio = conf.getFloat(
+            DFS_NAMENODE_LIFELINE_HANDLER_RATIO_KEY,
+            DFS_NAMENODE_LIFELINE_HANDLER_RATIO_DEFAULT);
+        lifelineHandlerCount = Math.max(
+            (int)(handlerCount * lifelineHandlerRatio), 1);
+      }
+      lifelineRpcServer = new RPC.Builder(conf)
+          .setProtocol(
+              org.apache.hadoop.hdfs.protocolPB.DatanodeLifelineProtocolPB.class)
+          .setInstance(lifelineProtoPbService)
+          .setBindAddress(bindHost)
+          .setPort(lifelineRpcAddr.getPort())
+          .setNumHandlers(lifelineHandlerCount)
+          .setVerbose(false)
+          .setSecretManager(namesystem.getDelegationTokenSecretManager())
+          .build();
+
+      DFSUtil.addPBProtocol(conf, DatanodeLifelineProtocolPB.class,
+          lifelineProtoPbService, lifelineRpcServer);
+
+      // Update the address with the correct port
+      InetSocketAddress listenAddr = lifelineRpcServer.getListenerAddress();
+      lifelineRPCAddress = new InetSocketAddress(lifelineRpcAddr.getHostName(),
+          listenAddr.getPort());
+      nn.setRpcLifelineServerAddress(conf, lifelineRPCAddress);
+    } else {
+      lifelineRpcServer = null;
+      lifelineRPCAddress = null;
+    }
+
     InetSocketAddress rpcAddr = nn.getRpcServerAddress(conf);
     String bindHost = nn.getRpcServerBindHost(conf);
     if (bindHost == null) {
@@ -385,12 +442,15 @@ class NameNodeRpcServer implements NamenodeProtocols {
       if (serviceRpcServer != null) {
         serviceRpcServer.refreshServiceAcl(conf, new HDFSPolicyProvider());
       }
+      if (lifelineRpcServer != null) {
+        lifelineRpcServer.refreshServiceAcl(conf, new HDFSPolicyProvider());
+      }
     }
 
     // The rpc-server port can be ephemeral... ensure we have the correct info
     InetSocketAddress listenAddr = clientRpcServer.getListenerAddress();
-      clientRpcAddress = new InetSocketAddress(
-          rpcAddr.getHostName(), listenAddr.getPort());
+    clientRpcAddress = new InetSocketAddress(
+        rpcAddr.getHostName(), listenAddr.getPort());
     nn.setRpcServerAddress(conf, clientRpcAddress);
     
     minimumDataNodeVersion = conf.get(
@@ -422,6 +482,9 @@ class NameNodeRpcServer implements NamenodeProtocols {
     if (serviceRpcServer != null) {
       serviceRpcServer.setTracer(nn.tracer);
     }
+    if (lifelineRpcServer != null) {
+      lifelineRpcServer.setTracer(nn.tracer);
+    }
  }
 
   /** Allow access to the client RPC server for testing */
@@ -444,6 +507,9 @@ class NameNodeRpcServer implements NamenodeProtocols {
     if (serviceRpcServer != null) {
       serviceRpcServer.start();      
     }
+    if (lifelineRpcServer != null) {
+      lifelineRpcServer.start();
+    }
   }
   
   /**
@@ -453,6 +519,9 @@ class NameNodeRpcServer implements NamenodeProtocols {
     clientRpcServer.join();
     if (serviceRpcServer != null) {
       serviceRpcServer.join();      
+    }
+    if (lifelineRpcServer != null) {
+      lifelineRpcServer.join();
     }
   }
 
@@ -466,8 +535,15 @@ class NameNodeRpcServer implements NamenodeProtocols {
     if (serviceRpcServer != null) {
       serviceRpcServer.stop();
     }
+    if (lifelineRpcServer != null) {
+      lifelineRpcServer.stop();
+    }
   }
-  
+
+  InetSocketAddress getLifelineRpcAddress() {
+    return lifelineRPCAddress;
+  }
+
   InetSocketAddress getServiceRpcAddress() {
     return serviceRPCAddress;
   }

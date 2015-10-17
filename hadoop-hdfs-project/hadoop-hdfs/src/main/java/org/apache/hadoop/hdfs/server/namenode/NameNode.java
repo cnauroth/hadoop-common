@@ -488,6 +488,17 @@ public class NameNode implements NameNodeStatusMXBean {
   }
 
   /**
+   * Given a configuration get the address of the lifeline RPC server.
+   * If the lifeline RPC is not configured returns null.
+   *
+   * @param conf configuration
+   * @return address or null
+   */
+  protected InetSocketAddress getLifelineRpcServerAddress(Configuration conf) {
+    return null;
+  }
+
+  /**
    * Given a configuration get the address of the service rpc server
    * If the service rpc is not configured returns null
    */
@@ -498,7 +509,18 @@ public class NameNode implements NameNodeStatusMXBean {
   protected InetSocketAddress getRpcServerAddress(Configuration conf) {
     return DFSUtilClient.getNNAddress(conf);
   }
-  
+
+  /**
+   * Given a configuration get the bind host of the lifeline RPC server.
+   * If the bind host is not configured returns null.
+   *
+   * @param conf configuration
+   * @return bind host or null
+   */
+  protected String getLifelineRpcServerBindHost(Configuration conf) {
+    return null;
+  }
+
   /** Given a configuration get the bind host of the service rpc server
    *  If the bind host is not configured returns null.
    */
@@ -521,6 +543,16 @@ public class NameNode implements NameNodeStatusMXBean {
     return addr;
   }
    
+  /**
+   * Modifies the configuration to contain the lifeline RPC address setting.
+   *
+   * @param conf configuration to modify
+   * @param lifelineRPCAddress lifeline RPC address
+   */
+  protected void setRpcLifelineServerAddress(Configuration conf,
+      InetSocketAddress lifelineRPCAddress) {
+  }
+
   /**
    * Modifies the configuration passed to contain the service rpc address setting
    */
