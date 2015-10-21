@@ -136,6 +136,11 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String  DFS_NAMENODE_RPC_BIND_HOST_KEY = "dfs.namenode.rpc-bind-host";
   public static final String  DFS_NAMENODE_SERVICE_RPC_ADDRESS_KEY = "dfs.namenode.servicerpc-address";
   public static final String  DFS_NAMENODE_SERVICE_RPC_BIND_HOST_KEY = "dfs.namenode.servicerpc-bind-host";
+  public static final String  DFS_NAMENODE_LIFELINE_RPC_ADDRESS_KEY =
+      "dfs.namenode.lifeline.rpc-address";
+  public static final String  DFS_NAMENODE_LIFELINE_RPC_BIND_HOST_KEY =
+      "dfs.namenode.lifeline.rpc-bind-host";
+  public static final int     DFS_NAMENODE_LIFELINE_RPC_PORT_DEFAULT = 8021;
   public static final String  DFS_NAMENODE_MAX_OBJECTS_KEY = "dfs.namenode.max.objects";
   public static final long    DFS_NAMENODE_MAX_OBJECTS_DEFAULT = 0;
   public static final String  DFS_NAMENODE_SAFEMODE_EXTENSION_KEY = "dfs.namenode.safemode.extension";
@@ -443,6 +448,8 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final boolean DFS_DATANODE_TRANSFERTO_ALLOWED_DEFAULT = true;
   public static final String  DFS_HEARTBEAT_INTERVAL_KEY = "dfs.heartbeat.interval";
   public static final long    DFS_HEARTBEAT_INTERVAL_DEFAULT = 3;
+  public static final String  DFS_DATANODE_LIFELINE_INTERVAL_SECONDS_KEY =
+      "dfs.datanode.lifeline.interval.seconds";
   public static final String  DFS_NAMENODE_PATH_BASED_CACHE_RETRY_INTERVAL_MS = "dfs.namenode.path.based.cache.retry.interval.ms";
   public static final long    DFS_NAMENODE_PATH_BASED_CACHE_RETRY_INTERVAL_MS_DEFAULT = 30000L;
   public static final String  DFS_NAMENODE_DECOMMISSION_INTERVAL_KEY = "dfs.namenode.decommission.interval";

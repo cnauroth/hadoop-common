@@ -1473,13 +1473,11 @@ class NameNodeRpcServer implements NamenodeProtocols {
   public void sendLifeline(DatanodeRegistration nodeReg, StorageReport[] report,
       long dnCacheCapacity, long dnCacheUsed, int xmitsInProgress,
       int xceiverCount, int failedVolumes,
-      VolumeFailureSummary volumeFailureSummary, boolean requestFullBlockReportLease)
-      throws IOException {
+      VolumeFailureSummary volumeFailureSummary) throws IOException {
     checkNNStartup();
     verifyRequest(nodeReg);
-    // return namesystem.handleHeartbeat(nodeReg, report,
-    //     dnCacheCapacity, dnCacheUsed, xceiverCount, xmitsInProgress,
-    //     failedVolumes, volumeFailureSummary, requestFullBlockReportLease);
+    namesystem.handleLifeline(nodeReg, report, dnCacheCapacity, dnCacheUsed,
+        xceiverCount, xmitsInProgress, failedVolumes, volumeFailureSummary);
   }
 
   /** 

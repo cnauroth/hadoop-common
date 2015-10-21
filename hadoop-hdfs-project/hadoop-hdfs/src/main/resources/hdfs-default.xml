@@ -79,6 +79,34 @@
 </property>
 
 <property>
+  <name>dfs.namenode.lifeline.rpc-address</name>
+  <value></value>
+  <description>
+    NameNode RPC address that handles the DataNode Lifeline Protocol.  The
+    DataNode Lifeline Protocol reports liveness of DataNodes to the NameNode in
+    the event that normal heartbeat processing gets delayed unexpectedly.  In
+    the case of HA/Federation where multiple NameNodes exist, the name service
+    ID is added to the name e.g. dfs.namenode.lifeline.rpc-address.ns1.  The
+    value of this property will take the form of nn-host1:rpc-port.  If this
+    property is not defined, then the NameNode will not start an RPC server to
+    respond to DataNode lifeline messages, and the DataNode will not attempt to
+    send lifeline messages.  By default, the property is not defined.
+  </description>
+</property>
+
+<property>
+  <name>dfs.namenode.lifeline.rpc-bind-host</name>
+  <value></value>
+  <description>
+    The actual address the lifeline RPC server will bind to.  If this optional
+    address is set, it overrides only the hostname portion of
+    dfs.namenode.lifeline.rpc-address.  It can also be specified per name node
+    or name service for HA/Federation.  This is useful for making the name node
+    listen on all interfaces by setting it to 0.0.0.0.
+  </description>
+</property>
+
+<property>
   <name>dfs.namenode.secondary.http-address</name>
   <value>0.0.0.0:50090</value>
   <description>
@@ -662,6 +690,21 @@
 </property>
 
 <property>
+  <name>dfs.datanode.lifeline.interval.seconds</name>
+  <value></value>
+  <description>
+    Sets the interval in seconds between sending DataNode Lifeline Protocol
+    messages from the DataNode to the NameNode.  If this property is not
+    defined, then the default behavior is to calculate the interval as 3x the
+    value of dfs.heartbeat.interval.  Note that normal heartbeat processing may
+    cause the DataNode to postpone sending lifeline messages if they are not
+    required.  Under normal operations with speedy heartbeat processing, it is
+    possible that no lifeline messages will need to be sent at all.  This
+    property has no effect if dfs.namenode.lifeline.rpc-address is not defined.
+  </description>
+</property>
+
+<property>
   <name>dfs.namenode.handler.count</name>
   <value>10</value>
   <description>The number of Namenode RPC server threads that listen to
@@ -678,6 +721,39 @@
   requests from DataNodes and from all other non-client nodes.
   dfs.namenode.service.handler.count will be valid only if
   dfs.namenode.servicerpc-address is configured.
+  </description>
+</property>
+
+<property>
+  <name>dfs.namenode.lifeline.handler.ratio</name>
+  <value>0.10</value>
+  <description>
+    A ratio applied to the value of dfs.namenode.handler.count, which then
+    provides the number of RPC server threads the NameNode runs for handling the
+    DataNode Lifeline Protocol.  For example, if dfs.namenode.handler.count is
+    100, and dfs.namenode.lifeline.handler.factor is 0.10, then the NameNode
+    starts 100 * 0.10 = 10 threads for handling the DataNode Lifeline Protocol.
+    It is common to tune the value of dfs.namenode.handler.count as a function
+    of the number of DataNodes in a cluster.  Using this property allows for the
+    DataNode Lifeline Protocol handler threads to be tuned automatically without
+    needing to touch a separate property.  Lifeline message processing is
+    lightweight, so it is expected to require many fewer threads than the main
+    NameNode RPC server.  This property is not used if
+    dfs.namenode.lifeline.handler.count is defined, which sets an absolute
+    thread count.  This property has no effect if
+    dfs.namenode.lifeline.rpc-address is not defined.
+  </description>
+</property>
+
+<property>
+  <name>dfs.namenode.lifeline.handler.count</name>
+  <value></value>
+  <description>
+    Sets an absolute number of RPC server threads the NameNode runs for handling
+    the DataNode Lifeline Protocol.  If this property is defined, then it
+    overrides the behavior of dfs.namenode.lifeline.handler.ratio.  By default,
+    it is not defined.  This property has no effect if
+    dfs.namenode.lifeline.rpc-address is not defined.
   </description>
 </property>
 

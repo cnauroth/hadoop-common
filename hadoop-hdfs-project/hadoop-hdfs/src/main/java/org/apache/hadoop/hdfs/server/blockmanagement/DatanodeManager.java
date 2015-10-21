@@ -1475,6 +1475,24 @@ public class DatanodeManager {
   }
 
   /**
+   * Handles a lifeline message sent by a DataNode.
+   *
+   * @param nodeReg registration info for DataNode sending the lifeline
+   * @param reports storage reports from DataNode
+   * @param cacheCapacity cache capacity at DataNode
+   * @param cacheUsed cache used at DataNode
+   * @param xceiverCount estimated count of transfer threads running at DataNode
+   * @param xmitsInProgress count of transfers running at DataNode
+   * @param failedVolumes count of failed volumes at DataNode
+   * @param volumeFailureSummary info on failed volumes at DataNode
+   */
+  public void handleLifeline(DatanodeRegistration nodeReg,
+      StorageReport[] reports, String blockPoolId, long cacheCapacity,
+      long cacheUsed, int xceiverCount, int maxTransfers, int failedVolumes,
+      VolumeFailureSummary volumeFailureSummary) {
+  }
+
+  /**
    * Convert a CachedBlockList into a DatanodeCommand with a list of blocks.
    *
    * @param list       The {@link CachedBlocksList}.  This function 

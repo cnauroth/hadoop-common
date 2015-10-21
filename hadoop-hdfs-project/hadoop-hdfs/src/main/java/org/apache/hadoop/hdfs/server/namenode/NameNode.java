@@ -1,5 +1,5 @@
 /**
- * Licensed to the Apache Software Foundation (ASF) under one
+ * License to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
  * regarding copyright ownership.  The ASF licenses this file
@@ -122,6 +122,8 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_HTTP_BIND_HOST_K
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_KERBEROS_INTERNAL_SPNEGO_PRINCIPAL_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_KERBEROS_PRINCIPAL_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_KEYTAB_FILE_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_LIFELINE_RPC_ADDRESS_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_LIFELINE_RPC_BIND_HOST_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_METRICS_LOGGER_PERIOD_SECONDS_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_METRICS_LOGGER_PERIOD_SECONDS_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_NAME_DIR_KEY;
@@ -494,8 +496,13 @@ public class NameNode implements NameNodeStatusMXBean {
    * @param conf configuration
    * @return address or null
    */
-  protected InetSocketAddress getLifelineRpcServerAddress(Configuration conf) {
-    return null;
+  InetSocketAddress getLifelineRpcServerAddress(Configuration conf) {
+    String addr = getTrimmedOrNull(conf, DFS_NAMENODE_LIFELINE_RPC_ADDRESS_KEY);
+    if (addr == null) {
+      return null;
+    }
+    return NetUtils.createSocketAddr(addr,
+        DFSConfigKeys.DFS_NAMENODE_LIFELINE_RPC_PORT_DEFAULT);
   }
 
   /**
@@ -517,26 +524,33 @@ public class NameNode implements NameNodeStatusMXBean {
    * @param conf configuration
    * @return bind host or null
    */
-  protected String getLifelineRpcServerBindHost(Configuration conf) {
-    return null;
+  String getLifelineRpcServerBindHost(Configuration conf) {
+    return getTrimmedOrNull(conf, DFS_NAMENODE_LIFELINE_RPC_BIND_HOST_KEY);
   }
 
   /** Given a configuration get the bind host of the service rpc server
    *  If the bind host is not configured returns null.
    */
   protected String getServiceRpcServerBindHost(Configuration conf) {
-    String addr = conf.getTrimmed(DFS_NAMENODE_SERVICE_RPC_BIND_HOST_KEY);
-    if (addr == null || addr.isEmpty()) {
-      return null;
-    }
-    return addr;
+    return getTrimmedOrNull(conf, DFS_NAMENODE_SERVICE_RPC_BIND_HOST_KEY);
   }
 
   /** Given a configuration get the bind host of the client rpc server
    *  If the bind host is not configured returns null.
    */
   protected String getRpcServerBindHost(Configuration conf) {
-    String addr = conf.getTrimmed(DFS_NAMENODE_RPC_BIND_HOST_KEY);
+    return getTrimmedOrNull(conf, DFS_NAMENODE_RPC_BIND_HOST_KEY);
+  }
+
+  /**
+   * Gets a trimmed value from configuration, or null if no value is defined.
+   *
+   * @param conf configuration
+   * @param key configuration key to get
+   * @return trimmed value, or null if no value is defined
+   */
+  private static String getTrimmedOrNull(Configuration conf, String key) {
+    String addr = conf.getTrimmed(key);
     if (addr == null || addr.isEmpty()) {
       return null;
     }
@@ -549,8 +563,11 @@ public class NameNode implements NameNodeStatusMXBean {
    * @param conf configuration to modify
    * @param lifelineRPCAddress lifeline RPC address
    */
-  protected void setRpcLifelineServerAddress(Configuration conf,
+  void setRpcLifelineServerAddress(Configuration conf,
       InetSocketAddress lifelineRPCAddress) {
+    LOG.info("Setting DatanodeLifeProtcol RPC address {}", lifelineRPCAddress);
+    conf.set(DFS_NAMENODE_LIFELINE_RPC_ADDRESS_KEY,
+        NetUtils.getHostPortString(lifelineRPCAddress));
   }
 
   /**
