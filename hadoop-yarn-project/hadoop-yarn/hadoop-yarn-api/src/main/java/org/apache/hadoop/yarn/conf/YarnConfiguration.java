@@ -531,6 +531,10 @@ public class YarnConfiguration extends Configuration {
   public static final int
       DEFAULT_CLIENT_FAILOVER_RETRIES_ON_SOCKET_TIMEOUTS = 0;
 
+  /** number of zookeeper operation retry times in ActiveStandbyElector */
+  public static final String RM_HA_FC_ELECTOR_ZK_RETRIES_KEY = RM_HA_PREFIX
+      + "failover-controller.active-standby-elector.zk.retries";
+
   ////////////////////////////////
   // RM state store configs
   ////////////////////////////////
@@ -1150,6 +1154,21 @@ public class YarnConfiguration extends Configuration {
       "KILL",
       "AUDIT_WRITE" };
 
+  /** Allow privileged containers. Use with extreme care. */
+  public static final String NM_DOCKER_ALLOW_PRIVILEGED_CONTAINERS =
+      DOCKER_CONTAINER_RUNTIME_PREFIX + "privileged-containers.allowed";
+
+  /** Privileged containers are disabled by default. */
+  public static final boolean DEFAULT_NM_DOCKER_ALLOW_PRIVILEGED_CONTAINERS =
+      false;
+
+  /** ACL list for users allowed to run privileged containers. */
+  public static final String NM_DOCKER_PRIVILEGED_CONTAINERS_ACL =
+      DOCKER_CONTAINER_RUNTIME_PREFIX + "privileged-containers.acl";
+
+  /** Default list for users allowed to run privileged containers is empty. */
+  public static final String DEFAULT_NM_DOCKER_PRIVILEGED_CONTAINERS_ACL = "";
+
   /** The path to the Linux container executor.*/
   public static final String NM_LINUX_CONTAINER_EXECUTOR_PATH =
     NM_PREFIX + "linux-container-executor.path";
@@ -1509,6 +1528,23 @@ public class YarnConfiguration extends Configuration {
   public static final String TIMELINE_SERVICE_PREFIX =
       YARN_PREFIX + "timeline-service.";
 
+  /**
+   * Comma seperated list of names for UIs hosted in the timeline server
+   * (For pluggable UIs).
+   */
+  public static final String TIMELINE_SERVICE_UI_NAMES =
+      TIMELINE_SERVICE_PREFIX + "ui-names";
+
+  /** Relative web path that will serve up this UI (For pluggable UIs). */
+  public static final String TIMELINE_SERVICE_UI_WEB_PATH_PREFIX =
+      TIMELINE_SERVICE_PREFIX + "ui-web-path.";
+
+  /**
+   * Path to war file or static content directory for this UI
+   * (For pluggable UIs).
+   */
+  public static final String TIMELINE_SERVICE_UI_ON_DISK_PATH_PREFIX =
+      TIMELINE_SERVICE_PREFIX + "ui-on-disk-path.";
 
   // mark app-history related configs @Private as application history is going
   // to be integrated into the timeline service

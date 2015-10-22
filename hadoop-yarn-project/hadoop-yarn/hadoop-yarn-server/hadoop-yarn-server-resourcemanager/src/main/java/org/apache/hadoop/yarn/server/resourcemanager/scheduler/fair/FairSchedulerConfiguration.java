@@ -137,6 +137,11 @@ public class FairSchedulerConfiguration extends Configuration {
       CONF_PREFIX + "update-interval-ms";
   public static final int DEFAULT_UPDATE_INTERVAL_MS = 500;
 
+  /** Ratio of nodes available for an app to make an reservation on. */
+  public static final String RESERVABLE_NODES =
+          CONF_PREFIX + "reservable-nodes";
+  public static final float RESERVABLE_NODES_DEFAULT = 0.05f;
+
   public FairSchedulerConfiguration() {
     super();
   }
@@ -247,6 +252,10 @@ public class FairSchedulerConfiguration extends Configuration {
         YarnConfiguration.DEFAULT_RM_SCHEDULER_USE_PORT_FOR_NODE_NAME);
   }
 
+  public float getReservableNodes() {
+    return getFloat(RESERVABLE_NODES, RESERVABLE_NODES_DEFAULT);
+  }
+
   /**
    * Parses a resource config value of a form like "1024", "1024 mb",
    * or "1024 mb, 3 vcores". If no units are given, megabytes are assumed.
@@ -274,7 +283,7 @@ public class FairSchedulerConfiguration extends Configuration {
   
   private static int findResource(String val, String units)
     throws AllocationConfigurationException {
-    Pattern pattern = Pattern.compile("(\\d+)\\s*" + units);
+    Pattern pattern = Pattern.compile("(\\d+)(\\.\\d*)?\\s*" + units);
     Matcher matcher = pattern.matcher(val);
     if (!matcher.find()) {
       throw new AllocationConfigurationException("Missing resource: " + units);

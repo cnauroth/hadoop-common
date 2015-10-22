@@ -18,6 +18,7 @@
 package org.apache.hadoop.hdfs.server.namenode;
 
 import org.apache.hadoop.HadoopIllegalArgumentException;
+import org.apache.hadoop.fs.InvalidPathException;
 import org.apache.hadoop.fs.PathIsNotDirectoryException;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.fs.UnresolvedLinkException;
@@ -42,7 +43,6 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_ACCESSTIME_PRECISION_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_QUOTA_BY_STORAGETYPE_ENABLED_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_STORAGE_POLICY_ENABLED_KEY;
 
@@ -51,6 +51,9 @@ public class FSDirAttrOp {
       FSDirectory fsd, final String srcArg, FsPermission permission)
       throws IOException {
     String src = srcArg;
+    if (FSDirectory.isExactReservedName(src)) {
+      throw new InvalidPathException(src);
+    }
     FSPermissionChecker pc = fsd.getPermissionChecker();
     byte[][] pathComponents = FSDirectory.getPathComponentsForReservedPath(src);
     INodesInPath iip;
@@ -70,6 +73,9 @@ public class FSDirAttrOp {
   static HdfsFileStatus setOwner(
       FSDirectory fsd, String src, String username, String group)
       throws IOException {
+    if (FSDirectory.isExactReservedName(src)) {
+      throw new InvalidPathException(src);
+    }
     FSPermissionChecker pc = fsd.getPermissionChecker();
     byte[][] pathComponents = FSDirectory.getPathComponentsForReservedPath(src);
     INodesInPath iip;
@@ -97,13 +103,6 @@ public class FSDirAttrOp {
   static HdfsFileStatus setTimes(
       FSDirectory fsd, String src, long mtime, long atime)
       throws IOException {
-    if (!fsd.isAccessTimeSupported() && atime != -1) {
-      throw new IOException(
-          "Access time for hdfs is not configured. " +
-              " Please set " + DFS_NAMENODE_ACCESSTIME_PRECISION_KEY
-              + " configuration parameter.");
-    }
-
     FSPermissionChecker pc = fsd.getPermissionChecker();
     byte[][] pathComponents = FSDirectory.getPathComponentsForReservedPath(src);
 

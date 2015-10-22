@@ -389,6 +389,13 @@
   </property>
 
   <property>
+    <description>When automatic failover is enabled, number of zookeeper
+      operation retry times in ActiveStandbyElector</description>
+    <name>yarn.resourcemanager.ha.failover-controller.active-standby-elector.zk.retries</name>
+    <!--<value>3</value>-->
+  </property>
+
+  <property>
     <description>The maximum number of completed applications RM state
     store keeps, less than or equals to ${yarn.resourcemanager.max-completed-applications}.
     By default, it equals to ${yarn.resourcemanager.max-completed-applications}.
@@ -1429,6 +1436,22 @@
   </property>
 
   <property>
+    <description>This configuration setting determines if
+      privileged docker containers are allowed on this cluster.
+      Use with extreme care.</description>
+    <name>yarn.nodemanager.runtime.linux.docker.privileged-containers.allowed</name>
+    <value>false</value>
+  </property>
+
+  <property>
+    <description>This configuration setting determines who is allowed to run
+      privileged docker containers on this cluster. Use with extreme care.
+    </description>
+    <name>yarn.nodemanager.runtime.linux.docker.privileged-containers.acl</name>
+    <value></value>
+  </property>
+
+  <property>
     <description>This flag determines whether memory limit will be set for the Windows Job
     Object of the containers launched by the default container executor.</description>
     <name>yarn.nodemanager.windows-container.memory-limit.enabled</name>
@@ -1850,6 +1873,12 @@
     <description>The Kerberos keytab for the timeline server.</description>
     <name>yarn.timeline-service.keytab</name>
     <value>/etc/krb5.keytab</value>
+  </property>
+
+  <property>
+    <description>Comma separated list of UIs that will be hosted</description>
+    <name>yarn.timeline-service.ui-names</name>
+    <value></value>
   </property>
 
   <property>

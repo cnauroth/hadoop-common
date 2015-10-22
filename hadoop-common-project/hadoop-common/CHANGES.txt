@@ -243,6 +243,9 @@ Trunk (Unreleased)
 
     HADOOP-12249. pull argument parsing into a function (aw)
 
+    HADOOP-12436. GlobPattern regex library has performance issues with
+    wildcard characters (Matthew Paduano via aw)
+
   BUG FIXES
 
     HADOOP-11473. test-patch says "-1 overall" even when all checks are +1
@@ -894,6 +897,14 @@ Release 2.8.0 - UNRELEASED
     HADOOP-12481. JWTRedirectAuthenticationHandler doesn't Retain Original Query
     String (Larry McCay via cnauroth)
 
+    HADOOP-12460. Add overwrite option for 'get' shell command
+    (Jagadesh Kiran N via vinayakumarb)
+
+    HADOOP-10406. TestIPC.testIpcWithReaderQueuing may fail. (Xiao Chen via wang)
+
+    HADOOP-9692. Improving log message when SequenceFile reader throws
+    EOFException on zero-length file. (Zhe Zhang and Chu Tong via ozawa)
+
   OPTIMIZATIONS
 
     HADOOP-11785. Reduce the number of listStatus operation in distcp
@@ -1243,6 +1254,9 @@ Release 2.8.0 - UNRELEASED
     HADOOP-10941. Proxy user verification NPEs if remote host is unresolvable.
     (Benoy Antony via stevel).
 
+    HADOOP-12483. Maintain wrapped SASL ordering for postponed IPC responses.
+    (Daryn Sharp via yliu)
+
   OPTIMIZATIONS
 
     HADOOP-12051. ProtobufRpcEngine.invoke() should use Exception.toString()
@@ -1318,6 +1332,15 @@ Release 2.8.0 - UNRELEASED
     HADOOP-12474. MiniKMS should use random ports for Jetty server by default.
     (Mingliang Liu via wheat9)
 
+    HADOOP-12418. TestRPC.testRPCInterruptedSimple fails intermittently.
+    (kihwal)
+
+    HADOOP-12334. Change Mode Of Copy Operation of HBase WAL Archiving to bypass
+    Azure Storage Throttling after retries. (Gaurav Kanade via cnauroth)
+
+    HADOOP-12484. Single File Rename Throws Incorrectly In Potential Race
+    Condition Scenarios. (Gaurav Kanade via cnauroth)
+
 Release 2.7.2 - UNRELEASED
 
   INCOMPATIBLE CHANGES
@@ -1358,6 +1381,8 @@ Release 2.7.2 - UNRELEASED
 
     HADOOP-12465. Incorrect javadoc in WritableUtils.java.
     (Jagadesh Kiran N via aajisaka)
+
+    HADOOP-12464. Interrupted client may try to fail-over and retry (kihwal)
 
 Release 2.7.1 - 2015-07-06 
 
