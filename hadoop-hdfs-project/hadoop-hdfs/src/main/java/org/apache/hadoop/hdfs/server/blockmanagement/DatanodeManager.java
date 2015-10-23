@@ -1482,6 +1482,7 @@ public class DatanodeManager {
       StorageReport[] reports, String blockPoolId, long cacheCapacity,
       long cacheUsed, int xceiverCount, int maxTransfers, int failedVolumes,
       VolumeFailureSummary volumeFailureSummary) {
+    LOG.info("received handleLifeline from nodeReg = " + nodeReg);
   }
 
   /**

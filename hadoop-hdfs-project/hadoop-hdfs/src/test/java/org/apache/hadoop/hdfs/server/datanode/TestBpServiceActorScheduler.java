@@ -146,7 +146,8 @@ public class TestBpServiceActorScheduler {
 
   private Scheduler makeMockScheduler(long now) {
     LOG.info("Using now = " + now);
-    Scheduler mockScheduler = spy(new Scheduler(HEARTBEAT_INTERVAL_MS, BLOCK_REPORT_INTERVAL_MS));
+    Scheduler mockScheduler = spy(new Scheduler(HEARTBEAT_INTERVAL_MS,
+        3 * HEARTBEAT_INTERVAL_MS, BLOCK_REPORT_INTERVAL_MS));
     doReturn(now).when(mockScheduler).monotonicNow();
     mockScheduler.nextBlockReportTime = now;
     mockScheduler.nextHeartbeatTime = now;

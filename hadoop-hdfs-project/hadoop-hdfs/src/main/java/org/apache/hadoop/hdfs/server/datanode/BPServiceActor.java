@@ -19,6 +19,7 @@ package org.apache.hadoop.hdfs.server.datanode;
 
 import static org.apache.hadoop.util.Time.monotonicNow;
 
+import java.io.Closeable;
 import java.io.EOFException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -28,6 +29,7 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -42,6 +44,7 @@ import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.protocol.RollingUpgradeStatus;
 import org.apache.hadoop.hdfs.protocol.UnregisteredNodeException;
+import org.apache.hadoop.hdfs.protocolPB.DatanodeLifelineProtocolClientSideTranslatorPB;
 import org.apache.hadoop.hdfs.protocolPB.DatanodeProtocolClientSideTranslatorPB;
 import org.apache.hadoop.hdfs.server.common.IncorrectVersionException;
 import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
@@ -96,6 +99,9 @@ class BPServiceActor implements Runnable {
 
   private volatile RunningState runningState = RunningState.CONNECTING;
 
+  private final CountDownLatch initialRegistrationComplete;
+  private final LifelineSender lifelineSender;
+
   /**
    * Between block reports (which happen on the order of once an hour) the
    * DN reports smaller incremental changes to its block list. This map,
@@ -118,13 +124,19 @@ class BPServiceActor implements Runnable {
   final LinkedList<BPServiceActorAction> bpThreadQueue 
       = new LinkedList<BPServiceActorAction>();
 
-  BPServiceActor(InetSocketAddress nnAddr, BPOfferService bpos) {
+  BPServiceActor(InetSocketAddress nnAddr, InetSocketAddress lifelineNnAddr,
+      BPOfferService bpos) {
     this.bpos = bpos;
     this.dn = bpos.getDataNode();
     this.nnAddr = nnAddr;
+    this.lifelineSender = lifelineNnAddr != null ?
+        new LifelineSender(lifelineNnAddr) : null;
+    this.initialRegistrationComplete = lifelineNnAddr != null ?
+        new CountDownLatch(1) : null;
     this.dnConf = dn.getDnConf();
     prevBlockReportId = ThreadLocalRandom.current().nextLong();
-    scheduler = new Scheduler(dnConf.heartBeatInterval, dnConf.blockReportInterval);
+    scheduler = new Scheduler(dnConf.heartBeatInterval,
+        dnConf.getLifelineIntervalMs(), dnConf.blockReportInterval);
   }
 
   boolean isAlive() {
@@ -566,29 +578,39 @@ class BPServiceActor implements Runnable {
       //Thread is started already
       return;
     }
-    bpThread = new Thread(this, formatThreadName());
+    bpThread = new Thread(this, formatThreadName("heartbeating", nnAddr));
     bpThread.setDaemon(true); // needed for JUnit testing
     bpThread.start();
+
+    if (lifelineSender != null) {
+      lifelineSender.start();
+    }
   }
   
-  private String formatThreadName() {
+  private String formatThreadName(String action, InetSocketAddress addr) {
     Collection<StorageLocation> dataDirs =
         DataNode.getStorageLocations(dn.getConf());
-    return "DataNode: [" + dataDirs.toString() + "] " +
-      " heartbeating to " + nnAddr;
+    return "DataNode: [" + dataDirs.toString() + "]  " +
+        action + " to " + addr;
   }
   
   //This must be called only by blockPoolManager.
   void stop() {
     shouldServiceRun = false;
+    if (lifelineSender != null) {
+      lifelineSender.stop();
+    }
     if (bpThread != null) {
-        bpThread.interrupt();
+      bpThread.interrupt();
     }
   }
   
   //This must be called only by blockPoolManager
   void join() {
     try {
+      if (lifelineSender != null) {
+        lifelineSender.join();
+      }
       if (bpThread != null) {
         bpThread.join();
       }
@@ -600,6 +622,7 @@ class BPServiceActor implements Runnable {
     
     shouldServiceRun = false;
     IOUtils.cleanup(LOG, bpNamenode);
+    IOUtils.cleanup(LOG, lifelineSender);
     bpos.shutdownActor(this);
   }
 
@@ -626,7 +649,9 @@ class BPServiceActor implements Runnable {
         + " BLOCKREPORT_INTERVAL of " + dnConf.blockReportInterval + "msec"
         + " CACHEREPORT_INTERVAL of " + dnConf.cacheReportInterval + "msec"
         + " Initial delay: " + dnConf.initialBlockReportDelayMs + "msec"
-        + "; heartBeatInterval=" + dnConf.heartBeatInterval);
+        + "; heartBeatInterval=" + dnConf.heartBeatInterval
+        + lifelineSender != null ?
+            "; lifelineIntervalMs=" + dnConf.getLifelineIntervalMs() : "");
     long fullBlockReportLeaseId = 0;
 
     //
@@ -841,6 +866,9 @@ class BPServiceActor implements Runnable {
       }
 
       runningState = RunningState.RUNNING;
+      if (initialRegistrationComplete != null) {
+        initialRegistrationComplete.countDown();
+      }
 
       while (shouldRun()) {
         try {
@@ -1021,6 +1049,111 @@ class BPServiceActor implements Runnable {
     return scheduler;
   }
 
+  private final class LifelineSender implements Runnable, Closeable {
+
+    private final InetSocketAddress lifelineNnAddr;
+    private Thread lifelineThread;
+    private DatanodeLifelineProtocolClientSideTranslatorPB lifelineNamenode;
+
+    public LifelineSender(InetSocketAddress lifelineNnAddr) {
+      this.lifelineNnAddr = lifelineNnAddr;
+    }
+
+    @Override
+    public void close() {
+      IOUtils.cleanup(LOG, lifelineNamenode);
+    }
+
+    @Override
+    public void run() {
+      try {
+        initialRegistrationComplete.await();
+      } catch (InterruptedException e) {
+        LOG.warn("LifelineSender for " + BPServiceActor.this +
+            " interrupted while waiting for initial DataNode registration");
+        Thread.currentThread().interrupt();
+        return;
+      }
+
+      while (shouldRun()) {
+        try {
+          if (lifelineNamenode == null) {
+            lifelineNamenode = dn.connectToLifelineNN(lifelineNnAddr);
+          }
+          sendLifelineIfDue();
+          Thread.sleep(scheduler.getLifelineWaitTime());
+        } catch (InterruptedException e) {
+          LOG.warn("LifelineSender for " + BPServiceActor.this +
+              " interrupted while waiting for initial DataNode registration");
+          Thread.currentThread().interrupt();
+        } catch (IOException e) {
+          LOG.warn("IOException in LifelineSender for " + BPServiceActor.this, e);
+        }
+      }
+    }
+
+    public void start() {
+      lifelineThread = new Thread(this, formatThreadName("lifeline",
+          lifelineNnAddr));
+      lifelineThread.setDaemon(true);
+      lifelineThread.start();
+    }
+
+    public void stop() {
+      if (lifelineThread != null) {
+        lifelineThread.interrupt();
+      }
+    }
+
+    public void join() throws InterruptedException {
+      if (lifelineThread != null) {
+        lifelineThread.join();
+      }
+    }
+
+    private void sendLifelineIfDue() throws IOException {
+      long startTime = scheduler.monotonicNow();
+      if (!scheduler.isLifelineDue(startTime)) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Skipping sending lifeline for " + BPServiceActor.this
+              + ", because it is not due.");
+        }
+        return;
+      }
+      if (dn.areHeartbeatsDisabledForTests()) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Skipping sending lifeline for " + BPServiceActor.this
+              + ", because heartbeats are disabled for tests.");
+        }
+        return;
+      }
+      sendLifeline();
+      // dn.getMetrics().addHeartbeat(scheduler.monotonicNow() - startTime); TODO
+      scheduler.scheduleNextLifeline(scheduler.monotonicNow());
+    }
+
+    private void sendLifeline() throws IOException {
+      StorageReport[] reports =
+          dn.getFSDataset().getStorageReports(bpos.getBlockPoolId());
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Sending lifeline with " + reports.length +
+                  " storage reports from service actor: " + BPServiceActor.this);
+      }
+      VolumeFailureSummary volumeFailureSummary = dn.getFSDataset()
+          .getVolumeFailureSummary();
+      int numFailedVolumes = volumeFailureSummary != null ?
+          volumeFailureSummary.getFailedStorageLocations().length : 0;
+      lifelineNamenode.sendLifeline(bpRegistration,
+                                    reports,
+                                    dn.getFSDataset().getCacheCapacity(),
+                                    dn.getFSDataset().getCacheUsed(),
+                                    dn.getXmitsInProgress(),
+                                    dn.getXceiverCount(),
+                                    numFailedVolumes,
+                                    volumeFailureSummary);
+    }
+  }
+
   /**
    * Utility class that wraps the timestamp computations for scheduling
    * heartbeats and block reports.
@@ -1036,16 +1169,22 @@ class BPServiceActor implements Runnable {
     volatile long nextHeartbeatTime = monotonicNow();
 
     @VisibleForTesting
+    volatile long nextLifelineTime = monotonicNow();
+
+    @VisibleForTesting
     boolean resetBlockReportTime = true;
 
     private final AtomicBoolean forceFullBlockReport =
         new AtomicBoolean(false);
 
     private final long heartbeatIntervalMs;
+    private final long lifelineIntervalMs;
     private final long blockReportIntervalMs;
 
-    Scheduler(long heartbeatIntervalMs, long blockReportIntervalMs) {
+    Scheduler(long heartbeatIntervalMs, long lifelineIntervalMs,
+        long blockReportIntervalMs) {
       this.heartbeatIntervalMs = heartbeatIntervalMs;
+      this.lifelineIntervalMs = lifelineIntervalMs;
       this.blockReportIntervalMs = blockReportIntervalMs;
     }
 
@@ -1059,17 +1198,29 @@ class BPServiceActor implements Runnable {
     //    Blockreport.
     long scheduleHeartbeat() {
       nextHeartbeatTime = monotonicNow();
+      scheduleNextLifeline(nextHeartbeatTime);
       return nextHeartbeatTime;
     }
 
     long scheduleNextHeartbeat() {
       // Numerical overflow is possible here and is okay.
       nextHeartbeatTime += heartbeatIntervalMs;
+      scheduleNextLifeline(nextHeartbeatTime);
       return nextHeartbeatTime;
+    }
+
+    long scheduleNextLifeline(long baseTime) {
+      // Numerical overflow is possible here and is okay.
+      nextLifelineTime = baseTime + lifelineIntervalMs;
+      return nextLifelineTime;
     }
 
     boolean isHeartbeatDue(long startTime) {
       return (nextHeartbeatTime - startTime <= 0);
+    }
+
+    boolean isLifelineDue(long startTime) {
+      return (nextLifelineTime - startTime <= 0);
     }
 
     boolean isBlockReportDue(long curTime) {
@@ -1125,6 +1276,10 @@ class BPServiceActor implements Runnable {
 
     long getHeartbeatWaitTime() {
       return nextHeartbeatTime - monotonicNow();
+    }
+
+    long getLifelineWaitTime() {
+      return nextLifelineTime - monotonicNow();
     }
 
     /**
