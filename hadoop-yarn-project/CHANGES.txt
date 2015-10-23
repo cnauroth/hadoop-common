@@ -531,6 +531,9 @@ Release 2.8.0 - UNRELEASED
     YARN-4243. Add retry on establishing Zookeeper conenction in 
     EmbeddedElectorService#serviceInit. (Xuan Gong via junping_du)
 
+    YARN-2913. Fair scheduler should have ability to set MaxResourceDefault for
+    each queue. (Siqi Li via mingma)
+
   OPTIMIZATIONS
 
     YARN-3339. TestDockerContainerExecutor should pull a single image and not
@@ -988,6 +991,8 @@ Release 2.7.2 - UNRELEASED
 
   IMPROVEMENTS
 
+    YARN-4009. CORS support for ResourceManager REST API. ( Varun Vasudev via jeagles)
+
     YARN-3170. YARN architecture document needs updating. (Brahma Reddy Battula
     via ozawa)
 
@@ -1070,6 +1075,9 @@ Release 2.7.2 - UNRELEASED
 
     YARN-4209. RMStateStore FENCED state doesn’t work due to updateFencedState called 
     by stateMachine.doTransition. (Zhihai Xu via rohithsharmaks)
+
+    YARN-4041. Slow delegation token renewal can severely prolong RM recovery
+    (Sunil G via jlowe)
 
 Release 2.7.1 - 2015-07-06
 
