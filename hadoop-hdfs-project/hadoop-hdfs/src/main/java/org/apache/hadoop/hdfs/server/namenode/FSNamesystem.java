@@ -3660,10 +3660,12 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    * @param xmitsInProgress count of transfers running at DataNode
    * @param failedVolumes count of failed volumes at DataNode
    * @param volumeFailureSummary info on failed volumes at DataNode
+   * @throws IOException if there is an error
    */
   void handleLifeline(DatanodeRegistration nodeReg, StorageReport[] reports,
       long cacheCapacity, long cacheUsed, int xceiverCount, int xmitsInProgress,
-      int failedVolumes, VolumeFailureSummary volumeFailureSummary) {
+      int failedVolumes, VolumeFailureSummary volumeFailureSummary)
+      throws IOException {
     int maxTransfer = blockManager.getMaxReplicationStreams() - xmitsInProgress;
     blockManager.getDatanodeManager().handleLifeline(nodeReg, reports,
         blockPoolId, cacheCapacity, cacheUsed, xceiverCount, maxTransfer,
