@@ -356,6 +356,8 @@ class NameNodeRpcServer implements NamenodeProtocols {
 
     InetSocketAddress lifelineRpcAddr = nn.getLifelineRpcServerAddress(conf);
     if (lifelineRpcAddr != null) {
+      RPC.setProtocolEngine(conf, DatanodeLifelineProtocolPB.class,
+                            ProtobufRpcEngine.class);
       String bindHost = nn.getLifelineRpcServerBindHost(conf);
       if (bindHost == null) {
         bindHost = lifelineRpcAddr.getHostName();
@@ -382,9 +384,6 @@ class NameNodeRpcServer implements NamenodeProtocols {
           .setVerbose(false)
           .setSecretManager(namesystem.getDelegationTokenSecretManager())
           .build();
-
-      DFSUtil.addPBProtocol(conf, DatanodeLifelineProtocolPB.class,
-          lifelineProtoPbService, lifelineRpcServer);
 
       // Update the address with the correct port
       InetSocketAddress listenAddr = lifelineRpcServer.getListenerAddress();
