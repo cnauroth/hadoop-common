@@ -1128,7 +1128,7 @@ class BPServiceActor implements Runnable {
         return;
       }
       sendLifeline();
-      // dn.getMetrics().addHeartbeat(scheduler.monotonicNow() - startTime); TODO
+      dn.getMetrics().addLifeline(scheduler.monotonicNow() - startTime);
       scheduler.scheduleNextLifeline(scheduler.monotonicNow());
     }
 
