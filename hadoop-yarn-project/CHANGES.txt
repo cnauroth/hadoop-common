@@ -534,6 +534,12 @@ Release 2.8.0 - UNRELEASED
     YARN-2913. Fair scheduler should have ability to set MaxResourceDefault for
     each queue. (Siqi Li via mingma)
 
+    YARN-4296. DistributedShell Log.info is not friendly.
+    (Xiaowei Wang via stevel)
+
+    YARN-3738. Add support for recovery of reserved apps running under dynamic
+    queues (subru via asuresh)
+
   OPTIMIZATIONS
 
     YARN-3339. TestDockerContainerExecutor should pull a single image and not
@@ -982,6 +988,12 @@ Release 2.8.0 - UNRELEASED
     specific requests (asuresh)
 
     YARN-4256. YARN fair scheduler vcores with decimal values. (Jun Gong via zxu)
+
+    YARN-4294. [JDK8] Fix javadoc errors caused by wrong reference and illegal
+    tag. (aajisaka)
+
+    YARN-4289. TestDistributedShell failing with bind exception.
+    (Brahma Reddy Battula via stevel)
 
 Release 2.7.2 - UNRELEASED
 
