@@ -385,6 +385,9 @@ class NameNodeRpcServer implements NamenodeProtocols {
           .setSecretManager(namesystem.getDelegationTokenSecretManager())
           .build();
 
+      DFSUtil.addPBProtocol(conf, HAServiceProtocolPB.class, haPbService,
+          lifelineRpcServer);
+
       // Update the address with the correct port
       InetSocketAddress listenAddr = lifelineRpcServer.getListenerAddress();
       lifelineRPCAddress = new InetSocketAddress(lifelineRpcAddr.getHostName(),

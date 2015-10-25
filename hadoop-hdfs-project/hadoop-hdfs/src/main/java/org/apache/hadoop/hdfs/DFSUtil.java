@@ -607,6 +607,28 @@ public class DFSUtil {
   }
 
   /**
+   * Map a logical namenode ID to its lifeline address.  Use the given
+   * nameservice if specified, or the configured one if none is given.
+   *
+   * @param conf Configuration
+   * @param nsId which nameservice nnId is a part of, optional
+   * @param nnId the namenode ID to get the service addr for
+   * @return the lifeline addr, null if it could not be determined
+   */
+  public static String getNamenodeLifelineAddr(final Configuration conf,
+      String nsId, String nnId) {
+
+    if (nsId == null) {
+      nsId = getOnlyNameServiceIdOrNull(conf);
+    }
+
+    String lifelineAddrKey = DFSUtilClient.concatSuffixes(
+        DFSConfigKeys.DFS_NAMENODE_LIFELINE_RPC_ADDRESS_KEY, nsId, nnId);
+
+    return conf.get(lifelineAddrKey);
+  }
+
+  /**
    * Flatten the given map, as returned by other functions in this class,
    * into a flat list of {@link ConfiguredNNAddress} instances.
    */
