@@ -218,7 +218,7 @@ class NameNodeRpcServer implements NamenodeProtocols {
   private final RPC.Server serviceRpcServer;
   private final InetSocketAddress serviceRPCAddress;
 
-  /** The RPC server that listens to lifeline requests from DataNodes */
+  /** The RPC server that listens to lifeline requests */
   private final RPC.Server lifelineRpcServer;
   private final InetSocketAddress lifelineRPCAddress;
   
@@ -487,7 +487,13 @@ class NameNodeRpcServer implements NamenodeProtocols {
     if (lifelineRpcServer != null) {
       lifelineRpcServer.setTracer(nn.tracer);
     }
- }
+  }
+
+  /** Allow access to the lifeline RPC server for testing */
+  @VisibleForTesting
+  RPC.Server getLifelineRpcServer() {
+    return lifelineRpcServer;
+  }
 
   /** Allow access to the client RPC server for testing */
   @VisibleForTesting
