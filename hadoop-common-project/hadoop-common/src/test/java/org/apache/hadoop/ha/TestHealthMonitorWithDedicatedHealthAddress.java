@@ -21,6 +21,10 @@ import java.net.InetSocketAddress;
 
 import org.apache.hadoop.ha.HAServiceProtocol.HAServiceState;
 
+/**
+ * Repeats all tests of {@link TestHealthMonitor}, but using a separate
+ * dedicated health check RPC address.
+ */
 public class TestHealthMonitorWithDedicatedHealthAddress
     extends TestHealthMonitor {
 
