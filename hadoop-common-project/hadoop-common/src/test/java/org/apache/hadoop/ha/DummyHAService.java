@@ -52,7 +52,7 @@ class DummyHAService extends HAServiceTarget {
   HAServiceProtocol proxy;
   ZKFCProtocol zkfcProxy = null;
   NodeFencer fencer;
-  InetSocketAddress address;
+  InetSocketAddress address, healthMonitorAddress;
   boolean isHealthy = true;
   boolean actUnreachable = false;
   boolean failToBecomeActive, failToBecomeStandby, failToFence;
@@ -90,6 +90,17 @@ class DummyHAService extends HAServiceTarget {
     synchronized (instances) {
       instances.add(this);
       this.index = instances.size();
+    }
+  }
+
+  DummyHAService(HAServiceState state, InetSocketAddress address,
+        InetSocketAddress healthMonitorAddress, boolean testWithProtoBufRPC) {
+    this(state, address, testWithProtoBufRPC);
+    if (testWithProtoBufRPC) {
+      this.healthMonitorAddress = startAndGetRPCServerAddress(
+          healthMonitorAddress);
+    } else {
+      this.healthMonitorAddress = healthMonitorAddress;
     }
   }
   
@@ -137,6 +148,11 @@ class DummyHAService extends HAServiceTarget {
   @Override
   public InetSocketAddress getAddress() {
     return address;
+  }
+
+  @Override
+  public InetSocketAddress getHealthMonitorAddress() {
+    return healthMonitorAddress;
   }
 
   @Override
