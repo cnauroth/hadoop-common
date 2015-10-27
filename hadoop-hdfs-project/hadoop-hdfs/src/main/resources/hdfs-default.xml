@@ -709,34 +709,14 @@
 </property>
 
 <property>
-  <name>dfs.namenode.lifeline.handler.ratio</name>
-  <value>0.10</value>
-  <description>
-    A ratio applied to the value of dfs.namenode.handler.count, which then
-    provides the number of RPC server threads the NameNode runs for handling the
-    lifeline RPC server.  For example, if dfs.namenode.handler.count is 100, and
-    dfs.namenode.lifeline.handler.factor is 0.10, then the NameNode starts
-    100 * 0.10 = 10 threads for handling the lifeline RPC server.  It is common
-    to tune the value of dfs.namenode.handler.count as a function of cluster
-    size.  Using this property allows for the lifeline RPC handler threads to be
-    tuned automatically without needing to touch a separate property.  Lifeline
-    message processing is lightweight, so it is expected to require many fewer
-    threads than the main NameNode RPC server.  This property is not used if
-    dfs.namenode.lifeline.handler.count is defined, which sets an absolute
-    handler count.  This property has no effect if
-    dfs.namenode.lifeline.rpc-address is not defined.
-  </description>
-</property>
-
-<property>
   <name>dfs.namenode.lifeline.handler.count</name>
-  <value></value>
+  <value>1</value>
   <description>
-    Sets an absolute number of RPC server threads the NameNode runs for handling
-    the lifelinen RPC server.  If this property is defined, then it overrides
-    the behavior of dfs.namenode.lifeline.handler.ratio.  By default, it is not
-    defined.  This property has no effect if dfs.namenode.lifeline.rpc-address
-    is not defined.
+    Sets number of RPC server threads the NameNode runs for handling the
+    lifeline RPC server.  The default value is 1, because this RPC server
+    handles only HA health check requests from ZKFC.  These are lightweight
+    requests that run single-threaded from the ZKFC client side.  This property
+    has no effect if dfs.namenode.lifeline.rpc-address is not defined.
   </description>
 </property>
 

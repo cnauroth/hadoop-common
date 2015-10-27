@@ -19,9 +19,8 @@ package org.apache.hadoop.hdfs.server.namenode;
 
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_HANDLER_COUNT_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_HANDLER_COUNT_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_LIFELINE_HANDLER_COUNT_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_LIFELINE_HANDLER_COUNT_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_LIFELINE_HANDLER_RATIO_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_LIFELINE_HANDLER_RATIO_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_SERVICE_HANDLER_COUNT_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_SERVICE_HANDLER_COUNT_KEY;
 import static org.apache.hadoop.hdfs.server.common.HdfsServerConstants.MAX_PATH_DEPTH;
@@ -358,14 +357,9 @@ class NameNodeRpcServer implements NamenodeProtocols {
           lifelineRpcAddr.getPort());
 
       int lifelineHandlerCount = conf.getInt(
-          DFS_NAMENODE_LIFELINE_HANDLER_COUNT_KEY, 0);
-      if (lifelineHandlerCount <= 0) {
-        float lifelineHandlerRatio = conf.getFloat(
-            DFS_NAMENODE_LIFELINE_HANDLER_RATIO_KEY,
-            DFS_NAMENODE_LIFELINE_HANDLER_RATIO_DEFAULT);
-        lifelineHandlerCount = Math.max(
-            (int)(handlerCount * lifelineHandlerRatio), 1);
-      }
+          DFS_NAMENODE_LIFELINE_HANDLER_COUNT_KEY,
+          DFS_NAMENODE_LIFELINE_HANDLER_COUNT_DEFAULT);
+
       lifelineRpcServer = new RPC.Builder(conf)
           .setProtocol(HAServiceProtocolPB.class)
           .setInstance(haPbService)
