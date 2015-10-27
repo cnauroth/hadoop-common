@@ -566,7 +566,7 @@ public class NameNode implements NameNodeStatusMXBean {
    */
   void setRpcLifelineServerAddress(Configuration conf,
       InetSocketAddress lifelineRPCAddress) {
-    LOG.info("Setting DatanodeLifeProtcol RPC address {}", lifelineRPCAddress);
+    LOG.info("Setting lifeline RPC address {}", lifelineRPCAddress);
     conf.set(DFS_NAMENODE_LIFELINE_RPC_ADDRESS_KEY,
         NetUtils.getHostPortString(lifelineRPCAddress));
   }
