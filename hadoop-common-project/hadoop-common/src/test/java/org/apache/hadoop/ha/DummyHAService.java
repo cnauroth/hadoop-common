@@ -104,7 +104,7 @@ class DummyHAService extends HAServiceTarget {
       this.healthMonitorAddress = healthMonitorAddress;
     }
   }
-  
+
   public void setSharedResource(DummySharedResource rsrc) {
     this.sharedResource = rsrc;
   }
