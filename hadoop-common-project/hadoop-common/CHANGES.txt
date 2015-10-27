@@ -513,6 +513,9 @@ Trunk (Unreleased)
     HADOOP-12364. Deleting pid file after stop is causing the daemons to
     keep restarting (Siqi Li via aw)
 
+    HADOOP-12515. Mockito dependency is missing in hadoop-kafka module.
+    (Kai Zheng via aajisaka)
+
   OPTIMIZATIONS
 
     HADOOP-7761. Improve the performance of raw comparisons. (todd)
@@ -1264,6 +1267,12 @@ Release 2.8.0 - UNRELEASED
 
     HADOOP-12513. Dockerfile lacks initial 'apt-get update'.
     (Akihiro Suda via ozawa)
+
+    HADOOP-12457. [JDK8] Fix a failure of compiling common by javadoc.
+    (Akira AJISAKA via ozawa)
+
+    HADOOP-12178. NPE during handling of SASL setup if problem with SASL
+    resolver class. (Steve Loughran via zxu)
 
   OPTIMIZATIONS
 

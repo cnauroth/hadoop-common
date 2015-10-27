@@ -546,6 +546,9 @@ Release 2.8.0 - UNRELEASED
     YARN-4285. Display resource usage as percentage of queue and cluster in the
     RM UI (Varun Vasudev via wangda)
 
+    YARN-3216. Max-AM-Resource-Percentage should respect node labels. 
+    (Sunil G via wangda)
+
   OPTIMIZATIONS
 
     YARN-3339. TestDockerContainerExecutor should pull a single image and not
@@ -1013,6 +1016,17 @@ Release 2.8.0 - UNRELEASED
 
     YARN-4284. condition for AM blacklisting is too narrow (Sangjin Lee via
     jlowe)
+
+    YARN-4169. Fix racing condition of TestNodeStatusUpdaterForLabels. 
+    (Naganarasimha G R via wangda)
+
+    YARN-4300. [JDK8] Fix javadoc errors caused by wrong tags. (aajisaka)
+
+    YARN-3573. MiniMRYarnCluster constructor that starts the timeline server
+    using a boolean should be marked deprecated. (Brahma Reddy Battula via ozawa)
+
+    YARN-4302. SLS not able start due to NPE in SchedulerApplicationAttempt
+    (Bibin A Chundatt via vvasudev)
 
 Release 2.7.2 - UNRELEASED
 
