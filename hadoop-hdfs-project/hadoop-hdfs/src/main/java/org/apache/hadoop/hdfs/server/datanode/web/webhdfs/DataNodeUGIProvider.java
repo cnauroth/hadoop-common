@@ -24,6 +24,7 @@ import org.apache.hadoop.ipc.Client;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
@@ -41,7 +42,9 @@ import java.util.concurrent.TimeUnit;
  */
 class DataNodeUGIProvider {
   private final ParameterParser params;
-  private static Cache<String, UserGroupInformation> ugiCache;
+
+  @VisibleForTesting
+  static Cache<String, UserGroupInformation> ugiCache;
   public static final Log LOG = LogFactory.getLog(Client.class);
 
   DataNodeUGIProvider(ParameterParser params, Configuration conf) {

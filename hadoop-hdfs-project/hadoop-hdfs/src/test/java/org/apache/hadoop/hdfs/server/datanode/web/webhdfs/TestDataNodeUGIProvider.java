@@ -47,9 +47,11 @@ import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.SecurityUtil;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
+import org.apache.hadoop.test.GenericTestUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.google.common.base.Supplier;
 import com.google.common.collect.Lists;
 
 public class TestDataNodeUGIProvider {
@@ -118,7 +120,7 @@ public class TestDataNodeUGIProvider {
         "With UGI cache, two UGIs for the different token should not be same",
         ugi11, url22);
 
-    Thread.sleep(EXPIRE_AFTER_ACCESS);
+    awaitCacheEmptyDueToExpiration();
     ugi12 = ugiProvider1.ugi();
     url22 = ugiProvider2.ugi();
 
@@ -180,7 +182,7 @@ public class TestDataNodeUGIProvider {
         "With UGI cache, two UGIs for the different user should not be same",
         ugi11, url22);
 
-    Thread.sleep(EXPIRE_AFTER_ACCESS);
+    awaitCacheEmptyDueToExpiration();
     ugi12 = ugiProvider1.ugi();
     url22 = ugiProvider2.ugi();
 
@@ -197,6 +199,16 @@ public class TestDataNodeUGIProvider {
     Assert.assertNotEquals(
         "With UGI cache, two UGIs for the different user should not be same",
         ugi11, url22);
+  }
+
+  private void awaitCacheEmptyDueToExpiration() throws Exception {
+    GenericTestUtils.waitFor(new Supplier<Boolean>() {
+        @Override
+        public Boolean get() {
+          DataNodeUGIProvider.ugiCache.cleanUp();
+          return DataNodeUGIProvider.ugiCache.size() == 0;
+        }
+      }, EXPIRE_AFTER_ACCESS, 10 * EXPIRE_AFTER_ACCESS);
   }
 
   private WebHdfsFileSystem getWebHdfsFileSystem(UserGroupInformation ugi,
