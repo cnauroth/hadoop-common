@@ -82,15 +82,14 @@
   <name>dfs.namenode.lifeline.rpc-address</name>
   <value></value>
   <description>
-    NameNode RPC address that handles the DataNode Lifeline Protocol.  The
-    DataNode Lifeline Protocol reports liveness of DataNodes to the NameNode in
-    the event that normal heartbeat processing gets delayed unexpectedly.  In
-    the case of HA/Federation where multiple NameNodes exist, the name service
-    ID is added to the name e.g. dfs.namenode.lifeline.rpc-address.ns1.  The
-    value of this property will take the form of nn-host1:rpc-port.  If this
-    property is not defined, then the NameNode will not start an RPC server to
-    respond to DataNode lifeline messages, and the DataNode will not attempt to
-    send lifeline messages.  By default, the property is not defined.
+    NameNode RPC lifeline address.  This is an optional separate RPC address
+    that can be used to isolate health checks and liveness to protect against
+    resource exhaustion in the main RPC handler pool.  In the case of
+    HA/Federation where multiple NameNodes exist, the name service ID is added
+    to the name e.g. dfs.namenode.lifeline.rpc-address.ns1.  The value of this
+    property will take the form of nn-host1:rpc-port.  If this property is not
+    defined, then the NameNode will not start a lifeline RPC server.  By
+    default, the property is not defined.
   </description>
 </property>
 
@@ -302,6 +301,15 @@
   <description>Decide if chooseTarget considers the target's load or not
   </description>
 </property>
+
+  <property>
+    <name>dfs.namenode.replication.considerLoad.factor</name>
+    <value>2.0</value>
+    <description>The factor by which a node's load can exceed the average
+      before being rejected for writes, only if considerLoad is true.
+    </description>
+  </property>
+
 <property>
   <name>dfs.default.chunk.view.size</name>
   <value>32768</value>
@@ -730,17 +738,16 @@
   <description>
     A ratio applied to the value of dfs.namenode.handler.count, which then
     provides the number of RPC server threads the NameNode runs for handling the
-    DataNode Lifeline Protocol.  For example, if dfs.namenode.handler.count is
-    100, and dfs.namenode.lifeline.handler.factor is 0.10, then the NameNode
-    starts 100 * 0.10 = 10 threads for handling the DataNode Lifeline Protocol.
-    It is common to tune the value of dfs.namenode.handler.count as a function
-    of the number of DataNodes in a cluster.  Using this property allows for the
-    DataNode Lifeline Protocol handler threads to be tuned automatically without
-    needing to touch a separate property.  Lifeline message processing is
-    lightweight, so it is expected to require many fewer threads than the main
-    NameNode RPC server.  This property is not used if
-    dfs.namenode.lifeline.handler.count is defined, which sets an absolute
-    thread count.  This property has no effect if
+    lifeline RPC server.  For example, if dfs.namenode.handler.count is 100, and
+    dfs.namenode.lifeline.handler.factor is 0.10, then the NameNode starts
+    100 * 0.10 = 10 threads for handling the lifeline RPC server.  It is common
+    to tune the value of dfs.namenode.handler.count as a function of the number
+    of DataNodes in a cluster.  Using this property allows for the lifeline RPC
+    server handler threads to be tuned automatically without needing to touch a
+    separate property.  Lifeline message processing is lightweight, so it is
+    expected to require many fewer threads than the main NameNode RPC server.
+    This property is not used if dfs.namenode.lifeline.handler.count is defined,
+    which sets an absolute thread count.  This property has no effect if
     dfs.namenode.lifeline.rpc-address is not defined.
   </description>
 </property>
@@ -749,11 +756,11 @@
   <name>dfs.namenode.lifeline.handler.count</name>
   <value></value>
   <description>
-    Sets an absolute number of RPC server threads the NameNode runs for handling
-    the DataNode Lifeline Protocol.  If this property is defined, then it
-    overrides the behavior of dfs.namenode.lifeline.handler.ratio.  By default,
-    it is not defined.  This property has no effect if
-    dfs.namenode.lifeline.rpc-address is not defined.
+    Sets number of RPC server threads the NameNode runs for handling the
+    lifeline RPC server.  The default value is 1, because this RPC server
+    handles only HA health check requests from ZKFC.  These are lightweight
+    requests that run single-threaded from the ZKFC client side.  This property
+    has no effect if dfs.namenode.lifeline.rpc-address is not defined.
   </description>
 </property>
 
@@ -2218,6 +2225,18 @@
 </property>
 
 <property>
+  <name>dfs.client.socket.send.buffer.size</name>
+  <value>131072</value>
+  <description>
+    Socket send buffer size for a write pipeline in DFSClient side.
+    This may affect TCP connection throughput.
+    If it is set to zero or negative value,
+    no buffer size will be set explicitly,
+    thus enable tcp auto-tuning on some system.
+  </description>
+</property>
+
+<property>
   <name>dfs.domain.socket.path</name>
   <value></value>
   <description>
@@ -2495,14 +2514,6 @@
   <value>1,5,25</value>
   <description>comma separated list of nntop reporting periods in minutes
   </description>
-</property>
-
-<property>
-    <name>dfs.webhdfs.ugi.expire.after.access</name>
-    <value>600000</value>
-    <description>How long in milliseconds after the last access
-      the cached UGI will expire. With 0, never expire.
-    </description>
 </property>
 
 <property>

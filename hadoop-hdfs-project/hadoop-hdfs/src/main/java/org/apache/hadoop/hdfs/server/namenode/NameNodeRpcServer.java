@@ -356,8 +356,8 @@ class NameNodeRpcServer implements NamenodeProtocols {
 
     InetSocketAddress lifelineRpcAddr = nn.getLifelineRpcServerAddress(conf);
     if (lifelineRpcAddr != null) {
-      RPC.setProtocolEngine(conf, DatanodeLifelineProtocolPB.class,
-                            ProtobufRpcEngine.class);
+      RPC.setProtocolEngine(conf, HAServiceProtocolPB.class,
+          ProtobufRpcEngine.class);
       String bindHost = nn.getLifelineRpcServerBindHost(conf);
       if (bindHost == null) {
         bindHost = lifelineRpcAddr.getHostName();
@@ -375,9 +375,8 @@ class NameNodeRpcServer implements NamenodeProtocols {
             (int)(handlerCount * lifelineHandlerRatio), 1);
       }
       lifelineRpcServer = new RPC.Builder(conf)
-          .setProtocol(
-              org.apache.hadoop.hdfs.protocolPB.DatanodeLifelineProtocolPB.class)
-          .setInstance(lifelineProtoPbService)
+          .setProtocol(HAServiceProtocolPB.class)
+          .setInstance(haPbService)
           .setBindAddress(bindHost)
           .setPort(lifelineRpcAddr.getPort())
           .setNumHandlers(lifelineHandlerCount)
@@ -385,8 +384,8 @@ class NameNodeRpcServer implements NamenodeProtocols {
           .setSecretManager(namesystem.getDelegationTokenSecretManager())
           .build();
 
-      DFSUtil.addPBProtocol(conf, HAServiceProtocolPB.class, haPbService,
-          lifelineRpcServer);
+      DFSUtil.addPBProtocol(conf, DatanodeLifelineProtocolPB.class,
+          lifelineProtoPbService, lifelineRpcServer);
 
       // Update the address with the correct port
       InetSocketAddress listenAddr = lifelineRpcServer.getListenerAddress();

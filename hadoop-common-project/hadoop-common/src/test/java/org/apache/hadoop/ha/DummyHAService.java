@@ -49,7 +49,7 @@ class DummyHAService extends HAServiceTarget {
   public static final Log LOG = LogFactory.getLog(DummyHAService.class);
   private static final String DUMMY_FENCE_KEY = "dummy.fence.key";
   volatile HAServiceState state;
-  HAServiceProtocol proxy;
+  HAServiceProtocol proxy, healthMonitorProxy;
   ZKFCProtocol zkfcProxy = null;
   NodeFencer fencer;
   InetSocketAddress address, healthMonitorAddress;
@@ -80,6 +80,7 @@ class DummyHAService extends HAServiceTarget {
     }
     Configuration conf = new Configuration();
     this.proxy = makeMock(conf, HA_HM_RPC_TIMEOUT_DEFAULT);
+    this.healthMonitorProxy = makeHealthMonitorMock(conf, HA_HM_RPC_TIMEOUT_DEFAULT);
     try {
       conf.set(DUMMY_FENCE_KEY, DummyFencer.class.getName());
       this.fencer = Mockito.spy(
@@ -103,7 +104,7 @@ class DummyHAService extends HAServiceTarget {
       this.healthMonitorAddress = healthMonitorAddress;
     }
   }
-  
+
   public void setSharedResource(DummySharedResource rsrc) {
     this.sharedResource = rsrc;
   }
@@ -145,6 +146,21 @@ class DummyHAService extends HAServiceTarget {
     return Mockito.spy(service);
   }
 
+  private HAServiceProtocol makeHealthMonitorMock(Configuration conf,
+      int timeoutMs) {
+    HAServiceProtocol service;
+    if (!testWithProtoBufRPC) {
+      service = new MockHAProtocolImpl();
+    } else {
+      try {
+        service = super.getHealthMonitorProxy(conf, timeoutMs);
+      } catch (IOException e) {
+        return null;
+      }
+    }
+    return Mockito.spy(service);
+  }
+
   @Override
   public InetSocketAddress getAddress() {
     return address;
@@ -165,6 +181,15 @@ class DummyHAService extends HAServiceTarget {
       throws IOException {
     if (testWithProtoBufRPC) {
       proxy = makeMock(conf, timeout);
+    }
+    return proxy;
+  }
+
+  @Override
+  public HAServiceProtocol getHealthMonitorProxy(Configuration conf,
+      int timeout) throws IOException {
+    if (testWithProtoBufRPC) {
+      proxy = makeHealthMonitorMock(conf, timeout);
     }
     return proxy;
   }

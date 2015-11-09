@@ -162,6 +162,13 @@ public interface NameNodeMXBean {
   public long getNumberOfMissingBlocksWithReplicationFactorOne();
 
   /**
+   * Gets the total number of snapshottable dirs in the system.
+   *
+   * @return the total number of snapshottable dirs in the system
+   */
+  public long getNumberOfSnapshottableDirs();
+
+  /**
    * Gets the number of threads.
    * 
    * @return the number of threads
@@ -265,4 +272,9 @@ public interface NameNodeMXBean {
    */
   public Map<String, Integer> getDistinctVersions();
   
+  /**
+   * Get namenode directory size.
+   */
+  String getNameDirSize();
+
 }

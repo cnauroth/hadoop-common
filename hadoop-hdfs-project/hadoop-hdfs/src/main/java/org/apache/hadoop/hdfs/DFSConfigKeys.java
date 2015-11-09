@@ -70,10 +70,6 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String  DFS_WEBHDFS_NETTY_HIGH_WATERMARK =
       "dfs.webhdfs.netty.high.watermark";
   public static final int  DFS_WEBHDFS_NETTY_HIGH_WATERMARK_DEFAULT = 65535;
-  public static final String  DFS_WEBHDFS_UGI_EXPIRE_AFTER_ACCESS_KEY =
-      "dfs.webhdfs.ugi.expire.after.access";
-  public static final int     DFS_WEBHDFS_UGI_EXPIRE_AFTER_ACCESS_DEFAULT =
-      10*60*1000; //10 minutes
 
   // HA related configuration
   public static final String  DFS_DATANODE_RESTART_REPLICA_EXPIRY_KEY = "dfs.datanode.restart.replica.expiration";
@@ -143,7 +139,6 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
       "dfs.namenode.lifeline.rpc-address";
   public static final String  DFS_NAMENODE_LIFELINE_RPC_BIND_HOST_KEY =
       "dfs.namenode.lifeline.rpc-bind-host";
-  public static final int     DFS_NAMENODE_LIFELINE_RPC_PORT_DEFAULT = 8021;
   public static final String  DFS_NAMENODE_MAX_OBJECTS_KEY =
       HdfsClientConfigKeys.DeprecatedKeys.DFS_NAMENODE_MAX_OBJECTS_KEY;
   public static final long    DFS_NAMENODE_MAX_OBJECTS_DEFAULT = 0;
@@ -189,6 +184,10 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String  DFS_NAMENODE_REPLICATION_CONSIDERLOAD_KEY =
       HdfsClientConfigKeys.DeprecatedKeys.DFS_NAMENODE_REPLICATION_CONSIDERLOAD_KEY;
   public static final boolean DFS_NAMENODE_REPLICATION_CONSIDERLOAD_DEFAULT = true;
+  public static final String  DFS_NAMENODE_REPLICATION_CONSIDERLOAD_FACTOR =
+      "dfs.namenode.replication.considerLoad.factor";
+  public static final double
+      DFS_NAMENODE_REPLICATION_CONSIDERLOAD_FACTOR_DEFAULT = 2.0;
   public static final String  DFS_NAMENODE_REPLICATION_INTERVAL_KEY =
       HdfsClientConfigKeys.DeprecatedKeys.DFS_NAMENODE_REPLICATION_INTERVAL_KEY;
   public static final int     DFS_NAMENODE_REPLICATION_INTERVAL_DEFAULT = 3;

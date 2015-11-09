@@ -503,8 +503,7 @@ public class NameNode implements NameNodeStatusMXBean {
     if (addr == null) {
       return null;
     }
-    return NetUtils.createSocketAddr(addr,
-        DFSConfigKeys.DFS_NAMENODE_LIFELINE_RPC_PORT_DEFAULT);
+    return NetUtils.createSocketAddr(addr);
   }
 
   /**
@@ -567,7 +566,7 @@ public class NameNode implements NameNodeStatusMXBean {
    */
   void setRpcLifelineServerAddress(Configuration conf,
       InetSocketAddress lifelineRPCAddress) {
-    LOG.info("Setting DatanodeLifeProtcol RPC address {}", lifelineRPCAddress);
+    LOG.info("Setting lifeline RPC address {}", lifelineRPCAddress);
     conf.set(DFS_NAMENODE_LIFELINE_RPC_ADDRESS_KEY,
         NetUtils.getHostPortString(lifelineRPCAddress));
   }

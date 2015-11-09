@@ -131,7 +131,9 @@ class DataStreamer extends Daemon {
     NetUtils.connect(sock, isa, client.getRandomLocalInterfaceAddr(),
         conf.getSocketTimeout());
     sock.setSoTimeout(timeout);
-    sock.setSendBufferSize(HdfsConstants.DEFAULT_DATA_SOCKET_SIZE);
+    if (conf.getSocketSendBufferSize() > 0) {
+      sock.setSendBufferSize(conf.getSocketSendBufferSize());
+    }
     LOG.debug("Send buf size {}", sock.getSendBufferSize());
     return sock;
   }
@@ -349,7 +351,7 @@ class DataStreamer extends Daemon {
   }
 
   private volatile boolean streamerClosed = false;
-  protected ExtendedBlock block; // its length is number of bytes acked
+  protected volatile ExtendedBlock block; // its length is number of bytes acked
   protected Token<BlockTokenIdentifier> accessToken;
   private DataOutputStream blockStream;
   private DataInputStream blockReplyStream;

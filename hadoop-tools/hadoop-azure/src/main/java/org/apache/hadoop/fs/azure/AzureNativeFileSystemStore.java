@@ -1503,10 +1503,23 @@ public class AzureNativeFileSystemStore implements NativeFileSystemStore {
       storePermissionStatus(blob, permissionStatus);
       storeFolderAttribute(blob);
       openOutputStream(blob).close();
-    } catch (Exception e) {
+    } catch (StorageException e) {
       // Caught exception while attempting upload. Re-throw as an Azure
       // storage exception.
       throw new AzureException(e);
+    } catch (URISyntaxException e) {
+      throw new AzureException(e);
+    } catch (IOException e) {
+      Throwable t = e.getCause();
+      if (t != null && t instanceof StorageException) {
+        StorageException se = (StorageException) t;
+        // If we got this exception, the blob should have already been created
+        if (!se.getErrorCode().equals("LeaseIdMissing")) {
+          throw new AzureException(e);
+        }
+      } else {
+        throw new AzureException(e);
+      }
     }
   }
 
@@ -2357,7 +2370,37 @@ public class AzureNativeFileSystemStore implements NativeFileSystemStore {
 
   @Override
   public void delete(String key) throws IOException {
-    delete(key, null);
+    try {
+      delete(key, null);
+    } catch (IOException e) {
+      Throwable t = e.getCause();
+      if(t != null && t instanceof StorageException) {
+        StorageException se = (StorageException) t;
+        if(se.getErrorCode().equals(("LeaseIdMissing"))){
+          SelfRenewingLease lease = null;
+          try {
+            lease = acquireLease(key);
+            delete(key, lease);
+          } catch (AzureException e3) {
+            LOG.warn("Got unexpected exception trying to acquire lease on "
+                + key + "." + e3.getMessage());
+            throw e3;
+          } finally {
+            try {
+              if(lease != null){
+                lease.free();
+              }
+            } catch (Exception e4){
+              LOG.error("Unable to free lease on " + key, e4);
+            }
+          }
+        } else {
+          throw e;
+        }
+      } else {
+        throw e;
+      }
+    }
   }
 
   @Override
