@@ -1096,6 +1096,13 @@ class BPServiceActor implements Runnable {
       lifelineThread = new Thread(this, formatThreadName("lifeline",
           lifelineNnAddr));
       lifelineThread.setDaemon(true);
+      lifelineThread.setUncaughtExceptionHandler(
+          new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(Thread thread, Throwable t) {
+              LOG.error(thread + " terminating on unexpected exception", t);
+            }
+          });
       lifelineThread.start();
     }
 
