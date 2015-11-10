@@ -1086,13 +1086,13 @@ class BPServiceActor implements Runnable {
 
     @Override
     public void run() {
-      try {
-        initialRegistrationComplete.await();
-      } catch (InterruptedException e) {
-        LOG.warn("LifelineSender for " + BPServiceActor.this +
-            " interrupted while waiting for initial DataNode registration");
-        Thread.currentThread().interrupt();
-        return;
+      while (shouldRun()) {
+        try {
+          initialRegistrationComplete.await();
+          break;
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+        }
       }
 
       while (shouldRun()) {
@@ -1103,8 +1103,6 @@ class BPServiceActor implements Runnable {
           sendLifelineIfDue();
           Thread.sleep(scheduler.getLifelineWaitTime());
         } catch (InterruptedException e) {
-          LOG.warn("LifelineSender for " + BPServiceActor.this +
-              " interrupted in main loop");
           Thread.currentThread().interrupt();
         } catch (IOException e) {
           LOG.warn("IOException in LifelineSender for " + BPServiceActor.this, e);

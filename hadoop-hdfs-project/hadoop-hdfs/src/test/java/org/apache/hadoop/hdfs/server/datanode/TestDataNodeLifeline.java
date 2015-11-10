@@ -52,6 +52,7 @@ import org.apache.hadoop.hdfs.server.protocol.HeartbeatResponse;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
 import org.apache.hadoop.hdfs.server.protocol.VolumeFailureSummary;
 import org.apache.hadoop.test.GenericTestUtils;
+
 import org.apache.log4j.Level;
 
 import org.junit.After;
@@ -65,6 +66,8 @@ import org.mockito.stubbing.Answer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Supplier;
 
 /**
  * Test suite covering lifeline protocol handling in the DataNode.
@@ -115,12 +118,20 @@ public class TestDataNodeLifeline {
     assertNotNull(allBpsa);
     assertEquals(1, allBpsa.size());
 
-    BPServiceActor bpsa = allBpsa.get(0);
+    final BPServiceActor bpsa = allBpsa.get(0);
     assertNotNull(bpsa);
 
-    assertNotNull(bpsa.getLifelineNameNodeProxy());
-    lifelineNamenode = spy(bpsa.getLifelineNameNodeProxy());
-    bpsa.setLifelineNameNode(lifelineNamenode);
+    // Lifeline RPC proxy gets created on separate thread, so poll until found.
+    GenericTestUtils.waitFor(new Supplier<Boolean>() {
+          @Override
+          public Boolean get() {
+            if (bpsa.getLifelineNameNodeProxy() != null) {
+              lifelineNamenode = spy(bpsa.getLifelineNameNodeProxy());
+              bpsa.setLifelineNameNode(lifelineNamenode);
+            }
+            return lifelineNamenode != null;
+          }
+        }, 100, 10000);
 
     assertNotNull(bpsa.getNameNodeProxy());
     namenode = spy(bpsa.getNameNodeProxy());
