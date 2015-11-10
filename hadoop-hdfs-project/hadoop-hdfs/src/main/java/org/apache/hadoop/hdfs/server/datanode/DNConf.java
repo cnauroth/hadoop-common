@@ -179,9 +179,20 @@ public class DNConf {
     
     heartBeatInterval = conf.getLong(DFS_HEARTBEAT_INTERVAL_KEY,
         DFS_HEARTBEAT_INTERVAL_DEFAULT) * 1000L;
-    lifelineIntervalMs = conf.getLong(DFS_DATANODE_LIFELINE_INTERVAL_SECONDS_KEY,
+    long confLifelineIntervalMs =
+        conf.getLong(DFS_DATANODE_LIFELINE_INTERVAL_SECONDS_KEY,
         3 * conf.getLong(DFS_HEARTBEAT_INTERVAL_KEY,
             DFS_HEARTBEAT_INTERVAL_DEFAULT)) * 1000L;
+    if (confLifelineIntervalMs <= heartBeatInterval) {
+      confLifelineIntervalMs = 3 * heartBeatInterval;
+      DataNode.LOG.warn(
+          String.format("{} must be set to a value greater than {}.  " +
+              "Resetting value to 3 * {}, which is {} milliseconds.",
+              DFS_DATANODE_LIFELINE_INTERVAL_SECONDS_KEY,
+              DFS_HEARTBEAT_INTERVAL_KEY, DFS_HEARTBEAT_INTERVAL_KEY,
+              confLifelineIntervalMs));
+    }
+    lifelineIntervalMs = confLifelineIntervalMs;
     
     // do we need to sync block file contents to disk when blockfile is closed?
     this.syncOnClose = conf.getBoolean(DFS_DATANODE_SYNCONCLOSE_KEY, 

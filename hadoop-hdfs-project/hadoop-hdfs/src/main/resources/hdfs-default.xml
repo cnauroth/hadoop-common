@@ -702,13 +702,14 @@
   <value></value>
   <description>
     Sets the interval in seconds between sending DataNode Lifeline Protocol
-    messages from the DataNode to the NameNode.  If this property is not
-    defined, then the default behavior is to calculate the interval as 3x the
-    value of dfs.heartbeat.interval.  Note that normal heartbeat processing may
-    cause the DataNode to postpone sending lifeline messages if they are not
-    required.  Under normal operations with speedy heartbeat processing, it is
-    possible that no lifeline messages will need to be sent at all.  This
-    property has no effect if dfs.namenode.lifeline.rpc-address is not defined.
+    messages from the DataNode to the NameNode.  The value must be greater than
+    the value of dfs.heartbeat.interval.  If this property is not defined, then
+    the default behavior is to calculate the interval as 3x the value of
+    dfs.heartbeat.interval.  Note that normal heartbeat processing may cause the
+    DataNode to postpone sending lifeline messages if they are not required.
+    Under normal operations with speedy heartbeat processing, it is possible
+    that no lifeline messages will need to be sent at all.  This property has no
+    effect if dfs.namenode.lifeline.rpc-address is not defined.
   </description>
 </property>
 
