@@ -1516,7 +1516,7 @@ public class DatanodeManager {
           // response back to the DataNode, so simply exit.
           return;
         }
-        heartbeatManager.updateHeartbeat(nodeinfo, reports, cacheCapacity,
+        heartbeatManager.updateLifeline(nodeinfo, reports, cacheCapacity,
             cacheUsed, xceiverCount, failedVolumes, volumeFailureSummary);
       }
     }
