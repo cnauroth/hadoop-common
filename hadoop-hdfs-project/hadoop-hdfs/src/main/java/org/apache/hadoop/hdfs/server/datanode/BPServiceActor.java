@@ -170,6 +170,20 @@ class BPServiceActor implements Runnable {
   }
 
   /**
+   * Used to inject a spy NN in the unit tests.
+   */
+  @VisibleForTesting
+  void setLifelineNameNode(
+      DatanodeLifelineProtocolClientSideTranslatorPB dnLifelineProtocol) {
+    lifelineSender.lifelineNamenode = dnLifelineProtocol;
+  }
+
+  @VisibleForTesting
+  DatanodeLifelineProtocolClientSideTranslatorPB getLifelineNameNodeProxy() {
+    return lifelineSender.lifelineNamenode;
+  }
+
+  /**
    * Perform the first part of the handshake with the NameNode.
    * This calls <code>versionRequest</code> to determine the NN's
    * namespace and version info. It automatically retries until
@@ -1061,6 +1075,12 @@ class BPServiceActor implements Runnable {
 
     @Override
     public void close() {
+      stop();
+      try {
+        join();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
       IOUtils.cleanup(LOG, lifelineNamenode);
     }
 
@@ -1084,12 +1104,14 @@ class BPServiceActor implements Runnable {
           Thread.sleep(scheduler.getLifelineWaitTime());
         } catch (InterruptedException e) {
           LOG.warn("LifelineSender for " + BPServiceActor.this +
-              " interrupted while waiting for initial DataNode registration");
+              " interrupted in main loop");
           Thread.currentThread().interrupt();
         } catch (IOException e) {
           LOG.warn("IOException in LifelineSender for " + BPServiceActor.this, e);
         }
       }
+
+      LOG.info("LifelineSender for " + BPServiceActor.this + " exiting.");
     }
 
     public void start() {
