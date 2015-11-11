@@ -665,8 +665,8 @@ class BPServiceActor implements Runnable {
         + " CACHEREPORT_INTERVAL of " + dnConf.cacheReportInterval + "msec"
         + " Initial delay: " + dnConf.initialBlockReportDelayMs + "msec"
         + "; heartBeatInterval=" + dnConf.heartBeatInterval
-        + lifelineSender != null ?
-            "; lifelineIntervalMs=" + dnConf.getLifelineIntervalMs() : "");
+        + (lifelineSender != null ?
+            "; lifelineIntervalMs=" + dnConf.getLifelineIntervalMs() : ""));
     long fullBlockReportLeaseId = 0;
 
     //

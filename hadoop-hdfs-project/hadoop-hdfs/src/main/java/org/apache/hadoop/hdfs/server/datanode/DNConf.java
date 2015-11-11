@@ -186,8 +186,8 @@ public class DNConf {
     if (confLifelineIntervalMs <= heartBeatInterval) {
       confLifelineIntervalMs = 3 * heartBeatInterval;
       DataNode.LOG.warn(
-          String.format("{} must be set to a value greater than {}.  " +
-              "Resetting value to 3 * {}, which is {} milliseconds.",
+          String.format("%s must be set to a value greater than %s.  " +
+              "Resetting value to 3 * %s, which is %d milliseconds.",
               DFS_DATANODE_LIFELINE_INTERVAL_SECONDS_KEY,
               DFS_HEARTBEAT_INTERVAL_KEY, DFS_HEARTBEAT_INTERVAL_KEY,
               confLifelineIntervalMs));
