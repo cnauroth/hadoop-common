@@ -23,12 +23,10 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.HeartbeatRequestProto;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeLifelineProtocol;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeRegistration;
-import org.apache.hadoop.hdfs.server.protocol.HeartbeatResponse;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
 import org.apache.hadoop.hdfs.server.protocol.VolumeFailureSummary;
 import org.apache.hadoop.ipc.ProtobufHelper;
@@ -48,11 +46,10 @@ import com.google.protobuf.ServiceException;
  * {@link DatanodeLifelineProtocolPB}.
  */
 @InterfaceAudience.Private
-@InterfaceStability.Stable
 public class DatanodeLifelineProtocolClientSideTranslatorPB implements
     ProtocolMetaInterface, DatanodeLifelineProtocol, Closeable {
   
-  /** RpcController is not used and hence is set to null */
+  /** RpcController is not used and hence is set to null. */
   private static final RpcController NULL_CONTROLLER = null;
 
   private final DatanodeLifelineProtocolPB rpcProxy;

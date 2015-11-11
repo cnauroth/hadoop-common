@@ -1105,7 +1105,8 @@ class BPServiceActor implements Runnable {
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
         } catch (IOException e) {
-          LOG.warn("IOException in LifelineSender for " + BPServiceActor.this, e);
+          LOG.warn("IOException in LifelineSender for " + BPServiceActor.this,
+              e);
         }
       }
 
@@ -1163,8 +1164,8 @@ class BPServiceActor implements Runnable {
       StorageReport[] reports =
           dn.getFSDataset().getStorageReports(bpos.getBlockPoolId());
       if (LOG.isDebugEnabled()) {
-        LOG.debug("Sending lifeline with " + reports.length +
-                  " storage reports from service actor: " + BPServiceActor.this);
+        LOG.debug("Sending lifeline with " + reports.length + " storage " +
+                  " reports from service actor: " + BPServiceActor.this);
       }
       VolumeFailureSummary volumeFailureSummary = dn.getFSDataset()
           .getVolumeFailureSummary();
