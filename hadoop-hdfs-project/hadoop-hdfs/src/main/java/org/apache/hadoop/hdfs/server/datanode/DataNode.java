@@ -46,6 +46,8 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_MAX_NUM_BLOCKS_TO_LOG_DEF
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_MAX_NUM_BLOCKS_TO_LOG_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_METRICS_LOGGER_PERIOD_SECONDS_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_METRICS_LOGGER_PERIOD_SECONDS_KEY;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.DFS_OBJECTSTORE_ENABLED_DEFAULT;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.DFS_OBJECTSTORE_ENABLED_KEY;
 import static org.apache.hadoop.util.ExitUtil.terminate;
 
 import java.io.BufferedOutputStream;
@@ -412,6 +414,8 @@ public class DataNode extends ReconfigurableBase
   private long[] oobTimeouts; /** timeout value of each OOB type */
 
   private ScheduledThreadPoolExecutor metricsLoggerTimer;
+
+  private ObjectStoreHandler objectStoreHandler = null;
 
   /**
    * Creates a dummy DataNode for testing purpose.
@@ -921,8 +925,8 @@ public class DataNode extends ReconfigurableBase
     // the DN is started by JSVC, pass it along.
     ServerSocketChannel httpServerChannel = secureResources != null ?
         secureResources.getHttpServerChannel() : null;
-
-    this.httpServer = new DatanodeHttpServer(conf, this, httpServerChannel);
+    this.httpServer = new DatanodeHttpServer(conf, this, httpServerChannel,
+        this.objectStoreHandler);
     httpServer.start();
     if (httpServer.getHttpAddress() != null) {
       infoPort = httpServer.getHttpAddress().getPort();
@@ -1288,6 +1292,7 @@ public class DataNode extends ReconfigurableBase
     // global DN settings
     registerMXBean();
     initDataXceiver(conf);
+    initObjectStoreHandler(conf);
     startInfoServer(conf);
     pauseMonitor = new JvmPauseMonitor(conf);
     pauseMonitor.start();
@@ -1317,6 +1322,20 @@ public class DataNode extends ReconfigurableBase
         dnConf.saslPropsResolver, dnConf.trustedChannelResolver);
     saslServer = new SaslDataTransferServer(dnConf, blockPoolTokenSecretManager);
     startMetricsLogger(conf);
+  }
+
+  /**
+   * Initializes the object store handler.  This must be called before
+   * initialization of the HTTP server.
+   *
+   * @param conf configuration
+   * @throws IOException if there is an I/O error
+   */
+  private void initObjectStoreHandler(Configuration config) throws IOException {
+    if (config.getBoolean(DFS_OBJECTSTORE_ENABLED_KEY,
+        DFS_OBJECTSTORE_ENABLED_DEFAULT)) {
+      this.objectStoreHandler = new ObjectStoreHandler(conf);
+    }
   }
 
   /**

@@ -41,9 +41,11 @@ import org.apache.hadoop.hdfs.DFSUtil;
 import org.apache.hadoop.hdfs.server.common.JspHelper;
 import org.apache.hadoop.hdfs.server.datanode.BlockScanner;
 import org.apache.hadoop.hdfs.server.datanode.DataNode;
+import org.apache.hadoop.hdfs.server.datanode.ObjectStoreHandler;
 import org.apache.hadoop.http.HttpConfig;
 import org.apache.hadoop.http.HttpServer2;
 import org.apache.hadoop.net.NetUtils;
+import org.apache.hadoop.ozone.web.netty.ObjectStoreJerseyContainer;
 import org.apache.hadoop.security.authorize.AccessControlList;
 import org.apache.hadoop.security.ssl.SSLFactory;
 
@@ -79,9 +81,16 @@ public class DatanodeHttpServer implements Closeable {
 
   public DatanodeHttpServer(final Configuration conf,
       final DataNode datanode,
-      final ServerSocketChannel externalHttpChannel)
-    throws IOException {
+      final ServerSocketChannel externalHttpChannel,
+      final ObjectStoreHandler objectStoreHandler) throws IOException {
     this.conf = conf;
+
+    final ObjectStoreJerseyContainer finalContainer;
+    if (objectStoreHandler != null) {
+      finalContainer = objectStoreHandler.getObjectStoreJerseyContainer();
+    } else {
+      finalContainer = null;
+    }
 
     Configuration confForInfoServer = new Configuration(conf);
     confForInfoServer.setInt(HttpServer2.HTTP_MAX_THREADS, 10);
@@ -117,7 +126,8 @@ public class DatanodeHttpServer implements Closeable {
         @Override
         protected void initChannel(SocketChannel ch) throws Exception {
           ch.pipeline().addLast(new PortUnificationServerHandler(jettyAddr,
-              conf, confForCreate));
+              conf, confForCreate,
+              finalContainer));
         }
       });
 
@@ -169,7 +179,8 @@ public class DatanodeHttpServer implements Closeable {
               new HttpRequestDecoder(),
               new HttpResponseEncoder(),
               new ChunkedWriteHandler(),
-              new URLDispatcher(jettyAddr, conf, confForCreate));
+              new URLDispatcher(jettyAddr, conf, confForCreate,
+                  finalContainer));
           }
         });
     } else {
